@@ -100,7 +100,7 @@ mod tests {
                                 expression(43, 44, [
                                     term(43, 44, [
                                         primary_expression(43, 44, [
-                                            constant(43, 44, [
+                                            literal(43, 44, [
                                                 decimal_number(43, 44)
                                             ])
                                         ])
@@ -257,7 +257,7 @@ mod tests {
                                     expression(30, 31, [
                                         term(30, 31, [
                                             primary_expression(30, 31, [
-                                                constant(30, 31, [
+                                                literal(30, 31, [
                                                     decimal_number(30, 31)
                                                 ])
                                             ])

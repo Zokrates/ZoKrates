@@ -291,7 +291,7 @@ impl<'ast, T: Field> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast,
         match expression {
             pest::Expression::Binary(e) => absy::ExpressionNode::from(e),
             pest::Expression::Ternary(e) => absy::ExpressionNode::from(e),
-            pest::Expression::Constant(e) => absy::ExpressionNode::from(e),
+            pest::Expression::Literal(e) => absy::ExpressionNode::from(e),
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
             pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
             pest::Expression::InlineArray(e) => absy::ExpressionNode::from(e),
@@ -548,28 +548,78 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
     }
 }
 
-impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNode<'ast, T> {
-    fn from(expression: pest::ConstantExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
+impl<'ast, T: Field> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'ast, T> {
+    fn from(expression: pest::DecimalLiteralExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
+        use absy::NodeValue;
+
+        match expression.suffix {
+            Some(suffix) => match suffix {
+                pest::DecimalSuffix::Field(_) => absy::Expression::FieldConstant(
+                    T::try_from_dec_str(&expression.value.span.as_str()).unwrap(),
+                ),
+                pest::DecimalSuffix::U32(_) => absy::Expression::U32Constant(
+                    u32::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
+                ),
+                pest::DecimalSuffix::U16(_) => absy::Expression::U16Constant(
+                    u16::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
+                ),
+                pest::DecimalSuffix::U8(_) => absy::Expression::U8Constant(
+                    u8::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
+                ),
+            }
+            .span(expression.span),
+            None => absy::Expression::FieldConstant(
+                T::try_from_dec_str(&expression.value.span.as_str()).unwrap(),
+            )
+            .span(expression.span),
+        }
+    }
+}
+
+impl<'ast, T: Field> From<pest::HexLiteralExpression<'ast>> for absy::ExpressionNode<'ast, T> {
+    fn from(expression: pest::HexLiteralExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
+        use absy::NodeValue;
+
+        match expression.value {
+            pest::HexNumberExpression::U32(e) => {
+                absy::Expression::U32Constant(u32::from_str_radix(&e.span.as_str(), 16).unwrap())
+            }
+            pest::HexNumberExpression::U16(e) => {
+                absy::Expression::U16Constant(u16::from_str_radix(&e.span.as_str(), 16).unwrap())
+            }
+            pest::HexNumberExpression::U8(e) => {
+                absy::Expression::U8Constant(u8::from_str_radix(&e.span.as_str(), 16).unwrap())
+            }
+        }
+        .span(expression.span)
+    }
+}
+
+impl<'ast, T: Field> From<pest::LiteralExpression<'ast>> for absy::ExpressionNode<'ast, T> {
+    fn from(expression: pest::LiteralExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
         use absy::NodeValue;
         match expression {
-            pest::ConstantExpression::BooleanLiteral(c) => {
+            pest::LiteralExpression::BooleanLiteral(c) => {
                 absy::Expression::BooleanConstant(c.value.parse().unwrap()).span(c.span)
             }
-            pest::ConstantExpression::DecimalNumber(n) => {
-                absy::Expression::FieldConstant(T::try_from_dec_str(&n.value).unwrap()).span(n.span)
+            pest::LiteralExpression::DecimalLiteral(n) => {
+                absy::ExpressionNode::from(n)
             }
-            pest::ConstantExpression::U8(n) => absy::Expression::U8Constant(
-                u8::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
-            )
-            .span(n.span),
-            pest::ConstantExpression::U16(n) => absy::Expression::U16Constant(
-                u16::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
-            )
-            .span(n.span),
-            pest::ConstantExpression::U32(n) => absy::Expression::U32Constant(
-                u32::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
-            )
-            .span(n.span),
+            pest::LiteralExpression::HexLiteral(n) => {
+                absy::ExpressionNode::from(n)
+            }
+            // pest::LiteralExpression::U8(n) => absy::Expression::U8Constant(
+            //     u8::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            // )
+            // .span(n.span),
+            // pest::LiteralExpression::U16(n) => absy::Expression::U16Constant(
+            //     u16::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            // )
+            // .span(n.span),
+            // pest::LiteralExpression::U32(n) => absy::Expression::U32Constant(
+            //     u32::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            // )
+            // .span(n.span),
         }
     }
 }
@@ -643,15 +693,13 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
                 t.dimensions
                     .into_iter()
                     .map(|s| match s {
-                        pest::Expression::Constant(c) => match c {
-                            pest::ConstantExpression::DecimalNumber(n) => {
-                                str::parse::<usize>(&n.value).unwrap()
-                            }
-                            _ => unimplemented!(
-                                "Array size should be a decimal number, found {}",
-                                c.span().as_str()
-                            ),
-                        },
+                        pest::Expression::Literal(c) => {
+                            unimplemented!();
+                            // match absy::ExpressionNode::from(c).value {
+                            //     absy::Expression::FieldConstant(_) => {unimplemented!()},
+                            //     _ => unimplemented!()
+                            // },
+                        }
                         e => unimplemented!(
                             "Array size should be constant, found {}",
                             e.span().as_str()
@@ -1015,7 +1063,7 @@ mod tests {
                 },
                 span: span.clone(),
             }],
-            expression: pest::Expression::Constant(pest::ConstantExpression::DecimalNumber(
+            expression: pest::Expression::Constant(pest::LiteralExpression::DecimalNumber(
                 pest::DecimalNumberExpression {
                     value: String::from("42"),
                     span: span.clone(),

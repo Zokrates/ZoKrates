@@ -10,12 +10,13 @@ extern crate lazy_static;
 pub use ast::{
     Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
     AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
-    ConstantExpression, DecimalNumberExpression, DefinitionStatement, Expression, FieldType, File,
-    FromExpression, Function, IdentifierExpression, ImportDirective, ImportSource,
-    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
-    OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
-    TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
+    DecimalLiteralExpression, DecimalSuffix, DefinitionStatement, Expression, FieldType, File,
+    FromExpression, Function, HexLiteralExpression, HexNumberExpression, IdentifierExpression,
+    ImportDirective, ImportSource, InlineArrayExpression, InlineStructExpression,
+    InlineStructMember, IterationStatement, LiteralExpression, OptionallyTypedAssignee, Parameter,
+    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
+    Statement, StructDefinition, StructField, TernaryExpression, ToExpression, Type,
+    UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {
@@ -113,9 +114,9 @@ mod ast {
                         // maybe this could be simplified
                         let next = next.into_inner().next().unwrap();
                         match next.as_rule() {
-                            Rule::constant => Expression::Constant(
-                                ConstantExpression::from_pest(
-                                    &mut pair.into_inner().next().unwrap().into_inner(),
+                            Rule::literal => Expression::Literal(
+                                LiteralExpression::from_pest(
+                                    &mut dbg!(pair.into_inner().next().unwrap().into_inner()),
                                 )
                                 .unwrap(),
                             ),
@@ -125,7 +126,7 @@ mod ast {
                                 )
                                 .unwrap(),
                             ),
-                            r => unreachable!("`primary_expression` should contain one of [`constant`, `identifier`], found {:#?}", r),
+                            r => unreachable!("`primary_expression` should contain one of [`literal`, `identifier`], found {:#?}", r),
                         }
                     }
                     Rule::postfix_expression => Expression::Postfix(
@@ -446,7 +447,7 @@ mod ast {
         Binary(BinaryExpression<'ast>),
         Postfix(PostfixExpression<'ast>),
         Identifier(IdentifierExpression<'ast>),
-        Constant(ConstantExpression<'ast>),
+        Literal(LiteralExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
@@ -540,7 +541,7 @@ mod ast {
     #[pest_ast(rule(Rule::array_initializer_expression))]
     pub struct ArrayInitializerExpression<'ast> {
         pub value: Box<Expression<'ast>>,
-        pub count: ConstantExpression<'ast>,
+        pub count: LiteralExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -644,7 +645,7 @@ mod ast {
             match self {
                 Expression::Binary(b) => &b.span,
                 Expression::Identifier(i) => &i.span,
-                Expression::Constant(c) => &c.span(),
+                Expression::Literal(c) => &c.span(),
                 Expression::Ternary(t) => &t.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
@@ -679,32 +680,72 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::constant))]
-    pub enum ConstantExpression<'ast> {
-        DecimalNumber(DecimalNumberExpression<'ast>),
+    #[pest_ast(rule(Rule::literal))]
+    pub enum LiteralExpression<'ast> {
+        DecimalLiteral(DecimalLiteralExpression<'ast>),
         BooleanLiteral(BooleanLiteralExpression<'ast>),
-        U8(U8NumberExpression<'ast>),
-        U16(U16NumberExpression<'ast>),
-        U32(U32NumberExpression<'ast>),
+        HexLiteral(HexLiteralExpression<'ast>),
     }
 
-    impl<'ast> ConstantExpression<'ast> {
+    impl<'ast> LiteralExpression<'ast> {
         pub fn span(&self) -> &Span<'ast> {
             match self {
-                ConstantExpression::DecimalNumber(n) => &n.span,
-                ConstantExpression::BooleanLiteral(c) => &c.span,
-                ConstantExpression::U8(c) => &c.span,
-                ConstantExpression::U16(c) => &c.span,
-                ConstantExpression::U32(c) => &c.span,
+                LiteralExpression::DecimalLiteral(n) => &n.span,
+                LiteralExpression::BooleanLiteral(c) => &c.span,
+                LiteralExpression::HexLiteral(h) => &h.span,
             }
         }
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix))]
+    pub enum DecimalSuffix<'ast> {
+        U8(U8Suffix<'ast>),
+        U16(U16Suffix<'ast>),
+        U32(U32Suffix<'ast>),
+        Field(FieldSuffix<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_u8))]
+    pub struct U8Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_u16))]
+    pub struct U16Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_u32))]
+    pub struct U32Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_field))]
+    pub struct FieldSuffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::decimal_number))]
-    pub struct DecimalNumberExpression<'ast> {
-        #[pest_ast(outer(with(span_into_str)))]
-        pub value: String,
+    pub struct DecimalNumber<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_literal))]
+    pub struct DecimalLiteralExpression<'ast> {
+        pub value: DecimalNumber<'ast>,
+        pub suffix: Option<DecimalSuffix<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -719,7 +760,23 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::hex_number_8))]
+    #[pest_ast(rule(Rule::hex_literal))]
+    pub struct HexLiteralExpression<'ast> {
+        pub value: HexNumberExpression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number))]
+    pub enum HexNumberExpression<'ast> {
+        U8(U8NumberExpression<'ast>),
+        U16(U16NumberExpression<'ast>),
+        U32(U32NumberExpression<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_u8))]
     pub struct U8NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
@@ -728,7 +785,7 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::hex_number_16))]
+    #[pest_ast(rule(Rule::hex_number_u16))]
     pub struct U16NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
@@ -737,7 +794,7 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::hex_number_32))]
+    #[pest_ast(rule(Rule::hex_number_u32))]
     pub struct U32NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
@@ -873,15 +930,17 @@ mod tests {
                     }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
                                     value: String::from("1"),
+                                    suffix: None,
                                     span: Span::new(&source, 59, 60).unwrap()
                                 }
                             )),
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
                                     value: String::from("1"),
+                                    suffix: None,
                                     span: Span::new(&source, 63, 64).unwrap()
                                 }
                             )),
@@ -926,28 +985,32 @@ mod tests {
                     }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    suffix: None,
                                     value: String::from("1"),
                                     span: Span::new(&source, 59, 60).unwrap()
                                 }
                             )),
                             Expression::mul(
-                                Expression::Constant(ConstantExpression::DecimalNumber(
-                                    DecimalNumberExpression {
+                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                    DecimalLiteralExpression {
+                                        suffix: None,
                                         value: String::from("2"),
                                         span: Span::new(&source, 63, 64).unwrap()
                                     }
                                 )),
                                 Expression::pow(
-                                    Expression::Constant(ConstantExpression::DecimalNumber(
-                                        DecimalNumberExpression {
+                                    Expression::Literal(LiteralExpression::DecimalLiteral(
+                                        DecimalLiteralExpression {
+                                            suffix: None,
                                             value: String::from("3"),
                                             span: Span::new(&source, 67, 68).unwrap()
                                         }
                                     )),
-                                    Expression::Constant(ConstantExpression::DecimalNumber(
-                                        DecimalNumberExpression {
+                                    Expression::Literal(LiteralExpression::DecimalLiteral(
+                                        DecimalLiteralExpression {
+                                            suffix: None,
                                             value: String::from("4"),
                                             span: Span::new(&source, 72, 73).unwrap()
                                         }
@@ -997,20 +1060,23 @@ mod tests {
                     }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::if_else(
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    suffix: None,
                                     value: String::from("1"),
                                     span: Span::new(&source, 62, 63).unwrap()
                                 }
                             )),
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    suffix: None,
                                     value: String::from("2"),
                                     span: Span::new(&source, 69, 70).unwrap()
                                 }
                             )),
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    suffix: None,
                                     value: String::from("3"),
                                     span: Span::new(&source, 76, 77).unwrap()
                                 }
@@ -1054,8 +1120,9 @@ mod tests {
                         span: Span::new(&source, 15, 20).unwrap()
                     }))],
                     statements: vec![Statement::Return(ReturnStatement {
-                        expressions: vec![Expression::Constant(ConstantExpression::DecimalNumber(
-                            DecimalNumberExpression {
+                        expressions: vec![Expression::Literal(LiteralExpression::DecimalLiteral(
+                            DecimalLiteralExpression {
+                                suffix: None,
                                 value: String::from("1"),
                                 span: Span::new(&source, 31, 32).unwrap()
                             }
@@ -1125,21 +1192,24 @@ mod tests {
                             },
                             accesses: vec![Access::Call(CallAccess {
                                 expressions: vec![
-                                    Expression::Constant(ConstantExpression::DecimalNumber(
-                                        DecimalNumberExpression {
+                                    Expression::Literal(LiteralExpression::DecimalLiteral(
+                                        DecimalLiteralExpression {
+                                            suffix: None,
                                             value: String::from("1"),
                                             span: Span::new(&source, 40, 41).unwrap()
                                         }
                                     )),
                                     Expression::add(
-                                        Expression::Constant(ConstantExpression::DecimalNumber(
-                                            DecimalNumberExpression {
+                                        Expression::Literal(LiteralExpression::DecimalLiteral(
+                                            DecimalLiteralExpression {
+                                                suffix: None,
                                                 value: String::from("2"),
                                                 span: Span::new(&source, 43, 44).unwrap()
                                             }
                                         )),
-                                        Expression::Constant(ConstantExpression::DecimalNumber(
-                                            DecimalNumberExpression {
+                                        Expression::Literal(LiteralExpression::DecimalLiteral(
+                                            DecimalLiteralExpression {
+                                                suffix: None,
                                                 value: String::from("3"),
                                                 span: Span::new(&source, 47, 48).unwrap()
                                             }
