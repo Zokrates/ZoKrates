@@ -75,7 +75,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Test on firefox
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ cd zokrates_core && wasm-pack test --firefox --headless -- --features wasm 
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ GECKODRIVER=geckodriver cd zokrates_core && wasm-pack test --firefox --headless -- --features wasm
   integration_test:
     docker:
       - image: zokrates/env:latest
