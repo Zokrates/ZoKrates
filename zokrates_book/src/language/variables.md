@@ -1,0 +1,33 @@
+## Variables
+
+Variables can have any name which does not start with a number.
+Variables are mutable, and always passed by value to functions.
+
+### Declaration
+
+Variables need to be declared to be used. Declaration and definition are always combined, so that undefined variables do not exist.
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/declaration.zok}}
+```
+
+### Shadowing
+
+Shadowing is not allowed.
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/no_shadowing.zok}}
+```
+
+### Scope
+
+#### Function
+
+Functions have their own scope
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/function_scope.zok}}
+```
+
+#### For-loop
+For-loops have their own scope
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/for_scope.zok}}
+```

@@ -7,7 +7,8 @@ use absy::{Module, ModuleId, Program};
 use flatten::Flattener;
 use imports::{self, Importer};
 use ir;
-use optimizer::Optimize;
+use macros;
+use macros::process_macros;
 use semantics::{self, Checker};
 use static_analysis::Analyse;
 use std::collections::HashMap;
@@ -16,7 +17,9 @@ use std::io;
 use std::path::PathBuf;
 use typed_absy::abi::Abi;
 use typed_arena::Arena;
-use zokrates_field::field::Field;
+use zir::ZirProgram;
+use zokrates_common::Resolver;
+use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
@@ -48,6 +51,7 @@ impl From<CompileError> for CompileErrors {
 pub enum CompileErrorInner {
     ParserError(pest::Error),
     ImportError(imports::Error),
+    MacroError(macros::Error),
     SemanticError(semantics::ErrorInner),
     ReadError(io::Error),
 }
@@ -109,6 +113,12 @@ impl From<io::Error> for CompileErrorInner {
     }
 }
 
+impl From<macros::Error> for CompileErrorInner {
+    fn from(error: macros::Error) -> Self {
+        CompileErrorInner::MacroError(error)
+    }
+}
+
 impl From<semantics::Error> for CompileError {
     fn from(error: semantics::Error) -> Self {
         CompileError {
@@ -122,6 +132,7 @@ impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             CompileErrorInner::ParserError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::MacroError(ref e) => write!(f, "{}", e),
             CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
             CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
             CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
@@ -129,30 +140,33 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-// See zokrates_fs_resolver for the spec
-pub type Resolve<'a, E> = &'a dyn Fn(PathBuf, PathBuf) -> Result<(String, PathBuf), E>;
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct CompileConfig {
+    is_release: bool,
+}
+
+impl CompileConfig {
+    pub fn with_is_release(mut self, is_release: bool) -> Self {
+        self.is_release = is_release;
+        self
+    }
+
+    pub fn is_release(&self) -> bool {
+        self.is_release
+    }
+}
 
 type FilePath = PathBuf;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
-    resolve_option: Option<Resolve<E>>,
+    resolver: Option<&dyn Resolver<E>>,
+    config: &CompileConfig,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let source = arena.alloc(source);
-    let compiled = compile_program(source, location.clone(), resolve_option, &arena)?;
-
-    // check semantics
-    let typed_ast = Checker::check(compiled).map_err(|errors| {
-        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
-    })?;
-
-    let abi = typed_ast.abi();
-
-    // analyse (unroll and constant propagation)
-    let typed_ast = typed_ast.analyse();
+    let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
@@ -164,29 +178,58 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     let ir_prog = ir::Prog::from(program_flattened);
 
     // optimize
-    let optimized_ir_prog = ir_prog.optimize();
+    let optimized_ir_prog = ir_prog.optimize(config);
+
+    // analyse (check for unused constraints)
+    let optimized_ir_prog = optimized_ir_prog.analyse();
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,
-        abi: abi,
+        abi,
     })
+}
+
+pub fn check<'ast, T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: FilePath,
+    resolver: Option<&dyn Resolver<E>>,
+) -> Result<(), CompileErrors> {
+    let arena = Arena::new();
+
+    check_with_arena::<T, _>(source, location, resolver, &arena).map(|_| ())
+}
+
+fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: FilePath,
+    resolver: Option<&dyn Resolver<E>>,
+    arena: &'ast Arena<String>,
+) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
+    let source = arena.alloc(source);
+    let compiled = compile_program(source, location.clone(), resolver, &arena)?;
+
+    // check semantics
+    let typed_ast = Checker::check(compiled).map_err(|errors| {
+        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
+    })?;
+
+    let abi = typed_ast.abi();
+
+    // analyse (unroll and constant propagation)
+    let typed_ast = typed_ast.analyse();
+
+    Ok((typed_ast, abi))
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
-    resolve_option: Option<Resolve<E>>,
+    resolver: Option<&dyn Resolver<E>>,
     arena: &'ast Arena<String>,
 ) -> Result<Program<'ast, T>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = compile_module(
-        &source,
-        location.clone(),
-        resolve_option,
-        &mut modules,
-        &arena,
-    )?;
+    let main = compile_module(&source, location.clone(), resolver, &mut modules, &arena)?;
 
     modules.insert(location.clone(), main);
 
@@ -199,18 +242,22 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
-    resolve_option: Option<Resolve<E>>,
+    resolver: Option<&dyn Resolver<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast, T>, CompileErrors> {
     let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
+
+    let ast = process_macros::<T>(ast)
+        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
+
     let module_without_imports: Module<T> = Module::from(ast);
 
     Importer::new().apply_imports(
         module_without_imports,
         location.clone(),
-        resolve_option,
+        resolver,
         modules,
         &arena,
     )
@@ -219,18 +266,22 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn no_resolver_with_imports() {
         let source = r#"
 			import "./path/to/file" as foo
-			def main() -> (field):
+			def main() -> field:
 			   return foo()
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> =
-            compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>);
+        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
+            source,
+            "./path/to/file".into(),
+            None::<&dyn Resolver<io::Error>>,
+            &CompileConfig::default(),
+        );
         assert!(res.unwrap_err().0[0]
             .value()
             .to_string()
@@ -240,12 +291,124 @@ mod test {
     #[test]
     fn no_resolver_without_imports() {
         let source = r#"
-			def main() -> (field):
+			def main() -> field:
 			   return 1
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> =
-            compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>);
+        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
+            source,
+            "./path/to/file".into(),
+            None::<&dyn Resolver<io::Error>>,
+            &CompileConfig::default(),
+        );
         assert!(res.is_ok());
+    }
+
+    mod abi {
+        use super::*;
+        use typed_absy::abi::*;
+        use typed_absy::types::*;
+
+        #[test]
+        fn use_struct_declaration_types() {
+            // when importing types and renaming them, we use the top-most renaming in the ABI
+
+            // // main.zok
+            // from foo import Foo as FooMain
+            //
+            // // foo.zok
+            // from bar import Bar as BarFoo
+            // struct Foo { BarFoo b }
+            //
+            // // bar.zok
+            // struct Bar { field a }
+
+            // Expected resolved type for FooMain:
+            // FooMain { BarFoo b }
+
+            let main = r#"
+from "foo" import Foo as FooMain
+def main(FooMain f):
+    return
+"#;
+
+            struct CustomResolver;
+
+            impl<E> Resolver<E> for CustomResolver {
+                fn resolve(
+                    &self,
+                    _: PathBuf,
+                    import_location: PathBuf,
+                ) -> Result<(String, PathBuf), E> {
+                    let loc = import_location.display().to_string();
+                    if loc == "main" {
+                        Ok((
+                            r#"
+from "foo" import Foo as FooMain
+def main(FooMain f):
+    return
+"#
+                            .into(),
+                            "main".into(),
+                        ))
+                    } else if loc == "foo" {
+                        Ok((
+                            r#"
+from "bar" import Bar as BarFoo
+struct Foo {
+    BarFoo b
+}
+"#
+                            .into(),
+                            "foo".into(),
+                        ))
+                    } else if loc == "bar" {
+                        Ok((
+                            r#"
+struct Bar { field a }
+"#
+                            .into(),
+                            "bar".into(),
+                        ))
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+
+            let artifacts = compile::<Bn128Field, io::Error>(
+                main.to_string(),
+                "main".into(),
+                Some(&CustomResolver),
+                &CompileConfig::default(),
+            )
+            .unwrap();
+
+            assert_eq!(
+                artifacts.abi,
+                Abi {
+                    inputs: vec![AbiInput {
+                        name: "f".into(),
+                        public: true,
+                        ty: Type::Struct(StructType {
+                            module: "main".into(),
+                            name: "FooMain".into(),
+                            members: vec![StructMember {
+                                id: "b".into(),
+                                ty: box Type::Struct(StructType {
+                                    module: "foo".into(),
+                                    name: "BarFoo".into(),
+                                    members: vec![StructMember {
+                                        id: "a".into(),
+                                        ty: box Type::FieldElement
+                                    }]
+                                })
+                            }]
+                        })
+                    }],
+                    outputs: vec![]
+                }
+            );
+        }
     }
 }

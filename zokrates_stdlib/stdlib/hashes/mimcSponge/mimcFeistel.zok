@@ -1,0 +1,28 @@
+// MiMCFeistel configured with 220 rounds
+
+import "./IVconstants" as IVconstants
+def main(field xL_in, field xR_in, field k) -> field[2]:
+	field[220] IV = IVconstants()
+
+	field t = 0
+	field nRounds = 220
+	field[220] t2 = [0; 220] //length: nRounds
+	field[220] t4 = [0; 220] //...
+	field[220] xL = [0; 220] //...
+	field[220] xR = [0; 220] //...
+	field c = 0
+
+	for field i in 0..nRounds do
+		field idx = if i == 0 then 0 else i - 1  fi
+
+		c = IV[i]
+		t = if i == 0 then k + xL_in else k + xL[idx] + c fi
+
+		t2[i] = t * t
+		t4[i] = t2[i] * t2[i]
+
+		xL[i] = if i < nRounds - 1 then (if i == 0 then xR_in + t4[i] * t else xR[idx] + t4[i] * t fi) else xL[idx] fi
+		xR[i] = if i < nRounds - 1 then (if i == 0 then xL_in else xL[idx] fi) else xR[idx] + t4[i]*t fi
+	endfor
+
+	return [xL[nRounds - 1], xR[nRounds - 1]]

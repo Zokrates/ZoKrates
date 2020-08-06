@@ -1,0 +1,15 @@
+{
+    "entry_point": "./tests/tests/hashes/mimcSponge/mimcSponge.zok",
+    "tests": [
+        {
+            "input": {
+                "values": []
+            },
+            "output": {
+                "Ok": {
+                    "values": []
+                }
+            }
+        }
+    ]
+}

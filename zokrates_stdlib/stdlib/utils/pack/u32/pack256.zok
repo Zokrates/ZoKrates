@@ -1,0 +1,13 @@
+#pragma curve bn128
+
+import "EMBED/u32_to_bits" as to_bits
+import "../bool/pack256"
+
+// pack 256 big-endian bits into one field element
+// Note: This is not a injective operation as `p` is smaller than `2**256 - 1 for bn128
+// For example, `[0, 0,..., 0]` and `bits(p)` both point to `0`
+def main(u32[8] input) -> field:
+
+	bool[256] bits = [...to_bits(input[0]), ...to_bits(input[1]), ...to_bits(input[2]), ...to_bits(input[3]), ...to_bits(input[4]), ...to_bits(input[5]), ...to_bits(input[6]), ...to_bits(input[7])]
+
+    return pack256(bits)

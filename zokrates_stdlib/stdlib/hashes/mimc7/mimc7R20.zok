@@ -1,0 +1,18 @@
+import "./constants" as constants
+
+def main(field x_in, field k) -> field:
+	field[91] c = constants()
+	field t = 0
+	field[20] t2 = [0; 20]
+	field[20] t4 = [0; 20]
+	field[20] t6 = [0; 20]
+	field[20] t7 = [0; 20] // we define t7 length +1 to reference implementation as ZoKrates wont allow conditional branching. -> out of bounds array error
+	for field i in 0..20 do
+		field i2 = if i == 0 then 0 else i - 1 fi 
+		t = if i == 0 then k+x_in else k + t7[i2] + c[i] fi
+        t2[i] = t*t
+        t4[i] = t2[i]*t2[i]
+		t6[i] = t4[i]*t2[i]
+		t7[i] = t6[i]*t
+	endfor
+	return t6[19]*t + k

@@ -122,11 +122,94 @@ mod tests {
                 rule: Rule::statement,
                 tokens: [
                     statement(0, 22, [
-                        multi_assignment_statement(0, 9, [
-                            optionally_typed_identifier(0, 1, [
-                                identifier(0, 1)
+                        definition_statement(0, 9, [
+                            optionally_typed_assignee(0, 2, [
+                                assignee(0, 2, [
+                                    identifier(0, 1)
+                                ])
                             ]),
-                            identifier(4, 7),
+                            expression(4, 9, [
+                                term(4, 9, [
+                                    postfix_expression(4, 9, [
+                                        identifier(4, 7),
+                                        access(7, 9, [
+                                            call_access(7, 9)
+                                        ])
+                                    ])
+                                ])
+                            ]),
+                        ])
+                    ])
+                ]
+            };
+        }
+
+        #[test]
+        fn parse_field_def_to_multi() {
+            parses_to! {
+                parser: ZoKratesParser,
+                input: r#"field a = foo()
+            "#,
+                rule: Rule::statement,
+                tokens: [
+                    statement(0, 28, [
+                        definition_statement(0, 15, [
+                            optionally_typed_assignee(0, 8, [
+                                ty(0, 5, [
+                                    ty_basic(0, 5, [
+                                        ty_field(0, 5)
+                                    ])
+                                ]),
+                                assignee(6, 8, [
+                                    identifier(6, 7)
+                                ])
+                            ]),
+                            expression(10, 15, [
+                                term(10, 15, [
+                                    postfix_expression(10, 15, [
+                                        identifier(10, 13),
+                                        access(13, 15, [
+                                            call_access(13, 15)
+                                        ])
+                                    ])
+                                ])
+                            ]),
+                        ])
+                    ])
+                ]
+            };
+        }
+
+        #[test]
+        fn parse_u8_def_to_multi() {
+            parses_to! {
+                parser: ZoKratesParser,
+                input: r#"u32 a = foo()
+            "#,
+                rule: Rule::statement,
+                tokens: [
+                    statement(0, 26, [
+                        definition_statement(0, 13, [
+                            optionally_typed_assignee(0, 6, [
+                                ty(0, 3, [
+                                    ty_basic(0, 3, [
+                                        ty_u32(0, 3)
+                                    ])
+                                ]),
+                                assignee(4, 6, [
+                                    identifier(4, 5)
+                                ])
+                            ]),
+                            expression(8, 13, [
+                                term(8, 13, [
+                                    postfix_expression(8, 13, [
+                                        identifier(8, 11),
+                                        access(11, 13, [
+                                            call_access(11, 13)
+                                        ])
+                                    ])
+                                ])
+                            ]),
                         ])
                     ])
                 ]

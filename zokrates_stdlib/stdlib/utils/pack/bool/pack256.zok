@@ -1,0 +1,17 @@
+#pragma curve bn128
+
+// pack 256 big-endian bits into one field element
+// Note: This is not a injective operation as `p` is smaller than `2**256 - 1` for bn128
+// For example, `[0, 0,..., 0]` and `bits(p)` both point to `0`
+def main(bool[256] input) -> field:
+
+	field out = 0
+
+	field len = 256
+
+	for field j in 0..len do
+		field i = len - (j + 1)
+		out = out + if bits[i] then (2 ** j) else 0 fi
+	endfor
+
+    return out

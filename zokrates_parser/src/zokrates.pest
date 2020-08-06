@@ -1,15 +1,15 @@
-/**
-* ZoKrates Grammar
-* Author: Jacob Eberhardt, Thibaut Schaeffer
-*/
 
-file = { SOI ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
+file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
+
+pragma = { "#pragma" ~ "curve" ~ curve }
+curve = @{ (ASCII_ALPHANUMERIC | "_") * }
 
 import_directive = { main_import_directive | from_import_directive }
 from_import_directive = { "from" ~ "\"" ~ import_source ~ "\"" ~ "import" ~ identifier ~ ("as" ~ identifier)? ~ NEWLINE*}
 main_import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+}
 import_source = @{(!"\"" ~ ANY)*}
-function_definition = {"def" ~ identifier ~ "(" ~ parameter_list ~ ")" ~ "->" ~ "(" ~ type_list ~ ")" ~ ":" ~ NEWLINE* ~ statement* }
+function_definition = {"def" ~ identifier ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
+return_types = _{ ( "->" ~ ( "(" ~ type_list ~ ")" | ty ))? }
 
 parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
 parameter = {vis? ~ ty ~ identifier}
@@ -17,7 +17,10 @@ parameter = {vis? ~ ty ~ identifier}
 // basic types
 ty_field = {"field"}
 ty_bool = {"bool"}
-ty_basic = { ty_field | ty_bool }
+ty_u8 = {"u8"}
+ty_u32 = {"u32"}
+ty_u16 = {"u16"}
+ty_basic = { ty_field | ty_bool | ty_u8 | ty_u16 | ty_u32 }
 ty_basic_or_struct = { ty_basic | ty_struct }
 ty_array = { ty_basic_or_struct ~ ("[" ~ expression ~ "]")+ }
 ty = { ty_array | ty_basic | ty_struct }
@@ -36,22 +39,18 @@ vis = { vis_private | vis_public }
 // Statements
 statement = { (return_statement // does not require subsequent newline
               | (iteration_statement
-                | multi_assignment_statement // try this first as we want all assignments based on return of function calls match here and not later
                 | definition_statement
-                | assignment_statement
                 | expression_statement
                 ) ~ NEWLINE
             ) ~ NEWLINE* }
 
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
-multi_assignment_statement = { optionally_typed_identifier_list ~ "=" ~ identifier ~ "(" ~ expression_list ~ ")"} // This is very specific with regards to parsing. However, I think more generality is not needed here.
-definition_statement = {ty ~ identifier ~ "=" ~ expression} // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
-assignment_statement = {assignee ~ "=" ~ expression } // TODO: Is this optimal? Can the left side be written more elegantly?
-expression_statement = {expression}
+definition_statement = { optionally_typed_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
+expression_statement = {"assert" ~ "(" ~ expression ~ ")"}
 
-optionally_typed_identifier_list = _{ optionally_typed_identifier ~ ("," ~ optionally_typed_identifier)* }
-optionally_typed_identifier = { (identifier) | (ty ~ identifier) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
+optionally_typed_assignee_list = _{ optionally_typed_assignee ~ ("," ~ optionally_typed_assignee)* }
+optionally_typed_assignee = { (ty ~ assignee) | (assignee) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
 
 // Expressions
 expression_list = _{(expression ~ ("," ~ expression)*)?}
@@ -92,33 +91,42 @@ unary_expression = { op_unary ~ term }
 assignee = { identifier ~ assignee_access* }
 assignee_access = { array_access | member_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
-constant = { decimal_number | boolean_literal }
+constant = { hex_number | decimal_number | boolean_literal }
 decimal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 boolean_literal = { "true" | "false" }
+hex_number = _{ hex_number_32 | hex_number_16 | hex_number_8 }
+hex_number_8 = @{ "0x" ~ ASCII_HEX_DIGIT{2} }
+hex_number_16 = @{ "0x" ~ ASCII_HEX_DIGIT{4} }
+hex_number_32 = @{ "0x" ~ ASCII_HEX_DIGIT{8} }
 
-op_inclusive_or = {"||"}
-op_exclusive_or = {"^"}
-op_and = {"&&"}
-op_equal = {"=="}
-op_not_equal = {"!="}
+op_or = @{"||"}
+op_and = @{"&&"}
+op_bit_xor = {"^"}
+op_bit_and = {"&"}
+op_bit_or = {"|"}
+op_equal = @{"=="}
+op_not_equal = @{"!="}
 op_lt = {"<"}
-op_lte = {"<="}
+op_lte = @{"<="}
 op_gt = {">"}
-op_gte = {">="}
+op_gte = @{">="}
 op_add = {"+"}
 op_sub = {"-"}
 op_mul = {"*"}
 op_div = {"/"}
-op_pow = {"**"}
+op_pow = @{"**"}
 op_not = {"!"}
-op_binary = _ { op_pow | op_inclusive_or | op_exclusive_or | op_and | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div }
+op_left_shift = @{"<<"}
+op_right_shift = @{">>"}
+op_binary = _ { op_pow | op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div }
 op_unary = { op_not }
 
 
 WHITESPACE = _{ " " | "\t" | "\\" ~ NEWLINE}
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
-// TODO: Order by alphabet
-keyword = @{"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
-            "in"|"private"|"public"|"return"|"struct"|"true"|"uint"
+// the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly
+// accepted
+keyword = @{"assert"|"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
+            "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"
             }

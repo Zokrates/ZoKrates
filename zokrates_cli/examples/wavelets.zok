@@ -1,5 +1,5 @@
 
-def main(field in1, field in2, field in3, field in4, field in5, field in6, field in7, field in8) -> (field):
+def main(field in1, field in2, field in3, field in4, field in5, field in6, field in7, field in8) -> field:
   // first iteration
   field a = (in1 + in2) / 2
   field b = (in3 + in4) / 2

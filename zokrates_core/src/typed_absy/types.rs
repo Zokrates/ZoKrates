@@ -1,4 +1,5 @@
 use std::fmt;
+use std::path::PathBuf;
 
 pub type Identifier<'ast> = &'ast str;
 
@@ -19,6 +20,82 @@ pub struct ArrayType {
     pub ty: Box<Type>,
 }
 
+#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct StructType {
+    #[serde(skip)]
+    pub module: PathBuf,
+    pub name: String,
+    pub members: Vec<StructMember>,
+}
+
+impl PartialEq for StructType {
+    fn eq(&self, other: &Self) -> bool {
+        self.members.eq(&other.members)
+    }
+}
+
+impl Eq for StructType {}
+
+impl StructType {
+    pub fn new(module: PathBuf, name: String, members: Vec<StructMember>) -> Self {
+        StructType {
+            module,
+            name,
+            members,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.members.len()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<StructMember> {
+        self.members.iter()
+    }
+}
+
+impl IntoIterator for StructType {
+    type Item = StructMember;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.members.into_iter()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
+pub enum UBitwidth {
+    #[serde(rename = "8")]
+    B8 = 8,
+    #[serde(rename = "16")]
+    B16 = 16,
+    #[serde(rename = "32")]
+    B32 = 32,
+}
+
+impl UBitwidth {
+    pub fn to_usize(&self) -> usize {
+        *self as u32 as usize
+    }
+}
+
+impl From<usize> for UBitwidth {
+    fn from(b: usize) -> Self {
+        match b {
+            8 => UBitwidth::B8,
+            16 => UBitwidth::B16,
+            32 => UBitwidth::B32,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl fmt::Display for UBitwidth {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_usize())
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[serde(tag = "type", content = "components")]
 pub enum Type {
@@ -29,7 +106,9 @@ pub enum Type {
     #[serde(rename = "array")]
     Array(ArrayType),
     #[serde(rename = "struct")]
-    Struct(Vec<StructMember>),
+    Struct(StructType),
+    #[serde(rename = "u")]
+    Uint(UBitwidth),
 }
 
 impl ArrayType {
@@ -55,11 +134,14 @@ impl fmt::Display for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
+            Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
-            Type::Struct(ref members) => write!(
+            Type::Struct(ref struct_type) => write!(
                 f,
-                "{{{}}}",
-                members
+                "{} {{{}}}",
+                struct_type.name,
+                struct_type
+                    .members
                     .iter()
                     .map(|member| format!("{}: {}", member.id, member.ty))
                     .collect::<Vec<_>>()
@@ -74,11 +156,14 @@ impl fmt::Debug for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
+            Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
-            Type::Struct(ref members) => write!(
+            Type::Struct(ref struct_type) => write!(
                 f,
-                "{{{}}}",
-                members
+                "{} {{{}}}",
+                struct_type.name,
+                struct_type
+                    .members
                     .iter()
                     .map(|member| format!("{}: {}", member.id, member.ty))
                     .collect::<Vec<_>>()
@@ -93,14 +178,23 @@ impl Type {
         Type::Array(ArrayType::new(ty, size))
     }
 
+    pub fn struc(struct_ty: StructType) -> Self {
+        Type::Struct(struct_ty)
+    }
+
+    pub fn uint<W: Into<UBitwidth>>(b: W) -> Self {
+        Type::Uint(b.into())
+    }
+
     fn to_slug(&self) -> String {
         match self {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
+            Type::Uint(bitwidth) => format!("u{}", bitwidth),
             Type::Array(array_type) => format!("{}[{}]", array_type.ty.to_slug(), array_type.size),
-            Type::Struct(members) => format!(
+            Type::Struct(struct_type) => format!(
                 "{{{}}}",
-                members
+                struct_type
                     .iter()
                     .map(|member| format!("{}:{}", member.id, member.ty))
                     .collect::<Vec<_>>()
@@ -114,8 +208,9 @@ impl Type {
         match self {
             Type::FieldElement => 1,
             Type::Boolean => 1,
+            Type::Uint(_) => 1,
             Type::Array(array_type) => array_type.size * array_type.ty.get_primitive_count(),
-            Type::Struct(members) => members
+            Type::Struct(struct_type) => struct_type
                 .iter()
                 .map(|member| member.ty.get_primitive_count())
                 .sum(),
@@ -185,14 +280,21 @@ pub mod signature {
                     write!(f, ", ")?;
                 }
             }
-            write!(f, ") -> (")?;
-            for (i, t) in self.outputs.iter().enumerate() {
-                write!(f, "{}", t)?;
-                if i < self.outputs.len() - 1 {
-                    write!(f, ", ")?;
+            write!(f, ")")?;
+            match self.outputs.len() {
+                0 => write!(f, ""),
+                1 => write!(f, " -> {}", self.outputs[0]),
+                _ => {
+                    write!(f, " -> (")?;
+                    for (i, t) in self.outputs.iter().enumerate() {
+                        write!(f, "{}", t)?;
+                        if i < self.outputs.len() - 1 {
+                            write!(f, ", ")?;
+                        }
+                    }
+                    write!(f, ")")
                 }
             }
-            write!(f, ")")
         }
     }
 
@@ -268,7 +370,7 @@ pub mod signature {
                 .inputs(vec![Type::FieldElement, Type::Boolean])
                 .outputs(vec![Type::Boolean]);
 
-            assert_eq!(s.to_string(), String::from("(field, bool) -> (bool)"));
+            assert_eq!(s.to_string(), String::from("(field, bool) -> bool"));
         }
 
         #[test]

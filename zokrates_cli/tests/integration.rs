@@ -14,6 +14,17 @@ mod integration {
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_core::typed_absy::abi::Abi;
 
+    macro_rules! map(
+    {
+        $($key:expr => $value:expr),+ } => {
+            {
+                let mut m = ::std::collections::HashMap::new();
+                $(m.insert($key, $value);)+
+                m
+            }
+        };
+    );
+
     #[test]
     #[ignore]
     fn test_compile_and_witness_dir() {
@@ -134,7 +145,7 @@ mod integration {
 
         let signature = abi.signature().clone();
 
-        let inputs_abi: zokrates_abi::Inputs<zokrates_field::field::FieldPrime> =
+        let inputs_abi: zokrates_abi::Inputs<zokrates_field::Bn128Field> =
             parse_strict(&json_input_str, signature.inputs)
                 .map(|parsed| zokrates_abi::Inputs::Abi(parsed))
                 .map_err(|why| why.to_string())
@@ -194,72 +205,99 @@ mod integration {
         }
 
         #[cfg(feature = "libsnark")]
-        let schemes = ["pghr13", "gm17", "g16"];
+        let backends = map! {
+            "bellman" => ["g16"],
+            "libsnark" => ["gm17", "pghr13"]
+        };
+
         #[cfg(not(feature = "libsnark"))]
-        let schemes = ["g16"];
+        let backends = map! {"bellman" => ["g16"]};
 
-        for scheme in &schemes {
-            // SETUP
-            assert_cli::Assert::command(&[
-                "../target/release/zokrates",
-                "setup",
-                "-i",
-                flattened_path.to_str().unwrap(),
-                "-p",
-                proving_key_path.to_str().unwrap(),
-                "-v",
-                verification_key_path.to_str().unwrap(),
-                "--proving-scheme",
-                scheme,
-            ])
-            .succeeds()
-            .unwrap();
+        for (backend, schemes) in backends {
+            for scheme in &schemes {
+                // SETUP
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "setup",
+                    "-i",
+                    flattened_path.to_str().unwrap(),
+                    "-p",
+                    proving_key_path.to_str().unwrap(),
+                    "-v",
+                    verification_key_path.to_str().unwrap(),
+                    "--backend",
+                    backend,
+                    "--proving-scheme",
+                    scheme,
+                ])
+                .succeeds()
+                .unwrap();
 
-            // EXPORT-VERIFIER
-            assert_cli::Assert::command(&[
-                "../target/release/zokrates",
-                "export-verifier",
-                "-i",
-                verification_key_path.to_str().unwrap(),
-                "-o",
-                verification_contract_path.to_str().unwrap(),
-                "--proving-scheme",
-                scheme,
-            ])
-            .succeeds()
-            .unwrap();
+                // EXPORT-VERIFIER
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "export-verifier",
+                    "-i",
+                    verification_key_path.to_str().unwrap(),
+                    "-o",
+                    verification_contract_path.to_str().unwrap(),
+                    "--backend",
+                    backend,
+                    "--proving-scheme",
+                    scheme,
+                ])
+                .succeeds()
+                .unwrap();
 
-            // GENERATE-PROOF
-            assert_cli::Assert::command(&[
-                "../target/release/zokrates",
-                "generate-proof",
-                "-i",
-                flattened_path.to_str().unwrap(),
-                "-w",
-                witness_path.to_str().unwrap(),
-                "-p",
-                proving_key_path.to_str().unwrap(),
-                "--proving-scheme",
-                scheme,
-                "-j",
-                proof_path.to_str().unwrap(),
-            ])
-            .succeeds()
-            .unwrap();
+                // GENERATE-PROOF
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "generate-proof",
+                    "-i",
+                    flattened_path.to_str().unwrap(),
+                    "-w",
+                    witness_path.to_str().unwrap(),
+                    "-p",
+                    proving_key_path.to_str().unwrap(),
+                    "--backend",
+                    backend,
+                    "--proving-scheme",
+                    scheme,
+                    "-j",
+                    proof_path.to_str().unwrap(),
+                ])
+                .succeeds()
+                .unwrap();
 
-            // TEST VERIFIER
+                // CLI VERIFICATION
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "verify",
+                    "--backend",
+                    backend,
+                    "--proving-scheme",
+                    scheme,
+                    "-j",
+                    proof_path.to_str().unwrap(),
+                    "-v",
+                    verification_key_path.to_str().unwrap(),
+                ])
+                .succeeds()
+                .unwrap();
 
-            assert_cli::Assert::command(&[
-                "node",
-                "test.js",
-                verification_contract_path.to_str().unwrap(),
-                proof_path.to_str().unwrap(),
-                scheme,
-                "v1",
-            ])
-            .current_dir(concat!(env!("OUT_DIR"), "/contract"))
-            .succeeds()
-            .unwrap();
+                // TEST VERIFIER
+                assert_cli::Assert::command(&[
+                    "node",
+                    "test.js",
+                    verification_contract_path.to_str().unwrap(),
+                    proof_path.to_str().unwrap(),
+                    scheme,
+                    "v1",
+                ])
+                .current_dir(concat!(env!("OUT_DIR"), "/contract"))
+                .succeeds()
+                .unwrap();
+            }
         }
     }
 }

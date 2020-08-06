@@ -1,3 +1,0 @@
-def main(field a) -> (field):
-	0 == (a-1)*a
-	return 1

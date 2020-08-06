@@ -1,5 +1,5 @@
 // Binomial Coeffizient, n!/(k!*(n-k)!).
-def fac(field x) -> (field):
+def fac(field x) -> field:
     field f = 1
     field counter = 0
     for field i in 1..100 do
@@ -8,5 +8,5 @@ def fac(field x) -> (field):
     endfor
     return f
 
-def main(field n, field k) -> (field):
+def main(field n, field k) -> field:
     return fac(n)/(fac(k)*fac(n-k))

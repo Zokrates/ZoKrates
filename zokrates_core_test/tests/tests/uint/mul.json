@@ -1,0 +1,16 @@
+{
+	"entry_point": "./tests/tests/uint/mul.zok",
+	"max_constraint_count": 37,
+	"tests": [
+		{
+			"input": {
+				"values": ["2", "2"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["4"]
+				}
+			}
+		}
+	]
+}

@@ -1,19 +1,21 @@
+extern crate zokrates_common;
 extern crate zokrates_core;
 extern crate zokrates_field;
 
 use std::io;
+use zokrates_common::Resolver;
 use zokrates_core::{
-    compile::{compile, CompilationArtifacts, Resolve},
+    compile::{compile, CompilationArtifacts, CompileConfig},
     ir::Interpreter,
 };
-use zokrates_field::field::FieldPrime;
+use zokrates_field::Bn128Field;
 
 #[test]
 fn out_of_range() {
     let source = r#"
-		def main(private field a) -> (field):
+		def main(private field a) -> field:
 	        field x = if a < 5555 then 3333 else 4444 fi
-	        x == 3333
+	        assert(x == 3333)
 			return 1
 	"#
     .to_string();
@@ -22,12 +24,17 @@ fn out_of_range() {
     // the fact that `2*10000 - 2*5555` has two distinct bit decompositions
     // we chose the one which is out of range, ie the sum check features an overflow
 
-    let res: CompilationArtifacts<FieldPrime> =
-        compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>).unwrap();
+    let res: CompilationArtifacts<Bn128Field> = compile(
+        source,
+        "./path/to/file".into(),
+        None::<&dyn Resolver<io::Error>>,
+        &CompileConfig::default(),
+    )
+    .unwrap();
 
     let interpreter = Interpreter::try_out_of_range();
 
     assert!(interpreter
-        .execute(&res.prog(), &vec![FieldPrime::from(10000)])
+        .execute(&res.prog(), &vec![Bn128Field::from(10000)])
         .is_err());
 }

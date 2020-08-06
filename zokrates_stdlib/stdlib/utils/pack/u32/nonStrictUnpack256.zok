@@ -1,0 +1,11 @@
+#pragma curve bn128
+
+import "../bool/nonStrictUnpack256" as unpack
+import "../../casts/bool_256_to_u32_8" as from_bits
+
+// Unpack a field element as a u32[8] (big-endian)
+// Note: uniqueness of the output is not guaranteed
+// For example, `0` can map to `[0, 0, ..., 0]` or to `bits(p)`
+def main(field i) -> u32[8]:
+
+	return from_bits(unpack(i))

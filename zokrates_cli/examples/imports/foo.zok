@@ -1,4 +1,9 @@
-import "./baz"
+from "./baz" import Baz
 
-def main() -> (field):
+import "./baz"
+from "./baz" import main as my_function
+
+def main() -> field:
+	field a = my_function()
+	Baz b = Baz {}
 	return baz()

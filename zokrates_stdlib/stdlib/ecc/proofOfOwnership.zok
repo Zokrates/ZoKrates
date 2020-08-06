@@ -1,6 +1,7 @@
 import "ecc/edwardsAdd" as add
 import "ecc/edwardsScalarMult" as multiply
-import "utils/pack/nonStrictUnpack256" as unpack256
+import "utils/pack/bool/nonStrictUnpack256" as unpack256
+from "ecc/babyjubjubParams" import BabyJubJubParams
 
 /// Verifies match of a given public/private keypair.
 ///
@@ -15,14 +16,14 @@ import "utils/pack/nonStrictUnpack256" as unpack256
 ///    context: Curve parameters (including generator G) used to create keypair.
 ///
 /// Returns:
-///     Return 1 for pk/sk being a valid keypair, 0 otherwise.
-def main(field[2] pk, field sk, field[10] context) -> (field):
+///     Return true for pk/sk being a valid keypair, false otherwise.
+def main(field[2] pk, field sk, BabyJubJubParams context) -> bool:
 
-    field[2] G = [context[4], context[5]]
+    field[2] G = [context.Gu, context.Gv]
 
-    field[256] skBits = unpack256(sk)
+    bool[256] skBits = unpack256(sk)
     field[2] ptExp = multiply(skBits, G, context)
 
-    field out =	if ptExp[0] == pk[0] && ptExp[1] == pk[1] then 1 else 0 fi
+    bool out = ptExp[0] == pk[0] && ptExp[1] == pk[1]
 
     return out

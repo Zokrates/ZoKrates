@@ -2,8 +2,8 @@ use crate::parser::Position;
 use std::fmt;
 use zokrates_pest_ast::Span;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Node<T: fmt::Display> {
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Node<T> {
     pub start: Position,
     pub end: Position,
     pub value: T,
@@ -21,13 +21,19 @@ impl<T: fmt::Display> fmt::Display for Node<T> {
     }
 }
 
+impl<T: fmt::Debug> fmt::Debug for Node<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.value)
+    }
+}
+
 impl<T: fmt::Display> Node<T> {
     pub fn new(start: Position, end: Position, value: T) -> Node<T> {
         Node { start, end, value }
     }
 }
 
-pub trait NodeValue: fmt::Display + Sized + PartialEq {
+pub trait NodeValue: fmt::Display + fmt::Debug + Sized + PartialEq {
     fn at(self, line: usize, col: usize, delta: isize) -> Node<Self> {
         let start = Position { col, line };
         Node::new(start, start.col(delta), self)
@@ -68,26 +74,26 @@ impl<V: NodeValue> From<V> for Node<V> {
 
 use crate::absy::*;
 use crate::imports::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
-impl<'ast, T: Field> NodeValue for Expression<'ast, T> {}
-impl<'ast, T: Field> NodeValue for ExpressionList<'ast, T> {}
-impl<'ast, T: Field> NodeValue for Assignee<'ast, T> {}
-impl<'ast, T: Field> NodeValue for Statement<'ast, T> {}
+impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Expression<'ast, T> {}
+impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for ExpressionList<'ast, T> {}
+impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Assignee<'ast, T> {}
+impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Statement<'ast, T> {}
 impl<'ast, T: Field> NodeValue for SymbolDeclaration<'ast, T> {}
 impl NodeValue for UnresolvedType {}
-impl<'ast> NodeValue for StructType<'ast> {}
-impl<'ast> NodeValue for StructField<'ast> {}
-impl<'ast, T: Field> NodeValue for Function<'ast, T> {}
+impl<'ast> NodeValue for StructDefinition<'ast> {}
+impl<'ast> NodeValue for StructDefinitionField<'ast> {}
+impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Function<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Module<'ast, T> {}
 impl<'ast> NodeValue for SymbolImport<'ast> {}
 impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
 impl<'ast> NodeValue for Import<'ast> {}
-impl<'ast, T: Field> NodeValue for Spread<'ast, T> {}
-impl<T: Field> NodeValue for Range<T> {}
+impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Spread<'ast, T> {}
+impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Range<'ast, T> {}
 
-impl<T: NodeValue> std::cmp::PartialEq for Node<T> {
+impl<T: PartialEq> PartialEq for Node<T> {
     fn eq(&self, other: &Node<T>) -> bool {
         self.value.eq(&other.value)
     }

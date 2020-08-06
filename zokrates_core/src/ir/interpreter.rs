@@ -4,8 +4,7 @@ use ir::Directive;
 use solvers::Solver;
 use std::collections::BTreeMap;
 use std::fmt;
-use zokrates_embed::generate_sha256_round_witness;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
@@ -43,7 +42,7 @@ impl Interpreter {
             witness.insert(arg.clone(), value.clone().into());
         }
 
-        for statement in &main.statements {
+        for statement in main.statements.iter() {
             match statement {
                 Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
                     true => {
@@ -63,7 +62,11 @@ impl Interpreter {
                 },
                 Statement::Directive(ref d) => {
                     match (&d.solver, &d.inputs, self.should_try_out_of_range) {
-                        (Solver::Bits, inputs, true) if inputs[0].0.len() > 1 => {
+                        (Solver::Bits(bitwidth), inputs, true)
+                            if inputs[0].left.0.len() > 1
+                                || inputs[0].right.0.len() > 1
+                                    && *bitwidth == T::get_required_bits() =>
+                        {
                             Self::try_solve_out_of_range(&d, &mut witness)
                         }
                         _ => {
@@ -105,7 +108,7 @@ impl Interpreter {
 
         let mut num = input.clone();
         let mut res = vec![];
-        let bits = 254;
+        let bits = T::get_required_bits();
         for i in (0..bits).rev() {
             if T::from(2).to_biguint().pow(i as usize) <= num {
                 num = num - T::from(2).to_biguint().pow(i as usize);
@@ -131,8 +134,7 @@ impl Interpreter {
         }
     }
 
-    fn execute_solver<T: Field>(&self, s: &Solver, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-        use solvers::Signed;
+    pub fn execute_solver<T: Field>(&self, s: &Solver, inputs: &Vec<T>) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = s.get_signature();
         assert!(inputs.len() == expected_input_count);
 
@@ -141,43 +143,48 @@ impl Interpreter {
                 true => vec![T::zero(), T::one()],
                 false => vec![T::one(), T::one() / inputs[0].clone()],
             },
-            Solver::Bits => {
-                use num::traits::Pow;
-
-                let input = if self.should_try_out_of_range
-                    && inputs[0].to_biguint() + (T::max_value() + T::from(1)).to_biguint()
-                        < T::from(2).to_biguint().pow(T::get_required_bits())
-                {
-                    inputs[0].to_biguint() + (T::max_value() + T::from(1)).to_biguint()
-                } else {
-                    inputs[0].to_biguint()
-                };
-                let mut num = input.clone();
+            Solver::Bits(bit_width) => {
+                let mut num = inputs[0].clone();
                 let mut res = vec![];
-                let bits = 254;
-                for i in (0..bits).rev() {
-                    if T::from(2).to_biguint().pow(i as usize) <= num {
-                        num = num - T::from(2).to_biguint().pow(i as usize);
+
+                for i in (0..*bit_width).rev() {
+                    if T::from(2).pow(i) <= num {
+                        num = num - T::from(2).pow(i);
                         res.push(T::one());
                     } else {
                         res.push(T::zero());
                     }
                 }
-                assert_eq!(num, T::zero().to_biguint());
+                assert_eq!(num, T::zero());
                 res
             }
-            Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
-            Solver::Sha256Round => {
-                let i = &inputs[0..512];
-                let h = &inputs[512..];
-                let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
-                let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
-                assert!(h.len() == 256);
-                generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
-                    .into_iter()
-                    .map(|x| T::from_bellman(x))
-                    .collect()
+            Solver::Xor => {
+                let x = inputs[0].clone();
+                let y = inputs[1].clone();
+
+                vec![x.clone() + y.clone() - T::from(2) * x * y]
             }
+            Solver::Or => {
+                let x = inputs[0].clone();
+                let y = inputs[1].clone();
+
+                vec![x.clone() + y.clone() - x * y]
+            }
+            // res = b * c - (2b * c - b - c) * (a)
+            Solver::ShaAndXorAndXorAnd => {
+                let a = inputs[0].clone();
+                let b = inputs[1].clone();
+                let c = inputs[2].clone();
+                vec![b.clone() * c.clone() - (T::from(2) * b.clone() * c.clone() - b - c) * a]
+            }
+            // res = a(b - c) + c
+            Solver::ShaCh => {
+                let a = inputs[0].clone();
+                let b = inputs[1].clone();
+                let c = inputs[2].clone();
+                vec![a * (b - c.clone()) + c]
+            }
+            Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
         };
 
         assert_eq!(res.len(), expected_output_count);
@@ -210,7 +217,7 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub enum Error {
     UnsatisfiedConstraint { left: String, right: String },
     Solver,
@@ -246,7 +253,7 @@ impl fmt::Debug for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod eq_condition {
 
@@ -264,10 +271,10 @@ mod tests {
             let r = interpreter
                 .execute_solver(
                     &cond_eq,
-                    &inputs.iter().map(|&i| FieldPrime::from(i)).collect(),
+                    &inputs.iter().map(|&i| Bn128Field::from(i)).collect(),
                 )
                 .unwrap();
-            let res: Vec<FieldPrime> = vec![0, 1].iter().map(|&i| FieldPrime::from(i)).collect();
+            let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
 
@@ -279,36 +286,40 @@ mod tests {
             let r = interpreter
                 .execute_solver(
                     &cond_eq,
-                    &inputs.iter().map(|&i| FieldPrime::from(i)).collect(),
+                    &inputs.iter().map(|&i| Bn128Field::from(i)).collect(),
                 )
                 .unwrap();
-            let res: Vec<FieldPrime> = vec![1, 1].iter().map(|&i| FieldPrime::from(i)).collect();
+            let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
     }
 
     #[test]
     fn bits_of_one() {
-        let inputs = vec![FieldPrime::from(1)];
+        let inputs = vec![Bn128Field::from(1)];
         let interpreter = Interpreter::default();
-        let res = interpreter.execute_solver(&Solver::Bits, &inputs).unwrap();
-        assert_eq!(res[253], FieldPrime::from(1));
+        let res = interpreter
+            .execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
+            .unwrap();
+        assert_eq!(res[253], Bn128Field::from(1));
         for i in 0..253 {
-            assert_eq!(res[i], FieldPrime::from(0));
+            assert_eq!(res[i], Bn128Field::from(0));
         }
     }
 
     #[test]
     fn bits_of_42() {
-        let inputs = vec![FieldPrime::from(42)];
+        let inputs = vec![Bn128Field::from(42)];
         let interpreter = Interpreter::default();
-        let res = interpreter.execute_solver(&Solver::Bits, &inputs).unwrap();
-        assert_eq!(res[253], FieldPrime::from(0));
-        assert_eq!(res[252], FieldPrime::from(1));
-        assert_eq!(res[251], FieldPrime::from(0));
-        assert_eq!(res[250], FieldPrime::from(1));
-        assert_eq!(res[249], FieldPrime::from(0));
-        assert_eq!(res[248], FieldPrime::from(1));
-        assert_eq!(res[247], FieldPrime::from(0));
+        let res = interpreter
+            .execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
+            .unwrap();
+        assert_eq!(res[253], Bn128Field::from(0));
+        assert_eq!(res[252], Bn128Field::from(1));
+        assert_eq!(res[251], Bn128Field::from(0));
+        assert_eq!(res[250], Bn128Field::from(1));
+        assert_eq!(res[249], Bn128Field::from(0));
+        assert_eq!(res[248], Bn128Field::from(1));
+        assert_eq!(res[247], Bn128Field::from(0));
     }
 }

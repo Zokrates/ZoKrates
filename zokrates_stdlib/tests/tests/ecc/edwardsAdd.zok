@@ -1,37 +1,38 @@
 import "ecc/edwardsAdd" as add
 import "ecc/edwardsNegate" as neg
 import "ecc/babyjubjubParams" as context
+from "ecc/babyjubjubParams" import BabyJubJubParams
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
-def testDoubleViaAdd() -> (field):
-	context = context()
-	field[2] G = [context[4], context[5]]
-
+def testDoubleViaAdd() -> bool:
+	BabyJubJubParams context = context()
+	field[2] G = [context.Gu, context.Gv]
+	
 	field[2] out = add(G, G, context)
 
-	out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830
-	out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831
+	assert(out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830)
+	assert(out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831)
 
-	return 1
+	return true
 
-def testIdentities() -> (field):
-	context = context()
-	field[2] G = [context[4], context[5]]
-	field[2] inf = [context[2], context[3]]
+def testIdentities() -> bool:
+	BabyJubJubParams context = context()
+	field[2] G = [context.Gu, context.Gv]
+	field[2] inf = context.INFINITY
 
-	G == add(G, inf, context)
+	assert(G == add(G, inf, context))
 	
-	field[2] nG = neg(G, context)
+	field[2] nG = neg(G)
 	field[2] nGaddG = add(G, nG, context)
 
-	inf == nGaddG
+	assert(inf == nGaddG)
 
-	return 1
+	return true
 
-def main() -> (field):
+def main():
 
-	1 == testDoubleViaAdd()
-	1 == testIdentities()
+	assert(testDoubleViaAdd())
+	assert(testIdentities())
 
-return 1
+	return

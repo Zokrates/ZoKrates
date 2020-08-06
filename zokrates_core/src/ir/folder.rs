@@ -2,7 +2,7 @@
 
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Folder<T: Field>: Sized {
     fn fold_module(&mut self, p: Prog<T>) -> Prog<T> {
@@ -78,7 +78,7 @@ pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: Directive<T>) -> Di
         inputs: ds
             .inputs
             .into_iter()
-            .map(|e| f.fold_linear_combination(e))
+            .map(|e| f.fold_quadratic_combination(e))
             .collect(),
         outputs: ds.outputs.into_iter().map(|o| f.fold_variable(o)).collect(),
         ..ds

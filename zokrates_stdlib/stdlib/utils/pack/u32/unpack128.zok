@@ -1,0 +1,10 @@
+#pragma curve bn128
+
+import "../bool/unpack128" as unpack
+import "../../casts/bool_128_to_u32_4" as from_bits
+
+// Unpack a field element as 128 big-endian bits
+// Precondition: the input is smaller or equal to `2**128 - 1`
+def main(field i) -> u32[4]:
+
+	return from_bits(unpack(i))

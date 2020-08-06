@@ -28,6 +28,7 @@ docker push zokrates/zokrates:$TAG
 echo "Published zokrates/zokrates:$TAG"
 
 # Release on Github
+git tag latest
 git tag $TAG
 git push origin $TAG
 

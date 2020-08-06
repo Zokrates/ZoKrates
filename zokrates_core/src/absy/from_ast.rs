@@ -1,6 +1,6 @@
 use absy;
 use imports;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
@@ -33,7 +33,12 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
                 Some(import.symbol.span.as_str()),
                 std::path::Path::new(import.source.span.as_str()),
             )
-            .alias(import.alias.map(|a| a.span.as_str()))
+            .alias(
+                import
+                    .alias
+                    .map(|a| a.span.as_str())
+                    .or(Some(import.symbol.span.as_str())),
+            )
             .span(import.span),
         }
     }
@@ -47,11 +52,11 @@ impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarat
 
         let id = definition.id.span.as_str();
 
-        let ty = absy::StructType {
+        let ty = absy::StructDefinition {
             fields: definition
                 .fields
                 .into_iter()
-                .map(|f| absy::StructFieldNode::from(f))
+                .map(|f| absy::StructDefinitionFieldNode::from(f))
                 .collect(),
         }
         .span(span.clone());
@@ -64,8 +69,8 @@ impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarat
     }
 }
 
-impl<'ast> From<pest::StructField<'ast>> for absy::StructFieldNode<'ast> {
-    fn from(field: pest::StructField<'ast>) -> absy::StructFieldNode {
+impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'ast> {
+    fn from(field: pest::StructField<'ast>) -> absy::StructDefinitionFieldNode {
         use absy::NodeValue;
 
         let span = field.span;
@@ -74,7 +79,7 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructFieldNode<'ast> {
 
         let ty = absy::UnresolvedTypeNode::from(field.ty);
 
-        absy::StructField { id, ty }.span(span)
+        absy::StructDefinitionField { id, ty }.span(span)
     }
 }
 
@@ -156,54 +161,8 @@ fn statements_from_statement<'ast, T: Field>(
         pest::Statement::Definition(s) => statements_from_definition(s),
         pest::Statement::Iteration(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Assertion(s) => vec![absy::StatementNode::from(s)],
-        pest::Statement::Assignment(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Return(s) => vec![absy::StatementNode::from(s)],
-        pest::Statement::MultiAssignment(s) => statements_from_multi_assignment(s),
     }
-}
-
-fn statements_from_multi_assignment<'ast, T: Field>(
-    assignment: pest::MultiAssignmentStatement<'ast>,
-) -> Vec<absy::StatementNode<T>> {
-    use absy::NodeValue;
-
-    let declarations = assignment
-        .lhs
-        .clone()
-        .into_iter()
-        .filter(|i| i.ty.is_some())
-        .map(|i| {
-            absy::Statement::Declaration(
-                absy::Variable::new(
-                    i.id.span.as_str(),
-                    absy::UnresolvedTypeNode::from(i.ty.unwrap()),
-                )
-                .span(i.id.span),
-            )
-            .span(i.span)
-        });
-
-    let lhs = assignment
-        .lhs
-        .into_iter()
-        .map(|i| absy::Assignee::Identifier(i.id.span.as_str()).span(i.id.span))
-        .collect();
-
-    let multi_def = absy::Statement::MultipleDefinition(
-        lhs,
-        absy::Expression::FunctionCall(
-            &assignment.function_id.span.as_str(),
-            assignment
-                .arguments
-                .into_iter()
-                .map(|e| absy::ExpressionNode::from(e))
-                .collect(),
-        )
-        .span(assignment.function_id.span),
-    )
-    .span(assignment.span);
-
-    declarations.chain(std::iter::once(multi_def)).collect()
 }
 
 fn statements_from_definition<'ast, T: Field>(
@@ -211,21 +170,74 @@ fn statements_from_definition<'ast, T: Field>(
 ) -> Vec<absy::StatementNode<T>> {
     use absy::NodeValue;
 
-    vec![
-        absy::Statement::Declaration(
-            absy::Variable::new(
-                definition.id.span.as_str(),
-                absy::UnresolvedTypeNode::from(definition.ty),
+    let lhs = definition.lhs;
+
+    match lhs.len() {
+        1 => {
+            // Definition or assignment
+            let a = lhs[0].clone();
+
+            let e: absy::ExpressionNode<T> = absy::ExpressionNode::from(definition.expression);
+
+            let s = match e.value {
+                absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
+                    vec![absy::AssigneeNode::from(a.a.clone())],
+                    e,
+                ),
+                _ => absy::Statement::Definition(absy::AssigneeNode::from(a.a.clone()), e),
+            };
+
+            match a.ty {
+                Some(ty) => {
+                    assert_eq!(a.a.accesses.len(), 0);
+
+                    let declaration = absy::Statement::Declaration(
+                        absy::Variable::new(
+                            a.a.id.span.as_str(),
+                            absy::UnresolvedTypeNode::from(ty),
+                        )
+                        .span(a.a.id.span.clone()),
+                    )
+                    .span(definition.span.clone());
+
+                    vec![declaration, s.span(definition.span)]
+                }
+                None => {
+                    // Assignment
+                    vec![s.span(definition.span)]
+                }
+            }
+        }
+        _ => {
+            // Multidefinition
+            let declarations = lhs.clone().into_iter().filter(|i| i.ty.is_some()).map(|a| {
+                let ty = a.ty;
+                let a = a.a;
+
+                assert_eq!(a.accesses.len(), 0);
+                absy::Statement::Declaration(
+                    absy::Variable::new(
+                        a.id.span.as_str(),
+                        absy::UnresolvedTypeNode::from(ty.unwrap()),
+                    )
+                    .span(a.id.span),
+                )
+                .span(a.span)
+            });
+            let lhs = lhs
+                .into_iter()
+                .map(|i| absy::Assignee::Identifier(i.a.id.span.as_str()).span(i.a.id.span))
+                .collect();
+
+            let multi_def = absy::Statement::MultipleDefinition(
+                lhs,
+                absy::ExpressionNode::from(definition.expression),
             )
-            .span(definition.id.span.clone()),
-        )
-        .span(definition.span.clone()),
-        absy::Statement::Definition(
-            absy::AssigneeNode::from(definition.id),
-            absy::ExpressionNode::from(definition.expression),
-        )
-        .span(definition.span),
-    ]
+            .span(definition.span);
+
+            declarations.chain(std::iter::once(multi_def)).collect()
+        }
+    }
 }
 
 impl<'ast, T: Field> From<pest::ReturnStatement<'ast>> for absy::StatementNode<'ast, T> {
@@ -250,23 +262,8 @@ impl<'ast, T: Field> From<pest::AssertionStatement<'ast>> for absy::StatementNod
     fn from(statement: pest::AssertionStatement<'ast>) -> absy::StatementNode<T> {
         use absy::NodeValue;
 
-        match statement.expression {
-            pest::Expression::Binary(e) => match e.op {
-                pest::BinaryOperator::Eq => absy::Statement::Condition(
-                    absy::ExpressionNode::from(*e.left),
-                    absy::ExpressionNode::from(*e.right),
-                ),
-                _ => unimplemented!(
-                    "Assertion statements should be an equality check, found {}",
-                    statement.span.as_str()
-                ),
-            },
-            _ => unimplemented!(
-                "Assertion statements should be an equality check, found {}",
-                statement.span.as_str()
-            ),
-        }
-        .span(statement.span)
+        absy::Statement::Assertion(absy::ExpressionNode::from(statement.expression))
+            .span(statement.span)
     }
 }
 
@@ -286,18 +283,6 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
         let var = absy::Variable::new(index, ty).span(statement.index.span);
 
         absy::Statement::For(var, from, to, statements).span(statement.span)
-    }
-}
-
-impl<'ast, T: Field> From<pest::AssignmentStatement<'ast>> for absy::StatementNode<'ast, T> {
-    fn from(statement: pest::AssignmentStatement<'ast>) -> absy::StatementNode<T> {
-        use absy::NodeValue;
-
-        absy::Statement::Definition(
-            absy::AssigneeNode::from(statement.assignee),
-            absy::ExpressionNode::from(statement.expression),
-        )
-        .span(statement.span)
     }
 }
 
@@ -369,7 +354,34 @@ impl<'ast, T: Field> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),
             ),
-            o => unimplemented!("Operator {:?} not implemented", o),
+            pest::BinaryOperator::BitXor => absy::Expression::BitXor(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::LeftShift => absy::Expression::LeftShift(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::RightShift => absy::Expression::RightShift(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::BitAnd => absy::Expression::BitAnd(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::BitOr => absy::Expression::BitOr(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            // rewrite (a != b)` as `!(a == b)`
+            pest::BinaryOperator::NotEq => absy::Expression::Not(
+                box absy::Expression::Eq(
+                    box absy::ExpressionNode::from(*expression.left),
+                    box absy::ExpressionNode::from(*expression.right),
+                )
+                .span(expression.span.clone()),
+            ),
         }
         .span(expression.span)
     }
@@ -397,23 +409,13 @@ impl<'ast, T: Field> From<pest::Spread<'ast>> for absy::SpreadNode<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> From<pest::Range<'ast>> for absy::RangeNode<T> {
-    fn from(range: pest::Range<'ast>) -> absy::RangeNode<T> {
+impl<'ast, T: Field> From<pest::Range<'ast>> for absy::RangeNode<'ast, T> {
+    fn from(range: pest::Range<'ast>) -> absy::RangeNode<'ast, T> {
         use absy::NodeValue;
 
-        let from = range
-            .from
-            .map(|e| match absy::ExpressionNode::from(e.0).value {
-                absy::Expression::FieldConstant(n) => n,
-                e => unimplemented!("Range bounds should be constants, found {}", e),
-            });
+        let from = range.from.map(|e| absy::ExpressionNode::from(e.0));
 
-        let to = range
-            .to
-            .map(|e| match absy::ExpressionNode::from(e.0).value {
-                absy::Expression::FieldConstant(n) => n,
-                e => unimplemented!("Range bounds should be constants, found {}", e),
-            });
+        let to = range.to.map(|e| absy::ExpressionNode::from(e.0));
 
         absy::Range { from, to }.span(range.span)
     }
@@ -556,6 +558,18 @@ impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNo
             pest::ConstantExpression::DecimalNumber(n) => {
                 absy::Expression::FieldConstant(T::try_from_dec_str(&n.value).unwrap()).span(n.span)
             }
+            pest::ConstantExpression::U8(n) => absy::Expression::U8Constant(
+                u8::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            )
+            .span(n.span),
+            pest::ConstantExpression::U16(n) => absy::Expression::U16Constant(
+                u16::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            )
+            .span(n.span),
+            pest::ConstantExpression::U32(n) => absy::Expression::U32Constant(
+                u32::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            )
+            .span(n.span),
         }
     }
 }
@@ -604,6 +618,9 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
             pest::Type::Basic(t) => match t {
                 pest::BasicType::Field(t) => absy::UnresolvedType::FieldElement.span(t.span),
                 pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
+                pest::BasicType::U8(t) => absy::UnresolvedType::Uint(8).span(t.span),
+                pest::BasicType::U16(t) => absy::UnresolvedType::Uint(16).span(t.span),
+                pest::BasicType::U32(t) => absy::UnresolvedType::Uint(32).span(t.span),
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
@@ -612,6 +629,9 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
                             absy::UnresolvedType::FieldElement.span(t.span)
                         }
                         pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
+                        pest::BasicType::U8(t) => absy::UnresolvedType::Uint(8).span(t.span),
+                        pest::BasicType::U16(t) => absy::UnresolvedType::Uint(16).span(t.span),
+                        pest::BasicType::U32(t) => absy::UnresolvedType::Uint(32).span(t.span),
                     },
                     pest::BasicOrStructType::Struct(t) => {
                         absy::UnresolvedType::User(t.span.as_str().to_string()).span(t.span)
@@ -656,13 +676,13 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
 mod tests {
     use super::*;
     use absy::NodeValue;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn return_forty_two() {
-        let source = "def main() -> (field): return 42";
+        let source = "def main() -> field: return 42";
         let ast = pest::generate_ast(&source).unwrap();
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
                 symbol: absy::Symbol::HereFunction(
@@ -671,7 +691,7 @@ mod tests {
                         statements: vec![absy::Statement::Return(
                             absy::ExpressionList {
                                 expressions: vec![absy::Expression::FieldConstant(
-                                    FieldPrime::from(42),
+                                    Bn128Field::from(42),
                                 )
                                 .into()],
                             }
@@ -688,14 +708,14 @@ mod tests {
             .into()],
             imports: vec![],
         };
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 
     #[test]
     fn return_true() {
-        let source = "def main() -> (bool): return true";
+        let source = "def main() -> bool: return true";
         let ast = pest::generate_ast(&source).unwrap();
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
                 symbol: absy::Symbol::HereFunction(
@@ -718,15 +738,15 @@ mod tests {
             .into()],
             imports: vec![],
         };
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 
     #[test]
     fn arguments() {
-        let source = "def main(private field a, bool b) -> (field): return 42";
+        let source = "def main(private field a, bool b) -> field: return 42";
         let ast = pest::generate_ast(&source).unwrap();
 
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
                 symbol: absy::Symbol::HereFunction(
@@ -752,7 +772,7 @@ mod tests {
                         statements: vec![absy::Statement::Return(
                             absy::ExpressionList {
                                 expressions: vec![absy::Expression::FieldConstant(
-                                    FieldPrime::from(42),
+                                    Bn128Field::from(42),
                                 )
                                 .into()],
                             }
@@ -773,14 +793,14 @@ mod tests {
             imports: vec![],
         };
 
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 
     mod types {
         use super::*;
 
-        /// Helper method to generate the ast for `def main(private {ty} a) -> (): return` which we use to check ty
-        fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, FieldPrime> {
+        /// Helper method to generate the ast for `def main(private {ty} a): return` which we use to check ty
+        fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, Bn128Field> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
@@ -841,17 +861,17 @@ mod tests {
             ];
 
             for (ty, expected) in vectors {
-                let source = format!("def main(private {} a) -> (): return", ty);
+                let source = format!("def main(private {} a): return", ty);
                 let expected = wrap(expected);
                 let ast = pest::generate_ast(&source).unwrap();
-                assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+                assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
             }
         }
     }
 
     mod postfix {
         use super::*;
-        fn wrap(expression: absy::Expression<'static, FieldPrime>) -> absy::Module<FieldPrime> {
+        fn wrap(expression: absy::Expression<'static, Bn128Field>) -> absy::Module<Bn128Field> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
@@ -886,7 +906,7 @@ mod tests {
                     absy::Expression::Select(
                         box absy::Expression::Identifier("a").into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(FieldPrime::from(3)).into(),
+                            absy::Expression::FieldConstant(Bn128Field::from(3)).into(),
                         )
                         .into(),
                     ),
@@ -897,13 +917,13 @@ mod tests {
                         box absy::Expression::Select(
                             box absy::Expression::Identifier("a").into(),
                             box absy::RangeOrExpression::Expression(
-                                absy::Expression::FieldConstant(FieldPrime::from(3)).into(),
+                                absy::Expression::FieldConstant(Bn128Field::from(3)).into(),
                             )
                             .into(),
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                            absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
                         )
                         .into(),
                     ),
@@ -913,11 +933,11 @@ mod tests {
                     absy::Expression::Select(
                         box absy::Expression::FunctionCall(
                             "a",
-                            vec![absy::Expression::FieldConstant(FieldPrime::from(3)).into()],
+                            vec![absy::Expression::FieldConstant(Bn128Field::from(3)).into()],
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                            absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
                         )
                         .into(),
                     ),
@@ -928,17 +948,17 @@ mod tests {
                         box absy::Expression::Select(
                             box absy::Expression::FunctionCall(
                                 "a",
-                                vec![absy::Expression::FieldConstant(FieldPrime::from(3)).into()],
+                                vec![absy::Expression::FieldConstant(Bn128Field::from(3)).into()],
                             )
                             .into(),
                             box absy::RangeOrExpression::Expression(
-                                absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                                absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
                             )
                             .into(),
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(FieldPrime::from(5)).into(),
+                            absy::Expression::FieldConstant(Bn128Field::from(5)).into(),
                         )
                         .into(),
                     ),
@@ -946,10 +966,10 @@ mod tests {
             ];
 
             for (source, expected) in vectors {
-                let source = format!("def main() -> (): return {}", source);
+                let source = format!("def main(): return {}", source);
                 let expected = wrap(expected);
                 let ast = pest::generate_ast(&source).unwrap();
-                assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+                assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
             }
         }
 
@@ -957,18 +977,161 @@ mod tests {
         #[should_panic]
         fn call_array_element() {
             // a call after an array access should be rejected
-            let source = "def main() -> (): return a[2](3)";
+            let source = "def main(): return a[2](3)";
             let ast = pest::generate_ast(&source).unwrap();
-            absy::Module::<FieldPrime>::from(ast);
+            absy::Module::<Bn128Field>::from(ast);
         }
 
         #[test]
         #[should_panic]
         fn call_call_result() {
             // a call after a call should be rejected
-            let source = "def main() -> (): return a(2)(3)";
+            let source = "def main(): return a(2)(3)";
             let ast = pest::generate_ast(&source).unwrap();
-            absy::Module::<FieldPrime>::from(ast);
+            absy::Module::<Bn128Field>::from(ast);
         }
+    }
+    #[test]
+    fn declarations() {
+        use self::pest::Span;
+
+        let span = Span::new(&"", 0, 0).unwrap();
+
+        // For different definitions, we generate declarations
+        // Case 1: `id = expr` where `expr` is not a function call
+        // This is a simple assignment, doesn't implicitely declare a variable
+        // A `Definition` is generatedm and no `Declaration`s
+
+        let definition = pest::DefinitionStatement {
+            lhs: vec![pest::OptionallyTypedAssignee {
+                ty: None,
+                a: pest::Assignee {
+                    id: pest::IdentifierExpression {
+                        value: String::from("a"),
+                        span: span.clone(),
+                    },
+                    accesses: vec![],
+                    span: span.clone(),
+                },
+                span: span.clone(),
+            }],
+            expression: pest::Expression::Constant(pest::ConstantExpression::DecimalNumber(
+                pest::DecimalNumberExpression {
+                    value: String::from("42"),
+                    span: span.clone(),
+                },
+            )),
+            span: span.clone(),
+        };
+
+        let statements: Vec<absy::StatementNode<Bn128Field>> =
+            statements_from_definition(definition);
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].value {
+            absy::Statement::Definition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
+            }
+        };
+
+        // Case 2: `id = expr` where `expr` is a function call
+        // A MultiDef is generated
+
+        let definition = pest::DefinitionStatement {
+            lhs: vec![pest::OptionallyTypedAssignee {
+                ty: None,
+                a: pest::Assignee {
+                    id: pest::IdentifierExpression {
+                        value: String::from("a"),
+                        span: span.clone(),
+                    },
+                    accesses: vec![],
+                    span: span.clone(),
+                },
+                span: span.clone(),
+            }],
+            expression: pest::Expression::Postfix(pest::PostfixExpression {
+                id: pest::IdentifierExpression {
+                    value: String::from("foo"),
+                    span: span.clone(),
+                },
+                accesses: vec![pest::Access::Call(pest::CallAccess {
+                    expressions: vec![],
+                    span: span.clone(),
+                })],
+                span: span.clone(),
+            }),
+            span: span.clone(),
+        };
+
+        let statements: Vec<absy::StatementNode<Bn128Field>> =
+            statements_from_definition(definition);
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].value {
+            absy::Statement::MultipleDefinition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
+            }
+        };
+        // Case 3: `ids = expr` where `expr` is a function call
+        // This implicitely declares all variables which are type annotated
+
+        // `field a, b = foo()`
+
+        let definition = pest::DefinitionStatement {
+            lhs: vec![
+                pest::OptionallyTypedAssignee {
+                    ty: Some(pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
+                        span: span.clone(),
+                    }))),
+                    a: pest::Assignee {
+                        id: pest::IdentifierExpression {
+                            value: String::from("a"),
+                            span: span.clone(),
+                        },
+                        accesses: vec![],
+                        span: span.clone(),
+                    },
+                    span: span.clone(),
+                },
+                pest::OptionallyTypedAssignee {
+                    ty: None,
+                    a: pest::Assignee {
+                        id: pest::IdentifierExpression {
+                            value: String::from("b"),
+                            span: span.clone(),
+                        },
+                        accesses: vec![],
+                        span: span.clone(),
+                    },
+                    span: span.clone(),
+                },
+            ],
+            expression: pest::Expression::Postfix(pest::PostfixExpression {
+                id: pest::IdentifierExpression {
+                    value: String::from("foo"),
+                    span: span.clone(),
+                },
+                accesses: vec![pest::Access::Call(pest::CallAccess {
+                    expressions: vec![],
+                    span: span.clone(),
+                })],
+                span: span.clone(),
+            }),
+            span: span.clone(),
+        };
+
+        let statements: Vec<absy::StatementNode<Bn128Field>> =
+            statements_from_definition(definition);
+
+        assert_eq!(statements.len(), 2);
+        match &statements[1].value {
+            absy::Statement::MultipleDefinition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
+            }
+        };
     }
 }

@@ -1,2 +1,0 @@
-def main(field selector, field[2] lhs, field[2] rhs) -> (field[2]):
-	return if selector == 0 then lhs else rhs fi

@@ -233,12 +233,6 @@ err() {
     exit 1
 }
 
-need() {
-    if ! command -v $1 > /dev/null 2>&1; then
-        err "need $1 (command not found)"
-    fi
-}
-
 main() {
     need_cmd curl
 
@@ -259,12 +253,11 @@ main() {
     done
 
     # Dependencies
-    need basename
-    need curl
-    need install
-    need mkdir
-    need mktemp
-    need tar
+    need_cmd curl
+    need_cmd install
+    need_cmd mkdir
+    need_cmd mktemp
+    need_cmd tar
 
     git="ZoKrates/ZoKrates"
 

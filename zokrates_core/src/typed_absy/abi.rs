@@ -30,12 +30,11 @@ impl Abi {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use typed_absy::types::{ArrayType, FunctionKey, StructMember};
+    use typed_absy::types::{ArrayType, FunctionKey, StructMember, StructType};
     use typed_absy::{
-        Identifier, Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
-        Variable,
+        Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, Variable,
     };
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn generate_abi_from_typed_ast() {
@@ -45,19 +44,11 @@ mod tests {
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
                     Parameter {
-                        id: Variable::field_element(Identifier {
-                            id: "a",
-                            version: 0,
-                            stack: vec![],
-                        }),
+                        id: Variable::field_element("a"),
                         private: true,
                     },
                     Parameter {
-                        id: Variable::boolean(Identifier {
-                            id: "b",
-                            version: 0,
-                            stack: vec![],
-                        }),
+                        id: Variable::boolean("b"),
                         private: false,
                     },
                 ],
@@ -71,7 +62,7 @@ mod tests {
         let mut modules = HashMap::new();
         modules.insert("main".into(), TypedModule { functions });
 
-        let typed_ast: TypedProgram<FieldPrime> = TypedProgram {
+        let typed_ast: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),
             modules,
         };
@@ -156,15 +147,23 @@ mod tests {
             inputs: vec![AbiInput {
                 name: String::from("foo"),
                 public: true,
-                ty: Type::Struct(vec![
+                ty: Type::Struct(StructType::new(
+                    "".into(),
+                    "Foo".into(),
+                    vec![
+                        StructMember::new(String::from("a"), Type::FieldElement),
+                        StructMember::new(String::from("b"), Type::Boolean),
+                    ],
+                )),
+            }],
+            outputs: vec![Type::Struct(StructType::new(
+                "".into(),
+                "Foo".into(),
+                vec![
                     StructMember::new(String::from("a"), Type::FieldElement),
                     StructMember::new(String::from("b"), Type::Boolean),
-                ]),
-            }],
-            outputs: vec![Type::Struct(vec![
-                StructMember::new(String::from("a"), Type::FieldElement),
-                StructMember::new(String::from("b"), Type::Boolean),
-            ])],
+                ],
+            ))],
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -176,31 +175,37 @@ mod tests {
       "name": "foo",
       "public": true,
       "type": "struct",
-      "components": [
-        {
-          "name": "a",
-          "type": "field"
-        },
-        {
-          "name": "b",
-          "type": "bool"
-        }
-      ]
+      "components": {
+        "name": "Foo",
+        "members": [
+          {
+            "name": "a",
+            "type": "field"
+          },
+          {
+            "name": "b",
+            "type": "bool"
+          }
+        ]
+      }
     }
   ],
   "outputs": [
     {
       "type": "struct",
-      "components": [
-        {
-          "name": "a",
-          "type": "field"
-        },
-        {
-          "name": "b",
-          "type": "bool"
-        }
-      ]
+      "components": {
+        "name": "Foo",
+        "members": [
+          {
+            "name": "a",
+            "type": "field"
+          },
+          {
+            "name": "b",
+            "type": "bool"
+          }
+        ]
+      }
     }
   ]
 }"#
@@ -213,13 +218,21 @@ mod tests {
             inputs: vec![AbiInput {
                 name: String::from("foo"),
                 public: true,
-                ty: Type::Struct(vec![StructMember::new(
-                    String::from("bar"),
-                    Type::Struct(vec![
-                        StructMember::new(String::from("a"), Type::FieldElement),
-                        StructMember::new(String::from("b"), Type::FieldElement),
-                    ]),
-                )]),
+                ty: Type::Struct(StructType::new(
+                    "".into(),
+                    "Foo".into(),
+                    vec![StructMember::new(
+                        String::from("bar"),
+                        Type::Struct(StructType::new(
+                            "".into(),
+                            "Bar".into(),
+                            vec![
+                                StructMember::new(String::from("a"), Type::FieldElement),
+                                StructMember::new(String::from("b"), Type::FieldElement),
+                            ],
+                        )),
+                    )],
+                )),
             }],
             outputs: vec![],
         };
@@ -233,22 +246,28 @@ mod tests {
       "name": "foo",
       "public": true,
       "type": "struct",
-      "components": [
-        {
-          "name": "bar",
-          "type": "struct",
-          "components": [
-            {
-              "name": "a",
-              "type": "field"
-            },
-            {
-              "name": "b",
-              "type": "field"
+      "components": {
+        "name": "Foo",
+        "members": [
+          {
+            "name": "bar",
+            "type": "struct",
+            "components": {
+              "name": "Bar",
+              "members": [
+                {
+                  "name": "a",
+                  "type": "field"
+                },
+                {
+                  "name": "b",
+                  "type": "field"
+                }
+              ]
             }
-          ]
-        }
-      ]
+          }
+        ]
+      }
     }
   ],
   "outputs": []
@@ -263,10 +282,14 @@ mod tests {
                 name: String::from("a"),
                 public: false,
                 ty: Type::Array(ArrayType::new(
-                    Type::Struct(vec![
-                        StructMember::new(String::from("b"), Type::FieldElement),
-                        StructMember::new(String::from("c"), Type::Boolean),
-                    ]),
+                    Type::Struct(StructType::new(
+                        "".into(),
+                        "Foo".into(),
+                        vec![
+                            StructMember::new(String::from("b"), Type::FieldElement),
+                            StructMember::new(String::from("c"), Type::Boolean),
+                        ],
+                    )),
                     2,
                 )),
             }],
@@ -285,16 +308,19 @@ mod tests {
       "components": {
         "size": 2,
         "type": "struct",
-        "components": [
-          {
-            "name": "b",
-            "type": "field"
-          },
-          {
-            "name": "c",
-            "type": "bool"
-          }
-        ]
+        "components": {
+          "name": "Foo",
+          "members": [
+            {
+              "name": "b",
+              "type": "field"
+            },
+            {
+              "name": "c",
+              "type": "bool"
+            }
+          ]
+        }
       }
     }
   ],

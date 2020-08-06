@@ -1,0 +1,5 @@
+struct Foo {}
+struct Bar {}
+
+def main() -> (Foo):
+	return Bar {}

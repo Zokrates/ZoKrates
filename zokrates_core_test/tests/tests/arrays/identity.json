@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/arrays/identity.code",
+	"curves": ["Bn128", "Bls12"],
 	"tests": [
 		{
 			"input": {

@@ -1,0 +1,6 @@
+/*
+    This is a multi-line comment
+    written in more than just one line.
+*/
+def main() -> field:
+    return 42

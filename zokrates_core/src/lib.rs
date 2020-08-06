@@ -10,22 +10,26 @@ extern crate typed_arena;
 extern crate serde_derive;
 extern crate bellman_ce as bellman;
 extern crate bincode;
+extern crate csv;
 extern crate ff_ce as ff;
+extern crate hex;
 extern crate lazy_static;
 extern crate pairing_ce as pairing;
 extern crate regex;
-extern crate zokrates_embed;
+extern crate zokrates_common;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
 
 mod embed;
 mod flatten;
 pub mod imports;
+mod macros;
 mod optimizer;
 mod parser;
 mod semantics;
 mod solvers;
 mod static_analysis;
+mod zir;
 
 pub mod absy;
 pub mod compile;

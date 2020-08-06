@@ -1,2 +1,3 @@
-def main(field selector, field[256] lhs, field[256] rhs) -> (field[512]):
-	return if selector == 0 then [...lhs, ...rhs] else [...rhs, ...lhs] fi
+// Concatenate two u32[8] arrays in an order defined by a boolean selector
+def main(bool selector, u32[8] lhs, u32[8] rhs) -> u32[16]:
+	return if selector then [...rhs, ...lhs] else [...lhs, ...rhs] fi

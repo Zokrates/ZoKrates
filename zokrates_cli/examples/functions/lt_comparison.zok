@@ -1,0 +1,17 @@
+def lt(field a,field b) -> bool:
+    return a < b
+
+def cutoff() -> field:
+    return 31337
+
+def getThing(field index) -> field:
+	field[6] a = [13, 23, 43, 53, 73, 83]
+	return a[index]
+
+def cubeThing(field thing) -> field:
+    return thing**3
+
+def main(field index) -> bool:
+    field thing = getThing(index)
+    thing = cubeThing(thing)
+    return lt(cutoff(), thing)

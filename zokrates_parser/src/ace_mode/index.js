@@ -37,7 +37,7 @@ ace.define("ace/mode/zokrates_highlight_rules",["require","exports","module","ac
     var ZoKratesHighlightRules = function () {
 
         var keywords = (
-            "endfor|as|return|byte|field|bool|if|then|fi|do|else|export|false|def|for|import|from|uint|in|public|private|struct|true"
+            "assert|endfor|as|return|byte|field|bool|if|then|fi|do|else|export|false|def|for|import|from|uint|in|public|private|struct|true"
         );
 
         var keywordMapper = this.createKeywordMapper({

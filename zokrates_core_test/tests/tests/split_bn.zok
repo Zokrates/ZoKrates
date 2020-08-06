@@ -1,0 +1,7 @@
+import "EMBED/unpack"
+
+def main(field a) -> (bool[254]):
+	
+	bool[254] b = unpack(a)
+
+	return b

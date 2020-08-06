@@ -1,0 +1,4 @@
+import "EMBED/u32_to_bits" as to_bits
+
+def main(u32[4] input) -> bool[128]:
+	return [...to_bits(input[0]), ...to_bits(input[1]), ...to_bits(input[2]), ...to_bits(input[3])]

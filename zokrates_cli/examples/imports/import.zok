@@ -1,5 +1,11 @@
+from "./bar" import Bar as MyBar
+from "./bar" import Bar
+
 import "./foo"
 import "./bar"
 
-def main() -> (field):
+def main() -> field:
+	MyBar my_bar = MyBar {}
+	Bar bar = Bar {}
+	assert(my_bar == bar)
 	return foo() + bar()

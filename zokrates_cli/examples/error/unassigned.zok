@@ -1,4 +1,4 @@
-def main() -> (field):
+def main() -> field:
 	field a
 	field b = a + 1
 	return b

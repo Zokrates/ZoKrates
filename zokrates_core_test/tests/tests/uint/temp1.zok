@@ -1,0 +1,25 @@
+import "EMBED/u32_to_bits" as to_bits
+import "EMBED/u32_from_bits" as from_bits
+
+def right_rotate_6(u32 e) -> u32:
+	bool[32] b = to_bits(e)
+	return from_bits([...b[26..], ...b[..26]])
+
+def right_rotate_11(u32 e) -> u32:
+	bool[32] b = to_bits(e)
+	return from_bits([...b[21..], ...b[..21]])
+
+def right_rotate_25(u32 e) -> u32:
+	bool[32] b = to_bits(e)
+	return from_bits([...b[7..], ...b[..7]])
+
+// input constraining costs 6 * 33 = 198 constraints, the rest 200
+def main(u32 e, u32 f, u32 g, u32 h, u32 k, u32 w) -> u32:
+	// ch := (e and f) xor ((not e) and g)
+	u32 ch = (e & f) ^ ((!e) & g) // should be 100 constraints
+
+	// S1 := (e rightrotate 6) xor (e rightrotate 11) xor (e rightrotate 25)
+	u32 S1 = right_rotate_6(e) ^ right_rotate_11(e) ^ right_rotate_25(e) // should be 66 constraints
+	
+	// temp1 := h + S1 + ch + k + w
+	return h + S1 + ch + k + w // should be 35 constraints

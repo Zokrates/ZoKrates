@@ -6,7 +6,7 @@
 
 use crate::absy::*;
 use crate::compile::compile_module;
-use crate::compile::{CompileErrorInner, CompileErrors, Resolve};
+use crate::compile::{CompileErrorInner, CompileErrors};
 use crate::embed::FlatEmbed;
 use crate::parser::Position;
 use std::collections::HashMap;
@@ -15,7 +15,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use typed_arena::Arena;
-use zokrates_field::field::Field;
+use zokrates_common::Resolver;
+use zokrates_field::Field;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -135,7 +136,7 @@ impl Importer {
         &self,
         destination: Module<'ast, T>,
         location: PathBuf,
-        resolve_option: Option<Resolve<E>>,
+        resolver: Option<&dyn Resolver<E>>,
         modules: &mut HashMap<ModuleId, Module<'ast, T>>,
         arena: &'ast Arena<String>,
     ) -> Result<Module<'ast, T>, CompileErrors> {
@@ -148,31 +149,86 @@ impl Importer {
             // handle the case of special bellman and packing imports
             if import.source.starts_with("EMBED") {
                 match import.source.to_str().unwrap() {
-                    "EMBED/sha256round" => {
-                        let alias = alias.unwrap_or("sha256round");
-
-                        symbols.push(
-                            SymbolDeclaration {
-                                id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Sha256Round),
-                            }
-                            .start_end(pos.0, pos.1),
-                        );
-                    }
                     "EMBED/unpack" => {
                         let alias = alias.unwrap_or("unpack");
 
                         symbols.push(
                             SymbolDeclaration {
                                 id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Unpack),
+                                symbol: Symbol::Flat(FlatEmbed::Unpack(T::get_required_bits())),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u32_to_bits" => {
+                        let alias = alias.unwrap_or("u32_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U32ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u16_to_bits" => {
+                        let alias = alias.unwrap_or("u16_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U16ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u8_to_bits" => {
+                        let alias = alias.unwrap_or("u8_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U8ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u32_from_bits" => {
+                        let alias = alias.unwrap_or("u32_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U32FromBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u16_from_bits" => {
+                        let alias = alias.unwrap_or("u16_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U16FromBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u8_from_bits" => {
+                        let alias = alias.unwrap_or("u8_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U8FromBits),
                             }
                             .start_end(pos.0, pos.1),
                         );
                     }
                     s => {
                         return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Embed {} not found. Options are \"EMBED/sha256round\", \"EMBED/unpack\"", s)).with_pos(Some(pos)),
+                            Error::new(format!("Embed {} not found", s)).with_pos(Some(pos)),
                         )
                         .in_file(&location)
                         .into());
@@ -180,8 +236,8 @@ impl Importer {
                 }
             } else {
                 // to resolve imports, we need a resolver
-                match resolve_option {
-                    Some(resolve) => match resolve(location.clone(), import.source.to_path_buf()) {
+                match resolver {
+                    Some(res) => match res.resolve(location.clone(), import.source.to_path_buf()) {
                         Ok((source, new_location)) => {
                             // generate an alias from the imported path if none was given explicitely
                             let alias = import.alias.unwrap_or(
@@ -206,7 +262,7 @@ impl Importer {
                                     let compiled = compile_module(
                                         source,
                                         new_location.clone(),
-                                        resolve_option,
+                                        resolver,
                                         modules,
                                         &arena,
                                     )?;

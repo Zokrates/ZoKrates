@@ -17,9 +17,9 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::fmt;
-use zokrates_core::typed_absy::Type;
+use zokrates_core::typed_absy::{Type, UBitwidth};
 
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 type Map<K, V> = BTreeMap<K, V>;
 
@@ -42,6 +42,9 @@ impl fmt::Display for Error {
 
 #[derive(PartialEq, Debug)]
 enum Value<T> {
+    U8(u8),
+    U16(u16),
+    U32(u32),
     Field(T),
     Boolean(bool),
     Array(Vec<Value<T>>),
@@ -50,6 +53,9 @@ enum Value<T> {
 
 #[derive(PartialEq, Debug)]
 enum CheckedValue<T> {
+    U8(u8),
+    U16(u16),
+    U32(u32),
     Field(T),
     Boolean(bool),
     Array(Vec<CheckedValue<T>>),
@@ -63,6 +69,9 @@ impl<T: Field> fmt::Display for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::Field(v) => write!(f, "{}", v),
+            Value::U8(v) => write!(f, "{:#04x}", v),
+            Value::U16(v) => write!(f, "{:#06x}", v),
+            Value::U32(v) => write!(f, "{:#010x}", v),
             Value::Boolean(v) => write!(f, "{}", v),
             Value::Array(v) => write!(
                 f,
@@ -88,6 +97,9 @@ impl<T: Field> Value<T> {
     fn check(self, ty: Type) -> Result<CheckedValue<T>, String> {
         match (self, ty) {
             (Value::Field(f), Type::FieldElement) => Ok(CheckedValue::Field(f)),
+            (Value::U8(f), Type::Uint(UBitwidth::B8)) => Ok(CheckedValue::U8(f)),
+            (Value::U16(f), Type::Uint(UBitwidth::B16)) => Ok(CheckedValue::U16(f)),
+            (Value::U32(f), Type::Uint(UBitwidth::B32)) => Ok(CheckedValue::U32(f)),
             (Value::Boolean(b), Type::Boolean) => Ok(CheckedValue::Boolean(b)),
             (Value::Array(a), Type::Array(array_type)) => {
                 if a.len() != array_type.size {
@@ -144,6 +156,9 @@ impl<T: From<usize>> Encode<T> for CheckedValue<T> {
     fn encode(self) -> Vec<T> {
         match self {
             CheckedValue::Field(t) => vec![t],
+            CheckedValue::U8(t) => vec![T::from(t as usize)],
+            CheckedValue::U16(t) => vec![T::from(t as usize)],
+            CheckedValue::U32(t) => vec![T::from(t as usize)],
             CheckedValue::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
             CheckedValue::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
             CheckedValue::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
@@ -151,7 +166,7 @@ impl<T: From<usize>> Encode<T> for CheckedValue<T> {
     }
 }
 
-impl<T: Clone + From<usize> + PartialEq> Decode<T> for CheckedValues<T> {
+impl<T: Field> Decode<T> for CheckedValues<T> {
     type Expected = Vec<Type>;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
@@ -169,7 +184,7 @@ impl<T: Clone + From<usize> + PartialEq> Decode<T> for CheckedValues<T> {
     }
 }
 
-impl<T: From<usize> + PartialEq + Clone> Decode<T> for CheckedValue<T> {
+impl<T: Field> Decode<T> for CheckedValue<T> {
     type Expected = Type;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
@@ -177,6 +192,15 @@ impl<T: From<usize> + PartialEq + Clone> Decode<T> for CheckedValue<T> {
 
         match expected {
             Type::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
+            Type::Uint(UBitwidth::B8) => CheckedValue::U8(
+                u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
+            ),
+            Type::Uint(UBitwidth::B16) => CheckedValue::U16(
+                u16::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
+            ),
+            Type::Uint(UBitwidth::B32) => CheckedValue::U32(
+                u32::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
+            ),
             Type::Boolean => {
                 let v = raw.pop().unwrap();
                 CheckedValue::Boolean(if v == 0.into() {
@@ -237,7 +261,18 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
         match v {
             serde_json::Value::String(s) => T::try_from_dec_str(&s)
                 .map(|v| Value::Field(v))
-                .map_err(|_| format!("Could not parse `{}` as field element", s)),
+                .or_else(|_| match s.len() {
+                    4 => u8::from_str_radix(&s[2..], 16)
+                        .map(|v| Value::U8(v))
+                        .map_err(|_| format!("Expected u8 value, found {}", s)),
+                    6 => u16::from_str_radix(&s[2..], 16)
+                        .map(|v| Value::U16(v))
+                        .map_err(|_| format!("Expected u16 value, found {}", s)),
+                    10 => u32::from_str_radix(&s[2..], 16)
+                        .map(|v| Value::U32(v))
+                        .map_err(|_| format!("Expected u32 value, found {}", s)),
+                    _ => Err(format!("Cannot parse {} to any type", s)),
+                }),
             serde_json::Value::Bool(b) => Ok(Value::Boolean(b)),
             serde_json::Value::Number(n) => Err(format!(
                 "Value `{}` isn't allowed, did you mean `\"{}\"`?",
@@ -262,6 +297,9 @@ impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
     fn into(self) -> serde_json::Value {
         match self {
             CheckedValue::Field(f) => serde_json::Value::String(f.to_dec_string()),
+            CheckedValue::U8(u) => serde_json::Value::String(format!("{:#04x}", u)),
+            CheckedValue::U16(u) => serde_json::Value::String(format!("{:#06x}", u)),
+            CheckedValue::U32(u) => serde_json::Value::String(format!("{:#010x}", u)),
             CheckedValue::Boolean(b) => serde_json::Value::Bool(b),
             CheckedValue::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into()).collect())
@@ -307,13 +345,13 @@ pub fn parse_strict<T: Field>(s: &str, types: Vec<Type>) -> Result<CheckedValues
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn numbers() {
         let s = "[1, 2]";
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap_err(),
+            parse::<Bn128Field>(s).unwrap_err(),
             Error::Conversion(String::from(
                 "Value `1` isn't allowed, did you mean `\"1\"`?"
             ))
@@ -324,7 +362,7 @@ mod tests {
     fn fields() {
         let s = r#"["1", "2"]"#;
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap(),
+            parse::<Bn128Field>(s).unwrap(),
             Values(vec![Value::Field(1.into()), Value::Field(2.into())])
         );
     }
@@ -333,7 +371,7 @@ mod tests {
     fn bools() {
         let s = "[true, false]";
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap(),
+            parse::<Bn128Field>(s).unwrap(),
             Values(vec![Value::Boolean(true), Value::Boolean(false)])
         );
     }
@@ -342,7 +380,7 @@ mod tests {
     fn array() {
         let s = "[[true, false]]";
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap(),
+            parse::<Bn128Field>(s).unwrap(),
             Values(vec![Value::Array(vec![
                 Value::Boolean(true),
                 Value::Boolean(false)
@@ -354,7 +392,7 @@ mod tests {
     fn struc() {
         let s = r#"[{"a": "42"}]"#;
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap(),
+            parse::<Bn128Field>(s).unwrap(),
             Values(vec![Value::Struct(
                 vec![("a".to_string(), Value::Field(42.into()))]
                     .into_iter()
@@ -365,13 +403,13 @@ mod tests {
 
     mod strict {
         use super::*;
-        use zokrates_core::typed_absy::types::StructMember;
+        use zokrates_core::typed_absy::types::{StructMember, StructType};
 
         #[test]
         fn fields() {
             let s = r#"["1", "2"]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(s, vec![Type::FieldElement, Type::FieldElement])
+                parse_strict::<Bn128Field>(s, vec![Type::FieldElement, Type::FieldElement])
                     .unwrap(),
                 CheckedValues(vec![
                     CheckedValue::Field(1.into()),
@@ -384,7 +422,7 @@ mod tests {
         fn bools() {
             let s = "[true, false]";
             assert_eq!(
-                parse_strict::<FieldPrime>(s, vec![Type::Boolean, Type::Boolean]).unwrap(),
+                parse_strict::<Bn128Field>(s, vec![Type::Boolean, Type::Boolean]).unwrap(),
                 CheckedValues(vec![
                     CheckedValue::Boolean(true),
                     CheckedValue::Boolean(false)
@@ -396,7 +434,7 @@ mod tests {
         fn array() {
             let s = "[[true, false]]";
             assert_eq!(
-                parse_strict::<FieldPrime>(s, vec![Type::array(Type::Boolean, 2)]).unwrap(),
+                parse_strict::<Bn128Field>(s, vec![Type::array(Type::Boolean, 2)]).unwrap(),
                 CheckedValues(vec![CheckedValue::Array(vec![
                     CheckedValue::Boolean(true),
                     CheckedValue::Boolean(false)
@@ -408,12 +446,13 @@ mod tests {
         fn struc() {
             let s = r#"[{"a": "42"}]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(
+                parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap(),
                 CheckedValues(vec![CheckedValue::Struct(
@@ -425,12 +464,13 @@ mod tests {
 
             let s = r#"[{"b": "42"}]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(
+                parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Member with id `a` not found".into())
@@ -438,12 +478,13 @@ mod tests {
 
             let s = r#"[{}]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(
+                parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Expected 1 member(s), found 0".into())
@@ -451,12 +492,13 @@ mod tests {
 
             let s = r#"[{"a": false}]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(
+                parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Value `false` doesn't match expected type `field`".into())
@@ -470,6 +512,12 @@ mod tests {
         #[test]
         fn fields() {
             let v = CheckedValues(vec![CheckedValue::Field(1), CheckedValue::Field(2)]);
+            assert_eq!(v.encode(), vec![1, 2]);
+        }
+
+        #[test]
+        fn u8s() {
+            let v = CheckedValues::<usize>(vec![CheckedValue::U8(1), CheckedValue::U8(2)]);
             assert_eq!(v.encode(), vec![1, 2]);
         }
 

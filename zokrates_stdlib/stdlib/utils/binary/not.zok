@@ -1,3 +1,0 @@
-// NOT
-def main(field x) -> (field):
-	return 1 - x

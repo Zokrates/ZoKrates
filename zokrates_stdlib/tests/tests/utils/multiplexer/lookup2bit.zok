@@ -1,42 +1,42 @@
 import "utils/multiplexer/lookup2bit" as lookup
 
-def first() -> (field):
-	field[2] sel = [0,0]
+def first() -> bool:
+	bool[2] sel = [false, false]
+	field[4] t  = [0, 1, 2, 3]
+	
+	assert(0 == lookup(sel, t))
+	
+	return true
+	
+def second() -> bool:
+	bool[2] sel = [true, false]
+	field[4] t  = [0, 1, 2, 3]
+	
+	assert(1 == lookup(sel, t))
+	
+	return true
+	
+def third() -> bool:
+	bool[2] sel = [false, true]
 	field[4] t  = [0, 1, 2 , 3]
 	
-	0 == lookup(sel, t)
+	assert(2 == lookup(sel, t))
 	
-	return 1
-	
-def second() -> (field):
-	field[2] sel = [1,0]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	1 == lookup(sel, t)
-	
-	return 1
-	
-def thrid() -> (field):
-	field[2] sel = [0,1]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	2 == lookup(sel, t)
-	
-	return 1
+	return true
 
-def fourth() -> (field):
-	field[2] sel = [1,1]
+def fourth() -> bool:
+	bool[2] sel = [true, true]
 	field[4] t  = [0, 1, 2 , 3]
 	
-	3 == lookup(sel, t)
+	assert(3 == lookup(sel, t))
 	
-	return 1
+	return true
 	
-def main() -> (field):
+def main():
 
-	1 == first()
-	1 == second()
-	1 == thrid()
-	1 == fourth()
+	assert(first())
+	assert(second())
+	assert(third())
+	assert(fourth())
 	
-	return 1
+	return
