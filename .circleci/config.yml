@@ -112,7 +112,7 @@ jobs:
       - checkout
       - run:
           name: Build
-          command: cd zokrates_js && npm run build
+          command: cd zokrates_js && npm run build:dev
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
