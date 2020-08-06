@@ -28,8 +28,9 @@ docker push zokrates/zokrates:$TAG
 echo "Published zokrates/zokrates:$TAG"
 
 # Release on Github
-git tag latest
+git tag -f latest
 git tag $TAG
+git push origin --delete latest
 git push origin $TAG
 
 # Build zokrates js
