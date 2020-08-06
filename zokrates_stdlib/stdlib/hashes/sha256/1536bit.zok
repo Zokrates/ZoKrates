@@ -1,9 +1,10 @@
 import "./IVconstants" as IVconstants
 import "./shaRound" as sha256
 
-// A function that takes 6 u32[8] arrays as inputs
-// and applies 3 rounds of sha256 compression.
-// It returns an array of 256 bool.
+// A function that takes 6 u32[8] arrays as inputs, concatenates them,
+// and returns their sha256 compression as a u32[8].
+// Note: no padding is applied
+
 def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d, u32[8] e, u32[8] f) -> u32[8]:
 
     u32[8] IV =  IVconstants()

@@ -6,9 +6,9 @@
 
 To write your first SNARK program, check out the ZoKrates plugin in the [Remix online IDE](https://remix.ethereum.org)!
 
-### One-line install
+### One-line installation
 
-We provide a one-line install for Linux, MacOS and FreeBSD:
+We provide one-line installation for Linux, MacOS and FreeBSD:
 
 ```bash
 curl -LSfs get.zokrat.es | sh

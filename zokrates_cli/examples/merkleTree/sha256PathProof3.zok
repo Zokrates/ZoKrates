@@ -1,5 +1,7 @@
 import "hashes/sha256/512bit" as sha256
-import "utils/multiplexer/256bit" as multiplex
+
+def multiplex(bool selector, u32[8] left, u32[8] right) -> (u32[8]):
+	return if selector then right else left fi
 
 // Merkle-Tree inclusion proof for tree depth 3
 

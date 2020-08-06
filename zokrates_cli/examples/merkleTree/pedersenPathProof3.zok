@@ -4,8 +4,11 @@ import "ecc/babyjubjubParams" as context
 from "ecc/babyjubjubParams" import BabyJubJubParams
 import "hashes/utils/256bitsDirectionHelper" as multiplex
 
+def multiplex(bool selector, u32[8] left, u32[8] right) -> (u32[8]):
+	return if selector then right else left fi
+
 // Merke-Tree inclusion proof for tree depth 3 using SNARK efficient pedersen hashes
-// directionSelector=> 1/true if current digest is on the rhs of the hash
+// directionSelector=> true if current digest is on the rhs of the hash
 
 def main(u32[8] rootDigest, private u32[8] leafDigest, private bool[3] directionSelector, u32[8] PathDigest0, private u32[8] PathDigest1, private u32[8] PathDigest2):
 	BabyJubJubParams context = context()

@@ -6,9 +6,9 @@ ZoKrates currently exposes two primitive types and two complex types:
 
 ### `field`
 
-This is the most basic type in ZoKrates, and it represents a positive integer in `[0,  p - 1]` where `p` is a (large) prime number.
+This is the most basic type in ZoKrates, and it represents a field element with positive integer values in `[0,  p - 1]` where `p` is a (large) prime number. Standard arithmetic operations are supported; note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
 
-The prime `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` as imposed by the pairing curve supported by Ethereum.
+As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](/reference/proving_schemes.html#alt_bn128) curve supported by Ethereum.
 
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2, so that we have:
 
@@ -18,19 +18,23 @@ While `field` values mostly behave like unsigned integers, one should keep in mi
 
 ### `bool`
 
-ZoKrates has limited support for booleans, to the extent that they can only be used as the condition in `if ... else ... endif` expressions.
+Booleans are available in ZoKrates. When a boolean is used as a parameter of the main function, the program is constrained to only accept `0` or `1` for that parameter. A boolean can be asserted to be true using an `assert(bool)` statement.
 
-You can use them for equality and inequality checks between `field` values.
+### `u8/u16/u32`
 
-Note that while equality checks are cheap, inequality checks should be used wisely as they are orders of magnitude more expensive.
+Unsigned integers represent positive numbers of the interval `[0, 2 ** bitwidth[`, where `bitwidth` is specified in the type's name, e.g., 32 bits in the case of u32. Their arithmetics are defined modulo `2 ** bitwidth`.
+
+Internally, they use a binary encoding, which makes them particularly efficient for implementing programs that operate on that binary representation, e.g., the SHA256 hash function.
+
+Similarly to booleans, unsigned integer inputs of the main function only accept values of the appropriate range.
 
 ## Complex Types
 
-ZoKrates provides two complex types, Arrays and Structs.
+ZoKrates provides two complex types: arrays and structs.
 
 ### Arrays
 
-ZoKrates supports static arrays, i.e., their length needs to be known at compile time.
+ZoKrates supports static arrays, i.e., whose length needs to be known at compile time.
 Arrays can contain elements of any type and have arbitrary dimensions.
 
 The following example code shows examples of how to use arrays:
@@ -47,7 +51,7 @@ Initialization always needs to happen in the same statement as a declaration, un
 For initialization, a list of comma-separated values is provided within brackets `[]`.
 
 ZoKrates offers a special shorthand syntax to initialize an array with a constant value:
-`[value;repetitions]`
+`[value; repetitions]`
 
 
 The following code provides examples for declaration and initialization:
