@@ -40,8 +40,8 @@ jobs:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
-          name: Check format if rustfmt is available
-          command: "! rustup component add rustfmt || cargo fmt --all -- --check"
+          name: Check format
+          command: cargo fmt --all -- --check
       - run:
           name: Build
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
