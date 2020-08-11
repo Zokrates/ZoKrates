@@ -1,5 +1,6 @@
 use std::fmt;
 use std::path::PathBuf;
+use typed_absy::UExpression;
 
 pub type Identifier<'ast> = &'ast str;
 
@@ -14,11 +15,15 @@ pub struct StructMember {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct ArrayType {
-    pub size: usize,
+pub struct GArrayType<S> {
+    pub size: S,
     #[serde(flatten)]
     pub ty: Box<Type>,
 }
+
+pub type ArrayType = GArrayType<usize>;
+
+pub type UArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
 #[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct StructType {
@@ -111,9 +116,9 @@ pub enum Type {
     Uint(UBitwidth),
 }
 
-impl ArrayType {
-    pub fn new(ty: Type, size: usize) -> Self {
-        ArrayType {
+impl<S> GArrayType<S> {
+    pub fn new(ty: Type, size: S) -> Self {
+        GArrayType {
             ty: Box::new(ty),
             size,
         }

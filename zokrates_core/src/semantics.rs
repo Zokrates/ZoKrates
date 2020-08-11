@@ -281,10 +281,10 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn check_struct_type_declaration(
+    fn check_struct_type_declaration<T: Field>(
         &mut self,
         id: String,
-        s: StructDefinitionNode<'ast>,
+        s: StructDefinitionNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Type, Vec<ErrorInner>> {
@@ -630,7 +630,7 @@ impl<'ast> Checker<'ast> {
         }
     }
 
-    fn check_for_var(&self, var: &VariableNode) -> Result<(), ErrorInner> {
+    fn check_for_var<T: Field>(&self, var: &VariableNode<'ast, T>) -> Result<(), ErrorInner> {
         match var.value.get_type() {
             UnresolvedType::FieldElement => Ok(()),
             t => Err(ErrorInner {
@@ -727,9 +727,9 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn check_parameter(
-        &self,
-        p: ParameterNode<'ast>,
+    fn check_parameter<T: Field>(
+        &mut self,
+        p: ParameterNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Parameter<'ast>, Vec<ErrorInner>> {
@@ -741,9 +741,9 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn check_signature(
-        &self,
-        signature: UnresolvedSignature,
+    fn check_signature<T: Field>(
+        &mut self,
+        signature: UnresolvedSignature<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Signature, Vec<ErrorInner>> {
@@ -780,9 +780,9 @@ impl<'ast> Checker<'ast> {
         Ok(Signature { inputs, outputs })
     }
 
-    fn check_type(
-        &self,
-        ty: UnresolvedTypeNode,
+    fn check_type<T: Field>(
+        &mut self,
+        ty: UnresolvedTypeNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Type, ErrorInner> {
@@ -793,10 +793,36 @@ impl<'ast> Checker<'ast> {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
             UnresolvedType::Boolean => Ok(Type::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(Type::uint(bitwidth)),
-            UnresolvedType::Array(t, size) => Ok(Type::Array(ArrayType::new(
-                self.check_type(*t, module_id, types)?,
-                size,
-            ))),
+            UnresolvedType::Array(t, size) => {
+                let size = self.check_expression(size, module_id, types)?;
+
+                let ty = size.get_type();
+
+                let size = match size {
+                    TypedExpression::Uint(e) => match e.bitwidth() {
+                        UBitwidth::B32 => Ok(e.inner),
+                        bitwidth => Err(ErrorInner {
+                            pos: Some(pos),
+                            message: format!(
+                            "Expected array dimension to be a u32 constant, found {} of type {}",
+                            e, ty
+                        ),
+                        }),
+                    },
+                    _ => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected array dimension to be a u32 constant, found {} of type {}",
+                            size, ty
+                        ),
+                    }),
+                }?;
+
+                Ok(Type::Array(ArrayType::new(
+                    self.check_type(*t, module_id, types)?,
+                    size,
+                )))
+            }
             UnresolvedType::User(id) => {
                 types
                     .get(module_id)
@@ -811,9 +837,9 @@ impl<'ast> Checker<'ast> {
         }
     }
 
-    fn check_variable(
-        &self,
-        v: crate::absy::VariableNode<'ast>,
+    fn check_variable<T: Field>(
+        &mut self,
+        v: crate::absy::VariableNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Variable<'ast>, Vec<ErrorInner>> {
@@ -2037,7 +2063,7 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::InlineStruct(id, inline_members) => {
-                let ty = self.check_type(
+                let ty = self.check_type::<T>(
                     UnresolvedType::User(id.clone()).at(42, 42, 42),
                     module_id,
                     &types,
