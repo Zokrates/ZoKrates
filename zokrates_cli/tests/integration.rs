@@ -163,11 +163,14 @@ mod integration {
             flattened_path.to_str().unwrap(),
             "-o",
             inline_witness_path.to_str().unwrap(),
-            "-a",
         ];
 
-        for arg in &inputs_raw {
-            compute_inline.push(arg);
+        if inputs_raw.len() > 0 {
+            compute_inline.push("-a");
+
+            for arg in &inputs_raw {
+                compute_inline.push(arg);
+            }
         }
 
         assert_cli::Assert::command(&compute_inline)
