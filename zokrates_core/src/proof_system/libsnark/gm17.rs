@@ -186,10 +186,13 @@ impl ProofSystem<Bn128Field> for GM17 {
 
         // feed input values only if there are any
         template_text = if query_count > 1 {
-            input_loop.replace(template_text.as_str(), r#"
+            input_loop.replace(
+                template_text.as_str(),
+                r#"
         for(uint i = 0; i < input.length; i++){
             inputValues[i] = input[i];
-        }"#)
+        }"#,
+            )
         } else {
             input_loop.replace(template_text.as_str(), "")
         }
@@ -197,7 +200,10 @@ impl ProofSystem<Bn128Field> for GM17 {
 
         // take input values as argument only if there are any
         template_text = if query_count > 1 {
-            input_argument.replace(template_text.as_str(), format!(", uint[{}] memory input", query_count - 1).as_str())
+            input_argument.replace(
+                template_text.as_str(),
+                format!(", uint[{}] memory input", query_count - 1).as_str(),
+            )
         } else {
             input_argument.replace(template_text.as_str(), "")
         }
