@@ -156,6 +156,8 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
         let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
+        let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
+        let input_argument = Regex::new(r#"(<%input_argument%>)"#).unwrap();
 
         template_text = vk_regex
             .replace(template_text.as_str(), vk.a.to_string().as_str())
@@ -193,6 +195,25 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         template_text = vk_input_len_regex
             .replace(template_text.as_str(), format!("{}", ic_count - 1).as_str())
             .into_owned();
+
+        // feed input values only if there are any
+        template_text = if ic_count > 1 {
+            input_loop.replace(template_text.as_str(), r#"
+        for(uint i = 0; i < input.length; i++){
+            inputValues[i] = input[i];
+        }"#)
+        } else {
+            input_loop.replace(template_text.as_str(), "")
+        }
+        .to_string();
+
+        // take input values as argument only if there are any
+        template_text = if ic_count > 1 {
+            input_argument.replace(template_text.as_str(), format!(", uint[{}] memory input", ic_count - 1).as_str())
+        } else {
+            input_argument.replace(template_text.as_str(), "")
+        }
+        .to_string();
 
         let mut ic_repeat_text = String::new();
         for (i, g1) in vk.ic.iter().enumerate() {
@@ -316,13 +337,10 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
         return 0;
     }
     function verifyTx(
-            Proof memory proof,
-            uint[<%vk_input_length%>] memory input
+            Proof memory proof<%input_argument%>
         ) public view returns (bool r) {
         uint[] memory inputValues = new uint[](input.length);
-        for(uint i = 0; i < input.length; i++){
-            inputValues[i] = input[i];
-        }
+        <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;
         } else {
@@ -399,8 +417,7 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
             uint[2] memory c,
             uint[2] memory c_p,
             uint[2] memory h,
-            uint[2] memory k,
-            uint[<%vk_input_length%>] memory input
+            uint[2] memory k<%input_argument%>
         ) public view returns (bool r) {
         Proof memory proof;
         proof.a = Pairing.G1Point(a[0], a[1]);
@@ -412,9 +429,7 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
         proof.h = Pairing.G1Point(h[0], h[1]);
         proof.k = Pairing.G1Point(k[0], k[1]);
         uint[] memory inputValues = new uint[](input.length);
-        for(uint i = 0; i < input.length; i++){
-            inputValues[i] = input[i];
-        }
+        <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;
         } else {
