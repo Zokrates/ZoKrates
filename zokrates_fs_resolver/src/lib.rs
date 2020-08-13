@@ -119,9 +119,8 @@ mod tests {
     fn treat_relative_as_local() {
         use std::io::Write;
 
-        // create a HOME folder with a code file
-        let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.zok");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
@@ -131,7 +130,7 @@ mod tests {
         let mut file = File::create(file_path.clone()).unwrap();
         writeln!(file, "<user code>").unwrap();
 
-        let stdlib_root_path = zokrates_home_folder.path().to_owned();
+        let stdlib_root_path = temp_dir.path().to_owned();
         let fs_resolver = FileSystemResolver::with_stdlib_root(stdlib_root_path.to_str().unwrap());
         let result = fs_resolver.resolve(file_path, "./bar.zok".into());
         assert!(result.is_ok());
@@ -143,9 +142,8 @@ mod tests {
     fn treat_absolute_as_std() {
         use std::io::Write;
 
-        // create a HOME folder with a code file
-        let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.zok");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
@@ -155,7 +153,7 @@ mod tests {
         let mut file = File::create(file_path.clone()).unwrap();
         writeln!(file, "<user code>").unwrap();
 
-        let stdlib_root_path = zokrates_home_folder.path().to_owned();
+        let stdlib_root_path = temp_dir.path().to_owned();
         let fs_resolver = FileSystemResolver::with_stdlib_root(stdlib_root_path.to_str().unwrap());
         let result = fs_resolver.resolve(file_path.clone(), "bar.zok".into());
         assert!(result.is_ok());
@@ -190,13 +188,12 @@ mod tests {
     fn dont_fallback_to_std() {
         use std::io::Write;
 
-        // create a HOME folder
-        let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.zok");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
-        let stdlib_root_path = zokrates_home_folder.path().to_owned();
+        let stdlib_root_path = temp_dir.path().to_owned();
         let fs_resolver = FileSystemResolver::with_stdlib_root(stdlib_root_path.to_str().unwrap());
         let result = fs_resolver.resolve("/path/to/source.zok".into(), "./bar.zok".into());
         assert!(result.is_err());
