@@ -143,6 +143,8 @@ impl<T: Field> ProofSystem<T> for G16 {
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
         let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gamma_abc_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
+        let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
+        let input_argument = Regex::new(r#"(<%input_argument%>)"#).unwrap();
 
         template_text = vk_regex
             .replace(template_text.as_str(), vk.alpha.to_string().as_str())
@@ -174,6 +176,31 @@ impl<T: Field> ProofSystem<T> for G16 {
                 format!("{}", gamma_abc_count - 1).as_str(),
             )
             .into_owned();
+
+        // feed input values only if there are any
+        template_text = if gamma_abc_count > 1 {
+            input_loop.replace(
+                template_text.as_str(),
+                r#"
+        for(uint i = 0; i < input.length; i++){
+            inputValues[i] = input[i];
+        }"#,
+            )
+        } else {
+            input_loop.replace(template_text.as_str(), "")
+        }
+        .to_string();
+
+        // take input values as argument only if there are any
+        template_text = if gamma_abc_count > 1 {
+            input_argument.replace(
+                template_text.as_str(),
+                format!(", uint[{}] memory input", gamma_abc_count - 1).as_str(),
+            )
+        } else {
+            input_argument.replace(template_text.as_str(), "")
+        }
+        .to_string();
 
         let mut gamma_abc_repeat_text = String::new();
         for (i, g1) in vk.gamma_abc.iter().enumerate() {
@@ -286,13 +313,10 @@ contract Verifier {
         return 0;
     }
     function verifyTx(
-            Proof memory proof,
-            uint[<%vk_input_length%>] memory input
+            Proof memory proof<%input_argument%>
         ) public view returns (bool r) {
         uint[] memory inputValues = new uint[](input.length);
-        for(uint i = 0; i < input.length; i++){
-            inputValues[i] = input[i];
-        }
+        <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;
         } else {
@@ -346,17 +370,14 @@ contract Verifier {
     function verifyTx(
             uint[2] memory a,
             uint[2][2] memory b,
-            uint[2] memory c,
-            uint[<%vk_input_length%>] memory input
+            uint[2] memory c<%input_argument%>
         ) public view returns (bool r) {
         Proof memory proof;
         proof.a = Pairing.G1Point(a[0], a[1]);
         proof.b = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
         proof.c = Pairing.G1Point(c[0], c[1]);
-        uint[] memory inputValues = new uint[](input.length);
-        for(uint i = 0; i < input.length; i++){
-            inputValues[i] = input[i];
-        }
+        uint[] memory inputValues = new uint[](<%vk_input_length%>);
+        <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;
         } else {
