@@ -95,8 +95,6 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
 
     function verifyTx_ABIV2(proof, account, correct) {
 
-        console.log(proof)
-
         var arguments = proof[0]
         arguments = proof[1].length > 0 ? [arguments[0], proof[1]] : arguments
 
@@ -108,12 +106,8 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
 
     function verifyTx_ABIV1(proof, account, correct) {
 
-        console.log(proof)
-
         var arguments = proof[0]
         arguments = proof[1].length > 0 ? [...arguments, proof[1]] : arguments
-
-        console.log("arguments:", arguments)
 
         return contract.methods.verifyTx(
             ...arguments
