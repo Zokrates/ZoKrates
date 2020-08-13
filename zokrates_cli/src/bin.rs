@@ -19,7 +19,7 @@ use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
-use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileConfig, CompileError};
+use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::bellman::groth16::G16;
 #[cfg(feature = "libsnark")]
@@ -274,8 +274,6 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
-    let is_release = sub_matches.occurrences_of("release") > 0;
-
     let file = File::open(path.clone())
         .map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
 
@@ -294,11 +292,9 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let compilation_config = CompileConfig::default().with_is_release(is_release);
-
     let resolver = FileSystemResolver::new();
     let artifacts: CompilationArtifacts<T> =
-        compile(source, path, Some(&resolver), &compilation_config).map_err(|e| {
+        compile(source, path, Some(&resolver)).map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
                 e.0.iter()
@@ -481,10 +477,6 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("light")
             .long("light")
             .help("Skip logs and human readable output")
-            .required(false)
-        ).arg(Arg::with_name("release")
-            .long("release")
-            .help("Apply release optimisations to minimise constraint count. This increases compilation time.")
             .required(false)
         )
      )
@@ -1009,7 +1001,7 @@ mod tests {
 
             let resolver = FileSystemResolver::new();
             let _: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
+                compile(source, path, Some(&resolver)).unwrap();
         }
     }
 
@@ -1031,7 +1023,7 @@ mod tests {
 
             let resolver = FileSystemResolver::new();
             let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
+                compile(source, path, Some(&resolver)).unwrap();
 
             let interpreter = ir::Interpreter::default();
 
@@ -1060,7 +1052,7 @@ mod tests {
 
             let resolver = FileSystemResolver::new();
             let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
+                compile(source, path, Some(&resolver)).unwrap();
 
             let interpreter = ir::Interpreter::default();
 

@@ -136,19 +136,19 @@ impl<T: Field> Prog<T> {
             match statement {
                 Statement::Constraint(quad, lin) => {
                     let a = &bellman_combination(
-                        quad.left.clone().as_canonical(),
+                        quad.left.into_canonical(),
                         cs,
                         &mut symbols,
                         &mut witness,
                     );
                     let b = &bellman_combination(
-                        quad.right.clone().as_canonical(),
+                        quad.right.into_canonical(),
                         cs,
                         &mut symbols,
                         &mut witness,
                     );
                     let c =
-                        &bellman_combination(lin.as_canonical(), cs, &mut symbols, &mut witness);
+                        &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
 
                     cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
                 }
