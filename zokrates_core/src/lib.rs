@@ -17,7 +17,6 @@ extern crate lazy_static;
 extern crate pairing_ce as pairing;
 extern crate regex;
 extern crate zokrates_common;
-extern crate zokrates_embed;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
 
@@ -30,6 +29,7 @@ mod parser;
 mod semantics;
 mod solvers;
 mod static_analysis;
+mod zir;
 
 pub mod absy;
 pub mod compile;

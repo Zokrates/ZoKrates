@@ -1,6 +1,6 @@
 import "./mimcFeistel" as MiMCFeistel
 
-def main(field[2] ins, field k) -> (field[3]):
+def main(field[2] ins, field k) -> field[3]:
 	//nInputs = 2, nOutputs = 3,
 	field nInputs = 2
 	field nOutputs = 3 

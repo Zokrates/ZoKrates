@@ -1,5 +1,5 @@
 import "ecc/edwardsAdd" as add
-import "ecc/edwardsOnCurve" as assertOnCurve
+import "ecc/edwardsOnCurve" as onCurve
 from "ecc/babyjubjubParams" import BabyJubJubParams
 
 // Function that implements scalar multiplication for a fixed base point
@@ -8,7 +8,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // curve parameters.
 // Note that the exponent array is not check to be boolean in this gadget
 // Reference: https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/fs.rs#L555
-def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> (field[2]):
+def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> field[2]:
 
     field[2] infinity = context.INFINITY
 
@@ -22,6 +22,6 @@ def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> (field[2]
         doubledP = add(doubledP, doubledP, context)
     endfor
 
-    1 == assertOnCurve(accumulatedP, context)
+    assert(onCurve(accumulatedP, context))
 
     return accumulatedP

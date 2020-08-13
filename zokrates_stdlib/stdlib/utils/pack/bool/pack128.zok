@@ -1,0 +1,15 @@
+#pragma curve bn128
+
+// pack 128 big-endian bits into one field element
+def main(bool[128] bits) -> field:
+
+	field out = 0
+
+	field len = 128
+
+	for field j in 0..len do
+		field i = len - (j + 1)
+		out = out + if bits[i] then (2 ** j) else 0 fi
+	endfor
+
+    return out

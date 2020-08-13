@@ -77,7 +77,7 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
             )
             .map_err(|_| {
                 Error::new(format!(
-                    "Error thrown in callback: could not resolve {}",
+                    "Error thrown in JS callback: could not resolve {}",
                     import_location.display()
                 ))
             })?;
@@ -98,16 +98,18 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
 pub fn compile(
     source: JsValue,
     location: JsValue,
-    resolve: &js_sys::Function,
+    resolve_callback: &js_sys::Function,
+    config: JsValue,
 ) -> Result<JsValue, JsValue> {
-    let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
-    let resolver = JsResolver::new(resolve);
+    let resolver = JsResolver::new(resolve_callback);
+    let config: CompileConfig = config.into_serde().unwrap_or(CompileConfig::default());
 
+    let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
     let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
-        &CompileConfig::default().with_is_release(true),
+        &config,
     )
     .map_err(|ce| {
         JsValue::from_str(&format!(
@@ -197,8 +199,6 @@ pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result
 
 #[wasm_bindgen(start)]
 pub fn main_js() -> Result<(), JsValue> {
-    #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
-
     Ok(())
 }

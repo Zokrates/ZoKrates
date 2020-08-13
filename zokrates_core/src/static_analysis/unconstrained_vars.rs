@@ -137,7 +137,7 @@ mod tests {
             arguments: vec![_0],
             statements: vec![
                 Statement::Directive(Directive {
-                    inputs: vec![LinComb::summand(-42, one) + LinComb::summand(1, _0)],
+                    inputs: vec![(LinComb::summand(-42, one) + LinComb::summand(1, _0)).into()],
                     outputs: vec![_1, _2],
                     solver: Solver::ConditionEq,
                 }),

@@ -1,35 +1,25 @@
-FROM ubuntu:18.04
-
-MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Thibaut Schaeffer <thibaut@schaeff.fr>
-
-RUN useradd -u 1000 -m zokrates
+FROM zokrates/env:latest as build
 
 ENV WITH_LIBSNARK=1
+WORKDIR /build
 
-ARG RUST_TOOLCHAIN=nightly-2020-01-01
-ARG ZOKRATES_HOME=/home/zokrates/.zokrates
+COPY . src
+RUN cd src; ./build_release.sh
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+FROM ubuntu:18.04
+ENV ZOKRATES_BASE=/home/zokrates/.zokrates
 
-COPY ./scripts/install_libsnark_prerequisites.sh /tmp/
-RUN /tmp/install_libsnark_prerequisites.sh
+COPY --from=build /build/src/scripts/install_libsnark_prerequisites.sh /tmp/
+
+RUN /tmp/install_libsnark_prerequisites.sh \
+&& useradd -u 1000 -m zokrates
 
 USER zokrates
-
 WORKDIR /home/zokrates
 
-COPY --chown=zokrates:zokrates . src
+COPY --from=build --chown=zokrates:zokrates /build/src/target/release/zokrates $ZOKRATES_BASE/bin/
+COPY --from=build --chown=zokrates:zokrates /build/src/zokrates_cli/examples $ZOKRATES_BASE/examples
+COPY --from=build --chown=zokrates:zokrates /build/src/zokrates_stdlib/stdlib $ZOKRATES_BASE/stdlib
 
-RUN mkdir $ZOKRATES_HOME
-
-RUN curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain $RUST_TOOLCHAIN -y \
-    && export PATH=/home/zokrates/.cargo/bin:$PATH \
-    && (cd src;./build_release.sh) \
-    && mv ./src/target/release/zokrates . \
-    && mv ./src/zokrates_cli/examples . \
-    && mv ./src/zokrates_stdlib/stdlib/* $ZOKRATES_HOME \
-    && rustup self uninstall -y \
-    && rm -rf src
+ENV PATH "$ZOKRATES_BASE/bin:$PATH"
+ENV ZOKRATES_STDLIB "$ZOKRATES_BASE/stdlib"

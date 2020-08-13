@@ -1,15 +1,10 @@
 import "./IVconstants" as IVconstants
-import "./shaRoundNoBoolCheck" as sha256
+import "./shaRound" as sha256
 
-// A function that takes 2 bool[256] arrays as inputs
-// and returns their sha256 compression function as an array of 256 bool.
-// In contrast to full_round.zok no padding is being applied
-def main(bool[256] a, bool[256] b) -> (bool[256]):
+// A function that takes 2 u32[8] arrays as inputs, concatenates them,
+// and returns their sha256 compression as a u32[8].
+// Note: no padding is applied
 
-    // a and b is NOT checked to be of type bool
+def main(u32[8] a, u32[8] b) -> u32[8]:
 
-    bool[256] IV = IVconstants()
-    bool[256] digest =  sha256(a, b, IV)
-    //digest is constraint to be of type bool
-
-    return digest
+    return sha256([...a, ...b], IVconstants())

@@ -1,0 +1,12 @@
+#pragma curve bn128
+
+import "EMBED/unpack" as unpack
+
+// Unpack a field element as 256 big-endian bits
+// Note: uniqueness of the output is not guaranteed
+// For example, `0` can map to `[0, 0, ..., 0]` or to `bits(p)`
+def main(field i) -> bool[256]:
+
+    bool[254] b = unpack(i)
+
+    return [false, false, ...b]

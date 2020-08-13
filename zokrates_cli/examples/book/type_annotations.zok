@@ -4,6 +4,6 @@ def foo() -> (field, field[3]):
 def foo() -> (field, field):
     return 1, 2
 
-def main() -> (field):
+def main():
     field a, field[3] b = foo()
-    return 1
+    return

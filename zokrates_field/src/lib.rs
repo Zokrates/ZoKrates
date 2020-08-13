@@ -23,6 +23,8 @@ pub trait Field:
     From<i32>
     + From<u32>
     + From<usize>
+    + From<u128>
+    + From<BigUint>
     + Zero
     + One
     + Clone
@@ -46,6 +48,8 @@ pub trait Field:
     + for<'a> Pow<&'a Self, Output = Self>
     + for<'a> Deserialize<'a>
     + Serialize
+    + num_traits::CheckedAdd
+    + num_traits::CheckedMul
 {
     /// An associated type to be able to operate with Bellman ff traits
     type BellmanEngine: Engine;
@@ -63,6 +67,8 @@ pub trait Field:
         <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
     }
 
+    fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
+
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -75,7 +81,10 @@ pub trait Field:
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
     fn max_value() -> Self;
-    /// Returns the number of required bits to represent this field type.
+    /// Returns the largest value `m` such that there exist a number of bits `n` so that any value smaller or equal to
+    /// m` has a single `n`-bit decomposition
+    fn max_unique_value() -> Self;
+    /// Returns the number of bits required to represent any element of this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
     fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()>;
@@ -87,6 +96,8 @@ pub trait Field:
     fn id() -> [u8; 4];
     /// the name of the curve associated with this field
     fn name() -> &'static str;
+    /// Gets the number of bits
+    fn bits(&self) -> u32;
     /// Returns this `Field`'s largest value as a big-endian bit vector
     fn max_value_bit_vector_be() -> Vec<bool> {
         fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
@@ -111,7 +122,7 @@ pub trait Field:
 #[macro_use]
 mod prime_field {
     macro_rules! prime_field {
-        ($modulus:expr, $bellman_type:ty, $name:expr) => {
+        ($modulus:expr, $bellman_type:ty, $fq2_type: ident, $name:expr) => {
             use crate::{Field, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
@@ -134,6 +145,17 @@ mod prime_field {
 
             impl Field for FieldPrime {
                 type BellmanEngine = $bellman_type;
+
+                fn bits(&self) -> u32 {
+                    self.value.bits() as u32
+                }
+
+                fn new_fq2(c0: &str, c1: &str) -> $fq2_type {
+                    $fq2_type {
+                        c0: bellman_ce::pairing::from_hex(c0).unwrap(),
+                        c1: bellman_ce::pairing::from_hex(c1).unwrap(),
+                    }
+                }
 
                 fn to_biguint(&self) -> BigUint {
                     self.value.to_biguint().unwrap()
@@ -172,6 +194,13 @@ mod prime_field {
                 fn max_value() -> FieldPrime {
                     FieldPrime {
                         value: &*P - ToBigInt::to_bigint(&1).unwrap(),
+                    }
+                }
+                fn max_unique_value() -> FieldPrime {
+                    use num_traits::Pow;
+
+                    FieldPrime {
+                        value: BigInt::from(2u32).pow(Self::get_required_bits() - 1) - 1,
                     }
                 }
                 fn get_required_bits() -> usize {
@@ -253,6 +282,24 @@ mod prime_field {
 
             impl From<usize> for FieldPrime {
                 fn from(num: usize) -> Self {
+                    let x = ToBigInt::to_bigint(&num).unwrap();
+                    FieldPrime {
+                        value: &x - x.div_floor(&*P) * &*P,
+                    }
+                }
+            }
+
+            impl From<u128> for FieldPrime {
+                fn from(num: u128) -> Self {
+                    let x = ToBigInt::to_bigint(&num).unwrap();
+                    FieldPrime {
+                        value: &x - x.div_floor(&*P) * &*P,
+                    }
+                }
+            }
+
+            impl From<BigUint> for FieldPrime {
+                fn from(num: BigUint) -> Self {
                     let x = ToBigInt::to_bigint(&num).unwrap();
                     FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,
@@ -397,6 +444,41 @@ mod prime_field {
                         }
                         res = res * &self;
                         current = current + FieldPrime::one();
+                    }
+                }
+            }
+
+            impl num_traits::CheckedAdd for FieldPrime {
+                fn checked_add(&self, other: &Self) -> Option<Self> {
+                    let bound = Self::max_unique_value();
+
+                    assert!(self <= &bound);
+                    assert!(other <= &bound);
+
+                    let big_res = self.value.clone() + other.value.clone();
+
+                    if big_res > bound.value {
+                        None
+                    } else {
+                        Some(FieldPrime { value: big_res })
+                    }
+                }
+            }
+
+            impl num_traits::CheckedMul for FieldPrime {
+                fn checked_mul(&self, other: &Self) -> Option<Self> {
+                    let bound = Self::max_unique_value();
+
+                    assert!(self <= &bound);
+                    assert!(other <= &bound);
+
+                    let big_res = self.value.clone() * other.value.clone();
+
+                    // we only go up to 2**(bitwidth - 1) because after that we lose uniqueness of bit decomposition
+                    if big_res > bound.value {
+                        None
+                    } else {
+                        Some(FieldPrime { value: big_res })
                     }
                 }
             }

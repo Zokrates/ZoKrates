@@ -4,7 +4,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // Add two points on a twisted Edwards curve
 // Curve parameters are defined with the last argument
 // https://en.wikipedia.org/wiki/Twisted_Edwards_curve#Addition_on_twisted_Edwards_curves
-def main(field[2] pt1, field[2] pt2, BabyJubJubParams context) -> (field[2]):
+def main(field[2] pt1, field[2] pt2, BabyJubJubParams context) -> field[2]:
 
     field a = context.JUBJUBA
     field d = context.JUBJUBD

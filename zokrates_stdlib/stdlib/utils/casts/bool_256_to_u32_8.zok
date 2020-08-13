@@ -1,0 +1,4 @@
+import "EMBED/u32_from_bits" as from_bits
+
+def main(bool[256] bits) -> u32[8]:
+	return [from_bits(bits[0..32]), from_bits(bits[32..64]), from_bits(bits[64..96]), from_bits(bits[96..128]), from_bits(bits[128..160]), from_bits(bits[160..192]), from_bits(bits[192..224]), from_bits(bits[224..256])]

@@ -1,0 +1,11 @@
+#pragma curve bn128
+
+import "EMBED/u32_to_bits" as to_bits
+import "../bool/pack128"
+
+// pack 128 big-endian bits into one field element
+def main(u32[4] input) -> field:
+
+	bool[128] bits = [...to_bits(input[0]), ...to_bits(input[1]), ...to_bits(input[2]), ...to_bits(input[3])]
+
+    return pack128(bits)

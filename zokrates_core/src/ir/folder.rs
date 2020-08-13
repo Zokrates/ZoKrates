@@ -78,7 +78,7 @@ pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: Directive<T>) -> Di
         inputs: ds
             .inputs
             .into_iter()
-            .map(|e| f.fold_linear_combination(e))
+            .map(|e| f.fold_quadratic_combination(e))
             .collect(),
         outputs: ds.outputs.into_iter().map(|o| f.fold_variable(o)).collect(),
         ..ds

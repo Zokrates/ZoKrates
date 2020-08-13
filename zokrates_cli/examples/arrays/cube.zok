@@ -1,4 +1,4 @@
-def main(field[2][2][2] cube) -> (field):
+def main(field[2][2][2] cube) -> field:
 	field res = 0
 
 	for field i in 0..2 do

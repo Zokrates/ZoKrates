@@ -1,7 +1,7 @@
 use crate::typed_absy::types::Type;
 use crate::typed_absy::Identifier;
 use std::fmt;
-use typed_absy::types::StructType;
+use typed_absy::types::{StructType, UBitwidth};
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Variable<'ast> {
@@ -10,29 +10,39 @@ pub struct Variable<'ast> {
 }
 
 impl<'ast> Variable<'ast> {
-    pub fn field_element(id: Identifier<'ast>) -> Variable<'ast> {
+    pub fn field_element<I: Into<Identifier<'ast>>>(id: I) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::FieldElement)
     }
 
-    pub fn boolean(id: Identifier<'ast>) -> Variable<'ast> {
+    pub fn boolean<I: Into<Identifier<'ast>>>(id: I) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::Boolean)
     }
 
+    pub fn uint<I: Into<Identifier<'ast>>, W: Into<UBitwidth>>(
+        id: I,
+        bitwidth: W,
+    ) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::uint(bitwidth))
+    }
+
     #[cfg(test)]
-    pub fn field_array(id: Identifier<'ast>, size: usize) -> Variable<'ast> {
+    pub fn field_array<I: Into<Identifier<'ast>>>(id: I, size: usize) -> Variable<'ast> {
         Self::array(id, Type::FieldElement, size)
     }
 
-    pub fn array(id: Identifier<'ast>, ty: Type, size: usize) -> Variable<'ast> {
+    pub fn array<I: Into<Identifier<'ast>>>(id: I, ty: Type, size: usize) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::array(ty, size))
     }
 
-    pub fn struc(id: Identifier<'ast>, ty: StructType) -> Variable<'ast> {
+    pub fn struc<I: Into<Identifier<'ast>>>(id: I, ty: StructType) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::Struct(ty))
     }
 
-    pub fn with_id_and_type(id: Identifier<'ast>, _type: Type) -> Variable<'ast> {
-        Variable { id, _type }
+    pub fn with_id_and_type<I: Into<Identifier<'ast>>>(id: I, _type: Type) -> Variable<'ast> {
+        Variable {
+            id: id.into(),
+            _type,
+        }
     }
 
     pub fn get_type(&self) -> Type {

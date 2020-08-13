@@ -4,8 +4,8 @@ from "./bar" import Bar
 import "./foo"
 import "./bar"
 
-def main() -> (field):
+def main() -> field:
 	MyBar my_bar = MyBar {}
 	Bar bar = Bar {}
-	my_bar == bar
+	assert(my_bar == bar)
 	return foo() + bar()

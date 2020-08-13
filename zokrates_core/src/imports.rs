@@ -149,31 +149,86 @@ impl Importer {
             // handle the case of special bellman and packing imports
             if import.source.starts_with("EMBED") {
                 match import.source.to_str().unwrap() {
-                    "EMBED/sha256round" => {
-                        let alias = alias.unwrap_or("sha256round");
-
-                        symbols.push(
-                            SymbolDeclaration {
-                                id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Sha256Round),
-                            }
-                            .start_end(pos.0, pos.1),
-                        );
-                    }
                     "EMBED/unpack" => {
                         let alias = alias.unwrap_or("unpack");
 
                         symbols.push(
                             SymbolDeclaration {
                                 id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Unpack),
+                                symbol: Symbol::Flat(FlatEmbed::Unpack(T::get_required_bits())),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u32_to_bits" => {
+                        let alias = alias.unwrap_or("u32_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U32ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u16_to_bits" => {
+                        let alias = alias.unwrap_or("u16_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U16ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u8_to_bits" => {
+                        let alias = alias.unwrap_or("u8_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U8ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u32_from_bits" => {
+                        let alias = alias.unwrap_or("u32_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U32FromBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u16_from_bits" => {
+                        let alias = alias.unwrap_or("u16_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U16FromBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u8_from_bits" => {
+                        let alias = alias.unwrap_or("u8_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U8FromBits),
                             }
                             .start_end(pos.0, pos.1),
                         );
                     }
                     s => {
                         return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Embed {} not found. Options are \"EMBED/sha256round\", \"EMBED/unpack\"", s)).with_pos(Some(pos)),
+                            Error::new(format!("Embed {} not found", s)).with_pos(Some(pos)),
                         )
                         .in_file(&location)
                         .into());

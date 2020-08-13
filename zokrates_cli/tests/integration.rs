@@ -167,11 +167,14 @@ mod integration {
             flattened_path.to_str().unwrap(),
             "-o",
             inline_witness_path.to_str().unwrap(),
-            "-a",
         ];
 
-        for arg in &inputs_raw {
-            compute_inline.push(arg);
+        if inputs_raw.len() > 0 {
+            compute_inline.push("-a");
+
+            for arg in &inputs_raw {
+                compute_inline.push(arg);
+            }
         }
 
         assert_cli::Assert::command(&compute_inline)
@@ -273,8 +276,23 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
-                // TEST VERIFIER
+                // CLI VERIFICATION
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "verify",
+                    "--backend",
+                    backend,
+                    "--proving-scheme",
+                    scheme,
+                    "-j",
+                    proof_path.to_str().unwrap(),
+                    "-v",
+                    verification_key_path.to_str().unwrap(),
+                ])
+                .succeeds()
+                .unwrap();
 
+                // TEST VERIFIER
                 assert_cli::Assert::command(&[
                     "node",
                     "test.js",

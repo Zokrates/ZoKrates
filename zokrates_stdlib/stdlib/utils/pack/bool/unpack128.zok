@@ -1,0 +1,13 @@
+#pragma curve bn128
+
+import "EMBED/unpack" as unpack
+
+// Unpack a field element as 128 big-endian bits
+// Precondition: the input is smaller or equal to `2**128 - 1`
+def main(field i) -> bool[128]:
+
+    bool[254] b = unpack(i)
+
+    assert(b[0..126] == [false; 126])
+
+    return b[126..254]

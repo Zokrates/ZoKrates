@@ -1,6 +1,6 @@
 import "./constants" as constants
 
-def main(field x_in, field k) -> (field):
+def main(field x_in, field k) -> field:
 	field[91] c = constants()
 	field t = 0
 	field[90] t2 = [0; 90]

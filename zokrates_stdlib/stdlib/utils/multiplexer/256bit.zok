@@ -1,2 +1,0 @@
-def main(bool selector, bool[256] lhs, bool[256] rhs) -> (bool[256]):
-	return if selector then rhs else lhs fi

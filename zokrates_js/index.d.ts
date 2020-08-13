@@ -4,6 +4,19 @@ declare module 'zokrates-js' {
   export type G2Affine = [G1Affine, G1Affine];
   export type ProvingKey = Uint8Array;
 
+  export type SolidityAbi = "v1" | "v2";
+  export type ResolveCallback = (location: string, path: string) => ResolverResult;
+
+  export interface CompileConfig {
+    is_release: boolean
+  }
+
+  export interface CompileOptions {
+    location?: string,
+    resolveCallback?: ResolveCallback,
+    config?: CompileConfig
+  }
+
   export interface VerificationKey {
     alpha: G1Affine,
     beta: G2Affine,
@@ -45,16 +58,18 @@ declare module 'zokrates-js' {
     pk: ProvingKey,
   }
 
-  export type SolidityAbi = "v1" | "v2";
-  export type ResolveCallback = (location: string, path: string) => ResolverResult;
-
   export interface ZoKratesProvider {
-    compile(source: string, location: string, callback: ResolveCallback): CompilationArtifacts;
+    compile(source: string, options?: CompileOptions): CompilationArtifacts;
     setup(program: Uint8Array): SetupKeypair;
     computeWitness(artifacts: CompilationArtifacts, args: any[]): ComputationResult;
     exportSolidityVerifier(verifyingKey: VerificationKey, abi: SolidityAbi): string;
     generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): Proof;
   }
 
+  export interface Metadata {
+    version: string
+  }
+
   export function initialize(): Promise<ZoKratesProvider>;
+  export var metadata: Metadata;
 }

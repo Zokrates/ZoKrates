@@ -31,6 +31,9 @@ impl<'ast, T: Field> Folder<'ast, T> for ReturnBinder {
                         Type::Struct(struct_type) => StructExpressionInner::Identifier(i.clone())
                             .annotate(struct_type)
                             .into(),
+                        Type::Uint(bitwidth) => UExpressionInner::Identifier(i.clone())
+                            .annotate(bitwidth)
+                            .into(),
                     })
                     .collect();
 

@@ -1,0 +1,75 @@
+// Sudoku of format
+
+// | a11 | a12 || b11 | b12 |
+// --------------------------
+// | a21 | a22 || b21 | b22 |
+// ==========================
+// | c11 | c12 || d11 | d12 |
+// --------------------------
+// | c21 | c22 || d21 | d22 |
+
+// We use a naive encoding of the values as `[1, 2, 3, 4]` and rely on if-else statements to detect duplicates
+
+def countDuplicates(field e11,field e12,field e21,field e22) -> field:
+  field duplicates = if e11 == e12 then 1 else 0 fi
+  duplicates = duplicates + if e11 == e21 then 1 else 0 fi
+  duplicates = duplicates + if e11 == e22 then 1 else 0 fi
+  duplicates = duplicates + if e12 == e21 then 1 else 0 fi
+  duplicates = duplicates + if e12 == e21 then 1 else 0 fi
+  duplicates = duplicates + if e21 == e22 then 1 else 0 fi
+  return duplicates
+
+// returns 0 for x in (1..4)
+def validateInput(field x) -> bool:
+  return (x-1)*(x-2)*(x-3)*(x-4) == 0
+
+// variables naming: box'row''column'
+def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) -> bool:
+
+  // validate inputs
+  assert(validateInput(a11))
+  assert(validateInput(a12))
+  assert(validateInput(a21))
+  assert(validateInput(a22))
+
+  assert(validateInput(b11))
+  assert(validateInput(b12))
+  assert(validateInput(b21))
+  assert(validateInput(b22))
+
+  assert(validateInput(c11))
+  assert(validateInput(c12))
+  assert(validateInput(c21))
+  assert(validateInput(c22))
+
+  assert(validateInput(d11))
+  assert(validateInput(d12))
+  assert(validateInput(d21))
+  assert(validateInput(d22))
+
+  field duplicates = 0 // globally counts duplicate entries in boxes, rows and columns
+
+  // check box correctness
+
+  // no duplicates
+  duplicates = duplicates + countDuplicates(a11,a12,a21,a22)
+  duplicates = duplicates + countDuplicates(b11,b12,b21,b22)
+  duplicates = duplicates + countDuplicates(c11,c12,c21,c22)
+  duplicates = duplicates + countDuplicates(d11,d12,d21,d22)
+
+  // check row correctness
+
+  duplicates = duplicates + countDuplicates(a11,a12,b11,b12)
+  duplicates = duplicates + countDuplicates(a21,a22,b21,b22)
+  duplicates = duplicates + countDuplicates(c11,c12,d11,d12)
+  duplicates = duplicates + countDuplicates(c21,c22,d21,d22)
+
+  // check column correctness
+
+  duplicates = duplicates + countDuplicates(a11,a21,c11,c21)
+  duplicates = duplicates + countDuplicates(a12,a22,c12,c22)
+  duplicates = duplicates + countDuplicates(b11,b21,d11,d21)
+  duplicates = duplicates + countDuplicates(b12,b22,d12,d22)
+
+  // the solution is correct if and only if there are no duplicates
+  return duplicates == 0

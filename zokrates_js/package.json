@@ -2,7 +2,7 @@
   "name": "zokrates-js",
   "main": "index.js",
   "author": "Darko Macesic <darem966@gmail.com>",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "keywords": [
     "zokrates",
     "wasm-bindgen",
@@ -10,21 +10,30 @@
   ],
   "license": "GPLv3",
   "files": [
+    "node",
     "pkg",
     "index.js",
     "index.d.ts",
-    "utils.js",
+    "wrapper.js",
     "stdlib.json",
+    "metadata.json",
     "README.md"
   ],
   "types": "index.d.ts",
   "scripts": {
-    "cargo:build": "cargo build --target=wasm32-unknown-unknown",
-    "wasm-pack:build": "wasm-pack build --out-name index --release --target bundler",
-    "setup": "npm install && gulp stdlib",
+    "wasm-pack": "wasm-pack build --out-name index",
+    "setup": "npm install && gulp setup",
     "prebuild": "npm run setup",
-    "build": "rimraf pkg && npm run wasm-pack:build",
-    "pretest": "npm run setup",
+    "build": "npm run build:bundler && npm run build:node",
+    "prebuild:dev": "npm run setup",
+    "build:dev": "npm run build:bundler:dev && npm run build:node:dev",
+    "build:bundler": "rimraf pkg && npm run wasm-pack -- --target bundler --release && npm run clean-pkg",
+    "build:bundler:dev": "rimraf pkg && npm run wasm-pack -- --target bundler --dev && npm run clean-pkg",
+    "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --release && npm run clean-node-pkg",
+    "build:node:dev": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --dev && npm run clean-node-pkg",
+    "clean-pkg": "find pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
+    "clean-node-pkg": "find node/pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
+    "pretest": "npm run setup && npm run build:node",
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
@@ -34,8 +43,9 @@
     "gulp-cli": "^2.2.0",
     "mocha": "^7.1.1",
     "rimraf": "^3.0.2",
-    "serve": "^11.3.0",
-    "text-encoding": "^0.7.0"
+    "serve": "^11.3.2",
+    "text-encoding": "^0.7.0",
+    "toml": "^3.0.0"
   },
   "dependencies": {}
 }
