@@ -70,7 +70,7 @@ pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
 
 impl<T: Field> PartialEq for LinComb<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.as_canonical() == other.as_canonical()
+        self.clone().into_canonical() == other.clone().into_canonical()
     }
 }
 
@@ -152,41 +152,50 @@ impl<T: Field> LinComb<T> {
 }
 
 impl<T: Field> LinComb<T> {
-    pub fn as_canonical(&self) -> CanonicalLinComb<T> {
-        CanonicalLinComb(self.0.clone().into_iter().fold(
-            BTreeMap::new(),
-            |mut acc, (val, coeff)| {
-                // if we're adding 0 times some variable, we can ignore this term
-                if coeff != T::zero() {
-                    match acc.entry(val) {
-                        Entry::Occupied(o) => {
-                            // if the new value is non zero, update, else remove the term entirely
-                            if o.get().clone() + coeff.clone() != T::zero() {
-                                *o.into_mut() = o.get().clone() + coeff;
-                            } else {
-                                o.remove();
+    pub fn into_canonical(self) -> CanonicalLinComb<T> {
+        CanonicalLinComb(
+            self.0
+                .into_iter()
+                .fold(BTreeMap::new(), |mut acc, (val, coeff)| {
+                    // if we're adding 0 times some variable, we can ignore this term
+                    if coeff != T::zero() {
+                        match acc.entry(val) {
+                            Entry::Occupied(o) => {
+                                // if the new value is non zero, update, else remove the term entirely
+                                if o.get().clone() + coeff.clone() != T::zero() {
+                                    *o.into_mut() = o.get().clone() + coeff;
+                                } else {
+                                    o.remove();
+                                }
+                            }
+                            Entry::Vacant(v) => {
+                                // We checked earlier but let's make sure we're not creating zero-coeff terms
+                                assert!(coeff != T::zero());
+                                v.insert(coeff);
                             }
                         }
-                        Entry::Vacant(v) => {
-                            // We checked earlier but let's make sure we're not creating zero-coeff terms
-                            assert!(coeff != T::zero());
-                            v.insert(coeff);
-                        }
                     }
-                }
 
-                acc
-            },
-        ))
+                    acc
+                }),
+        )
+    }
+
+    pub fn reduce(self) -> Self {
+        self.into_canonical().into()
     }
 }
 
 impl<T: Field> QuadComb<T> {
-    pub fn as_canonical(&self) -> CanonicalQuadComb<T> {
+    pub fn into_canonical(self) -> CanonicalQuadComb<T> {
         CanonicalQuadComb {
-            left: self.left.as_canonical(),
-            right: self.right.as_canonical(),
+            left: self.left.into_canonical(),
+            right: self.right.into_canonical(),
         }
+    }
+
+    pub fn reduce(self) -> Self {
+        self.into_canonical().into()
     }
 }
 
@@ -197,7 +206,8 @@ impl<T: Field> fmt::Display for LinComb<T> {
             false => write!(
                 f,
                 "{}",
-                self.as_canonical()
+                self.clone()
+                    .into_canonical()
                     .0
                     .iter()
                     .map(|(k, v)| format!("{} * {}", v.to_compact_dec_string(), k))

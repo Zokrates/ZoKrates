@@ -140,9 +140,15 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CompileConfig {
     is_release: bool,
+}
+
+impl Default for CompileConfig {
+    fn default() -> Self {
+        CompileConfig { is_release: true }
+    }
 }
 
 impl CompileConfig {
