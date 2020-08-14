@@ -73,9 +73,7 @@ impl<T: Field> ProofSystem<T> for G16 {
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
-
         let mut pk: Vec<u8> = Vec::new();
-
         parameters.write(&mut pk).unwrap();
 
         let vk = VerificationKey {
@@ -121,10 +119,7 @@ impl<T: Field> ProofSystem<T> for G16 {
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        let mut raw: Vec<u8> = Vec::new();
-        proof.write(&mut raw).unwrap();
-
-        Proof::<ProofPoints>::new(proof_points, inputs, hex::encode(&raw))
+        Proof::<ProofPoints>::new(proof_points, inputs, None)
     }
 
     fn export_solidity_verifier(vk: VerificationKey, abi: SolidityAbi) -> String {
@@ -232,9 +227,7 @@ impl<T: Field> ProofSystem<T> for G16 {
 
     fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
         let vk: VerifyingKey<T::BellmanEngine> = vk.into_bellman::<T>();
-
         let pvk: PreparedVerifyingKey<T::BellmanEngine> = prepare_verifying_key(&vk);
-
         let bellman_proof: BellmanProof<T::BellmanEngine> = proof.proof.into_bellman::<T>();
 
         let public_inputs: Vec<_> = proof
