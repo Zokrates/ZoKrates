@@ -17,7 +17,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
+          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -44,10 +44,10 @@ jobs:
           command: cargo fmt --all -- --check
       - run:
           name: Build
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
+          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - run:
           name: Run tests
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
+          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
       # - run:
       #     name: Generate code coverage report
       #     command: ./scripts/cov.sh
@@ -75,7 +75,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Test on firefox
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ GECKODRIVER=geckodriver cd zokrates_core && wasm-pack test --firefox --headless -- --features wasm
+          command: GECKODRIVER=geckodriver cd zokrates_core && wasm-pack test --firefox --headless -- --features wasm
   integration_test:
     docker:
       - image: zokrates/env:latest
@@ -94,7 +94,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run integration tests
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
+          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
   deploy:
     docker:
       - image: circleci/python:latest-node

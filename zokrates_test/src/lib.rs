@@ -103,7 +103,8 @@ pub fn test_inner(test_path: &str) {
 fn compile_and_run<T: Field>(t: Tests) {
     let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
-    let resolver = FileSystemResolver::new();
+    let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+    let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
     let artifacts = compile::<T, _>(code, t.entry_point.clone(), Some(&resolver)).unwrap();
 
     let bin = artifacts.prog();

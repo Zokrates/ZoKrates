@@ -1,8 +1,5 @@
 # Testing
 
-Before running any tests, make sure your `ZOKRATES_HOME` environment variable is set correctly.
-It has to point to `zokrates_stdlib/stdlib/`
-
 ## Unit tests
 In ZoKrates, unit tests comprise of
 - internal tests for all zokrates crates
@@ -23,15 +20,14 @@ cargo test --release
 Integration tests are excluded from `cargo test` by default.
 They are defined in the `zokrates_cli` crate in `integration.rs` and use the test cases specified in `zokrates_cli/tests/code`.
 
-Before running integration tests:
-1. Make sure your `$ZOKRATES_HOME` is set correctly
-2. You have [solc](https://github.com/ethereum/solc-js) installed and in your `$PATH`.
+Before running integration tests, make sure:
+1. You have [solc](https://github.com/ethereum/solc-js) installed and in your `$PATH`.
 
     Solc can conveniently be installed through `npm` by running
     ```
     npm install -g solc
     ```
-3. You have an Ethereum node running on localhost with a JSON-RPC interface on the default port 8545 (`http://localhost:8545`).
+2. You have an Ethereum node running on localhost with a JSON-RPC interface on the default port 8545 (`http://localhost:8545`).
 
 Integration tests can then be run with the following command:
 

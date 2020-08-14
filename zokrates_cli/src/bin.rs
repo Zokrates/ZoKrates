@@ -71,11 +71,11 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
     let mut proof_file = File::create(proof_path).unwrap();
 
     let proof = serde_json::to_string_pretty(&proof).unwrap();
-    println!("Proof:\n{}", format!("{}", proof));
-
     proof_file
         .write(proof.as_bytes())
         .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
+
+    println!("Proof:\n{}", format!("{}", proof));
 
     Ok(())
 }
@@ -292,7 +292,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let resolver = FileSystemResolver::new();
+    let resolver =
+        FileSystemResolver::with_stdlib_root(sub_matches.value_of("stdlib-path").unwrap());
     let artifacts: CompilationArtifacts<T> =
         compile(source, path, Some(&resolver)).map_err(|e| {
             format!(
@@ -377,7 +378,8 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let resolver = FileSystemResolver::new();
+    let resolver =
+        FileSystemResolver::with_stdlib_root(sub_matches.value_of("stdlib-path").unwrap());
     let _ = check::<T, _>(source, path, Some(&resolver)).map_err(|e| {
         format!(
             "Check failed:\n\n{}",
@@ -434,6 +436,9 @@ fn cli() -> Result<(), String> {
     let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(constants::BELLMAN.into());
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(constants::G16.into());
     let default_solidity_abi = "v1";
+    let default_stdlib_path = dirs::home_dir()
+        .map(|p| p.join(".zokrates/stdlib"))
+        .unwrap();
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -450,6 +455,14 @@ fn cli() -> Result<(), String> {
             .value_name("FILE")
             .takes_value(true)
             .required(true)
+        ).arg(Arg::with_name("stdlib-path")
+            .long("stdlib-path")
+            .help("Path to the standard library")
+            .value_name("PATH")
+            .takes_value(true)
+            .required(false)
+            .env("ZOKRATES_STDLIB")
+            .default_value(default_stdlib_path.to_str().unwrap_or(""))
         ).arg(Arg::with_name("abi_spec")
             .short("s")
             .long("abi_spec")
@@ -489,6 +502,14 @@ fn cli() -> Result<(), String> {
             .value_name("FILE")
             .takes_value(true)
             .required(true)
+        ).arg(Arg::with_name("stdlib-path")
+            .long("stdlib-path")
+            .help("Path to the standard library")
+            .value_name("PATH")
+            .takes_value(true)
+            .required(false)
+            .env("ZOKRATES_STDLIB")
+            .default_value(default_stdlib_path.to_str().unwrap_or(""))
         ).arg(Arg::with_name("curve")
             .short("c")
             .long("curve")
@@ -999,7 +1020,8 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
             let _: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
         }
@@ -1021,7 +1043,9 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
 
@@ -1050,7 +1074,9 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
 
