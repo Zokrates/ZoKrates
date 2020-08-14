@@ -34,7 +34,7 @@ impl<'a> Resolver<io::Error> for FileSystemResolver<'a> {
         }
 
         // paths starting with `./` or `../` are interpreted relative to the current file
-        // other paths `abc/def` are interpreted relative to standard library root path
+        // other paths `abc/def` are interpreted relative to the standard library root path
         let base = match source.components().next() {
             Some(Component::CurDir) | Some(Component::ParentDir) => {
                 PathBuf::from(current_location).parent().unwrap().into()
