@@ -83,9 +83,6 @@ const options = {
             source: "def main() -> (): return", 
             location: importLocation 
         };
-    },
-    config: {
-        is_release: true
     }
 };
 const artifacts = zokratesProvider.compile(source, options);

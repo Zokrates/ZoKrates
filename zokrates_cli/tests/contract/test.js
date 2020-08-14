@@ -85,50 +85,32 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
             }
         }
 
-        if (abiVersion == "v1") {
-            if (format == "g16" || format == "gm17") {
-                return verifyTxG16_GM17_ABIV1(proof, account, correct).on('receipt', handleReceipt)
-                    .catch(handleError);
-            } else if (format == "pghr13") {
-                return verifyTxPGHR13_ABIV1(proof, account, correct).on('receipt', handleReceipt)
-                    .catch(handleError);
-            }
-        } else {
-            return verifyTxABIV2(proof, account, correct).on('receipt', handleReceipt)
-                .catch(handleError);
-        }
+        return abiVersion == "v1" ? 
+            verifyTx_ABIV1(proof, account, correct).on('receipt', handleReceipt)
+                .catch(handleError)
+            :
+            verifyTx_ABIV2(proof, account, correct).on('receipt', handleReceipt)
+                .catch(handleError)
     }
 
-    function verifyTxABIV2(proof, account, correct) {
-        contract.methods.verifyTx(proof[0], proof[1]).send({
+    function verifyTx_ABIV2(proof, account, correct) {
+
+        var arguments = proof[0]
+        arguments = proof[1].length > 0 ? [arguments[0], proof[1]] : arguments
+
+        contract.methods.verifyTx(...arguments).send({
             from: account,
             gas: 5000000
         })
     }
 
-    function verifyTxG16_GM17_ABIV1(proof, account, correct) {
-        return contract.methods.verifyTx(
-            proof[0][0],
-            proof[0][1],
-            proof[0][2],
-            proof[1]
-        ).send({
-            from: account,
-            gas: 5000000
-        })
-    }
+    function verifyTx_ABIV1(proof, account, correct) {
 
-    function verifyTxPGHR13_ABIV1(proof, account, correct) {
+        var arguments = proof[0]
+        arguments = proof[1].length > 0 ? [...arguments, proof[1]] : arguments
+
         return contract.methods.verifyTx(
-            proof[0][0],
-            proof[0][1],
-            proof[0][2],
-            proof[0][3],
-            proof[0][4],
-            proof[0][5],
-            proof[0][6],
-            proof[0][7],
-            proof[1]
+            ...arguments
         ).send({
             from: account,
             gas: 5000000

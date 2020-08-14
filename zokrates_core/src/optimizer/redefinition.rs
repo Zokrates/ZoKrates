@@ -46,7 +46,7 @@ use zokrates_field::Field;
 #[derive(Debug)]
 pub struct RedefinitionOptimizer<T: Field> {
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<FlatVariable, LinComb<T>>,
+    substitution: HashMap<FlatVariable, CanonicalLinComb<T>>,
     /// Set of variables that should not be substituted
     ignore: HashSet<FlatVariable>,
 }
@@ -104,7 +104,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 // insert into the substitution map
                 match to_insert {
                     Some((k, v)) => {
-                        self.substitution.insert(k, v);
+                        self.substitution.insert(k, v.into_canonical());
                     }
                     None => {}
                 };
@@ -121,9 +121,9 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 // check if the inputs are constants, ie reduce to the form `coeff * ~one`
                 let inputs = d
                     .inputs
-                    .iter()
+                    .into_iter()
                     // we need to reduce to the canonical form to interpret `a + 1 - a` as `1`
-                    .map(|i| QuadComb::from(i.as_canonical()))
+                    .map(|i| i.reduce())
                     .map(|q| match q.try_linear() {
                         Some(l) => match l.0.len() {
                             // 0 is constant and can be represented by an empty lincomb
@@ -155,7 +155,8 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 
                         // insert the results in the substitution
                         for (output, value) in d.outputs.into_iter().zip(outputs.into_iter()) {
-                            self.substitution.insert(output, value.into());
+                            self.substitution
+                                .insert(output, LinComb::from(value).into_canonical());
                         }
                         vec![]
                     }
@@ -193,7 +194,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     .map(|(variable, coefficient)| {
                         self.substitution
                             .get(&variable)
-                            .map(|l| l.clone() * &coefficient)
+                            .map(|l| LinComb::from(l.clone()) * &coefficient)
                             .unwrap_or(LinComb::summand(coefficient, variable))
                     })
                     .fold(LinComb::zero(), |acc, x| acc + x)
