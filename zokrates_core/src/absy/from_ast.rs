@@ -110,6 +110,11 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<
         let id = function.id.span.as_str();
 
         let function = absy::Function::<T> {
+            generics: function
+                .generics
+                .into_iter()
+                .map(|g| absy::ConstantGenericNode::from(g))
+                .collect(),
             arguments: function
                 .parameters
                 .into_iter()
@@ -129,6 +134,16 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<
             symbol: absy::Symbol::HereFunction(function),
         }
         .span(span)
+    }
+}
+
+impl<'ast> From<pest::IdentifierExpression<'ast>> for absy::ConstantGenericNode<'ast> {
+    fn from(g: pest::IdentifierExpression<'ast>) -> absy::ConstantGenericNode<'ast> {
+        use absy::NodeValue;
+
+        let name = g.span.as_str();
+
+        absy::Identifier::from(name).span(g.span)
     }
 }
 

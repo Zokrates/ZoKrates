@@ -121,8 +121,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             // we stop propagation here as constants maybe be modified inside the loop body
             // which we do not visit
             TypedStatement::For(v, from, to, statements) => {
-                let from = self.fold_field_expression(from);
-                let to = self.fold_field_expression(to);
+                let from = self.fold_uint_expression(from);
+                let to = self.fold_uint_expression(to);
 
                 // invalidate the constants map as any constant could be modified inside the loop body, which we don't visit
                 self.constants.clear();

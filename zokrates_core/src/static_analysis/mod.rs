@@ -43,10 +43,10 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = ReturnBinder::bind(r);
 
         // inline
-        let r = Inliner::inline(r);
+        //let r = Inliner::inline(r);
 
         // propagate
-        let r = Propagator::propagate(r);
+        //let r = Propagator::propagate(r);
 
         // optimize redefinitions
         let r = RedefinitionOptimizer::optimize(r);

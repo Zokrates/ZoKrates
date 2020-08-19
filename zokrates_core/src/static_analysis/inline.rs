@@ -16,6 +16,7 @@
 
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
+use static_analysis::propagate_unroll::{Blocked, Output};
 use std::collections::HashMap;
 use typed_absy::types::{FunctionKey, Type, UBitwidth};
 use typed_absy::{folder::*, *};
@@ -56,6 +57,8 @@ pub struct Inliner<'ast, T: Field> {
     call_count: HashMap<(TypedModuleId, FunctionKey<'ast>), usize>,
     /// the cache for memoization: for each function body, tracks function calls
     call_cache: CallCache<'ast, T>,
+    /// whether the inliner is blocked, and why
+    blocked: Option<Blocked>,
 }
 
 impl<'ast, T: Field> Inliner<'ast, T> {
@@ -74,82 +77,88 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             stack: vec![],
             call_count: HashMap::new(),
             call_cache: HashMap::new(),
+            blocked: None,
         }
     }
 
-    pub fn inline(p: TypedProgram<T>) -> TypedProgram<T> {
+    pub fn init(p: TypedProgram<'ast, T>) -> Self {
+        let main_module_id = p.main;
+
+        // get the main module
+        let main_module = p.modules.get(&main_module_id).unwrap().clone();
+
+        let main_key = main_module
+            .functions
+            .iter()
+            .find(|(k, _)| k.id == "main")
+            .unwrap()
+            .0;
+
+        // initialize an inliner over all modules, starting from the main module
+        Inliner::with_modules_and_module_id_and_key(p.modules, main_module_id, main_key.clone())
+    }
+
+    pub fn inline(&mut self, p: TypedProgram<'ast, T>) -> Output<'ast, T> {
         let main_module_id = p.main;
 
         // get the main module
         let main_module = p.modules.get(&main_module_id).unwrap().clone();
 
         // get the main function in the main module
-        let (main_key, main) = main_module
+        let functions = main_module
             .functions
             .into_iter()
-            .find(|(k, _)| k.id == "main")
-            .unwrap();
+            .map(|(k, f)| {
+                if k.id == "main" {
+                    // inline all calls in the main function, recursively
+                    let main = self.fold_function_symbol(f);
+                    (k, main)
+                } else {
+                    (k, f)
+                }
+            })
+            .collect();
 
-        // initialize an inliner over all modules, starting from the main module
-        let mut inliner = Inliner::with_modules_and_module_id_and_key(
-            p.modules,
-            main_module_id,
-            main_key.clone(),
-        );
+        // // define a function in the main module for the `unpack` embed
+        // let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
+        // let unpack_key = unpack.key::<T>();
 
-        // inline all calls in the main function, recursively
-        let main = inliner.fold_function_symbol(main);
+        // // define a function in the main module for the `u32_to_bits` embed
+        // let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
+        // let u32_to_bits_key = u32_to_bits.key::<T>();
 
-        // define a function in the main module for the `unpack` embed
-        let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
-        let unpack_key = unpack.key::<T>();
+        // // define a function in the main module for the `u16_to_bits` embed
+        // let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
+        // let u16_to_bits_key = u16_to_bits.key::<T>();
 
-        // define a function in the main module for the `u32_to_bits` embed
-        let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
-        let u32_to_bits_key = u32_to_bits.key::<T>();
+        // // define a function in the main module for the `u8_to_bits` embed
+        // let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
+        // let u8_to_bits_key = u8_to_bits.key::<T>();
 
-        // define a function in the main module for the `u16_to_bits` embed
-        let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
-        let u16_to_bits_key = u16_to_bits.key::<T>();
+        // // define a function in the main module for the `u32_from_bits` embed
+        // let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
+        // let u32_from_bits_key = u32_from_bits.key::<T>();
 
-        // define a function in the main module for the `u8_to_bits` embed
-        let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
-        let u8_to_bits_key = u8_to_bits.key::<T>();
+        // // define a function in the main module for the `u16_from_bits` embed
+        // let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
+        // let u16_from_bits_key = u16_from_bits.key::<T>();
 
-        // define a function in the main module for the `u32_from_bits` embed
-        let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
-        let u32_from_bits_key = u32_from_bits.key::<T>();
-
-        // define a function in the main module for the `u16_from_bits` embed
-        let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
-        let u16_from_bits_key = u16_from_bits.key::<T>();
-
-        // define a function in the main module for the `u8_from_bits` embed
-        let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
-        let u8_from_bits_key = u8_from_bits.key::<T>();
+        // // define a function in the main module for the `u8_from_bits` embed
+        // let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
+        // let u8_from_bits_key = u8_from_bits.key::<T>();
 
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
-        TypedProgram {
+
+        let program = TypedProgram {
             main: "main".into(),
-            modules: vec![(
-                "main".into(),
-                TypedModule {
-                    functions: vec![
-                        (unpack_key, TypedFunctionSymbol::Flat(unpack)),
-                        (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
-                        (u16_from_bits_key, TypedFunctionSymbol::Flat(u16_from_bits)),
-                        (u8_from_bits_key, TypedFunctionSymbol::Flat(u8_from_bits)),
-                        (u32_to_bits_key, TypedFunctionSymbol::Flat(u32_to_bits)),
-                        (u16_to_bits_key, TypedFunctionSymbol::Flat(u16_to_bits)),
-                        (u8_to_bits_key, TypedFunctionSymbol::Flat(u8_to_bits)),
-                        (main_key, main),
-                    ]
-                    .into_iter()
-                    .collect(),
-                },
-            )]
-            .into_iter()
-            .collect(),
+            modules: vec![("main".into(), TypedModule { functions })]
+                .into_iter()
+                .collect(),
+        };
+
+        match self.blocked.clone() {
+            None => Output::Complete(program),
+            Some(blocked) => Output::Blocked(program, blocked, 42),
         }
     }
 
@@ -298,6 +307,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
     // add extra statements before the modified statement
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         let folded = match s {
+            TypedStatement::For(v, from, to, statements) => {
+                self.blocked = Some(Blocked::Unroll);
+                vec![TypedStatement::For(v, from, to, statements)]
+            }
             TypedStatement::MultipleDefinition(variables, elist) => match elist {
                 TypedExpressionList::FunctionCall(key, exps, types) => {
                     let variables: Vec<_> = variables

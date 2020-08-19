@@ -12,16 +12,13 @@ use std::collections::HashSet;
 use typed_absy::identifier::CoreIdentifier;
 use zokrates_field::Field;
 
-pub enum Output<'ast, T: Field> {
-    Complete(TypedProgram<'ast, T>),
-    Incomplete(TypedProgram<'ast, T>, usize),
-}
+use static_analysis::propagate_unroll::{Blocked, Output};
 
 pub struct Unroller<'ast> {
     // version index for any variable name
     substitution: HashMap<CoreIdentifier<'ast>, usize>,
     // whether all statements could be unrolled so far. Loops with variable bounds cannot.
-    complete: bool,
+    blocked: Option<Blocked>,
     statement_count: usize,
 }
 
@@ -29,7 +26,7 @@ impl<'ast> Unroller<'ast> {
     fn new() -> Self {
         Unroller {
             substitution: HashMap::new(),
-            complete: true,
+            blocked: None,
             statement_count: 0,
         }
     }
@@ -58,9 +55,9 @@ impl<'ast> Unroller<'ast> {
         let mut unroller = Unroller::new();
         let p = unroller.fold_program(p);
 
-        match unroller.complete {
-            true => Output::Complete(p),
-            false => Output::Incomplete(p, unroller.statement_count),
+        match unroller.blocked {
+            None => Output::Complete(p),
+            Some(blocked) => Output::Blocked(p, blocked, unroller.statement_count),
         }
     }
 
@@ -444,16 +441,16 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 vec![TypedStatement::MultipleDefinition(variables, exprs)]
             }
             TypedStatement::For(v, from, to, stats) => {
-                let from = self.fold_field_expression(from);
-                let to = self.fold_field_expression(to);
+                let from = self.fold_uint_expression(from);
+                let to = self.fold_uint_expression(to);
 
-                match (from, to) {
-                    (FieldElementExpression::Number(from), FieldElementExpression::Number(to)) => {
-                        let mut values: Vec<T> = vec![];
+                match (from.into_inner(), to.into_inner()) {
+                    (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
+                        let mut values: Vec<u128> = vec![];
                         let mut current = from;
                         while current < to {
-                            values.push(current.clone());
-                            current = T::one() + &current;
+                            values.push(current);
+                            current = 1 + current;
                         }
 
                         let res = values
@@ -464,7 +461,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                                         TypedStatement::Declaration(v.clone()),
                                         TypedStatement::Definition(
                                             TypedAssignee::Identifier(v.clone()),
-                                            FieldElementExpression::Number(index).into(),
+                                            UExpressionInner::Value(index)
+                                                .annotate(UBitwidth::B32)
+                                                .into(),
                                         ),
                                     ],
                                     stats.clone(),
@@ -479,8 +478,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                         res
                     }
                     (from, to) => {
-                        self.complete = false;
-                        vec![TypedStatement::For(v, from, to, stats)]
+                        self.blocked = Some(Blocked::Unroll);
+                        vec![TypedStatement::For(
+                            v,
+                            from.annotate(UBitwidth::B32),
+                            to.annotate(UBitwidth::B32),
+                            stats,
+                        )]
                     }
                 }
             }
@@ -501,6 +505,19 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
         Identifier {
             version: self.substitution.get(&n.id).unwrap_or(&0).clone(),
             ..n
+        }
+    }
+
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
+        match e {
+            FieldElementExpression::FunctionCall(key, args) => {
+                self.blocked = Some(Blocked::Inline);
+                FieldElementExpression::FunctionCall(key, args)
+            }
+            _ => fold_field_expression(self, e),
         }
     }
 }

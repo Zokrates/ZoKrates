@@ -315,8 +315,8 @@ pub enum TypedStatement<'ast, T> {
     Assertion(BooleanExpression<'ast, T>),
     For(
         Variable<'ast>,
-        FieldElementExpression<'ast, T>,
-        FieldElementExpression<'ast, T>,
+        UExpression<'ast, T>,
+        UExpression<'ast, T>,
         Vec<TypedStatement<'ast, T>>,
     ),
     MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),

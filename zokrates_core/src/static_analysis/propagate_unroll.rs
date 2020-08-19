@@ -19,10 +19,22 @@
 //! In the case that a loop bound cannot be reduced to a constant, we detect it by noticing that the unroll does
 //! not make progress anymore.
 
+use static_analysis::inline::Inliner;
 use static_analysis::propagation::Propagator;
-use static_analysis::unroll::{Output, Unroller};
+use static_analysis::unroll::Unroller;
 use typed_absy::TypedProgram;
 use zokrates_field::Field;
+
+pub enum Output<'ast, T: Field> {
+    Complete(TypedProgram<'ast, T>),
+    Blocked(TypedProgram<'ast, T>, Blocked, usize),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Blocked {
+    Unroll,
+    Inline,
+}
 
 pub struct PropagatedUnroller;
 
@@ -33,13 +45,17 @@ impl PropagatedUnroller {
         let mut blocked_at = None;
 
         // unroll a first time, retrieving whether the unroll is complete
-        let mut unrolled = Unroller::unroll(p);
+        let mut unrolled = Unroller::unroll(p.clone());
+
+        let mut inliner = Inliner::init(p.clone());
 
         loop {
             // conditions to exit the loop
             unrolled = match unrolled {
                 Output::Complete(p) => return Ok(p),
-                Output::Incomplete(next, index) => {
+                Output::Blocked(next, blocked, index) => {
+                    println!("{}", next);
+
                     if Some(index) == blocked_at {
                         return Err("Loop unrolling failed. This happened because a loop bound is not constant");
                     } else {
@@ -49,8 +65,10 @@ impl PropagatedUnroller {
                         // propagate
                         let propagated = Propagator::propagate_verbose(next);
 
-                        // unroll
-                        Unroller::unroll(propagated)
+                        match blocked {
+                            Blocked::Unroll => Unroller::unroll(propagated),
+                            Blocked::Inline => inliner.inline(propagated),
+                        }
                     }
                 }
             };

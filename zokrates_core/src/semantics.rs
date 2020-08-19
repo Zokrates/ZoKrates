@@ -632,7 +632,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_for_var<T: Field>(&self, var: &VariableNode<'ast, T>) -> Result<(), ErrorInner> {
         match var.value.get_type() {
-            UnresolvedType::FieldElement => Ok(()),
+            UnresolvedType::Uint(32) => Ok(()),
             t => Err(ErrorInner {
                 pos: Some(var.pos()),
                 message: format!("Variable in for loop cannot have type {}", t),
@@ -650,15 +650,41 @@ impl<'ast> Checker<'ast> {
 
         let mut errors = vec![];
         let funct = funct_node.value;
+        let mut constant_generics_checked = vec![];
         let mut arguments_checked = vec![];
         let mut signature = None;
 
         assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
+        // define variables for the constants
+        for generic in funct.generics {
+            let pos = generic.pos();
+            let v = Variable::with_id_and_type(generic.value, Type::Uint(UBitwidth::B32));
+            match self.insert_into_scope(v.clone()) {
+                true => {}
+                false => {
+                    errors.push(ErrorInner {
+                        pos: Some(pos),
+                        message: format!("Duplicate generic constant name in function definition: {} was previously declared as a generic constant", v)
+                    });
+                }
+            };
+            constant_generics_checked.push(v);
+        }
+
         for arg in funct.arguments {
+            let pos = arg.pos();
             match self.check_parameter(arg, module_id, types) {
                 Ok(a) => {
-                    self.insert_into_scope(a.id.clone());
+                    match self.insert_into_scope(a.id.clone()) {
+                        true => {}
+                        false => {
+                            errors.push(ErrorInner {
+                                pos: Some(pos),
+                                message: format!("Duplicate name in function definition: {} was previously declared as an argument or generic constant", a)
+                            });
+                        }
+                    };
                     arguments_checked.push(a);
                 }
                 Err(e) => errors.extend(e),
@@ -818,6 +844,11 @@ impl<'ast> Checker<'ast> {
                     }),
                 }?;
 
+                let size = match size {
+                    UExpressionInner::Value(v) => v,
+                    _ => unimplemented!(),
+                } as usize;
+
                 Ok(Type::Array(ArrayType::new(
                     self.check_type(*t, module_id, types)?,
                     size,
@@ -948,25 +979,27 @@ impl<'ast> Checker<'ast> {
                     .check_expression(to, module_id, &types)
                     .map_err(|e| vec![e])?;
 
-                let from = match from {
-                    TypedExpression::FieldElement(e) => Ok(e),
-                    e => Err(ErrorInner {
+                use std::convert::TryInto;
+
+                let from = match from.get_type() {
+                    Type::Uint(UBitwidth::B32) => Ok(from.try_into().unwrap()),
+                    t => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Expected lower loop bound to be of type field, found {}",
-                            e.get_type()
+                            "Expected lower loop bound to be of type u32, found {}",
+                            t
                         ),
                     }),
                 }
                 .map_err(|e| vec![e])?;
 
-                let to = match to {
-                    TypedExpression::FieldElement(e) => Ok(e),
-                    e => Err(ErrorInner {
+                let to = match to.get_type() {
+                    Type::Uint(UBitwidth::B32) => Ok(to.try_into().unwrap()),
+                    t => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Expected higher loop bound to be of type field, found {}",
-                            e.get_type()
+                            "Expected higher loop bound to be of type u32, found {}",
+                            t
                         ),
                     }),
                 }

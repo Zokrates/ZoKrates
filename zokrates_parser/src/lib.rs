@@ -69,7 +69,7 @@ mod tests {
         fn parse_parameter_list() {
             parses_to! {
                 parser: ZoKratesParser,
-                input: "def foo(field a) -> (field, field): return 1
+                input: "def foo<P, Q>(field[P] a) -> (field, field): return 1
                 ",
                 rule: Rule::function_definition,
                 tokens: [

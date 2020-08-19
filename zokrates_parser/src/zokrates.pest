@@ -8,8 +8,10 @@ import_directive = { main_import_directive | from_import_directive }
 from_import_directive = { "from" ~ "\"" ~ import_source ~ "\"" ~ "import" ~ identifier ~ ("as" ~ identifier)? ~ NEWLINE*}
 main_import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+}
 import_source = @{(!"\"" ~ ANY)*}
-function_definition = {"def" ~ identifier ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
+function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
 return_types = _{ ( "->" ~ ( "(" ~ type_list ~ ")" | ty ))? }
+constant_generics_declaration = _{ "<" ~ constant_generic_list ~ ">" }
+constant_generic_list = _{ identifier ~ ("," ~ identifier)* }
 
 parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
 parameter = {vis? ~ ty ~ identifier}

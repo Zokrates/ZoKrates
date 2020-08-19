@@ -116,7 +116,7 @@ mod ast {
                         match next.as_rule() {
                             Rule::literal => Expression::Literal(
                                 LiteralExpression::from_pest(
-                                    &mut dbg!(pair.into_inner().next().unwrap().into_inner()),
+                                    &mut pair.into_inner().next().unwrap().into_inner(),
                                 )
                                 .unwrap(),
                             ),
@@ -216,6 +216,7 @@ mod ast {
     #[pest_ast(rule(Rule::function_definition))]
     pub struct Function<'ast> {
         pub id: IdentifierExpression<'ast>,
+        pub generics: Vec<IdentifierExpression<'ast>>,
         pub parameters: Vec<Parameter<'ast>>,
         pub returns: Vec<Type<'ast>>,
         pub statements: Vec<Statement<'ast>>,

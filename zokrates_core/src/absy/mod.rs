@@ -216,9 +216,13 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Module<'ast, T> {
     }
 }
 
+type ConstantGenericNode<'ast> = Node<Identifier<'ast>>;
+
 /// A function defined locally
 #[derive(Clone, PartialEq)]
 pub struct Function<'ast, T> {
+    /// Constant generics of the function
+    pub generics: Vec<ConstantGenericNode<'ast>>,
     /// Arguments of the function
     pub arguments: Vec<ParameterNode<'ast, T>>,
     /// Vector of statements that are executed when running the function

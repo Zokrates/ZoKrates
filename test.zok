@@ -1,4 +1,17 @@
-def main(field a) -> u32:
-	u32 SIZE = 1u32
-	u32[SIZE] k = [1u32]
-	return 1u32 + 0x00000001
+def foo<P>() -> field:
+	field res = 0
+	for u32 i in 0u32..P do
+		res = res + 1
+	endfor
+	return res
+
+def main(field a) -> field:
+	u32 i = 3u32
+	field res = 0
+	for u32 j in 0u32..i do
+		res = res + foo()
+		for u32 k in 0u32..j do
+			res = res + foo()
+		endfor
+	endfor
+	return res
