@@ -1,0 +1,280 @@
+//poseidon hash creatby JXB:chenhaiyang461
+// reference https://github.com/iden3/go-iden3-crypto
+
+import "utils/pack/nonStrictUnpack256" as unpack256
+import "utils/pack/pack216" as pack
+import "hashes/poseidon/ark" as ark
+import "hashes/poseidon/sbox" as sbox
+import "hashes/poseidon/mix" as mix
+
+//输入格式为Big.int
+def main(field[432] input_bit,  field[65] constC,  field[6][6] constM) -> (field[256]):
+
+    field[432] input = input_bit
+    field left = pack(input[0..216])
+    field right = pack(input[216..432])
+    field[6] a = [left, right, 1, 0, 0, 0]
+
+    //round0
+    b = ark(a, constC, 0)
+    c = sbox(b, 0)
+    d = mix(c, constM)
+    //round1
+    b = ark(d, constC, 1)
+    c = sbox(b, 1)
+    d = mix(c, constM)
+    //round2
+    b = ark(d, constC, 2)
+    c = sbox(b, 2)
+    d = mix(c, constM)  
+    //round3
+    b = ark(d, constC, 3)
+    c = sbox(b, 3)
+    d = mix(c, constM)
+    //round4
+    b = ark(d, constC, 4)
+    c = sbox(b, 4)
+    d = mix(c, constM)
+    //round5
+    b = ark(d, constC, 5)
+    c = sbox(b, 5)
+    d = mix(c, constM)
+    //round6
+    b = ark(d, constC, 6)
+    c = sbox(b, 6)
+    d = mix(c, constM)  
+    //round7
+    b = ark(d, constC, 7)
+    c = sbox(b, 7)
+    d = mix(c, constM)  
+    //round8
+    b = ark(d, constC, 8)
+    c = sbox(b, 8)
+    d = mix(c, constM)  
+    //round9
+    b = ark(d, constC, 9)
+    c = sbox(b, 9)
+    d = mix(c, constM)    
+    //round10
+    b = ark(d, constC, 10)
+    c = sbox(b, 10)
+    d = mix(c, constM)  
+    //round11
+    b = ark(d, constC, 11)
+    c = sbox(b, 11)
+    d = mix(c, constM)  
+    //round12
+    b = ark(d, constC, 12)
+    c = sbox(b, 12)
+    d = mix(c, constM)  
+    //round13
+    b = ark(d, constC, 13)
+    c = sbox(b, 13)
+    d = mix(c, constM)  
+    //round14
+    b = ark(d, constC, 14)
+    c = sbox(b, 14)
+    d = mix(c, constM)  
+    //round15
+    b = ark(d, constC, 15)
+    c = sbox(b, 15)
+    d = mix(c, constM)  
+    //round16
+    b = ark(d, constC, 16)
+    c = sbox(b, 16)
+    d = mix(c, constM)  
+    //round17
+    b = ark(d, constC, 17)
+    c = sbox(b, 17)
+    d = mix(c, constM)  
+    //round18
+    b = ark(d, constC, 18)
+    c = sbox(b, 18)
+    d = mix(c, constM)  
+    //round19
+    b = ark(d, constC, 19)
+    c = sbox(b, 19)
+    d = mix(c, constM)  
+    //round20
+    b = ark(d, constC, 20)
+    c = sbox(b, 20)
+    d = mix(c, constM)  
+    //round21
+    b = ark(d, constC, 21)
+    c = sbox(b, 21)
+    d = mix(c, constM)  
+    //round22
+    b = ark(d, constC, 22)
+    c = sbox(b, 22)
+    d = mix(c, constM)  
+    //round23
+    b = ark(d, constC, 23)
+    c = sbox(b,23)
+    d = mix(c, constM)  
+    //round24
+    b = ark(d, constC, 24)
+    c = sbox(b, 24)
+    d = mix(c, constM)  
+    //round25
+    b = ark(d, constC, 25)
+    c = sbox(b, 25)
+    d = mix(c, constM)  
+    //round26
+    b = ark(d, constC, 26)
+    c = sbox(b, 26)
+    d = mix(c, constM)  
+    //round27
+    b = ark(d, constC, 27)
+    c = sbox(b, 27)
+    d = mix(c, constM)  
+    //round28
+    b = ark(d, constC, 28)
+    c = sbox(b, 28)
+    d = mix(c, constM)  
+    //round29
+    b = ark(d, constC, 29)
+    c = sbox(b, 29)
+    d = mix(c, constM)  
+    //round30
+    b = ark(d, constC, 30)
+    c = sbox(b, 30)
+    d = mix(c, constM)  
+    //round31
+    b = ark(d, constC, 31)
+    c = sbox(b, 31)
+    d = mix(c, constM)  
+    //round32
+    b = ark(d, constC, 32)
+    c = sbox(b, 32)
+    d = mix(c, constM)  
+    //round33
+    b = ark(d, constC, 33)
+    c = sbox(b, 33)
+    d = mix(c, constM)  
+    //round34
+    b = ark(d, constC, 34)
+    c = sbox(b, 34)
+    d = mix(c, constM)  
+    //round35
+    b = ark(d, constC, 35)
+    c = sbox(b, 35)
+    d = mix(c, constM)  
+    //round36
+    b = ark(d, constC, 36)
+    c = sbox(b, 36)
+    d = mix(c, constM)  
+    //round37
+    b = ark(d, constC, 37)
+    c = sbox(b,37)
+    d = mix(c, constM)  
+    //round38
+    b = ark(d, constC, 38)
+    c = sbox(b, 38)
+    d = mix(c, constM)  
+    //round39
+    b = ark(d, constC, 39)
+    c = sbox(b, 39)
+    d = mix(c, constM)  
+    //round40
+    b = ark(d, constC, 40)
+    c = sbox(b, 40)
+    d = mix(c, constM)  
+    //round41
+    b = ark(d, constC, 41)
+    c = sbox(b, 41)
+    d = mix(c, constM)  
+    //round42
+    b = ark(d, constC, 42)
+    c = sbox(b, 42)
+    d = mix(c, constM)  
+    //round43
+    b = ark(d, constC, 43)
+    c = sbox(b, 43)
+    d = mix(c, constM)  
+    //round44
+    b = ark(d, constC, 44)
+    c = sbox(b, 44)
+    d = mix(c, constM)  
+    //round45
+    b = ark(d, constC, 45)
+    c = sbox(b, 45)
+    d = mix(c, constM)  
+    //round46
+    b = ark(d, constC, 46)
+    c = sbox(b, 46)
+    d = mix(c, constM)  
+    //round47
+    b = ark(d, constC, 47)
+    c = sbox(b, 47)
+    d = mix(c, constM)  
+    //round48
+    b = ark(d, constC, 48)
+    c = sbox(b, 48)
+    d = mix(c, constM)  
+    //round49
+    b = ark(d, constC, 49)
+    c = sbox(b, 49)
+    d = mix(c, constM)  
+    //round50
+    b = ark(d, constC, 50)
+    c = sbox(b, 50)
+    d = mix(c, constM)  
+    //round51
+    b = ark(d, constC, 51)
+    c = sbox(b, 51)
+    d = mix(c, constM)  
+    //round52
+    b = ark(d, constC, 52)
+    c = sbox(b, 52)
+    d = mix(c, constM)  
+    //round53
+    b = ark(d, constC, 53)
+    c = sbox(b, 53)
+    d = mix(c, constM)  
+    //round54
+    b = ark(d, constC, 54)
+    c = sbox(b, 54)
+    d = mix(c, constM)  
+    //round55
+    b = ark(d, constC, 55)
+    c = sbox(b, 55)
+    d = mix(c, constM)  
+    //round56
+    b = ark(d, constC, 56)
+    c = sbox(b, 56)
+    d = mix(c, constM)  
+    //round57
+    b = ark(d, constC, 57)
+    c = sbox(b, 57)
+    d = mix(c, constM)  
+     //round58
+    b = ark(d, constC, 58)
+    c = sbox(b, 58)
+    d = mix(c, constM)  
+     //round59
+    b = ark(d, constC, 59)
+    c = sbox(b, 59)
+    d = mix(c, constM)  
+     //round60
+    b = ark(d, constC, 60)
+    c = sbox(b, 60)
+    d = mix(c, constM)  
+     //round61
+    b = ark(d, constC, 61)
+    c = sbox(b, 61)
+    d = mix(c, constM)  
+     //round62
+    b = ark(d, constC, 62)
+    c = sbox(b, 62)
+    d = mix(c, constM)  
+     //round63
+    b = ark(d, constC, 63)
+    c = sbox(b, 63)
+    d = mix(c, constM)  
+     //round64
+    b = ark(d, constC, 64)
+    c = sbox(b, 64)
+    d = mix(c, constM)  
+
+    field[256] r = unpack256(d[0] + 1)
+    return r

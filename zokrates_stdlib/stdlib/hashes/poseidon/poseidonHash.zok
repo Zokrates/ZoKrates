@@ -1,0 +1,26 @@
+//poseidon hash creatby JXB:chenhaiyang461
+// reference https://github.com/iden3/go-iden3-crypto
+
+import "utils/pack/nonStrictUnpack256" as unpack256
+import "utils/pack/pack216" as pack
+import "hashes/poseidon/ark" as ark
+import "hashes/poseidon/sbox" as sbox
+import "hashes/poseidon/mix" as mix
+
+//输入格式为Big.int
+def main(field[432] input_bit,  field[65] constC,  field[6][6] constM) -> (field[256]):
+
+    field left = pack(input_bit[0..216])
+    field right = pack(input_bit[216..432])
+    field[6] a = [left, right, 1, 0, 0, 0]
+
+     for field i in 0..65 do
+          //roundi
+          b = ark(a, constC, i)
+          c = sbox(b, i)
+          d = mix(c, constM)
+     endfor
+
+    field[256] r = unpack256(a[0] + 1)
+
+    return r		

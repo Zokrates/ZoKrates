@@ -1,0 +1,10 @@
+def main(field[6] a, field[6][6] constM) -> (field[6]):
+
+    field out0 = a[0] * constM[0][0] + a[1] * constM[0][1] + a[2] * constM[0][2] + a[3] * constM[0][3] + a[4] * constM[0][4] + a[5] * constM[0][5] 
+    field out1 = a[0] * constM[1][0] + a[1] * constM[1][1] + a[2] * constM[1][2] + a[3] * constM[1][3] + a[4] * constM[1][4] + a[5] * constM[1][5] 
+    field out2 = a[0] * constM[2][0] + a[1] * constM[2][1] + a[2] * constM[2][2] + a[3] * constM[2][3] + a[4] * constM[2][4] + a[5] * constM[2][5] 
+    field out3 = a[0] * constM[3][0] + a[1] * constM[3][1] + a[2] * constM[3][2] + a[3] * constM[3][3] + a[4] * constM[3][4] + a[5] * constM[3][5] 
+    field out4 = a[0] * constM[4][0] + a[1] * constM[4][1] + a[2] * constM[4][2] + a[3] * constM[4][3] + a[4] * constM[4][4] + a[5] * constM[4][5] 
+    field out5 = a[0] * constM[5][0] + a[1] * constM[5][1] + a[2] * constM[5][2] + a[3] * constM[5][3] + a[4] * constM[5][4] + a[5] * constM[5][5] 
+
+    return [out0, out1, out2, out3, out4, out5]

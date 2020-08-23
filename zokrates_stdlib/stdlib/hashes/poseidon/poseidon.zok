@@ -1,0 +1,46 @@
+//poseidon hash creatby JXB:chenhaiyang461
+// reference https://github.com/iden3/go-iden3-crypto
+
+import "utils/pack/nonStrictUnpack256" as unpack256
+import "utils/pack/pack216" as pack
+import "hashes/poseidon/constC" as constantC
+import "hashes/poseidon/constM" as constantM
+
+//输入格式为Big.int
+def main(field[432] input_bit,  field[65] constC,  field[6][6] constM) -> (field[256]):
+
+    field left = pack(input_bit[0..216])
+    field right = pack(input_bit[216..432])
+
+    field[6] a = [left, right, 1,0,0,0]
+    field[6] b = [0,0,0,0,0,0]
+    field[6] c = [0,0,0,0,0,0]
+    //NROUNDSF, NROUNDSP, 6
+    field[3] context = [8, 57, 6]
+
+    for field i in 0..65 do
+        for field j in 0..6 do
+            a[j] = a[j] + constC[i]
+        endfor
+        //sbox
+        b[0] =  a[0]**5 
+        b[1] = if i < context[0] / 2 || i >= (context[0] / 2 + context[1]) then a[1]**5 else a[1] fi
+        b[2] = if i < context[0] / 2 || i >= (context[0] / 2 + context[1]) then a[2]**5 else a[2] fi
+        b[3] = if i < context[0] / 2 || i >= (context[0] / 2 + context[1]) then a[3]**5 else a[3] fi
+        b[4] = if i < context[0] / 2 || i >= (context[0] / 2 + context[1]) then a[4]**5 else a[4] fi
+        b[5] = if i < context[0] / 2 || i >= (context[0] / 2 + context[1]) then a[5]**5 else a[5] fi
+        //mix
+        for field j in 0..6 do
+            c[j] = 0
+            for field k in 0..6 do
+                c[j] = c[j] + constM[j][k] * b[k]
+            endfor
+        endfor
+        a = c
+    endfor
+
+    field[256] r = unpack256(a[0] + 1)
+
+    return r
+
+		

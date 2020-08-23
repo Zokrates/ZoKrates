@@ -1,0 +1,16 @@
+
+def main(field[6] a, field i) -> (field[6]):
+
+    //field out0 =  a[0]**5 
+    //field out1 = if i < 4 || i >= 61 then a[1]**5 else a[1] fi
+    //field out2 = if i < 4 || i >= 61 then a[2]**5 else a[2] fi
+    //field out3 = if i < 4 || i >= 61 then a[3]**5 else a[3] fi
+    //field out4 = if i < 4 || i >= 61 then a[4]**5 else a[4] fi
+    //field out5 = if i < 4 || i >= 61 then a[5]**5 else a[5] fi
+
+    //return  [out0, out1, out2, out3, out4, out5]
+    a[0] = a[0]**5
+    for field i in 1..6 do
+    a[i] = if i < 4 || i >= 61 then (a[i]**5) else (a[0]) fi
+    endfor
+    return a
