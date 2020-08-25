@@ -156,38 +156,83 @@ impl<'de> Deserialize<'de> for Type {
 
         let mapping = Mapping::deserialize(d)?;
         match mapping.ty.as_str() {
-            "field" => Ok(Type::FieldElement),
-            "bool" => Ok(Type::Boolean),
+            "field" => {
+                if mapping.components.is_some() {
+                    Err(D::Error::custom(format!(
+                        "unexpected `components` field for type `{}`",
+                        mapping.ty
+                    )))
+                } else {
+                    Ok(Type::FieldElement)
+                }
+            }
+            "bool" => {
+                if mapping.components.is_some() {
+                    Err(D::Error::custom(format!(
+                        "unexpected `components` field for type `{}`",
+                        mapping.ty
+                    )))
+                } else {
+                    Ok(Type::Boolean)
+                }
+            }
             "array" => {
-                let components = mapping.components.ok_or(D::Error::custom(format!(
-                    "Missing `components` field for type `{}`",
+                let components = mapping.components.ok_or(D::Error::custom(format_args!(
+                    "missing `components` field for type `{}'",
                     mapping.ty
                 )))?;
                 match components {
                     Components::Array(array_type) => Ok(Type::Array(array_type)),
                     _ => Err(D::Error::custom(format!(
-                        "Invalid `components` field for type `{}`",
+                        "invalid `components` variant for type `{}`",
                         mapping.ty
                     ))),
                 }
             }
             "struct" => {
-                let components = mapping.components.ok_or(D::Error::custom(format!(
-                    "Missing `components` field for type `{}`",
+                let components = mapping.components.ok_or(D::Error::custom(format_args!(
+                    "missing `components` field for type `{}'",
                     mapping.ty
                 )))?;
                 match components {
                     Components::Struct(struct_type) => Ok(Type::Struct(struct_type)),
                     _ => Err(D::Error::custom(format!(
-                        "Invalid `components` field for type `{}`",
+                        "invalid `components` variant for type `{}`",
                         mapping.ty
                     ))),
                 }
             }
-            "u8" => Ok(Type::Uint(UBitwidth::B8)),
-            "u16" => Ok(Type::Uint(UBitwidth::B16)),
-            "u32" => Ok(Type::Uint(UBitwidth::B32)),
-            _ => Err(D::Error::custom(format!("Unknown type `{}`", mapping.ty))),
+            "u8" => {
+                if mapping.components.is_some() {
+                    Err(D::Error::custom(format!(
+                        "unexpected `components` field for type `{}`",
+                        mapping.ty
+                    )))
+                } else {
+                    Ok(Type::Uint(UBitwidth::B8))
+                }
+            }
+            "u16" => {
+                if mapping.components.is_some() {
+                    Err(D::Error::custom(format!(
+                        "unexpected `components` field for type `{}`",
+                        mapping.ty
+                    )))
+                } else {
+                    Ok(Type::Uint(UBitwidth::B16))
+                }
+            }
+            "u32" => {
+                if mapping.components.is_some() {
+                    Err(D::Error::custom(format!(
+                        "unexpected `components` field for type `{}`",
+                        mapping.ty
+                    )))
+                } else {
+                    Ok(Type::Uint(UBitwidth::B32))
+                }
+            }
+            _ => Err(D::Error::custom(format!("invalid type `{}`", mapping.ty))),
         }
     }
 }
