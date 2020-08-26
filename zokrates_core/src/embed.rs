@@ -4,7 +4,7 @@ use flat_absy::{
     FlatVariable,
 };
 use std::collections::HashMap;
-use typed_absy::types::{FunctionKey, Signature, Type};
+use typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
 use zokrates_field::Field;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
@@ -21,34 +21,34 @@ pub enum FlatEmbed {
 }
 
 impl FlatEmbed {
-    pub fn signature(&self) -> Signature {
+    pub fn signature(&self) -> ConcreteSignature {
         match self {
-            FlatEmbed::Unpack(bitwidth) => Signature::new()
-                .inputs(vec![Type::FieldElement])
-                .outputs(vec![Type::array(Type::Boolean, *bitwidth)]),
-            FlatEmbed::U8ToBits => Signature::new()
-                .inputs(vec![Type::uint(8)])
-                .outputs(vec![Type::array(Type::Boolean, 8)]),
-            FlatEmbed::U16ToBits => Signature::new()
-                .inputs(vec![Type::uint(16)])
-                .outputs(vec![Type::array(Type::Boolean, 16)]),
-            FlatEmbed::U32ToBits => Signature::new()
-                .inputs(vec![Type::uint(32)])
-                .outputs(vec![Type::array(Type::Boolean, 32)]),
-            FlatEmbed::U8FromBits => Signature::new()
-                .outputs(vec![Type::uint(8)])
-                .inputs(vec![Type::array(Type::Boolean, 8)]),
-            FlatEmbed::U16FromBits => Signature::new()
-                .outputs(vec![Type::uint(16)])
-                .inputs(vec![Type::array(Type::Boolean, 16)]),
-            FlatEmbed::U32FromBits => Signature::new()
-                .outputs(vec![Type::uint(32)])
-                .inputs(vec![Type::array(Type::Boolean, 32)]),
+            FlatEmbed::Unpack(bitwidth) => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::FieldElement])
+                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, *bitwidth)]),
+            FlatEmbed::U8ToBits => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::uint(8)])
+                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 8usize)]),
+            FlatEmbed::U16ToBits => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::uint(16)])
+                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 16usize)]),
+            FlatEmbed::U32ToBits => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::uint(32)])
+                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 32usize)]),
+            FlatEmbed::U8FromBits => ConcreteSignature::new()
+                .outputs(vec![ConcreteType::uint(8)])
+                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 8usize)]),
+            FlatEmbed::U16FromBits => ConcreteSignature::new()
+                .outputs(vec![ConcreteType::uint(16)])
+                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 16usize)]),
+            FlatEmbed::U32FromBits => ConcreteSignature::new()
+                .outputs(vec![ConcreteType::uint(32)])
+                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 32usize)]),
         }
     }
 
-    pub fn key<T: Field>(&self) -> FunctionKey<'static> {
-        FunctionKey::with_id(self.id()).signature(self.signature())
+    pub fn key<T: Field>(&self) -> ConcreteFunctionKey<'static> {
+        ConcreteFunctionKey::with_id(self.id()).signature(self.signature())
     }
 
     pub fn id(&self) -> &'static str {

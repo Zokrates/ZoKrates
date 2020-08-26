@@ -82,6 +82,12 @@ pub struct UExpression<'ast, T> {
     pub inner: UExpressionInner<'ast, T>,
 }
 
+impl<'ast, T> From<u32> for UExpression<'ast, T> {
+    fn from(u: u32) -> Self {
+        UExpressionInner::Value(u).annotate(UBitwidth::B32)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
@@ -101,17 +107,14 @@ pub enum UExpressionInner<'ast, T> {
         Box<UExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(FunctionKey<'ast, T>, Vec<TypedExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {

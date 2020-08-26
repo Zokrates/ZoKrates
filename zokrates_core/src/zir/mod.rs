@@ -14,7 +14,7 @@ pub use zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
 use embed::FlatEmbed;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use zir::types::{FunctionKey, Signature};
 use zokrates_field::Field;
@@ -90,7 +90,7 @@ impl<'ast, T> ZirFunctionSymbol<'ast, T> {
                 .unwrap()
                 .signature(&modules)
                 .clone(),
-            ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature().into(),
+            ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature().try_into().unwrap(),
         }
     }
 }

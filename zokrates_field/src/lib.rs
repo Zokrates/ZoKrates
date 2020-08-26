@@ -35,6 +35,8 @@ pub trait Field:
     + Ord
     + Display
     + Debug
+    + Default
+    + Hash
     + Add<Self, Output = Self>
     + for<'a> Add<&'a Self, Output = Self>
     + Sub<Self, Output = Self>

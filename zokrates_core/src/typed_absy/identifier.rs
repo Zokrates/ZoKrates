@@ -1,12 +1,12 @@
 use std::fmt;
-use typed_absy::types::FunctionKey;
+use typed_absy::types::ConcreteFunctionKey;
 use typed_absy::TypedModuleId;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub enum CoreIdentifier<'ast> {
     Source(&'ast str),
     Internal(&'static str, usize),
-    Call(FunctionKey<'ast>),
+    Call(ConcreteFunctionKey<'ast>),
 }
 
 impl<'ast> fmt::Display for CoreIdentifier<'ast> {
@@ -27,7 +27,7 @@ pub struct Identifier<'ast> {
     /// the version of the variable, used after SSA transformation
     pub version: usize,
     /// the call stack of the variable, used when inlining
-    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
+    pub stack: Vec<(TypedModuleId, ConcreteFunctionKey<'ast>, usize)>,
 }
 
 impl<'ast> fmt::Display for Identifier<'ast> {
@@ -78,7 +78,7 @@ impl<'ast> Identifier<'ast> {
         self
     }
 
-    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
+    pub fn stack(mut self, stack: Vec<(TypedModuleId, ConcreteFunctionKey<'ast>, usize)>) -> Self {
         self.stack = stack;
         self
     }

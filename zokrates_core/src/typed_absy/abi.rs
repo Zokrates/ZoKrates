@@ -1,15 +1,16 @@
+use typed_absy::types::ConcreteSignature;
+use typed_absy::types::ConcreteType;
 use typed_absy::types::Signature;
-use typed_absy::Type;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct AbiInput {
     pub name: String,
     pub public: bool,
     #[serde(flatten)]
-    pub ty: Type,
+    pub ty: ConcreteType,
 }
 
-pub type AbiOutput = Type;
+pub type AbiOutput = ConcreteType;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Abi {
@@ -18,7 +19,7 @@ pub struct Abi {
 }
 
 impl Abi {
-    pub fn signature(&self) -> Signature {
+    pub fn signature(&self) -> ConcreteSignature {
         Signature {
             inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
             outputs: self.outputs.clone(),

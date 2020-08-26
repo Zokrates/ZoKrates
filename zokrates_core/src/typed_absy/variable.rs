@@ -1,76 +1,94 @@
-use crate::typed_absy::types::Type;
+use crate::typed_absy::types::GType;
 use crate::typed_absy::Identifier;
 use std::fmt;
-use typed_absy::types::{StructType, UBitwidth};
+use typed_absy::types::{Constant, GStructType, UBitwidth};
+use typed_absy::TryFrom;
+use typed_absy::UExpression;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub struct Variable<'ast> {
+pub struct GVariable<'ast, S> {
     pub id: Identifier<'ast>,
-    pub _type: Type,
+    pub _type: GType<S>,
 }
 
-impl<'ast> Variable<'ast> {
-    pub fn field_element<I: Into<Identifier<'ast>>>(id: I) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::FieldElement)
+pub type DeclarationVariable<'ast> = GVariable<'ast, Constant<'ast>>;
+pub type ConcreteVariable<'ast> = GVariable<'ast, usize>;
+pub type Variable<'ast, T> = GVariable<'ast, UExpression<'ast, T>>;
+
+impl<'ast, T> TryFrom<Variable<'ast, T>> for ConcreteVariable<'ast> {
+    type Error = ();
+
+    fn try_from(t: Variable<'ast, T>) -> Result<Self, Self::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'ast> TryFrom<DeclarationVariable<'ast>> for ConcreteVariable<'ast> {
+    type Error = ();
+
+    fn try_from(t: DeclarationVariable<'ast>) -> Result<Self, Self::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'ast, T> From<ConcreteVariable<'ast>> for Variable<'ast, T> {
+    fn from(t: ConcreteVariable<'ast>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl<'ast, T> From<DeclarationVariable<'ast>> for Variable<'ast, T> {
+    fn from(t: DeclarationVariable<'ast>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl<'ast, S> GVariable<'ast, S> {
+    pub fn field_element<I: Into<Identifier<'ast>>>(id: I) -> Self {
+        Self::with_id_and_type(id, GType::FieldElement)
     }
 
-    pub fn boolean<I: Into<Identifier<'ast>>>(id: I) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::Boolean)
+    pub fn boolean<I: Into<Identifier<'ast>>>(id: I) -> Self {
+        Self::with_id_and_type(id, GType::Boolean)
     }
 
-    pub fn uint<I: Into<Identifier<'ast>>, W: Into<UBitwidth>>(
-        id: I,
-        bitwidth: W,
-    ) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::uint(bitwidth))
+    pub fn uint<I: Into<Identifier<'ast>>, W: Into<UBitwidth>>(id: I, bitwidth: W) -> Self {
+        Self::with_id_and_type(id, GType::uint(bitwidth))
     }
 
     #[cfg(test)]
-    pub fn field_array<I: Into<Identifier<'ast>>>(id: I, size: usize) -> Variable<'ast> {
-        Self::array(id, Type::FieldElement, size)
+    pub fn field_array<I: Into<Identifier<'ast>>>(id: I, size: S) -> Self {
+        Self::array(id, GType::FieldElement, size)
     }
 
-    pub fn array<I: Into<Identifier<'ast>>>(id: I, ty: Type, size: usize) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::array(ty, size))
+    pub fn array<I: Into<Identifier<'ast>>>(id: I, ty: GType<S>, size: S) -> Self {
+        Self::with_id_and_type(id, GType::array(ty, size))
     }
 
-    pub fn struc<I: Into<Identifier<'ast>>>(id: I, ty: StructType) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::Struct(ty))
+    pub fn struc<I: Into<Identifier<'ast>>>(id: I, ty: GStructType<S>) -> Self {
+        Self::with_id_and_type(id, GType::Struct(ty))
     }
 
-    pub fn with_id_and_type<I: Into<Identifier<'ast>>>(id: I, _type: Type) -> Variable<'ast> {
-        Variable {
+    pub fn with_id_and_type<I: Into<Identifier<'ast>>>(id: I, _type: GType<S>) -> Self {
+        GVariable {
             id: id.into(),
             _type,
         }
     }
 
-    pub fn get_type(&self) -> Type {
+    pub fn get_type(&self) -> GType<S> {
         self._type.clone()
     }
 }
 
-impl<'ast> fmt::Display for Variable<'ast> {
+impl<'ast, S> fmt::Display for GVariable<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
     }
 }
 
-impl<'ast> fmt::Debug for Variable<'ast> {
+impl<'ast, S> fmt::Debug for GVariable<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }
 }
-
-// impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
-//     fn from(v: absy::Variable) -> Variable {
-//         Variable::with_id_and_type(
-//             Identifier {
-//                 id: v.id,
-//                 version: 0,
-//                 stack: vec![],
-//             },
-//             v._type,
-//         )
-//     }
-// }

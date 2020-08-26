@@ -213,10 +213,8 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
         CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
     })?;
 
-    let abi = typed_ast.abi();
-
     // analyse (unroll and constant propagation)
-    let typed_ast = typed_ast.analyse();
+    let (typed_ast, abi) = typed_ast.analyse();
 
     Ok((typed_ast, abi))
 }

@@ -23,9 +23,9 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_function(self, f)
     }
 
-    fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
+    fn fold_parameter(&mut self, p: DeclarationParameter<'ast>) -> DeclarationParameter<'ast> {
         Parameter {
-            id: self.fold_variable(p.id),
+            id: self.fold_declaration_variable(p.id),
             ..p
         }
     }
@@ -34,11 +34,26 @@ pub trait Folder<'ast, T: Field>: Sized {
         n
     }
 
-    fn fold_variable(&mut self, v: Variable<'ast>) -> Variable<'ast> {
+    fn fold_variable(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
         Variable {
             id: self.fold_name(v.id),
-            ..v
+            ty: self.fold_type(v.ty),
         }
+    }
+
+    fn fold_declaration_variable(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
+        DeclarationVariable {
+            id: self.fold_name(v.id),
+            ty: self.fold_declaration_type(v.ty),
+        }
+    }
+
+    fn fold_type(&mut self, t: Type<T>) -> Type<T> {
+        unimplemented!()
+    }
+
+    fn fold_declaration_type(&mut self, t: DeclarationType) -> DeclarationType {
+        unimplemented!()
     }
 
     fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
@@ -46,7 +61,7 @@ pub trait Folder<'ast, T: Field>: Sized {
             TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.fold_variable(v)),
             TypedAssignee::Select(box a, box index) => TypedAssignee::Select(
                 box self.fold_assignee(a),
-                box self.fold_field_expression(index),
+                box self.fold_uint_expression(index),
             ),
             TypedAssignee::Member(box s, m) => TypedAssignee::Member(box self.fold_assignee(s), m),
         }
@@ -121,15 +136,15 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type,
-        size: usize,
+        ty: &Type<'ast, T>,
+        size: UExpression<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         fold_array_expression_inner(self, ty, size, e)
     }
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &StructType,
+        ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         fold_struct_expression_inner(self, ty, e)
@@ -185,8 +200,8 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    _: &Type,
-    _: usize,
+    _: &Type<'ast, T>,
+    _: UExpression<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> ArrayExpressionInner<'ast, T> {
     match e {
@@ -211,7 +226,7 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
         }
         ArrayExpressionInner::Select(box array, box index) => {
             let array = f.fold_array_expression(array);
-            let index = f.fold_field_expression(index);
+            let index = f.fold_uint_expression(index);
             ArrayExpressionInner::Select(box array, box index)
         }
     }
@@ -219,7 +234,7 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    _: &StructType,
+    _: &StructType<'ast, T>,
     e: StructExpressionInner<'ast, T>,
 ) -> StructExpressionInner<'ast, T> {
     match e {
@@ -244,7 +259,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
         }
         StructExpressionInner::Select(box array, box index) => {
             let array = f.fold_array_expression(array);
-            let index = f.fold_field_expression(index);
+            let index = f.fold_uint_expression(index);
             StructExpressionInner::Select(box array, box index)
         }
     }
@@ -300,7 +315,7 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
         }
         FieldElementExpression::Select(box array, box index) => {
             let array = f.fold_array_expression(array);
-            let index = f.fold_field_expression(index);
+            let index = f.fold_uint_expression(index);
             FieldElementExpression::Select(box array, box index)
         }
     }
@@ -388,7 +403,7 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
         }
         BooleanExpression::Select(box array, box index) => {
             let array = f.fold_array_expression(array);
-            let index = f.fold_field_expression(index);
+            let index = f.fold_uint_expression(index);
             BooleanExpression::Select(box array, box index)
         }
     }
@@ -471,7 +486,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
         }
         UExpressionInner::Select(box array, box index) => {
             let array = f.fold_array_expression(array);
-            let index = f.fold_field_expression(index);
+            let index = f.fold_uint_expression(index);
             UExpressionInner::Select(box array, box index)
         }
         UExpressionInner::IfElse(box cond, box cons, box alt) => {
@@ -510,8 +525,11 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: ArrayExpression<'ast, T>,
 ) -> ArrayExpression<'ast, T> {
+    let size = f.fold_uint_expression(e.size);
+
     ArrayExpression {
-        inner: f.fold_array_expression_inner(&e.ty, e.size, e.inner),
+        inner: f.fold_array_expression_inner(&e.ty, size, e.inner),
+        size,
         ..e
     }
 }

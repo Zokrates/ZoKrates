@@ -17,9 +17,7 @@ mod unroll;
 mod variable_access_remover;
 
 use self::flatten_complex_types::Flattener;
-use self::inline::Inliner;
 use self::propagate_unroll::PropagatedUnroller;
-use self::propagation::Propagator;
 use self::redefinition::RedefinitionOptimizer;
 use self::return_binder::ReturnBinder;
 use self::uint_optimizer::UintOptimizer;
@@ -27,7 +25,7 @@ use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_access_remover::VariableAccessRemover;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
-use crate::typed_absy::TypedProgram;
+use crate::typed_absy::{abi::Abi, TypedProgram};
 use zir::ZirProgram;
 use zokrates_field::Field;
 
@@ -36,9 +34,12 @@ pub trait Analyse {
 }
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
-    pub fn analyse(self) -> ZirProgram<'ast, T> {
+    pub fn analyse(self) -> (ZirProgram<'ast, T>, Abi) {
         // propagated unrolling
         let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
+
+        let abi = r.abi().unwrap();
+
         // return binding
         let r = ReturnBinder::bind(r);
 
@@ -60,7 +61,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);
 
-        zir
+        (zir, abi)
     }
 }
 

@@ -18,6 +18,8 @@
 
 use static_analysis::propagate_unroll::{Blocked, Output};
 use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
+use typed_absy::types::ConcreteFunctionKey;
 use typed_absy::types::{FunctionKey, Type, UBitwidth};
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
@@ -25,7 +27,7 @@ use zokrates_field::Field;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct Location<'ast> {
     module: TypedModuleId,
-    key: FunctionKey<'ast>,
+    key: ConcreteFunctionKey<'ast>,
 }
 
 impl<'ast> Location<'ast> {
@@ -37,10 +39,15 @@ impl<'ast> Location<'ast> {
 type CallCache<'ast, T> = HashMap<
     Location<'ast>,
     HashMap<
-        FunctionKey<'ast>,
+        ConcreteFunctionKey<'ast>,
         HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
     >,
 >;
+
+enum InlineError<'ast, T> {
+    Flat(FunctionKey<'ast, T>, Vec<TypedExpression<'ast, T>>),
+    NonConstant(FunctionKey<'ast, T>, Vec<TypedExpression<'ast, T>>),
+}
 
 /// An inliner
 #[derive(Debug)]
@@ -52,9 +59,9 @@ pub struct Inliner<'ast, T: Field> {
     /// a buffer of statements to be added to the inlined statements
     statement_buffer: Vec<TypedStatement<'ast, T>>,
     /// the current call stack
-    stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
+    stack: Vec<(TypedModuleId, ConcreteFunctionKey<'ast>, usize)>,
     /// the call count for each function
-    call_count: HashMap<(TypedModuleId, FunctionKey<'ast>), usize>,
+    call_count: HashMap<(TypedModuleId, ConcreteFunctionKey<'ast>), usize>,
     /// the cache for memoization: for each function body, tracks function calls
     call_cache: CallCache<'ast, T>,
     /// whether the inliner is blocked, and why
@@ -65,7 +72,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     fn with_modules_and_module_id_and_key<S: Into<TypedModuleId>>(
         modules: TypedModules<'ast, T>,
         module_id: S,
-        key: FunctionKey<'ast>,
+        key: ConcreteFunctionKey<'ast>,
     ) -> Self {
         Inliner {
             modules,
@@ -95,7 +102,11 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             .0;
 
         // initialize an inliner over all modules, starting from the main module
-        Inliner::with_modules_and_module_id_and_key(p.modules, main_module_id, main_key.clone())
+        Inliner::with_modules_and_module_id_and_key(
+            p.modules,
+            main_module_id,
+            main_key.clone().try_into().unwrap(),
+        )
     }
 
     pub fn inline(&mut self, p: TypedProgram<'ast, T>) -> Output<'ast, T> {
@@ -162,22 +173,47 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         }
     }
 
+    fn get_concrete_function(
+        &self,
+        key: ConcreteFunctionKey<'ast>,
+    ) -> TypedFunctionSymbol<'ast, T> {
+        unimplemented!()
+    }
+
+    fn try_inline_call(
+        &mut self,
+        key: FunctionKey<'ast, T>,
+        expressions: Vec<TypedExpression<'ast, T>>,
+    ) -> Result<Vec<TypedExpression<'ast, T>>, InlineError<'ast, T>> {
+        match ConcreteFunctionKey::try_from(key) {
+            Ok(key) => self
+                .try_inline_concrete_call(key, expressions)
+                .map_err(|e| InlineError::Flat(e.0.into(), e.1)),
+            Err(()) => {
+                self.blocked = Some(Blocked::Inline);
+                Err(InlineError::NonConstant(key, expressions))
+            }
+        }
+    }
+
     /// try to inline a call to function with key `key` in the stack of `self`
     /// if inlining succeeds, return the expressions returned by the function call
     /// if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
-    fn try_inline_call(
+    fn try_inline_concrete_call(
         &mut self,
-        key: &FunctionKey<'ast>,
+        key: ConcreteFunctionKey<'ast>,
         expressions: Vec<TypedExpression<'ast, T>>,
-    ) -> Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>
-    {
-        match self.call_cache().get(key).map(|m| m.get(&expressions)) {
+    ) -> Result<
+        Vec<TypedExpression<'ast, T>>,
+        (ConcreteFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    > {
+        match self.call_cache().get(&key).map(|m| m.get(&expressions)) {
             Some(Some(exprs)) => return Ok(exprs.clone()),
             _ => {}
         };
 
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
-        let res = match self.module().functions.get(&key).unwrap().clone() {
+        let res = match self.get_concrete_function(key) {
             // if the function called is in the same module, we can go ahead and inline in this module
             TypedFunctionSymbol::Here(function) => {
                 let (current_module, current_key) =
@@ -200,7 +236,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     .zip(expressions.clone())
                     .map(|(a, e)| {
                         TypedStatement::Definition(
-                            self.fold_assignee(TypedAssignee::Identifier(a.id.clone())),
+                            self.fold_assignee(TypedAssignee::Identifier(a.id.clone().into())),
                             e,
                         )
                     })
@@ -233,24 +269,31 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             }
             // if the function called is in some other module, we switch focus to that module and call the function locally there
             TypedFunctionSymbol::There(function_key, module_id) => {
-                // switch focus to `module_id`
-                let (current_module, current_key) =
-                    self.change_context(module_id, function_key.clone());
-                // inline the call there
-                let res = self.try_inline_call(&function_key, expressions.clone())?;
-                // switch back focus
-                self.change_context(current_module, current_key);
-                Ok(res)
+                unimplemented!()
+
+                // let function_key = function_key.try_into().unwrap();
+
+                // // switch focus to `module_id`
+                // let (current_module, current_key) =
+                //     self.change_context(module_id, function_key.clone());
+                // // inline the call there
+                // let res = self.try_inline_call(&function_key, expressions.clone())?;
+                // // switch back focus
+                // self.change_context(current_module, current_key);
+                // Ok(res)
             }
             // if the function is a flat symbol, replace the call with a call to the local function we provide so it can be inlined in flattening
             TypedFunctionSymbol::Flat(embed) => {
                 // increase the number of calls for this function by one
                 let _ = self
                     .call_count
-                    .entry((self.module_id().clone(), embed.key::<T>().clone()))
+                    .entry((
+                        self.module_id().clone(),
+                        embed.key::<T>().clone().try_into().unwrap(),
+                    ))
                     .and_modify(|i| *i += 1)
                     .or_insert(1);
-                Err((embed.key::<T>(), expressions.clone()))
+                Err((embed.key::<T>().try_into().unwrap(), expressions.clone()))
             }
         };
 
@@ -267,8 +310,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     fn change_context(
         &mut self,
         module_id: TypedModuleId,
-        function_key: FunctionKey<'ast>,
-    ) -> (TypedModuleId, FunctionKey<'ast>) {
+        function_key: ConcreteFunctionKey<'ast>,
+    ) -> (TypedModuleId, ConcreteFunctionKey<'ast>) {
         let current_module = std::mem::replace(&mut self.location.module, module_id);
         let current_key = std::mem::replace(&mut self.location.key, function_key);
         (current_module, current_key)
@@ -281,7 +324,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     fn call_cache(
         &mut self,
     ) -> &HashMap<
-        FunctionKey<'ast>,
+        ConcreteFunctionKey<'ast>,
         HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
     > {
         self.call_cache
@@ -292,7 +335,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     fn call_cache_mut(
         &mut self,
     ) -> &mut HashMap<
-        FunctionKey<'ast>,
+        ConcreteFunctionKey<'ast>,
         HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
     > {
         self.call_cache.get_mut(&self.location).unwrap()
@@ -305,7 +348,10 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
 impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
     // add extra statements before the modified statement
-    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+    fn fold_statement<'a>(
+        &'a mut self,
+        s: TypedStatement<'ast, T>,
+    ) -> Vec<TypedStatement<'ast, T>> {
         let folded = match s {
             TypedStatement::For(v, from, to, statements) => {
                 self.blocked = Some(Blocked::Unroll);
@@ -319,7 +365,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         .collect();
                     let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                    match self.try_inline_call(&key, exps) {
+                    match self.try_inline_call(key, exps) {
                         Ok(ret) => variables
                             .into_iter()
                             .zip(ret.into_iter())
@@ -327,16 +373,22 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                 TypedStatement::Definition(TypedAssignee::Identifier(v), e)
                             })
                             .collect(),
-                        Err((key, expressions)) => vec![TypedStatement::MultipleDefinition(
-                            variables,
-                            TypedExpressionList::FunctionCall(key, expressions, types),
-                        )],
+                        Err(e) => match e {
+                            InlineError::Flat(key, expressions)
+                            | InlineError::NonConstant(key, expressions) => {
+                                vec![TypedStatement::MultipleDefinition(
+                                    variables,
+                                    TypedExpressionList::FunctionCall(key, expressions, types),
+                                )]
+                            }
+                        },
                     }
                 }
             },
             s => fold_statement(self, s),
         };
-        self.statement_buffer.drain(..).chain(folded).collect()
+        unimplemented!()
+        //self.statement_buffer.drain(..).chain(folded).collect()
     }
 
     // prefix all names with the stack
@@ -356,28 +408,50 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             FieldElementExpression::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(&key, exps) {
+                match self.try_inline_call(key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::FieldElement(e) => e,
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => {
-                        let tys = key.signature.outputs.clone();
-                        let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), key.clone()))
-                                .unwrap(),
-                            stack: self.stack.clone(),
-                        };
-                        self.statement_buffer
-                            .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(key, expressions, tys),
-                            ));
-                        FieldElementExpression::Identifier(id)
-                    }
+                    Err(e) => match e {
+                        InlineError::Flat(key, expressions) => {
+                            let key = ConcreteFunctionKey::try_from(key).unwrap();
+                            let tys = key.signature.outputs.clone();
+                            let id = Identifier {
+                                id: CoreIdentifier::Call(key.clone()),
+                                version: *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                                stack: self.stack.clone(),
+                            };
+                            self.statement_buffer
+                                .push(TypedStatement::MultipleDefinition(
+                                    vec![Variable::with_id_and_type(
+                                        id.clone(),
+                                        tys[0].clone().into(),
+                                    )],
+                                    TypedExpressionList::FunctionCall(
+                                        key.into(),
+                                        expressions,
+                                        tys.into_iter().map(|t| t.into()).collect(),
+                                    ),
+                                ));
+
+                            self.call_cache_mut()
+                                .entry(key.clone())
+                                .or_insert_with(|| HashMap::new())
+                                .insert(
+                                    expressions,
+                                    vec![FieldElementExpression::Identifier(id.clone()).into()],
+                                );
+
+                            FieldElementExpression::Identifier(id)
+                        }
+                        InlineError::NonConstant(key, expressions) => {
+                            FieldElementExpression::FunctionCall(key, expressions)
+                        }
+                    },
                 }
             }
             e => fold_field_expression(self, e),
@@ -393,41 +467,51 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             BooleanExpression::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(&key, exps) {
+                match self.try_inline_call(key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::Boolean(e) => e,
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => {
-                        let tys = key.signature.outputs.clone();
-                        let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), key.clone()))
-                                .unwrap(),
-                            stack: self.stack.clone(),
-                        };
-                        self.statement_buffer
-                            .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(
-                                    key.clone(),
-                                    expressions.clone(),
-                                    tys,
-                                ),
-                            ));
+                    Err(e) => match e {
+                        InlineError::Flat(key, expressions) => {
+                            let key = ConcreteFunctionKey::try_from(key).unwrap();
 
-                        self.call_cache_mut()
-                            .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .insert(
-                                expressions,
-                                vec![BooleanExpression::Identifier(id.clone()).into()],
-                            );
+                            let tys = key.signature.outputs.clone();
+                            let id = Identifier {
+                                id: CoreIdentifier::Call(key.clone()),
+                                version: *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                                stack: self.stack.clone(),
+                            };
+                            self.statement_buffer
+                                .push(TypedStatement::MultipleDefinition(
+                                    vec![Variable::with_id_and_type(
+                                        id.clone(),
+                                        tys[0].clone().into(),
+                                    )],
+                                    TypedExpressionList::FunctionCall(
+                                        key.into(),
+                                        expressions,
+                                        tys.into_iter().map(|t| t.into()).collect(),
+                                    ),
+                                ));
 
-                        BooleanExpression::Identifier(id)
-                    }
+                            self.call_cache_mut()
+                                .entry(key.clone())
+                                .or_insert_with(|| HashMap::new())
+                                .insert(
+                                    expressions,
+                                    vec![BooleanExpression::Identifier(id.clone()).into()],
+                                );
+
+                            BooleanExpression::Identifier(id)
+                        }
+                        InlineError::NonConstant(key, expressions) => {
+                            BooleanExpression::FunctionCall(key, expressions)
+                        }
+                    },
                 }
             }
             e => fold_boolean_expression(self, e),
@@ -437,51 +521,61 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
     // inline calls which return an array
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type,
-        size: usize,
+        ty: &Type<'ast, T>,
+        size: UExpression<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
             ArrayExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(&key, exps) {
+                match self.try_inline_call(key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::Array(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((embed_key, expressions)) => {
-                        let tys = key.signature.outputs.clone();
-                        let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), embed_key.clone()))
-                                .unwrap(),
-                            stack: self.stack.clone(),
-                        };
-                        self.statement_buffer
-                            .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(
-                                    embed_key.clone(),
-                                    expressions.clone(),
-                                    tys,
-                                ),
-                            ));
+                    Err(e) => match e {
+                        InlineError::Flat(key, expressions) => {
+                            let key = ConcreteFunctionKey::try_from(key).unwrap();
 
-                        let out = ArrayExpressionInner::Identifier(id);
+                            let tys = key.signature.outputs.clone();
+                            let id = Identifier {
+                                id: CoreIdentifier::Call(key.clone()),
+                                version: *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                                stack: self.stack.clone(),
+                            };
+                            self.statement_buffer
+                                .push(TypedStatement::MultipleDefinition(
+                                    vec![Variable::with_id_and_type(
+                                        id.clone(),
+                                        tys[0].clone().into(),
+                                    )],
+                                    TypedExpressionList::FunctionCall(
+                                        key.into(),
+                                        expressions.clone(),
+                                        tys.into_iter().map(|t| t.into()).collect(),
+                                    ),
+                                ));
 
-                        self.call_cache_mut()
-                            .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .insert(
-                                expressions,
-                                vec![out.clone().annotate(ty.clone(), size).into()],
-                            );
+                            let out = ArrayExpressionInner::Identifier(id);
 
-                        out
-                    }
+                            self.call_cache_mut()
+                                .entry(key.clone())
+                                .or_insert_with(|| HashMap::new())
+                                .insert(
+                                    expressions,
+                                    vec![out.clone().annotate(ty.clone().into(), size).into()],
+                                );
+
+                            out
+                        }
+                        InlineError::NonConstant(key, expressions) => {
+                            ArrayExpressionInner::FunctionCall(key, expressions)
+                        }
+                    },
                 }
             }
             // default
@@ -491,35 +585,57 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &StructType,
+        ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
             StructExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(&key, exps) {
+                match self.try_inline_call(key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::Struct(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => {
-                        let tys = key.signature.outputs.clone();
-                        let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), key.clone()))
-                                .unwrap(),
-                            stack: self.stack.clone(),
-                        };
-                        self.statement_buffer
-                            .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(key, expressions, tys),
-                            ));
-                        StructExpressionInner::Identifier(id)
-                    }
+                    Err(e) => match e {
+                        InlineError::Flat(key, expressions) => {
+                            let key = ConcreteFunctionKey::try_from(key).unwrap();
+
+                            let tys = key.signature.outputs.clone();
+                            let id = Identifier {
+                                id: CoreIdentifier::Call(key.clone()),
+                                version: *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                                stack: self.stack.clone(),
+                            };
+                            self.statement_buffer
+                                .push(TypedStatement::MultipleDefinition(
+                                    vec![Variable::with_id_and_type(
+                                        id.clone(),
+                                        tys[0].clone().into(),
+                                    )],
+                                    TypedExpressionList::FunctionCall(
+                                        key.into(),
+                                        expressions,
+                                        tys.into_iter().map(|t| t.into()).collect(),
+                                    ),
+                                ));
+
+                            let out = StructExpressionInner::Identifier(id);
+
+                            self.call_cache_mut()
+                                .entry(key.clone())
+                                .or_insert_with(|| HashMap::new())
+                                .insert(expressions, vec![out.clone().annotate(ty.clone()).into()]);
+
+                            out
+                        }
+                        InlineError::NonConstant(key, expressions) => {
+                            StructExpressionInner::FunctionCall(key, expressions)
+                        }
+                    },
                 }
             }
             // default
@@ -536,40 +652,50 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             UExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(&key, exps) {
+                match self.try_inline_call(key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::Uint(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((embed_key, expressions)) => {
-                        let tys = key.signature.outputs.clone();
-                        let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), embed_key.clone()))
-                                .unwrap(),
-                            stack: self.stack.clone(),
-                        };
-                        self.statement_buffer
-                            .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(
-                                    embed_key.clone(),
-                                    expressions.clone(),
-                                    tys,
-                                ),
-                            ));
+                    Err(e) => match e {
+                        InlineError::Flat(embed_key, expressions) => {
+                            let key = ConcreteFunctionKey::try_from(key).unwrap();
 
-                        let out = UExpressionInner::Identifier(id);
+                            let tys = key.signature.outputs.clone();
+                            let id = Identifier {
+                                id: CoreIdentifier::Call(key.clone()),
+                                version: *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone().into()))
+                                    .unwrap(),
+                                stack: self.stack.clone(),
+                            };
+                            self.statement_buffer
+                                .push(TypedStatement::MultipleDefinition(
+                                    vec![Variable::with_id_and_type(
+                                        id.clone(),
+                                        tys[0].clone().into(),
+                                    )],
+                                    TypedExpressionList::FunctionCall(
+                                        embed_key.clone().into(),
+                                        expressions.clone(),
+                                        tys.into_iter().map(|t| t.into()).collect(),
+                                    ),
+                                ));
 
-                        self.call_cache_mut()
-                            .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .insert(expressions, vec![out.clone().annotate(size).into()]);
+                            let out = UExpressionInner::Identifier(id);
 
-                        out
-                    }
+                            self.call_cache_mut()
+                                .entry(key.clone())
+                                .or_insert_with(|| HashMap::new())
+                                .insert(expressions, vec![out.clone().annotate(size).into()]);
+
+                            out
+                        }
+                        InlineError::NonConstant(key, expressions) => {
+                            UExpressionInner::FunctionCall(key, expressions)
+                        }
+                    },
                 }
             }
             // default

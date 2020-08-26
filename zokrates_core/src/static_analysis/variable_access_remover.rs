@@ -29,22 +29,27 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
     fn select<U: Select<'ast, T> + IfElse<'ast, T>>(
         &mut self,
         a: ArrayExpression<'ast, T>,
-        i: FieldElementExpression<'ast, T>,
+        i: UExpression<'ast, T>,
     ) -> U {
-        match i {
-            FieldElementExpression::Number(i) => U::select(a, FieldElementExpression::Number(i)),
+        match i.into_inner() {
+            UExpressionInner::Value(i) => {
+                U::select(a, UExpressionInner::Value(i).annotate(UBitwidth::B32))
+            }
             i => {
                 let size = match a.get_type().clone() {
-                    Type::Array(array_ty) => array_ty.size,
+                    Type::Array(array_ty) => match array_ty.size.into_inner() {
+                        UExpressionInner::Value(size) => size as u32,
+                        _ => unreachable!(),
+                    },
                     _ => unreachable!(),
                 };
 
                 self.statements.push(TypedStatement::Assertion(
                     (0..size)
                         .map(|index| {
-                            BooleanExpression::FieldEq(
-                                box i.clone(),
-                                box FieldElementExpression::Number(index.into()).into(),
+                            BooleanExpression::UintEq(
+                                box i.clone().annotate(UBitwidth::B32),
+                                box index.into(),
                             )
                         })
                         .fold(None, |acc, e| match acc {
@@ -56,14 +61,19 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
                 ));
 
                 (0..size)
-                    .map(|i| U::select(a.clone(), FieldElementExpression::Number(i.into())))
+                    .map(|i| {
+                        U::select(
+                            a.clone(),
+                            UExpressionInner::Value(i.into()).annotate(UBitwidth::B32),
+                        )
+                    })
                     .enumerate()
                     .rev()
                     .fold(None, |acc, (index, res)| match acc {
                         Some(acc) => Some(U::if_else(
-                            BooleanExpression::FieldEq(
-                                box i.clone(),
-                                box FieldElementExpression::Number(index.into()),
+                            BooleanExpression::UintEq(
+                                box i.clone().annotate(UBitwidth::B32),
+                                box (index as u32).into(),
                             ),
                             res,
                             acc,
@@ -99,8 +109,8 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type,
-        size: usize,
+        ty: &Type<'ast, T>,
+        size: UExpression<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
@@ -113,7 +123,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &StructType,
+        ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
