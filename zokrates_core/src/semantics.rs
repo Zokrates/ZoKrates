@@ -140,7 +140,7 @@ struct FunctionQuery<'ast, T> {
     outputs: Vec<Option<Type<'ast, T>>>,
 }
 
-impl<'ast, T> fmt::Display for FunctionQuery<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for FunctionQuery<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
         for (i, t) in self.inputs.iter().enumerate() {
@@ -884,6 +884,27 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
     }
 
+    fn check_generic_expression(
+        &mut self,
+        expr: ExpressionNode<'ast, T>,
+        module_id: &ModuleId,
+        types: &TypeMap<'ast>,
+    ) -> Result<Constant<'ast>, ErrorInner> {
+        let pos = expr.pos();
+
+        match expr.value {
+            Expression::U32Constant(c) => Ok(Constant::Concrete(c)),
+            Expression::Identifier(name) => Ok(Constant::Generic(name)),
+            e => Err(ErrorInner {
+                pos: Some(pos),
+                message: format!(
+                    "Expected array dimension to be a u32 constant or an identifier, found {}",
+                    e
+                ),
+            }),
+        }
+    }
+
     fn check_declaration_type(
         &mut self,
         ty: UnresolvedTypeNode<'ast, T>,
@@ -898,35 +919,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             UnresolvedType::Boolean => Ok(DeclarationType::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(DeclarationType::uint(bitwidth)),
             UnresolvedType::Array(t, size) => {
-                let size = self.check_expression(size, module_id, types)?;
-
-                let ty = size.get_type();
-
-                unimplemented!("make parser stricter and only accept id and literal here?");
-
-                let size = match size {
-                    TypedExpression::Uint(e) => match e.bitwidth() {
-                        UBitwidth::B32 => match e.into_inner() {
-                            UExpressionInner::Identifier(id) => unimplemented!(),
-                            UExpressionInner::Value(v) => Ok(Constant::Concrete(v as u32)),
-                            _ => unimplemented!(),
-                        },
-                        bitwidth => Err(ErrorInner {
-                            pos: Some(pos),
-                            message: format!(
-                            "Expected array dimension to be a u32 constant, found {} of type {}",
-                            e, ty
-                        ),
-                        }),
-                    },
-                    _ => Err(ErrorInner {
-                        pos: Some(pos),
-                        message: format!(
-                            "Expected array dimension to be a u32 constant, found {} of type {}",
-                            size, ty
-                        ),
-                    }),
-                }?;
+                let size = self.check_generic_expression(size, module_id, types)?;
 
                 Ok(DeclarationType::Array(DeclarationArrayType::new(
                     self.check_declaration_type(*t, module_id, types)?,
@@ -1321,7 +1314,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             ),
                                             box UExpressionInner::Value(i).annotate(UBitwidth::B32),
                                         )
-                                        .annotate(*array_type.ty.clone(), array_type.size)
+                                        .annotate(*array_type.ty.clone(), array_type.size.clone())
                                         .into(),
                                         Type::Struct(members) => StructExpressionInner::Select(
                                             box e.clone().annotate(

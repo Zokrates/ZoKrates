@@ -16,8 +16,10 @@ mod variable;
 
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter, Parameter};
+pub use self::types::{
+    ConcreteSignature, ConcreteType, DeclarationType, Signature, StructType, Type, UBitwidth,
+};
 use self::types::{DeclarationFunctionKey, DeclarationSignature, GSignature, GStructType, GType};
-pub use self::types::{DeclarationType, Signature, StructType, Type, UBitwidth};
 
 pub use self::variable::{DeclarationVariable, GVariable, Variable};
 use std::path::PathBuf;
@@ -269,7 +271,7 @@ pub enum TypedAssignee<'ast, T> {
     Member(Box<TypedAssignee<'ast, T>>, MemberId),
 }
 
-impl<'ast, T> Typed<'ast, T> for TypedAssignee<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for TypedAssignee<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         match *self {
             TypedAssignee::Identifier(ref v) => v.get_type(),
@@ -541,7 +543,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for StructExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Typed<'ast, T> for TypedExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for TypedExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => e.get_type(),
@@ -553,31 +555,31 @@ impl<'ast, T> Typed<'ast, T> for TypedExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Typed<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for ArrayExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
-        Type::array(self.ty.clone(), self.size)
+        Type::array(self.ty.clone(), self.size.clone())
     }
 }
 
-impl<'ast, T> Typed<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for StructExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         Type::Struct(self.ty.clone())
     }
 }
 
-impl<'ast, T> Typed<'ast, T> for FieldElementExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for FieldElementExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         Type::FieldElement
     }
 }
 
-impl<'ast, T> Typed<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for UExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         Type::Uint(self.bitwidth)
     }
 }
 
-impl<'ast, T> Typed<'ast, T> for BooleanExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for BooleanExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         Type::Boolean
     }
@@ -733,13 +735,13 @@ impl<'ast, T> ArrayExpressionInner<'ast, T> {
     }
 }
 
-impl<'ast, T> ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     pub fn inner_type(&self) -> &Type<'ast, T> {
         &self.ty
     }
 
     pub fn size(&self) -> UExpression<'ast, T> {
-        self.size
+        self.size.clone()
     }
 
     pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {
@@ -1193,7 +1195,7 @@ impl<'ast, T> IfElse<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> IfElse<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> IfElse<'ast, T> for ArrayExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
@@ -1206,7 +1208,7 @@ impl<'ast, T> IfElse<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> IfElse<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Clone> IfElse<'ast, T> for StructExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
@@ -1233,7 +1235,7 @@ impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Select<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Clone> Select<'ast, T> for UExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         let bitwidth = match array.inner_type().clone() {
             Type::Uint(bitwidth) => bitwidth,
@@ -1244,7 +1246,7 @@ impl<'ast, T> Select<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Select<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> Select<'ast, T> for ArrayExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
             Type::Array(array_type) => (array_type.ty.clone(), array_type.size.clone()),
@@ -1255,7 +1257,7 @@ impl<'ast, T> Select<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Select<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Clone> Select<'ast, T> for StructExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         let members = match array.inner_type().clone() {
             Type::Struct(members) => members,
@@ -1282,15 +1284,16 @@ impl<'ast, T> Member<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Clone> Member<'ast, T> for UExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         let members = s.ty().clone();
 
         let ty = members
-            .into_iter()
+            .iter()
             .find(|member| *member.id == member_id)
             .unwrap()
-            .ty;
+            .ty
+            .clone();
 
         let bitwidth = match *ty {
             Type::Uint(bitwidth) => bitwidth,
@@ -1301,15 +1304,16 @@ impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Member<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> Member<'ast, T> for ArrayExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         let members = s.ty().clone();
 
         let ty = members
-            .into_iter()
+            .iter()
             .find(|member| *member.id == member_id)
             .unwrap()
-            .ty;
+            .ty
+            .clone();
 
         let (ty, size) = match *ty {
             Type::Array(array_type) => (array_type.ty, array_type.size),
@@ -1320,15 +1324,16 @@ impl<'ast, T> Member<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Member<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Clone> Member<'ast, T> for StructExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         let members = s.ty().clone();
 
         let ty = members
-            .into_iter()
+            .iter()
             .find(|member| *member.id == member_id)
             .unwrap()
-            .ty;
+            .ty
+            .clone();
 
         let members = match *ty {
             Type::Struct(members) => members,

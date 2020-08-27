@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::fmt;
 use typed_absy::types::ConcreteFunctionKey;
 use typed_absy::TypedModuleId;
@@ -28,6 +29,17 @@ pub struct Identifier<'ast> {
     pub version: usize,
     /// the call stack of the variable, used when inlining
     pub stack: Vec<(TypedModuleId, ConcreteFunctionKey<'ast>, usize)>,
+}
+
+impl<'ast> TryInto<&'ast str> for Identifier<'ast> {
+    type Error = ();
+
+    fn try_into(self) -> Result<&'ast str, Self::Error> {
+        match self.id {
+            CoreIdentifier::Source(i) => Ok(i),
+            _ => Err(()),
+        }
+    }
 }
 
 impl<'ast> fmt::Display for Identifier<'ast> {

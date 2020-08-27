@@ -2,8 +2,8 @@ use crate::typed_absy::types::GType;
 use crate::typed_absy::Identifier;
 use std::fmt;
 use typed_absy::types::{Constant, GStructType, UBitwidth};
-use typed_absy::TryFrom;
 use typed_absy::UExpression;
+use typed_absy::{TryFrom, TryInto};
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct GVariable<'ast, S> {
@@ -18,32 +18,40 @@ pub type Variable<'ast, T> = GVariable<'ast, UExpression<'ast, T>>;
 impl<'ast, T> TryFrom<Variable<'ast, T>> for ConcreteVariable<'ast> {
     type Error = ();
 
-    fn try_from(t: Variable<'ast, T>) -> Result<Self, Self::Error> {
-        unimplemented!()
+    fn try_from(v: Variable<'ast, T>) -> Result<Self, Self::Error> {
+        let _type = v._type.try_into()?;
+
+        Ok(Self { _type, id: v.id })
     }
 }
 
 impl<'ast> TryFrom<DeclarationVariable<'ast>> for ConcreteVariable<'ast> {
     type Error = ();
 
-    fn try_from(t: DeclarationVariable<'ast>) -> Result<Self, Self::Error> {
-        unimplemented!()
+    fn try_from(v: DeclarationVariable<'ast>) -> Result<Self, Self::Error> {
+        let _type = v._type.try_into()?;
+
+        Ok(Self { _type, id: v.id })
     }
 }
 
 impl<'ast, T> From<ConcreteVariable<'ast>> for Variable<'ast, T> {
-    fn from(t: ConcreteVariable<'ast>) -> Self {
-        unimplemented!()
+    fn from(v: ConcreteVariable<'ast>) -> Self {
+        let _type = v._type.into();
+
+        Self { _type, id: v.id }
     }
 }
 
 impl<'ast, T> From<DeclarationVariable<'ast>> for Variable<'ast, T> {
-    fn from(t: DeclarationVariable<'ast>) -> Self {
-        unimplemented!()
+    fn from(v: DeclarationVariable<'ast>) -> Self {
+        let _type = v._type.into();
+
+        Self { _type, id: v.id }
     }
 }
 
-impl<'ast, S> GVariable<'ast, S> {
+impl<'ast, S: Clone> GVariable<'ast, S> {
     pub fn field_element<I: Into<Identifier<'ast>>>(id: I) -> Self {
         Self::with_id_and_type(id, GType::FieldElement)
     }
@@ -81,13 +89,13 @@ impl<'ast, S> GVariable<'ast, S> {
     }
 }
 
-impl<'ast, S> fmt::Display for GVariable<'ast, S> {
+impl<'ast, S: fmt::Display> fmt::Display for GVariable<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
     }
 }
 
-impl<'ast, S> fmt::Debug for GVariable<'ast, S> {
+impl<'ast, S: fmt::Debug> fmt::Debug for GVariable<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }

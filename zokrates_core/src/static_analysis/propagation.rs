@@ -818,7 +818,12 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             box i.annotate(UBitwidth::B32),
                         ),
                     },
-                    size => fold_array_expression_inner(self, ty, size.annotate(UBitwidth::B32), e),
+                    size => fold_array_expression_inner(
+                        self,
+                        ty,
+                        size.annotate(UBitwidth::B32),
+                        ArrayExpressionInner::Select(box array, box index),
+                    ),
                 }
             }
             ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {

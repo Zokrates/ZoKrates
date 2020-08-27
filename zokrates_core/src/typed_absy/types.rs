@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt;
 use std::path::PathBuf;
-use typed_absy::TryFrom;
-use typed_absy::UExpression;
+use typed_absy::{TryFrom, TryInto};
+use typed_absy::{UExpression, UExpressionInner};
 
 pub type Identifier<'ast> = &'ast str;
 
@@ -24,6 +24,51 @@ impl<'ast> From<Identifier<'ast>> for Constant<'ast> {
     }
 }
 
+impl<'ast> fmt::Display for Constant<'ast> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        unimplemented!()
+    }
+}
+
+impl<'ast, T> From<usize> for UExpression<'ast, T> {
+    fn from(i: usize) -> Self {
+        UExpressionInner::Value(i as u128).annotate(UBitwidth::B32)
+    }
+}
+
+impl<'ast, T> From<Constant<'ast>> for UExpression<'ast, T> {
+    fn from(c: Constant<'ast>) -> Self {
+        match c {
+            Constant::Generic(i) => UExpressionInner::Identifier(i.into()).annotate(UBitwidth::B32),
+            Constant::Concrete(v) => UExpressionInner::Value(v as u128).annotate(UBitwidth::B32),
+        }
+    }
+}
+
+impl<'ast, T> TryInto<usize> for UExpression<'ast, T> {
+    type Error = ();
+
+    fn try_into(self) -> Result<usize, Self::Error> {
+        assert_eq!(self.bitwidth, UBitwidth::B32);
+
+        match self.into_inner() {
+            UExpressionInner::Value(v) => Ok(v as usize),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'ast> TryInto<usize> for Constant<'ast> {
+    type Error = ();
+
+    fn try_into(self) -> Result<usize, Self::Error> {
+        match self {
+            Constant::Concrete(v) => Ok(v as usize),
+            _ => Err(()),
+        }
+    }
+}
+
 pub type MemberId = String;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
@@ -38,17 +83,38 @@ pub type DeclarationStructMember<'ast> = GStructMember<Constant<'ast>>;
 pub type ConcreteStructMember = GStructMember<usize>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
+fn try_from_g_struct_member<T: TryInto<U>, U>(t: GStructMember<T>) -> Result<GStructMember<U>, ()> {
+    Ok(GStructMember {
+        id: t.id,
+        ty: box try_from_g_type(*t.ty)?,
+    })
+}
+
 impl<'ast, T> TryFrom<StructMember<'ast, T>> for ConcreteStructMember {
     type Error = ();
 
     fn try_from(t: StructMember<'ast, T>) -> Result<Self, Self::Error> {
-        unimplemented!()
+        try_from_g_struct_member(t)
+    }
+}
+
+impl<'ast> TryFrom<DeclarationStructMember<'ast>> for ConcreteStructMember {
+    type Error = ();
+
+    fn try_from(t: DeclarationStructMember<'ast>) -> Result<Self, Self::Error> {
+        try_from_g_struct_member(t)
     }
 }
 
 impl<'ast, T> From<ConcreteStructMember> for StructMember<'ast, T> {
     fn from(t: ConcreteStructMember) -> Self {
-        unimplemented!()
+        try_from_g_struct_member(t).unwrap()
+    }
+}
+
+impl<'ast, T> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
+    fn from(t: DeclarationStructMember<'ast>) -> Self {
+        try_from_g_struct_member(t).unwrap()
     }
 }
 
@@ -63,21 +129,42 @@ pub type DeclarationArrayType<'ast> = GArrayType<Constant<'ast>>;
 pub type ConcreteArrayType = GArrayType<usize>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
+fn try_from_g_array_type<T: TryInto<U>, U>(t: GArrayType<T>) -> Result<GArrayType<U>, ()> {
+    Ok(GArrayType {
+        size: t.size.try_into().map_err(|_| ())?,
+        ty: box try_from_g_type(*t.ty)?,
+    })
+}
+
 impl<'ast, T> TryFrom<ArrayType<'ast, T>> for ConcreteArrayType {
     type Error = ();
 
     fn try_from(t: ArrayType<'ast, T>) -> Result<Self, Self::Error> {
-        unimplemented!()
+        try_from_g_array_type(t)
+    }
+}
+
+impl<'ast> TryFrom<DeclarationArrayType<'ast>> for ConcreteArrayType {
+    type Error = ();
+
+    fn try_from(t: DeclarationArrayType<'ast>) -> Result<Self, Self::Error> {
+        try_from_g_array_type(t)
     }
 }
 
 impl<'ast, T> From<ConcreteArrayType> for ArrayType<'ast, T> {
     fn from(t: ConcreteArrayType) -> Self {
-        unimplemented!()
+        try_from_g_array_type(t).unwrap()
     }
 }
 
-#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+impl<'ast, T> From<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
+    fn from(t: DeclarationArrayType<'ast>) -> Self {
+        try_from_g_array_type(t).unwrap()
+    }
+}
+
+#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq)]
 pub struct GStructType<S> {
     #[serde(skip)]
     pub module: PathBuf,
@@ -89,10 +176,30 @@ pub type DeclarationStructType<'ast> = GStructType<Constant<'ast>>;
 pub type ConcreteStructType = GStructType<usize>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
+fn try_from_g_struct_type<T: TryInto<U>, U>(t: GStructType<T>) -> Result<GStructType<U>, ()> {
+    Ok(GStructType {
+        module: t.module,
+        name: t.name,
+        members: t
+            .members
+            .into_iter()
+            .map(|m| try_from_g_struct_member(m))
+            .collect::<Result<_, _>>()?,
+    })
+}
+
 impl<'ast, T> TryFrom<StructType<'ast, T>> for ConcreteStructType {
     type Error = ();
 
     fn try_from(t: StructType<'ast, T>) -> Result<Self, Self::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'ast> TryFrom<DeclarationStructType<'ast>> for ConcreteStructType {
+    type Error = ();
+
+    fn try_from(t: DeclarationStructType<'ast>) -> Result<Self, Self::Error> {
         unimplemented!()
     }
 }
@@ -103,13 +210,19 @@ impl<'ast, T> From<ConcreteStructType> for StructType<'ast, T> {
     }
 }
 
-impl<S> PartialEq for GStructType<S> {
-    fn eq(&self, other: &Self) -> bool {
-        self.members.eq(&other.members)
+impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
+    fn from(t: DeclarationStructType<'ast>) -> Self {
+        unimplemented!()
     }
 }
 
-impl<S> Eq for GStructType<S> {}
+// impl<S> PartialEq for GStructType<S> {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.members.eq(&other.members)
+//     }
+// }
+
+// impl<S> Eq for GStructType<S> {}
 
 impl<S> GStructType<S> {
     pub fn new(module: PathBuf, name: String, members: Vec<GStructMember<S>>) -> Self {
@@ -171,7 +284,7 @@ impl fmt::Display for UBitwidth {
     }
 }
 
-#[derive(Clone, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[serde(tag = "type", content = "components")]
 pub enum GType<S> {
     #[serde(rename = "field")]
@@ -190,44 +303,13 @@ pub type DeclarationType<'ast> = GType<Constant<'ast>>;
 pub type ConcreteType = GType<usize>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
 
-// we have a looser equality relationship for generic types: an array of unknown size of a given type is equal to any arrays of that type
-impl<'ast, T> PartialEq for Type<'ast, T> {
-    fn eq(&self, other: &Self) -> bool {
-        unimplemented!()
-    }
-}
-
-impl PartialEq for ConcreteType {
-    fn eq(&self, other: &Self) -> bool {
-        unimplemented!()
-    }
-}
-
-impl<'ast, T> Eq for Type<'ast, T> {}
-
-impl Eq for ConcreteType {}
-
-impl<'ast, T> PartialOrd for Type<'ast, T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        unimplemented!()
-    }
-}
-
-impl PartialOrd for ConcreteType {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        unimplemented!()
-    }
-}
-
-impl<'ast, T> Ord for Type<'ast, T> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        unimplemented!()
-    }
-}
-
-impl Ord for ConcreteType {
-    fn cmp(&self, other: &Self) -> Ordering {
-        unimplemented!()
+fn try_from_g_type<T: TryInto<U>, U>(t: GType<T>) -> Result<GType<U>, ()> {
+    match t {
+        GType::FieldElement => Ok(GType::FieldElement),
+        GType::Boolean => Ok(GType::Boolean),
+        GType::Uint(bitwidth) => Ok(GType::Uint(bitwidth)),
+        GType::Array(array_type) => Ok(GType::Array(try_from_g_array_type(array_type)?)),
+        GType::Struct(struct_type) => Ok(GType::Struct(try_from_g_struct_type(struct_type)?)),
     }
 }
 
@@ -235,7 +317,7 @@ impl<'ast, T> TryFrom<Type<'ast, T>> for ConcreteType {
     type Error = ();
 
     fn try_from(t: Type<'ast, T>) -> Result<Self, Self::Error> {
-        unimplemented!()
+        try_from_g_type(t)
     }
 }
 
@@ -243,25 +325,25 @@ impl<'ast> TryFrom<DeclarationType<'ast>> for ConcreteType {
     type Error = ();
 
     fn try_from(t: DeclarationType<'ast>) -> Result<Self, Self::Error> {
-        unimplemented!()
+        try_from_g_type(t)
     }
 }
 
 impl<'ast, T> From<ConcreteType> for Type<'ast, T> {
     fn from(t: ConcreteType) -> Self {
-        unimplemented!()
+        try_from_g_type(t).unwrap()
     }
 }
 
 impl<'ast, T> From<DeclarationType<'ast>> for Type<'ast, T> {
     fn from(t: DeclarationType<'ast>) -> Self {
-        unimplemented!()
+        try_from_g_type(t).unwrap()
     }
 }
 
 impl<S> GArrayType<S> {
     pub fn new(ty: GType<S>, size: S) -> Self {
-        ArrayType {
+        GArrayType {
             ty: Box::new(ty),
             size,
         }
@@ -277,7 +359,7 @@ impl<S> GStructMember<S> {
     }
 }
 
-impl<S> fmt::Display for GType<S> {
+impl<S: fmt::Display> fmt::Display for GType<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             GType::FieldElement => write!(f, "field"),
@@ -299,21 +381,21 @@ impl<S> fmt::Display for GType<S> {
     }
 }
 
-impl<S> fmt::Debug for GType<S> {
+impl<S: fmt::Debug> fmt::Debug for GType<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             GType::FieldElement => write!(f, "field"),
             GType::Boolean => write!(f, "bool"),
-            GType::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
-            GType::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
+            GType::Uint(ref bitwidth) => write!(f, "u{:?}", bitwidth),
+            GType::Array(ref array_type) => write!(f, "{:?}[{:?}]", array_type.ty, array_type.size),
             GType::Struct(ref struct_type) => write!(
                 f,
-                "{} {{{}}}",
+                "{:?} {{{:?}}}",
                 struct_type.name,
                 struct_type
                     .members
                     .iter()
-                    .map(|member| format!("{}: {}", member.id, member.ty))
+                    .map(|member| format!("{:?}: {:?}", member.id, member.ty))
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
@@ -323,7 +405,7 @@ impl<S> fmt::Debug for GType<S> {
 
 impl<S> GType<S> {
     pub fn array<U: Into<S>>(ty: GType<S>, size: U) -> Self {
-        GType::Array(ArrayType::new(ty, size.into()))
+        GType::Array(GArrayType::new(ty, size.into()))
     }
 
     pub fn struc(struct_ty: GStructType<S>) -> Self {
@@ -333,7 +415,9 @@ impl<S> GType<S> {
     pub fn uint<W: Into<UBitwidth>>(b: W) -> Self {
         GType::Uint(b.into())
     }
+}
 
+impl<S: fmt::Display + std::cmp::PartialEq> GType<S> {
     fn to_slug(&self) -> String {
         match self {
             GType::FieldElement => String::from("f"),
@@ -419,11 +503,31 @@ impl<'ast, S> GFunctionKey<'ast, S> {
         self.id = id.into();
         self
     }
+}
 
+impl<'ast, S: fmt::Display + std::cmp::PartialEq> GFunctionKey<'ast, S> {
     pub fn to_slug(&self) -> String {
         format!("{}_{}", self.id, self.signature.to_slug())
     }
 }
+
+// impl<'ast, T: Clone> Clone for Type<'ast, T> {
+//     fn clone(&self) -> Self {
+//         unimplemented!()
+//     }
+// }
+
+// impl<'ast> Clone for DeclarationType<'ast> {
+//     fn clone(&self) -> Self {
+//         unimplemented!()
+//     }
+// }
+
+// impl Clone for ConcreteType {
+//     fn clone(&self) -> Self {
+//         unimplemented!()
+//     }
+// }
 
 pub use self::signature::{ConcreteSignature, DeclarationSignature, GSignature, Signature};
 
@@ -433,36 +537,10 @@ pub mod signature {
     use std::fmt;
     use std::hash::Hasher;
 
-    #[derive(Clone, Serialize, Deserialize)]
+    #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct GSignature<S> {
         pub inputs: Vec<GType<S>>,
         pub outputs: Vec<GType<S>>,
-    }
-
-    impl<S> PartialOrd for GSignature<S> {
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            unimplemented!()
-        }
-    }
-
-    impl<S> Ord for GSignature<S> {
-        fn cmp(&self, other: &Self) -> Ordering {
-            self.partial_cmp(other).unwrap()
-        }
-    }
-
-    impl<S> PartialEq for GSignature<S> {
-        fn eq(&self, other: &Self) -> bool {
-            unimplemented!()
-        }
-    }
-
-    impl<S> Eq for GSignature<S> {}
-
-    impl<S> std::hash::Hash for GSignature<S> {
-        fn hash<H: Hasher>(&self, state: &mut H) {
-            unimplemented!()
-        }
     }
 
     pub type DeclarationSignature<'ast> = GSignature<Constant<'ast>>;
@@ -499,7 +577,7 @@ pub mod signature {
         }
     }
 
-    impl<S> fmt::Debug for GSignature<S> {
+    impl<S: fmt::Debug> fmt::Debug for GSignature<S> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(
                 f,
@@ -509,7 +587,7 @@ pub mod signature {
         }
     }
 
-    impl<S> fmt::Display for GSignature<S> {
+    impl<S: fmt::Display> fmt::Display for GSignature<S> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "(")?;
             for (i, t) in self.inputs.iter().enumerate() {
@@ -537,49 +615,6 @@ pub mod signature {
     }
 
     impl<S> GSignature<S> {
-        /// Returns a slug for a signature, with the following encoding:
-        /// i{inputs}o{outputs} where {inputs} and {outputs} each encode a list of types.
-        /// A list of types is encoded by compressing sequences of the same type like so:
-        ///
-        /// [field, field, field] -> 3f
-        /// [field] -> f
-        /// [field, bool, field] -> fbf
-        /// [field, field, bool, field] -> 2fbf
-        ///
-        pub fn to_slug(&self) -> String {
-            let to_slug = |types| {
-                let mut res = vec![];
-                for t in types {
-                    let len = res.len();
-                    if len == 0 {
-                        res.push((1, t))
-                    } else {
-                        if res[len - 1].1 == t {
-                            res[len - 1].0 += 1;
-                        } else {
-                            res.push((1, t))
-                        }
-                    }
-                }
-                res.into_iter()
-                    .map(|(n, t): (usize, &Type)| {
-                        let mut r = String::new();
-
-                        if n > 1 {
-                            r.push_str(&format!("{}", n));
-                        }
-                        r.push_str(&t.to_slug());
-                        r
-                    })
-                    .fold(String::new(), |mut acc, e| {
-                        acc.push_str(&e);
-                        acc
-                    })
-            };
-
-            format!("i{}o{}", to_slug(&self.inputs), to_slug(&self.outputs))
-        }
-
         pub fn new() -> GSignature<S> {
             Self {
                 inputs: vec![],
@@ -595,6 +630,51 @@ pub mod signature {
         pub fn outputs(mut self, outputs: Vec<GType<S>>) -> Self {
             self.outputs = outputs;
             self
+        }
+    }
+
+    impl<S: fmt::Display + std::cmp::PartialEq> GSignature<S> {
+        /// Returns a slug for a signature, with the following encoding:
+        /// i{inputs}o{outputs} where {inputs} and {outputs} each encode a list of types.
+        /// A list of types is encoded by compressing sequences of the same type like so:
+        ///
+        /// [field, field, field] -> 3f
+        /// [field] -> f
+        /// [field, bool, field] -> fbf
+        /// [field, field, bool, field] -> 2fbf
+        ///
+        pub fn to_slug(&self) -> String {
+            let to_slug = |types: &[GType<S>]| {
+                let mut res = vec![];
+                for t in types {
+                    let len = res.len();
+                    if len == 0 {
+                        res.push((1, t))
+                    } else {
+                        if res[len - 1].1 == t {
+                            res[len - 1].0 += 1;
+                        } else {
+                            res.push((1, t))
+                        }
+                    }
+                }
+                res.into_iter()
+                    .map(|(n, t): (usize, &GType<S>)| {
+                        let mut r = String::new();
+
+                        if n > 1 {
+                            r.push_str(&format!("{}", n));
+                        }
+                        r.push_str(&t.to_slug());
+                        r
+                    })
+                    .fold(String::new(), |mut acc, e| {
+                        acc.push_str(&e);
+                        acc
+                    })
+            };
+
+            format!("i{}o{}", to_slug(&self.inputs), to_slug(&self.outputs))
         }
     }
 

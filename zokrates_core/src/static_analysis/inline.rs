@@ -185,7 +185,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         key: FunctionKey<'ast, T>,
         expressions: Vec<TypedExpression<'ast, T>>,
     ) -> Result<Vec<TypedExpression<'ast, T>>, InlineError<'ast, T>> {
-        match ConcreteFunctionKey::try_from(key) {
+        match ConcreteFunctionKey::try_from(key.clone()) {
             Ok(key) => self
                 .try_inline_concrete_call(key, expressions)
                 .map_err(|e| InlineError::Flat(e.0.into(), e.1)),
@@ -213,7 +213,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         };
 
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
-        let res = match self.get_concrete_function(key) {
+        let res = match self.get_concrete_function(key.clone()) {
             // if the function called is in the same module, we can go ahead and inline in this module
             TypedFunctionSymbol::Here(function) => {
                 let (current_module, current_key) =
@@ -415,8 +415,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                     },
                     Err(e) => match e {
                         InlineError::Flat(key, expressions) => {
-                            let key = ConcreteFunctionKey::try_from(key).unwrap();
-                            let tys = key.signature.outputs.clone();
+                            let key = ConcreteFunctionKey::try_from(key.clone()).unwrap();
+                            let tys = key.clone().signature.outputs;
                             let id = Identifier {
                                 id: CoreIdentifier::Call(key.clone()),
                                 version: *self
@@ -432,8 +432,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                         tys[0].clone().into(),
                                     )],
                                     TypedExpressionList::FunctionCall(
-                                        key.into(),
-                                        expressions,
+                                        key.clone().into(),
+                                        expressions.clone(),
                                         tys.into_iter().map(|t| t.into()).collect(),
                                     ),
                                 ));
@@ -492,8 +492,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                         tys[0].clone().into(),
                                     )],
                                     TypedExpressionList::FunctionCall(
-                                        key.into(),
-                                        expressions,
+                                        key.clone().into(),
+                                        expressions.clone(),
                                         tys.into_iter().map(|t| t.into()).collect(),
                                     ),
                                 ));
@@ -554,7 +554,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                         tys[0].clone().into(),
                                     )],
                                     TypedExpressionList::FunctionCall(
-                                        key.into(),
+                                        key.clone().into(),
                                         expressions.clone(),
                                         tys.into_iter().map(|t| t.into()).collect(),
                                     ),
@@ -617,8 +617,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                         tys[0].clone().into(),
                                     )],
                                     TypedExpressionList::FunctionCall(
-                                        key.into(),
-                                        expressions,
+                                        key.clone().into(),
+                                        expressions.clone(),
                                         tys.into_iter().map(|t| t.into()).collect(),
                                     ),
                                 ));
@@ -658,7 +658,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         _ => unreachable!(),
                     },
                     Err(e) => match e {
-                        InlineError::Flat(embed_key, expressions) => {
+                        InlineError::Flat(key, expressions) => {
                             let key = ConcreteFunctionKey::try_from(key).unwrap();
 
                             let tys = key.signature.outputs.clone();
@@ -677,7 +677,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                         tys[0].clone().into(),
                                     )],
                                     TypedExpressionList::FunctionCall(
-                                        embed_key.clone().into(),
+                                        key.clone().into(),
                                         expressions.clone(),
                                         tys.into_iter().map(|t| t.into()).collect(),
                                     ),

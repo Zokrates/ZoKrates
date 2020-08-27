@@ -84,7 +84,7 @@ pub struct UExpression<'ast, T> {
 
 impl<'ast, T> From<u32> for UExpression<'ast, T> {
     fn from(u: u32) -> Self {
-        UExpressionInner::Value(u).annotate(UBitwidth::B32)
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B32)
     }
 }
 
@@ -140,7 +140,7 @@ pub fn bitwidth(a: u128) -> Bitwidth {
     (128 - a.leading_zeros()) as Bitwidth
 }
 
-impl<'ast, T: Field> UExpression<'ast, T> {
+impl<'ast, T> UExpression<'ast, T> {
     pub fn bitwidth(&self) -> UBitwidth {
         self.bitwidth
     }

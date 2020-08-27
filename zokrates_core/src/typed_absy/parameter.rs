@@ -4,7 +4,7 @@ use typed_absy::types::Constant;
 use typed_absy::TryFrom;
 use typed_absy::UExpression;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct GParameter<'ast, S> {
     pub id: GVariable<'ast, S>,
     pub private: bool,
@@ -38,14 +38,14 @@ impl<'ast, T> From<ConcreteParameter<'ast>> for Parameter<'ast, T> {
     }
 }
 
-impl<'ast, S> fmt::Display for GParameter<'ast, S> {
+impl<'ast, S: fmt::Display + Clone> fmt::Display for GParameter<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let visibility = if self.private { "private " } else { "" };
         write!(f, "{}{} {}", visibility, self.id.get_type(), self.id.id)
     }
 }
 
-impl<'ast, S> fmt::Debug for GParameter<'ast, S> {
+impl<'ast, S: fmt::Debug> fmt::Debug for GParameter<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Parameter(variable: {:?})", self.id)
     }

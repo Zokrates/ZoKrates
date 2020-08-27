@@ -20,7 +20,7 @@ pub struct Abi {
 
 impl Abi {
     pub fn signature(&self) -> ConcreteSignature {
-        Signature {
+        ConcreteSignature {
             inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
             outputs: self.outputs.clone(),
         }

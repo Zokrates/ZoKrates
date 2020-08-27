@@ -24,7 +24,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_parameter(&mut self, p: DeclarationParameter<'ast>) -> DeclarationParameter<'ast> {
-        Parameter {
+        DeclarationParameter {
             id: self.fold_declaration_variable(p.id),
             ..p
         }
@@ -37,22 +37,25 @@ pub trait Folder<'ast, T: Field>: Sized {
     fn fold_variable(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
         Variable {
             id: self.fold_name(v.id),
-            ty: self.fold_type(v.ty),
+            _type: self.fold_type(v._type),
         }
     }
 
-    fn fold_declaration_variable(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
+    fn fold_declaration_variable(
+        &mut self,
+        v: DeclarationVariable<'ast>,
+    ) -> DeclarationVariable<'ast> {
         DeclarationVariable {
             id: self.fold_name(v.id),
-            ty: self.fold_declaration_type(v.ty),
+            _type: self.fold_declaration_type(v._type),
         }
     }
 
-    fn fold_type(&mut self, t: Type<T>) -> Type<T> {
+    fn fold_type(&mut self, t: Type<'ast, T>) -> Type<'ast, T> {
         unimplemented!()
     }
 
-    fn fold_declaration_type(&mut self, t: DeclarationType) -> DeclarationType {
+    fn fold_declaration_type(&mut self, t: DeclarationType<'ast>) -> DeclarationType<'ast> {
         unimplemented!()
     }
 
@@ -528,7 +531,7 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     let size = f.fold_uint_expression(e.size);
 
     ArrayExpression {
-        inner: f.fold_array_expression_inner(&e.ty, size, e.inner),
+        inner: f.fold_array_expression_inner(&e.ty, size.clone(), e.inner),
         size,
         ..e
     }

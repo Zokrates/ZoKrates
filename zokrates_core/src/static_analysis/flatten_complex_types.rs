@@ -346,7 +346,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 .iter()
                 .take_while(|member| member.id != id)
                 .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty)
+                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
                         .unwrap()
                         .get_primitive_count()
                 })
@@ -363,7 +363,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             match index.into_inner() {
                 zir::UExpressionInner::Value(i) => {
-                    let size = typed_absy::types::ConcreteType::try_from(*t)
+                    let size = typed_absy::types::ConcreteType::try_from(t.clone())
                         .unwrap()
                         .get_primitive_count()
                         * size;
@@ -443,7 +443,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 .iter()
                 .take_while(|member| member.id != id)
                 .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty)
+                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
                         .unwrap()
                         .get_primitive_count()
                 })
@@ -451,7 +451,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
 
             // we also need the size of this member
             let size = typed_absy::types::ConcreteType::try_from(
-                *t.iter().find(|member| member.id == id).unwrap().ty,
+                *t.iter().find(|member| member.id == id).cloned().unwrap().ty,
             )
             .unwrap()
             .get_primitive_count();
@@ -535,7 +535,7 @@ pub fn fold_field_expression<'ast, T: Field>(
                 .iter()
                 .take_while(|member| member.id != id)
                 .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty)
+                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
                         .unwrap()
                         .get_primitive_count()
                 })
@@ -689,7 +689,7 @@ pub fn fold_boolean_expression<'ast, T: Field>(
                 .iter()
                 .take_while(|member| member.id != id)
                 .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty)
+                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
                         .unwrap()
                         .get_primitive_count()
                 })
@@ -809,7 +809,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
                 .iter()
                 .take_while(|member| member.id != id)
                 .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty)
+                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
                         .unwrap()
                         .get_primitive_count()
                 })

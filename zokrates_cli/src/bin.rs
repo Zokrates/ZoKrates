@@ -28,7 +28,7 @@ use zokrates_core::proof_system::libsnark::gm17::GM17;
 use zokrates_core::proof_system::libsnark::pghr13::PGHR13;
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::{types::Signature, Type};
+use zokrates_core::typed_absy::{ConcreteSignature, ConcreteType, Signature, Type};
 use zokrates_field::{Bls12Field, Bn128Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -180,9 +180,12 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
 
             abi.signature()
         }
-        false => Signature::new()
-            .inputs(vec![Type::FieldElement; ir_prog.main.arguments.len()])
-            .outputs(vec![Type::FieldElement; ir_prog.main.returns.len()]),
+        false => ConcreteSignature::new()
+            .inputs(vec![
+                ConcreteType::FieldElement;
+                ir_prog.main.arguments.len()
+            ])
+            .outputs(vec![ConcreteType::FieldElement; ir_prog.main.returns.len()]),
     };
 
     use zokrates_abi::Inputs;
