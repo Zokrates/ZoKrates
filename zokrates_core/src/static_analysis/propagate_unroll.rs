@@ -79,16 +79,16 @@ impl PropagatedUnroller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use typed_absy::types::{FunctionKey, Signature};
+    use typed_absy::types::{DeclarationFunctionKey, DeclarationSignature};
     use typed_absy::*;
     use zokrates_field::Bn128Field;
 
     #[test]
     fn detect_non_constant_bound() {
-        let loops = vec![TypedStatement::For(
+        let loops: Vec<TypedStatement<Bn128Field>> = vec![TypedStatement::For(
             Variable::field_element("i"),
-            FieldElementExpression::Identifier("i".into()),
-            FieldElementExpression::Number(Bn128Field::from(2)),
+            UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+            2u32.into(),
             vec![],
         )];
 
@@ -99,10 +99,10 @@ mod tests {
                 "main".into(),
                 TypedModule {
                     functions: vec![(
-                        FunctionKey::with_id("main"),
+                        DeclarationFunctionKey::with_id("main"),
                         TypedFunctionSymbol::Here(TypedFunction {
                             arguments: vec![],
-                            signature: Signature::new(),
+                            signature: DeclarationSignature::new(),
                             statements,
                         }),
                     )]
@@ -136,12 +136,12 @@ mod tests {
 
         let s = TypedStatement::For(
             Variable::field_element("i"),
-            FieldElementExpression::Number(Bn128Field::from(0)),
-            FieldElementExpression::Number(Bn128Field::from(2)),
+            0u32.into(),
+            2u32.into(),
             vec![TypedStatement::For(
                 Variable::field_element("j"),
-                FieldElementExpression::Identifier("i".into()),
-                FieldElementExpression::Number(Bn128Field::from(2)),
+                UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                2u32.into(),
                 vec![
                     TypedStatement::Declaration(Variable::field_element("foo")),
                     TypedStatement::Definition(
@@ -224,10 +224,10 @@ mod tests {
                 "main".into(),
                 TypedModule {
                     functions: vec![(
-                        FunctionKey::with_id("main"),
+                        DeclarationFunctionKey::with_id("main"),
                         TypedFunctionSymbol::Here(TypedFunction {
                             arguments: vec![],
-                            signature: Signature::new(),
+                            signature: DeclarationSignature::new(),
                             statements: vec![s],
                         }),
                     )]
@@ -242,7 +242,7 @@ mod tests {
 
         let statements = match PropagatedUnroller::unroll(p).unwrap().modules
             [std::path::Path::new("main")]
-        .functions[&FunctionKey::with_id("main")]
+        .functions[&DeclarationFunctionKey::with_id("main")]
             .clone()
         {
             TypedFunctionSymbol::Here(f) => f.statements,

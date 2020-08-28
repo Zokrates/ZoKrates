@@ -388,17 +388,17 @@ struct Bar { field a }
                     inputs: vec![AbiInput {
                         name: "f".into(),
                         public: true,
-                        ty: Type::Struct(StructType {
+                        ty: ConcreteType::Struct(ConcreteStructType {
                             module: "main".into(),
                             name: "FooMain".into(),
-                            members: vec![StructMember {
+                            members: vec![ConcreteStructMember {
                                 id: "b".into(),
-                                ty: box Type::Struct(StructType {
+                                ty: box ConcreteType::Struct(ConcreteStructType {
                                     module: "foo".into(),
                                     name: "BarFoo".into(),
-                                    members: vec![StructMember {
+                                    members: vec![ConcreteStructMember {
                                         id: "a".into(),
-                                        ty: box Type::FieldElement
+                                        ty: box ConcreteType::FieldElement
                                     }]
                                 })
                             }]

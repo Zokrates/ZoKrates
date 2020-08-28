@@ -7,6 +7,6 @@ def sum_array<P>(field[P] a) -> field:
 
 def main() -> field:
 
-	field[3] a = [1, 2, 3]
+	field[3u32] a = [1, 2, 3]
 
 	return sum_array(a)

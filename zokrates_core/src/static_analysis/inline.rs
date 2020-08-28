@@ -19,8 +19,7 @@
 use static_analysis::propagate_unroll::{Blocked, Output};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use typed_absy::types::ConcreteFunctionKey;
-use typed_absy::types::{FunctionKey, Type, UBitwidth};
+use typed_absy::types::{ConcreteFunctionKey, ConcreteType, FunctionKey, Type, UBitwidth};
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
@@ -708,7 +707,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    use typed_absy::types::{FunctionKey, Signature, Type};
+    use typed_absy::types::{DeclarationFunctionKey, DeclarationSignature};
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -730,8 +729,9 @@ mod tests {
         let main = TypedModule {
             functions: vec![
                 (
-                    FunctionKey::with_id("main")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    DeclarationFunctionKey::with_id("main").signature(
+                        DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
+                    ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![TypedStatement::Return(vec![
@@ -742,15 +742,19 @@ mod tests {
                             )
                             .into(),
                         ])],
-                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                        signature: DeclarationSignature::new()
+                            .outputs(vec![DeclarationType::FieldElement]),
                     }),
                 ),
                 (
-                    FunctionKey::with_id("foo")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    DeclarationFunctionKey::with_id("foo").signature(
+                        DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
+                    ),
                     TypedFunctionSymbol::There(
-                        FunctionKey::with_id("foo")
-                            .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                        DeclarationFunctionKey::with_id("foo").signature(
+                            DeclarationSignature::new()
+                                .outputs(vec![DeclarationType::FieldElement]),
+                        ),
                         "foo".into(),
                     ),
                 ),
@@ -761,14 +765,16 @@ mod tests {
 
         let foo = TypedModule {
             functions: vec![(
-                FunctionKey::with_id("foo")
-                    .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                DeclarationFunctionKey::with_id("foo").signature(
+                    DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
+                ),
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
                     statements: vec![TypedStatement::Return(vec![
                         FieldElementExpression::Number(Bn128Field::from(42)).into(),
                     ])],
-                    signature: Signature::new().outputs(vec![Type::FieldElement]),
+                    signature: DeclarationSignature::new()
+                        .outputs(vec![DeclarationType::FieldElement]),
                 }),
             )]
             .into_iter()
@@ -784,7 +790,10 @@ mod tests {
             modules,
         };
 
-        let program = Inliner::inline(program);
+        let program = match Inliner::init(program.clone()).inline(program) {
+            Output::Complete(p) => p,
+            _ => unreachable!(),
+        };
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -793,17 +802,16 @@ mod tests {
                 .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
-                .get(
-                    &FunctionKey::with_id("main")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement]))
-                )
+                .get(&DeclarationFunctionKey::with_id("main").signature(
+                    DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement])
+                ))
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![],
                 statements: vec![TypedStatement::Return(vec![
                     FieldElementExpression::Number(Bn128Field::from(42)).into(),
                 ])],
-                signature: Signature::new().outputs(vec![Type::FieldElement]),
+                signature: DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
             })
         );
     }
@@ -828,13 +836,15 @@ mod tests {
         let main = TypedModule {
             functions: vec![
                 (
-                    FunctionKey::with_id("main").signature(
-                        Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement]),
+                    DeclarationFunctionKey::with_id("main").signature(
+                        DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement]),
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter::private(Variable::field_element("a"))],
+                        arguments: vec![DeclarationParameter::private(
+                            DeclarationVariable::field_element("a"),
+                        )],
                         statements: vec![TypedStatement::Return(vec![
                             FieldElementExpression::Mult(
                                 box FieldElementExpression::Identifier("a".into()),
@@ -849,22 +859,22 @@ mod tests {
                             )
                             .into(),
                         ])],
-                        signature: Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement]),
+                        signature: DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement]),
                     }),
                 ),
                 (
-                    FunctionKey::with_id("foo").signature(
-                        Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement]),
+                    DeclarationFunctionKey::with_id("foo").signature(
+                        DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement]),
                     ),
                     TypedFunctionSymbol::There(
-                        FunctionKey::with_id("foo").signature(
-                            Signature::new()
-                                .inputs(vec![Type::FieldElement])
-                                .outputs(vec![Type::FieldElement]),
+                        DeclarationFunctionKey::with_id("foo").signature(
+                            DeclarationSignature::new()
+                                .inputs(vec![DeclarationType::FieldElement])
+                                .outputs(vec![DeclarationType::FieldElement]),
                         ),
                         "foo".into(),
                     ),
@@ -876,21 +886,23 @@ mod tests {
 
         let foo = TypedModule {
             functions: vec![(
-                FunctionKey::with_id("foo").signature(
-                    Signature::new()
-                        .inputs(vec![Type::FieldElement])
-                        .outputs(vec![Type::FieldElement]),
+                DeclarationFunctionKey::with_id("foo").signature(
+                    DeclarationSignature::new()
+                        .inputs(vec![DeclarationType::FieldElement])
+                        .outputs(vec![DeclarationType::FieldElement]),
                 ),
                 TypedFunctionSymbol::Here(TypedFunction {
-                    arguments: vec![Parameter::private(Variable::field_element("a"))],
+                    arguments: vec![DeclarationParameter::private(
+                        DeclarationVariable::field_element("a"),
+                    )],
                     statements: vec![TypedStatement::Return(vec![FieldElementExpression::Mult(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Identifier("a".into()),
                     )
                     .into()])],
-                    signature: Signature::new()
-                        .inputs(vec![Type::FieldElement])
-                        .outputs(vec![Type::FieldElement]),
+                    signature: DeclarationSignature::new()
+                        .inputs(vec![DeclarationType::FieldElement])
+                        .outputs(vec![DeclarationType::FieldElement]),
                 }),
             )]
             .into_iter()
@@ -906,16 +918,19 @@ mod tests {
             modules,
         };
 
-        let program = Inliner::inline(program);
+        let program = match Inliner::init(program.clone()).inline(program) {
+            Output::Complete(p) => p,
+            _ => unreachable!(),
+        };
 
         assert_eq!(program.modules.len(), 1);
 
         let stack = vec![(
             "foo".into(),
-            FunctionKey::with_id("foo").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
+            ConcreteFunctionKey::with_id("foo").signature(
+                ConcreteSignature::new()
+                    .inputs(vec![ConcreteType::FieldElement])
+                    .outputs(vec![ConcreteType::FieldElement]),
             ),
             1,
         )];
@@ -927,15 +942,17 @@ mod tests {
                 .unwrap()
                 .functions
                 .get(
-                    &FunctionKey::with_id("main").signature(
-                        Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement])
+                    &DeclarationFunctionKey::with_id("main").signature(
+                        DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement])
                     )
                 )
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter::private(Variable::field_element("a"))],
+                arguments: vec![DeclarationParameter::private(
+                    DeclarationVariable::field_element("a")
+                )],
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(
@@ -956,9 +973,9 @@ mod tests {
                     )
                     .into(),])
                 ],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
+                signature: DeclarationSignature::new()
+                    .inputs(vec![DeclarationType::FieldElement])
+                    .outputs(vec![DeclarationType::FieldElement]),
             })
         );
     }
@@ -979,17 +996,17 @@ mod tests {
         //     field _0 = a + a
         //     return _0
 
-        let signature = Signature::new()
-            .outputs(vec![Type::FieldElement])
-            .inputs(vec![Type::FieldElement]);
+        let signature = ConcreteSignature::new()
+            .outputs(vec![ConcreteType::FieldElement])
+            .inputs(vec![ConcreteType::FieldElement]);
 
         let main: TypedModule<Bn128Field> = TypedModule {
             functions: vec![
                 (
-                    FunctionKey::with_id("main").signature(signature.clone()),
+                    DeclarationFunctionKey::with_id("main").signature(signature.clone().into()),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter {
-                            id: Variable::field_element("a"),
+                        arguments: vec![DeclarationParameter {
+                            id: DeclarationVariable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![
@@ -997,11 +1014,13 @@ mod tests {
                                 TypedAssignee::Identifier(Variable::field_element("b")),
                                 FieldElementExpression::Add(
                                     box FieldElementExpression::FunctionCall(
-                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        FunctionKey::with_id("foo")
+                                            .signature(signature.clone().into()),
                                         vec![FieldElementExpression::Identifier("a".into()).into()],
                                     ),
                                     box FieldElementExpression::FunctionCall(
-                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        FunctionKey::with_id("foo")
+                                            .signature(signature.clone().into()),
                                         vec![FieldElementExpression::Identifier("a".into()).into()],
                                     ),
                                 )
@@ -1012,13 +1031,13 @@ mod tests {
                             )
                             .into()]),
                         ],
-                        signature: signature.clone(),
+                        signature: signature.clone().into(),
                     }),
                 ),
                 (
-                    FunctionKey::with_id("foo").signature(signature.clone()),
+                    DeclarationFunctionKey::with_id("foo").signature(signature.clone().into()),
                     TypedFunctionSymbol::There(
-                        FunctionKey::with_id("foo").signature(signature.clone()),
+                        DeclarationFunctionKey::with_id("foo").signature(signature.clone().into()),
                         "foo".into(),
                     ),
                 ),
@@ -1029,16 +1048,16 @@ mod tests {
 
         let foo: TypedModule<Bn128Field> = TypedModule {
             functions: vec![(
-                FunctionKey::with_id("foo").signature(signature.clone()),
+                DeclarationFunctionKey::with_id("foo").signature(signature.clone().into()),
                 TypedFunctionSymbol::Here(TypedFunction {
-                    arguments: vec![Parameter {
-                        id: Variable::field_element("a"),
+                    arguments: vec![DeclarationParameter {
+                        id: DeclarationVariable::field_element("a"),
                         private: true,
                     }],
                     statements: vec![TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
                     ])],
-                    signature: signature.clone(),
+                    signature: signature.clone().into(),
                 }),
             )]
             .into_iter()
@@ -1054,7 +1073,10 @@ mod tests {
             modules,
         };
 
-        let program = Inliner::inline(program);
+        let program = match Inliner::init(program.clone()).inline(program) {
+            Output::Complete(p) => p,
+            _ => unreachable!(),
+        };
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -1063,11 +1085,11 @@ mod tests {
                 .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
-                .get(&FunctionKey::with_id("main").signature(signature.clone()))
+                .get(&DeclarationFunctionKey::with_id("main").signature(signature.clone().into()))
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter {
-                    id: Variable::field_element("a"),
+                arguments: vec![DeclarationParameter {
+                    id: DeclarationVariable::field_element("a"),
                     private: true,
                 }],
                 statements: vec![
@@ -1075,7 +1097,7 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "foo".into(),
-                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                ConcreteFunctionKey::with_id("foo").signature(signature.clone()),
                                 1
                             )])
                         )),
@@ -1087,14 +1109,16 @@ mod tests {
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    ConcreteFunctionKey::with_id("foo")
+                                        .signature(signature.clone()),
                                     1
                                 )]
                             )),
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    ConcreteFunctionKey::with_id("foo")
+                                        .signature(signature.clone()),
                                     1
                                 )]
                             ))
@@ -1105,7 +1129,7 @@ mod tests {
                         FieldElementExpression::Identifier("b".into()).into(),
                     ])
                 ],
-                signature: signature.clone(),
+                signature: signature.clone().into(),
             })
         );
     }
@@ -1129,21 +1153,17 @@ mod tests {
         //     field _0 = a + a
         //     return _0
 
-        let signature = Signature::new()
-            .outputs(vec![Type::FieldElement])
-            .inputs(vec![Type::FieldElement]);
+        let signature = ConcreteSignature::new()
+            .outputs(vec![ConcreteType::FieldElement])
+            .inputs(vec![ConcreteType::FieldElement]);
 
         let main: TypedModule<Bn128Field> = TypedModule {
             functions: vec![
                 (
-                    FunctionKey::with_id("main").signature(
-                        Signature::new()
-                            .outputs(vec![Type::FieldElement])
-                            .inputs(vec![Type::FieldElement]),
-                    ),
+                    DeclarationFunctionKey::with_id("main").signature(signature.clone().into()),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter {
-                            id: Variable::field_element("a"),
+                        arguments: vec![DeclarationParameter {
+                            id: DeclarationVariable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![
@@ -1151,11 +1171,13 @@ mod tests {
                                 TypedAssignee::Identifier(Variable::field_element("b")),
                                 FieldElementExpression::Add(
                                     box FieldElementExpression::FunctionCall(
-                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        FunctionKey::with_id("foo")
+                                            .signature(signature.clone().into()),
                                         vec![FieldElementExpression::Identifier("a".into()).into()],
                                     ),
                                     box FieldElementExpression::FunctionCall(
-                                        FunctionKey::with_id("bar").signature(signature.clone()),
+                                        FunctionKey::with_id("bar")
+                                            .signature(signature.clone().into()),
                                         vec![FieldElementExpression::Identifier("a".into()).into()],
                                     ),
                                 )
@@ -1166,30 +1188,30 @@ mod tests {
                             )
                             .into()]),
                         ],
-                        signature: signature.clone(),
+                        signature: signature.clone().into(),
                     }),
                 ),
                 (
-                    FunctionKey::with_id("bar").signature(signature.clone()),
+                    DeclarationFunctionKey::with_id("bar").signature(signature.clone().into()),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter {
-                            id: Variable::field_element("a"),
+                        arguments: vec![DeclarationParameter {
+                            id: DeclarationVariable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![TypedStatement::Return(vec![
                             FieldElementExpression::FunctionCall(
-                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                FunctionKey::with_id("foo").signature(signature.clone().into()),
                                 vec![FieldElementExpression::Identifier("a".into()).into()],
                             )
                             .into(),
                         ])],
-                        signature: signature.clone(),
+                        signature: signature.clone().into(),
                     }),
                 ),
                 (
-                    FunctionKey::with_id("foo").signature(signature.clone()),
+                    DeclarationFunctionKey::with_id("foo").signature(signature.clone().into()),
                     TypedFunctionSymbol::There(
-                        FunctionKey::with_id("foo").signature(signature.clone()),
+                        DeclarationFunctionKey::with_id("foo").signature(signature.clone().into()),
                         "foo".into(),
                     ),
                 ),
@@ -1200,16 +1222,16 @@ mod tests {
 
         let foo: TypedModule<Bn128Field> = TypedModule {
             functions: vec![(
-                FunctionKey::with_id("foo").signature(signature.clone()),
+                DeclarationFunctionKey::with_id("foo").signature(signature.clone().into()),
                 TypedFunctionSymbol::Here(TypedFunction {
-                    arguments: vec![Parameter {
-                        id: Variable::field_element("a"),
+                    arguments: vec![DeclarationParameter {
+                        id: DeclarationVariable::field_element("a"),
                         private: true,
                     }],
                     statements: vec![TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
                     ])],
-                    signature: signature.clone(),
+                    signature: signature.clone().into(),
                 }),
             )]
             .into_iter()
@@ -1225,7 +1247,10 @@ mod tests {
             modules,
         };
 
-        let program = Inliner::inline(program);
+        let program = match Inliner::init(program.clone()).inline(program) {
+            Output::Complete(p) => p,
+            _ => unreachable!(),
+        };
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -1234,11 +1259,11 @@ mod tests {
                 .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
-                .get(&FunctionKey::with_id("main").signature(signature.clone()))
+                .get(&DeclarationFunctionKey::with_id("main").signature(signature.clone().into()))
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter {
-                    id: Variable::field_element("a"),
+                arguments: vec![DeclarationParameter {
+                    id: DeclarationVariable::field_element("a"),
                     private: true,
                 }],
                 statements: vec![
@@ -1246,7 +1271,7 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "foo".into(),
-                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                ConcreteFunctionKey::with_id("foo").signature(signature.clone()),
                                 1
                             )])
                         )),
@@ -1256,7 +1281,7 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "main".into(),
-                                FunctionKey::with_id("bar").signature(signature.clone()),
+                                ConcreteFunctionKey::with_id("bar").signature(signature.clone()),
                                 1
                             )])
                         )),
@@ -1267,19 +1292,21 @@ mod tests {
                             Identifier::from("a").stack(vec![
                                 (
                                     "main".into(),
-                                    FunctionKey::with_id("bar").signature(signature.clone()),
+                                    ConcreteFunctionKey::with_id("bar")
+                                        .signature(signature.clone()),
                                     1
                                 ),
                                 (
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    ConcreteFunctionKey::with_id("foo")
+                                        .signature(signature.clone()),
                                     2
                                 )
                             ])
                         )),
                         FieldElementExpression::Identifier(Identifier::from("a").stack(vec![(
                             "main".into(),
-                            FunctionKey::with_id("bar").signature(signature.clone()),
+                            ConcreteFunctionKey::with_id("bar").signature(signature.clone()),
                             1
                         )]))
                         .into()
@@ -1290,7 +1317,8 @@ mod tests {
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    ConcreteFunctionKey::with_id("foo")
+                                        .signature(signature.clone()),
                                     1
                                 )]
                             )),
@@ -1298,12 +1326,14 @@ mod tests {
                                 vec![
                                     (
                                         "main".into(),
-                                        FunctionKey::with_id("bar").signature(signature.clone()),
+                                        ConcreteFunctionKey::with_id("bar")
+                                            .signature(signature.clone()),
                                         1
                                     ),
                                     (
                                         "foo".into(),
-                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        ConcreteFunctionKey::with_id("foo")
+                                            .signature(signature.clone()),
                                         2
                                     )
                                 ]
@@ -1315,7 +1345,7 @@ mod tests {
                         FieldElementExpression::Identifier("b".into()).into(),
                     ])
                 ],
-                signature: signature.clone(),
+                signature: signature.clone().into(),
             })
         );
     }
@@ -1339,8 +1369,9 @@ mod tests {
         let main = TypedModule {
             functions: vec![
                 (
-                    FunctionKey::with_id("main")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    DeclarationFunctionKey::with_id("main").signature(
+                        DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
+                    ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![
@@ -1359,15 +1390,19 @@ mod tests {
                             )
                             .into()]),
                         ],
-                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                        signature: DeclarationSignature::new()
+                            .outputs(vec![DeclarationType::FieldElement]),
                     }),
                 ),
                 (
-                    FunctionKey::with_id("foo")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    DeclarationFunctionKey::with_id("foo").signature(
+                        DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
+                    ),
                     TypedFunctionSymbol::There(
-                        FunctionKey::with_id("foo")
-                            .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                        DeclarationFunctionKey::with_id("foo").signature(
+                            DeclarationSignature::new()
+                                .outputs(vec![DeclarationType::FieldElement]),
+                        ),
                         "foo".into(),
                     ),
                 ),
@@ -1378,14 +1413,16 @@ mod tests {
 
         let foo = TypedModule {
             functions: vec![(
-                FunctionKey::with_id("foo")
-                    .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                DeclarationFunctionKey::with_id("foo").signature(
+                    DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
+                ),
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
                     statements: vec![TypedStatement::Return(vec![
                         FieldElementExpression::Number(Bn128Field::from(42)).into(),
                     ])],
-                    signature: Signature::new().outputs(vec![Type::FieldElement]),
+                    signature: DeclarationSignature::new()
+                        .outputs(vec![DeclarationType::FieldElement]),
                 }),
             )]
             .into_iter()
@@ -1401,7 +1438,10 @@ mod tests {
             modules,
         };
 
-        let program = Inliner::inline(program);
+        let program = match Inliner::init(program.clone()).inline(program) {
+            Output::Complete(p) => p,
+            _ => unreachable!(),
+        };
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -1410,10 +1450,9 @@ mod tests {
                 .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
-                .get(
-                    &FunctionKey::with_id("main")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement]))
-                )
+                .get(&DeclarationFunctionKey::with_id("main").signature(
+                    DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement])
+                ))
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![],
@@ -1426,7 +1465,7 @@ mod tests {
                         FieldElementExpression::Identifier("a".into()).into(),
                     ])
                 ],
-                signature: Signature::new().outputs(vec![Type::FieldElement]),
+                signature: DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
             })
         );
     }
@@ -1448,8 +1487,9 @@ mod tests {
         let main = TypedModule {
             functions: vec![
                 (
-                    FunctionKey::with_id("main")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    DeclarationFunctionKey::with_id("main").signature(
+                        DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
+                    ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![
@@ -1468,18 +1508,21 @@ mod tests {
                             )
                             .into()]),
                         ],
-                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                        signature: DeclarationSignature::new()
+                            .outputs(vec![DeclarationType::FieldElement]),
                     }),
                 ),
                 (
-                    FunctionKey::with_id("foo")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    DeclarationFunctionKey::with_id("foo").signature(
+                        DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
+                    ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![TypedStatement::Return(vec![
                             FieldElementExpression::Number(Bn128Field::from(42)).into(),
                         ])],
-                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                        signature: DeclarationSignature::new()
+                            .outputs(vec![DeclarationType::FieldElement]),
                     }),
                 ),
             ]
@@ -1494,7 +1537,10 @@ mod tests {
             modules,
         };
 
-        let program = Inliner::inline(program);
+        let program = match Inliner::init(program.clone()).inline(program) {
+            Output::Complete(p) => p,
+            _ => unreachable!(),
+        };
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -1503,10 +1549,9 @@ mod tests {
                 .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
-                .get(
-                    &FunctionKey::with_id("main")
-                        .signature(Signature::new().outputs(vec![Type::FieldElement]))
-                )
+                .get(&DeclarationFunctionKey::with_id("main").signature(
+                    DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement])
+                ))
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![],
@@ -1519,7 +1564,7 @@ mod tests {
                         FieldElementExpression::Identifier("a".into()).into(),
                     ])
                 ],
-                signature: Signature::new().outputs(vec![Type::FieldElement]),
+                signature: DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
             })
         );
     }
@@ -1543,13 +1588,15 @@ mod tests {
         let main = TypedModule {
             functions: vec![
                 (
-                    FunctionKey::with_id("main").signature(
-                        Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement]),
+                    DeclarationFunctionKey::with_id("main").signature(
+                        DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement]),
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter::private(Variable::field_element("a"))],
+                        arguments: vec![DeclarationParameter::private(
+                            DeclarationVariable::field_element("a"),
+                        )],
                         statements: vec![TypedStatement::Return(vec![
                             FieldElementExpression::FunctionCall(
                                 FunctionKey::with_id("id").signature(
@@ -1569,22 +1616,22 @@ mod tests {
                             )
                             .into(),
                         ])],
-                        signature: Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement]),
+                        signature: DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement]),
                     }),
                 ),
                 (
-                    FunctionKey::with_id("id").signature(
-                        Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement]),
+                    DeclarationFunctionKey::with_id("id").signature(
+                        DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement]),
                     ),
                     TypedFunctionSymbol::There(
-                        FunctionKey::with_id("main").signature(
-                            Signature::new()
-                                .inputs(vec![Type::FieldElement])
-                                .outputs(vec![Type::FieldElement]),
+                        DeclarationFunctionKey::with_id("main").signature(
+                            DeclarationSignature::new()
+                                .inputs(vec![DeclarationType::FieldElement])
+                                .outputs(vec![DeclarationType::FieldElement]),
                         ),
                         "id".into(),
                     ),
@@ -1596,19 +1643,21 @@ mod tests {
 
         let id = TypedModule {
             functions: vec![(
-                FunctionKey::with_id("main").signature(
-                    Signature::new()
-                        .inputs(vec![Type::FieldElement])
-                        .outputs(vec![Type::FieldElement]),
+                DeclarationFunctionKey::with_id("main").signature(
+                    DeclarationSignature::new()
+                        .inputs(vec![DeclarationType::FieldElement])
+                        .outputs(vec![DeclarationType::FieldElement]),
                 ),
                 TypedFunctionSymbol::Here(TypedFunction {
-                    arguments: vec![Parameter::private(Variable::field_element("a"))],
+                    arguments: vec![DeclarationParameter::private(
+                        DeclarationVariable::field_element("a"),
+                    )],
                     statements: vec![TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
                     ])],
-                    signature: Signature::new()
-                        .inputs(vec![Type::FieldElement])
-                        .outputs(vec![Type::FieldElement]),
+                    signature: DeclarationSignature::new()
+                        .inputs(vec![DeclarationType::FieldElement])
+                        .outputs(vec![DeclarationType::FieldElement]),
                 }),
             )]
             .into_iter()
@@ -1624,23 +1673,26 @@ mod tests {
             modules,
         };
 
-        let program = Inliner::inline(program);
+        let program = match Inliner::init(program.clone()).inline(program) {
+            Output::Complete(p) => p,
+            _ => unreachable!(),
+        };
 
         let stack0 = vec![(
             "id".into(),
-            FunctionKey::with_id("main").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
+            ConcreteFunctionKey::with_id("main").signature(
+                ConcreteSignature::new()
+                    .inputs(vec![ConcreteType::FieldElement])
+                    .outputs(vec![ConcreteType::FieldElement]),
             ),
             1,
         )];
         let stack1 = vec![(
             "id".into(),
-            FunctionKey::with_id("main").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
+            ConcreteFunctionKey::with_id("main").signature(
+                ConcreteSignature::new()
+                    .inputs(vec![ConcreteType::FieldElement])
+                    .outputs(vec![ConcreteType::FieldElement]),
             ),
             2,
         )];
@@ -1653,15 +1705,17 @@ mod tests {
                 .unwrap()
                 .functions
                 .get(
-                    &FunctionKey::with_id("main").signature(
-                        Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement])
+                    &DeclarationFunctionKey::with_id("main").signature(
+                        DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement])
                     )
                 )
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter::private(Variable::field_element("a"))],
+                arguments: vec![DeclarationParameter::private(
+                    DeclarationVariable::field_element("a")
+                )],
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(
@@ -1683,9 +1737,9 @@ mod tests {
                     )
                     .into(),])
                 ],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
+                signature: DeclarationSignature::new()
+                    .inputs(vec![DeclarationType::FieldElement])
+                    .outputs(vec![DeclarationType::FieldElement]),
             })
         );
     }

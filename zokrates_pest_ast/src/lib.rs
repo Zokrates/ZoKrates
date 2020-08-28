@@ -10,13 +10,13 @@ extern crate lazy_static;
 pub use ast::{
     Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
     AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
-    DecimalLiteralExpression, DecimalSuffix, DefinitionStatement, Expression, FieldType, File,
-    FromExpression, Function, HexLiteralExpression, HexNumberExpression, IdentifierExpression,
-    ImportDirective, ImportSource, InlineArrayExpression, InlineStructExpression,
-    InlineStructMember, IterationStatement, LiteralExpression, OptionallyTypedAssignee, Parameter,
-    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
-    Statement, StructDefinition, StructField, TernaryExpression, ToExpression, Type,
-    UnaryExpression, UnaryOperator, Visibility,
+    DecimalLiteralExpression, DecimalNumber, DecimalSuffix, DefinitionStatement, Expression,
+    FieldType, File, FromExpression, Function, HexLiteralExpression, HexNumberExpression,
+    IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression,
+    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression,
+    OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
+    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
+    TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {

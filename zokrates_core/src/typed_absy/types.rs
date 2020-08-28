@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::fmt;
 use std::path::PathBuf;
 use typed_absy::{TryFrom, TryInto};
@@ -15,6 +14,12 @@ pub enum Constant<'ast> {
 impl<'ast> From<u32> for Constant<'ast> {
     fn from(e: u32) -> Self {
         Constant::Concrete(e)
+    }
+}
+
+impl<'ast> From<usize> for Constant<'ast> {
+    fn from(e: usize) -> Self {
+        Constant::Concrete(e as u32)
     }
 }
 
@@ -112,6 +117,12 @@ impl<'ast, T> From<ConcreteStructMember> for StructMember<'ast, T> {
     }
 }
 
+impl<'ast> From<ConcreteStructMember> for DeclarationStructMember<'ast> {
+    fn from(t: ConcreteStructMember) -> Self {
+        try_from_g_struct_member(t).unwrap()
+    }
+}
+
 impl<'ast, T> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
     fn from(t: DeclarationStructMember<'ast>) -> Self {
         try_from_g_struct_member(t).unwrap()
@@ -158,6 +169,12 @@ impl<'ast, T> From<ConcreteArrayType> for ArrayType<'ast, T> {
     }
 }
 
+impl<'ast> From<ConcreteArrayType> for DeclarationArrayType<'ast> {
+    fn from(t: ConcreteArrayType) -> Self {
+        try_from_g_array_type(t).unwrap()
+    }
+}
+
 impl<'ast, T> From<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
     fn from(t: DeclarationArrayType<'ast>) -> Self {
         try_from_g_array_type(t).unwrap()
@@ -192,7 +209,7 @@ impl<'ast, T> TryFrom<StructType<'ast, T>> for ConcreteStructType {
     type Error = ();
 
     fn try_from(t: StructType<'ast, T>) -> Result<Self, Self::Error> {
-        unimplemented!()
+        try_from_g_struct_type(t)
     }
 }
 
@@ -200,19 +217,25 @@ impl<'ast> TryFrom<DeclarationStructType<'ast>> for ConcreteStructType {
     type Error = ();
 
     fn try_from(t: DeclarationStructType<'ast>) -> Result<Self, Self::Error> {
-        unimplemented!()
+        try_from_g_struct_type(t)
     }
 }
 
 impl<'ast, T> From<ConcreteStructType> for StructType<'ast, T> {
     fn from(t: ConcreteStructType) -> Self {
-        unimplemented!()
+        try_from_g_struct_type(t).unwrap()
+    }
+}
+
+impl<'ast> From<ConcreteStructType> for DeclarationStructType<'ast> {
+    fn from(t: ConcreteStructType) -> Self {
+        try_from_g_struct_type(t).unwrap()
     }
 }
 
 impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
     fn from(t: DeclarationStructType<'ast>) -> Self {
-        unimplemented!()
+        try_from_g_struct_type(t).unwrap()
     }
 }
 
@@ -330,6 +353,12 @@ impl<'ast> TryFrom<DeclarationType<'ast>> for ConcreteType {
 }
 
 impl<'ast, T> From<ConcreteType> for Type<'ast, T> {
+    fn from(t: ConcreteType) -> Self {
+        try_from_g_type(t).unwrap()
+    }
+}
+
+impl<'ast> From<ConcreteType> for DeclarationType<'ast> {
     fn from(t: ConcreteType) -> Self {
         try_from_g_type(t).unwrap()
     }
@@ -486,6 +515,18 @@ impl<'ast, T> From<ConcreteFunctionKey<'ast>> for FunctionKey<'ast, T> {
     }
 }
 
+impl<'ast> From<ConcreteFunctionKey<'ast>> for DeclarationFunctionKey<'ast> {
+    fn from(t: ConcreteFunctionKey<'ast>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl<'ast, T> From<DeclarationFunctionKey<'ast>> for FunctionKey<'ast, T> {
+    fn from(t: DeclarationFunctionKey<'ast>) -> Self {
+        unimplemented!()
+    }
+}
+
 impl<'ast, S> GFunctionKey<'ast, S> {
     pub fn with_id<U: Into<Identifier<'ast>>>(id: U) -> Self {
         GFunctionKey {
@@ -547,14 +588,6 @@ pub mod signature {
     pub type ConcreteSignature = GSignature<usize>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
-    impl<'ast> TryFrom<ConcreteSignature> for DeclarationSignature<'ast> {
-        type Error = ();
-
-        fn try_from(t: ConcreteSignature) -> Result<Self, Self::Error> {
-            unimplemented!()
-        }
-    }
-
     impl<'ast, T> TryFrom<Signature<'ast, T>> for ConcreteSignature {
         type Error = ();
 
@@ -573,6 +606,18 @@ pub mod signature {
 
     impl<'ast, T> From<ConcreteSignature> for Signature<'ast, T> {
         fn from(t: ConcreteSignature) -> Self {
+            unimplemented!()
+        }
+    }
+
+    impl<'ast> From<ConcreteSignature> for DeclarationSignature<'ast> {
+        fn from(t: ConcreteSignature) -> Self {
+            unimplemented!()
+        }
+    }
+
+    impl<'ast, T> From<DeclarationSignature<'ast>> for Signature<'ast, T> {
+        fn from(t: DeclarationSignature) -> Self {
             unimplemented!()
         }
     }
@@ -684,29 +729,29 @@ pub mod signature {
 
         #[test]
         fn signature() {
-            let s = Signature::new()
-                .inputs(vec![Type::FieldElement, Type::Boolean])
-                .outputs(vec![Type::Boolean]);
+            let s = ConcreteSignature::new()
+                .inputs(vec![ConcreteType::FieldElement, ConcreteType::Boolean])
+                .outputs(vec![ConcreteType::Boolean]);
 
             assert_eq!(s.to_string(), String::from("(field, bool) -> bool"));
         }
 
         #[test]
         fn slug_0() {
-            let s = Signature::new().inputs(vec![]).outputs(vec![]);
+            let s = ConcreteSignature::new().inputs(vec![]).outputs(vec![]);
 
             assert_eq!(s.to_slug(), String::from("io"));
         }
 
         #[test]
         fn slug_1() {
-            let s = Signature::new()
-                .inputs(vec![Type::FieldElement, Type::Boolean])
+            let s = ConcreteSignature::new()
+                .inputs(vec![ConcreteType::FieldElement, ConcreteType::Boolean])
                 .outputs(vec![
-                    Type::FieldElement,
-                    Type::FieldElement,
-                    Type::Boolean,
-                    Type::FieldElement,
+                    ConcreteType::FieldElement,
+                    ConcreteType::FieldElement,
+                    ConcreteType::Boolean,
+                    ConcreteType::FieldElement,
                 ]);
 
             assert_eq!(s.to_slug(), String::from("ifbo2fbf"));
@@ -714,23 +759,27 @@ pub mod signature {
 
         #[test]
         fn slug_2() {
-            let s = Signature::new()
+            let s = ConcreteSignature::new()
                 .inputs(vec![
-                    Type::FieldElement,
-                    Type::FieldElement,
-                    Type::FieldElement,
+                    ConcreteType::FieldElement,
+                    ConcreteType::FieldElement,
+                    ConcreteType::FieldElement,
                 ])
-                .outputs(vec![Type::FieldElement, Type::Boolean, Type::FieldElement]);
+                .outputs(vec![
+                    ConcreteType::FieldElement,
+                    ConcreteType::Boolean,
+                    ConcreteType::FieldElement,
+                ]);
 
             assert_eq!(s.to_slug(), String::from("i3fofbf"));
         }
 
         #[test]
         fn array_slug() {
-            let s = Signature::new()
+            let s = ConcreteSignature::new()
                 .inputs(vec![
-                    Type::array(Type::FieldElement, 42),
-                    Type::array(Type::FieldElement, 21),
+                    ConcreteType::array(ConcreteType::FieldElement, 42usize),
+                    ConcreteType::array(ConcreteType::FieldElement, 21usize),
                 ])
                 .outputs(vec![]);
 
@@ -745,7 +794,7 @@ mod tests {
 
     #[test]
     fn array() {
-        let t = Type::Array(ArrayType::new(Type::FieldElement, 42));
+        let t = ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 42usize));
         assert_eq!(t.get_primitive_count(), 42);
     }
 }

@@ -13,7 +13,7 @@ pub struct GParameter<'ast, S> {
 impl<'ast, S> GParameter<'ast, S> {
     #[cfg(test)]
     pub fn private(v: GVariable<'ast, S>) -> Self {
-        Parameter {
+        GParameter {
             id: v,
             private: true,
         }
@@ -33,6 +33,12 @@ impl<'ast, T> TryFrom<Parameter<'ast, T>> for ConcreteParameter<'ast> {
 }
 
 impl<'ast, T> From<ConcreteParameter<'ast>> for Parameter<'ast, T> {
+    fn from(t: ConcreteParameter<'ast>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl<'ast> From<ConcreteParameter<'ast>> for DeclarationParameter<'ast> {
     fn from(t: ConcreteParameter<'ast>) -> Self {
         unimplemented!()
     }

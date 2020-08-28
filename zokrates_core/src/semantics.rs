@@ -192,8 +192,8 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
         }
     }
 
-    /// match a `FunctionKey` against this `FunctionQuery`
-    fn match_func(&self, func: &FunctionKey<'ast, T>) -> bool {
+    /// match a `DeclarationFunctionKey` against this `FunctionQuery`
+    fn match_func(&self, func: &DeclarationFunctionKey<'ast>) -> bool {
         // self.id == func.id
         //     && self.inputs == func.signature.inputs
         //     && self.outputs.len() == func.signature.outputs.len()
@@ -208,8 +208,7 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
         &self,
         funcs: &HashSet<DeclarationFunctionKey<'ast>>,
     ) -> Option<DeclarationFunctionKey<'ast>> {
-        // funcs.iter().find(|func| self.match_func(func)).cloned()
-        unimplemented!()
+        funcs.iter().find(|func| self.match_func(func)).cloned()
     }
 }
 
@@ -1147,7 +1146,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     		// the function has to be defined
                     		Some(f) => {
 
-                                let call = TypedExpressionList::FunctionCall(f.clone(), arguments_checked, f.signature.outputs.clone());
+                                let call = TypedExpressionList::FunctionCall(f.clone().into(), arguments_checked, Signature::from(f.signature.clone()).outputs);
 
                                 Ok(TypedStatement::MultipleDefinition(variables, call))
                     		},
@@ -1607,13 +1606,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match f {
                     // the function has to be defined
                     Some(f) => {
+                        let signature: Signature<T> = f.signature.into();
                         // the return count has to be 1
-                        match f.signature.outputs.len() {
-                            1 => match &f.signature.outputs[0] {
+                        match signature.outputs.len() {
+                            1 => match &signature.outputs[0] {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
-                                        signature: f.signature.clone(),
+                                        signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
@@ -1621,7 +1621,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Boolean => Ok(BooleanExpression::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
-                                        signature: f.signature.clone(),
+                                        signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
@@ -1629,7 +1629,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
-                                        signature: f.signature.clone(),
+                                        signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
@@ -1638,7 +1638,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Struct(members) => Ok(StructExpressionInner::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
-                                        signature: f.signature.clone(),
+                                        signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
@@ -1647,7 +1647,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Array(array_type) => Ok(ArrayExpressionInner::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
-                                        signature: f.signature.clone(),
+                                        signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
@@ -2499,9 +2499,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
         })
     }
 
-    fn find_function(&self, query: &FunctionQuery<'ast, T>) -> Option<FunctionKey<'ast, T>> {
-        // query.match_funcs(&self.functions)
-        unimplemented!()
+    fn find_function(
+        &self,
+        query: &FunctionQuery<'ast, T>,
+    ) -> Option<DeclarationFunctionKey<'ast>> {
+        query.match_funcs(&self.functions)
     }
 
     fn enter_scope(&mut self) {
@@ -2600,6 +2602,7 @@ mod tests {
                 arguments,
                 statements,
                 signature,
+                generics: vec![],
             }
             .mock()
         }
@@ -2627,15 +2630,16 @@ mod tests {
                 arguments,
                 statements,
                 signature,
+                generics: vec![],
             }
             .mock()
         }
 
-        fn struct0() -> StructDefinitionNode<'static> {
+        fn struct0<T: Field>() -> StructDefinitionNode<'static, T> {
             StructDefinition { fields: vec![] }.mock()
         }
 
-        fn struct1() -> StructDefinitionNode<'static> {
+        fn struct1<T: Field>() -> StructDefinitionNode<'static, T> {
             StructDefinition {
                 fields: vec![StructDefinitionField {
                     id: "foo".into(),
@@ -2654,12 +2658,13 @@ mod tests {
 
             assert!(unifier.insert_type("foo"));
             assert!(!unifier.insert_type("foo"));
-            assert!(!unifier.insert_function("foo", Signature::new()));
-            assert!(unifier.insert_function("bar", Signature::new()));
-            assert!(!unifier.insert_function("bar", Signature::new()));
-            assert!(
-                unifier.insert_function("bar", Signature::new().inputs(vec![Type::FieldElement]))
-            );
+            assert!(!unifier.insert_function("foo", DeclarationSignature::new()));
+            assert!(unifier.insert_function("bar", DeclarationSignature::new()));
+            assert!(!unifier.insert_function("bar", DeclarationSignature::new()));
+            assert!(unifier.insert_function(
+                "bar",
+                DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
+            ));
             assert!(!unifier.insert_type("bar"));
         }
 
@@ -2705,9 +2710,11 @@ mod tests {
                 state.typed_modules.get(&PathBuf::from("bar")),
                 Some(&TypedModule {
                     functions: vec![(
-                        FunctionKey::with_id("main").signature(Signature::new()),
+                        DeclarationFunctionKey::with_id("main")
+                            .signature(DeclarationSignature::new()),
                         TypedFunctionSymbol::There(
-                            FunctionKey::with_id("main").signature(Signature::new()),
+                            DeclarationFunctionKey::with_id("main")
+                                .signature(DeclarationSignature::new()),
                             "foo".into()
                         )
                     )]
@@ -2800,16 +2807,17 @@ mod tests {
                 .get(&PathBuf::from(MODULE_ID))
                 .unwrap()
                 .functions
-                .contains_key(&FunctionKey::with_id("foo").signature(Signature::new())));
+                .contains_key(
+                    &DeclarationFunctionKey::with_id("foo").signature(DeclarationSignature::new())
+                ));
             assert!(state
                 .typed_modules
                 .get(&PathBuf::from(MODULE_ID))
                 .unwrap()
                 .functions
-                .contains_key(
-                    &FunctionKey::with_id("foo")
-                        .signature(Signature::new().inputs(vec![Type::FieldElement]))
-                ))
+                .contains_key(&DeclarationFunctionKey::with_id("foo").signature(
+                    DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
+                )))
         }
 
         #[test]
@@ -2994,7 +3002,7 @@ mod tests {
     pub fn new_with_args<'ast, T: Field>(
         scope: HashSet<ScopedVariable<'ast, T>>,
         level: usize,
-        functions: HashSet<DeclarationFunctionKey<'ast, T>>,
+        functions: HashSet<DeclarationFunctionKey<'ast>>,
     ) -> Checker<'ast, T> {
         Checker {
             scope: scope,
@@ -3084,6 +3092,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3103,6 +3112,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3168,6 +3178,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3197,6 +3208,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3216,6 +3228,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3277,6 +3290,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3331,8 +3345,8 @@ mod tests {
 
         let foo_statements_checked = vec![TypedStatement::For(
             typed_absy::Variable::field_element("i"),
-            FieldElementExpression::Number(Bn128Field::from(0)),
-            FieldElementExpression::Number(Bn128Field::from(10)),
+            0u32.into(),
+            10u32.into(),
             for_statements_checked,
         )];
 
@@ -3343,15 +3357,16 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
         let foo_checked = TypedFunction {
-            arguments: Vec::<Parameter>::new(),
+            arguments: vec![],
             statements: foo_statements_checked,
-            signature: Signature {
+            signature: DeclarationSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![DeclarationType::FieldElement],
             },
         };
 
@@ -3384,11 +3399,11 @@ mod tests {
             .mock(),
         ];
 
-        let foo = FunctionKey {
+        let foo = DeclarationFunctionKey {
             id: "foo",
-            signature: Signature {
+            signature: DeclarationSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement, Type::FieldElement],
+                outputs: vec![DeclarationType::FieldElement, DeclarationType::FieldElement],
             },
         };
 
@@ -3401,6 +3416,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3435,11 +3451,11 @@ mod tests {
         )
         .mock()];
 
-        let foo = FunctionKey {
+        let foo = DeclarationFunctionKey {
             id: "foo",
-            signature: Signature {
+            signature: DeclarationSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement, Type::FieldElement],
+                outputs: vec![DeclarationType::FieldElement, DeclarationType::FieldElement],
             },
         };
 
@@ -3452,6 +3468,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3493,6 +3510,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3546,6 +3564,7 @@ mod tests {
                     UnresolvedType::FieldElement.mock(),
                 ],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3582,6 +3601,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3646,6 +3666,7 @@ mod tests {
                     UnresolvedType::FieldElement.mock(),
                 ],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3674,6 +3695,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3742,6 +3764,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3749,7 +3772,11 @@ mod tests {
             Statement::Declaration(
                 absy::Variable::new(
                     "a",
-                    UnresolvedType::array(UnresolvedType::FieldElement.mock(), 1).mock(),
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.mock(),
+                        Expression::U32Constant(1).mock(),
+                    )
+                    .mock(),
                 )
                 .mock(),
             )
@@ -3789,6 +3816,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3844,6 +3872,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3888,6 +3917,7 @@ mod tests {
                     UnresolvedType::FieldElement.mock(),
                 ],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -3966,11 +3996,11 @@ mod tests {
             .into()]),
         ];
 
-        let foo = FunctionKey {
+        let foo = DeclarationFunctionKey {
             id: "foo",
-            signature: Signature {
+            signature: DeclarationSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement, Type::FieldElement],
+                outputs: vec![DeclarationType::FieldElement, DeclarationType::FieldElement],
             },
         };
 
@@ -3984,15 +4014,16 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
         let bar_checked = TypedFunction {
             arguments: vec![],
             statements: bar_statements_checked,
-            signature: Signature {
+            signature: DeclarationSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![DeclarationType::FieldElement],
             },
         };
 
@@ -4045,6 +4076,7 @@ mod tests {
                 inputs: vec![UnresolvedType::FieldElement.mock()],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -4055,6 +4087,7 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![UnresolvedType::FieldElement.mock()],
             },
+            generics: vec![],
         }
         .mock();
 
@@ -4172,8 +4205,8 @@ mod tests {
 
         /// solver function to create a module at location "" with a single symbol `Foo { foo: field }`
         fn create_module_with_foo(
-            s: StructDefinition<'static>,
-        ) -> (Checker<'static>, State<'static, Bn128Field>) {
+            s: StructDefinition<'static, Bn128Field>,
+        ) -> (Checker<'static, Bn128Field>, State<'static, Bn128Field>) {
             let module_id: PathBuf = "".into();
 
             let module: Module<Bn128Field> = Module {
@@ -4203,9 +4236,14 @@ mod tests {
                 // an empty struct should be allowed to be defined
                 let module_id = "".into();
                 let types = HashMap::new();
-                let declaration = StructDefinition { fields: vec![] }.mock();
+                let declaration: StructDefinitionNode<Bn128Field> =
+                    StructDefinition { fields: vec![] }.mock();
 
-                let expected_type = Type::Struct(StructType::new("".into(), "Foo".into(), vec![]));
+                let expected_type = DeclarationType::Struct(DeclarationStructType::new(
+                    "".into(),
+                    "Foo".into(),
+                    vec![],
+                ));
 
                 assert_eq!(
                     Checker::new().check_struct_type_declaration(
@@ -4223,7 +4261,7 @@ mod tests {
                 // a valid struct should be allowed to be defined
                 let module_id = "".into();
                 let types = HashMap::new();
-                let declaration = StructDefinition {
+                let declaration: StructDefinitionNode<Bn128Field> = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -4239,12 +4277,12 @@ mod tests {
                 }
                 .mock();
 
-                let expected_type = Type::Struct(StructType::new(
+                let expected_type = DeclarationType::Struct(DeclarationStructType::new(
                     "".into(),
                     "Foo".into(),
                     vec![
-                        StructMember::new("foo".into(), Type::FieldElement),
-                        StructMember::new("bar".into(), Type::Boolean),
+                        DeclarationStructMember::new("foo".into(), DeclarationType::FieldElement),
+                        DeclarationStructMember::new("bar".into(), DeclarationType::Boolean),
                     ],
                 ));
 
@@ -4265,7 +4303,7 @@ mod tests {
                 let module_id = "".into();
                 let types = HashMap::new();
 
-                let declaration0 = StructDefinition {
+                let declaration0: StructDefinitionNode<Bn128Field> = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -4281,7 +4319,7 @@ mod tests {
                 }
                 .mock();
 
-                let declaration1 = StructDefinition {
+                let declaration1: StructDefinitionNode<Bn128Field> = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "bar",
@@ -4319,7 +4357,7 @@ mod tests {
                 let module_id = "".into();
                 let types = HashMap::new();
 
-                let declaration = StructDefinition {
+                let declaration: StructDefinitionNode<Bn128Field> = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -4402,15 +4440,18 @@ mod tests {
                         .unwrap()
                         .get(&"Bar".to_string())
                         .unwrap(),
-                    &Type::Struct(StructType::new(
+                    &DeclarationType::Struct(DeclarationStructType::new(
                         module_id.clone(),
                         "Bar".into(),
-                        vec![StructMember::new(
+                        vec![DeclarationStructMember::new(
                             "foo".into(),
-                            Type::Struct(StructType::new(
+                            DeclarationType::Struct(DeclarationStructType::new(
                                 module_id,
                                 "Foo".into(),
-                                vec![StructMember::new("foo".into(), Type::FieldElement)]
+                                vec![DeclarationStructMember::new(
+                                    "foo".into(),
+                                    DeclarationType::FieldElement
+                                )]
                             ))
                         )]
                     ))
@@ -4541,7 +4582,7 @@ mod tests {
                 // an undefined type cannot be checked
                 // Bar
 
-                let (checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -4581,7 +4622,7 @@ mod tests {
 
                 // an undefined type cannot be used as parameter
 
-                let (checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -4601,13 +4642,16 @@ mod tests {
                         &PathBuf::from(MODULE_ID).into(),
                         &state.types,
                     ),
-                    Ok(Parameter {
-                        id: Variable::with_id_and_type(
+                    Ok(DeclarationParameter {
+                        id: DeclarationVariable::with_id_and_type(
                             "a",
-                            Type::Struct(StructType::new(
+                            DeclarationType::Struct(DeclarationStructType::new(
                                 "".into(),
                                 "Foo".into(),
-                                vec![StructMember::new("foo".into(), Type::FieldElement)]
+                                vec![DeclarationStructMember::new(
+                                    "foo".into(),
+                                    DeclarationType::FieldElement
+                                )]
                             ))
                         ),
                         private: true
@@ -4650,7 +4694,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_statement::<Bn128Field>(
+                    checker.check_statement(
                         Statement::Declaration(
                             absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
                                 .mock()
@@ -5052,9 +5096,9 @@ mod tests {
 
             let types = HashMap::new();
             let module_id = "".into();
-            let mut checker: Checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             checker
-                .check_statement::<Bn128Field>(
+                .check_statement(
                     Statement::Declaration(
                         absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
                     )
@@ -5087,13 +5131,17 @@ mod tests {
             let types = HashMap::new();
             let module_id = "".into();
 
-            let mut checker: Checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             checker
-                .check_statement::<Bn128Field>(
+                .check_statement(
                     Statement::Declaration(
                         absy::Variable::new(
                             "a",
-                            UnresolvedType::array(UnresolvedType::FieldElement.mock(), 33).mock(),
+                            UnresolvedType::array(
+                                UnresolvedType::FieldElement.mock(),
+                                Expression::U32Constant(33).mock(),
+                            )
+                            .mock(),
                         )
                         .mock(),
                     )
@@ -5106,8 +5154,11 @@ mod tests {
             assert_eq!(
                 checker.check_assignee(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
-                    box TypedAssignee::Identifier(typed_absy::Variable::field_array("a", 33)),
-                    box FieldElementExpression::Number(Bn128Field::from(2)).into()
+                    box TypedAssignee::Identifier(typed_absy::Variable::field_array(
+                        "a",
+                        33u32.into()
+                    )),
+                    box 2u32.into()
                 ))
             );
         }
@@ -5132,16 +5183,19 @@ mod tests {
 
             let types = HashMap::new();
             let module_id = "".into();
-            let mut checker: Checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             checker
-                .check_statement::<Bn128Field>(
+                .check_statement(
                     Statement::Declaration(
                         absy::Variable::new(
                             "a",
                             UnresolvedType::array(
-                                UnresolvedType::array(UnresolvedType::FieldElement.mock(), 33)
-                                    .mock(),
-                                42,
+                                UnresolvedType::array(
+                                    UnresolvedType::FieldElement.mock(),
+                                    Expression::U32Constant(33).mock(),
+                                )
+                                .mock(),
+                                Expression::U32Constant(42).mock(),
                             )
                             .mock(),
                         )
@@ -5159,12 +5213,12 @@ mod tests {
                     box TypedAssignee::Select(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(
                             "a",
-                            Type::array(Type::FieldElement, 33),
-                            42
+                            Type::array(Type::FieldElement, UExpression::from(33u32)),
+                            42u32.into(),
                         )),
-                        box FieldElementExpression::Number(Bn128Field::from(1)).into()
+                        box 1u32.into()
                     ),
-                    box FieldElementExpression::Number(Bn128Field::from(2)).into()
+                    box 2u32.into()
                 ))
             );
         }

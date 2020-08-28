@@ -752,6 +752,7 @@ mod tests {
                         signature: absy::UnresolvedSignature::new()
                             .inputs(vec![])
                             .outputs(vec![absy::UnresolvedType::FieldElement.mock()]),
+                        generics: vec![],
                     }
                     .into(),
                 ),
@@ -782,6 +783,7 @@ mod tests {
                         signature: absy::UnresolvedSignature::new()
                             .inputs(vec![])
                             .outputs(vec![absy::UnresolvedType::Boolean.mock()]),
+                        generics: vec![],
                     }
                     .into(),
                 ),
@@ -836,6 +838,7 @@ mod tests {
                                 absy::UnresolvedType::Boolean.mock(),
                             ])
                             .outputs(vec![absy::UnresolvedType::FieldElement.mock()]),
+                        generics: vec![],
                     }
                     .into(),
                 ),
@@ -851,7 +854,9 @@ mod tests {
         use super::*;
 
         /// Helper method to generate the ast for `def main(private {ty} a): return` which we use to check ty
-        fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, Bn128Field> {
+        fn wrap(
+            ty: absy::UnresolvedType<'static, Bn128Field>,
+        ) -> absy::Module<'static, Bn128Field> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
@@ -869,6 +874,7 @@ mod tests {
                             )
                             .into()],
                             signature: absy::UnresolvedSignature::new().inputs(vec![ty.mock()]),
+                            generics: vec![],
                         }
                         .into(),
                     ),
@@ -885,17 +891,20 @@ mod tests {
                 ("bool", absy::UnresolvedType::Boolean),
                 (
                     "field[2]",
-                    absy::UnresolvedType::Array(box absy::UnresolvedType::FieldElement.mock(), 2),
+                    absy::UnresolvedType::Array(
+                        box absy::UnresolvedType::FieldElement.mock(),
+                        absy::Expression::U32Constant(2).mock(),
+                    ),
                 ),
                 (
                     "field[2][3]",
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::FieldElement.mock(),
-                            3,
+                            absy::Expression::U32Constant(3).mock(),
                         )
                         .mock(),
-                        2,
+                        absy::Expression::U32Constant(2).mock(),
                     ),
                 ),
                 (
@@ -903,10 +912,10 @@ mod tests {
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::Boolean.mock(),
-                            3,
+                            absy::Expression::U32Constant(3).mock(),
                         )
                         .mock(),
-                        2,
+                        absy::Expression::U32Constant(2).mock(),
                     ),
                 ),
             ];
@@ -937,6 +946,7 @@ mod tests {
                             )
                             .into()],
                             signature: absy::UnresolvedSignature::new(),
+                            generics: vec![],
                         }
                         .into(),
                     ),
@@ -1066,9 +1076,10 @@ mod tests {
                 },
                 span: span.clone(),
             }],
-            expression: pest::Expression::Constant(pest::LiteralExpression::DecimalNumber(
-                pest::DecimalNumberExpression {
-                    value: String::from("42"),
+            expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
+                pest::DecimalLiteralExpression {
+                    value: pest::DecimalNumber { span: span.clone() },
+                    suffix: None,
                     span: span.clone(),
                 },
             )),

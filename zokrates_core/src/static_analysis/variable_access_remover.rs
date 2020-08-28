@@ -170,8 +170,8 @@ mod tests {
         let access: TypedStatement<Bn128Field> = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_element("b")),
             FieldElementExpression::Select(
-                box ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 2),
-                box FieldElementExpression::Identifier("i".into()),
+                box ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 2u32),
+                box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
             )
             .into(),
         );
@@ -201,13 +201,13 @@ mod tests {
                         ),
                         FieldElementExpression::Select(
                             box ArrayExpressionInner::Identifier("a".into())
-                                .annotate(Type::FieldElement, 2),
-                            box FieldElementExpression::Number(0.into()),
+                                .annotate(Type::FieldElement, 2u32),
+                            box 0u32.into(),
                         ),
                         FieldElementExpression::Select(
                             box ArrayExpressionInner::Identifier("a".into())
-                                .annotate(Type::FieldElement, 2),
-                            box FieldElementExpression::Number(1.into()),
+                                .annotate(Type::FieldElement, 2u32),
+                            box 1u32.into(),
                         )
                     )
                     .into()
