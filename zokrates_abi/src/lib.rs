@@ -406,7 +406,9 @@ mod tests {
 
     mod strict {
         use super::*;
-        use zokrates_core::typed_absy::types::{StructMember, StructType};
+        use zokrates_core::typed_absy::types::{
+            ConcreteStructMember, ConcreteStructType, ConcreteType,
+        };
 
         #[test]
         fn fields() {
@@ -441,8 +443,11 @@ mod tests {
         fn array() {
             let s = "[[true, false]]";
             assert_eq!(
-                parse_strict::<Bn128Field>(s, vec![ConcreteType::array(ConcreteType::Boolean, 2)])
-                    .unwrap(),
+                parse_strict::<Bn128Field>(
+                    s,
+                    vec![ConcreteType::array(ConcreteType::Boolean, 2usize)]
+                )
+                .unwrap(),
                 CheckedValues(vec![CheckedValue::Array(vec![
                     CheckedValue::Boolean(true),
                     CheckedValue::Boolean(false)
@@ -456,10 +461,13 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![ConcreteType::Struct(StructType::new(
+                    vec![ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "".into(),
-                        vec![StructMember::new("a".into(), ConcreteType::FieldElement)]
+                        vec![ConcreteStructMember::new(
+                            "a".into(),
+                            ConcreteType::FieldElement
+                        )]
                     ))]
                 )
                 .unwrap(),
@@ -474,10 +482,13 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![ConcreteType::Struct(StructType::new(
+                    vec![ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "".into(),
-                        vec![StructMember::new("a".into(), ConcreteType::FieldElement)]
+                        vec![ConcreteStructMember::new(
+                            "a".into(),
+                            ConcreteType::FieldElement
+                        )]
                     ))]
                 )
                 .unwrap_err(),
@@ -488,10 +499,13 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![ConcreteType::Struct(StructType::new(
+                    vec![ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "".into(),
-                        vec![StructMember::new("a".into(), ConcreteType::FieldElement)]
+                        vec![ConcreteStructMember::new(
+                            "a".into(),
+                            ConcreteType::FieldElement
+                        )]
                     ))]
                 )
                 .unwrap_err(),
@@ -502,10 +516,13 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![ConcreteType::Struct(StructType::new(
+                    vec![ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "".into(),
-                        vec![StructMember::new("a".into(), ConcreteType::FieldElement)]
+                        vec![ConcreteStructMember::new(
+                            "a".into(),
+                            ConcreteType::FieldElement
+                        )]
                     ))]
                 )
                 .unwrap_err(),

@@ -921,6 +921,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
@@ -933,14 +934,18 @@ mod tests {
                         expressions: vec![Expression::add(
                             Expression::Literal(LiteralExpression::DecimalLiteral(
                                 DecimalLiteralExpression {
-                                    value: String::from("1"),
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 59, 60).unwrap()
+                                    },
                                     suffix: None,
                                     span: Span::new(&source, 59, 60).unwrap()
                                 }
                             )),
                             Expression::Literal(LiteralExpression::DecimalLiteral(
                                 DecimalLiteralExpression {
-                                    value: String::from("1"),
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 63, 64).unwrap()
+                                    },
                                     suffix: None,
                                     span: Span::new(&source, 63, 64).unwrap()
                                 }
@@ -976,6 +981,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
@@ -989,7 +995,9 @@ mod tests {
                             Expression::Literal(LiteralExpression::DecimalLiteral(
                                 DecimalLiteralExpression {
                                     suffix: None,
-                                    value: String::from("1"),
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 59, 60).unwrap()
+                                    },
                                     span: Span::new(&source, 59, 60).unwrap()
                                 }
                             )),
@@ -997,7 +1005,9 @@ mod tests {
                                 Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         suffix: None,
-                                        value: String::from("2"),
+                                        value: DecimalNumber {
+                                            span: Span::new(&source, 63, 64).unwrap()
+                                        },
                                         span: Span::new(&source, 63, 64).unwrap()
                                     }
                                 )),
@@ -1005,14 +1015,18 @@ mod tests {
                                     Expression::Literal(LiteralExpression::DecimalLiteral(
                                         DecimalLiteralExpression {
                                             suffix: None,
-                                            value: String::from("3"),
+                                            value: DecimalNumber {
+                                                span: Span::new(&source, 67, 68).unwrap()
+                                            },
                                             span: Span::new(&source, 67, 68).unwrap()
                                         }
                                     )),
                                     Expression::Literal(LiteralExpression::DecimalLiteral(
                                         DecimalLiteralExpression {
                                             suffix: None,
-                                            value: String::from("4"),
+                                            value: DecimalNumber {
+                                                span: Span::new(&source, 72, 73).unwrap()
+                                            },
                                             span: Span::new(&source, 72, 73).unwrap()
                                         }
                                     )),
@@ -1051,6 +1065,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
@@ -1064,21 +1079,27 @@ mod tests {
                             Expression::Literal(LiteralExpression::DecimalLiteral(
                                 DecimalLiteralExpression {
                                     suffix: None,
-                                    value: String::from("1"),
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 62, 63).unwrap()
+                                    },
                                     span: Span::new(&source, 62, 63).unwrap()
                                 }
                             )),
                             Expression::Literal(LiteralExpression::DecimalLiteral(
                                 DecimalLiteralExpression {
                                     suffix: None,
-                                    value: String::from("2"),
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 69, 70).unwrap()
+                                    },
                                     span: Span::new(&source, 69, 70).unwrap()
                                 }
                             )),
                             Expression::Literal(LiteralExpression::DecimalLiteral(
                                 DecimalLiteralExpression {
                                     suffix: None,
-                                    value: String::from("3"),
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 76, 77).unwrap()
+                                    },
                                     span: Span::new(&source, 76, 77).unwrap()
                                 }
                             )),
@@ -1112,6 +1133,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 4, 8).unwrap()
@@ -1124,7 +1146,9 @@ mod tests {
                         expressions: vec![Expression::Literal(LiteralExpression::DecimalLiteral(
                             DecimalLiteralExpression {
                                 suffix: None,
-                                value: String::from("1"),
+                                value: DecimalNumber {
+                                    span: Span::new(&source, 31, 32).unwrap()
+                                },
                                 span: Span::new(&source, 31, 32).unwrap()
                             }
                         ))],
@@ -1149,6 +1173,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 4, 8).unwrap()
@@ -1196,7 +1221,9 @@ mod tests {
                                     Expression::Literal(LiteralExpression::DecimalLiteral(
                                         DecimalLiteralExpression {
                                             suffix: None,
-                                            value: String::from("1"),
+                                            value: DecimalNumber {
+                                                span: Span::new(&source, 40, 41).unwrap()
+                                            },
                                             span: Span::new(&source, 40, 41).unwrap()
                                         }
                                     )),
@@ -1204,14 +1231,18 @@ mod tests {
                                         Expression::Literal(LiteralExpression::DecimalLiteral(
                                             DecimalLiteralExpression {
                                                 suffix: None,
-                                                value: String::from("2"),
+                                                value: DecimalNumber {
+                                                    span: Span::new(&source, 43, 44).unwrap()
+                                                },
                                                 span: Span::new(&source, 43, 44).unwrap()
                                             }
                                         )),
                                         Expression::Literal(LiteralExpression::DecimalLiteral(
                                             DecimalLiteralExpression {
                                                 suffix: None,
-                                                value: String::from("3"),
+                                                value: DecimalNumber {
+                                                    span: Span::new(&source, 47, 48).unwrap()
+                                                },
                                                 span: Span::new(&source, 47, 48).unwrap()
                                             }
                                         )),
