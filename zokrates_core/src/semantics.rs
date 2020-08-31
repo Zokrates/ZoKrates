@@ -311,7 +311,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         for field in s.fields {
             let member_id = field.value.id.to_string();
             match self
-                .check_declaration_type(field.value.ty, module_id, &types)
+                .check_declaration_type(field.value.ty, module_id, &types, &mut vec![])
                 .map(|t| (member_id, t))
             {
                 Ok(f) => match fields_set.insert(f.0.clone()) {
@@ -672,7 +672,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
         // define variables for the constants
-        for generic in funct.generics {
+        for generic in funct.generics.clone() {
             let pos = generic.pos();
             let v = Variable::with_id_and_type(generic.value, Type::Uint(UBitwidth::B32));
             match self.insert_into_scope(v.clone()) {
@@ -687,9 +687,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
             constant_generics_checked.push(v);
         }
 
+        let mut used_constants = vec![];
+
         for arg in funct.arguments {
             let pos = arg.pos();
-            match self.check_parameter(arg, module_id, types) {
+            match self.check_parameter(arg, module_id, types, &mut used_constants) {
                 Ok(a) => {
                     match self.insert_into_scope(a.id.clone()) {
                         true => {}
@@ -708,8 +710,46 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         let mut statements_checked = vec![];
 
-        match self.check_signature(funct.signature, module_id, types) {
+        match self.check_signature(funct.signature, module_id, types, &mut used_constants) {
             Ok(s) => {
+                println!("Used {:?}", used_constants);
+                println!("Declared {:?}", funct.generics);
+
+                // check that the set of declared generic constants equals the set of generic constants used in the signature
+                let decl_pos: HashMap<Identifier<'ast>, _> =
+                    funct.generics.iter().map(|c| (c.value, c.pos())).collect();
+                let use_pos: HashMap<Identifier<'ast>, _> = used_constants
+                    .iter()
+                    .map(|c| {
+                        (
+                            match c.value {
+                                Expression::Identifier(id) => id,
+                                _ => unreachable!(),
+                            },
+                            c.pos(),
+                        )
+                    })
+                    .collect();
+
+                let decl_set: HashSet<_> = decl_pos.keys().cloned().collect();
+                let use_set: HashSet<_> = use_pos.keys().cloned().collect();
+
+                // declared but not used
+                for c in decl_set.difference(&use_set) {
+                    errors.push(ErrorInner {
+                        pos: Some(*decl_pos.get(c).unwrap()),
+                        message: format!("Unused generic variable in function definition: `{}` isn't used in the function signature", c)
+                    });
+                }
+
+                // used but not declared
+                for c in use_set.difference(&decl_set) {
+                    errors.push(ErrorInner {
+                        pos: Some(*use_pos.get(c).unwrap()),
+                        message: format!("Undeclared generic variable in function definition: `{}` isn't declared as a generic constant", c)
+                    });
+                }
+
                 for stat in funct.statements.into_iter() {
                     let pos = stat.pos();
 
@@ -777,8 +817,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
         p: ParameterNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap<'ast>,
+        constants: &mut Vec<ExpressionNode<'ast, T>>,
     ) -> Result<DeclarationParameter<'ast>, Vec<ErrorInner>> {
-        let var = self.check_declaration_variable(p.value.id, module_id, types)?;
+        let var = self.check_declaration_variable(p.value.id, module_id, types, constants)?;
 
         Ok(DeclarationParameter {
             id: var,
@@ -791,6 +832,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         signature: UnresolvedSignature<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap<'ast>,
+        constants: &mut Vec<ExpressionNode<'ast, T>>,
     ) -> Result<DeclarationSignature<'ast>, Vec<ErrorInner>> {
         let mut errors = vec![];
         let mut inputs = vec![];
@@ -799,7 +841,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         // TODO: check that generics are declared
 
         for t in signature.inputs {
-            match self.check_declaration_type(t, module_id, types) {
+            match self.check_declaration_type(t, module_id, types, constants) {
                 Ok(t) => {
                     inputs.push(t);
                 }
@@ -810,7 +852,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.outputs {
-            match self.check_declaration_type(t, module_id, types) {
+            match self.check_declaration_type(t, module_id, types, constants) {
                 Ok(t) => {
                     outputs.push(t);
                 }
@@ -886,8 +928,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn check_generic_expression(
         &mut self,
         expr: ExpressionNode<'ast, T>,
-        module_id: &ModuleId,
-        types: &TypeMap<'ast>,
     ) -> Result<Constant<'ast>, ErrorInner> {
         let pos = expr.pos();
 
@@ -909,6 +949,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         ty: UnresolvedTypeNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap<'ast>,
+        constants: &mut Vec<ExpressionNode<'ast, T>>,
     ) -> Result<DeclarationType<'ast>, ErrorInner> {
         let pos = ty.pos();
         let ty = ty.value;
@@ -918,11 +959,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
             UnresolvedType::Boolean => Ok(DeclarationType::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(DeclarationType::uint(bitwidth)),
             UnresolvedType::Array(t, size) => {
-                let size = self.check_generic_expression(size, module_id, types)?;
+                let checked_size = self.check_generic_expression(size.clone())?;
+
+                match checked_size {
+                    Constant::Generic(c) => constants.push(size),
+                    _ => {}
+                };
 
                 Ok(DeclarationType::Array(DeclarationArrayType::new(
-                    self.check_declaration_type(*t, module_id, types)?,
-                    size,
+                    self.check_declaration_type(*t, module_id, types, constants)?,
+                    checked_size,
                 )))
             }
             UnresolvedType::User(id) => {
@@ -957,10 +1003,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
         v: crate::absy::VariableNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap<'ast>,
+        constants: &mut Vec<ExpressionNode<'ast, T>>,
     ) -> Result<DeclarationVariable<'ast>, Vec<ErrorInner>> {
         Ok(DeclarationVariable::with_id_and_type(
             v.value.id,
-            self.check_declaration_type(v.value._type, module_id, types)
+            self.check_declaration_type(v.value._type, module_id, types, constants)
                 .map_err(|e| vec![e])?,
         ))
     }
@@ -2764,6 +2811,119 @@ mod tests {
                     .message,
                 "foo conflicts with another symbol"
             );
+        }
+
+        mod generics {
+            use super::*;
+
+            #[test]
+            fn unused_generic() {
+                // def foo<P>():
+                //   return
+                // def main():
+                //   return
+                //
+                // should fail
+
+                let mut foo = function0();
+
+                foo.value.generics = vec!["P".mock()];
+
+                let module = Module {
+                    symbols: vec![
+                        SymbolDeclaration {
+                            id: "foo",
+                            symbol: Symbol::HereFunction(foo),
+                        }
+                        .mock(),
+                        SymbolDeclaration {
+                            id: "main",
+                            symbol: Symbol::HereFunction(function0()),
+                        }
+                        .mock(),
+                    ],
+                    imports: vec![],
+                };
+
+                let mut state = State::new(
+                    vec![(PathBuf::from(MODULE_ID).into(), module)]
+                        .into_iter()
+                        .collect(),
+                );
+
+                let mut checker = Checker::new();
+                assert_eq!(
+                    checker
+                        .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
+                        .unwrap_err()[0]
+                        .inner
+                        .message,
+                    "Unused generic variable in function definition: `P` isn\'t used in the function signature"
+                );
+            }
+
+            #[test]
+            fn undeclared_generic() {
+                // def foo(field[P] a):
+                //   return
+                // def main():
+                //   return
+                //
+                // should fail
+
+                let mut foo = function0();
+
+                foo.value.arguments = vec![absy::Parameter::private(
+                    absy::Variable::new(
+                        "a",
+                        UnresolvedType::array(
+                            UnresolvedType::FieldElement.mock(),
+                            Expression::Identifier("P").mock(),
+                        )
+                        .mock(),
+                    )
+                    .mock(),
+                )
+                .mock()];
+                foo.value.signature =
+                    UnresolvedSignature::new().inputs(vec![UnresolvedType::array(
+                        UnresolvedType::FieldElement.mock(),
+                        Expression::Identifier("P").mock(),
+                    )
+                    .mock()]);
+
+                let module = Module {
+                    symbols: vec![
+                        SymbolDeclaration {
+                            id: "foo",
+                            symbol: Symbol::HereFunction(foo),
+                        }
+                        .mock(),
+                        SymbolDeclaration {
+                            id: "main",
+                            symbol: Symbol::HereFunction(function0()),
+                        }
+                        .mock(),
+                    ],
+                    imports: vec![],
+                };
+
+                let mut state = State::new(
+                    vec![(PathBuf::from(MODULE_ID).into(), module)]
+                        .into_iter()
+                        .collect(),
+                );
+
+                let mut checker = Checker::new();
+                assert_eq!(
+                    checker
+                        .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
+                        .unwrap_err()[0]
+                        .inner
+                        .message,
+                    "Undeclared generic variable in function definition: `P` isn\'t declared as a generic constant"
+                );
+            }
         }
 
         #[test]
@@ -4641,6 +4801,7 @@ mod tests {
                         .mock(),
                         &PathBuf::from(MODULE_ID).into(),
                         &state.types,
+                        &mut vec![]
                     ),
                     Ok(DeclarationParameter {
                         id: DeclarationVariable::with_id_and_type(
@@ -4672,6 +4833,7 @@ mod tests {
                             .mock(),
                             &PathBuf::from(MODULE_ID).into(),
                             &state.types,
+                            &mut vec![]
                         )
                         .unwrap_err()[0]
                         .message,
@@ -4727,6 +4889,7 @@ mod tests {
                             .mock(),
                             &PathBuf::from(MODULE_ID).into(),
                             &state.types,
+                            &mut vec![]
                         )
                         .unwrap_err()[0]
                         .message,

@@ -1273,7 +1273,7 @@ mod tests {
             Bar bar
         }
 
-        def main(private field[23] a) -> (bool[234 + 6]):
+        def main<P>(private field[Q] a) -> (bool[234 + 6]):
         field a = 1
         a[32 + x][55] = y
         for field i in 0..3 do

@@ -216,7 +216,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Module<'ast, T> {
     }
 }
 
-type ConstantGenericNode<'ast> = Node<Identifier<'ast>>;
+pub type ConstantGenericNode<'ast> = Node<Identifier<'ast>>;
 
 /// A function defined locally
 #[derive(Clone, PartialEq)]
