@@ -194,14 +194,13 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
 
     /// match a `DeclarationFunctionKey` against this `FunctionQuery`
     fn match_func(&self, func: &DeclarationFunctionKey<'ast>) -> bool {
-        // self.id == func.id
-        //     && self.inputs == func.signature.inputs
-        //     && self.outputs.len() == func.signature.outputs.len()
-        //     && self.outputs.iter().enumerate().all(|(index, t)| match t {
-        //         Some(ref t) => t == &func.signature.outputs[index],
-        //         _ => true,
-        //     })
-        unimplemented!()
+        self.id == func.id
+            && self.inputs == func.signature.inputs
+            && self.outputs.len() == func.signature.outputs.len()
+            && self.outputs.iter().enumerate().all(|(index, t)| match t {
+                Some(ref t) => t == &func.signature.outputs[index],
+                _ => true,
+            })
     }
 
     fn match_funcs(
@@ -716,6 +715,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 println!("Declared {:?}", funct.generics);
 
                 // check that the set of declared generic constants equals the set of generic constants used in the signature
+                // we build maps to avoid losing track of positions in the set comparison process
                 let decl_pos: HashMap<Identifier<'ast>, _> =
                     funct.generics.iter().map(|c| (c.value, c.pos())).collect();
                 let use_pos: HashMap<Identifier<'ast>, _> = used_constants
@@ -731,10 +731,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     })
                     .collect();
 
+                // build comparable sets
                 let decl_set: HashSet<_> = decl_pos.keys().cloned().collect();
                 let use_set: HashSet<_> = use_pos.keys().cloned().collect();
 
-                // declared but not used
+                // detect declared but not used
                 for c in decl_set.difference(&use_set) {
                     errors.push(ErrorInner {
                         pos: Some(*decl_pos.get(c).unwrap()),
@@ -742,7 +743,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     });
                 }
 
-                // used but not declared
+                // detect used but not declared
                 for c in use_set.difference(&decl_set) {
                     errors.push(ErrorInner {
                         pos: Some(*use_pos.get(c).unwrap()),
@@ -759,10 +760,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 TypedStatement::Return(e) => {
                                     match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
                                         == s.outputs
-                                            .clone()
-                                            .into_iter()
-                                            .map(|o| o.into())
-                                            .collect::<Vec<_>>()
                                     {
                                         true => {}
                                         false => errors.push(ErrorInner {
@@ -890,7 +887,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let size = match size {
                     TypedExpression::Uint(e) => match e.bitwidth() {
                         UBitwidth::B32 => Ok(e),
-                        bitwidth => Err(ErrorInner {
+                        _ => Err(ErrorInner {
                             pos: Some(pos),
                             message: format!(
                             "Expected array dimension to be a u32 constant, found {} of type {}",
@@ -962,7 +959,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let checked_size = self.check_generic_expression(size.clone())?;
 
                 match checked_size {
-                    Constant::Generic(c) => constants.push(size),
+                    Constant::Generic(_) => constants.push(size),
                     _ => {}
                 };
 

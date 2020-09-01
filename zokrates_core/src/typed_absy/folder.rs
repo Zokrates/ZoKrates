@@ -1,6 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
 use crate::typed_absy::*;
+use typed_absy::types::{ArrayType, StructMember, StructType};
 use zokrates_field::Field;
 
 pub trait Folder<'ast, T: Field>: Sized {
@@ -52,11 +53,30 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_type(&mut self, t: Type<'ast, T>) -> Type<'ast, T> {
-        unimplemented!()
+        use self::GType::*;
+
+        match t {
+            Array(array_type) => Array(ArrayType {
+                ty: box self.fold_type(*array_type.ty),
+                size: self.fold_uint_expression(array_type.size),
+            }),
+            Struct(struct_type) => Struct(StructType {
+                members: struct_type
+                    .members
+                    .into_iter()
+                    .map(|m| StructMember {
+                        ty: box self.fold_type(*m.ty),
+                        ..m
+                    })
+                    .collect(),
+                ..struct_type
+            }),
+            t => t,
+        }
     }
 
     fn fold_declaration_type(&mut self, t: DeclarationType<'ast>) -> DeclarationType<'ast> {
-        unimplemented!()
+        t
     }
 
     fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {

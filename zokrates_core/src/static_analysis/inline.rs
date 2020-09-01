@@ -176,7 +176,13 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         &self,
         key: ConcreteFunctionKey<'ast>,
     ) -> TypedFunctionSymbol<'ast, T> {
-        unimplemented!()
+        self.module()
+            .functions
+            .iter()
+            .find(|(k, _)| key == **k)
+            .unwrap()
+            .1
+            .clone()
     }
 
     fn try_inline_call(
@@ -354,7 +360,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         let folded = match s {
             TypedStatement::For(v, from, to, statements) => {
                 self.blocked = Some(Blocked::Unroll);
-                vec![TypedStatement::For(v, from, to, statements)]
+                fold_statement(self, TypedStatement::For(v, from, to, statements))
             }
             TypedStatement::MultipleDefinition(variables, elist) => match elist {
                 TypedExpressionList::FunctionCall(key, exps, types) => {
@@ -386,8 +392,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             },
             s => fold_statement(self, s),
         };
-        unimplemented!()
-        //self.statement_buffer.drain(..).chain(folded).collect()
+        self.statement_buffer.drain(..).chain(folded).collect()
     }
 
     // prefix all names with the stack
@@ -406,6 +411,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         match e {
             FieldElementExpression::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+
+                let key = FunctionKey {
+                    signature: Signature {
+                        inputs: exps
+                            .iter()
+                            .map(|e| e.clone().get_type())
+                            .collect::<Vec<_>>(),
+                        ..key.signature
+                    },
+                    ..key
+                };
 
                 match self.try_inline_call(key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {

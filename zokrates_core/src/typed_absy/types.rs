@@ -30,8 +30,11 @@ impl<'ast> From<Identifier<'ast>> for Constant<'ast> {
 }
 
 impl<'ast> fmt::Display for Constant<'ast> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        unimplemented!()
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Constant::Generic(i) => write!(f, "{}", i),
+            Constant::Concrete(v) => write!(f, "{}", v),
+        }
     }
 }
 
@@ -88,6 +91,12 @@ pub type DeclarationStructMember<'ast> = GStructMember<Constant<'ast>>;
 pub type ConcreteStructMember = GStructMember<usize>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
+impl<'ast, T: PartialEq> PartialEq<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
+    fn eq(&self, other: &DeclarationStructMember<'ast>) -> bool {
+        self.id == other.id && *self.ty == *other.ty
+    }
+}
+
 fn try_from_g_struct_member<T: TryInto<U>, U>(t: GStructMember<T>) -> Result<GStructMember<U>, ()> {
     Ok(GStructMember {
         id: t.id,
@@ -139,6 +148,18 @@ pub struct GArrayType<S> {
 pub type DeclarationArrayType<'ast> = GArrayType<Constant<'ast>>;
 pub type ConcreteArrayType = GArrayType<usize>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
+
+impl<'ast, T: PartialEq> PartialEq<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
+    fn eq(&self, other: &DeclarationArrayType<'ast>) -> bool {
+        *self.ty == *other.ty
+            && match (self.size.as_inner(), &other.size) {
+                (_, Constant::Generic(_)) => true,
+                (UExpressionInner::Value(l), Constant::Concrete(r)) => *l as u32 == *r,
+                (UExpressionInner::Identifier(_), Constant::Concrete(_)) => true,
+                _ => unreachable!(),
+            }
+    }
+}
 
 fn try_from_g_array_type<T: TryInto<U>, U>(t: GArrayType<T>) -> Result<GArrayType<U>, ()> {
     Ok(GArrayType {
@@ -192,6 +213,12 @@ pub struct GStructType<S> {
 pub type DeclarationStructType<'ast> = GStructType<Constant<'ast>>;
 pub type ConcreteStructType = GStructType<usize>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
+
+impl<'ast, T: PartialEq> PartialEq<DeclarationStructType<'ast>> for StructType<'ast, T> {
+    fn eq(&self, other: &DeclarationStructType<'ast>) -> bool {
+        self.module == other.module && self.name == other.name && self.members == other.members
+    }
+}
 
 fn try_from_g_struct_type<T: TryInto<U>, U>(t: GStructType<T>) -> Result<GStructType<U>, ()> {
     Ok(GStructType {
@@ -325,6 +352,20 @@ pub enum GType<S> {
 pub type DeclarationType<'ast> = GType<Constant<'ast>>;
 pub type ConcreteType = GType<usize>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
+
+impl<'ast, T: PartialEq> PartialEq<DeclarationType<'ast>> for Type<'ast, T> {
+    fn eq(&self, other: &DeclarationType<'ast>) -> bool {
+        use self::GType::*;
+
+        match (self, other) {
+            (Array(l), Array(r)) => l == r,
+            (Struct(l), Struct(r)) => l == r,
+            (FieldElement, FieldElement) | (Boolean, Boolean) => true,
+            (Uint(l), Uint(r)) => l == r,
+            _ => false,
+        }
+    }
+}
 
 fn try_from_g_type<T: TryInto<U>, U>(t: GType<T>) -> Result<GType<U>, ()> {
     match t {
@@ -493,37 +534,50 @@ pub type DeclarationFunctionKey<'ast> = GFunctionKey<'ast, Constant<'ast>>;
 pub type ConcreteFunctionKey<'ast> = GFunctionKey<'ast, usize>;
 pub type FunctionKey<'ast, T> = GFunctionKey<'ast, UExpression<'ast, T>>;
 
+impl<'ast> PartialEq<DeclarationFunctionKey<'ast>> for ConcreteFunctionKey<'ast> {
+    fn eq(&self, other: &DeclarationFunctionKey<'ast>) -> bool {
+        self.id == other.id && self.signature == other.signature
+    }
+}
+
+fn try_from_g_function_key<T: TryInto<U>, U>(k: GFunctionKey<T>) -> Result<GFunctionKey<U>, ()> {
+    Ok(GFunctionKey {
+        signature: signature::try_from_g_signature(k.signature)?,
+        id: k.id,
+    })
+}
+
 impl<'ast, T> TryFrom<FunctionKey<'ast, T>> for ConcreteFunctionKey<'ast> {
     type Error = ();
 
-    fn try_from(t: FunctionKey<'ast, T>) -> Result<Self, Self::Error> {
-        unimplemented!()
+    fn try_from(k: FunctionKey<'ast, T>) -> Result<Self, Self::Error> {
+        try_from_g_function_key(k)
     }
 }
 
 impl<'ast> TryFrom<DeclarationFunctionKey<'ast>> for ConcreteFunctionKey<'ast> {
     type Error = ();
 
-    fn try_from(t: DeclarationFunctionKey<'ast>) -> Result<Self, Self::Error> {
-        unimplemented!()
+    fn try_from(k: DeclarationFunctionKey<'ast>) -> Result<Self, Self::Error> {
+        try_from_g_function_key(k)
     }
 }
 
 impl<'ast, T> From<ConcreteFunctionKey<'ast>> for FunctionKey<'ast, T> {
-    fn from(t: ConcreteFunctionKey<'ast>) -> Self {
-        unimplemented!()
+    fn from(k: ConcreteFunctionKey<'ast>) -> Self {
+        try_from_g_function_key(k).unwrap()
     }
 }
 
 impl<'ast> From<ConcreteFunctionKey<'ast>> for DeclarationFunctionKey<'ast> {
-    fn from(t: ConcreteFunctionKey<'ast>) -> Self {
-        unimplemented!()
+    fn from(k: ConcreteFunctionKey<'ast>) -> Self {
+        try_from_g_function_key(k).unwrap()
     }
 }
 
 impl<'ast, T> From<DeclarationFunctionKey<'ast>> for FunctionKey<'ast, T> {
-    fn from(t: DeclarationFunctionKey<'ast>) -> Self {
-        unimplemented!()
+    fn from(k: DeclarationFunctionKey<'ast>) -> Self {
+        try_from_g_function_key(k).unwrap()
     }
 }
 
@@ -588,37 +642,59 @@ pub mod signature {
     pub type ConcreteSignature = GSignature<usize>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
+    // impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
+    //     fn eq(&self, other: &DeclarationSignature<'ast>) ->  {
+    //         unimplemented!("return list of substitutions or error")
+    //         true
+    //     }
+    // }
+
+    pub fn try_from_g_signature<T: TryInto<U>, U>(t: GSignature<T>) -> Result<GSignature<U>, ()> {
+        Ok(GSignature {
+            inputs: t
+                .inputs
+                .into_iter()
+                .map(try_from_g_type)
+                .collect::<Result<_, _>>()?,
+            outputs: t
+                .outputs
+                .into_iter()
+                .map(try_from_g_type)
+                .collect::<Result<_, _>>()?,
+        })
+    }
+
     impl<'ast, T> TryFrom<Signature<'ast, T>> for ConcreteSignature {
         type Error = ();
 
-        fn try_from(t: Signature<'ast, T>) -> Result<Self, Self::Error> {
-            unimplemented!()
+        fn try_from(s: Signature<'ast, T>) -> Result<Self, Self::Error> {
+            try_from_g_signature(s)
         }
     }
 
     impl<'ast> TryFrom<DeclarationSignature<'ast>> for ConcreteSignature {
         type Error = ();
 
-        fn try_from(t: DeclarationSignature<'ast>) -> Result<Self, Self::Error> {
-            unimplemented!()
+        fn try_from(s: DeclarationSignature<'ast>) -> Result<Self, Self::Error> {
+            try_from_g_signature(s)
         }
     }
 
     impl<'ast, T> From<ConcreteSignature> for Signature<'ast, T> {
-        fn from(t: ConcreteSignature) -> Self {
-            unimplemented!()
+        fn from(s: ConcreteSignature) -> Self {
+            try_from_g_signature(s).unwrap()
         }
     }
 
     impl<'ast> From<ConcreteSignature> for DeclarationSignature<'ast> {
-        fn from(t: ConcreteSignature) -> Self {
-            unimplemented!()
+        fn from(s: ConcreteSignature) -> Self {
+            try_from_g_signature(s).unwrap()
         }
     }
 
     impl<'ast, T> From<DeclarationSignature<'ast>> for Signature<'ast, T> {
-        fn from(t: DeclarationSignature) -> Self {
-            unimplemented!()
+        fn from(s: DeclarationSignature<'ast>) -> Self {
+            try_from_g_signature(s).unwrap()
         }
     }
 

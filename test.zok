@@ -1,4 +1,4 @@
-def sum_array<P>(field[3u32] a) -> field:
+def sum_array<P>(field[P] a) -> field:
 	field res = 0
 	for u32 i in 0u32..P do
 		res = res + a[i]
