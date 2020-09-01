@@ -154,28 +154,20 @@ impl<'de> Deserialize<'de> for Type {
             components: Option<Components>,
         }
 
+        let strict_type = |m: Mapping, ty: Type| -> Result<Self, <D as Deserializer<'de>>::Error> {
+            match m.components {
+                Some(_) => Err(D::Error::custom(format!(
+                    "unexpected `components` field for type `{}`",
+                    ty
+                ))),
+                None => Ok(ty),
+            }
+        };
+
         let mapping = Mapping::deserialize(d)?;
         match mapping.ty.as_str() {
-            "field" => {
-                if mapping.components.is_some() {
-                    Err(D::Error::custom(format!(
-                        "unexpected `components` field for type `{}`",
-                        mapping.ty
-                    )))
-                } else {
-                    Ok(Type::FieldElement)
-                }
-            }
-            "bool" => {
-                if mapping.components.is_some() {
-                    Err(D::Error::custom(format!(
-                        "unexpected `components` field for type `{}`",
-                        mapping.ty
-                    )))
-                } else {
-                    Ok(Type::Boolean)
-                }
-            }
+            "field" => strict_type(mapping, Type::FieldElement),
+            "bool" => strict_type(mapping, Type::Boolean),
             "array" => {
                 let components = mapping.components.ok_or(D::Error::custom(format_args!(
                     "missing `components` field for type `{}'",
@@ -202,36 +194,9 @@ impl<'de> Deserialize<'de> for Type {
                     ))),
                 }
             }
-            "u8" => {
-                if mapping.components.is_some() {
-                    Err(D::Error::custom(format!(
-                        "unexpected `components` field for type `{}`",
-                        mapping.ty
-                    )))
-                } else {
-                    Ok(Type::Uint(UBitwidth::B8))
-                }
-            }
-            "u16" => {
-                if mapping.components.is_some() {
-                    Err(D::Error::custom(format!(
-                        "unexpected `components` field for type `{}`",
-                        mapping.ty
-                    )))
-                } else {
-                    Ok(Type::Uint(UBitwidth::B16))
-                }
-            }
-            "u32" => {
-                if mapping.components.is_some() {
-                    Err(D::Error::custom(format!(
-                        "unexpected `components` field for type `{}`",
-                        mapping.ty
-                    )))
-                } else {
-                    Ok(Type::Uint(UBitwidth::B32))
-                }
-            }
+            "u8" => strict_type(mapping, Type::Uint(UBitwidth::B8)),
+            "u16" => strict_type(mapping, Type::Uint(UBitwidth::B16)),
+            "u32" => strict_type(mapping, Type::Uint(UBitwidth::B32)),
             _ => Err(D::Error::custom(format!("invalid type `{}`", mapping.ty))),
         }
     }
