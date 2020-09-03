@@ -87,6 +87,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             )),
             // propagation to the defined variable if rhs is a constant
             TypedStatement::Definition(TypedAssignee::Identifier(var), expr) => {
+                let var = self.fold_variable(var);
                 let expr = self.fold_expression(expr);
 
                 if is_constant(&expr) {
@@ -130,7 +131,12 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 Some(TypedStatement::For(v, from, to, statements))
             }
             TypedStatement::MultipleDefinition(variables, expression_list) => {
+                let variables: Vec<_> = variables
+                    .into_iter()
+                    .map(|v| self.fold_variable(v))
+                    .collect();
                 let expression_list = self.fold_expression_list(expression_list);
+
                 match expression_list {
                     TypedExpressionList::FunctionCall(key, arguments, types) => {
                         let arguments: Vec<_> = arguments

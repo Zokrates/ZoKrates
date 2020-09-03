@@ -5,8 +5,13 @@ def sum_array<P>(field[P] a) -> field:
 	endfor
 	return res
 
+def sum_array(field[3u32] a) -> field:
+	field res = 0
+	for u32 i in 0u32..3u32 do
+		res = res + a[i]
+	endfor
+	return res
+
 def main() -> field:
-
 	field[3u32] a = [1, 2, 3]
-
 	return sum_array(a)

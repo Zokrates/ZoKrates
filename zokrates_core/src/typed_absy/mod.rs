@@ -301,7 +301,7 @@ impl<'ast, T: Clone> Typed<'ast, T> for TypedAssignee<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedAssignee<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedAssignee::Identifier(ref s) => write!(f, "{}", s.id),
+            TypedAssignee::Identifier(ref s) => write!(f, "{:?}", s.id),
             TypedAssignee::Select(ref a, ref e) => write!(f, "Select({:?}, {:?})", a, e),
             TypedAssignee::Member(ref s, ref m) => write!(f, "Member({:?}, {:?})", s, m),
         }

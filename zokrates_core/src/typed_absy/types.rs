@@ -1,14 +1,45 @@
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use typed_absy::{TryFrom, TryInto};
 use typed_absy::{UExpression, UExpressionInner};
 
 pub type Identifier<'ast> = &'ast str;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum Constant<'ast> {
     Generic(Identifier<'ast>),
     Concrete(u32),
+}
+
+// At this stage we want all constants to be equal
+impl<'ast> PartialEq for Constant<'ast> {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl<'ast> PartialOrd for Constant<'ast> {
+    fn partial_cmp(&self, _: &Self) -> std::option::Option<std::cmp::Ordering> {
+        Some(std::cmp::Ordering::Equal)
+    }
+}
+
+impl<'ast> Ord for Constant<'ast> {
+    fn cmp(&self, _: &Self) -> std::cmp::Ordering {
+        std::cmp::Ordering::Equal
+    }
+}
+
+impl<'ast> Eq for Constant<'ast> {}
+
+impl<'ast> Hash for Constant<'ast> {
+    fn hash<H>(&self, _: &mut H)
+    where
+        H: Hasher,
+    {
+        // we do not hash anything, as we want all constant to hash to the same thing
+    }
 }
 
 impl<'ast> From<u32> for Constant<'ast> {
@@ -642,12 +673,77 @@ pub mod signature {
     pub type ConcreteSignature = GSignature<usize>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
-    // impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
-    //     fn eq(&self, other: &DeclarationSignature<'ast>) ->  {
-    //         unimplemented!("return list of substitutions or error")
-    //         true
-    //     }
-    // }
+    use std::collections::hash_map::{Entry, HashMap};
+
+    fn check_type<'ast>(
+        decl_ty: &DeclarationType<'ast>,
+        ty: &ConcreteType,
+        constants: &mut HashMap<Identifier<'ast>, u32>,
+    ) -> bool {
+        match (decl_ty, ty) {
+            (DeclarationType::Array(t0), ConcreteType::Array(t1)) => {
+                let s1 = t1.size as u32;
+
+                // both the inner type and the size must match
+                check_type(&t0.ty, &t1.ty, constants)
+                    && match t0.size {
+                        // if the declared size is an identifier, we insert into the map, or check if the concrete size
+                        // matches if this identifier is already in the map
+                        Constant::Generic(id) => match constants.entry(id) {
+                            Entry::Occupied(e) => *e.get() == s1,
+                            Entry::Vacant(e) => {
+                                e.insert(s1);
+                                true
+                            }
+                        },
+                        Constant::Concrete(s0) => s0 == s1,
+                    }
+            }
+            (DeclarationType::FieldElement, ConcreteType::FieldElement)
+            | (DeclarationType::Boolean, ConcreteType::Boolean) => true,
+            (DeclarationType::Uint(b0), ConcreteType::Uint(b1)) => b0 == b1,
+            (DeclarationType::Struct(_), ConcreteType::Struct(_)) => unimplemented!(),
+            _ => false,
+        }
+    }
+
+    impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
+        fn eq(&self, other: &DeclarationSignature<'ast>) -> bool {
+            // we keep track of the value of constants in a map, as a given constant can only have one value
+            let mut constants = HashMap::new();
+
+            other
+                .inputs
+                .iter()
+                .chain(other.outputs.iter())
+                .zip(self.inputs.iter().chain(self.outputs.iter()))
+                .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants))
+        }
+    }
+
+    impl<'ast> DeclarationSignature<'ast> {
+        pub fn specialize(
+            &self,
+            concrete_signature: &ConcreteSignature,
+        ) -> Vec<(Identifier<'ast>, u32)> {
+            // we keep track of the value of constants in a map, as a given constant can only have one value
+            let mut constants = HashMap::new();
+
+            assert!(self
+                .inputs
+                .iter()
+                .chain(self.outputs.iter())
+                .zip(
+                    concrete_signature
+                        .inputs
+                        .iter()
+                        .chain(concrete_signature.outputs.iter())
+                )
+                .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants)));
+
+            constants.into_iter().collect()
+        }
+    }
 
     pub fn try_from_g_signature<T: TryInto<U>, U>(t: GSignature<T>) -> Result<GSignature<U>, ()> {
         Ok(GSignature {

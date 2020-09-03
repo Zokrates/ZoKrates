@@ -19,14 +19,16 @@
 use static_analysis::propagate_unroll::{Blocked, Output};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use typed_absy::types::{ConcreteFunctionKey, ConcreteType, FunctionKey, Type, UBitwidth};
+use typed_absy::types::{
+    ConcreteFunctionKey, ConcreteType, DeclarationFunctionKey, FunctionKey, Type, UBitwidth,
+};
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct Location<'ast> {
     module: TypedModuleId,
-    key: ConcreteFunctionKey<'ast>,
+    key: DeclarationFunctionKey<'ast>,
 }
 
 impl<'ast> Location<'ast> {
@@ -65,13 +67,15 @@ pub struct Inliner<'ast, T: Field> {
     call_cache: CallCache<'ast, T>,
     /// whether the inliner is blocked, and why
     blocked: Option<Blocked>,
+    /// whether we made progress so far
+    made_progress: bool,
 }
 
 impl<'ast, T: Field> Inliner<'ast, T> {
     fn with_modules_and_module_id_and_key<S: Into<TypedModuleId>>(
         modules: TypedModules<'ast, T>,
         module_id: S,
-        key: ConcreteFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast>,
     ) -> Self {
         Inliner {
             modules,
@@ -84,6 +88,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             call_count: HashMap::new(),
             call_cache: HashMap::new(),
             blocked: None,
+            made_progress: false,
         }
     }
 
@@ -168,21 +173,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
         match self.blocked.clone() {
             None => Output::Complete(program),
-            Some(blocked) => Output::Blocked(program, blocked, 42),
+            Some(blocked) => Output::Blocked(program, blocked, self.made_progress),
         }
-    }
-
-    fn get_concrete_function(
-        &self,
-        key: ConcreteFunctionKey<'ast>,
-    ) -> TypedFunctionSymbol<'ast, T> {
-        self.module()
-            .functions
-            .iter()
-            .find(|(k, _)| key == **k)
-            .unwrap()
-            .1
-            .clone()
     }
 
     fn try_inline_call(
@@ -191,9 +183,65 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         expressions: Vec<TypedExpression<'ast, T>>,
     ) -> Result<Vec<TypedExpression<'ast, T>>, InlineError<'ast, T>> {
         match ConcreteFunctionKey::try_from(key.clone()) {
-            Ok(key) => self
-                .try_inline_concrete_call(key, expressions)
-                .map_err(|e| InlineError::Flat(e.0.into(), e.1)),
+            Ok(concrete_key) => {
+                match self
+                    .call_cache()
+                    .get(&concrete_key)
+                    .map(|m| m.get(&expressions))
+                {
+                    Some(Some(exprs)) => return Ok(exprs.clone()),
+                    _ => {}
+                };
+
+                // first find the DeclarationFunctionKey
+                let decl_key = self
+                    .module()
+                    .functions
+                    .keys()
+                    .find(|decl_key| concrete_key == **decl_key)
+                    .unwrap()
+                    .clone();
+
+                // get an assignment of generics for this call site
+                let assignment = decl_key.signature.specialize(&concrete_key.signature);
+
+                let module_id = self.module_id().clone();
+
+                // increase the number of calls for this function by one
+                let count = self
+                    .call_count
+                    .entry((self.module_id().clone(), concrete_key.clone()))
+                    .and_modify(|i| *i += 1)
+                    .or_insert(1);
+                // push this call to the stack
+                self.stack.push((module_id, concrete_key.clone(), *count));
+
+                for (id, value) in assignment {
+                    let assignee = self.fold_assignee(TypedAssignee::Identifier(
+                        Variable::with_id_and_type(id, Type::Uint(UBitwidth::B32)),
+                    ));
+                    self.statement_buffer.push(TypedStatement::Definition(
+                        assignee,
+                        UExpression::from(value).into(),
+                    ))
+                }
+
+                // then, inline the generic function associated with this DeclarationFunctionKey
+                let res = self
+                    .try_inline_declaration_call(decl_key, expressions.clone())
+                    .map_err(|e| InlineError::Flat(e.0.into(), e.1));
+
+                // pop this call from the stack
+                self.stack.pop();
+
+                res.map(|exprs| {
+                    self.call_cache_mut()
+                        .entry(concrete_key.clone())
+                        .or_insert_with(|| HashMap::new())
+                        .insert(expressions, exprs.clone());
+                    exprs
+                })
+            }
             Err(()) => {
                 self.blocked = Some(Blocked::Inline);
                 Err(InlineError::NonConstant(key, expressions))
@@ -204,36 +252,24 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     /// try to inline a call to function with key `key` in the stack of `self`
     /// if inlining succeeds, return the expressions returned by the function call
     /// if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
-    fn try_inline_concrete_call(
+    fn try_inline_declaration_call(
         &mut self,
-        key: ConcreteFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast>,
         expressions: Vec<TypedExpression<'ast, T>>,
     ) -> Result<
         Vec<TypedExpression<'ast, T>>,
         (ConcreteFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     > {
-        match self.call_cache().get(&key).map(|m| m.get(&expressions)) {
-            Some(Some(exprs)) => return Ok(exprs.clone()),
-            _ => {}
-        };
-
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
-        let res = match self.get_concrete_function(key.clone()) {
+        match self.module().functions.get(&key).unwrap().clone() {
             // if the function called is in the same module, we can go ahead and inline in this module
             TypedFunctionSymbol::Here(function) => {
+                // if we execute this, it means that we made progress
+                self.made_progress = true;
+
                 let (current_module, current_key) =
                     self.change_context(self.module_id().clone(), key.clone());
 
-                let module_id = self.module_id().clone();
-
-                // increase the number of calls for this function by one
-                let count = self
-                    .call_count
-                    .entry((self.module_id().clone(), key.clone()))
-                    .and_modify(|i| *i += 1)
-                    .or_insert(1);
-                // push this call to the stack
-                self.stack.push((module_id, key.clone(), *count));
                 // add definitions for the inputs
                 let inputs_bindings: Vec<_> = function
                     .arguments
@@ -261,9 +297,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
                 // add all statements to the buffer
                 self.statement_buffer.extend(statements);
-
-                // pop this call from the stack
-                self.stack.pop();
 
                 self.change_context(current_module, current_key);
 
@@ -300,23 +333,15 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     .or_insert(1);
                 Err((embed.key::<T>().try_into().unwrap(), expressions.clone()))
             }
-        };
-
-        res.map(|exprs| {
-            self.call_cache_mut()
-                .entry(key.clone())
-                .or_insert_with(|| HashMap::new())
-                .insert(expressions, exprs.clone());
-            exprs
-        })
+        }
     }
 
     // Focus the inliner on another module with id `module_id` and return the current `module_id`
     fn change_context(
         &mut self,
         module_id: TypedModuleId,
-        function_key: ConcreteFunctionKey<'ast>,
-    ) -> (TypedModuleId, ConcreteFunctionKey<'ast>) {
+        function_key: DeclarationFunctionKey<'ast>,
+    ) -> (TypedModuleId, DeclarationFunctionKey<'ast>) {
         let current_module = std::mem::replace(&mut self.location.module, module_id);
         let current_key = std::mem::replace(&mut self.location.key, function_key);
         (current_module, current_key)

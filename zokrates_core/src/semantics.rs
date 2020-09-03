@@ -711,9 +711,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         match self.check_signature(funct.signature, module_id, types, &mut used_constants) {
             Ok(s) => {
-                println!("Used {:?}", used_constants);
-                println!("Declared {:?}", funct.generics);
-
                 // check that the set of declared generic constants equals the set of generic constants used in the signature
                 // we build maps to avoid losing track of positions in the set comparison process
                 let decl_pos: HashMap<Identifier<'ast>, _> =
@@ -2787,6 +2784,88 @@ mod tests {
                     SymbolDeclaration {
                         id: "foo",
                         symbol: Symbol::HereFunction(function0()),
+                    }
+                    .mock(),
+                ],
+                imports: vec![],
+            };
+
+            let mut state = State::new(
+                vec![(PathBuf::from(MODULE_ID).into(), module)]
+                    .into_iter()
+                    .collect(),
+            );
+
+            let mut checker = Checker::new();
+            assert_eq!(
+                checker
+                    .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
+                    .unwrap_err()[0]
+                    .inner
+                    .message,
+                "foo conflicts with another symbol"
+            );
+        }
+
+        #[test]
+        fn duplicate_function_declaration_generic() {
+            // def foo<P>(private field[P] a):
+            //   return
+            // def foo(private field[3] a):
+            //   return
+            //
+            // should fail as P could be equal to 3
+
+            let mut f0 = function0();
+
+            f0.value.generics = vec!["P".mock()];
+            f0.value.arguments = vec![absy::Parameter::private(
+                absy::Variable::new(
+                    "a",
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.mock(),
+                        Expression::Identifier("P").mock(),
+                    )
+                    .mock(),
+                )
+                .mock(),
+            )
+            .mock()];
+            f0.value.signature = UnresolvedSignature::new().inputs(vec![UnresolvedType::array(
+                UnresolvedType::FieldElement.mock(),
+                Expression::Identifier("P").mock(),
+            )
+            .mock()]);
+
+            let mut f1 = function0();
+            f1.value.arguments = vec![absy::Parameter::private(
+                absy::Variable::new(
+                    "a",
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.mock(),
+                        Expression::U32Constant(3).mock(),
+                    )
+                    .mock(),
+                )
+                .mock(),
+            )
+            .mock()];
+            f1.value.signature = UnresolvedSignature::new().inputs(vec![UnresolvedType::array(
+                UnresolvedType::FieldElement.mock(),
+                Expression::U32Constant(3).mock(),
+            )
+            .mock()]);
+
+            let module = Module {
+                symbols: vec![
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereFunction(f0),
+                    }
+                    .mock(),
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereFunction(f1),
                     }
                     .mock(),
                 ],

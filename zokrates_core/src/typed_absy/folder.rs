@@ -206,8 +206,8 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
         TypedStatement::Assertion(e) => TypedStatement::Assertion(f.fold_boolean_expression(e)),
         TypedStatement::For(v, from, to, statements) => TypedStatement::For(
             f.fold_variable(v),
-            from,
-            to,
+            f.fold_uint_expression(from),
+            f.fold_uint_expression(to),
             statements
                 .into_iter()
                 .flat_map(|s| f.fold_statement(s))

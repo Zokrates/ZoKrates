@@ -5,7 +5,7 @@
 //! @date 2018
 
 use crate::typed_absy::folder::*;
-use crate::typed_absy::types::{MemberId, Type};
+use crate::typed_absy::types::{ConcreteFunctionKey, MemberId, Type};
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -16,10 +16,16 @@ use static_analysis::propagate_unroll::{Blocked, Output};
 
 pub struct Unroller<'ast> {
     // version index for any variable name
-    substitution: HashMap<CoreIdentifier<'ast>, usize>,
+    substitution: HashMap<
+        (
+            CoreIdentifier<'ast>,
+            Vec<(TypedModuleId, ConcreteFunctionKey<'ast>, usize)>,
+        ),
+        usize,
+    >,
     // whether all statements could be unrolled so far. Loops with variable bounds cannot.
     blocked: Option<Blocked>,
-    statement_count: usize,
+    made_progress: bool,
 }
 
 impl<'ast> Unroller<'ast> {
@@ -27,17 +33,19 @@ impl<'ast> Unroller<'ast> {
         Unroller {
             substitution: HashMap::new(),
             blocked: None,
-            statement_count: 0,
+            made_progress: false,
         }
     }
 
     fn issue_next_ssa_variable<T: Field>(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
-        let res = match self.substitution.get(&v.id.id) {
+        let res = match self
+            .substitution
+            .get(&(v.id.id.clone(), v.id.stack.clone()))
+        {
             Some(i) => Variable {
                 id: Identifier {
-                    id: v.id.id.clone(),
                     version: i + 1,
-                    stack: vec![],
+                    ..v.id.clone()
                 },
                 ..v
             },
@@ -45,7 +53,7 @@ impl<'ast> Unroller<'ast> {
         };
 
         self.substitution
-            .entry(v.id.id)
+            .entry((v.id.id, v.id.stack))
             .and_modify(|e| *e += 1)
             .or_insert(0);
         res
@@ -53,11 +61,39 @@ impl<'ast> Unroller<'ast> {
 
     pub fn unroll<T: Field>(p: TypedProgram<T>) -> Output<T> {
         let mut unroller = Unroller::new();
-        let p = unroller.fold_program(p);
+
+        let main_module_id = p.main;
+
+        // get the main module
+        let main_module = p.modules.get(&main_module_id).unwrap().clone();
+
+        // get the main function in the main module
+        let functions = main_module
+            .functions
+            .into_iter()
+            .map(|(k, f)| {
+                if k.id == "main" {
+                    // unroll the main function
+                    let main = unroller.fold_function_symbol(f);
+                    (k, main)
+                } else {
+                    (k, f)
+                }
+            })
+            .collect();
+
+        let mut modules = p.modules;
+
+        modules.insert("main".into(), TypedModule { functions });
+
+        let p = TypedProgram {
+            main: "main".into(),
+            modules,
+        };
 
         match unroller.blocked {
             None => Output::Complete(p),
-            Some(blocked) => Output::Blocked(p, blocked, unroller.statement_count),
+            Some(blocked) => Output::Blocked(p, blocked, unroller.made_progress),
         }
     }
 
@@ -380,7 +416,6 @@ fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable<'ast, T>, Vec<
 
 impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
-        self.statement_count += 1;
         match s {
             TypedStatement::Declaration(_) => vec![],
             TypedStatement::Definition(assignee, expr) => {
@@ -448,6 +483,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 
                 match (from.into_inner(), to.into_inner()) {
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
+                        // if we execute this, it means that we made progress
+                        self.made_progress = true;
+
                         let mut values: Vec<u128> = vec![];
                         let mut current = from;
                         while current < to {
@@ -476,7 +514,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                             .flat_map(|x| x)
                             .flat_map(|x| self.fold_statement(x))
                             .collect();
-
                         res
                     }
                     (from, to) => {
@@ -497,17 +534,23 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         self.substitution = HashMap::new();
         for arg in &f.arguments {
-            self.substitution.insert(arg.id.id.id.clone(), 0);
+            self.substitution
+                .insert((arg.id.id.id.clone(), arg.id.id.stack.clone()), 0);
         }
 
         fold_function(self, f)
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
-        Identifier {
-            version: self.substitution.get(&n.id).unwrap_or(&0).clone(),
+        let res = Identifier {
+            version: self
+                .substitution
+                .get(&(n.id.clone(), n.stack.clone()))
+                .unwrap_or(&0)
+                .clone(),
             ..n
-        }
+        };
+        res
     }
 
     fn fold_field_expression(
@@ -519,7 +562,63 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 self.blocked = Some(Blocked::Inline);
                 FieldElementExpression::FunctionCall(key, args)
             }
-            _ => fold_field_expression(self, e),
+            e => fold_field_expression(self, e),
+        }
+    }
+
+    fn fold_boolean_expression(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
+        match e {
+            BooleanExpression::FunctionCall(key, args) => {
+                self.blocked = Some(Blocked::Inline);
+                BooleanExpression::FunctionCall(key, args)
+            }
+            e => fold_boolean_expression(self, e),
+        }
+    }
+
+    fn fold_uint_expression_inner(
+        &mut self,
+        b: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> UExpressionInner<'ast, T> {
+        match e {
+            UExpressionInner::FunctionCall(key, args) => {
+                self.blocked = Some(Blocked::Inline);
+                UExpressionInner::FunctionCall(key, args)
+            }
+            e => fold_uint_expression_inner(self, b, e),
+        }
+    }
+
+    fn fold_array_expression_inner(
+        &mut self,
+        ty: &Type<'ast, T>,
+        size: UExpression<'ast, T>,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> ArrayExpressionInner<'ast, T> {
+        match e {
+            ArrayExpressionInner::FunctionCall(key, args) => {
+                self.blocked = Some(Blocked::Inline);
+                ArrayExpressionInner::FunctionCall(key, args)
+            }
+            e => fold_array_expression_inner(self, ty, size, e),
+        }
+    }
+
+    fn fold_struct_expression_inner(
+        &mut self,
+        ty: &StructType<'ast, T>,
+        e: StructExpressionInner<'ast, T>,
+    ) -> StructExpressionInner<'ast, T> {
+        match e {
+            StructExpressionInner::FunctionCall(key, args) => {
+                self.blocked = Some(Blocked::Inline);
+                StructExpressionInner::FunctionCall(key, args)
+            }
+            e => fold_struct_expression_inner(self, ty, e),
         }
     }
 }

@@ -27,7 +27,7 @@ use zokrates_field::Field;
 
 pub enum Output<'ast, T: Field> {
     Complete(TypedProgram<'ast, T>),
-    Blocked(TypedProgram<'ast, T>, Blocked, usize),
+    Blocked(TypedProgram<'ast, T>, Blocked, bool),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -42,36 +42,60 @@ impl PropagatedUnroller {
     pub fn unroll<'ast, T: Field>(
         p: TypedProgram<'ast, T>,
     ) -> Result<TypedProgram<'ast, T>, &'static str> {
-        let mut blocked_at = None;
-
         // unroll a first time, retrieving whether the unroll is complete
-        let mut unrolled = Unroller::unroll(p.clone());
+        let unrolled = Unroller::unroll(p.clone());
 
         let mut inliner = Inliner::init(p.clone());
 
-        loop {
-            // conditions to exit the loop
-            unrolled = match unrolled {
-                Output::Complete(p) => return Ok(p),
-                Output::Blocked(next, blocked, index) => {
-                    println!("{}", next);
+        match unrolled {
+            Output::Complete(p) => Ok(p),
+            Output::Blocked(next, blocked, made_progress) => {
+                let mut p = next;
+                let mut blocked = blocked;
+                let mut made_progress_inlining = None;
+                let mut made_progress_unrolling = Some(made_progress);
 
-                    if Some(index) == blocked_at {
-                        return Err("Loop unrolling failed. This happened because a loop bound is not constant");
+                loop {
+                    if made_progress_inlining == Some(false)
+                        && made_progress_unrolling == Some(false)
+                    {
+                        return Err("no progress");
                     } else {
-                        // update the index where we blocked
-                        blocked_at = Some(index);
+                        println!("{}", p);
 
+                        println!("PROPAGATE");
                         // propagate
-                        let propagated = Propagator::propagate_verbose(next);
+                        let propagated = Propagator::propagate_verbose(p);
+
+                        println!("{}", propagated);
 
                         match blocked {
-                            Blocked::Unroll => Unroller::unroll(propagated),
-                            Blocked::Inline => inliner.inline(propagated),
+                            Blocked::Unroll => {
+                                println!("UNROLL!");
+                                match Unroller::unroll(propagated) {
+                                    Output::Complete(p) => return Ok(p),
+                                    Output::Blocked(next, b, made_progress) => {
+                                        made_progress_unrolling = Some(made_progress);
+                                        p = next;
+                                        blocked = b;
+                                    }
+                                }
+                            }
+                            Blocked::Inline => {
+                                println!("INLINE!");
+                                match inliner.inline(propagated) {
+                                    Output::Complete(p) => return Ok(p),
+                                    Output::Blocked(next, b, made_progress) => {
+                                        made_progress_inlining = Some(made_progress);
+                                        p = next;
+                                        blocked = b;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            };
+            }
         }
     }
 }
