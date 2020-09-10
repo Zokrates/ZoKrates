@@ -134,12 +134,12 @@ impl Importer {
 
     pub fn apply_imports<'ast, T: Field, E: Into<Error>>(
         &self,
-        destination: Module<'ast, T>,
+        destination: Module<'ast>,
         location: PathBuf,
         resolver: Option<&dyn Resolver<E>>,
-        modules: &mut HashMap<ModuleId, Module<'ast, T>>,
+        modules: &mut HashMap<ModuleId, Module<'ast>>,
         arena: &'ast Arena<String>,
-    ) -> Result<Module<'ast, T>, CompileErrors> {
+    ) -> Result<Module<'ast>, CompileErrors> {
         let mut symbols: Vec<_> = vec![];
 
         for import in destination.imports {
@@ -259,7 +259,7 @@ impl Importer {
                                 None => {
                                     let source = arena.alloc(source);
 
-                                    let compiled = compile_module(
+                                    let compiled = compile_module::<T, E>(
                                         source,
                                         new_location.clone(),
                                         resolver,

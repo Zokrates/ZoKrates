@@ -189,7 +189,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
-    let compiled = compile_program(source, location.clone(), resolver, &arena)?;
+    let compiled = compile_program::<T, E>(source, location.clone(), resolver, &arena)?;
 
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
@@ -209,10 +209,10 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     arena: &'ast Arena<String>,
-) -> Result<Program<'ast, T>, CompileErrors> {
+) -> Result<Program<'ast>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = compile_module(&source, location.clone(), resolver, &mut modules, &arena)?;
+    let main = compile_module::<T, E>(&source, location.clone(), resolver, &mut modules, &arena)?;
 
     modules.insert(location.clone(), main);
 
@@ -226,18 +226,18 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
-    modules: &mut HashMap<ModuleId, Module<'ast, T>>,
+    modules: &mut HashMap<ModuleId, Module<'ast>>,
     arena: &'ast Arena<String>,
-) -> Result<Module<'ast, T>, CompileErrors> {
+) -> Result<Module<'ast>, CompileErrors> {
     let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
 
     let ast = process_macros::<T>(ast)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
 
-    let module_without_imports: Module<T> = Module::from(ast);
+    let module_without_imports: Module = Module::from(ast);
 
-    Importer::new().apply_imports(
+    Importer::new().apply_imports::<T, E>(
         module_without_imports,
         location.clone(),
         resolver,
