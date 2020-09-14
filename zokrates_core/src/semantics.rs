@@ -1411,20 +1411,17 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Expression::FieldConstant(n) => {
-                let bits = n.bits();
-                let required_bits = T::get_required_bits();
-                match bits <= required_bits {
-                    true => Ok(FieldElementExpression::Number(T::from(n)).into()),
-                    false => Err(ErrorInner {
-                        pos: Some(pos),
-                        message: format!(
-                            "Field constant not in the representable range ({} bits)",
-                            required_bits
-                        ),
-                    }),
-                }
-            }
+            Expression::FieldConstant(n) => match n <= T::max_value().to_biguint() {
+                true => Ok(FieldElementExpression::Number(T::from(n)).into()),
+                false => Err(ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Field constant not in the representable range [{}, {}]",
+                        T::min_value(),
+                        T::max_value()
+                    ),
+                }),
+            },
             Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
@@ -2338,6 +2335,38 @@ mod tests {
     use zokrates_field::Bn128Field;
 
     const MODULE_ID: &str = "";
+
+    mod constants {
+        use super::*;
+        use num_bigint::BigUint;
+        use std::ops::Add;
+
+        #[test]
+        fn field_in_range() {
+            let types = HashMap::new();
+            let module_id = "".into();
+
+            let expr =
+                Expression::FieldConstant(BigUint::from(Bn128Field::max_value().to_biguint()))
+                    .mock();
+            assert!(Checker::new()
+                .check_expression::<Bn128Field>(expr, &module_id, &types)
+                .is_ok());
+        }
+
+        #[test]
+        fn field_overflow() {
+            let types = HashMap::new();
+            let module_id = "".into();
+
+            let value = Bn128Field::max_value().to_biguint().add(1u32);
+            let expr = Expression::FieldConstant(BigUint::from(value)).mock();
+
+            assert!(Checker::new()
+                .check_expression::<Bn128Field>(expr, &module_id, &types)
+                .is_err());
+        }
+    }
 
     mod array {
         use super::*;
