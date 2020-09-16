@@ -1,5 +1,6 @@
 use absy;
 use imports;
+use num_bigint::BigUint;
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
@@ -70,7 +71,7 @@ impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarat
 }
 
 impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'ast> {
-    fn from(field: pest::StructField<'ast>) -> absy::StructDefinitionFieldNode {
+    fn from(field: pest::StructField<'ast>) -> absy::StructDefinitionFieldNode<'ast> {
         use absy::NodeValue;
 
         let span = field.span;
@@ -133,7 +134,7 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<
 }
 
 impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
-    fn from(param: pest::Parameter<'ast>) -> absy::ParameterNode {
+    fn from(param: pest::Parameter<'ast>) -> absy::ParameterNode<'ast> {
         use absy::NodeValue;
 
         let private = param
@@ -291,7 +292,7 @@ impl<'ast, T: Field> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast,
         match expression {
             pest::Expression::Binary(e) => absy::ExpressionNode::from(e),
             pest::Expression::Ternary(e) => absy::ExpressionNode::from(e),
-            pest::Expression::Constant(e) => absy::ExpressionNode::from(e),
+            pest::Expression::Literal(e) => absy::ExpressionNode::from(e),
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
             pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
             pest::Expression::InlineArray(e) => absy::ExpressionNode::from(e),
@@ -548,28 +549,78 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
     }
 }
 
-impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNode<'ast, T> {
-    fn from(expression: pest::ConstantExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
+impl<'ast, T: Field> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'ast, T> {
+    fn from(expression: pest::DecimalLiteralExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
+        use absy::NodeValue;
+
+        match expression.suffix {
+            Some(suffix) => match suffix {
+                pest::DecimalSuffix::Field(_) => absy::Expression::FieldConstant(
+                    T::try_from_dec_str(&expression.value.span.as_str()).unwrap(),
+                ),
+                pest::DecimalSuffix::U32(_) => absy::Expression::U32Constant(
+                    u32::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
+                ),
+                pest::DecimalSuffix::U16(_) => absy::Expression::U16Constant(
+                    u16::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
+                ),
+                pest::DecimalSuffix::U8(_) => absy::Expression::U8Constant(
+                    u8::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
+                ),
+            }
+            .span(expression.span),
+            None => absy::Expression::IntConstant(
+                BigUint::parse_bytes(&expression.value.span.as_str().as_bytes(), 10).unwrap(),
+            )
+            .span(expression.span),
+        }
+    }
+}
+
+impl<'ast, T: Field> From<pest::HexLiteralExpression<'ast>> for absy::ExpressionNode<'ast, T> {
+    fn from(expression: pest::HexLiteralExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
+        use absy::NodeValue;
+
+        match expression.value {
+            pest::HexNumberExpression::U32(e) => {
+                absy::Expression::U32Constant(u32::from_str_radix(&e.span.as_str(), 16).unwrap())
+            }
+            pest::HexNumberExpression::U16(e) => {
+                absy::Expression::U16Constant(u16::from_str_radix(&e.span.as_str(), 16).unwrap())
+            }
+            pest::HexNumberExpression::U8(e) => {
+                absy::Expression::U8Constant(u8::from_str_radix(&e.span.as_str(), 16).unwrap())
+            }
+        }
+        .span(expression.span)
+    }
+}
+
+impl<'ast, T: Field> From<pest::LiteralExpression<'ast>> for absy::ExpressionNode<'ast, T> {
+    fn from(expression: pest::LiteralExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
         use absy::NodeValue;
         match expression {
-            pest::ConstantExpression::BooleanLiteral(c) => {
+            pest::LiteralExpression::BooleanLiteral(c) => {
                 absy::Expression::BooleanConstant(c.value.parse().unwrap()).span(c.span)
             }
-            pest::ConstantExpression::DecimalNumber(n) => {
-                absy::Expression::FieldConstant(T::try_from_dec_str(&n.value).unwrap()).span(n.span)
+            pest::LiteralExpression::DecimalLiteral(n) => {
+                absy::ExpressionNode::from(n)
             }
-            pest::ConstantExpression::U8(n) => absy::Expression::U8Constant(
-                u8::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
-            )
-            .span(n.span),
-            pest::ConstantExpression::U16(n) => absy::Expression::U16Constant(
-                u16::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
-            )
-            .span(n.span),
-            pest::ConstantExpression::U32(n) => absy::Expression::U32Constant(
-                u32::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
-            )
-            .span(n.span),
+            pest::LiteralExpression::HexLiteral(n) => {
+                absy::ExpressionNode::from(n)
+            }
+            // pest::LiteralExpression::U8(n) => absy::Expression::U8Constant(
+            //     u8::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            // )
+            // .span(n.span),
+            // pest::LiteralExpression::U16(n) => absy::Expression::U16Constant(
+            //     u16::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            // )
+            // .span(n.span),
+            // pest::LiteralExpression::U32(n) => absy::Expression::U32Constant(
+            //     u32::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            // )
+            // .span(n.span),
         }
     }
 }
@@ -643,10 +694,8 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
                 t.dimensions
                     .into_iter()
                     .map(|s| match s {
-                        pest::Expression::Constant(c) => match c {
-                            pest::ConstantExpression::DecimalNumber(n) => {
-                                str::parse::<usize>(&n.value).unwrap()
-                            }
+                        pest::Expression::Literal(c) => match c {
+                            pest::LiteralExpression::DecimalLiteral(n) => unimplemented!(),
                             _ => unimplemented!(
                                 "Array size should be a decimal number, found {}",
                                 c.span().as_str()
@@ -834,28 +883,31 @@ mod tests {
                 ("bool", absy::UnresolvedType::Boolean),
                 (
                     "field[2]",
-                    absy::UnresolvedType::Array(box absy::UnresolvedType::FieldElement.mock(), 2),
+                    absy::UnresolvedType::Array(
+                        box absy::UnresolvedType::FieldElement.mock(),
+                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                    ),
                 ),
                 (
                     "field[2][3]",
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::FieldElement.mock(),
-                            3,
+                            absy::Expression::FieldConstant(Bn128Field::from(3)).mock(),
                         )
                         .mock(),
-                        2,
+                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
                     ),
                 ),
                 (
-                    "bool[2][3]",
+                    "bool[2][3u32]",
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::Boolean.mock(),
-                            3,
+                            absy::Expression::U32Constant(3).mock(),
                         )
                         .mock(),
-                        2,
+                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
                     ),
                 ),
             ];
@@ -1000,7 +1052,7 @@ mod tests {
         // For different definitions, we generate declarations
         // Case 1: `id = expr` where `expr` is not a function call
         // This is a simple assignment, doesn't implicitely declare a variable
-        // A `Definition` is generatedm and no `Declaration`s
+        // A `Definition` is generated and no `Declaration`s
 
         let definition = pest::DefinitionStatement {
             lhs: vec![pest::OptionallyTypedAssignee {
@@ -1015,9 +1067,12 @@ mod tests {
                 },
                 span: span.clone(),
             }],
-            expression: pest::Expression::Constant(pest::ConstantExpression::DecimalNumber(
-                pest::DecimalNumberExpression {
-                    value: String::from("42"),
+            expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
+                pest::DecimalLiteralExpression {
+                    value: pest::DecimalNumber {
+                        span: Span::new(&"1", 0, 1).unwrap(),
+                    },
+                    suffix: None,
                     span: span.clone(),
                 },
             )),

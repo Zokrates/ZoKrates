@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use std::fmt;
 use std::path::PathBuf;
 
@@ -109,6 +110,7 @@ pub enum Type {
     Struct(StructType),
     #[serde(rename = "u")]
     Uint(UBitwidth),
+    Int,
 }
 
 impl ArrayType {
@@ -134,6 +136,7 @@ impl fmt::Display for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
+            Type::Int => write!(f, "{{integer}}"),
             Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
             Type::Struct(ref struct_type) => write!(
@@ -156,6 +159,7 @@ impl fmt::Debug for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
+            Type::Int => write!(f, "{{integer}}"),
             Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
             Type::Struct(ref struct_type) => write!(
@@ -190,6 +194,7 @@ impl Type {
         match self {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
+            Type::Int => unreachable!(),
             Type::Uint(bitwidth) => format!("u{}", bitwidth),
             Type::Array(array_type) => format!("{}[{}]", array_type.ty.to_slug(), array_type.size),
             Type::Struct(struct_type) => format!(
@@ -206,6 +211,7 @@ impl Type {
     // the number of field elements the type maps to
     pub fn get_primitive_count(&self) -> usize {
         match self {
+            Type::Int => unreachable!(),
             Type::FieldElement => 1,
             Type::Boolean => 1,
             Type::Uint(_) => 1,

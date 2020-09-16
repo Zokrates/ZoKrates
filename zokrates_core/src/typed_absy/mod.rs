@@ -16,7 +16,10 @@ mod variable;
 
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::Parameter;
+use self::types::ArrayType;
 pub use self::types::{Signature, StructType, Type, UBitwidth};
+use num_bigint::BigUint;
+
 pub use self::variable::Variable;
 use std::path::PathBuf;
 pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
@@ -24,7 +27,7 @@ pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 use crate::typed_absy::types::{FunctionKey, MemberId};
 use embed::FlatEmbed;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use zokrates_field::Field;
 
@@ -68,11 +71,12 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         Abi {
             inputs: main
                 .arguments
-                .iter()
+                .clone()
+                .into_iter()
                 .map(|p| AbiInput {
                     public: !p.private,
                     name: p.id.id.to_string(),
-                    ty: p.id._type.clone(),
+                    ty: p.id._type,
                 })
                 .collect(),
             outputs: main.signature.outputs.clone(),
@@ -128,7 +132,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedFunctionSymbol<'ast, T> {
 }
 
 impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
-    pub fn signature<'a>(&'a self, modules: &'a TypedModules<T>) -> Signature {
+    pub fn signature<'a>(&'a self, modules: &'a TypedModules<'ast, T>) -> Signature {
         match self {
             TypedFunctionSymbol::Here(f) => f.signature.clone(),
             TypedFunctionSymbol::There(key, module_id) => modules
@@ -139,7 +143,7 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
                 .unwrap()
                 .signature(&modules)
                 .clone(),
-            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature(),
+            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature().try_into().unwrap(),
         }
     }
 }
@@ -211,7 +215,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
                 0 => "".into(),
                 1 => format!(" -> {}", self.signature.outputs[0]),
                 _ => format!(
-                    "{}",
+                    " -> ({})",
                     self.signature
                         .outputs
                         .iter()
@@ -252,14 +256,11 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedFunction<'ast, T> {
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedAssignee<'ast, T> {
     Identifier(Variable<'ast>),
-    Select(
-        Box<TypedAssignee<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Select(Box<TypedAssignee<'ast, T>>, Box<UExpression<'ast, T>>),
     Member(Box<TypedAssignee<'ast, T>>, MemberId),
 }
 
-impl<'ast, T> Typed for TypedAssignee<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for TypedAssignee<'ast, T> {
     fn get_type(&self) -> Type {
         match *self {
             TypedAssignee::Identifier(ref v) => v.get_type(),
@@ -289,7 +290,7 @@ impl<'ast, T> Typed for TypedAssignee<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedAssignee<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedAssignee::Identifier(ref s) => write!(f, "{}", s.id),
+            TypedAssignee::Identifier(ref s) => write!(f, "{:?}", s.id),
             TypedAssignee::Select(ref a, ref e) => write!(f, "Select({:?}, {:?})", a, e),
             TypedAssignee::Member(ref s, ref m) => write!(f, "Member({:?}, {:?})", s, m),
         }
@@ -315,8 +316,8 @@ pub enum TypedStatement<'ast, T> {
     Assertion(BooleanExpression<'ast, T>),
     For(
         Variable<'ast>,
-        FieldElementExpression<'ast, T>,
-        FieldElementExpression<'ast, T>,
+        UExpression<'ast, T>,
+        UExpression<'ast, T>,
         Vec<TypedStatement<'ast, T>>,
     ),
     MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
@@ -335,7 +336,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
                 }
                 write!(f, ")")
             }
-            TypedStatement::Declaration(ref var) => write!(f, "Declaration({:?})", var),
+            TypedStatement::Declaration(ref var) => write!(f, "({:?})", var),
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
@@ -407,7 +408,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
     }
 }
 
-pub trait Typed {
+pub trait Typed<'ast, T> {
     fn get_type(&self) -> Type;
 }
 
@@ -419,7 +420,109 @@ pub enum TypedExpression<'ast, T> {
     Uint(UExpression<'ast, T>),
     Array(ArrayExpression<'ast, T>),
     Struct(StructExpression<'ast, T>),
+    Int(IntExpression<'ast, T>),
 }
+
+impl<'ast, T: Field> TypedExpression<'ast, T> {
+    // return two TypedExpression, replacing IntExpression by FieldElement or Uint to try to align the two types.
+    // Post condition is that (lhs, rhs) cannot be made equal by further removing IntExpressions
+    pub fn align_without_integers(
+        lhs: Self,
+        rhs: Self,
+    ) -> Result<(TypedExpression<'ast, T>, TypedExpression<'ast, T>), String> {
+        use self::TypedExpression::*;
+        match (lhs, rhs) {
+            (Int(lhs), FieldElement(rhs)) => Ok((
+                FieldElementExpression::try_from_int(lhs)?.into(),
+                FieldElement(rhs),
+            )),
+            (FieldElement(lhs), Int(rhs)) => Ok((
+                FieldElement(lhs),
+                FieldElementExpression::try_from_int(rhs)?.into(),
+            )),
+            (Int(lhs), Uint(rhs)) => Ok((
+                UExpression::try_from_int(lhs, rhs.bitwidth())?.into(),
+                Uint(rhs),
+            )),
+            (Uint(lhs), Int(rhs)) => {
+                let bitwidth = lhs.bitwidth();
+                Ok((Uint(lhs), UExpression::try_from_int(rhs, bitwidth)?.into()))
+            }
+            (lhs, rhs) => Ok((lhs, rhs)),
+        }
+    }
+
+    pub fn align_to_type(e: Self, ty: Type) -> Result<Self, String> {
+        use self::TypedExpression::*;
+        match (e, ty) {
+            (Int(e), Type::FieldElement) => Ok(FieldElementExpression::try_from_int(e)?.into()),
+            (Int(e), Type::Uint(bitwidth)) => Ok(UExpression::try_from_int(e, bitwidth)?.into()),
+            (Array(a), Type::Array(array_ty)) => Ok(ArrayExpression::try_from_int(a, array_ty)
+                .map_err(|_| String::from("align array to type"))?
+                .into()),
+            (e, _) => Ok(e),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum IntExpression<'ast, T> {
+    Value(BigUint),
+    Add(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    Sub(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    Mult(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    Div(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    Pow(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    IfElse(
+        Box<BooleanExpression<'ast, T>>,
+        Box<IntExpression<'ast, T>>,
+        Box<IntExpression<'ast, T>>,
+    ),
+    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Xor(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    And(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    Or(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    Not(Box<IntExpression<'ast, T>>),
+    LeftShift(
+        Box<IntExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    RightShift(
+        Box<IntExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            IntExpression::Value(ref v) => write!(f, "{}", v),
+            IntExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
+            IntExpression::Pow(ref lhs, ref rhs) => write!(f, "({} ** {})", lhs, rhs),
+            IntExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            IntExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            IntExpression::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            IntExpression::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            IntExpression::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            IntExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            IntExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            IntExpression::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
+            IntExpression::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
+            IntExpression::Not(ref e) => write!(f, "!{}", e),
+            IntExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "if {} then {} else {} fi",
+                condition, consequent, alternative
+            ),
+        }
+    }
+}
+
+// impl<'ast, T: fmt::Debug> fmt::Debug for IntExpression<'ast, T> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         unimplemented!()
+//     }
+// }
 
 impl<'ast, T> From<BooleanExpression<'ast, T>> for TypedExpression<'ast, T> {
     fn from(e: BooleanExpression<'ast, T>) -> TypedExpression<T> {
@@ -430,6 +533,12 @@ impl<'ast, T> From<BooleanExpression<'ast, T>> for TypedExpression<'ast, T> {
 impl<'ast, T> From<FieldElementExpression<'ast, T>> for TypedExpression<'ast, T> {
     fn from(e: FieldElementExpression<'ast, T>) -> TypedExpression<T> {
         TypedExpression::FieldElement(e)
+    }
+}
+
+impl<'ast, T> From<IntExpression<'ast, T>> for TypedExpression<'ast, T> {
+    fn from(e: IntExpression<'ast, T>) -> TypedExpression<T> {
+        TypedExpression::Int(e)
     }
 }
 
@@ -459,6 +568,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpression<'ast, T> {
             TypedExpression::Uint(ref e) => write!(f, "{}", e),
             TypedExpression::Array(ref e) => write!(f, "{}", e),
             TypedExpression::Struct(ref s) => write!(f, "{}", s),
+            TypedExpression::Int(ref s) => write!(f, "{}", s),
         }
     }
 }
@@ -471,6 +581,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedExpression<'ast, T> {
             TypedExpression::Uint(ref e) => write!(f, "{:?}", e),
             TypedExpression::Array(ref e) => write!(f, "{:?}", e),
             TypedExpression::Struct(ref s) => write!(f, "{:?}", s),
+            TypedExpression::Int(ref s) => write!(f, "{:?}", s),
         }
     }
 }
@@ -531,7 +642,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for StructExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Typed for TypedExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for TypedExpression<'ast, T> {
     fn get_type(&self) -> Type {
         match *self {
             TypedExpression::Boolean(ref e) => e.get_type(),
@@ -539,41 +650,42 @@ impl<'ast, T> Typed for TypedExpression<'ast, T> {
             TypedExpression::Array(ref e) => e.get_type(),
             TypedExpression::Uint(ref e) => e.get_type(),
             TypedExpression::Struct(ref s) => s.get_type(),
+            TypedExpression::Int(_) => Type::Int,
         }
     }
 }
 
-impl<'ast, T> Typed for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for ArrayExpression<'ast, T> {
     fn get_type(&self) -> Type {
-        Type::array(self.ty.clone(), self.size)
+        Type::array(self.ty.clone(), self.size.clone())
     }
 }
 
-impl<'ast, T> Typed for StructExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for StructExpression<'ast, T> {
     fn get_type(&self) -> Type {
         Type::Struct(self.ty.clone())
     }
 }
 
-impl<'ast, T> Typed for FieldElementExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for FieldElementExpression<'ast, T> {
     fn get_type(&self) -> Type {
         Type::FieldElement
     }
 }
 
-impl<'ast, T> Typed for UExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for UExpression<'ast, T> {
     fn get_type(&self) -> Type {
         Type::Uint(self.bitwidth)
     }
 }
 
-impl<'ast, T> Typed for BooleanExpression<'ast, T> {
+impl<'ast, T: Clone> Typed<'ast, T> for BooleanExpression<'ast, T> {
     fn get_type(&self) -> Type {
         Type::Boolean
     }
 }
 
-pub trait MultiTyped {
+pub trait MultiTyped<'ast, T> {
     fn get_types(&self) -> &Vec<Type>;
 }
 
@@ -582,7 +694,7 @@ pub enum TypedExpressionList<'ast, T> {
     FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>, Vec<Type>),
 }
 
-impl<'ast, T> MultiTyped for TypedExpressionList<'ast, T> {
+impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
     fn get_types(&self) -> &Vec<Type> {
         match *self {
             TypedExpressionList::FunctionCall(_, _, ref types) => types,
@@ -622,10 +734,50 @@ pub enum FieldElementExpression<'ast, T> {
     ),
     FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     Member(Box<StructExpression<'ast, T>>, MemberId),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+}
+
+impl<'ast, T: Field> FieldElementExpression<'ast, T> {
+    pub fn try_from_int(i: IntExpression<'ast, T>) -> Result<Self, String> {
+        match i {
+            IntExpression::Value(i) => {
+                if i <= T::max_value().to_biguint() {
+                    Ok(Self::Number(T::from(i)))
+                } else {
+                    Err(format!("Literal `{} is too large for type `field`", i))
+                }
+            }
+            IntExpression::Add(box e1, box e2) => Ok(Self::Add(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::Sub(box e1, box e2) => Ok(Self::Sub(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::Mult(box e1, box e2) => Ok(Self::Mult(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::Pow(box e1, box e2) => Ok(Self::Pow(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::Div(box e1, box e2) => Ok(Self::Div(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::IfElse(box condition, box consequence, box alternative) => {
+                Ok(Self::IfElse(
+                    box condition,
+                    box Self::try_from_int(consequence)?,
+                    box Self::try_from_int(alternative)?,
+                ))
+            }
+            IntExpression::Select(..) => unimplemented!(),
+            i => Err(format!("Expected a `field` but found expression `{}`", i)),
+        }
+    }
 }
 
 /// An expression of type `bool`
@@ -633,14 +785,26 @@ pub enum FieldElementExpression<'ast, T> {
 pub enum BooleanExpression<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(bool),
-    Lt(
+    FieldLt(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    Le(
+    FieldLe(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+    FieldGe(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    FieldGt(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    UintLt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     FieldEq(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -655,14 +819,6 @@ pub enum BooleanExpression<'ast, T> {
         Box<StructExpression<'ast, T>>,
     ),
     UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Ge(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
-    Gt(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
     Or(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
@@ -679,10 +835,7 @@ pub enum BooleanExpression<'ast, T> {
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
     FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
 /// An expression of type `array`
@@ -708,29 +861,26 @@ pub enum ArrayExpressionInner<'ast, T> {
         Box<ArrayExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
 impl<'ast, T> ArrayExpressionInner<'ast, T> {
-    pub fn annotate(self, ty: Type, size: usize) -> ArrayExpression<'ast, T> {
+    pub fn annotate<S: Into<usize>>(self, ty: Type, size: S) -> ArrayExpression<'ast, T> {
         ArrayExpression {
-            size,
+            size: size.into(),
             ty,
             inner: self,
         }
     }
 }
 
-impl<'ast, T> ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     pub fn inner_type(&self) -> &Type {
         &self.ty
     }
 
     pub fn size(&self) -> usize {
-        self.size
+        self.size.clone()
     }
 
     pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {
@@ -739,6 +889,84 @@ impl<'ast, T> ArrayExpression<'ast, T> {
 
     pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
         self.inner
+    }
+
+    pub fn get_array_type(&self) -> ArrayType {
+        ArrayType {
+            size: self.size(),
+            ty: box self.inner_type().clone(),
+        }
+    }
+}
+
+impl<'ast, T: Field> ArrayExpression<'ast, T> {
+    // precondition: `array` is only made of inline arrays
+    pub fn try_from_int(array: Self, target_array_ty: ArrayType) -> Result<Self, ()> {
+        if array.get_array_type() == target_array_ty {
+            return Ok(array);
+        }
+
+        let array_ty = array.get_array_type();
+
+        // sizes must be equal
+        match target_array_ty.size == array_ty.size {
+            true =>
+            // elements must fit in the target type
+            {
+                match array.into_inner() {
+                    ArrayExpressionInner::Value(inline_array) => {
+                        match *target_array_ty.ty {
+                            Type::FieldElement => {
+                                // try to convert all elements to field
+                                let converted = inline_array
+                                    .into_iter()
+                                    .map(|e| {
+                                        let int = IntExpression::try_from(e)?;
+                                        let field = FieldElementExpression::try_from_int(int)
+                                            .map_err(|_| ())?;
+                                        Ok(field.into())
+                                    })
+                                    .collect::<Result<Vec<TypedExpression<'ast, T>>, ()>>()?;
+                                Ok(ArrayExpressionInner::Value(converted)
+                                    .annotate(*target_array_ty.ty, array_ty.size))
+                            }
+                            Type::Uint(bitwidth) => {
+                                // try to convert all elements to field
+                                let converted = inline_array
+                                    .into_iter()
+                                    .map(|e| {
+                                        let int = IntExpression::try_from(e)?;
+                                        let field = UExpression::try_from_int(int, bitwidth)
+                                            .map_err(|_| ())?;
+                                        Ok(field.into())
+                                    })
+                                    .collect::<Result<Vec<TypedExpression<'ast, T>>, ()>>()?;
+                                Ok(ArrayExpressionInner::Value(converted)
+                                    .annotate(*target_array_ty.ty, array_ty.size))
+                            }
+                            Type::Array(ref array_ty) => {
+                                // try to convert all elements to field
+                                let converted = inline_array
+                                    .into_iter()
+                                    .map(|e| {
+                                        let array = ArrayExpression::try_from(e)?;
+                                        let array =
+                                            ArrayExpression::try_from_int(array, array_ty.clone())
+                                                .map_err(|_| ())?;
+                                        Ok(array.into())
+                                    })
+                                    .collect::<Result<Vec<TypedExpression<'ast, T>>, ()>>()?;
+                                Ok(ArrayExpressionInner::Value(converted)
+                                    .annotate(*target_array_ty.ty.clone(), array_ty.size.clone()))
+                            }
+                            _ => Err(()),
+                        }
+                    }
+                    _ => unreachable!(""),
+                }
+            }
+            false => Err(()),
+        }
     }
 }
 
@@ -773,10 +1001,7 @@ pub enum StructExpressionInner<'ast, T> {
         Box<StructExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
 impl<'ast, T> StructExpressionInner<'ast, T> {
@@ -835,6 +1060,17 @@ impl<'ast, T> TryFrom<TypedExpression<'ast, T>> for ArrayExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> TryFrom<TypedExpression<'ast, T>> for IntExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<IntExpression<'ast, T>, Self::Error> {
+        match te {
+            TypedExpression::Int(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
 impl<'ast, T> TryFrom<TypedExpression<'ast, T>> for StructExpression<'ast, T> {
     type Error = ();
 
@@ -849,7 +1085,7 @@ impl<'ast, T> TryFrom<TypedExpression<'ast, T>> for StructExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FieldElementExpression::Number(ref i) => write!(f, "{}", i),
+            FieldElementExpression::Number(ref i) => write!(f, "{}f", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             FieldElementExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
@@ -882,7 +1118,7 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
-            UExpressionInner::Value(ref v) => write!(f, "0x{:x}", v),
+            UExpressionInner::Value(ref v) => write!(f, "{}u{}", v, self.bitwidth),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
@@ -918,15 +1154,19 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
-            BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::ArrayEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::StructEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
@@ -996,8 +1236,30 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
                 "IfElse({:?}, {:?}, {:?})",
                 condition, consequent, alternative
             ),
-            BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "Lt({:?}, {:?})", lhs, rhs),
-            BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "Le({:?}, {:?})", lhs, rhs),
+            BooleanExpression::FieldLt(ref lhs, ref rhs) => {
+                write!(f, "FieldLt({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::FieldLe(ref lhs, ref rhs) => {
+                write!(f, "FieldLe({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::FieldGe(ref lhs, ref rhs) => {
+                write!(f, "FieldGe({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::FieldGt(ref lhs, ref rhs) => {
+                write!(f, "FieldGt({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintLt(ref lhs, ref rhs) => {
+                write!(f, "UintLt({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintLe(ref lhs, ref rhs) => {
+                write!(f, "UintLe({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintGe(ref lhs, ref rhs) => {
+                write!(f, "UintGe({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintGt(ref lhs, ref rhs) => {
+                write!(f, "UintGt({:?}, {:?})", lhs, rhs)
+            }
             BooleanExpression::FieldEq(ref lhs, ref rhs) => {
                 write!(f, "FieldEq({:?}, {:?})", lhs, rhs)
             }
@@ -1013,8 +1275,6 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
             BooleanExpression::UintEq(ref lhs, ref rhs) => {
                 write!(f, "UintEq({:?}, {:?})", lhs, rhs)
             }
-            BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "Ge({:?}, {:?})", lhs, rhs),
-            BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "Gt({:?}, {:?})", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "Not({:?})", exp),
             BooleanExpression::FunctionCall(ref i, ref p) => {
@@ -1187,7 +1447,7 @@ impl<'ast, T> IfElse<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> IfElse<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> IfElse<'ast, T> for ArrayExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
@@ -1200,7 +1460,7 @@ impl<'ast, T> IfElse<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> IfElse<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Clone> IfElse<'ast, T> for StructExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
@@ -1212,23 +1472,23 @@ impl<'ast, T> IfElse<'ast, T> for StructExpression<'ast, T> {
 }
 
 pub trait Select<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self;
+    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self;
 }
 
 impl<'ast, T> Select<'ast, T> for FieldElementExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         FieldElementExpression::Select(box array, box index)
     }
 }
 
 impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         BooleanExpression::Select(box array, box index)
     }
 }
 
-impl<'ast, T> Select<'ast, T> for UExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+impl<'ast, T: Clone> Select<'ast, T> for UExpression<'ast, T> {
+    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         let bitwidth = match array.inner_type().clone() {
             Type::Uint(bitwidth) => bitwidth,
             _ => unreachable!(),
@@ -1238,8 +1498,8 @@ impl<'ast, T> Select<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Select<'ast, T> for ArrayExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+impl<'ast, T: Clone> Select<'ast, T> for ArrayExpression<'ast, T> {
+    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
             Type::Array(array_type) => (array_type.ty.clone(), array_type.size.clone()),
             _ => unreachable!(),
@@ -1249,8 +1509,8 @@ impl<'ast, T> Select<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Select<'ast, T> for StructExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+impl<'ast, T: Clone> Select<'ast, T> for StructExpression<'ast, T> {
+    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
         let members = match array.inner_type().clone() {
             Type::Struct(members) => members,
             _ => unreachable!(),
@@ -1276,15 +1536,16 @@ impl<'ast, T> Member<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Clone> Member<'ast, T> for UExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         let members = s.ty().clone();
 
         let ty = members
-            .into_iter()
+            .iter()
             .find(|member| *member.id == member_id)
             .unwrap()
-            .ty;
+            .ty
+            .clone();
 
         let bitwidth = match *ty {
             Type::Uint(bitwidth) => bitwidth,
@@ -1295,15 +1556,16 @@ impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Member<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Clone> Member<'ast, T> for ArrayExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         let members = s.ty().clone();
 
         let ty = members
-            .into_iter()
+            .iter()
             .find(|member| *member.id == member_id)
             .unwrap()
-            .ty;
+            .ty
+            .clone();
 
         let (ty, size) = match *ty {
             Type::Array(array_type) => (array_type.ty, array_type.size),
@@ -1314,15 +1576,16 @@ impl<'ast, T> Member<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Member<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Clone> Member<'ast, T> for StructExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         let members = s.ty().clone();
 
         let ty = members
-            .into_iter()
+            .iter()
             .find(|member| *member.id == member_id)
             .unwrap()
-            .ty;
+            .ty
+            .clone();
 
         let members = match *ty {
             Type::Struct(members) => members,

@@ -16,6 +16,7 @@ pub use crate::absy::parameter::{Parameter, ParameterNode};
 use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
 use embed::FlatEmbed;
+use num_bigint::BigUint;
 use std::path::PathBuf;
 
 use crate::imports::ImportNode;
@@ -178,7 +179,7 @@ impl<'ast> fmt::Display for SymbolImport<'ast> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for Module<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for Module<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
         res.extend(
@@ -472,6 +473,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Range<'ast, T> {
 /// An expression
 #[derive(Clone, PartialEq)]
 pub enum Expression<'ast, T> {
+    IntConstant(BigUint),
     FieldConstant(T),
     BooleanConstant(bool),
     U8Constant(u8),
@@ -520,6 +522,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
             Expression::U8Constant(ref i) => write!(f, "{}", i),
             Expression::U16Constant(ref i) => write!(f, "{}", i),
             Expression::U32Constant(ref i) => write!(f, "{}", i),
+            Expression::IntConstant(ref i) => write!(f, "{}", i),
             Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
@@ -584,10 +587,11 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expression::U8Constant(ref i) => write!(f, "{:x}", i),
-            Expression::U16Constant(ref i) => write!(f, "{:x}", i),
-            Expression::U32Constant(ref i) => write!(f, "{:x}", i),
-            Expression::FieldConstant(ref i) => write!(f, "Num({:?})", i),
+            Expression::U8Constant(ref i) => write!(f, "U8({:x})", i),
+            Expression::U16Constant(ref i) => write!(f, "U16({:x})", i),
+            Expression::U32Constant(ref i) => write!(f, "U32({:x})", i),
+            Expression::FieldConstant(ref i) => write!(f, "Field({:?})", i),
+            Expression::IntConstant(ref i) => write!(f, "Int({:?})", i),
             Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),

@@ -29,10 +29,12 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
     fn select<U: Select<'ast, T> + IfElse<'ast, T>>(
         &mut self,
         a: ArrayExpression<'ast, T>,
-        i: FieldElementExpression<'ast, T>,
+        i: UExpression<'ast, T>,
     ) -> U {
-        match i {
-            FieldElementExpression::Number(i) => U::select(a, FieldElementExpression::Number(i)),
+        match i.into_inner() {
+            UExpressionInner::Value(i) => {
+                U::select(a, UExpressionInner::Value(i).annotate(UBitwidth::B32))
+            }
             i => {
                 let size = match a.get_type().clone() {
                     Type::Array(array_ty) => array_ty.size,
@@ -42,9 +44,9 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
                 self.statements.push(TypedStatement::Assertion(
                     (0..size)
                         .map(|index| {
-                            BooleanExpression::FieldEq(
-                                box i.clone(),
-                                box FieldElementExpression::Number(index.into()).into(),
+                            BooleanExpression::UintEq(
+                                box i.clone().annotate(UBitwidth::B32),
+                                box UExpressionInner::Value(index as u128).annotate(UBitwidth::B32),
                             )
                         })
                         .fold(None, |acc, e| match acc {
@@ -56,14 +58,19 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
                 ));
 
                 (0..size)
-                    .map(|i| U::select(a.clone(), FieldElementExpression::Number(i.into())))
+                    .map(|i| {
+                        U::select(
+                            a.clone(),
+                            UExpressionInner::Value(i as u128).annotate(UBitwidth::B32),
+                        )
+                    })
                     .enumerate()
                     .rev()
                     .fold(None, |acc, (index, res)| match acc {
                         Some(acc) => Some(U::if_else(
-                            BooleanExpression::FieldEq(
-                                box i.clone(),
-                                box FieldElementExpression::Number(index.into()),
+                            BooleanExpression::UintEq(
+                                box i.clone().annotate(UBitwidth::B32),
+                                box UExpressionInner::Value(index as u128).annotate(UBitwidth::B32),
                             ),
                             res,
                             acc,
