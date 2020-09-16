@@ -2,8 +2,8 @@
 //!
 //! For example:
 //! ```zokrates
-//! for field i in 0..5 do
-//! 	for field j in i..5 do
+//! for u32 i in 0..5 do
+//! 	for u32 j in i..5 do
 //! 		//
 //! 	endfor
 //! endfor
@@ -43,60 +43,86 @@ impl PropagatedUnroller {
         p: TypedProgram<'ast, T>,
     ) -> Result<TypedProgram<'ast, T>, &'static str> {
         // unroll a first time, retrieving whether the unroll is complete
-        let unrolled = Unroller::unroll(p.clone());
+        //let unrolled = Unroller::unroll(p.clone());
 
         let mut inliner = Inliner::init(p.clone());
 
-        match unrolled {
-            Output::Complete(p) => Ok(p),
-            Output::Blocked(next, blocked, made_progress) => {
-                let mut p = next;
-                let mut blocked = blocked;
-                let mut made_progress_inlining = None;
-                let mut made_progress_unrolling = Some(made_progress);
+        let mut p = p;
 
-                loop {
-                    if made_progress_inlining == Some(false)
-                        && made_progress_unrolling == Some(false)
-                    {
-                        return Err("no progress");
-                    } else {
-                        println!("{}", p);
+        loop {
+            match Unroller::unroll(p.clone()) {
+                Output::Complete(p) => return Ok(p),
+                Output::Blocked(next, blocked, made_progress) => {
+                    let propagated = Propagator::propagate_main(next);
 
-                        println!("PROPAGATE");
-                        // propagate
-                        let propagated = Propagator::propagate_verbose(p);
-
-                        println!("{}", propagated);
-
-                        match blocked {
-                            Blocked::Unroll => {
-                                println!("UNROLL!");
-                                match Unroller::unroll(propagated) {
-                                    Output::Complete(p) => return Ok(p),
-                                    Output::Blocked(next, b, made_progress) => {
-                                        made_progress_unrolling = Some(made_progress);
-                                        p = next;
-                                        blocked = b;
-                                    }
-                                }
-                            }
-                            Blocked::Inline => {
-                                println!("INLINE!");
-                                match inliner.inline(propagated) {
-                                    Output::Complete(p) => return Ok(p),
-                                    Output::Blocked(next, b, made_progress) => {
-                                        made_progress_inlining = Some(made_progress);
-                                        p = next;
-                                        blocked = b;
-                                    }
-                                }
-                            }
+                    match blocked {
+                        Blocked::Inline => {
+                            println!("blocked by inline");
+                            p = inliner.inline(propagated);
+                        }
+                        Blocked::Unroll => {
+                            println!("blocked by unroll");
+                            p = propagated;
                         }
                     }
                 }
             }
         }
+
+        // match unrolled {
+        //     Output::Complete(p) => Ok(p),
+        //     Output::Blocked(next, blocked, made_progress) => {
+        //         let mut p = next;
+        //         let mut blocked = blocked;
+        //         let mut made_progress_inlining = None;
+        //         let mut made_progress_unrolling = Some(made_progress);
+
+        //         loop {
+        //             if made_progress_inlining == Some(false)
+        //                 && made_progress_unrolling == Some(false)
+        //             {
+        //                 return Err("no progress");
+        //             } else {
+
+        //                 println!("\n\n\n{}", p);
+
+        //                 // propagate
+        //                 let propagated = Propagator::propagate_main(p);
+
+        //                 match blocked {
+        //                     Blocked::Unroll => match Unroller::unroll(propagated) {
+        //                         Output::Complete(p) => return Ok(p),
+        //                         Output::Blocked(next, b, made_progress) => {
+        //                             made_progress_unrolling = Some(made_progress);
+        //                             p = next;
+        //                             blocked = b;
+        //                         }
+        //                     },
+        //                     Blocked::Inline => {
+        //                         match inliner.inline(propagated) {
+        //                             // as we only unroll the main function, we need to apply unrolling after inlining
+        //                             Output::Complete(prog) => {
+        //                                 match Unroller::unroll(prog) {
+        //                                     Output::Complete(p) => return Ok(p),
+        //                                     Output::Blocked(next, b, made_progress) => {
+        //                                         made_progress_unrolling = Some(made_progress);
+        //                                         p = next;
+        //                                         blocked = b;
+        //                                     },
+        //                                 }
+        //                             }
+        //                             Output::Blocked(next, b, made_progress) => {
+        //                                 made_progress_inlining = Some(made_progress);
+        //                                 p = next;
+        //                                 blocked = b;
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 }
 
@@ -108,45 +134,10 @@ mod tests {
     use zokrates_field::Bn128Field;
 
     #[test]
-    fn detect_non_constant_bound() {
-        let loops: Vec<TypedStatement<Bn128Field>> = vec![TypedStatement::For(
-            Variable::field_element("i"),
-            UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
-            2u32.into(),
-            vec![],
-        )];
-
-        let statements = loops;
-
-        let p = TypedProgram {
-            modules: vec![(
-                "main".into(),
-                TypedModule {
-                    functions: vec![(
-                        DeclarationFunctionKey::with_id("main"),
-                        TypedFunctionSymbol::Here(TypedFunction {
-                            arguments: vec![],
-                            signature: DeclarationSignature::new(),
-                            statements,
-                        }),
-                    )]
-                    .into_iter()
-                    .collect(),
-                },
-            )]
-            .into_iter()
-            .collect(),
-            main: "main".into(),
-        };
-
-        assert!(PropagatedUnroller::unroll(p).is_err());
-    }
-
-    #[test]
     fn for_loop() {
-        //	for field i in 0..2
-        //		for field j in i..2
-        //			field foo = i + j
+        //	for u32 i in 0..2
+        //		for u32 j in i..2
+        //			u32 foo = i + j
 
         // should be unrolled to
         // i_0 = 0
@@ -158,22 +149,23 @@ mod tests {
         // j_2 = 1
         // foo_2 = i_1 + j_1
 
-        let s = TypedStatement::For(
-            Variable::field_element("i"),
+        let s: TypedStatement<Bn128Field> = TypedStatement::For(
+            Variable::uint("i", UBitwidth::B32),
             0u32.into(),
             2u32.into(),
             vec![TypedStatement::For(
-                Variable::field_element("j"),
+                Variable::uint("j", UBitwidth::B32),
                 UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
                 2u32.into(),
                 vec![
-                    TypedStatement::Declaration(Variable::field_element("foo")),
+                    TypedStatement::Declaration(Variable::uint("foo", UBitwidth::B32)),
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("foo")),
-                        FieldElementExpression::Add(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Identifier("j".into()),
+                        TypedAssignee::Identifier(Variable::uint("foo", UBitwidth::B32)),
+                        UExpressionInner::Add(
+                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                            box UExpressionInner::Identifier("j".into()).annotate(UBitwidth::B32),
                         )
+                        .annotate(UBitwidth::B32)
                         .into(),
                     ),
                 ],
@@ -182,62 +174,76 @@ mod tests {
 
         let expected_statements = vec![
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(
+                TypedAssignee::Identifier(Variable::uint(
                     Identifier::from("i").version(0),
+                    UBitwidth::B32,
                 )),
-                FieldElementExpression::Number(Bn128Field::from(0)).into(),
+                UExpression::from(0u32).into(),
             ),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(
+                TypedAssignee::Identifier(Variable::uint(
                     Identifier::from("j").version(0),
+                    UBitwidth::B32,
                 )),
-                FieldElementExpression::Number(Bn128Field::from(0)).into(),
+                UExpression::from(0u32).into(),
             ),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(
+                TypedAssignee::Identifier(Variable::uint(
                     Identifier::from("foo").version(0),
+                    UBitwidth::B32,
                 )),
-                FieldElementExpression::Add(
-                    box FieldElementExpression::Identifier(Identifier::from("i").version(0)),
-                    box FieldElementExpression::Identifier(Identifier::from("j").version(0)),
+                UExpression::add(
+                    UExpressionInner::Identifier(Identifier::from("i").version(0))
+                        .annotate(UBitwidth::B32),
+                    UExpressionInner::Identifier(Identifier::from("j").version(0))
+                        .annotate(UBitwidth::B32),
                 )
                 .into(),
             ),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(
+                TypedAssignee::Identifier(Variable::uint(
                     Identifier::from("j").version(1),
+                    UBitwidth::B32,
                 )),
-                FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                UExpression::from(1u32).into(),
             ),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(
+                TypedAssignee::Identifier(Variable::uint(
                     Identifier::from("foo").version(1),
+                    UBitwidth::B32,
                 )),
-                FieldElementExpression::Add(
-                    box FieldElementExpression::Identifier(Identifier::from("i").version(0)),
-                    box FieldElementExpression::Identifier(Identifier::from("j").version(1)),
+                UExpression::add(
+                    UExpressionInner::Identifier(Identifier::from("i").version(0))
+                        .annotate(UBitwidth::B32),
+                    UExpressionInner::Identifier(Identifier::from("j").version(1))
+                        .annotate(UBitwidth::B32),
                 )
                 .into(),
             ),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(
+                TypedAssignee::Identifier(Variable::uint(
                     Identifier::from("i").version(1),
+                    UBitwidth::B32,
                 )),
-                FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                UExpression::from(1u32).into(),
             ),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(
+                TypedAssignee::Identifier(Variable::uint(
                     Identifier::from("j").version(2),
+                    UBitwidth::B32,
                 )),
-                FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                UExpression::from(1u32).into(),
             ),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(
+                TypedAssignee::Identifier(Variable::uint(
                     Identifier::from("foo").version(2),
+                    UBitwidth::B32,
                 )),
-                FieldElementExpression::Add(
-                    box FieldElementExpression::Identifier(Identifier::from("i").version(1)),
-                    box FieldElementExpression::Identifier(Identifier::from("j").version(2)),
+                UExpression::add(
+                    UExpressionInner::Identifier(Identifier::from("i").version(1))
+                        .annotate(UBitwidth::B32),
+                    UExpressionInner::Identifier(Identifier::from("j").version(2))
+                        .annotate(UBitwidth::B32),
                 )
                 .into(),
             ),

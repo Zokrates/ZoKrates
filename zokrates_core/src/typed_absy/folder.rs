@@ -101,6 +101,7 @@ pub trait Folder<'ast, T: Field>: Sized {
             TypedExpression::Uint(e) => self.fold_uint_expression(e).into(),
             TypedExpression::Array(e) => self.fold_array_expression(e).into(),
             TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
+            TypedExpression::Int(_) => unreachable!(),
         }
     }
 
@@ -119,18 +120,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         &mut self,
         es: TypedExpressionList<'ast, T>,
     ) -> TypedExpressionList<'ast, T> {
-        match es {
-            TypedExpressionList::FunctionCall(id, arguments, types) => {
-                TypedExpressionList::FunctionCall(
-                    id,
-                    arguments
-                        .into_iter()
-                        .map(|a| self.fold_expression(a))
-                        .collect(),
-                    types,
-                )
-            }
-        }
+        fold_expression_list(self, es)
     }
 
     fn fold_field_expression(
@@ -376,25 +366,45 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_uint_expression(e2);
             BooleanExpression::UintEq(box e1, box e2)
         }
-        BooleanExpression::Lt(box e1, box e2) => {
+        BooleanExpression::FieldLt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::Lt(box e1, box e2)
+            BooleanExpression::FieldLt(box e1, box e2)
         }
-        BooleanExpression::Le(box e1, box e2) => {
+        BooleanExpression::FieldLe(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::Le(box e1, box e2)
+            BooleanExpression::FieldLe(box e1, box e2)
         }
-        BooleanExpression::Gt(box e1, box e2) => {
+        BooleanExpression::FieldGt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::Gt(box e1, box e2)
+            BooleanExpression::FieldGt(box e1, box e2)
         }
-        BooleanExpression::Ge(box e1, box e2) => {
+        BooleanExpression::FieldGe(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::Ge(box e1, box e2)
+            BooleanExpression::FieldGe(box e1, box e2)
+        }
+        BooleanExpression::UintLt(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintLt(box e1, box e2)
+        }
+        BooleanExpression::UintLe(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintLe(box e1, box e2)
+        }
+        BooleanExpression::UintGt(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintGt(box e1, box e2)
+        }
+        BooleanExpression::UintGe(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintGe(box e1, box e2)
         }
         BooleanExpression::Or(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);
@@ -554,6 +564,24 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
         inner: f.fold_array_expression_inner(&e.ty, size.clone(), e.inner),
         size,
         ..e
+    }
+}
+
+pub fn fold_expression_list<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    es: TypedExpressionList<'ast, T>,
+) -> TypedExpressionList<'ast, T> {
+    match es {
+        TypedExpressionList::FunctionCall(id, arguments, types) => {
+            TypedExpressionList::FunctionCall(
+                id,
+                arguments
+                    .into_iter()
+                    .map(|a| f.fold_expression(a))
+                    .collect(),
+                types,
+            )
+        }
     }
 }
 

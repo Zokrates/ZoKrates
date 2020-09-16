@@ -26,9 +26,9 @@ use zokrates_core::proof_system::bellman::groth16::G16;
 use zokrates_core::proof_system::libsnark::gm17::GM17;
 #[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::libsnark::pghr13::PGHR13;
-use zokrates_core::proof_system::*;
+use zokrates_core::proof_system::{ProofSystem, SolidityAbi};
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::{ConcreteSignature, ConcreteType, Signature, Type};
+use zokrates_core::typed_absy::{ConcreteSignature, ConcreteType};
 use zokrates_field::{Bls12Field, Bn128Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 

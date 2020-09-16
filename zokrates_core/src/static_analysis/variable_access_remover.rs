@@ -181,13 +181,13 @@ mod tests {
             vec![
                 TypedStatement::Assertion(
                     BooleanExpression::Or(
-                        box BooleanExpression::FieldEq(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Number(0.into())
+                        box BooleanExpression::UintEq(
+                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                            box UExpressionInner::Value(0).annotate(UBitwidth::B32)
                         ),
-                        box BooleanExpression::FieldEq(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Number(1.into())
+                        box BooleanExpression::UintEq(
+                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                            box UExpressionInner::Value(1).annotate(UBitwidth::B32)
                         )
                     )
                     .into(),
@@ -195,9 +195,9 @@ mod tests {
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::if_else(
-                        BooleanExpression::FieldEq(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Number(0.into())
+                        BooleanExpression::UintEq(
+                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                            box UExpressionInner::Value(0).annotate(UBitwidth::B32)
                         ),
                         FieldElementExpression::Select(
                             box ArrayExpressionInner::Identifier("a".into())

@@ -45,8 +45,37 @@ impl<'ast, T: Field> Propagator<'ast, T> {
         Propagator::new().fold_program(p)
     }
 
-    pub fn propagate_verbose(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        Propagator::verbose().fold_program(p)
+    pub fn propagate_main(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        let mut propagator = Propagator::verbose();
+
+        let main_module_id = p.main;
+
+        // get the main module
+        let main_module = p.modules.get(&main_module_id).unwrap().clone();
+
+        // get the main function in the main module
+        let functions = main_module
+            .functions
+            .into_iter()
+            .map(|(k, f)| {
+                if k.id == "main" {
+                    // unroll the main function
+                    let main = propagator.fold_function_symbol(f);
+                    (k, main)
+                } else {
+                    (k, f)
+                }
+            })
+            .collect();
+
+        let mut modules = p.modules;
+
+        modules.insert("main".into(), TypedModule { functions });
+
+        TypedProgram {
+            main: "main".into(),
+            modules,
+        }
     }
 }
 
@@ -119,7 +148,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 Some(TypedStatement::Assertion(self.fold_boolean_expression(e)))
             }
             // only loops with variable bounds are expected here
-            // we stop propagation here as constants maybe be modified inside the loop body
+            // we stop propagation here as constants may be modified inside the loop body
             // which we do not visit
             TypedStatement::For(v, from, to, statements) => {
                 let from = self.fold_uint_expression(from);
@@ -562,7 +591,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             ),
                         }
                     }
-                    size => fold_uint_expression_inner(
+                    _ => fold_uint_expression_inner(
                         self,
                         bitwidth,
                         UExpressionInner::Select(box array, box index),
@@ -714,7 +743,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             ),
                         }
                     }
-                    size => fold_field_expression(
+                    _ => fold_field_expression(
                         self,
                         FieldElementExpression::Select(box array, box index),
                     ),
@@ -778,6 +807,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 }
             }
             ArrayExpressionInner::Select(box array, box index) => {
+                let outer_size = size;
+
                 let array = self.fold_array_expression(array);
                 let index = self.fold_uint_expression(index);
 
@@ -824,10 +855,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             box i.annotate(UBitwidth::B32),
                         ),
                     },
-                    size => fold_array_expression_inner(
+                    _ => fold_array_expression_inner(
                         self,
                         ty,
-                        size.annotate(UBitwidth::B32),
+                        outer_size,
                         ArrayExpressionInner::Select(box array, box index),
                     ),
                 }
@@ -950,7 +981,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             box i.annotate(UBitwidth::B32),
                         ),
                     },
-                    size => fold_struct_expression_inner(
+                    _ => fold_struct_expression_inner(
                         self,
                         ty,
                         StructExpressionInner::Select(box array, box index),
@@ -1047,7 +1078,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (e1, e2) => BooleanExpression::BoolEq(box e1, box e2),
                 }
             }
-            BooleanExpression::Lt(box e1, box e2) => {
+            BooleanExpression::FieldLt(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
                 let e2 = self.fold_field_expression(e2);
 
@@ -1055,10 +1086,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         BooleanExpression::Value(n1 < n2)
                     }
-                    (e1, e2) => BooleanExpression::Lt(box e1, box e2),
+                    (e1, e2) => BooleanExpression::FieldLt(box e1, box e2),
                 }
             }
-            BooleanExpression::Le(box e1, box e2) => {
+            BooleanExpression::FieldLe(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
                 let e2 = self.fold_field_expression(e2);
 
@@ -1066,10 +1097,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         BooleanExpression::Value(n1 <= n2)
                     }
-                    (e1, e2) => BooleanExpression::Le(box e1, box e2),
+                    (e1, e2) => BooleanExpression::FieldLe(box e1, box e2),
                 }
             }
-            BooleanExpression::Gt(box e1, box e2) => {
+            BooleanExpression::FieldGt(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
                 let e2 = self.fold_field_expression(e2);
 
@@ -1077,10 +1108,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         BooleanExpression::Value(n1 > n2)
                     }
-                    (e1, e2) => BooleanExpression::Gt(box e1, box e2),
+                    (e1, e2) => BooleanExpression::FieldGt(box e1, box e2),
                 }
             }
-            BooleanExpression::Ge(box e1, box e2) => {
+            BooleanExpression::FieldGe(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
                 let e2 = self.fold_field_expression(e2);
 
@@ -1088,7 +1119,51 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         BooleanExpression::Value(n1 >= n2)
                     }
-                    (e1, e2) => BooleanExpression::Ge(box e1, box e2),
+                    (e1, e2) => BooleanExpression::FieldGe(box e1, box e2),
+                }
+            }
+            BooleanExpression::UintLt(box e1, box e2) => {
+                let e1 = self.fold_uint_expression(e1);
+                let e2 = self.fold_uint_expression(e2);
+
+                match (e1.as_inner(), e2.as_inner()) {
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        BooleanExpression::Value(n1 < n2)
+                    }
+                    _ => BooleanExpression::UintLt(box e1, box e2),
+                }
+            }
+            BooleanExpression::UintLe(box e1, box e2) => {
+                let e1 = self.fold_uint_expression(e1);
+                let e2 = self.fold_uint_expression(e2);
+
+                match (e1.as_inner(), e2.as_inner()) {
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        BooleanExpression::Value(n1 <= n2)
+                    }
+                    _ => BooleanExpression::UintLe(box e1, box e2),
+                }
+            }
+            BooleanExpression::UintGt(box e1, box e2) => {
+                let e1 = self.fold_uint_expression(e1);
+                let e2 = self.fold_uint_expression(e2);
+
+                match (e1.as_inner(), e2.as_inner()) {
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        BooleanExpression::Value(n1 > n2)
+                    }
+                    _ => BooleanExpression::UintGt(box e1, box e2),
+                }
+            }
+            BooleanExpression::UintGe(box e1, box e2) => {
+                let e1 = self.fold_uint_expression(e1);
+                let e2 = self.fold_uint_expression(e2);
+
+                match (e1.as_inner(), e2.as_inner()) {
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        BooleanExpression::Value(n1 >= n2)
+                    }
+                    _ => BooleanExpression::UintGe(box e1, box e2),
                 }
             }
             BooleanExpression::Or(box e1, box e2) => {
@@ -1192,7 +1267,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             box i.annotate(UBitwidth::B32),
                         ),
                     },
-                    size => fold_boolean_expression(
+                    _ => fold_boolean_expression(
                         self,
                         BooleanExpression::Select(box array, box index),
                     ),
@@ -1456,12 +1531,12 @@ mod tests {
 
             #[test]
             fn lt() {
-                let e_true = BooleanExpression::Lt(
+                let e_true = BooleanExpression::FieldLt(
                     box FieldElementExpression::Number(Bn128Field::from(2)),
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                 );
 
-                let e_false = BooleanExpression::Lt(
+                let e_false = BooleanExpression::FieldLt(
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                     box FieldElementExpression::Number(Bn128Field::from(2)),
                 );
@@ -1478,12 +1553,12 @@ mod tests {
 
             #[test]
             fn le() {
-                let e_true = BooleanExpression::Le(
+                let e_true = BooleanExpression::FieldLe(
                     box FieldElementExpression::Number(Bn128Field::from(2)),
                     box FieldElementExpression::Number(Bn128Field::from(2)),
                 );
 
-                let e_false = BooleanExpression::Le(
+                let e_false = BooleanExpression::FieldLe(
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                     box FieldElementExpression::Number(Bn128Field::from(2)),
                 );
@@ -1500,12 +1575,12 @@ mod tests {
 
             #[test]
             fn gt() {
-                let e_true = BooleanExpression::Gt(
+                let e_true = BooleanExpression::FieldGt(
                     box FieldElementExpression::Number(Bn128Field::from(5)),
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                 );
 
-                let e_false = BooleanExpression::Gt(
+                let e_false = BooleanExpression::FieldGt(
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                     box FieldElementExpression::Number(Bn128Field::from(5)),
                 );
@@ -1522,12 +1597,12 @@ mod tests {
 
             #[test]
             fn ge() {
-                let e_true = BooleanExpression::Ge(
+                let e_true = BooleanExpression::FieldGe(
                     box FieldElementExpression::Number(Bn128Field::from(5)),
                     box FieldElementExpression::Number(Bn128Field::from(5)),
                 );
 
-                let e_false = BooleanExpression::Ge(
+                let e_false = BooleanExpression::FieldGe(
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                     box FieldElementExpression::Number(Bn128Field::from(5)),
                 );

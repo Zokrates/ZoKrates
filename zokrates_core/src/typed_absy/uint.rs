@@ -55,6 +55,68 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::RightShift(box self, box by).annotate(bitwidth)
     }
+
+    pub fn try_from_int(i: IntExpression<'ast, T>, bitwidth: UBitwidth) -> Result<Self, String> {
+        use self::IntExpression::*;
+
+        match i {
+            Value(i) => {
+                if i <= BigUint::from(2u128.pow(bitwidth.to_usize() as u32 - 1)) {
+                    Ok(UExpressionInner::Value(
+                        u128::from_str_radix(&i.to_str_radix(16), 16).unwrap(),
+                    )
+                    .annotate(bitwidth))
+                } else {
+                    Err(format!(
+                        "Literal `{}` is too large for type u{}",
+                        i, bitwidth
+                    ))
+                }
+            }
+            Add(box e1, box e2) => Ok(UExpression::add(
+                Self::try_from_int(e1, bitwidth)?,
+                Self::try_from_int(e2, bitwidth)?,
+            )),
+            Sub(box e1, box e2) => Ok(UExpression::sub(
+                Self::try_from_int(e1, bitwidth)?,
+                Self::try_from_int(e2, bitwidth)?,
+            )),
+            Mult(box e1, box e2) => Ok(UExpression::mult(
+                Self::try_from_int(e1, bitwidth)?,
+                Self::try_from_int(e2, bitwidth)?,
+            )),
+            And(box e1, box e2) => Ok(UExpression::and(
+                Self::try_from_int(e1, bitwidth)?,
+                Self::try_from_int(e2, bitwidth)?,
+            )),
+            Or(box e1, box e2) => Ok(UExpression::or(
+                Self::try_from_int(e1, bitwidth)?,
+                Self::try_from_int(e2, bitwidth)?,
+            )),
+            Xor(box e1, box e2) => Ok(UExpression::xor(
+                Self::try_from_int(e1, bitwidth)?,
+                Self::try_from_int(e2, bitwidth)?,
+            )),
+            RightShift(box e1, box e2) => Ok(UExpression::right_shift(
+                Self::try_from_int(e1, bitwidth)?,
+                e2,
+            )),
+            LeftShift(box e1, box e2) => Ok(UExpression::left_shift(
+                Self::try_from_int(e1, bitwidth)?,
+                e2,
+            )),
+            IfElse(box condition, box consequence, box alternative) => Ok(UExpression::if_else(
+                condition,
+                Self::try_from_int(consequence, bitwidth)?,
+                Self::try_from_int(alternative, bitwidth)?,
+            )),
+            Select(..) => unimplemented!(),
+            i => Err(format!(
+                "Expected a `u{}` but found expression `{}`",
+                bitwidth, i
+            )),
+        }
+    }
 }
 
 impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {

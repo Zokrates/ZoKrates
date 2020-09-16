@@ -11,6 +11,7 @@ use zokrates_field::Field;
 /// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FlatEmbed {
+    U32ToField,
     Unpack(usize),
     U8ToBits,
     U16ToBits,
@@ -23,6 +24,9 @@ pub enum FlatEmbed {
 impl FlatEmbed {
     pub fn signature(&self) -> ConcreteSignature {
         match self {
+            FlatEmbed::U32ToField => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::uint(32)])
+                .outputs(vec![ConcreteType::FieldElement]),
             FlatEmbed::Unpack(bitwidth) => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::FieldElement])
                 .outputs(vec![ConcreteType::array(ConcreteType::Boolean, *bitwidth)]),
@@ -53,6 +57,7 @@ impl FlatEmbed {
 
     pub fn id(&self) -> &'static str {
         match self {
+            FlatEmbed::U32ToField => "_U32_TO_FIELD",
             FlatEmbed::Unpack(_) => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",

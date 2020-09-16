@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 use typed_absy;
-use typed_absy::types::{StructType, UBitwidth};
+use typed_absy::types::UBitwidth;
 use zir;
 use zokrates_field::Field;
 
@@ -44,6 +44,7 @@ fn flatten_identifier_rec<'ast>(
                 )
             })
             .collect(),
+        typed_absy::types::ConcreteType::Int => unreachable!(),
     }
 }
 
@@ -130,6 +131,7 @@ impl<'ast, T: Field> Flattener<T> {
             typed_absy::TypedExpression::Uint(e) => vec![self.fold_uint_expression(e).into()],
             typed_absy::TypedExpression::Array(e) => self.fold_array_expression(e).into(),
             typed_absy::TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
+            typed_absy::TypedExpression::Int(_) => unreachable!(),
         }
     }
 
@@ -639,25 +641,45 @@ pub fn fold_boolean_expression<'ast, T: Field>(
 
             zir::BooleanExpression::UintEq(box e1, box e2)
         }
-        typed_absy::BooleanExpression::Lt(box e1, box e2) => {
+        typed_absy::BooleanExpression::FieldLt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            zir::BooleanExpression::Lt(box e1, box e2)
+            zir::BooleanExpression::FieldLt(box e1, box e2)
         }
-        typed_absy::BooleanExpression::Le(box e1, box e2) => {
+        typed_absy::BooleanExpression::FieldLe(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            zir::BooleanExpression::Le(box e1, box e2)
+            zir::BooleanExpression::FieldLe(box e1, box e2)
         }
-        typed_absy::BooleanExpression::Gt(box e1, box e2) => {
+        typed_absy::BooleanExpression::FieldGt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            zir::BooleanExpression::Gt(box e1, box e2)
+            zir::BooleanExpression::FieldGt(box e1, box e2)
         }
-        typed_absy::BooleanExpression::Ge(box e1, box e2) => {
+        typed_absy::BooleanExpression::FieldGe(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            zir::BooleanExpression::Ge(box e1, box e2)
+            zir::BooleanExpression::FieldGe(box e1, box e2)
+        }
+        typed_absy::BooleanExpression::UintLt(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            zir::BooleanExpression::UintLt(box e1, box e2)
+        }
+        typed_absy::BooleanExpression::UintLe(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            zir::BooleanExpression::UintLe(box e1, box e2)
+        }
+        typed_absy::BooleanExpression::UintGt(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            zir::BooleanExpression::UintGt(box e1, box e2)
+        }
+        typed_absy::BooleanExpression::UintGe(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            zir::BooleanExpression::UintGe(box e1, box e2)
         }
         typed_absy::BooleanExpression::Or(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);

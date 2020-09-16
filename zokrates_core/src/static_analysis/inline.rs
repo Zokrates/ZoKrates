@@ -20,7 +20,7 @@ use static_analysis::propagate_unroll::{Blocked, Output};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use typed_absy::types::{
-    ConcreteFunctionKey, ConcreteType, DeclarationFunctionKey, FunctionKey, Type, UBitwidth,
+    ConcreteFunctionKey, DeclarationFunctionKey, FunctionKey, Type, UBitwidth,
 };
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
@@ -93,7 +93,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     }
 
     pub fn init(p: TypedProgram<'ast, T>) -> Self {
-        let main_module_id = p.main;
+        let main_module_id = p.main.clone();
+
+        let mut p = p;
 
         // get the main module
         let main_module = p.modules.get(&main_module_id).unwrap().clone();
@@ -103,7 +105,65 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             .iter()
             .find(|(k, _)| k.id == "main")
             .unwrap()
-            .0;
+            .0
+            .clone();
+
+        let mut main_module = main_module;
+
+        // define a function in the main module for the `unpack` embed
+        let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
+        let unpack_key = unpack.key::<T>();
+
+        // define a function in the main module for the `u32_to_bits` embed
+        let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
+        let u32_to_bits_key = u32_to_bits.key::<T>();
+
+        // define a function in the main module for the `u16_to_bits` embed
+        let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
+        let u16_to_bits_key = u16_to_bits.key::<T>();
+
+        // define a function in the main module for the `u8_to_bits` embed
+        let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
+        let u8_to_bits_key = u8_to_bits.key::<T>();
+
+        // define a function in the main module for the `u32_from_bits` embed
+        let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
+        let u32_from_bits_key = u32_from_bits.key::<T>();
+
+        // define a function in the main module for the `u16_from_bits` embed
+        let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
+        let u16_from_bits_key = u16_from_bits.key::<T>();
+
+        // define a function in the main module for the `u8_from_bits` embed
+        let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
+        let u8_from_bits_key = u8_from_bits.key::<T>();
+
+        main_module.functions.extend(vec![
+            (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
+            (
+                u32_from_bits_key.into(),
+                TypedFunctionSymbol::Flat(u32_from_bits),
+            ),
+            (
+                u16_from_bits_key.into(),
+                TypedFunctionSymbol::Flat(u16_from_bits),
+            ),
+            (
+                u8_from_bits_key.into(),
+                TypedFunctionSymbol::Flat(u8_from_bits),
+            ),
+            (
+                u32_to_bits_key.into(),
+                TypedFunctionSymbol::Flat(u32_to_bits),
+            ),
+            (
+                u16_to_bits_key.into(),
+                TypedFunctionSymbol::Flat(u16_to_bits),
+            ),
+            (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
+        ]);
+
+        p.modules.insert(main_module_id.clone(), main_module);
 
         // initialize an inliner over all modules, starting from the main module
         Inliner::with_modules_and_module_id_and_key(
@@ -113,7 +173,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         )
     }
 
-    pub fn inline(&mut self, p: TypedProgram<'ast, T>) -> Output<'ast, T> {
+    pub fn inline(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         let main_module_id = p.main;
 
         // get the main module
@@ -134,36 +194,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             })
             .collect();
 
-        // // define a function in the main module for the `unpack` embed
-        // let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
-        // let unpack_key = unpack.key::<T>();
-
-        // // define a function in the main module for the `u32_to_bits` embed
-        // let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
-        // let u32_to_bits_key = u32_to_bits.key::<T>();
-
-        // // define a function in the main module for the `u16_to_bits` embed
-        // let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
-        // let u16_to_bits_key = u16_to_bits.key::<T>();
-
-        // // define a function in the main module for the `u8_to_bits` embed
-        // let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
-        // let u8_to_bits_key = u8_to_bits.key::<T>();
-
-        // // define a function in the main module for the `u32_from_bits` embed
-        // let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
-        // let u32_from_bits_key = u32_from_bits.key::<T>();
-
-        // // define a function in the main module for the `u16_from_bits` embed
-        // let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
-        // let u16_from_bits_key = u16_from_bits.key::<T>();
-
-        // // define a function in the main module for the `u8_from_bits` embed
-        // let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
-        // let u8_from_bits_key = u8_from_bits.key::<T>();
-
-        // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
-
         let program = TypedProgram {
             main: "main".into(),
             modules: vec![("main".into(), TypedModule { functions })]
@@ -171,15 +201,17 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 .collect(),
         };
 
-        match self.blocked.clone() {
-            None => Output::Complete(program),
-            Some(blocked) => Output::Blocked(program, blocked, self.made_progress),
-        }
+        // match self.blocked.clone() {
+        //     None => Output::Complete(program),
+        //     Some(blocked) => Output::Blocked(program, blocked, self.made_progress),
+        // }
+
+        program
     }
 
     fn try_inline_call(
         &mut self,
-        key: FunctionKey<'ast, T>,
+        key: &FunctionKey<'ast, T>,
         expressions: Vec<TypedExpression<'ast, T>>,
     ) -> Result<Vec<TypedExpression<'ast, T>>, InlineError<'ast, T>> {
         match ConcreteFunctionKey::try_from(key.clone()) {
@@ -193,14 +225,56 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     _ => {}
                 };
 
-                // first find the DeclarationFunctionKey
-                let decl_key = self
-                    .module()
-                    .functions
-                    .keys()
-                    .find(|decl_key| concrete_key == **decl_key)
-                    .unwrap()
-                    .clone();
+                // then, inline the generic function associated with this DeclarationFunctionKey
+                let res = self
+                    .try_inline_declaration_call(concrete_key.clone(), expressions.clone())
+                    .map_err(|e| InlineError::Flat(e.0.into(), e.1));
+
+                res.map(|exprs| {
+                    self.call_cache_mut()
+                        .entry(concrete_key.clone())
+                        .or_insert_with(|| HashMap::new())
+                        .insert(expressions, exprs.clone());
+                    exprs
+                })
+            }
+            Err(()) => {
+                self.blocked = Some(Blocked::Inline);
+                Err(InlineError::NonConstant(key.clone(), expressions))
+            }
+        }
+    }
+
+    /// try to inline a call to function with key `key` in the stack of `self`
+    /// if inlining succeeds, return the expressions returned by the function call
+    /// if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
+    fn try_inline_declaration_call(
+        &mut self,
+        concrete_key: ConcreteFunctionKey<'ast>,
+        expressions: Vec<TypedExpression<'ast, T>>,
+    ) -> Result<
+        Vec<TypedExpression<'ast, T>>,
+        (ConcreteFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    > {
+        // println!("KEY {:?}", concrete_key);
+
+        // println!("FUNCTIONS {:#?}", self
+        //     .module()
+        //     .functions.keys());
+
+        // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
+        match self
+            .module()
+            .functions
+            .iter()
+            .find(|(decl_key, _)| concrete_key == **decl_key)
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .unwrap()
+        {
+            // if the function called is in the same module, we can inline in this module
+            (decl_key, TypedFunctionSymbol::Here(function)) => {
+                // if we execute this, it means that we made progress
+                self.made_progress = true;
 
                 // get an assignment of generics for this call site
                 let assignment = decl_key.signature.specialize(&concrete_key.signature);
@@ -226,49 +300,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     ))
                 }
 
-                // then, inline the generic function associated with this DeclarationFunctionKey
-                let res = self
-                    .try_inline_declaration_call(decl_key, expressions.clone())
-                    .map_err(|e| InlineError::Flat(e.0.into(), e.1));
-
-                // pop this call from the stack
-                self.stack.pop();
-
-                res.map(|exprs| {
-                    self.call_cache_mut()
-                        .entry(concrete_key.clone())
-                        .or_insert_with(|| HashMap::new())
-                        .insert(expressions, exprs.clone());
-                    exprs
-                })
-            }
-            Err(()) => {
-                self.blocked = Some(Blocked::Inline);
-                Err(InlineError::NonConstant(key, expressions))
-            }
-        }
-    }
-
-    /// try to inline a call to function with key `key` in the stack of `self`
-    /// if inlining succeeds, return the expressions returned by the function call
-    /// if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
-    fn try_inline_declaration_call(
-        &mut self,
-        key: DeclarationFunctionKey<'ast>,
-        expressions: Vec<TypedExpression<'ast, T>>,
-    ) -> Result<
-        Vec<TypedExpression<'ast, T>>,
-        (ConcreteFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
-    > {
-        // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
-        match self.module().functions.get(&key).unwrap().clone() {
-            // if the function called is in the same module, we can go ahead and inline in this module
-            TypedFunctionSymbol::Here(function) => {
-                // if we execute this, it means that we made progress
-                self.made_progress = true;
-
                 let (current_module, current_key) =
-                    self.change_context(self.module_id().clone(), key.clone());
+                    self.change_context(self.module_id().clone(), decl_key.clone());
 
                 // add definitions for the inputs
                 let inputs_bindings: Vec<_> = function
@@ -300,28 +333,27 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
                 self.change_context(current_module, current_key);
 
+                // pop this call from the stack
+                self.stack.pop();
+
                 match ret.pop().unwrap() {
                     TypedStatement::Return(exprs) => Ok(exprs),
                     _ => unreachable!(""),
                 }
             }
             // if the function called is in some other module, we switch focus to that module and call the function locally there
-            TypedFunctionSymbol::There(function_key, module_id) => {
-                unimplemented!()
-
-                // let function_key = function_key.try_into().unwrap();
-
-                // // switch focus to `module_id`
-                // let (current_module, current_key) =
-                //     self.change_context(module_id, function_key.clone());
-                // // inline the call there
-                // let res = self.try_inline_call(&function_key, expressions.clone())?;
-                // // switch back focus
-                // self.change_context(current_module, current_key);
-                // Ok(res)
+            (_, TypedFunctionSymbol::There(function_key, module_id)) => {
+                // switch focus to `module_id`
+                let (current_module, current_key) =
+                    self.change_context(module_id.clone(), function_key.clone());
+                // inline the call there
+                let res = self.try_inline_declaration_call(concrete_key, expressions)?;
+                // switch back focus
+                self.change_context(current_module, current_key);
+                Ok(res)
             }
             // if the function is a flat symbol, replace the call with a call to the local function we provide so it can be inlined in flattening
-            TypedFunctionSymbol::Flat(embed) => {
+            (_, TypedFunctionSymbol::Flat(embed)) => {
                 // increase the number of calls for this function by one
                 let _ = self
                     .call_count
@@ -395,7 +427,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         .collect();
                     let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                    match self.try_inline_call(key, exps) {
+                    match self.try_inline_call(&key, exps) {
                         Ok(ret) => variables
                             .into_iter()
                             .zip(ret.into_iter())
@@ -448,7 +480,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                     ..key
                 };
 
-                match self.try_inline_call(key, exps) {
+                match self.try_inline_call(&key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::FieldElement(e) => e,
                         _ => unreachable!(),
@@ -507,7 +539,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             BooleanExpression::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(key, exps) {
+                match self.try_inline_call(&key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::Boolean(e) => e,
                         _ => unreachable!(),
@@ -569,7 +601,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             ArrayExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(key, exps) {
+                match self.try_inline_call(&key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::Array(e) => e.into_inner(),
                         _ => unreachable!(),
@@ -632,7 +664,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             StructExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(key, exps) {
+                match self.try_inline_call(&key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::Struct(e) => e.into_inner(),
                         _ => unreachable!(),
@@ -692,7 +724,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             UExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(key, exps) {
+                match self.try_inline_call(&key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
                         TypedExpression::Uint(e) => e.into_inner(),
                         _ => unreachable!(),

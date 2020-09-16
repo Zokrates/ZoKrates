@@ -67,6 +67,42 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 BooleanExpression::UintEq(box left, box right)
             }
+            BooleanExpression::UintLt(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintLt(box left, box right)
+            }
+            BooleanExpression::UintLe(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintLe(box left, box right)
+            }
+            BooleanExpression::UintGt(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintGt(box left, box right)
+            }
+            BooleanExpression::UintGe(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintGe(box left, box right)
+            }
             e => fold_boolean_expression(self, e),
         }
     }
@@ -329,6 +365,8 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
     }
 
     fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
+        println!("{}", s);
+
         match s {
             ZirStatement::Definition(a, e) => {
                 let e = self.fold_expression(e);

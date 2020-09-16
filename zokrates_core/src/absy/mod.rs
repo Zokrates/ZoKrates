@@ -16,6 +16,7 @@ pub use crate::absy::parameter::{Parameter, ParameterNode};
 use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
 use embed::FlatEmbed;
+use num_bigint::BigUint;
 use std::path::PathBuf;
 
 use crate::imports::ImportNode;
@@ -476,6 +477,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Range<'ast, T> {
 /// An expression
 #[derive(Clone, PartialEq)]
 pub enum Expression<'ast, T> {
+    IntConstant(BigUint),
     FieldConstant(T),
     BooleanConstant(bool),
     U8Constant(u8),
@@ -501,6 +503,7 @@ pub enum Expression<'ast, T> {
     And(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Not(Box<ExpressionNode<'ast, T>>),
     InlineArray(Vec<SpreadOrExpression<'ast, T>>),
+    ArrayInitializer(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     InlineStruct(UserTypeId, Vec<(Identifier<'ast>, ExpressionNode<'ast, T>)>),
     Select(
         Box<ExpressionNode<'ast, T>>,
@@ -524,6 +527,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
             Expression::U8Constant(ref i) => write!(f, "{}", i),
             Expression::U16Constant(ref i) => write!(f, "{}", i),
             Expression::U32Constant(ref i) => write!(f, "{}", i),
+            Expression::IntConstant(ref i) => write!(f, "{}", i),
             Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
@@ -563,6 +567,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
                 }
                 write!(f, "]")
             }
+            Expression::ArrayInitializer(ref e, ref count) => write!(f, "[{}; {}]", e, count),
             Expression::InlineStruct(ref id, ref members) => {
                 write!(f, "{} {{", id)?;
                 for (i, (member_id, e)) in members.iter().enumerate() {
@@ -588,10 +593,11 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expression::U8Constant(ref i) => write!(f, "{:x}", i),
-            Expression::U16Constant(ref i) => write!(f, "{:x}", i),
-            Expression::U32Constant(ref i) => write!(f, "{:x}", i),
-            Expression::FieldConstant(ref i) => write!(f, "Num({:?})", i),
+            Expression::U8Constant(ref i) => write!(f, "U8({:x})", i),
+            Expression::U16Constant(ref i) => write!(f, "U16({:x})", i),
+            Expression::U32Constant(ref i) => write!(f, "U32({:x})", i),
+            Expression::FieldConstant(ref i) => write!(f, "Field({:?})", i),
+            Expression::IntConstant(ref i) => write!(f, "Int({:?})", i),
             Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
@@ -620,6 +626,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
                 write!(f, "InlineArray([")?;
                 f.debug_list().entries(exprs.iter()).finish()?;
                 write!(f, "]")
+            }
+            Expression::ArrayInitializer(ref e, ref count) => {
+                write!(f, "ArrayInitializer({:?}, {:?})", e, count)
             }
             Expression::InlineStruct(ref id, ref members) => {
                 write!(f, "InlineStruct({:?}, [", id)?;

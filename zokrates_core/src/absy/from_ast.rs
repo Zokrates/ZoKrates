@@ -1,5 +1,6 @@
 use absy;
 use imports;
+use num_bigint::BigUint;
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
@@ -506,13 +507,8 @@ impl<'ast, T: Field> From<pest::ArrayInitializerExpression<'ast>>
         use absy::NodeValue;
 
         let value = absy::ExpressionNode::from(*initializer.value);
-        let count: absy::ExpressionNode<T> = absy::ExpressionNode::from(initializer.count);
-        let count = match count.value {
-            absy::Expression::U32Constant(v) => v,
-            _ => unreachable!(),
-        } as usize;
-        absy::Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(value); count])
-            .span(initializer.span)
+        let count = absy::ExpressionNode::from(initializer.count);
+        absy::Expression::ArrayInitializer(box value, box count).span(initializer.span)
     }
 }
 
@@ -583,8 +579,8 @@ impl<'ast, T: Field> From<pest::DecimalLiteralExpression<'ast>> for absy::Expres
                 ),
             }
             .span(expression.span),
-            None => absy::Expression::FieldConstant(
-                T::try_from_dec_str(&expression.value.span.as_str()).unwrap(),
+            None => absy::Expression::IntConstant(
+                BigUint::parse_bytes(&expression.value.span.as_str().as_bytes(), 10).unwrap(),
             )
             .span(expression.span),
         }
@@ -893,7 +889,7 @@ mod tests {
                     "field[2]",
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::FieldElement.mock(),
-                        absy::Expression::U32Constant(2).mock(),
+                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
                     ),
                 ),
                 (
@@ -901,21 +897,21 @@ mod tests {
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::FieldElement.mock(),
-                            absy::Expression::U32Constant(3).mock(),
+                            absy::Expression::FieldConstant(Bn128Field::from(3)).mock(),
                         )
                         .mock(),
-                        absy::Expression::U32Constant(2).mock(),
+                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
                     ),
                 ),
                 (
-                    "bool[2][3]",
+                    "bool[2][3u32]",
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::Boolean.mock(),
                             absy::Expression::U32Constant(3).mock(),
                         )
                         .mock(),
-                        absy::Expression::U32Constant(2).mock(),
+                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
                     ),
                 ),
             ];
@@ -1061,7 +1057,7 @@ mod tests {
         // For different definitions, we generate declarations
         // Case 1: `id = expr` where `expr` is not a function call
         // This is a simple assignment, doesn't implicitely declare a variable
-        // A `Definition` is generatedm and no `Declaration`s
+        // A `Definition` is generated and no `Declaration`s
 
         let definition = pest::DefinitionStatement {
             lhs: vec![pest::OptionallyTypedAssignee {
@@ -1078,7 +1074,9 @@ mod tests {
             }],
             expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
                 pest::DecimalLiteralExpression {
-                    value: pest::DecimalNumber { span: span.clone() },
+                    value: pest::DecimalNumber {
+                        span: Span::new(&"1", 0, 1).unwrap(),
+                    },
                     suffix: None,
                     span: span.clone(),
                 },

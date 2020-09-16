@@ -191,6 +191,7 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
         let mut raw = raw;
 
         match expected {
+            ConcreteType::Int => unreachable!(),
             ConcreteType::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
             ConcreteType::Uint(UBitwidth::B8) => CheckedValue::U8(
                 u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),

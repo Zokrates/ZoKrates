@@ -34,8 +34,8 @@ mod tests {
         ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType,
     };
     use typed_absy::{
-        parameter::ConcreteParameter, variable::ConcreteVariable, ConcreteType, TypedFunction,
-        TypedFunctionSymbol, TypedModule, TypedProgram,
+        parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType,
+        TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
     };
     use zokrates_field::Bn128Field;
 
@@ -46,13 +46,13 @@ mod tests {
             ConcreteFunctionKey::with_id("main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
-                    ConcreteParameter {
-                        id: ConcreteVariable::field_element("a"),
+                    DeclarationParameter {
+                        id: DeclarationVariable::field_element("a"),
                         private: true,
                     }
                     .into(),
-                    ConcreteParameter {
-                        id: ConcreteVariable::boolean("b"),
+                    DeclarationParameter {
+                        id: DeclarationVariable::boolean("b"),
                         private: false,
                     }
                     .into(),

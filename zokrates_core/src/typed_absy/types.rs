@@ -378,6 +378,7 @@ pub enum GType<S> {
     Struct(GStructType<S>),
     #[serde(rename = "u")]
     Uint(UBitwidth),
+    Int,
 }
 
 pub type DeclarationType<'ast> = GType<Constant<'ast>>;
@@ -402,6 +403,7 @@ fn try_from_g_type<T: TryInto<U>, U>(t: GType<T>) -> Result<GType<U>, ()> {
     match t {
         GType::FieldElement => Ok(GType::FieldElement),
         GType::Boolean => Ok(GType::Boolean),
+        GType::Int => Ok(GType::Int),
         GType::Uint(bitwidth) => Ok(GType::Uint(bitwidth)),
         GType::Array(array_type) => Ok(GType::Array(try_from_g_array_type(array_type)?)),
         GType::Struct(struct_type) => Ok(GType::Struct(try_from_g_struct_type(struct_type)?)),
@@ -466,6 +468,7 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::FieldElement => write!(f, "field"),
             GType::Boolean => write!(f, "bool"),
             GType::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
+            GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
             GType::Struct(ref struct_type) => write!(
                 f,
@@ -487,6 +490,7 @@ impl<S: fmt::Debug> fmt::Debug for GType<S> {
         match self {
             GType::FieldElement => write!(f, "field"),
             GType::Boolean => write!(f, "bool"),
+            GType::Int => write!(f, "integer"),
             GType::Uint(ref bitwidth) => write!(f, "u{:?}", bitwidth),
             GType::Array(ref array_type) => write!(f, "{:?}[{:?}]", array_type.ty, array_type.size),
             GType::Struct(ref struct_type) => write!(
@@ -522,6 +526,7 @@ impl<S: fmt::Display + std::cmp::PartialEq> GType<S> {
     fn to_slug(&self) -> String {
         match self {
             GType::FieldElement => String::from("f"),
+            GType::Int => unreachable!(),
             GType::Boolean => String::from("b"),
             GType::Uint(bitwidth) => format!("u{}", bitwidth),
             GType::Array(array_type) => format!("{}[{}]", array_type.ty.to_slug(), array_type.size),
@@ -549,6 +554,7 @@ impl ConcreteType {
                 .iter()
                 .map(|member| member.ty.get_primitive_count())
                 .sum(),
+            GType::Int => unreachable!(),
         }
     }
 }
@@ -637,31 +643,11 @@ impl<'ast, S: fmt::Display + std::cmp::PartialEq> GFunctionKey<'ast, S> {
     }
 }
 
-// impl<'ast, T: Clone> Clone for Type<'ast, T> {
-//     fn clone(&self) -> Self {
-//         unimplemented!()
-//     }
-// }
-
-// impl<'ast> Clone for DeclarationType<'ast> {
-//     fn clone(&self) -> Self {
-//         unimplemented!()
-//     }
-// }
-
-// impl Clone for ConcreteType {
-//     fn clone(&self) -> Self {
-//         unimplemented!()
-//     }
-// }
-
 pub use self::signature::{ConcreteSignature, DeclarationSignature, GSignature, Signature};
 
 pub mod signature {
     use super::*;
-    use std::cmp::Ordering;
     use std::fmt;
-    use std::hash::Hasher;
 
     #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct GSignature<S> {
