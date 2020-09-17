@@ -865,9 +865,9 @@ pub enum ArrayExpressionInner<'ast, T> {
 }
 
 impl<'ast, T> ArrayExpressionInner<'ast, T> {
-    pub fn annotate<S: Into<usize>>(self, ty: Type, size: S) -> ArrayExpression<'ast, T> {
+    pub fn annotate(self, ty: Type, size: usize) -> ArrayExpression<'ast, T> {
         ArrayExpression {
-            size: size.into(),
+            size,
             ty,
             inner: self,
         }

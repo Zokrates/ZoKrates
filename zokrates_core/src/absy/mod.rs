@@ -52,7 +52,7 @@ pub struct SymbolDeclaration<'ast, T> {
 
 #[derive(PartialEq, Clone)]
 pub enum Symbol<'ast, T> {
-    HereType(StructDefinitionNode<'ast>),
+    HereType(StructDefinitionNode<'ast, T>),
     HereFunction(FunctionNode<'ast, T>),
     There(SymbolImportNode<'ast>),
     Flat(FlatEmbed),
@@ -106,15 +106,15 @@ impl<'ast, T: Field> Module<'ast, T> {
     }
 }
 
-pub type UnresolvedTypeNode = Node<UnresolvedType>;
+pub type UnresolvedTypeNode<'ast, T> = Node<UnresolvedType<'ast, T>>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructDefinition<'ast> {
-    pub fields: Vec<StructDefinitionFieldNode<'ast>>,
+pub struct StructDefinition<'ast, T> {
+    pub fields: Vec<StructDefinitionFieldNode<'ast, T>>,
 }
 
-impl<'ast> fmt::Display for StructDefinition<'ast> {
+impl<'ast, T: fmt::Display> fmt::Display for StructDefinition<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -128,22 +128,22 @@ impl<'ast> fmt::Display for StructDefinition<'ast> {
     }
 }
 
-pub type StructDefinitionNode<'ast> = Node<StructDefinition<'ast>>;
+pub type StructDefinitionNode<'ast, T> = Node<StructDefinition<'ast, T>>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructDefinitionField<'ast> {
+pub struct StructDefinitionField<'ast, T> {
     pub id: Identifier<'ast>,
-    pub ty: UnresolvedTypeNode,
+    pub ty: UnresolvedTypeNode<'ast, T>,
 }
 
-impl<'ast> fmt::Display for StructDefinitionField<'ast> {
+impl<'ast, T: fmt::Display> fmt::Display for StructDefinitionField<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}: {},", self.id, self.ty)
     }
 }
 
-type StructDefinitionFieldNode<'ast> = Node<StructDefinitionField<'ast>>;
+type StructDefinitionFieldNode<'ast, T> = Node<StructDefinitionField<'ast, T>>;
 
 /// An import
 #[derive(Debug, Clone, PartialEq)]
@@ -221,11 +221,11 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Module<'ast, T> {
 #[derive(Clone, PartialEq)]
 pub struct Function<'ast, T> {
     /// Arguments of the function
-    pub arguments: Vec<ParameterNode<'ast>>,
+    pub arguments: Vec<ParameterNode<'ast, T>>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<StatementNode<'ast, T>>,
     /// function signature
-    pub signature: UnresolvedSignature,
+    pub signature: UnresolvedSignature<'ast, T>,
 }
 
 pub type FunctionNode<'ast, T> = Node<Function<'ast, T>>;
@@ -298,11 +298,11 @@ impl<'ast, T: fmt::Display> fmt::Display for Assignee<'ast, T> {
 #[derive(Clone, PartialEq)]
 pub enum Statement<'ast, T> {
     Return(ExpressionListNode<'ast, T>),
-    Declaration(VariableNode<'ast>),
+    Declaration(VariableNode<'ast, T>),
     Definition(AssigneeNode<'ast, T>, ExpressionNode<'ast, T>),
     Assertion(ExpressionNode<'ast, T>),
     For(
-        VariableNode<'ast>,
+        VariableNode<'ast, T>,
         ExpressionNode<'ast, T>,
         ExpressionNode<'ast, T>,
         Vec<StatementNode<'ast, T>>,
@@ -499,6 +499,7 @@ pub enum Expression<'ast, T> {
     And(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Not(Box<ExpressionNode<'ast, T>>),
     InlineArray(Vec<SpreadOrExpression<'ast, T>>),
+    ArrayInitializer(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     InlineStruct(UserTypeId, Vec<(Identifier<'ast>, ExpressionNode<'ast, T>)>),
     Select(
         Box<ExpressionNode<'ast, T>>,
@@ -572,6 +573,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
                 }
                 write!(f, "}}")
             }
+            Expression::ArrayInitializer(..) => unimplemented!(),
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
@@ -626,6 +628,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
                 f.debug_list().entries(members.iter()).finish()?;
                 write!(f, "]")
             }
+            Expression::ArrayInitializer(..) => unimplemented!(),
             Expression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)
             }

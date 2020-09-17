@@ -81,14 +81,14 @@ impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for ExpressionLis
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Assignee<'ast, T> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Statement<'ast, T> {}
 impl<'ast, T: Field> NodeValue for SymbolDeclaration<'ast, T> {}
-impl NodeValue for UnresolvedType {}
-impl<'ast> NodeValue for StructDefinition<'ast> {}
-impl<'ast> NodeValue for StructDefinitionField<'ast> {}
+impl<'ast, T: Field> NodeValue for UnresolvedType<'ast, T> {}
+impl<'ast, T: Field> NodeValue for StructDefinition<'ast, T> {}
+impl<'ast, T: Field> NodeValue for StructDefinitionField<'ast, T> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Function<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Module<'ast, T> {}
 impl<'ast> NodeValue for SymbolImport<'ast> {}
-impl<'ast> NodeValue for Variable<'ast> {}
-impl<'ast> NodeValue for Parameter<'ast> {}
+impl<'ast, T: Field> NodeValue for Variable<'ast, T> {}
+impl<'ast, T: Field> NodeValue for Parameter<'ast, T> {}
 impl<'ast> NodeValue for Import<'ast> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Spread<'ast, T> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Range<'ast, T> {}

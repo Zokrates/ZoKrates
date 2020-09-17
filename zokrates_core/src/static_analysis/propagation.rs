@@ -1291,10 +1291,7 @@ mod tests {
                         FieldElementExpression::Number(Bn128Field::from(3)).into(),
                     ])
                     .annotate(Type::FieldElement, 3),
-                    box FieldElementExpression::Add(
-                        box FieldElementExpression::Number(Bn128Field::from(1)),
-                        box FieldElementExpression::Number(Bn128Field::from(1)),
-                    ),
+                    box UExpression::add(1u32.into(), 1u32.into()),
                 );
 
                 assert_eq!(

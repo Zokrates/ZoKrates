@@ -67,10 +67,10 @@ mod tests {
 
     #[test]
     fn detect_non_constant_bound() {
-        let loops = vec![TypedStatement::For(
+        let loops: Vec<TypedStatement<Bn128Field>> = vec![TypedStatement::For(
             Variable::field_element("i"),
-            FieldElementExpression::Identifier("i".into()),
-            FieldElementExpression::Number(Bn128Field::from(2)),
+            UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+            2u32.into(),
             vec![],
         )];
 
@@ -118,12 +118,12 @@ mod tests {
 
         let s = TypedStatement::For(
             Variable::field_element("i"),
-            FieldElementExpression::Number(Bn128Field::from(0)),
-            FieldElementExpression::Number(Bn128Field::from(2)),
+            0u32.into(),
+            2u32.into(),
             vec![TypedStatement::For(
                 Variable::field_element("j"),
-                FieldElementExpression::Identifier("i".into()),
-                FieldElementExpression::Number(Bn128Field::from(2)),
+                UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                2u32.into(),
                 vec![
                     TypedStatement::Declaration(Variable::field_element("foo")),
                     TypedStatement::Definition(

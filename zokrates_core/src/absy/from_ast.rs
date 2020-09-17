@@ -70,8 +70,8 @@ impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarat
     }
 }
 
-impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'ast> {
-    fn from(field: pest::StructField<'ast>) -> absy::StructDefinitionFieldNode<'ast> {
+impl<'ast, T: Field> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'ast, T> {
+    fn from(field: pest::StructField<'ast>) -> absy::StructDefinitionFieldNode<'ast, T> {
         use absy::NodeValue;
 
         let span = field.span;
@@ -133,8 +133,8 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<
     }
 }
 
-impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
-    fn from(param: pest::Parameter<'ast>) -> absy::ParameterNode<'ast> {
+impl<'ast, T: Field> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast, T> {
+    fn from(param: pest::Parameter<'ast>) -> absy::ParameterNode<'ast, T> {
         use absy::NodeValue;
 
         let private = param
@@ -492,13 +492,8 @@ impl<'ast, T: Field> From<pest::ArrayInitializerExpression<'ast>>
         use absy::NodeValue;
 
         let value = absy::ExpressionNode::from(*initializer.value);
-        let count: absy::ExpressionNode<T> = absy::ExpressionNode::from(initializer.count);
-        let count = match count.value {
-            absy::Expression::FieldConstant(v) => v.to_dec_string().parse::<usize>().unwrap(),
-            _ => unreachable!(),
-        };
-        absy::Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(value); count])
-            .span(initializer.span)
+        let count = absy::ExpressionNode::from(initializer.count);
+        absy::Expression::ArrayInitializer(box value, box count).span(initializer.span)
     }
 }
 
@@ -661,8 +656,8 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
     }
 }
 
-impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
-    fn from(t: pest::Type<'ast>) -> absy::UnresolvedTypeNode {
+impl<'ast, T: Field> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast, T> {
+    fn from(t: pest::Type<'ast>) -> absy::UnresolvedTypeNode<'ast, T> {
         use absy::NodeValue;
 
         match t {
@@ -693,19 +688,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
 
                 t.dimensions
                     .into_iter()
-                    .map(|s| match s {
-                        pest::Expression::Literal(c) => match c {
-                            pest::LiteralExpression::DecimalLiteral(n) => unimplemented!(),
-                            _ => unimplemented!(
-                                "Array size should be a decimal number, found {}",
-                                c.span().as_str()
-                            ),
-                        },
-                        e => unimplemented!(
-                            "Array size should be constant, found {}",
-                            e.span().as_str()
-                        ),
-                    })
+                    .map(|s| absy::ExpressionNode::from(s))
                     .rev()
                     .fold(None, |acc, s| match acc {
                         None => Some(absy::UnresolvedType::array(inner_type.clone(), s)),
@@ -849,7 +832,9 @@ mod tests {
         use super::*;
 
         /// Helper method to generate the ast for `def main(private {ty} a): return` which we use to check ty
-        fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, Bn128Field> {
+        fn wrap(
+            ty: absy::UnresolvedType<'static, Bn128Field>,
+        ) -> absy::Module<'static, Bn128Field> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",

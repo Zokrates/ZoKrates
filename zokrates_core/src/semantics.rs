@@ -288,10 +288,10 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn check_struct_type_declaration(
+    fn check_struct_type_declaration<T: Field>(
         &mut self,
         id: String,
-        s: StructDefinitionNode,
+        s: StructDefinitionNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Type, Vec<ErrorInner>> {
@@ -639,7 +639,7 @@ impl<'ast> Checker<'ast> {
         }
     }
 
-    fn check_for_var(&self, var: &VariableNode<'ast>) -> Result<(), ErrorInner> {
+    fn check_for_var<T: Field>(&self, var: &VariableNode<'ast, T>) -> Result<(), ErrorInner> {
         match var.value.get_type() {
             UnresolvedType::Uint(32) => Ok(()),
             t => Err(ErrorInner {
@@ -770,9 +770,9 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn check_parameter(
+    fn check_parameter<T: Field>(
         &mut self,
-        p: ParameterNode<'ast>,
+        p: ParameterNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Parameter<'ast>, Vec<ErrorInner>> {
@@ -784,9 +784,9 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn check_signature(
+    fn check_signature<T: Field>(
         &mut self,
-        signature: UnresolvedSignature,
+        signature: UnresolvedSignature<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Signature, Vec<ErrorInner>> {
@@ -825,9 +825,9 @@ impl<'ast> Checker<'ast> {
         Ok(Signature { inputs, outputs })
     }
 
-    fn check_type(
+    fn check_type<T: Field>(
         &mut self,
-        ty: UnresolvedTypeNode,
+        ty: UnresolvedTypeNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Type, ErrorInner> {
@@ -840,7 +840,7 @@ impl<'ast> Checker<'ast> {
             UnresolvedType::Uint(bitwidth) => Ok(Type::uint(bitwidth)),
             UnresolvedType::Array(t, size) => Ok(Type::Array(ArrayType::new(
                 self.check_type(*t, module_id, types)?,
-                size,
+                unimplemented!("check expression from (int, u32) to u32"),
             ))),
             UnresolvedType::User(id) => types
                 .get(module_id)
@@ -855,9 +855,9 @@ impl<'ast> Checker<'ast> {
         }
     }
 
-    fn check_variable(
+    fn check_variable<T: Field>(
         &mut self,
-        v: crate::absy::VariableNode<'ast>,
+        v: crate::absy::VariableNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Variable<'ast>, Vec<ErrorInner>> {
@@ -870,7 +870,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_for_loop<T: Field>(
         &mut self,
-        var: crate::absy::VariableNode<'ast>,
+        var: crate::absy::VariableNode<'ast, T>,
         from: ExpressionNode<'ast, T>,
         to: ExpressionNode<'ast, T>,
         statements: Vec<StatementNode<'ast, T>>,
@@ -2545,8 +2545,9 @@ impl<'ast> Checker<'ast> {
                     }
                 }
             }
+            Expression::ArrayInitializer(..) => unimplemented!(),
             Expression::InlineStruct(id, inline_members) => {
-                let ty = self.check_type(
+                let ty = self.check_type::<T>(
                     UnresolvedType::User(id.clone()).at(42, 42, 42),
                     module_id,
                     &types,
@@ -3033,11 +3034,11 @@ mod tests {
             .mock()
         }
 
-        fn struct0() -> StructDefinitionNode<'static> {
+        fn struct0() -> StructDefinitionNode<'static, Bn128Field> {
             StructDefinition { fields: vec![] }.mock()
         }
 
-        fn struct1() -> StructDefinitionNode<'static> {
+        fn struct1() -> StructDefinitionNode<'static, Bn128Field> {
             StructDefinition {
                 fields: vec![StructDefinitionField {
                     id: "foo".into(),
@@ -4153,7 +4154,11 @@ mod tests {
             Statement::Declaration(
                 absy::Variable::new(
                     "a",
-                    UnresolvedType::array(UnresolvedType::FieldElement.mock(), 1).mock(),
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.mock(),
+                        Expression::IntConstant(1usize.into()).mock(),
+                    )
+                    .mock(),
                 )
                 .mock(),
             )
@@ -4574,7 +4579,7 @@ mod tests {
         use typed_absy::types::StructMember;
 
         /// solver function to create a module at location "" with a single symbol `Foo { foo: field }`
-        fn create_module_with_foo(s: StructDefinition) -> (Checker, State<Bn128Field>) {
+        fn create_module_with_foo(s: StructDefinition<Bn128Field>) -> (Checker, State<Bn128Field>) {
             let module_id: PathBuf = "".into();
 
             let module: Module<Bn128Field> = Module {
@@ -4604,7 +4609,8 @@ mod tests {
                 // an empty struct should be allowed to be defined
                 let module_id = "".into();
                 let types = HashMap::new();
-                let declaration: StructDefinitionNode = StructDefinition { fields: vec![] }.mock();
+                let declaration: StructDefinitionNode<Bn128Field> =
+                    StructDefinition { fields: vec![] }.mock();
 
                 let expected_type = Type::Struct(StructType::new("".into(), "Foo".into(), vec![]));
 
@@ -4624,7 +4630,7 @@ mod tests {
                 // a valid struct should be allowed to be defined
                 let module_id = "".into();
                 let types = HashMap::new();
-                let declaration: StructDefinitionNode = StructDefinition {
+                let declaration: StructDefinitionNode<Bn128Field> = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -4666,7 +4672,7 @@ mod tests {
                 let module_id = "".into();
                 let types = HashMap::new();
 
-                let declaration0 = StructDefinition {
+                let declaration0: StructDefinitionNode<Bn128Field> = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -4682,7 +4688,7 @@ mod tests {
                 }
                 .mock();
 
-                let declaration1 = StructDefinition {
+                let declaration1: StructDefinitionNode<Bn128Field> = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "bar",
@@ -4720,7 +4726,7 @@ mod tests {
                 let module_id = "".into();
                 let types = HashMap::new();
 
-                let declaration = StructDefinition {
+                let declaration: StructDefinitionNode<Bn128Field> = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -4951,7 +4957,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_type(
+                    checker.check_type::<Bn128Field>(
                         UnresolvedType::User("Foo".into()).mock(),
                         &PathBuf::from(MODULE_ID).into(),
                         &state.types
@@ -4965,7 +4971,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_type(
+                        .check_type::<Bn128Field>(
                             UnresolvedType::User("Bar".into()).mock(),
                             &PathBuf::from(MODULE_ID).into(),
                             &state.types
@@ -4991,7 +4997,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_parameter(
+                    checker.check_parameter::<Bn128Field>(
                         absy::Parameter {
                             id:
                                 absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
@@ -5017,7 +5023,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_parameter(
+                        .check_parameter::<Bn128Field>(
                             absy::Parameter {
                                 id: absy::Variable::new(
                                     "a",
@@ -5072,7 +5078,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_parameter(
+                        .check_parameter::<Bn128Field>(
                             absy::Parameter {
                                 id: absy::Variable::new(
                                     "a",
@@ -5492,7 +5498,11 @@ mod tests {
                     Statement::Declaration(
                         absy::Variable::new(
                             "a",
-                            UnresolvedType::array(UnresolvedType::FieldElement.mock(), 33).mock(),
+                            UnresolvedType::array(
+                                UnresolvedType::FieldElement.mock(),
+                                Expression::IntConstant(33usize.into()).mock(),
+                            )
+                            .mock(),
                         )
                         .mock(),
                     )
@@ -5534,9 +5544,12 @@ mod tests {
                         absy::Variable::new(
                             "a",
                             UnresolvedType::array(
-                                UnresolvedType::array(UnresolvedType::FieldElement.mock(), 33)
-                                    .mock(),
-                                42,
+                                UnresolvedType::array(
+                                    UnresolvedType::FieldElement.mock(),
+                                    Expression::IntConstant(33usize.into()).mock(),
+                                )
+                                .mock(),
+                                Expression::IntConstant(42usize.into()).mock(),
                             )
                             .mock(),
                         )
