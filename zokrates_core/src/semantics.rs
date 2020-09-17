@@ -1411,17 +1411,17 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Expression::FieldConstant(n) => match n <= T::max_value().to_biguint() {
-                true => Ok(FieldElementExpression::Number(T::from(n)).into()),
-                false => Err(ErrorInner {
+            Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(
+                T::try_from(n).map_err(|_| ErrorInner {
                     pos: Some(pos),
                     message: format!(
                         "Field constant not in the representable range [{}, {}]",
                         T::min_value(),
                         T::max_value()
                     ),
-                }),
-            },
+                })?,
+            )
+            .into()),
             Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
