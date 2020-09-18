@@ -838,10 +838,34 @@ impl<'ast> Checker<'ast> {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
             UnresolvedType::Boolean => Ok(Type::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(Type::uint(bitwidth)),
-            UnresolvedType::Array(t, size) => Ok(Type::Array(ArrayType::new(
-                self.check_type(*t, module_id, types)?,
-                unimplemented!("check expression from (int, u32) to u32"),
-            ))),
+            UnresolvedType::Array(t, size) => {
+                let size = self.check_expression(size, module_id, types)?;
+
+                let size =
+                    UExpression::try_from_typed(size, UBitwidth::B32).map_err(|e| ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected the array size to have type u32, found {}",
+                            e.get_type()
+                        ),
+                    })?;
+
+                let size = match size.as_inner() {
+                    UExpressionInner::Value(v) => Ok(v),
+                    _ => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected the array size to be a constant, found {}",
+                            size
+                        ),
+                    }),
+                }?;
+
+                Ok(Type::Array(ArrayType::new(
+                    self.check_type(*t, module_id, types)?,
+                    *size as usize,
+                )))
+            }
             UnresolvedType::User(id) => types
                 .get(module_id)
                 .unwrap()
@@ -889,65 +913,19 @@ impl<'ast> Checker<'ast> {
             .check_expression(to, module_id, &types)
             .map_err(|e| vec![e])?;
 
-        let from = match from {
-            TypedExpression::Uint(from) => match from.bitwidth() {
-                UBitwidth::B32 => Ok(from.try_into().unwrap()),
-                bitwidth => Err(ErrorInner {
-                    pos: Some(pos),
-                    message: format!(
-                        "Expected lower loop bound to be of type u32, found {}",
-                        Type::Uint(bitwidth)
-                    ),
-                }),
-            },
-            TypedExpression::Int(v) => {
-                UExpression::try_from_int(v, UBitwidth::B32).map_err(|_| ErrorInner {
-                    pos: Some(pos),
-                    message: format!(
-                        "Expected lower loop bound to be of type u32, found {}",
-                        Type::Int
-                    ),
-                })
-            }
-            from => Err(ErrorInner {
+        let from = UExpression::try_from_typed(from, UBitwidth::B32)
+            .map_err(|e| ErrorInner {
                 pos: Some(pos),
-                message: format!(
-                    "Expected lower loop bound to be of type u32, found {}",
-                    from.get_type()
-                ),
-            }),
-        }
-        .map_err(|e| vec![e])?;
+                message: format!("Expected lower loop bound to be of type u32, found {}", e),
+            })
+            .map_err(|e| vec![e])?;
 
-        let to = match to {
-            TypedExpression::Uint(to) => match to.bitwidth() {
-                UBitwidth::B32 => Ok(to.try_into().unwrap()),
-                bitwidth => Err(ErrorInner {
-                    pos: Some(pos),
-                    message: format!(
-                        "Expected upper loop bound to be of type u32, found {}",
-                        Type::Uint(bitwidth)
-                    ),
-                }),
-            },
-            TypedExpression::Int(v) => {
-                UExpression::try_from_int(v, UBitwidth::B32).map_err(|_| ErrorInner {
-                    pos: Some(pos),
-                    message: format!(
-                        "Expected upper loop bound to be of type u32, found {}",
-                        Type::Int
-                    ),
-                })
-            }
-            to => Err(ErrorInner {
+        let to = UExpression::try_from_typed(to, UBitwidth::B32)
+            .map_err(|e| ErrorInner {
                 pos: Some(pos),
-                message: format!(
-                    "Expected upper loop bound to be of type u32, found {}",
-                    to.get_type()
-                ),
-            }),
-        }
-        .map_err(|e| vec![e])?;
+                message: format!("Expected upper loop bound to be of type u32, found {}", e),
+            })
+            .map_err(|e| vec![e])?;
 
         self.insert_into_scope(var.clone());
 
@@ -1005,7 +983,6 @@ impl<'ast> Checker<'ast> {
                 let checked_expr = self
                     .check_expression(expr, module_id, &types)
                     .map_err(|e| vec![e])?;
-                let expression_type = checked_expr.get_type();
 
                 // check that the assignee is declared and is well formed
                 let var = self
@@ -1015,66 +992,35 @@ impl<'ast> Checker<'ast> {
                 let var_type = var.get_type();
 
                 // make sure the assignee has the same type as the rhs
-                match expression_type == var_type {
-                    true => Ok(TypedStatement::Definition(var, checked_expr)),
-                    false => match checked_expr {
-                        TypedExpression::Int(v) => match var_type {
-                            Type::Uint(bitwidth) => UExpression::try_from_int(v.clone(), bitwidth)
-                                .map(|e| TypedStatement::Definition(var.clone(), e.into()))
-                                .map_err(|_| ErrorInner {
-                                    pos: Some(pos),
-                                    message: format!(
-                                        "Expression {} of type {} cannot be assigned to {} of type {}",
-                                        v.clone(),
-                                        expression_type,
-                                        var,
-                                        var_type
-                                    ),
-                                }),
-                            Type::FieldElement => FieldElementExpression::try_from_int(v.clone())
-                                .map(|e| TypedStatement::Definition(var.clone(), e.into()))
-                                .map_err(|_| ErrorInner {
-                                    pos: Some(pos),
-                                    message: format!(
-                                        "Expression {} of type {} cannot be assigned to {} of type {}",
-                                        v.clone(),
-                                        expression_type,
-                                        var,
-                                        var_type
-                                    ),
-                                }),
-                            var_type => Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Expression {} of type {} cannot be assigned to {} of type {}",
-                                    v, expression_type, var, var_type
-                                ),
-                            }),
-                        },
-                        TypedExpression::Array(a) => ArrayExpression::try_from_int(a.clone(), match var_type {
-                            Type::Array(ref array_ty) => array_ty.clone(),
-                            _ => unimplemented!()
-                        })
-                            .map(|e| TypedStatement::Definition(var.clone(), e.into()))
-                            .map_err(|_| ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Expression {} of type {} cannot be assigned to {} of type {}",
-                                    a.clone(),
-                                    expression_type,
-                                    var,
-                                    var_type
-                                ),
-                            }),
-                        _ => Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Expression {} of type {} cannot be assigned to {} of type {}",
-                                    checked_expr, expression_type, var, var_type
-                                ),
-                            }),
+                match var_type.clone() {
+                    Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
+                        .map(TypedExpression::from),
+                    Type::Boolean => {
+                        BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
                     }
+                    Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, bitwidth)
+                        .map(TypedExpression::from),
+                    Type::Array(array_ty) => {
+                        ArrayExpression::try_from_typed(checked_expr, array_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Struct(struct_ty) => {
+                        StructExpression::try_from_typed(checked_expr, struct_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Int => Err(checked_expr), // Integers cannot be assigned
                 }
+                .map_err(|e| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Expression {} of type {} cannot be assigned to {} of type {}",
+                        e,
+                        e.get_type(),
+                        var.clone(),
+                        var_type
+                    ),
+                })
+                .map(|rhs| TypedStatement::Definition(var, rhs))
                 .map_err(|e| vec![e])
             }
             Statement::Assertion(e) => {
@@ -1212,23 +1158,17 @@ impl<'ast> Checker<'ast> {
                             ),
                         };
 
-                        let checked_typed_index = match checked_index {
-                            TypedExpression::Uint(e) => Ok(e),
-                            TypedExpression::Int(v) => UExpression::try_from_int(v, UBitwidth::B32)
-                                .map_err(|message| ErrorInner {
+                        let checked_typed_index =
+                            UExpression::try_from_typed(checked_index, UBitwidth::B32).map_err(
+                                |e| ErrorInner {
                                     pos: Some(pos),
-                                    message,
-                                }),
-                            e => Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Expected array {} index to have type u32, found {}",
-                                    checked_assignee,
-                                    e.get_type()
-                                ),
-                            }),
-                        }?;
+                                    message: format!(
+                                        "Expected array {} index to have type u32, found {}",
+                                        checked_assignee,
+                                        e.get_type()
+                                    ),
+                                },
+                            )?;
 
                         Ok(TypedAssignee::Select(
                             box checked_assignee,
@@ -1237,7 +1177,6 @@ impl<'ast> Checker<'ast> {
                     }
                     ty => Err(ErrorInner {
                         pos: Some(pos),
-
                         message: format!(
                             "Cannot access element at index {} on {} of type {}",
                             index, checked_assignee, ty,
@@ -2081,144 +2020,106 @@ impl<'ast> Checker<'ast> {
                                 // of complexity in the compiler, as function selection in inlining requires knowledge of the array size, but
                                 // determining array size potentially requires inlining and propagating. This suggests we would need semantic checking
                                 // to happen iteratively with inlining and propagation, which we can't do now as we go from absy to typed_absy
-                                let from = match from {
-                                        TypedExpression::Uint(e) => Ok(e),
-                                        TypedExpression::Int(v) => UExpression::try_from_int(v.clone(), UBitwidth::B32).map_err(|_| ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected the lower bound of the range to be a u32, found {}",
-                                                    v
-                                                ),
-                                            }),
-                                        e => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Expected the lower bound of the range to be a u32, found {}",
-                                                e.get_type()
-                                            ),
-                                        })
-                                    }?;
+                                let from = UExpression::try_from_typed(from, UBitwidth::B32).map_err(|e| ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Expected the lower bound of the range to be a u32, found {}",
+                                        e.get_type()
+                                    ),
+                                })?;
 
-                                let from = match from.bitwidth() {
-                                        UBitwidth::B32 => match from.into_inner() {
-                                            UExpressionInner::Value(v) => Ok(v),
-                                            e => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected the lower bound of the range to be a constant u32, found {}",
-                                                    e.annotate(UBitwidth::B32)
-                                                ),
+                                let from = match from.as_inner() {
+                                    UExpressionInner::Value(v) => Ok(v),
+                                    _ => Err(ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Expected the lower bound of the range to be a constant u32, found {}",
+                                            from
+                                        ),
+                                    })
+                                }?;
+
+                                let to = UExpression::try_from_typed(to, UBitwidth::B32).map_err(|e| ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Expected the upper bound of the range to be a u32, found {}",
+                                        e.get_type()
+                                    ),
+                                })?;
+
+                                let to = match to.as_inner() {
+                                    UExpressionInner::Value(v) => Ok(v),
+                                    _ => Err(ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Expected the upper bound of the range to be a constant u32, found {}",
+                                            to
+                                        ),
+                                    })
+                                }?;
+
+                                match (*from as u32, *to as u32, array_size) {
+                                    (f, _, s) if f > s => Err(ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Lower range bound {} is out of array bounds [0, {}]",
+                                            f, s,
+                                        ),
+                                    }),
+                                    (_, t, s) if t > s => Err(ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Higher range bound {} is out of array bounds [0, {}]",
+                                            t, s,
+                                        ),
+                                    }),
+                                    (f, t, _) if f > t => Err(ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Lower range bound {} is larger than higher range bound {}",
+                                            f, t,
+                                        ),
+                                    }),
+                                    (f, t, _) => Ok(ArrayExpressionInner::Value(
+                                        (f..t)
+                                            .map(|i| match inner_type.clone() {
+                                                Type::FieldElement => FieldElementExpression::Select(
+                                                    box array.clone(),
+                                                    box i.into(),
+                                                )
+                                                .into(),
+                                                Type::Boolean => BooleanExpression::Select(
+                                                    box array.clone(),
+                                                    box i.into(),
+                                                )
+                                                .into(),
+                                                Type::Uint(bitwidth) => UExpressionInner::Select(
+                                                    box array.clone(),
+                                                    box i.into(),
+                                                )
+                                                .annotate(bitwidth)
+                                                .into(),
+                                                Type::Struct(struct_ty) => {
+                                                    StructExpressionInner::Select(
+                                                        box array.clone(),
+                                                        box i.into(),
+                                                    )
+                                                    .annotate(struct_ty)
+                                                    .into()
+                                                }
+                                                Type::Array(array_ty) => ArrayExpressionInner::Select(
+                                                    box array.clone(),
+                                                    box i.into(),
+                                                )
+                                                .annotate(*array_ty.ty, array_ty.size)
+                                                .into(),
+                                                Type::Int => unreachable!(),
                                             })
-                                        },
-                                        _ => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Expected the lower bound of the range to be a constant u32, found {}",
-                                                from.get_type()
-                                            ),
-                                        })
-                                    }? as u32;
-
-                                let to = match to {
-                                        TypedExpression::Uint(e) => Ok(e),
-                                        TypedExpression::Int(v) => UExpression::try_from_int(v.clone(), UBitwidth::B32).map_err(|_| ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected the lower bound of the range to be a u32, found {}",
-                                                    v
-                                                ),
-                                            }),
-                                        e => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Expected the upper bound of the range to be a u32, found {}",
-                                                e.get_type()
-                                            ),
-                                        })
-                                    }?;
-
-                                let to = match to.bitwidth() {
-                                            UBitwidth::B32 => match to.into_inner() {
-                                                UExpressionInner::Value(v) => Ok(v),
-                                                e => Err(ErrorInner {
-                                                    pos: Some(pos),
-                                                    message: format!(
-                                                        "Expected the upper bound of the range to be a constant u32, found {}",
-                                                        e.annotate(UBitwidth::B32)
-                                                    ),
-                                                })
-                                            },
-                                            _ => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected the upper bound of the range to be a constant u32, found {}",
-                                                    to.get_type()
-                                                ),
-                                            })
-                                        }? as u32;
-
-                                match (from, to, array_size) {
-                                        (f, _, s) if f > s => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Lower range bound {} is out of array bounds [0, {}]",
-                                                f, s,
-                                            ),
-                                        }),
-                                        (_, t, s) if t > s => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Higher range bound {} is out of array bounds [0, {}]",
-                                                t, s,
-                                            ),
-                                        }),
-                                        (f, t, _) if f > t => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Lower range bound {} is larger than higher range bound {}",
-                                                f, t,
-                                            ),
-                                        }),
-                                        (f, t, _) => Ok(ArrayExpressionInner::Value(
-                                            (f..t)
-                                                .map(|i| match inner_type.clone() {
-                                                    Type::FieldElement => FieldElementExpression::Select(
-                                                        box array.clone(),
-                                                        box i.into(),
-                                                    )
-                                                    .into(),
-                                                    Type::Boolean => BooleanExpression::Select(
-                                                        box array.clone(),
-                                                        box i.into(),
-                                                    )
-                                                    .into(),
-                                                    Type::Uint(bitwidth) => UExpressionInner::Select(
-                                                        box array.clone(),
-                                                        box i.into(),
-                                                    )
-                                                    .annotate(bitwidth)
-                                                    .into(),
-                                                    Type::Struct(struct_ty) => {
-                                                        StructExpressionInner::Select(
-                                                            box array.clone(),
-                                                            box i.into(),
-                                                        )
-                                                        .annotate(struct_ty)
-                                                        .into()
-                                                    }
-                                                    Type::Array(array_ty) => ArrayExpressionInner::Select(
-                                                        box array.clone(),
-                                                        box i.into(),
-                                                    )
-                                                    .annotate(*array_ty.ty, array_ty.size)
-                                                    .into(),
-                                                    Type::Int => unreachable!(),
-                                                })
-                                                .collect(),
-                                        )
-                                        .annotate(inner_type, (t - f) as usize)
-                                        .into()),
-                                    }
+                                            .collect(),
+                                    )
+                                    .annotate(inner_type, (t - f) as usize)
+                                    .into()),
+                                }
                             }
                             e => Err(ErrorInner {
                                 pos: Some(pos),
@@ -2343,35 +2244,20 @@ impl<'ast> Checker<'ast> {
                     }
                     Type::FieldElement => {
                         // we check all expressions have that same type
-                        let mut unwrapped_expressions = vec![];
-
-                        for e in expressions_checked {
-                            let unwrapped_e = match e {
-                                TypedExpression::FieldElement(e) => Ok(e),
-                                TypedExpression::Int(v) => {
-                                    FieldElementExpression::try_from_int(v.clone()).map_err(|_| {
-                                        ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Expected {} to have type {}",
-                                                v, inferred_type,
-                                            ),
-                                        }
+                        let unwrapped_expressions = expressions_checked
+                            .into_iter()
+                            .map(|e| {
+                                FieldElementExpression::try_from_typed(e)
+                                    .map(|e| e.into())
+                                    .map_err(|e| ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Expected {} to have type {}",
+                                            e, inferred_type,
+                                        ),
                                     })
-                                }
-                                e => Err(ErrorInner {
-                                    pos: Some(pos),
-
-                                    message: format!(
-                                        "Expected {} to have type {}, but type is {}",
-                                        e,
-                                        inferred_type,
-                                        e.get_type()
-                                    ),
-                                }),
-                            }?;
-                            unwrapped_expressions.push(unwrapped_e.into());
-                        }
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
 
                         let size = unwrapped_expressions.len() as u32;
 
@@ -2381,24 +2267,20 @@ impl<'ast> Checker<'ast> {
                     }
                     Type::Boolean => {
                         // we check all expressions have that same type
-                        let mut unwrapped_expressions = vec![];
-
-                        for e in expressions_checked {
-                            let unwrapped_e = match e {
-                                TypedExpression::Boolean(e) => Ok(e),
-                                e => Err(ErrorInner {
-                                    pos: Some(pos),
-
-                                    message: format!(
-                                        "Expected {} to have type {}, but type is {}",
-                                        e,
-                                        inferred_type,
-                                        e.get_type()
-                                    ),
-                                }),
-                            }?;
-                            unwrapped_expressions.push(unwrapped_e.into());
-                        }
+                        let unwrapped_expressions = expressions_checked
+                            .into_iter()
+                            .map(|e| {
+                                BooleanExpression::try_from_typed(e)
+                                    .map(|e| e.into())
+                                    .map_err(|e| ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Expected {} to have type {}",
+                                            e, inferred_type,
+                                        ),
+                                    })
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
 
                         let size = unwrapped_expressions.len() as u32;
 
@@ -2408,50 +2290,20 @@ impl<'ast> Checker<'ast> {
                     }
                     Type::Uint(bitwidth) => {
                         // we check all expressions have that same type
-                        let mut unwrapped_expressions = vec![];
-
-                        for e in expressions_checked {
-                            let unwrapped_e = match e {
-                                TypedExpression::Uint(e) => {
-                                    if e.get_type() == Type::Uint(bitwidth) {
-                                        Ok(e)
-                                    } else {
-                                        Err(ErrorInner {
-                                            pos: Some(pos),
-
-                                            message: format!(
-                                                "Expected {} to have type {}, but type is {}",
-                                                e,
-                                                Type::Uint(bitwidth),
-                                                e.get_type()
-                                            ),
-                                        })
-                                    }
-                                }
-                                TypedExpression::Int(v) => {
-                                    UExpression::try_from_int(v.clone(), bitwidth).map_err(|_| {
-                                        ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Expected {} to have type {}",
-                                                v, inferred_type,
-                                            ),
-                                        }
+                        let unwrapped_expressions = expressions_checked
+                            .into_iter()
+                            .map(|e| {
+                                UExpression::try_from_typed(e, bitwidth)
+                                    .map(|e| e.into())
+                                    .map_err(|e| ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Expected {} to have type {}",
+                                            e, inferred_type,
+                                        ),
                                     })
-                                }
-                                e => Err(ErrorInner {
-                                    pos: Some(pos),
-
-                                    message: format!(
-                                        "Expected {} to have type {}, but type is {}",
-                                        e,
-                                        Type::Uint(bitwidth),
-                                        e.get_type()
-                                    ),
-                                }),
-                            }?;
-                            unwrapped_expressions.push(unwrapped_e.into());
-                        }
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
 
                         let size = unwrapped_expressions.len() as u32;
 
@@ -2545,7 +2397,36 @@ impl<'ast> Checker<'ast> {
                     }
                 }
             }
-            Expression::ArrayInitializer(..) => unimplemented!(),
+            Expression::ArrayInitializer(box e, box count) => {
+                let e = self.check_expression(e, module_id, &types)?;
+                let count = self.check_expression(count, module_id, &types)?;
+
+                let count =
+                    UExpression::try_from_typed(count, UBitwidth::B32).map_err(|e| ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected array initializer count to be a u32, found {}",
+                            e
+                        ),
+                    })?;
+
+                let count = match count.as_inner() {
+                    UExpressionInner::Value(v) => Ok(v),
+                    _ => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected array initializer count to be a constant, found {}",
+                            count
+                        ),
+                    }),
+                }?;
+
+                Ok(
+                    ArrayExpressionInner::Value(vec![e.clone(); *count as usize])
+                        .annotate(e.get_type(), *count as usize)
+                        .into(),
+                )
+            }
             Expression::InlineStruct(id, inline_members) => {
                 let ty = self.check_type::<T>(
                     UnresolvedType::User(id.clone()).at(42, 42, 42),
@@ -2669,24 +2550,13 @@ impl<'ast> Checker<'ast> {
                 let e1 = self.check_expression(e1, module_id, &types)?;
                 let e2 = self.check_expression(e2, module_id, &types)?;
 
-                let e2 = match e2 {
-                    TypedExpression::FieldElement(e) => Ok(e),
-                    TypedExpression::Int(v) => FieldElementExpression::try_from_int(v.clone())
-                        .map_err(|_| ErrorInner {
-                            pos: Some(pos),
-                            message: format!(
-                                "Expected the left shift right operand to be a field element, found {}",
-                                v
-                            ),
-                        }),
-                    e => Err(ErrorInner {
-                        pos: Some(pos),
-                        message: format!(
-                            "Expected the left shift right operand to be a field element, found {}",
-                            e.get_type()
-                        ),
-                    }),
-                }?;
+                let e2 = FieldElementExpression::try_from_typed(e2).map_err(|e| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Expected the left shift right operand to be a field element, found {}",
+                        e
+                    ),
+                })?;
 
                 match e1 {
                     TypedExpression::Int(e1) => Ok(IntExpression::LeftShift(box e1, box e2).into()),
@@ -2706,24 +2576,13 @@ impl<'ast> Checker<'ast> {
                 let e1 = self.check_expression(e1, module_id, &types)?;
                 let e2 = self.check_expression(e2, module_id, &types)?;
 
-                let e2 = match e2 {
-                    TypedExpression::FieldElement(e) => Ok(e),
-                    TypedExpression::Int(v) => FieldElementExpression::try_from_int(v.clone())
-                        .map_err(|_| ErrorInner {
-                            pos: Some(pos),
-                            message: format!(
-                                "Expected the right shift right operand to be a field element, found {}",
-                                v
-                            ),
-                        }),
-                    e => Err(ErrorInner {
-                        pos: Some(pos),
-                        message: format!(
-                            "Expected the right shift right operand to be a field element, found {}",
-                            e.get_type()
-                        ),
-                    }),
-                }?;
+                let e2 = FieldElementExpression::try_from_typed(e2).map_err(|e| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Expected the right shift right operand to be a field element, found {}",
+                        e
+                    ),
+                })?;
 
                 match e1 {
                     TypedExpression::Int(e1) => {
@@ -2750,7 +2609,6 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|message| ErrorInner {
                     pos: Some(pos),
-
                     message,
                 })?;
 
@@ -3400,9 +3258,9 @@ mod tests {
         functions: HashSet<FunctionKey<'ast>>,
     ) -> Checker<'ast> {
         Checker {
-            scope: scope,
-            functions: functions,
-            level: level,
+            scope,
+            functions,
+            level,
         }
     }
 

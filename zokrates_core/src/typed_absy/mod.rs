@@ -737,7 +737,26 @@ pub enum FieldElementExpression<'ast, T> {
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
+impl<'ast, T: Field> BooleanExpression<'ast, T> {
+    pub fn try_from_typed(e: TypedExpression<'ast, T>) -> Result<Self, TypedExpression<'ast, T>> {
+        match e {
+            TypedExpression::Boolean(e) => Ok(e),
+            e => Err(e),
+        }
+    }
+}
+
 impl<'ast, T: Field> FieldElementExpression<'ast, T> {
+    pub fn try_from_typed(e: TypedExpression<'ast, T>) -> Result<Self, TypedExpression<'ast, T>> {
+        match e {
+            TypedExpression::FieldElement(e) => Ok(e),
+            TypedExpression::Int(e) => {
+                Self::try_from_int(e.clone()).map_err(|_| TypedExpression::Int(e))
+            }
+            e => Err(e),
+        }
+    }
+
     pub fn try_from_int(i: IntExpression<'ast, T>) -> Result<Self, String> {
         match i {
             IntExpression::Value(i) => {
@@ -900,6 +919,17 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
 }
 
 impl<'ast, T: Field> ArrayExpression<'ast, T> {
+    pub fn try_from_typed(
+        e: TypedExpression<'ast, T>,
+        target_array_ty: ArrayType,
+    ) -> Result<Self, TypedExpression<'ast, T>> {
+        match e {
+            TypedExpression::Array(e) => Self::try_from_int(e.clone(), target_array_ty)
+                .map_err(|_| TypedExpression::Array(e)),
+            e => Err(e),
+        }
+    }
+
     // precondition: `array` is only made of inline arrays
     pub fn try_from_int(array: Self, target_array_ty: ArrayType) -> Result<Self, ()> {
         if array.get_array_type() == target_array_ty {
@@ -977,6 +1007,22 @@ pub struct StructExpression<'ast, T> {
 }
 
 impl<'ast, T> StructExpression<'ast, T> {
+    pub fn try_from_typed(
+        e: TypedExpression<'ast, T>,
+        target_struct_ty: StructType,
+    ) -> Result<Self, TypedExpression<'ast, T>> {
+        match e {
+            TypedExpression::Struct(e) => {
+                if e.ty() == &target_struct_ty {
+                    Ok(e)
+                } else {
+                    Err(TypedExpression::Struct(e))
+                }
+            }
+            e => Err(e),
+        }
+    }
+
     pub fn ty(&self) -> &StructType {
         &self.ty
     }
@@ -1111,41 +1157,6 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             }
             FieldElementExpression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             FieldElementExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
-        }
-    }
-}
-
-impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.inner {
-            UExpressionInner::Value(ref v) => write!(f, "{}u{}", v, self.bitwidth),
-            UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
-            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
-            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
-            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
-            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
-            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
-            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
-            UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
-            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
-            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
-            UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
-            UExpressionInner::FunctionCall(ref k, ref p) => {
-                write!(f, "{}(", k.id,)?;
-                for (i, param) in p.iter().enumerate() {
-                    write!(f, "{}", param)?;
-                    if i < p.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ")")
-            }
-            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
-            UExpressionInner::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
         }
     }
 }
