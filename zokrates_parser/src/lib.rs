@@ -101,7 +101,9 @@ mod tests {
                                     term(43, 44, [
                                         primary_expression(43, 44, [
                                             literal(43, 44, [
-                                                decimal_number(43, 44)
+                                                decimal_literal(43, 44, [
+                                                    decimal_number(43, 44)
+                                                ])
                                             ])
                                         ])
                                     ])
@@ -258,7 +260,9 @@ mod tests {
                                         term(30, 31, [
                                             primary_expression(30, 31, [
                                                 literal(30, 31, [
-                                                    decimal_number(30, 31)
+                                                    decimal_literal(30, 31, [
+                                                        decimal_number(30, 31)
+                                                    ])
                                                 ])
                                             ])
                                         ])

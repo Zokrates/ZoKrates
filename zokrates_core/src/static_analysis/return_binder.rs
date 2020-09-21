@@ -23,6 +23,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ReturnBinder {
                     .iter()
                     .zip(ret_identifiers.iter())
                     .map(|(e, i)| match e.get_type() {
+                        Type::Int => unreachable!(),
                         Type::FieldElement => FieldElementExpression::Identifier(i.clone()).into(),
                         Type::Boolean => BooleanExpression::Identifier(i.clone()).into(),
                         Type::Array(array_type) => ArrayExpressionInner::Identifier(i.clone())
@@ -34,7 +35,6 @@ impl<'ast, T: Field> Folder<'ast, T> for ReturnBinder {
                         Type::Uint(bitwidth) => UExpressionInner::Identifier(i.clone())
                             .annotate(bitwidth)
                             .into(),
-                        Type::Int => unreachable!(),
                     })
                     .collect();
 

@@ -722,10 +722,9 @@ mod tests {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
                             absy::ExpressionList {
-                                expressions: vec![absy::Expression::FieldConstant(
-                                    Bn128Field::from(42),
-                                )
-                                .into()],
+                                expressions: vec![
+                                    absy::Expression::IntConstant(42usize.into()).into()
+                                ],
                             }
                             .into(),
                         )
@@ -803,10 +802,9 @@ mod tests {
                         ],
                         statements: vec![absy::Statement::Return(
                             absy::ExpressionList {
-                                expressions: vec![absy::Expression::FieldConstant(
-                                    Bn128Field::from(42),
-                                )
-                                .into()],
+                                expressions: vec![
+                                    absy::Expression::IntConstant(42usize.into()).into()
+                                ],
                             }
                             .into(),
                         )
@@ -870,7 +868,7 @@ mod tests {
                     "field[2]",
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::FieldElement.mock(),
-                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                        absy::Expression::IntConstant(2usize.into()).mock(),
                     ),
                 ),
                 (
@@ -878,10 +876,10 @@ mod tests {
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::FieldElement.mock(),
-                            absy::Expression::FieldConstant(Bn128Field::from(3)).mock(),
+                            absy::Expression::IntConstant(3usize.into()).mock(),
                         )
                         .mock(),
-                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                        absy::Expression::IntConstant(2usize.into()).mock(),
                     ),
                 ),
                 (
@@ -889,10 +887,10 @@ mod tests {
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::Boolean.mock(),
-                            absy::Expression::U32Constant(3).mock(),
+                            absy::Expression::U32Constant(3u32).mock(),
                         )
                         .mock(),
-                        absy::Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                        absy::Expression::IntConstant(2usize.into()).mock(),
                     ),
                 ),
             ];
@@ -943,7 +941,7 @@ mod tests {
                     absy::Expression::Select(
                         box absy::Expression::Identifier("a").into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(Bn128Field::from(3)).into(),
+                            absy::Expression::IntConstant(3usize.into()).into(),
                         )
                         .into(),
                     ),
@@ -954,13 +952,13 @@ mod tests {
                         box absy::Expression::Select(
                             box absy::Expression::Identifier("a").into(),
                             box absy::RangeOrExpression::Expression(
-                                absy::Expression::FieldConstant(Bn128Field::from(3)).into(),
+                                absy::Expression::IntConstant(3usize.into()).into(),
                             )
                             .into(),
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
+                            absy::Expression::IntConstant(4usize.into()).into(),
                         )
                         .into(),
                     ),
@@ -970,11 +968,11 @@ mod tests {
                     absy::Expression::Select(
                         box absy::Expression::FunctionCall(
                             "a",
-                            vec![absy::Expression::FieldConstant(Bn128Field::from(3)).into()],
+                            vec![absy::Expression::IntConstant(3usize.into()).into()],
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
+                            absy::Expression::IntConstant(4usize.into()).into(),
                         )
                         .into(),
                     ),
@@ -985,17 +983,17 @@ mod tests {
                         box absy::Expression::Select(
                             box absy::Expression::FunctionCall(
                                 "a",
-                                vec![absy::Expression::FieldConstant(Bn128Field::from(3)).into()],
+                                vec![absy::Expression::IntConstant(3usize.into()).into()],
                             )
                             .into(),
                             box absy::RangeOrExpression::Expression(
-                                absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
+                                absy::Expression::IntConstant(4usize.into()).into(),
                             )
                             .into(),
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(Bn128Field::from(5)).into(),
+                            absy::Expression::IntConstant(5usize.into()).into(),
                         )
                         .into(),
                     ),

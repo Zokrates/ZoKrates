@@ -72,7 +72,10 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         }
     }
 
-    pub fn try_from_int(i: IntExpression<'ast, T>, bitwidth: UBitwidth) -> Result<Self, String> {
+    pub fn try_from_int(
+        i: IntExpression<'ast, T>,
+        bitwidth: UBitwidth,
+    ) -> Result<Self, IntExpression<'ast, T>> {
         use self::IntExpression::*;
 
         match i {
@@ -83,10 +86,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                     )
                     .annotate(bitwidth))
                 } else {
-                    Err(format!(
-                        "Literal `{}` is too large for type u{}",
-                        i, bitwidth
-                    ))
+                    Err(Value(i))
                 }
             }
             Add(box e1, box e2) => Ok(UExpression::add(
@@ -127,10 +127,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 Self::try_from_int(alternative, bitwidth)?,
             )),
             Select(..) => unimplemented!(),
-            i => Err(format!(
-                "Expected a `u{}` but found expression `{}`",
-                bitwidth, i
-            )),
+            i => Err(i),
         }
     }
 }
@@ -192,7 +189,10 @@ pub enum UExpressionInner<'ast, T> {
         Box<UExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(
+        Box<ArrayExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {

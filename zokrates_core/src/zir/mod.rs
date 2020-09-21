@@ -381,26 +381,22 @@ pub enum FieldElementExpression<'ast, T> {
 pub enum BooleanExpression<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(bool),
-    FieldLt(
+    Lt(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FieldLe(
+    Le(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FieldGe(
+    Ge(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FieldGt(
+    Gt(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    UintLt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     FieldEq(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -510,14 +506,10 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
-            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),

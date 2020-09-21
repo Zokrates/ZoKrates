@@ -85,10 +85,9 @@ impl<'ast> Unroller<'ast> {
                     match head {
                         Access::Select(head) => {
                             statements.insert(TypedStatement::Assertion(
-                                BooleanExpression::UintLt(
+                                BooleanExpression::Lt(
                                     box head.clone(),
-                                    box UExpressionInner::Value(size as u128)
-                                        .annotate(UBitwidth::B32),
+                                    box FieldElementExpression::Number(T::from(size)),
                                 )
                                 .into(),
                             ));
@@ -98,16 +97,14 @@ impl<'ast> Unroller<'ast> {
                                     .map(|i| match inner_ty {
                                         Type::Int => unreachable!(),
                                         Type::Array(..) => ArrayExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                            BooleanExpression::FieldEq(
+                                                box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
                                                 ArrayExpression::select(
                                                     base.clone(),
-                                                    UExpressionInner::Value(i as u128)
-                                                        .annotate(UBitwidth::B32),
+                                                    FieldElementExpression::Number(T::from(i)),
                                                 )
                                                 .into(),
                                                 tail.clone(),
@@ -122,22 +119,19 @@ impl<'ast> Unroller<'ast> {
                                             },
                                             ArrayExpression::select(
                                                 base.clone(),
-                                                UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                                FieldElementExpression::Number(T::from(i)),
                                             ),
                                         )
                                         .into(),
                                         Type::Struct(..) => StructExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                            BooleanExpression::FieldEq(
+                                                box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
                                                 StructExpression::select(
                                                     base.clone(),
-                                                    UExpressionInner::Value(i as u128)
-                                                        .annotate(UBitwidth::B32),
+                                                    FieldElementExpression::Number(T::from(i)),
                                                 )
                                                 .into(),
                                                 tail.clone(),
@@ -152,22 +146,19 @@ impl<'ast> Unroller<'ast> {
                                             },
                                             StructExpression::select(
                                                 base.clone(),
-                                                UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                                FieldElementExpression::Number(T::from(i)),
                                             ),
                                         )
                                         .into(),
                                         Type::FieldElement => FieldElementExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                            BooleanExpression::FieldEq(
+                                                box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
                                                 FieldElementExpression::select(
                                                     base.clone(),
-                                                    UExpressionInner::Value(i as u128)
-                                                        .annotate(UBitwidth::B32),
+                                                    FieldElementExpression::Number(T::from(i)),
                                                 )
                                                 .into(),
                                                 tail.clone(),
@@ -182,22 +173,19 @@ impl<'ast> Unroller<'ast> {
                                             },
                                             FieldElementExpression::select(
                                                 base.clone(),
-                                                UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                                FieldElementExpression::Number(T::from(i)),
                                             ),
                                         )
                                         .into(),
                                         Type::Boolean => BooleanExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                            BooleanExpression::FieldEq(
+                                                box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
                                                 BooleanExpression::select(
                                                     base.clone(),
-                                                    UExpressionInner::Value(i as u128)
-                                                        .annotate(UBitwidth::B32),
+                                                    FieldElementExpression::Number(T::from(i)),
                                                 )
                                                 .into(),
                                                 tail.clone(),
@@ -212,22 +200,19 @@ impl<'ast> Unroller<'ast> {
                                             },
                                             BooleanExpression::select(
                                                 base.clone(),
-                                                UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                                FieldElementExpression::Number(T::from(i)),
                                             ),
                                         )
                                         .into(),
                                         Type::Uint(..) => UExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                            BooleanExpression::FieldEq(
+                                                box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
                                                 UExpression::select(
                                                     base.clone(),
-                                                    UExpressionInner::Value(i as u128)
-                                                        .annotate(UBitwidth::B32),
+                                                    FieldElementExpression::Number(T::from(i)),
                                                 )
                                                 .into(),
                                                 tail.clone(),
@@ -242,8 +227,7 @@ impl<'ast> Unroller<'ast> {
                                             },
                                             UExpression::select(
                                                 base.clone(),
-                                                UExpressionInner::Value(i as u128)
-                                                    .annotate(UBitwidth::B32),
+                                                FieldElementExpression::Number(T::from(i)),
                                             ),
                                         )
                                         .into(),
@@ -376,7 +360,7 @@ impl<'ast> Unroller<'ast> {
 
 #[derive(Clone, Debug)]
 enum Access<'ast, T: Field> {
-    Select(UExpression<'ast, T>),
+    Select(FieldElementExpression<'ast, T>),
     Member(MemberId),
 }
 /// Turn an assignee into its representation as a base variable and a list accesses
@@ -437,7 +421,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 let indices = indices
                     .into_iter()
                     .map(|a| match a {
-                        Access::Select(i) => Access::Select(self.fold_uint_expression(i)),
+                        Access::Select(i) => Access::Select(self.fold_field_expression(i)),
                         a => a,
                     })
                     .collect();
@@ -463,16 +447,16 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 vec![TypedStatement::MultipleDefinition(variables, exprs)]
             }
             TypedStatement::For(v, from, to, stats) => {
-                let from = self.fold_uint_expression(from);
-                let to = self.fold_uint_expression(to);
+                let from = self.fold_field_expression(from);
+                let to = self.fold_field_expression(to);
 
-                match (from.into_inner(), to.into_inner()) {
-                    (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
-                        let mut values = vec![];
+                match (from, to) {
+                    (FieldElementExpression::Number(from), FieldElementExpression::Number(to)) => {
+                        let mut values: Vec<T> = vec![];
                         let mut current = from;
                         while current < to {
                             values.push(current.clone());
-                            current = 1 + &current;
+                            current = T::one() + &current;
                         }
 
                         let res = values
@@ -483,9 +467,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                                         TypedStatement::Declaration(v.clone()),
                                         TypedStatement::Definition(
                                             TypedAssignee::Identifier(v.clone()),
-                                            UExpressionInner::Value(index)
-                                                .annotate(UBitwidth::B32)
-                                                .into(),
+                                            FieldElementExpression::Number(index).into(),
                                         ),
                                     ],
                                     stats.clone(),
@@ -501,12 +483,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                     }
                     (from, to) => {
                         self.complete = false;
-                        vec![TypedStatement::For(
-                            v,
-                            from.annotate(UBitwidth::B32),
-                            to.annotate(UBitwidth::B32),
-                            stats,
-                        )]
+                        vec![TypedStatement::For(v, from, to, stats)]
                     }
                 }
             }
@@ -538,11 +515,11 @@ mod tests {
 
     #[test]
     fn ssa_array() {
-        let a0 = ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 3usize);
+        let a0 = ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 3);
 
         let e = FieldElementExpression::Number(Bn128Field::from(42)).into();
 
-        let index = 1u32.into();
+        let index = FieldElementExpression::Number(Bn128Field::from(1));
 
         let a1 = Unroller::choose_many(
             a0.clone().into(),
@@ -558,34 +535,52 @@ mod tests {
             a1,
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::if_else(
-                    BooleanExpression::UintEq(box 0u32.into(), box 1u32.into()),
+                    BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(Bn128Field::from(0)),
+                        box FieldElementExpression::Number(Bn128Field::from(1))
+                    ),
                     FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(a0.clone(), 0u32.into(),)
+                    FieldElementExpression::select(
+                        a0.clone(),
+                        FieldElementExpression::Number(Bn128Field::from(0))
+                    )
                 )
                 .into(),
                 FieldElementExpression::if_else(
-                    BooleanExpression::UintEq(box 1u32.into(), box 1u32.into()),
+                    BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                        box FieldElementExpression::Number(Bn128Field::from(1))
+                    ),
                     FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(a0.clone(), 1u32.into())
+                    FieldElementExpression::select(
+                        a0.clone(),
+                        FieldElementExpression::Number(Bn128Field::from(1))
+                    )
                 )
                 .into(),
                 FieldElementExpression::if_else(
-                    BooleanExpression::UintEq(box 2u32.into(), box 1u32.into()),
+                    BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(Bn128Field::from(2)),
+                        box FieldElementExpression::Number(Bn128Field::from(1))
+                    ),
                     FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(a0.clone(), 2u32.into())
+                    FieldElementExpression::select(
+                        a0.clone(),
+                        FieldElementExpression::Number(Bn128Field::from(2))
+                    )
                 )
                 .into()
             ])
-            .annotate(Type::FieldElement, 3usize)
+            .annotate(Type::FieldElement, 3)
             .into()
         );
 
-        let a0: ArrayExpression<Bn128Field> = ArrayExpressionInner::Identifier("a".into())
+        let a0 = ArrayExpressionInner::Identifier("a".into())
             .annotate(Type::array(Type::FieldElement, 3), 3);
 
         let e = ArrayExpressionInner::Identifier("b".into()).annotate(Type::FieldElement, 3);
 
-        let index = 1u32.into();
+        let index = FieldElementExpression::Number(Bn128Field::from(1));
 
         let a1 = Unroller::choose_many(
             a0.clone().into(),
@@ -601,21 +596,39 @@ mod tests {
             a1,
             ArrayExpressionInner::Value(vec![
                 ArrayExpression::if_else(
-                    BooleanExpression::UintEq(box 0u32.into(), box 1u32.into()),
+                    BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(Bn128Field::from(0)),
+                        box FieldElementExpression::Number(Bn128Field::from(1))
+                    ),
                     e.clone(),
-                    ArrayExpression::select(a0.clone(), 0u32.into())
+                    ArrayExpression::select(
+                        a0.clone(),
+                        FieldElementExpression::Number(Bn128Field::from(0))
+                    )
                 )
                 .into(),
                 ArrayExpression::if_else(
-                    BooleanExpression::UintEq(box 1u32.into(), box 1u32.into()),
+                    BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                        box FieldElementExpression::Number(Bn128Field::from(1))
+                    ),
                     e.clone(),
-                    ArrayExpression::select(a0.clone(), 1u32.into())
+                    ArrayExpression::select(
+                        a0.clone(),
+                        FieldElementExpression::Number(Bn128Field::from(1))
+                    )
                 )
                 .into(),
                 ArrayExpression::if_else(
-                    BooleanExpression::UintEq(box 2u32.into(), box 1u32.into()),
+                    BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(Bn128Field::from(2)),
+                        box FieldElementExpression::Number(Bn128Field::from(1))
+                    ),
                     e.clone(),
-                    ArrayExpression::select(a0.clone(), 2u32.into())
+                    ArrayExpression::select(
+                        a0.clone(),
+                        FieldElementExpression::Number(Bn128Field::from(2))
+                    )
                 )
                 .into()
             ])
@@ -628,7 +641,10 @@ mod tests {
 
         let e = FieldElementExpression::Number(Bn128Field::from(42));
 
-        let indices = vec![Access::Select(0u32.into()), Access::Select(0u32.into())];
+        let indices = vec![
+            Access::Select(FieldElementExpression::Number(Bn128Field::from(0))),
+            Access::Select(FieldElementExpression::Number(Bn128Field::from(0))),
+        ];
 
         let a1 = Unroller::choose_many(
             a0.clone().into(),
@@ -644,55 +660,91 @@ mod tests {
             a1,
             ArrayExpressionInner::Value(vec![
                 ArrayExpression::if_else(
-                    BooleanExpression::UintEq(box 0u32.into(), box 0u32.into()),
+                    BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(Bn128Field::from(0)),
+                        box FieldElementExpression::Number(Bn128Field::from(0))
+                    ),
                     ArrayExpressionInner::Value(vec![
                         FieldElementExpression::if_else(
-                            BooleanExpression::UintEq(box 0u32.into(), box 0u32.into()),
+                            BooleanExpression::FieldEq(
+                                box FieldElementExpression::Number(Bn128Field::from(0)),
+                                box FieldElementExpression::Number(Bn128Field::from(0))
+                            ),
                             e.clone(),
                             FieldElementExpression::select(
-                                ArrayExpression::select(a0.clone(), 0u32.into()),
-                                0u32.into()
+                                ArrayExpression::select(
+                                    a0.clone(),
+                                    FieldElementExpression::Number(Bn128Field::from(0))
+                                ),
+                                FieldElementExpression::Number(Bn128Field::from(0))
                             )
                         )
                         .into(),
                         FieldElementExpression::if_else(
-                            BooleanExpression::UintEq(box 1u32.into(), box 0u32.into()),
+                            BooleanExpression::FieldEq(
+                                box FieldElementExpression::Number(Bn128Field::from(1)),
+                                box FieldElementExpression::Number(Bn128Field::from(0))
+                            ),
                             e.clone(),
                             FieldElementExpression::select(
-                                ArrayExpression::select(a0.clone(), 0u32.into()),
-                                1u32.into()
+                                ArrayExpression::select(
+                                    a0.clone(),
+                                    FieldElementExpression::Number(Bn128Field::from(0))
+                                ),
+                                FieldElementExpression::Number(Bn128Field::from(1))
                             )
                         )
                         .into()
                     ])
                     .annotate(Type::FieldElement, 2),
-                    ArrayExpression::select(a0.clone(), 0u32.into())
+                    ArrayExpression::select(
+                        a0.clone(),
+                        FieldElementExpression::Number(Bn128Field::from(0))
+                    )
                 )
                 .into(),
                 ArrayExpression::if_else(
-                    BooleanExpression::UintEq(box 1u32.into(), box 0u32.into()),
+                    BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                        box FieldElementExpression::Number(Bn128Field::from(0))
+                    ),
                     ArrayExpressionInner::Value(vec![
                         FieldElementExpression::if_else(
-                            BooleanExpression::UintEq(box 0u32.into(), box 0u32.into()),
+                            BooleanExpression::FieldEq(
+                                box FieldElementExpression::Number(Bn128Field::from(0)),
+                                box FieldElementExpression::Number(Bn128Field::from(0))
+                            ),
                             e.clone(),
                             FieldElementExpression::select(
-                                ArrayExpression::select(a0.clone(), 1u32.into()),
-                                0u32.into()
+                                ArrayExpression::select(
+                                    a0.clone(),
+                                    FieldElementExpression::Number(Bn128Field::from(1))
+                                ),
+                                FieldElementExpression::Number(Bn128Field::from(0))
                             )
                         )
                         .into(),
                         FieldElementExpression::if_else(
-                            BooleanExpression::UintEq(box 1u32.into(), box 0u32.into()),
+                            BooleanExpression::FieldEq(
+                                box FieldElementExpression::Number(Bn128Field::from(1)),
+                                box FieldElementExpression::Number(Bn128Field::from(0))
+                            ),
                             e.clone(),
                             FieldElementExpression::select(
-                                ArrayExpression::select(a0.clone(), 1u32.into()),
-                                1u32.into()
+                                ArrayExpression::select(
+                                    a0.clone(),
+                                    FieldElementExpression::Number(Bn128Field::from(1))
+                                ),
+                                FieldElementExpression::Number(Bn128Field::from(1))
                             )
                         )
                         .into()
                     ])
                     .annotate(Type::FieldElement, 2),
-                    ArrayExpression::select(a0.clone(), 1u32.into())
+                    ArrayExpression::select(
+                        a0.clone(),
+                        FieldElementExpression::Number(Bn128Field::from(1))
+                    )
                 )
                 .into(),
             ])
@@ -721,8 +773,8 @@ mod tests {
 
             let s = TypedStatement::For(
                 Variable::field_element("i"),
-                2u32.into(),
-                5u32.into(),
+                FieldElementExpression::Number(Bn128Field::from(2)),
+                FieldElementExpression::Number(Bn128Field::from(5)),
                 vec![
                     TypedStatement::Declaration(Variable::field_element("foo")),
                     TypedStatement::Definition(
@@ -1031,7 +1083,7 @@ mod tests {
             let s: TypedStatement<Bn128Field> = TypedStatement::Definition(
                 TypedAssignee::Select(
                     box TypedAssignee::Identifier(Variable::field_array("a", 2)),
-                    box 1u32.into(),
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
                 ),
                 FieldElementExpression::Number(Bn128Field::from(2)).into(),
             );
@@ -1040,7 +1092,11 @@ mod tests {
                 u.fold_statement(s),
                 vec![
                     TypedStatement::Assertion(
-                        BooleanExpression::UintLt(box 1u32.into(), box 2u32.into()).into(),
+                        BooleanExpression::Lt(
+                            box FieldElementExpression::Number(Bn128Field::from(1)),
+                            box FieldElementExpression::Number(Bn128Field::from(2))
+                        )
+                        .into(),
                     ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_array(
@@ -1049,26 +1105,32 @@ mod tests {
                         )),
                         ArrayExpressionInner::Value(vec![
                             FieldElementExpression::IfElse(
-                                box BooleanExpression::UintEq(box 0u32.into(), box 1u32.into()),
+                                box BooleanExpression::FieldEq(
+                                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                                    box FieldElementExpression::Number(Bn128Field::from(1))
+                                ),
                                 box FieldElementExpression::Number(Bn128Field::from(2)),
                                 box FieldElementExpression::Select(
                                     box ArrayExpressionInner::Identifier(
                                         Identifier::from("a").version(0)
                                     )
                                     .annotate(Type::FieldElement, 2),
-                                    box 0u32.into()
+                                    box FieldElementExpression::Number(Bn128Field::from(0))
                                 ),
                             )
                             .into(),
                             FieldElementExpression::IfElse(
-                                box BooleanExpression::UintEq(box 1u32.into(), box 1u32.into()),
+                                box BooleanExpression::FieldEq(
+                                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                                    box FieldElementExpression::Number(Bn128Field::from(1))
+                                ),
                                 box FieldElementExpression::Number(Bn128Field::from(2)),
                                 box FieldElementExpression::Select(
                                     box ArrayExpressionInner::Identifier(
                                         Identifier::from("a").version(0)
                                     )
                                     .annotate(Type::FieldElement, 2),
-                                    box 1u32.into()
+                                    box FieldElementExpression::Number(Bn128Field::from(1))
                                 ),
                             )
                             .into(),
@@ -1153,7 +1215,7 @@ mod tests {
                         "a",
                         array_of_array_ty.clone(),
                     )),
-                    box 1u32.into(),
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
                 ),
                 ArrayExpressionInner::Value(vec![
                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
@@ -1167,7 +1229,11 @@ mod tests {
                 u.fold_statement(s),
                 vec![
                     TypedStatement::Assertion(
-                        BooleanExpression::UintLt(box 1u32.into(), box 2u32.into()).into(),
+                        BooleanExpression::Lt(
+                            box FieldElementExpression::Number(Bn128Field::from(1)),
+                            box FieldElementExpression::Number(Bn128Field::from(2))
+                        )
+                        .into(),
                     ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::with_id_and_type(
@@ -1176,7 +1242,10 @@ mod tests {
                         )),
                         ArrayExpressionInner::Value(vec![
                             ArrayExpressionInner::IfElse(
-                                box BooleanExpression::UintEq(box 0u32.into(), box 1u32.into()),
+                                box BooleanExpression::FieldEq(
+                                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                                    box FieldElementExpression::Number(Bn128Field::from(1))
+                                ),
                                 box ArrayExpressionInner::Value(vec![
                                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
                                     FieldElementExpression::Number(Bn128Field::from(5)).into(),
@@ -1188,14 +1257,17 @@ mod tests {
                                         Identifier::from("a").version(0)
                                     )
                                     .annotate(Type::array(Type::FieldElement, 2), 2),
-                                    box 0u32.into()
+                                    box FieldElementExpression::Number(Bn128Field::from(0))
                                 )
                                 .annotate(Type::FieldElement, 2),
                             )
                             .annotate(Type::FieldElement, 2)
                             .into(),
                             ArrayExpressionInner::IfElse(
-                                box BooleanExpression::UintEq(box 1u32.into(), box 1u32.into()),
+                                box BooleanExpression::FieldEq(
+                                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                                    box FieldElementExpression::Number(Bn128Field::from(1))
+                                ),
                                 box ArrayExpressionInner::Value(vec![
                                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
                                     FieldElementExpression::Number(Bn128Field::from(5)).into(),
@@ -1207,7 +1279,7 @@ mod tests {
                                         Identifier::from("a").version(0)
                                     )
                                     .annotate(Type::array(Type::FieldElement, 2), 2),
-                                    box 1u32.into()
+                                    box FieldElementExpression::Number(Bn128Field::from(1))
                                 )
                                 .annotate(Type::FieldElement, 2),
                             )

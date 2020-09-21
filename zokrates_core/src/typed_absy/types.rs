@@ -190,6 +190,20 @@ impl Type {
         Type::Uint(b.into())
     }
 
+    pub fn can_be_specialized_to(&self, other: &Type) -> bool {
+        use self::Type::*;
+
+        if self == other {
+            true
+        } else {
+            match (self, other) {
+                (Int, FieldElement) | (Int, Uint(..)) => true,
+                (Array(l), Array(r)) => l.size == r.size && l.ty.can_be_specialized_to(&r.ty),
+                _ => false,
+            }
+        }
+    }
+
     fn to_slug(&self) -> String {
         match self {
             Type::FieldElement => String::from("f"),

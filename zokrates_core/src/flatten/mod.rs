@@ -377,7 +377,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             BooleanExpression::Identifier(x) => {
                 FlatExpression::Identifier(self.layout.get(&x).unwrap().clone())
             }
-            BooleanExpression::FieldLt(box lhs, box rhs) => {
+            BooleanExpression::Lt(box lhs, box rhs) => {
                 // Get the bit width to know the size of the binary decompositions for this Field
                 let bit_width = T::get_required_bits();
                 let safe_width = bit_width - 2; // making sure we don't overflow, assert here?
@@ -660,11 +660,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 res
             }
-            BooleanExpression::FieldLe(box lhs, box rhs) => {
+            BooleanExpression::Le(box lhs, box rhs) => {
                 let lt = self.flatten_boolean_expression(
                     symbols,
                     statements_flattened,
-                    BooleanExpression::FieldLt(box lhs.clone(), box rhs.clone()),
+                    BooleanExpression::Lt(box lhs.clone(), box rhs.clone()),
                 );
                 let eq = self.flatten_boolean_expression(
                     symbols,
@@ -673,110 +673,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 );
                 FlatExpression::Add(box eq, box lt)
             }
-            BooleanExpression::FieldGt(lhs, rhs) => self.flatten_boolean_expression(
+            BooleanExpression::Gt(lhs, rhs) => self.flatten_boolean_expression(
                 symbols,
                 statements_flattened,
-                BooleanExpression::FieldLt(rhs, lhs),
+                BooleanExpression::Lt(rhs, lhs),
             ),
-            BooleanExpression::FieldGe(lhs, rhs) => self.flatten_boolean_expression(
+            BooleanExpression::Ge(lhs, rhs) => self.flatten_boolean_expression(
                 symbols,
                 statements_flattened,
-                BooleanExpression::FieldLe(rhs, lhs),
-            ),
-            BooleanExpression::UintLt(box lhs, box rhs) => {
-                let lhs_flattened =
-                    self.flatten_uint_expression(symbols, statements_flattened, lhs);
-                let rhs_flattened =
-                    self.flatten_uint_expression(symbols, statements_flattened, rhs);
-
-                // Get the bit width to know the size of the binary decompositions for this Field
-                // This is not this uint bitwidth
-                let bit_width = T::get_required_bits();
-
-                // lhs
-                let lhs_id = self.define(lhs_flattened.get_field_unchecked(), statements_flattened);
-                let rhs_id = self.define(rhs_flattened.get_field_unchecked(), statements_flattened);
-
-                // sym := (lhs * 2) - (rhs * 2)
-                let subtraction_result = FlatExpression::Sub(
-                    box FlatExpression::Mult(
-                        box FlatExpression::Number(T::from(2)),
-                        box FlatExpression::Identifier(lhs_id),
-                    ),
-                    box FlatExpression::Mult(
-                        box FlatExpression::Number(T::from(2)),
-                        box FlatExpression::Identifier(rhs_id),
-                    ),
-                );
-
-                // define variables for the bits
-                let sub_bits_be: Vec<FlatVariable> =
-                    (0..bit_width).map(|_| self.use_sym()).collect();
-
-                // add a directive to get the bits
-                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
-                    sub_bits_be.clone(),
-                    Solver::bits(bit_width),
-                    vec![subtraction_result.clone()],
-                )));
-
-                // bitness checks
-                for i in 0..bit_width {
-                    statements_flattened.push(FlatStatement::Condition(
-                        FlatExpression::Identifier(sub_bits_be[i]),
-                        FlatExpression::Mult(
-                            box FlatExpression::Identifier(sub_bits_be[i]),
-                            box FlatExpression::Identifier(sub_bits_be[i]),
-                        ),
-                    ));
-                }
-
-                // check that the decomposition is in the field with a strict `< p` checks
-                self.strict_le_check(
-                    statements_flattened,
-                    &T::max_value_bit_vector_be(),
-                    sub_bits_be.clone(),
-                );
-
-                // sum(sym_b{i} * 2**i)
-                let mut expr = FlatExpression::Number(T::from(0));
-
-                for i in 0..bit_width {
-                    expr = FlatExpression::Add(
-                        box expr,
-                        box FlatExpression::Mult(
-                            box FlatExpression::Identifier(sub_bits_be[i]),
-                            box FlatExpression::Number(T::from(2).pow(bit_width - i - 1)),
-                        ),
-                    );
-                }
-
-                statements_flattened.push(FlatStatement::Condition(subtraction_result, expr));
-
-                FlatExpression::Identifier(sub_bits_be[bit_width - 1])
-            }
-            BooleanExpression::UintLe(box lhs, box rhs) => {
-                let lt = self.flatten_boolean_expression(
-                    symbols,
-                    statements_flattened,
-                    BooleanExpression::UintLt(box lhs.clone(), box rhs.clone()),
-                );
-                let eq = self.flatten_boolean_expression(
-                    symbols,
-                    statements_flattened,
-                    BooleanExpression::UintEq(box lhs.clone(), box rhs.clone()),
-                );
-                FlatExpression::Add(box eq, box lt)
-            }
-            BooleanExpression::UintGt(lhs, rhs) => self.flatten_boolean_expression(
-                symbols,
-                statements_flattened,
-                BooleanExpression::UintLt(rhs, lhs),
-            ),
-            BooleanExpression::UintGe(lhs, rhs) => self.flatten_boolean_expression(
-                symbols,
-                statements_flattened,
-                BooleanExpression::UintLe(rhs, lhs),
+                BooleanExpression::Le(rhs, lhs),
             ),
             BooleanExpression::Or(box lhs, box rhs) => {
                 let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
@@ -2464,7 +2369,7 @@ mod tests {
     #[test]
     fn geq_leq() {
         let mut flattener = Flattener::new();
-        let expression_le = BooleanExpression::FieldLe(
+        let expression_le = BooleanExpression::Le(
             box FieldElementExpression::Number(Bn128Field::from(32)),
             box FieldElementExpression::Number(Bn128Field::from(4)),
         );
@@ -2475,7 +2380,7 @@ mod tests {
         );
 
         let mut flattener = Flattener::new();
-        let expression_ge = BooleanExpression::FieldGe(
+        let expression_ge = BooleanExpression::Ge(
             box FieldElementExpression::Number(Bn128Field::from(32)),
             box FieldElementExpression::Number(Bn128Field::from(4)),
         );
@@ -2496,7 +2401,7 @@ mod tests {
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                 ),
-                box BooleanExpression::FieldLt(
+                box BooleanExpression::Lt(
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                     box FieldElementExpression::Number(Bn128Field::from(20)),
                 ),

@@ -204,45 +204,25 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_uint_expression(e2);
             BooleanExpression::UintEq(box e1, box e2)
         }
-        BooleanExpression::FieldLt(box e1, box e2) => {
+        BooleanExpression::Lt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldLt(box e1, box e2)
+            BooleanExpression::Lt(box e1, box e2)
         }
-        BooleanExpression::FieldLe(box e1, box e2) => {
+        BooleanExpression::Le(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldLe(box e1, box e2)
+            BooleanExpression::Le(box e1, box e2)
         }
-        BooleanExpression::FieldGt(box e1, box e2) => {
+        BooleanExpression::Gt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldGt(box e1, box e2)
+            BooleanExpression::Gt(box e1, box e2)
         }
-        BooleanExpression::FieldGe(box e1, box e2) => {
+        BooleanExpression::Ge(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldGe(box e1, box e2)
-        }
-        BooleanExpression::UintLt(box e1, box e2) => {
-            let e1 = f.fold_uint_expression(e1);
-            let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintLt(box e1, box e2)
-        }
-        BooleanExpression::UintLe(box e1, box e2) => {
-            let e1 = f.fold_uint_expression(e1);
-            let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintLe(box e1, box e2)
-        }
-        BooleanExpression::UintGt(box e1, box e2) => {
-            let e1 = f.fold_uint_expression(e1);
-            let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintGt(box e1, box e2)
-        }
-        BooleanExpression::UintGe(box e1, box e2) => {
-            let e1 = f.fold_uint_expression(e1);
-            let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintGe(box e1, box e2)
+            BooleanExpression::Ge(box e1, box e2)
         }
         BooleanExpression::Or(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);

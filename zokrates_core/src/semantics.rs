@@ -184,12 +184,11 @@ impl<'ast> FunctionQuery<'ast> {
     /// match a `FunctionKey` against this `FunctionQuery`
     fn match_func(&self, func: &FunctionKey<'ast>) -> bool {
         self.id == func.id
-            && self.inputs.iter().zip(func.signature.inputs.iter()).all(
-                |(input_ty, sig_ty)| match (input_ty, sig_ty) {
-                    (Type::Int, Type::FieldElement) | (Type::Int, Type::Uint(..)) => true,
-                    (input_ty, sig_ty) => input_ty == sig_ty,
-                },
-            )
+            && self
+                .inputs
+                .iter()
+                .zip(func.signature.inputs.iter())
+                .all(|(input_ty, sig_ty)| input_ty.can_be_specialized_to(&sig_ty))
             && self.outputs.len() == func.signature.outputs.len()
             && self.outputs.iter().enumerate().all(|(index, t)| match t {
                 Some(ref t) => t == &func.signature.outputs[index],
@@ -580,18 +579,13 @@ impl<'ast> Checker<'ast> {
 
                 // we go through symbol S and check them
                 for declaration in module.symbols {
-                    match self.check_symbol_declaration(
+                    self.check_symbol_declaration(
                         declaration,
                         module_id,
                         state,
                         &mut checked_functions,
                         &mut symbol_unifier,
-                    ) {
-                        Ok(()) => {}
-                        Err(e) => {
-                            errors.extend(e);
-                        }
-                    }
+                    )?
                 }
 
                 Some(TypedModule {
@@ -641,7 +635,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_for_var<T: Field>(&self, var: &VariableNode<'ast, T>) -> Result<(), ErrorInner> {
         match var.value.get_type() {
-            UnresolvedType::Uint(32) => Ok(()),
+            UnresolvedType::FieldElement => Ok(()),
             t => Err(ErrorInner {
                 pos: Some(var.pos()),
                 message: format!("Variable in for loop cannot have type {}", t),
@@ -702,11 +696,11 @@ impl<'ast> Checker<'ast> {
                                         .map(|(e, t)| {
                                             TypedExpression::align_to_type(e.clone(), t.into())
                                         })
-                                        .collect::<Result<Vec<_>, String>>()
-                                        .map_err(|message| {
+                                        .collect::<Result<Vec<_>, _>>()
+                                        .map_err(|e| {
                                             vec![ErrorInner {
                                                 pos: Some(pos),
-                                                message,
+                                                message: format!("Expected return value to be of type {}, found {}", e.1, e.0),
                                             }]
                                         }) {
                                         Ok(e) => {
@@ -842,16 +836,16 @@ impl<'ast> Checker<'ast> {
                 let size = self.check_expression(size, module_id, types)?;
 
                 let size =
-                    UExpression::try_from_typed(size, UBitwidth::B32).map_err(|e| ErrorInner {
+                    FieldElementExpression::try_from_typed(size).map_err(|e| ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Expected the array size to have type u32, found {}",
+                            "Expected the array size to have type field, found {}",
                             e.get_type()
                         ),
                     })?;
 
-                let size = match size.as_inner() {
-                    UExpressionInner::Value(v) => Ok(v),
+                let size = match size {
+                    FieldElementExpression::Number(v) => Ok(v),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
@@ -861,9 +855,11 @@ impl<'ast> Checker<'ast> {
                     }),
                 }?;
 
+                let size = size.to_dec_string().parse::<usize>().unwrap();
+
                 Ok(Type::Array(ArrayType::new(
                     self.check_type(*t, module_id, types)?,
-                    *size as usize,
+                    size,
                 )))
             }
             UnresolvedType::User(id) => types
@@ -913,17 +909,17 @@ impl<'ast> Checker<'ast> {
             .check_expression(to, module_id, &types)
             .map_err(|e| vec![e])?;
 
-        let from = UExpression::try_from_typed(from, UBitwidth::B32)
+        let from = FieldElementExpression::try_from_typed(from)
             .map_err(|e| ErrorInner {
                 pos: Some(pos),
-                message: format!("Expected lower loop bound to be of type u32, found {}", e),
+                message: format!("Expected lower loop bound to be of type field, found {}", e),
             })
             .map_err(|e| vec![e])?;
 
-        let to = UExpression::try_from_typed(to, UBitwidth::B32)
+        let to = FieldElementExpression::try_from_typed(to)
             .map_err(|e| ErrorInner {
                 pos: Some(pos),
-                message: format!("Expected upper loop bound to be of type u32, found {}", e),
+                message: format!("Expected upper loop bound to be of type field, found {}", e),
             })
             .map_err(|e| vec![e])?;
 
@@ -1100,9 +1096,9 @@ impl<'ast> Checker<'ast> {
                                 let mut functions = functions;
                                 let f = functions.pop().unwrap();
 
-                                let arguments_checked = arguments_checked.into_iter().zip(f.signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t.into())).collect::<Result<Vec<_>, _>>().map_err(|message| vec![ErrorInner {
+                                let arguments_checked = arguments_checked.into_iter().zip(f.signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t.into())).collect::<Result<Vec<_>, _>>().map_err(|e| vec![ErrorInner {
                             pos: Some(pos),
-                            message
+                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         }])?;
 
                                 let call = TypedExpressionList::FunctionCall(f.clone().into(), arguments_checked, Signature::from(f.signature.clone()).outputs);
@@ -1159,16 +1155,16 @@ impl<'ast> Checker<'ast> {
                         };
 
                         let checked_typed_index =
-                            UExpression::try_from_typed(checked_index, UBitwidth::B32).map_err(
-                                |e| ErrorInner {
+                            FieldElementExpression::try_from_typed(checked_index).map_err(|e| {
+                                ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
-                                        "Expected array {} index to have type u32, found {}",
+                                        "Expected array {} index to have type field, found {}",
                                         checked_assignee,
                                         e.get_type()
                                     ),
-                                },
-                            )?;
+                                }
+                            })?;
 
                         Ok(TypedAssignee::Select(
                             box checked_assignee,
@@ -1237,17 +1233,17 @@ impl<'ast> Checker<'ast> {
                                 .map(|i| match &ty {
                                     Type::FieldElement => FieldElementExpression::select(
                                         e.clone().annotate(Type::FieldElement, size as usize),
-                                        UExpressionInner::Value(i as u128).annotate(UBitwidth::B32),
+                                        FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
                                     Type::Uint(bitwidth) => UExpression::select(
                                         e.clone().annotate(Type::Uint(*bitwidth), size as usize),
-                                        UExpressionInner::Value(i as u128).annotate(UBitwidth::B32),
+                                        FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
                                     Type::Boolean => BooleanExpression::select(
                                         e.clone().annotate(Type::Boolean, size as usize),
-                                        UExpressionInner::Value(i as u128).annotate(UBitwidth::B32),
+                                        FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
                                     Type::Array(array_type) => ArrayExpressionInner::Select(
@@ -1255,8 +1251,7 @@ impl<'ast> Checker<'ast> {
                                             Type::Array(array_type.clone()),
                                             size as usize,
                                         ),
-                                        box UExpressionInner::Value(i as u128)
-                                            .annotate(UBitwidth::B32),
+                                        box FieldElementExpression::Number(T::from(i)),
                                     )
                                     .annotate(*array_type.ty.clone(), array_type.size.clone())
                                     .into(),
@@ -1264,8 +1259,7 @@ impl<'ast> Checker<'ast> {
                                         box e
                                             .clone()
                                             .annotate(Type::Struct(members.clone()), size as usize),
-                                        box UExpressionInner::Value(i as u128)
-                                            .annotate(UBitwidth::B32),
+                                        box FieldElementExpression::Number(T::from(i)),
                                     )
                                     .annotate(members.clone())
                                     .into(),
@@ -1341,10 +1335,9 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1387,10 +1380,9 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1433,10 +1425,9 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1479,27 +1470,20 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (Int(e1), Int(e2)) => Ok(FieldElementExpression::Div(
-                        box FieldElementExpression::try_from_int(e1).map_err(|message| {
-                            ErrorInner {
-                                pos: Some(pos),
-
-                                message,
-                            }
+                        box FieldElementExpression::try_from_int(e1).map_err(|e| ErrorInner {
+                            pos: Some(pos),
+                            message: format!("{} cannot be the first summand of operation `/`", e),
                         })?,
-                        box FieldElementExpression::try_from_int(e2).map_err(|message| {
-                            ErrorInner {
-                                pos: Some(pos),
-
-                                message,
-                            }
+                        box FieldElementExpression::try_from_int(e2).map_err(|e| ErrorInner {
+                            pos: Some(pos),
+                            message: format!("{} cannot be the second summand of operation `/`", e),
                         })?,
                     )
                     .into()),
@@ -1526,27 +1510,20 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (Int(e1), Int(e2)) => Ok(FieldElementExpression::Pow(
-                        box FieldElementExpression::try_from_int(e1).map_err(|message| {
-                            ErrorInner {
-                                pos: Some(pos),
-
-                                message,
-                            }
+                        box FieldElementExpression::try_from_int(e1).map_err(|e| ErrorInner {
+                            pos: Some(pos),
+                            message: format!("{} cannot be the first summand of operation `**`", e),
                         })?,
-                        box FieldElementExpression::try_from_int(e2).map_err(|message| {
-                            ErrorInner {
-                                pos: Some(pos),
-
-                                message,
-                            }
+                        box FieldElementExpression::try_from_int(e2).map_err(|e| ErrorInner {
+                            pos: Some(pos),
+                            message: format!("{} cannot be the first summand of operation `**`", e),
                         })?,
                     )
                     .into()),
@@ -1574,10 +1551,9 @@ impl<'ast> Checker<'ast> {
                         consequence_checked,
                         alternative_checked,
                     )
-                    .map_err(|message| ErrorInner {
+                    .map_err(|(e1, e2)| ErrorInner {
                         pos: Some(pos),
-
-                        message,
+                        message: format!("{} and {} are incompatible", e1, e2),
                     })?;
 
                 match condition_checked {
@@ -1652,9 +1628,9 @@ impl<'ast> Checker<'ast> {
 
                         let signature: Signature = f.signature.into();
 
-                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t)).collect::<Result<Vec<_>, _>>().map_err(|message| ErrorInner {
+                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t)).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
                             pos: Some(pos),
-                            message
+                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
 
                         // the return count has to be 1
@@ -1736,31 +1712,14 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldLt(box e1, box e2).into())
-                    }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintLt(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                        Ok(BooleanExpression::Lt(box e1, box e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1781,31 +1740,14 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldLe(box e1, box e2).into())
-                    }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintLe(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                        Ok(BooleanExpression::Le(box e1, box e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1826,10 +1768,9 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1906,31 +1847,14 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldGe(box e1, box e2).into())
-                    }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintGe(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                        Ok(BooleanExpression::Ge(box e1, box e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1951,31 +1875,14 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldGt(box e1, box e2).into())
-                    }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintGt(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                        Ok(BooleanExpression::Gt(box e1, box e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -2005,13 +1912,18 @@ impl<'ast> Checker<'ast> {
                                     .value
                                     .from
                                     .map(|e| self.check_expression(e, module_id, &types))
-                                    .unwrap_or(Ok(UExpression::from(0u32).into()))?;
+                                    .unwrap_or(Ok(
+                                        FieldElementExpression::Number(T::from(0)).into()
+                                    ))?;
 
                                 let to = r
                                     .value
                                     .to
                                     .map(|e| self.check_expression(e, module_id, &types))
-                                    .unwrap_or(Ok(UExpression::from(array_size).into()))?;
+                                    .unwrap_or(Ok(FieldElementExpression::Number(T::from(
+                                        array_size,
+                                    ))
+                                    .into()))?;
 
                                 // check the bounds are field constants
                                 // Note: it would be nice to allow any field expression, and check it's a constant after constant propagation,
@@ -2020,45 +1932,49 @@ impl<'ast> Checker<'ast> {
                                 // of complexity in the compiler, as function selection in inlining requires knowledge of the array size, but
                                 // determining array size potentially requires inlining and propagating. This suggests we would need semantic checking
                                 // to happen iteratively with inlining and propagation, which we can't do now as we go from absy to typed_absy
-                                let from = UExpression::try_from_typed(from, UBitwidth::B32).map_err(|e| ErrorInner {
+                                let from = FieldElementExpression::try_from_typed(from).map_err(|e| ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
-                                        "Expected the lower bound of the range to be a u32, found {}",
+                                        "Expected the lower bound of the range to be a field, found {}",
                                         e.get_type()
                                     ),
                                 })?;
 
-                                let from = match from.as_inner() {
-                                    UExpressionInner::Value(v) => Ok(v),
+                                let from = match from {
+                                    FieldElementExpression::Number(v) => Ok(v),
                                     _ => Err(ErrorInner {
                                         pos: Some(pos),
                                         message: format!(
-                                            "Expected the lower bound of the range to be a constant u32, found {}",
+                                            "Expected the lower bound of the range to be a constant field, found {}",
                                             from
                                         ),
                                     })
                                 }?;
 
-                                let to = UExpression::try_from_typed(to, UBitwidth::B32).map_err(|e| ErrorInner {
+                                let from = from.to_dec_string().parse::<u32>().unwrap();
+
+                                let to = FieldElementExpression::try_from_typed(to).map_err(|e| ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
-                                        "Expected the upper bound of the range to be a u32, found {}",
+                                        "Expected the upper bound of the range to be a field, found {}",
                                         e.get_type()
                                     ),
                                 })?;
 
-                                let to = match to.as_inner() {
-                                    UExpressionInner::Value(v) => Ok(v),
+                                let to = match to {
+                                    FieldElementExpression::Number(v) => Ok(v),
                                     _ => Err(ErrorInner {
                                         pos: Some(pos),
                                         message: format!(
-                                            "Expected the upper bound of the range to be a constant u32, found {}",
+                                            "Expected the upper bound of the range to be a constant field, found {}",
                                             to
                                         ),
                                     })
                                 }?;
 
-                                match (*from as u32, *to as u32, array_size) {
+                                let to = to.to_dec_string().parse::<u32>().unwrap();
+
+                                match (from, to, array_size) {
                                     (f, _, s) if f > s => Err(ErrorInner {
                                         pos: Some(pos),
                                         message: format!(
@@ -2085,31 +2001,31 @@ impl<'ast> Checker<'ast> {
                                             .map(|i| match inner_type.clone() {
                                                 Type::FieldElement => FieldElementExpression::Select(
                                                     box array.clone(),
-                                                    box i.into(),
+                                                    box T::from(i).into(),
                                                 )
                                                 .into(),
                                                 Type::Boolean => BooleanExpression::Select(
                                                     box array.clone(),
-                                                    box i.into(),
+                                                    box T::from(i).into(),
                                                 )
                                                 .into(),
                                                 Type::Uint(bitwidth) => UExpressionInner::Select(
                                                     box array.clone(),
-                                                    box i.into(),
+                                                    box T::from(i).into(),
                                                 )
                                                 .annotate(bitwidth)
                                                 .into(),
                                                 Type::Struct(struct_ty) => {
                                                     StructExpressionInner::Select(
                                                         box array.clone(),
-                                                        box i.into(),
+                                                        box T::from(i).into(),
                                                     )
                                                     .annotate(struct_ty)
                                                     .into()
                                                 }
                                                 Type::Array(array_ty) => ArrayExpressionInner::Select(
                                                     box array.clone(),
-                                                    box i.into(),
+                                                    box T::from(i).into(),
                                                 )
                                                 .annotate(*array_ty.ty, array_ty.size)
                                                 .into(),
@@ -2131,36 +2047,35 @@ impl<'ast> Checker<'ast> {
                             }),
                         }
                     }
-                    RangeOrExpression::Expression(e) => {
-                        match (
-                            array,
-                            TypedExpression::align_to_type(
-                                self.check_expression(e, module_id, &types)?,
-                                Type::Uint(UBitwidth::B32),
-                            )
-                            .map_err(|message| ErrorInner {
+                    RangeOrExpression::Expression(index) => {
+                        let index = self.check_expression(index, module_id, &types)?;
+
+                        let index = FieldElementExpression::try_from_typed(index).map_err(|e| {
+                            ErrorInner {
                                 pos: Some(pos),
-                                message,
-                            })?,
-                        ) {
-                            (TypedExpression::Array(a), TypedExpression::Uint(i)) => {
+                                message: format!("Expected index to be of type field, found {}", e),
+                            }
+                        })?;
+
+                        match array {
+                            TypedExpression::Array(a) => {
                                 match a.inner_type().clone() {
                                     Type::FieldElement => {
-                                        Ok(FieldElementExpression::select(a, i).into())
+                                        Ok(FieldElementExpression::select(a, index).into())
                                     }
-                                    Type::Uint(..) => Ok(UExpression::select(a, i).into()),
-                                    Type::Boolean => Ok(BooleanExpression::select(a, i).into()),
-                                    Type::Array(..) => Ok(ArrayExpression::select(a, i).into()),
-                                    Type::Struct(..) => Ok(StructExpression::select(a, i).into()),
+                                    Type::Uint(..) => Ok(UExpression::select(a, index).into()),
+                                    Type::Boolean => Ok(BooleanExpression::select(a, index).into()),
+                                    Type::Array(..) => Ok(ArrayExpression::select(a, index).into()),
+                                    Type::Struct(..) => Ok(StructExpression::select(a, index).into()),
                                     Type::Int => unreachable!(),
                                 }
                             }
-                            (a, e) => Err(ErrorInner {
+                            a => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
                                     "Cannot access element as index {} of type {} on expression {} of type {}",
-                                    e,
-                                    e.get_type(),
+                                    index,
+                                    index.get_type(),
                                     a,
                                     a.get_type()
                                 ),
@@ -2466,22 +2381,24 @@ impl<'ast> Checker<'ast> {
                         Some(value) => {
                             let expression_checked =
                                 self.check_expression(value, module_id, &types)?;
-                            let checked_type = expression_checked.get_type();
-                            if checked_type != *member.ty {
-                                return Err(ErrorInner {
-                                    pos: Some(pos),
-                                    message: format!(
-                                        "Member {} of struct {} has type {}, found {} of type {}",
-                                        member.id,
-                                        id.clone(),
-                                        member.ty,
-                                        expression_checked,
-                                        checked_type,
-                                    ),
-                                });
-                            } else {
-                                result.push(expression_checked.into());
-                            }
+
+                            let expression_checked = TypedExpression::align_to_type(
+                                expression_checked,
+                                *member.ty.clone(),
+                            )
+                            .map_err(|e| ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Member {} of struct {} has type {}, found {} of type {}",
+                                    member.id,
+                                    id.clone(),
+                                    e.1,
+                                    e.0,
+                                    e.0.get_type(),
+                                ),
+                            })?;
+
+                            result.push(expression_checked.into());
                         }
                         None => {
                             return Err(ErrorInner {
@@ -2508,10 +2425,9 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2607,9 +2523,9 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2649,10 +2565,9 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2692,10 +2607,9 @@ impl<'ast> Checker<'ast> {
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
-                .map_err(|message| ErrorInner {
+                .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-
-                    message,
+                    message: format!("{} and {} are incompatible", e1, e2),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2794,8 +2708,8 @@ mod tests {
             let types = HashMap::new();
             let module_id = "".into();
             // [3, true]
-            let a = Expression::InlineArray(vec![
-                Expression::FieldConstant(Bn128Field::from(3)).mock().into(),
+            let a: ExpressionNode<Bn128Field> = Expression::InlineArray(vec![
+                Expression::IntConstant(3usize.into()).mock().into(),
                 Expression::BooleanConstant(true).mock().into(),
             ])
             .mock();
@@ -2803,7 +2717,7 @@ mod tests {
                 .check_expression(a, &module_id, &types)
                 .is_err());
 
-            // [[0], [0, 0]]
+            // [[0f], [0f, 0f]]
             let a = Expression::InlineArray(vec![
                 Expression::InlineArray(vec![Expression::FieldConstant(Bn128Field::from(0))
                     .mock()
@@ -2822,7 +2736,7 @@ mod tests {
                 .check_expression(a, &module_id, &types)
                 .is_err());
 
-            // [[0], true]
+            // [[0f], true]
             let a = Expression::InlineArray(vec![
                 Expression::InlineArray(vec![Expression::FieldConstant(Bn128Field::from(0))
                     .mock()
@@ -3327,14 +3241,14 @@ mod tests {
         //   return a
         // should fail
         let foo_args = vec![];
-        let foo_statements = vec![
+        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                Expression::IntConstant(1usize.into()).mock(),
             )
             .mock(),
         ];
@@ -3410,14 +3324,14 @@ mod tests {
         //   return 1
         // should pass
         let foo_args = vec![];
-        let foo_statements = vec![
+        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                Expression::IntConstant(1usize.into()).mock(),
             )
             .mock(),
         ];
@@ -3440,7 +3354,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                Expression::IntConstant(2usize.into()).mock(),
             )
             .mock(),
             Statement::Return(
@@ -3464,7 +3378,7 @@ mod tests {
         let main_args = vec![];
         let main_statements = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                expressions: vec![Expression::IntConstant(1usize.into()).mock()],
             }
             .mock(),
         )
@@ -3517,9 +3431,9 @@ mod tests {
         // should fail
         let foo_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::For(
-                absy::Variable::new("i", UnresolvedType::Uint(32).mock()).mock(),
-                Expression::U32Constant(0).mock(),
-                Expression::U32Constant(10).mock(),
+                absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
+                Expression::IntConstant(0usize.into()).mock(),
+                Expression::IntConstant(10usize.into()).mock(),
                 vec![],
             )
             .mock(),
@@ -3557,14 +3471,14 @@ mod tests {
     #[test]
     fn for_index_in_for() {
         // def foo():
-        //   for i in 0..10 do
+        //   for field i in 0..10 do
         //     a = i
         //   endfor
         // should pass
 
         let for_statements = vec![
             Statement::Declaration(
-                absy::Variable::new("a", UnresolvedType::Uint(32).mock()).mock(),
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock(),
             Statement::Definition(
@@ -3575,27 +3489,25 @@ mod tests {
         ];
 
         let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::For(
-            absy::Variable::new("i", UnresolvedType::Uint(32).mock()).mock(),
-            Expression::U32Constant(0).mock(),
-            Expression::U32Constant(10).mock(),
+            absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
+            Expression::IntConstant(0usize.into()).mock(),
+            Expression::IntConstant(10usize.into()).mock(),
             for_statements,
         )
         .mock()];
 
         let for_statements_checked = vec![
-            TypedStatement::Declaration(typed_absy::Variable::uint("a", UBitwidth::B32)),
+            TypedStatement::Declaration(typed_absy::Variable::field_element("a")),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(typed_absy::Variable::uint("a", UBitwidth::B32)),
-                UExpressionInner::Identifier("i".into())
-                    .annotate(UBitwidth::B32)
-                    .into(),
+                TypedAssignee::Identifier(typed_absy::Variable::field_element("a")),
+                FieldElementExpression::Identifier("i".into()).into(),
             ),
         ];
 
         let foo_statements_checked = vec![TypedStatement::For(
-            typed_absy::Variable::uint("i", UBitwidth::B32),
-            0u32.into(),
-            10u32.into(),
+            typed_absy::Variable::field_element("i"),
+            Bn128Field::from(0).into(),
+            Bn128Field::from(10).into(),
             for_statements_checked,
         )];
 
@@ -3691,7 +3603,7 @@ mod tests {
         // should fail
         let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Assertion(
             Expression::Eq(
-                box Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                box Expression::IntConstant(2usize.into()).mock(),
                 box Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
@@ -3787,8 +3699,8 @@ mod tests {
         let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::FieldConstant(Bn128Field::from(1)).mock(),
-                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                    Expression::IntConstant(1usize.into()).mock(),
+                    Expression::IntConstant(2usize.into()).mock(),
                 ],
             }
             .mock(),
@@ -3831,7 +3743,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                    expressions: vec![Expression::IntConstant(1usize.into()).mock()],
                 }
                 .mock(),
             )
@@ -3891,8 +3803,8 @@ mod tests {
         let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::FieldConstant(Bn128Field::from(1)).mock(),
-                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                    Expression::IntConstant(1usize.into()).mock(),
+                    Expression::IntConstant(2usize.into()).mock(),
                 ],
             }
             .mock(),
@@ -3992,7 +3904,7 @@ mod tests {
 
         let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                expressions: vec![Expression::IntConstant(1usize.into()).mock()],
             }
             .mock(),
         )
@@ -4024,7 +3936,7 @@ mod tests {
             Statement::Definition(
                 Assignee::Identifier("a".into()).mock(),
                 Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(
-                    Expression::FieldConstant(Bn128Field::from(0)).mock(),
+                    Expression::IntConstant(0usize.into()).mock(),
                 )])
                 .mock(),
             )
@@ -4032,7 +3944,9 @@ mod tests {
             Statement::MultipleDefinition(
                 vec![Assignee::Select(
                     box Assignee::Identifier("a").mock(),
-                    box RangeOrExpression::Expression(absy::Expression::U32Constant(0).mock()),
+                    box RangeOrExpression::Expression(
+                        absy::Expression::IntConstant(0usize.into()).mock(),
+                    ),
                 )
                 .mock()],
                 Expression::FunctionCall("foo", vec![]).mock(),
@@ -4081,7 +3995,7 @@ mod tests {
             Err(vec![Error {
                 inner: ErrorInner {
                     pos: Some((Position::mock(), Position::mock())),
-                    message: "Only assignment to identifiers is supported, found a[0]".into()
+                    message: "Only assignment to identifiers is supported, found a[0f]".into()
                 },
                 module_id: "main".into()
             }])
@@ -4095,7 +4009,7 @@ mod tests {
         // should fail
         let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Assertion(
             Expression::Eq(
-                box Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                box Expression::IntConstant(1usize.into()).mock(),
                 box Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
@@ -4281,7 +4195,7 @@ mod tests {
         // should fail
         let main1_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                expressions: vec![Expression::IntConstant(1usize.into()).mock()],
             }
             .mock(),
         )
@@ -4295,7 +4209,7 @@ mod tests {
 
         let main2_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                expressions: vec![Expression::IntConstant(1usize.into()).mock()],
             }
             .mock(),
         )
@@ -4980,10 +4894,7 @@ mod tests {
                         Expression::Member(
                             box Expression::InlineStruct(
                                 "Foo".into(),
-                                vec![(
-                                    "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
-                                )]
+                                vec![("foo", Expression::IntConstant(42usize.into()).mock())]
                             )
                             .mock(),
                             "foo".into()
@@ -5025,14 +4936,11 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::Member(
                                 box Expression::InlineStruct(
                                     "Foo".into(),
-                                    vec![(
-                                        "foo",
-                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
-                                    )]
+                                    vec![("foo", Expression::IntConstant(42usize.into()).mock())]
                                 )
                                 .mock(),
                                 "bar".into()
@@ -5066,13 +4974,10 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::InlineStruct(
                                 "Bar".into(),
-                                vec![(
-                                    "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
-                                )]
+                                vec![("foo", Expression::IntConstant(42usize.into()).mock())]
                             )
                             .mock(),
                             &PathBuf::from(MODULE_ID).into(),
@@ -5111,10 +5016,7 @@ mod tests {
                         Expression::InlineStruct(
                             "Foo".into(),
                             vec![
-                                (
-                                    "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
-                                ),
+                                ("foo", Expression::IntConstant(42usize.into()).mock()),
                                 ("bar", Expression::BooleanConstant(true).mock())
                             ]
                         )
@@ -5166,10 +5068,7 @@ mod tests {
                             "Foo".into(),
                             vec![
                                 ("bar", Expression::BooleanConstant(true).mock()),
-                                (
-                                    "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
-                                )
+                                ("foo", Expression::IntConstant(42usize.into()).mock())
                             ]
                         )
                         .mock(),
@@ -5216,13 +5115,10 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::InlineStruct(
                                 "Foo".into(),
-                                vec![(
-                                    "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
-                                )]
+                                vec![("foo", Expression::IntConstant(42usize.into()).mock())]
                             )
                             .mock(),
                             &PathBuf::from(MODULE_ID).into(),
@@ -5260,7 +5156,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![(
@@ -5268,7 +5164,7 @@ mod tests {
                                     Expression::BooleanConstant(true).mock()
                                 ),(
                                     "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                    Expression::IntConstant(42usize.into()).mock()
                                 )]
                             )
                             .mock(),
@@ -5281,18 +5177,12 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![
-                                    (
-                                        "bar",
-                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
-                                    ),
-                                    (
-                                        "foo",
-                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
-                                    )
+                                    ("bar", Expression::IntConstant(42usize.into()).mock()),
+                                    ("foo", Expression::IntConstant(42usize.into()).mock())
                                 ]
                             )
                             .mock(),
@@ -5301,7 +5191,7 @@ mod tests {
                         )
                         .unwrap_err()
                         .message,
-                    "Member bar of struct Foo has type bool, found 42 of type field"
+                    "Member bar of struct Foo has type bool, found 42 of type {integer}"
                 );
             }
         }
@@ -5343,7 +5233,7 @@ mod tests {
             // a[2] = 42
             let a = Assignee::Select::<Bn128Field>(
                 box Assignee::Identifier("a").mock(),
-                box RangeOrExpression::Expression(Expression::U32Constant(2).mock()),
+                box RangeOrExpression::Expression(Expression::IntConstant(2usize.into()).mock()),
             )
             .mock();
 
@@ -5371,10 +5261,10 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a, &module_id, &types),
+                checker.check_assignee::<Bn128Field>(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array("a", 33)),
-                    box 2u32.into()
+                    box Bn128Field::from(2).into()
                 ))
             );
         }
@@ -5386,10 +5276,12 @@ mod tests {
             let a: AssigneeNode<Bn128Field> = Assignee::Select(
                 box Assignee::Select(
                     box Assignee::Identifier("a").mock(),
-                    box RangeOrExpression::Expression(Expression::U32Constant(1).mock()),
+                    box RangeOrExpression::Expression(
+                        Expression::IntConstant(1usize.into()).mock(),
+                    ),
                 )
                 .mock(),
-                box RangeOrExpression::Expression(Expression::U32Constant(2).mock()),
+                box RangeOrExpression::Expression(Expression::IntConstant(2usize.into()).mock()),
             )
             .mock();
 
@@ -5420,7 +5312,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a, &module_id, &types),
+                checker.check_assignee::<Bn128Field>(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Select(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(
@@ -5428,9 +5320,9 @@ mod tests {
                             Type::array(Type::FieldElement, 33),
                             42,
                         )),
-                        box 1u32.into()
+                        box Bn128Field::from(1).into()
                     ),
-                    box 2u32.into()
+                    box Bn128Field::from(2).into()
                 ))
             );
         }
