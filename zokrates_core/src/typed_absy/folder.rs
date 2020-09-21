@@ -312,8 +312,8 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
 }
 
 pub fn fold_int_expression<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    e: IntExpression<'ast, T>,
+    _: &mut F,
+    _: IntExpression<'ast, T>,
 ) -> IntExpression<'ast, T> {
     unimplemented!()
 }

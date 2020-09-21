@@ -8,7 +8,6 @@ use crate::absy::Identifier;
 use crate::absy::*;
 use crate::typed_absy::*;
 use crate::typed_absy::{Parameter, Variable};
-use num_bigint::BigUint;
 use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
@@ -560,7 +559,6 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
     ) -> Result<(), Vec<Error>> {
-        let mut errors = vec![];
         let mut checked_functions = HashMap::new();
 
         // check if the module was already removed from the untyped ones
@@ -593,11 +591,6 @@ impl<'ast> Checker<'ast> {
                 })
             }
         };
-
-        // return if any errors occured
-        if errors.len() > 0 {
-            return Err(errors);
-        }
 
         // insert into typed_modules if we checked anything
         match to_insert {
@@ -1107,7 +1100,7 @@ impl<'ast> Checker<'ast> {
                     		},
                     		0 => Err(ErrorInner {                         pos: Some(pos),
  message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
-                            n => unimplemented!()
+                            _ => unimplemented!()
                     	}
                     }
                     _ => Err(ErrorInner {
