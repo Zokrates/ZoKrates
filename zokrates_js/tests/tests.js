@@ -26,7 +26,7 @@ describe('tests', function() {
         it('should resolve stdlib module', function() {
             const stdlib = require('../stdlib.json');
             assert.doesNotThrow(() => {
-                const code = `import "${Object.keys(stdlib)[0]}" as func\ndef main() -> (): return`;
+                const code = `import "${Object.keys(stdlib)[0]}" as func\ndef main(): return`;
                 this.zokrates.compile(code);
             });
         });
