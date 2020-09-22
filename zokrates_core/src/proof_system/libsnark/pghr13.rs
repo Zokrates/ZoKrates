@@ -345,7 +345,7 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
     function verifyTx(
             Proof memory proof<%input_argument%>
         ) public view returns (bool r) {
-        uint[] memory inputValues = new uint[](input.length);
+        uint[] memory inputValues = new uint[](<%vk_input_length%>);
         <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;
@@ -434,7 +434,7 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
         proof.c_p = Pairing.G1Point(c_p[0], c_p[1]);
         proof.h = Pairing.G1Point(h[0], h[1]);
         proof.k = Pairing.G1Point(k[0], k[1]);
-        uint[] memory inputValues = new uint[](input.length);
+        uint[] memory inputValues = new uint[](<%vk_input_length%>);
         <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;

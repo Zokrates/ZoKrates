@@ -26,6 +26,7 @@ let jsonContractSource = JSON.stringify({
 });
 
 let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
+console.log(jsonInterface);
 (async () => {
     const accounts = await web3.eth.getAccounts();
     let abi = jsonInterface.contracts[contractPath]["Verifier"].abi;
@@ -95,7 +96,7 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
 
     function verifyTx_ABIV2(proof, account, correct) {
         var args = proof[0];
-        args = proof[1].length > 0 ? [args, proof[1]] : args;
+        args = proof[1].length > 0 ? [args, proof[1]] : [args];
 
         return contract.methods.verifyTx(...args).send({
             from: account,
