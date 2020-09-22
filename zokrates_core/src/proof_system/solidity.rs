@@ -1,4 +1,4 @@
-pub const SOLIDITY_G2_ADDITION_LIB: &str = r#"// This file is LGPL3 Licensed
+pub const SOLIDITY_G2_ADDITION_LIB: &str = r#"// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.6.1;
 
 /**
