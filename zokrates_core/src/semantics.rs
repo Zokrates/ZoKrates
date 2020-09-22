@@ -1100,7 +1100,10 @@ impl<'ast> Checker<'ast> {
                     		},
                     		0 => Err(ErrorInner {                         pos: Some(pos),
  message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
-                            _ => unimplemented!()
+                            n => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!("Ambiguous call to function {}, {} candidates were found. Please be more explicit.", fun_id, n)
+                    })
                     	}
                     }
                     _ => Err(ErrorInner {
@@ -1256,7 +1259,11 @@ impl<'ast> Checker<'ast> {
                                     )
                                     .annotate(members.clone())
                                     .into(),
-                                    Type::Int => unimplemented!(),
+                                    Type::Int => IntExpression::select(
+                                        e.clone().annotate(Type::Int, size as usize),
+                                        FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .into(),
                                 })
                                 .collect()),
                         }
@@ -1694,7 +1701,7 @@ impl<'ast> Checker<'ast> {
                     }),
                     n => Err(ErrorInner {
                         pos: Some(pos),
-                        message: format!("Ambiguous call to function {}, {} candidates were found. Please be more explicit", fun_id, n)
+                        message: format!("Ambiguous call to function {}, {} candidates were found. Please be more explicit.", fun_id, n)
                     }),
                 }
             }
@@ -2747,57 +2754,57 @@ mod tests {
         }
     }
 
+    /// Helper function to create ((): return)
+    fn function0() -> FunctionNode<'static, Bn128Field> {
+        let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let arguments = vec![];
+
+        let signature = UnresolvedSignature::new();
+
+        Function {
+            arguments,
+            statements,
+            signature,
+        }
+        .mock()
+    }
+
+    /// Helper function to create ((private field a): return)
+    fn function1() -> FunctionNode<'static, Bn128Field> {
+        let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let arguments = vec![absy::Parameter {
+            id: absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            private: true,
+        }
+        .mock()];
+
+        let signature =
+            UnresolvedSignature::new().inputs(vec![UnresolvedType::FieldElement.mock()]);
+
+        Function {
+            arguments,
+            statements,
+            signature,
+        }
+        .mock()
+    }
+
     mod symbols {
         use super::*;
-
-        /// Helper function to create ((): return)
-        fn function0() -> FunctionNode<'static, Bn128Field> {
-            let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
-                ExpressionList {
-                    expressions: vec![],
-                }
-                .mock(),
-            )
-            .mock()];
-
-            let arguments = vec![];
-
-            let signature = UnresolvedSignature::new();
-
-            Function {
-                arguments,
-                statements,
-                signature,
-            }
-            .mock()
-        }
-
-        /// Helper function to create ((private field a): return)
-        fn function1() -> FunctionNode<'static, Bn128Field> {
-            let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
-                ExpressionList {
-                    expressions: vec![],
-                }
-                .mock(),
-            )
-            .mock()];
-
-            let arguments = vec![absy::Parameter {
-                id: absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
-                private: true,
-            }
-            .mock()];
-
-            let signature =
-                UnresolvedSignature::new().inputs(vec![UnresolvedType::FieldElement.mock()]);
-
-            Function {
-                arguments,
-                statements,
-                signature,
-            }
-            .mock()
-        }
 
         fn struct0() -> StructDefinitionNode<'static, Bn128Field> {
             StructDefinition { fields: vec![] }.mock()
@@ -5187,6 +5194,114 @@ mod tests {
                     "Member bar of struct Foo has type bool, found 42 of type {integer}"
                 );
             }
+        }
+    }
+
+    mod int_inference {
+        use super::*;
+
+        #[test]
+        fn two_candidates() {
+            // def foo(field a) -> field:
+            //     return 0
+
+            // def foo(u32 a) -> field:
+            //     return 0
+
+            // def main() -> field:
+            //     return foo(0)
+
+            // should fail
+
+            let mut foo_field = function0();
+
+            foo_field.value.arguments = vec![absy::Parameter::private(
+                absy::Variable {
+                    id: "a",
+                    _type: UnresolvedType::FieldElement.mock(),
+                }
+                .mock(),
+            )
+            .mock()];
+            foo_field.value.statements = vec![Statement::Return(
+                ExpressionList {
+                    expressions: vec![Expression::IntConstant(0usize.into()).mock()],
+                }
+                .mock(),
+            )
+            .mock()];
+            foo_field.value.signature = UnresolvedSignature::new()
+                .inputs(vec![UnresolvedType::FieldElement.mock()])
+                .outputs(vec![UnresolvedType::FieldElement.mock()]);
+
+            let mut foo_u32 = function0();
+
+            foo_u32.value.arguments = vec![absy::Parameter::private(
+                absy::Variable {
+                    id: "a",
+                    _type: UnresolvedType::Uint(32).mock(),
+                }
+                .mock(),
+            )
+            .mock()];
+            foo_u32.value.statements = vec![Statement::Return(
+                ExpressionList {
+                    expressions: vec![Expression::IntConstant(0usize.into()).mock()],
+                }
+                .mock(),
+            )
+            .mock()];
+            foo_u32.value.signature = UnresolvedSignature::new()
+                .inputs(vec![UnresolvedType::Uint(32).mock()])
+                .outputs(vec![UnresolvedType::FieldElement.mock()]);
+
+            let mut main = function0();
+
+            main.value.statements = vec![Statement::Return(
+                ExpressionList {
+                    expressions: vec![Expression::FunctionCall(
+                        "foo",
+                        vec![Expression::IntConstant(0usize.into()).mock()],
+                    )
+                    .mock()],
+                }
+                .mock(),
+            )
+            .mock()];
+            main.value.signature =
+                UnresolvedSignature::new().outputs(vec![UnresolvedType::FieldElement.mock()]);
+
+            let m = Module::with_symbols(vec![
+                absy::SymbolDeclaration {
+                    id: "foo",
+                    symbol: Symbol::HereFunction(foo_field),
+                }
+                .mock(),
+                absy::SymbolDeclaration {
+                    id: "foo",
+                    symbol: Symbol::HereFunction(foo_u32),
+                }
+                .mock(),
+                absy::SymbolDeclaration {
+                    id: "main",
+                    symbol: Symbol::HereFunction(main),
+                }
+                .mock(),
+            ]);
+
+            let p = Program {
+                main: "".into(),
+                modules: vec![("".into(), m)].into_iter().collect(),
+            };
+
+            let errors = Checker::new().check_program(p).unwrap_err();
+
+            assert_eq!(errors.len(), 1);
+
+            assert_eq!(
+                errors[0].inner.message,
+                "Ambiguous call to function foo, 2 candidates were found. Please be more explicit."
+            );
         }
     }
 

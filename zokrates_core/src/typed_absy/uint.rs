@@ -55,81 +55,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::RightShift(box self, box by).annotate(bitwidth)
     }
-
-    pub fn try_from_typed(
-        e: TypedExpression<'ast, T>,
-        bitwidth: UBitwidth,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
-        match e {
-            TypedExpression::Uint(e) => match e.bitwidth == bitwidth {
-                true => Ok(e),
-                _ => Err(TypedExpression::Uint(e)),
-            },
-            TypedExpression::Int(e) => {
-                Self::try_from_int(e.clone(), bitwidth).map_err(|_| TypedExpression::Int(e))
-            }
-            e => Err(e),
-        }
-    }
-
-    pub fn try_from_int(
-        i: IntExpression<'ast, T>,
-        bitwidth: UBitwidth,
-    ) -> Result<Self, IntExpression<'ast, T>> {
-        use self::IntExpression::*;
-
-        match i {
-            Value(i) => {
-                if i <= BigUint::from(2u128.pow(bitwidth.to_usize() as u32 - 1)) {
-                    Ok(UExpressionInner::Value(
-                        u128::from_str_radix(&i.to_str_radix(16), 16).unwrap(),
-                    )
-                    .annotate(bitwidth))
-                } else {
-                    Err(Value(i))
-                }
-            }
-            Add(box e1, box e2) => Ok(UExpression::add(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Sub(box e1, box e2) => Ok(UExpression::sub(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Mult(box e1, box e2) => Ok(UExpression::mult(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            And(box e1, box e2) => Ok(UExpression::and(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Or(box e1, box e2) => Ok(UExpression::or(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Xor(box e1, box e2) => Ok(UExpression::xor(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            RightShift(box e1, box e2) => Ok(UExpression::right_shift(
-                Self::try_from_int(e1, bitwidth)?,
-                e2,
-            )),
-            LeftShift(box e1, box e2) => Ok(UExpression::left_shift(
-                Self::try_from_int(e1, bitwidth)?,
-                e2,
-            )),
-            IfElse(box condition, box consequence, box alternative) => Ok(UExpression::if_else(
-                condition,
-                Self::try_from_int(consequence, bitwidth)?,
-                Self::try_from_int(alternative, bitwidth)?,
-            )),
-            Select(..) => unimplemented!(),
-            i => Err(i),
-        }
-    }
 }
 
 impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {
@@ -160,6 +85,18 @@ pub struct UExpression<'ast, T> {
 impl<'ast, T> From<u32> for UExpression<'ast, T> {
     fn from(u: u32) -> Self {
         UExpressionInner::Value(u as u128).annotate(UBitwidth::B32)
+    }
+}
+
+impl<'ast, T> From<u16> for UExpression<'ast, T> {
+    fn from(u: u16) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B16)
+    }
+}
+
+impl<'ast, T> From<u8> for UExpression<'ast, T> {
+    fn from(u: u8) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B8)
     }
 }
 

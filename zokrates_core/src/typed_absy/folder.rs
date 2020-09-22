@@ -315,7 +315,7 @@ pub fn fold_int_expression<'ast, T: Field, F: Folder<'ast, T>>(
     _: &mut F,
     _: IntExpression<'ast, T>,
 ) -> IntExpression<'ast, T> {
-    unimplemented!()
+    unreachable!()
 }
 
 pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
