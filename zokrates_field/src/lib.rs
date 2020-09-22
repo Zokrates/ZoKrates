@@ -306,9 +306,7 @@ mod prime_field {
                     match value <= Self::max_value().to_biguint() {
                         true => {
                             let x = ToBigInt::to_bigint(&value).unwrap();
-                            Ok(FieldPrime {
-                                value: &x - x.div_floor(&*P) * &*P,
-                            })
+                            Ok(FieldPrime { value: x })
                         }
                         false => Err(()),
                     }
