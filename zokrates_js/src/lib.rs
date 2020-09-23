@@ -97,7 +97,6 @@ pub fn compile(
     source: JsValue,
     location: JsValue,
     resolve_callback: &js_sys::Function,
-    config: JsValue,
 ) -> Result<JsValue, JsValue> {
     let resolver = JsResolver::new(resolve_callback);
 

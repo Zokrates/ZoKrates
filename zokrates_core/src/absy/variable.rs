@@ -5,33 +5,33 @@ use std::fmt;
 use crate::absy::Identifier;
 
 #[derive(Clone, PartialEq)]
-pub struct Variable<'ast, T> {
+pub struct Variable<'ast> {
     pub id: Identifier<'ast>,
-    pub _type: UnresolvedTypeNode<'ast, T>,
+    pub _type: UnresolvedTypeNode<'ast>,
 }
 
-pub type VariableNode<'ast, T> = Node<Variable<'ast, T>>;
+pub type VariableNode<'ast> = Node<Variable<'ast>>;
 
-impl<'ast, T> Variable<'ast, T> {
-    pub fn new<S: Into<&'ast str>>(id: S, t: UnresolvedTypeNode<'ast, T>) -> Variable<'ast, T> {
+impl<'ast> Variable<'ast> {
+    pub fn new<S: Into<&'ast str>>(id: S, t: UnresolvedTypeNode<'ast>) -> Variable<'ast> {
         Variable {
             id: id.into(),
             _type: t,
         }
     }
 
-    pub fn get_type(&self) -> &UnresolvedType<'ast, T> {
+    pub fn get_type(&self) -> &UnresolvedType<'ast> {
         &self._type.value
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for Variable<'ast, T> {
+impl<'ast> fmt::Display for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Variable<'ast, T> {
+impl<'ast> fmt::Debug for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }

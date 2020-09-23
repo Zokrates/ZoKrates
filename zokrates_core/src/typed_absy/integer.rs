@@ -216,13 +216,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
 
     pub fn try_from_int(i: IntExpression<'ast, T>) -> Result<Self, IntExpression<'ast, T>> {
         match i {
-            IntExpression::Value(i) => {
-                if i <= T::max_value().to_biguint() {
-                    Ok(Self::Number(T::from(i)))
-                } else {
-                    Err(IntExpression::Value(i))
-                }
-            }
+            IntExpression::Value(i) => Ok(Self::Number(T::try_from(i.clone()).map_err(|_| i)?)),
             IntExpression::Add(box e1, box e2) => Ok(Self::Add(
                 box Self::try_from_int(e1)?,
                 box Self::try_from_int(e2)?,

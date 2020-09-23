@@ -2,24 +2,24 @@ use crate::absy::{Node, VariableNode};
 use std::fmt;
 
 #[derive(Clone, PartialEq)]
-pub struct Parameter<'ast, T> {
-    pub id: VariableNode<'ast, T>,
+pub struct Parameter<'ast> {
+    pub id: VariableNode<'ast>,
     pub private: bool,
 }
 
-impl<'ast, T> Parameter<'ast, T> {
-    pub fn new(v: VariableNode<'ast, T>, private: bool) -> Self {
+impl<'ast> Parameter<'ast> {
+    pub fn new(v: VariableNode<'ast>, private: bool) -> Self {
         Parameter { id: v, private }
     }
 
-    pub fn public(v: VariableNode<'ast, T>) -> Self {
+    pub fn public(v: VariableNode<'ast>) -> Self {
         Parameter {
             id: v,
             private: false,
         }
     }
 
-    pub fn private(v: VariableNode<'ast, T>) -> Self {
+    pub fn private(v: VariableNode<'ast>) -> Self {
         Parameter {
             id: v,
             private: true,
@@ -27,9 +27,9 @@ impl<'ast, T> Parameter<'ast, T> {
     }
 }
 
-pub type ParameterNode<'ast, T> = Node<Parameter<'ast, T>>;
+pub type ParameterNode<'ast> = Node<Parameter<'ast>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Parameter<'ast, T> {
+impl<'ast> fmt::Display for Parameter<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let visibility = if self.private { "private " } else { "" };
         write!(
@@ -42,7 +42,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Parameter<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Parameter<'ast, T> {
+impl<'ast> fmt::Debug for Parameter<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
