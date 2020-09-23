@@ -1,11 +1,13 @@
+use algebra::bn254::{Bn254, Fq2 as Bn254_Fq2};
 use bellman_ce::pairing::bn256::{Bn256, Fq2};
 
 prime_field!(
     b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
-    Bn256,
-    Fq2,
     "bn128"
 );
+
+bellman_extensions!(Bn256, Fq2);
+zexe_extensions!(Bn254, Bn254_Fq2);
 
 #[cfg(test)]
 mod tests {
@@ -384,7 +386,6 @@ mod tests {
         use bellman_ce::pairing::bn256::Fr;
 
         use rand::{thread_rng, Rng};
-        use Field;
 
         #[test]
         fn fr_to_field_to_fr() {

@@ -5,15 +5,16 @@ use bellman::groth16::{
 use pairing::{CurveAffine, Engine};
 use regex::Regex;
 
+use ir;
+use proof_system::solidity::{
+    SolidityAbi, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
+};
+use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair};
+use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
-use crate::ir;
 use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
-use crate::proof_system::solidity::{
-    SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
-};
-use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair, SolidityAbi};
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
@@ -27,7 +28,7 @@ pub struct ProofPoints {
 }
 
 impl ProofPoints {
-    fn into_bellman<T: Field>(self) -> BellmanProof<T::BellmanEngine> {
+    fn into_bellman<T: BellmanFieldExtensions>(self) -> BellmanProof<T::BellmanEngine> {
         BellmanProof {
             a: serialization::to_g1::<T>(self.a),
             b: serialization::to_g2::<T>(self.b),
@@ -46,7 +47,7 @@ pub struct VerificationKey {
 }
 
 impl VerificationKey {
-    fn into_bellman<T: Field>(self) -> VerifyingKey<T::BellmanEngine> {
+    fn into_bellman<T: BellmanFieldExtensions>(self) -> VerifyingKey<T::BellmanEngine> {
         VerifyingKey {
             alpha_g1: serialization::to_g1::<T>(self.alpha),
             beta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
@@ -63,19 +64,15 @@ impl VerificationKey {
     }
 }
 
-impl<T: Field> ProofSystem<T> for G16 {
+impl<T: Field + BellmanFieldExtensions> ProofSystem<T> for G16 {
     type VerificationKey = VerificationKey;
     type ProofPoints = ProofPoints;
 
     fn setup(program: ir::Prog<T>) -> SetupKeypair<VerificationKey> {
-        #[cfg(not(target_arch = "wasm32"))]
-        std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
-
         let mut pk: Vec<u8> = Vec::new();
-
         parameters.write(&mut pk).unwrap();
 
         let vk = VerificationKey {
@@ -108,7 +105,6 @@ impl<T: Field> ProofSystem<T> for G16 {
         let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
         let proof = computation.clone().prove(&params);
-
         let proof_points = ProofPoints {
             a: parse_g1::<T>(&proof.a),
             b: parse_g2::<T>(&proof.b),
@@ -121,10 +117,7 @@ impl<T: Field> ProofSystem<T> for G16 {
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        let mut raw: Vec<u8> = Vec::new();
-        proof.write(&mut raw).unwrap();
-
-        Proof::<ProofPoints>::new(proof_points, inputs, hex::encode(&raw))
+        Proof::<ProofPoints>::new(proof_points, inputs, None)
     }
 
     fn export_solidity_verifier(vk: VerificationKey, abi: SolidityAbi) -> String {
@@ -232,9 +225,7 @@ impl<T: Field> ProofSystem<T> for G16 {
 
     fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
         let vk: VerifyingKey<T::BellmanEngine> = vk.into_bellman::<T>();
-
         let pvk: PreparedVerifyingKey<T::BellmanEngine> = prepare_verifying_key(&vk);
-
         let bellman_proof: BellmanProof<T::BellmanEngine> = proof.proof.into_bellman::<T>();
 
         let public_inputs: Vec<_> = proof
@@ -242,7 +233,7 @@ impl<T: Field> ProofSystem<T> for G16 {
             .iter()
             .map(|s| {
                 T::try_from_str(s.trim_start_matches("0x"), 16)
-                    .expect(format!("Invalid {} value: {}", T::name(), s).as_str())
+                    .unwrap()
                     .into_bellman()
             })
             .collect::<Vec<_>>();
@@ -253,17 +244,22 @@ impl<T: Field> ProofSystem<T> for G16 {
 
 mod serialization {
     use pairing::{from_hex, CurveAffine, Engine};
-    use proof_system::{G1Affine, G2Affine};
-    use zokrates_field::Field;
 
-    pub fn to_g1<T: Field>(g1: G1Affine) -> <T::BellmanEngine as Engine>::G1Affine {
+    use proof_system::{G1Affine, G2Affine};
+    use zokrates_field::BellmanFieldExtensions;
+
+    pub fn to_g1<T: BellmanFieldExtensions>(
+        g1: G1Affine,
+    ) -> <T::BellmanEngine as Engine>::G1Affine {
         <T::BellmanEngine as Engine>::G1Affine::from_xy_checked(
             from_hex(&g1.0).unwrap(),
             from_hex(&g1.1).unwrap(),
         )
         .unwrap()
     }
-    pub fn to_g2<T: Field>(g2: G2Affine) -> <T::BellmanEngine as Engine>::G2Affine {
+    pub fn to_g2<T: BellmanFieldExtensions>(
+        g2: G2Affine,
+    ) -> <T::BellmanEngine as Engine>::G2Affine {
         // apparently the order is reversed
         let x = T::new_fq2(&(g2.0).1, &(g2.0).0);
         let y = T::new_fq2(&(g2.1).1, &(g2.1).0);
@@ -389,11 +385,12 @@ contract Verifier {
 
 #[cfg(test)]
 mod tests {
+    use zokrates_field::Bn128Field;
+
     use crate::flat_absy::FlatVariable;
     use crate::ir::{Function, Interpreter, Prog, Statement};
 
     use super::*;
-    use zokrates_field::Bn128Field;
 
     #[test]
     fn verify() {

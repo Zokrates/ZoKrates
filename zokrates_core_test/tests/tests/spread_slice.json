@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/spread_slice.zok",
-	"curves": ["Bn128", "Bls12"],
+	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
 	"max_constraint_count": 9,
 	"tests": [
 		{

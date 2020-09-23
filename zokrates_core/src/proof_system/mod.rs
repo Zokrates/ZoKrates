@@ -1,16 +1,16 @@
 pub mod bellman;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
+pub mod zexe;
 
-mod solidity;
+pub mod solidity;
 
 use crate::ir;
+use proof_system::solidity::SolidityAbi;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use zokrates_field::Field;
 
-// We only need to serialize this struct, there is no need for deserialization as keys are
-// used separately in other use cases
 #[derive(Serialize)]
 pub struct SetupKeypair<V> {
     pub vk: V,
@@ -23,39 +23,33 @@ impl<V: Serialize + DeserializeOwned> SetupKeypair<V> {
     }
 }
 
-pub enum SolidityAbi {
-    V1,
-    V2,
-}
-
-impl SolidityAbi {
-    pub fn from(v: &str) -> Result<Self, &str> {
-        match v {
-            "v1" => Ok(SolidityAbi::V1),
-            "v2" => Ok(SolidityAbi::V2),
-            _ => Err("Invalid ABI version"),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct Proof<T> {
     proof: T,
     inputs: Vec<String>,
-    raw: String,
+    raw: Option<String>,
 }
 
 impl<T: Serialize + DeserializeOwned> Proof<T> {
-    fn new(proof: T, inputs: Vec<String>, raw: String) -> Self {
+    fn new(proof: T, inputs: Vec<String>, raw: Option<String>) -> Self {
         Proof { proof, inputs, raw }
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct G1Affine(String, String);
+pub type Fr = String;
+pub type Fq = String;
+pub type Fq2 = (String, String);
 
 #[derive(Serialize, Deserialize)]
-pub struct G2Affine(G1Affine, G1Affine);
+pub struct G1Affine(Fq, Fq);
+
+// When G2 is defined on Fq2 field
+#[derive(Serialize, Deserialize)]
+pub struct G2Affine(Fq2, Fq2);
+
+// When G2 is defined on a Fq field (BW6_761 curve)
+#[derive(Serialize, Deserialize)]
+pub struct G2AffineFq(Fq, Fq);
 
 impl ToString for G1Affine {
     fn to_string(&self) -> String {
@@ -63,9 +57,20 @@ impl ToString for G1Affine {
     }
 }
 
+impl ToString for G2AffineFq {
+    fn to_string(&self) -> String {
+        format!("{}, {}", self.0, self.1)
+    }
+}
 impl ToString for G2Affine {
     fn to_string(&self) -> String {
-        format!("[{}], [{}]", self.0.to_string(), self.1.to_string())
+        format!(
+            "[{}, {}], [{}, {}]",
+            (self.0).0,
+            (self.0).1,
+            (self.1).0,
+            (self.1).1
+        )
     }
 }
 

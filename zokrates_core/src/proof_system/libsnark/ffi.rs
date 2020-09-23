@@ -20,7 +20,7 @@ extern "C" {
 }
 
 impl Buffer {
-    pub fn from_vec(v: &Vec<u8>) -> Buffer {
+    pub unsafe fn from_vec(v: &Vec<u8>) -> Buffer {
         let mut buf = vec![0; v.len()].into_boxed_slice();
         buf.copy_from_slice(v.as_slice());
 
@@ -41,8 +41,7 @@ impl Buffer {
         Box::from_raw(s);
     }
 
-    /// The purpose of this function is to free memory previously allocated by "malloc"
-    /// from C standard library. Do not use otherwise.
+    /// The purpose of this function is to free memory allocated by C. Do not use otherwise.
     pub fn free(self) {
         unsafe { __free(self.data) };
     }

@@ -1,0 +1,13 @@
+#pragma curve bls12_377
+
+// Non-strict version:
+// Note that this does not strongly enforce that the commitment is
+// in the field.
+
+import "EMBED/unpack" as unpack
+
+def main(field i) -> (bool[256]):
+
+    bool[253] b = unpack(i)
+
+    return [false, false, false, ...b]

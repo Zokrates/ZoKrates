@@ -1,3 +1,4 @@
+extern crate algebra as zexe_algebra;
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use ir::Directive;

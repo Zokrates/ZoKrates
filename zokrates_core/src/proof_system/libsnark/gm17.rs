@@ -2,9 +2,9 @@ use ir;
 use proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::libsnark::{prepare_generate_proof, prepare_public_inputs, prepare_setup};
 use proof_system::solidity::{
-    SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
+    SolidityAbi, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair, SolidityAbi};
+use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair};
 use regex::Regex;
 
 use zokrates_field::Bn128Field;
@@ -67,7 +67,7 @@ impl ProofSystem<Bn128Field> for GM17 {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
-        let keypair = unsafe {
+        let (vk, pk) = unsafe {
             let result: SetupResult = gm17_bn128_setup(
                 a_arr.as_ptr(),
                 b_arr.as_ptr(),
@@ -85,16 +85,15 @@ impl ProofSystem<Bn128Field> for GM17 {
             let pk: Vec<u8> =
                 std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
 
-            // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
-            // free the memory.
+            // free c allocated buffers
             result.vk.free();
             result.pk.free();
 
             (vk, pk)
         };
 
-        let vk = serde_json::from_str(String::from_utf8(keypair.0).unwrap().as_str()).unwrap();
-        SetupKeypair::new(vk, keypair.1)
+        let vk = serde_json::from_str(String::from_utf8(vk).unwrap().as_str()).unwrap();
+        SetupKeypair::new(vk, pk)
     }
 
     fn generate_proof(
@@ -105,9 +104,9 @@ impl ProofSystem<Bn128Field> for GM17 {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
 
-        let mut pk_buffer = Buffer::from_vec(&proving_key);
-
         let proof = unsafe {
+            let mut pk_buffer = Buffer::from_vec(&proving_key);
+
             let result = gm17_bn128_generate_proof(
                 &mut pk_buffer as *mut _,
                 public_inputs_arr[0].as_ptr(),
@@ -122,8 +121,7 @@ impl ProofSystem<Bn128Field> for GM17 {
                 std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
                     .to_vec();
 
-            // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
-            // free the memory.
+            // free c allocated buffer
             result.proof.free();
 
             proof
@@ -239,23 +237,20 @@ impl ProofSystem<Bn128Field> for GM17 {
 
     fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
         let vk_raw = hex::decode(vk.raw.clone()).unwrap();
-        let proof_raw = hex::decode(proof.raw.clone()).unwrap();
+        let proof_raw = hex::decode(proof.raw.unwrap()).unwrap();
 
         let public_inputs: Vec<_> = proof
             .inputs
             .iter()
-            .map(|v| {
-                Bn128Field::try_from_str(v.as_str().trim_start_matches("0x"), 16)
-                    .expect(format!("Invalid bn128 value: {}", v.as_str()).as_str())
-            })
+            .map(|v| Bn128Field::try_from_str(v.as_str().trim_start_matches("0x"), 16).unwrap())
             .collect();
 
         let (public_inputs_arr, public_inputs_length) = prepare_public_inputs(public_inputs);
 
-        let mut vk_buffer = Buffer::from_vec(&vk_raw);
-        let mut proof_buffer = Buffer::from_vec(&proof_raw);
-
         unsafe {
+            let mut vk_buffer = Buffer::from_vec(&vk_raw);
+            let mut proof_buffer = Buffer::from_vec(&proof_raw);
+
             let ans = gm17_bn128_verify(
                 &mut vk_buffer as *mut _,
                 &mut proof_buffer as *mut _,

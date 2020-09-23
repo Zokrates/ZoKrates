@@ -1,6 +1,6 @@
 pub mod groth16;
 
-extern crate rand;
+// extern crate rand;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
 use bellman::groth16::Proof;
@@ -11,10 +11,11 @@ use bellman::groth16::{
 use bellman::pairing::ff::ScalarEngine;
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
 use std::collections::BTreeMap;
+use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
-use self::rand::ChaChaRng;
 use crate::flat_absy::FlatVariable;
+use rand_0_4::ChaChaRng;
 
 pub use self::parse::*;
 
@@ -40,7 +41,7 @@ impl<T: Field> Computation<T> {
     }
 }
 
-fn bellman_combination<T: Field, CS: ConstraintSystem<T::BellmanEngine>>(
+fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::BellmanEngine>>(
     l: CanonicalLinComb<T>,
     cs: &mut CS,
     symbols: &mut BTreeMap<FlatVariable, Variable>,
@@ -83,7 +84,7 @@ fn bellman_combination<T: Field, CS: ConstraintSystem<T::BellmanEngine>>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field> Prog<T> {
+impl<T: BellmanFieldExtensions + Field> Prog<T> {
     pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
@@ -160,7 +161,7 @@ impl<T: Field> Prog<T> {
     }
 }
 
-impl<T: Field> Computation<T> {
+impl<T: BellmanFieldExtensions + Field> Computation<T> {
     pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
         let rng = &mut ChaChaRng::new_unseeded();
 
@@ -198,7 +199,7 @@ impl<T: Field> Computation<T> {
     }
 }
 
-impl<T: Field> Circuit<T::BellmanEngine> for Computation<T> {
+impl<T: BellmanFieldExtensions + Field> Circuit<T::BellmanEngine> for Computation<T> {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
@@ -211,7 +212,7 @@ mod parse {
     use lazy_static::lazy_static;
 
     use super::*;
-    use proof_system::{G1Affine, G2Affine};
+    use proof_system::{Fr, G1Affine, G2Affine};
     use regex::Regex;
 
     lazy_static! {
@@ -228,7 +229,7 @@ mod parse {
         static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
     }
 
-    pub fn parse_g1<T: Field>(
+    pub fn parse_g1<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
     ) -> G1Affine {
         let raw_e = e.to_string();
@@ -239,24 +240,24 @@ mod parse {
         )
     }
 
-    pub fn parse_g2<T: Field>(
+    pub fn parse_g2<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
     ) -> G2Affine {
         let raw_e = e.to_string();
         let captures = G2_REGEX.captures(&raw_e).unwrap();
         G2Affine(
-            G1Affine(
+            (
                 captures.name(&"x1").unwrap().as_str().to_string(),
                 captures.name(&"x0").unwrap().as_str().to_string(),
             ),
-            G1Affine(
+            (
                 captures.name(&"y1").unwrap().as_str().to_string(),
                 captures.name(&"y0").unwrap().as_str().to_string(),
             ),
         )
     }
 
-    pub fn parse_fr<T: Field>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
+    pub fn parse_fr<T: BellmanFieldExtensions>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> Fr {
         let raw_e = e.to_string();
         let captures = FR_REGEX.captures(&raw_e).unwrap();
         captures.name(&"x").unwrap().as_str().to_string()

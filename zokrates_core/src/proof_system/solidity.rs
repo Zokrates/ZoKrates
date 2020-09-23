@@ -1,3 +1,18 @@
+pub enum SolidityAbi {
+    V1,
+    V2,
+}
+
+impl SolidityAbi {
+    pub fn from(v: &str) -> Result<Self, &str> {
+        match v {
+            "v1" => Ok(SolidityAbi::V1),
+            "v2" => Ok(SolidityAbi::V2),
+            _ => Err("Invalid ABI version"),
+        }
+    }
+}
+
 pub const SOLIDITY_G2_ADDITION_LIB: &str = r#"// This file is LGPL3 Licensed
 pragma solidity ^0.6.1;
 
