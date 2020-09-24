@@ -42,11 +42,11 @@ impl SolidityAbi {
 pub struct Proof<T> {
     proof: T,
     inputs: Vec<String>,
-    raw: String,
+    raw: Option<String>,
 }
 
 impl<T: Serialize + DeserializeOwned> Proof<T> {
-    fn new(proof: T, inputs: Vec<String>, raw: String) -> Self {
+    fn new(proof: T, inputs: Vec<String>, raw: Option<String>) -> Self {
         Proof { proof, inputs, raw }
     }
 }

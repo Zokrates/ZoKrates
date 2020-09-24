@@ -251,7 +251,7 @@ impl ProofSystem<Bn128Field> for PGHR13 {
 
     fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
         let vk_raw = hex::decode(vk.raw.clone()).unwrap();
-        let proof_raw = hex::decode(proof.raw.clone()).unwrap();
+        let proof_raw = hex::decode(proof.raw.unwrap().clone()).unwrap();
 
         let public_inputs: Vec<_> = proof
             .inputs
