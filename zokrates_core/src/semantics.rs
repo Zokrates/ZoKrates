@@ -20,8 +20,6 @@ use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 use std::hash::{Hash, Hasher};
 use typed_absy::types::{ArrayType, FunctionKey, Signature, StructMember, StructType, Type};
 
-use std::convert::TryInto;
-
 #[derive(PartialEq, Debug)]
 pub struct ErrorInner {
     pos: Option<(Position, Position)>,
@@ -516,9 +514,7 @@ impl<'ast> Checker<'ast> {
                 };
             }
             Symbol::Flat(funct) => {
-                match symbol_unifier
-                    .insert_function(declaration.id, funct.signature().try_into().unwrap())
-                {
+                match symbol_unifier.insert_function(declaration.id, funct.signature()) {
                     false => {
                         errors.push(
                             ErrorInner {
@@ -536,11 +532,11 @@ impl<'ast> Checker<'ast> {
 
                 self.functions.insert(
                     FunctionKey::with_id(declaration.id.clone())
-                        .signature(funct.signature().clone().try_into().unwrap()),
+                        .signature(funct.signature().clone()),
                 );
                 functions.insert(
                     FunctionKey::with_id(declaration.id.clone())
-                        .signature(funct.signature().clone().try_into().unwrap()),
+                        .signature(funct.signature().clone()),
                     TypedFunctionSymbol::Flat(funct),
                 );
             }
@@ -575,7 +571,7 @@ impl<'ast> Checker<'ast> {
                 // we keep track of the introduced symbols to avoid colisions between types and functions
                 let mut symbol_unifier = SymbolUnifier::default();
 
-                // we go through symbol S and check them
+                // we go through symbol declarations and check them
                 for declaration in module.symbols {
                     self.check_symbol_declaration(
                         declaration,
@@ -662,7 +658,7 @@ impl<'ast> Checker<'ast> {
                         false => {
                             errors.push(ErrorInner {
                                 pos: Some(pos),
-                                message: format!("Duplicate name in function definition: {} was previously declared as an argument", a)
+                                message: format!("Duplicate name in function definition: `{}` was previously declared as an argument", a.id.id)
                             });
                         }
                     };
@@ -4232,6 +4228,39 @@ mod tests {
         assert_eq!(
             checker.check_function(bar, &module_id, &types),
             Ok(bar_checked)
+        );
+    }
+
+    #[test]
+    fn duplicate_argument_name() {
+        // def main(field a, bool a):
+        //     return
+
+        // should fail
+
+        let mut f = function0();
+        f.value.arguments = vec![
+            absy::Parameter::private(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
+            absy::Parameter::private(
+                absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock(),
+            )
+            .mock(),
+        ];
+        f.value.signature = UnresolvedSignature::new().inputs(vec![
+            UnresolvedType::FieldElement.mock(),
+            UnresolvedType::Boolean.mock(),
+        ]);
+
+        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        assert_eq!(
+            checker
+                .check_function::<Bn128Field>(f, &"".into(), &HashMap::new())
+                .unwrap_err()[0]
+                .message,
+            "Duplicate name in function definition: `a` was previously declared as an argument"
         );
     }
 

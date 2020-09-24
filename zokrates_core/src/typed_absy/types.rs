@@ -103,7 +103,6 @@ pub enum Type {
     Array(ArrayType),
     Struct(StructType),
     Uint(UBitwidth),
-    #[serde(skip_serializing)]
     Int,
 }
 
@@ -112,6 +111,8 @@ impl Serialize for Type {
     where
         S: Serializer,
     {
+        use serde::ser::Error;
+
         match self {
             Type::FieldElement => s.serialize_newtype_variant("Type", 0, "type", "field"),
             Type::Boolean => s.serialize_newtype_variant("Type", 1, "type", "bool"),
@@ -133,6 +134,9 @@ impl Serialize for Type {
                 "type",
                 format!("u{}", width.to_usize()).as_str(),
             ),
+            Type::Int => Err(S::Error::custom(format!(
+                "Cannot serialize Int type as it's not allowed in function signatures"
+            ))),
         }
     }
 }
