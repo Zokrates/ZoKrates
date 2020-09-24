@@ -293,7 +293,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 
         match i {
             Value(i) => {
-                if i <= BigUint::from(2u128.pow(bitwidth.to_usize() as u32 - 1)) {
+                if i <= BigUint::from(2u128.pow(bitwidth.to_usize() as u32) - 1) {
                     Ok(UExpressionInner::Value(
                         u128::from_str_radix(&i.to_str_radix(16), 16).unwrap(),
                     )
