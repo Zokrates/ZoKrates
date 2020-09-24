@@ -1,6 +1,5 @@
 use absy;
 use imports;
-use num::ToPrimitive;
 use num_bigint::BigUint;
 use zokrates_pest_ast as pest;
 
