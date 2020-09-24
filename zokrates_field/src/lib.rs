@@ -33,10 +33,11 @@ pub trait BellmanFieldExtensions {
 pub trait ZexeFieldExtensions {
     /// An associated type to be able to operate with zexe ff traits
     type ZexeEngine: PairingEngine;
+    type FqeRepr;
 
     fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self;
     fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr;
-    fn new_fqe(c: Vec<&str>) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe;
+    fn new_fqe(value: Self::FqeRepr) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe;
 }
 
 pub trait Field:
@@ -543,6 +544,7 @@ mod prime_field {
 
             impl ZexeFieldExtensions for FieldPrime {
                 type ZexeEngine = $zexe_type;
+                type FqeRepr = String;
 
                 fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
                     use algebra_core::{BigInteger, PrimeField};
@@ -557,9 +559,12 @@ mod prime_field {
                     <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
                 }
 
-                fn new_fqe(c: Vec<&str>) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe {
+                fn new_fqe(
+                    value: Self::FqeRepr,
+                ) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe {
                     use core::str::FromStr;
-                    <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe::from_str(c[0]).unwrap()
+                    <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe::from_str(value.as_str())
+                        .unwrap()
                 }
             }
         };
@@ -568,6 +573,7 @@ mod prime_field {
 
             impl ZexeFieldExtensions for FieldPrime {
                 type ZexeEngine = $zexe_type;
+                type FqeRepr = [String; 2];
 
                 fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
                     use algebra_core::{BigInteger, PrimeField};
@@ -582,13 +588,19 @@ mod prime_field {
                     <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
                 }
 
-                fn new_fqe(c: Vec<&str>) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe {
+                fn new_fqe(
+                    value: Self::FqeRepr,
+                ) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe {
                     use core::str::FromStr;
                     $fqe_type {
-                        c0: <Self::ZexeEngine as algebra_core::PairingEngine>::Fq::from_str(c[0])
-                            .unwrap(),
-                        c1: <Self::ZexeEngine as algebra_core::PairingEngine>::Fq::from_str(c[1])
-                            .unwrap(),
+                        c0: <Self::ZexeEngine as algebra_core::PairingEngine>::Fq::from_str(
+                            value[0].as_str(),
+                        )
+                        .unwrap(),
+                        c1: <Self::ZexeEngine as algebra_core::PairingEngine>::Fq::from_str(
+                            value[1].as_str(),
+                        )
+                        .unwrap(),
                         _parameters: core::marker::PhantomData,
                     }
                 }

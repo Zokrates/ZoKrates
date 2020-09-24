@@ -38,7 +38,10 @@ pub struct VerificationKey {
     query: Vec<G1Affine>,
 }
 
-impl<T: NotBw6_761Field + Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
+impl<T> ProofSystem<T> for GM17
+where
+    T: NotBw6_761Field + Field + ZexeFieldExtensions<FqeRepr = [String; 2]>,
+{
     type VerificationKey = VerificationKey;
     type ProofPoints = ProofPoints;
 
@@ -276,25 +279,19 @@ pub mod serialization {
         <T::ZexeEngine as PairingEngine>::G1Affine::from_xy_checked(x, y).unwrap()
     }
 
-    pub fn to_g2<T: ZexeFieldExtensions>(
+    pub fn to_g2<T: ZexeFieldExtensions<FqeRepr = [String; 2]>>(
         g2: G2Affine,
     ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
-        let x = T::new_fqe(vec![
-            to_dec_string((g2.0).0).as_str(),
-            to_dec_string((g2.0).1).as_str(),
-        ]);
-        let y = T::new_fqe(vec![
-            to_dec_string((g2.1).0).as_str(),
-            to_dec_string((g2.1).1).as_str(),
-        ]);
+        let x = T::new_fqe([to_dec_string((g2.0).0), to_dec_string((g2.0).1)]);
+        let y = T::new_fqe([to_dec_string((g2.1).0), to_dec_string((g2.1).1)]);
         <T::ZexeEngine as PairingEngine>::G2Affine::from_xy_checked(x, y).unwrap()
     }
 
-    pub fn to_g2_fq<T: ZexeFieldExtensions>(
+    pub fn to_g2_fq<T: ZexeFieldExtensions<FqeRepr = String>>(
         g2: G2AffineFq,
     ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
-        let x = T::new_fqe(vec![to_dec_string(g2.0).as_str()]);
-        let y = T::new_fqe(vec![to_dec_string(g2.1).as_str()]);
+        let x = T::new_fqe(to_dec_string(g2.0));
+        let y = T::new_fqe(to_dec_string(g2.1));
         <T::ZexeEngine as PairingEngine>::G2Affine::from_xy_checked(x, y).unwrap()
     }
 }
