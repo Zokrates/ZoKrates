@@ -2162,13 +2162,18 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::InlineArray(expressions) => {
-                assert!(expressions.len() > 0);
-
                 // check each expression, getting its type
                 let mut expressions_checked = vec![];
                 for e in expressions {
                     let e_checked = self.check_spread_or_expression(e, module_id, &types)?;
                     expressions_checked.extend(e_checked);
+                }
+
+                if expressions_checked.len() == 0 {
+                    return Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!("Empty arrays are not allowed",),
+                    });
                 }
 
                 // we infer the inner type to be the type of the first non-integer element
