@@ -99,6 +99,19 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn serialize_integer() {
+        // serializing the Int type should panic as it is not allowed in signatures
+
+        let abi: Abi = Abi {
+            inputs: vec![],
+            outputs: vec![Type::Int],
+        };
+
+        let _ = serde_json::to_string_pretty(&abi).unwrap();
+    }
+
+    #[test]
     fn serialize_field() {
         let abi: Abi = Abi {
             inputs: vec![

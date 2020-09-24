@@ -109,6 +109,7 @@ pub enum Type {
     Struct(StructType),
     #[serde(rename = "u")]
     Uint(UBitwidth),
+    #[serde(skip_serializing)]
     Int,
 }
 

@@ -624,7 +624,9 @@ impl<'ast> fmt::Debug for Expression<'ast> {
                 f.debug_list().entries(members.iter()).finish()?;
                 write!(f, "]")
             }
-            Expression::ArrayInitializer(..) => unimplemented!(),
+            Expression::ArrayInitializer(ref e, ref count) => {
+                write!(f, "ArrayInitializer({:?}, {:?})", e, count)
+            }
             Expression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)
             }
