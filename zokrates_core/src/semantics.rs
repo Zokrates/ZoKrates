@@ -777,8 +777,6 @@ impl<'ast> Checker<'ast> {
         let mut inputs = vec![];
         let mut outputs = vec![];
 
-        // TODO: check that generics are declared
-
         for t in signature.inputs {
             match self.check_type::<T>(t, module_id, types) {
                 Ok(t) => {
@@ -1333,7 +1331,7 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!("Cannot apply `+` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1378,7 +1376,7 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!("Cannot apply `-` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1423,7 +1421,7 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!("Cannot apply `*` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1468,7 +1466,7 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!("Cannot apply `/` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1508,7 +1506,7 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!("Cannot apply `**` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1549,7 +1547,7 @@ impl<'ast> Checker<'ast> {
                     )
                     .map_err(|(e1, e2)| ErrorInner {
                         pos: Some(pos),
-                        message: format!("{} and {} are incompatible", e1, e2),
+                        message: format!("{{consequence}} and {{alternative}} in `if/else` expression should have the same type, found {}, {}", e1.get_type(), e2.get_type()),
                     })?;
 
                 match condition_checked {
@@ -1720,7 +1718,13 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!(
+                        "Cannot compare {} of type {} to {} of type {}",
+                        e1,
+                        e1.get_type(),
+                        e2,
+                        e2.get_type()
+                    ),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1748,7 +1752,13 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!(
+                        "Cannot compare {} of type {} to {} of type {}",
+                        e1,
+                        e1.get_type(),
+                        e2,
+                        e2.get_type()
+                    ),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1776,7 +1786,13 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!(
+                        "Cannot compare {} of type {} to {} of type {}",
+                        e1,
+                        e1.get_type(),
+                        e2,
+                        e2.get_type()
+                    ),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1855,7 +1871,13 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!(
+                        "Cannot compare {} of type {} to {} of type {}",
+                        e1,
+                        e1.get_type(),
+                        e2,
+                        e2.get_type()
+                    ),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -1883,7 +1905,13 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!(
+                        "Cannot compare {} of type {} to {} of type {}",
+                        e1,
+                        e1.get_type(),
+                        e2,
+                        e2.get_type()
+                    ),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2433,7 +2461,11 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!(
+                        "Cannot apply boolean operators to {} and {}",
+                        e1.get_type(),
+                        e2.get_type()
+                    ),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2447,7 +2479,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "cannot apply boolean operators to {} and {}",
+                            "Cannot apply boolean operators to {} and {}",
                             e1.get_type(),
                             e2.get_type()
                         ),
@@ -2463,8 +2495,11 @@ impl<'ast> Checker<'ast> {
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
-
-                        message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()),
+                        message: format!(
+                            "Cannot apply `||` to {}, {}",
+                            e1.get_type(),
+                            e2.get_type()
+                        ),
                     }),
                 }
             }
@@ -2487,7 +2522,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "cannot left-shift {} by {}",
+                            "Cannot left-shift {} by {}",
                             e1.get_type(),
                             e2.get_type()
                         ),
@@ -2515,7 +2550,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "cannot right-shift {} by {}",
+                            "Cannot right-shift {} by {}",
                             e1.get_type(),
                             e2.get_type()
                         ),
@@ -2531,7 +2566,7 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!("Cannot apply `|` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2573,7 +2608,7 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!("Cannot apply `&` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2615,7 +2650,7 @@ impl<'ast> Checker<'ast> {
                 )
                 .map_err(|(e1, e2)| ErrorInner {
                     pos: Some(pos),
-                    message: format!("{} and {} are incompatible", e1, e2),
+                    message: format!("Cannot apply `^` to {}, {}", e1.get_type(), e2.get_type()),
                 })?;
 
                 match (e1_checked, e2_checked) {
@@ -2656,8 +2691,7 @@ impl<'ast> Checker<'ast> {
                     TypedExpression::Uint(e) => Ok(UExpression::not(e).into()),
                     e => Err(ErrorInner {
                         pos: Some(pos),
-
-                        message: format!("cannot negate {}", e.get_type()),
+                        message: format!("Cannot negate {}", e.get_type()),
                     }),
                 }
             }
