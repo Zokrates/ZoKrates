@@ -568,12 +568,12 @@ mod prime_field {
                 }
             }
         };
-        ($zexe_type:ty, $fqe_type:ident) => {
+        ($zexe_type:ty, $fq2_type:ident) => {
             use crate::ZexeFieldExtensions;
 
             impl ZexeFieldExtensions for FieldPrime {
                 type ZexeEngine = $zexe_type;
-                type FqeRepr = [String; 2];
+                type FqeRepr = (String, String);
 
                 fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
                     use algebra_core::{BigInteger, PrimeField};
@@ -592,13 +592,13 @@ mod prime_field {
                     value: Self::FqeRepr,
                 ) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe {
                     use core::str::FromStr;
-                    $fqe_type {
+                    $fq2_type {
                         c0: <Self::ZexeEngine as algebra_core::PairingEngine>::Fq::from_str(
-                            value[0].as_str(),
+                            value.0.as_str(),
                         )
                         .unwrap(),
                         c1: <Self::ZexeEngine as algebra_core::PairingEngine>::Fq::from_str(
-                            value[1].as_str(),
+                            value.1.as_str(),
                         )
                         .unwrap(),
                         _parameters: core::marker::PhantomData,

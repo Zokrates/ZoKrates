@@ -12,7 +12,7 @@ use crate::ir;
 use crate::proof_system::zexe::Computation;
 use crate::proof_system::zexe::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
 use proof_system::solidity::SolidityAbi;
-use proof_system::{G1Affine, G2Affine, G2AffineFq, Proof, ProofSystem, SetupKeypair};
+use proof_system::{G1Affine, G2Affine, G2AffineFq, Proof, ProofSystem, SetupKeypair, Fq2};
 
 pub struct GM17 {}
 
@@ -40,7 +40,7 @@ pub struct VerificationKey {
 
 impl<T> ProofSystem<T> for GM17
 where
-    T: NotBw6_761Field + Field + ZexeFieldExtensions<FqeRepr = [String; 2]>,
+    T: NotBw6_761Field + Field + ZexeFieldExtensions<FqeRepr = Fq2>,
 {
     type VerificationKey = VerificationKey;
     type ProofPoints = ProofPoints;
@@ -252,7 +252,7 @@ impl ProofSystem<Bw6_761Field> for GM17 {
 pub mod serialization {
     use algebra_core::{AffineCurve, PairingEngine};
     use num_bigint::BigUint;
-    use proof_system::{G1Affine, G2Affine, G2AffineFq};
+    use proof_system::{G1Affine, G2Affine, G2AffineFq, Fq2, Fq};
     use std::str::FromStr;
     use zokrates_field::ZexeFieldExtensions;
 
@@ -279,15 +279,15 @@ pub mod serialization {
         <T::ZexeEngine as PairingEngine>::G1Affine::from_xy_checked(x, y).unwrap()
     }
 
-    pub fn to_g2<T: ZexeFieldExtensions<FqeRepr = [String; 2]>>(
+    pub fn to_g2<T: ZexeFieldExtensions<FqeRepr = Fq2>>(
         g2: G2Affine,
     ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
-        let x = T::new_fqe([to_dec_string((g2.0).0), to_dec_string((g2.0).1)]);
-        let y = T::new_fqe([to_dec_string((g2.1).0), to_dec_string((g2.1).1)]);
+        let x = T::new_fqe((to_dec_string((g2.0).0), to_dec_string((g2.0).1)));
+        let y = T::new_fqe((to_dec_string((g2.1).0), to_dec_string((g2.1).1)));
         <T::ZexeEngine as PairingEngine>::G2Affine::from_xy_checked(x, y).unwrap()
     }
 
-    pub fn to_g2_fq<T: ZexeFieldExtensions<FqeRepr = String>>(
+    pub fn to_g2_fq<T: ZexeFieldExtensions<FqeRepr = Fq>>(
         g2: G2AffineFq,
     ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
         let x = T::new_fqe(to_dec_string(g2.0));
