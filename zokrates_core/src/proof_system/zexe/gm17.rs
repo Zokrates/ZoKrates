@@ -22,28 +22,28 @@ impl NotBw6_761Field for Bls12_381Field {}
 impl NotBw6_761Field for Bn128Field {}
 
 #[derive(Serialize, Deserialize)]
-pub struct ProofPoints {
-    a: G1Affine,
-    b: G2Affine,
-    c: G1Affine,
+pub struct ProofPoints<G1, G2> {
+    a: G1,
+    b: G2,
+    c: G1,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct VerificationKey {
-    h: G2Affine,
-    g_alpha: G1Affine,
-    h_beta: G2Affine,
-    g_gamma: G1Affine,
-    h_gamma: G2Affine,
-    query: Vec<G1Affine>,
+pub struct VerificationKey<G1, G2> {
+    h: G2,
+    g_alpha: G1,
+    h_beta: G2,
+    g_gamma: G1,
+    h_gamma: G2,
+    query: Vec<G1>,
 }
 
 impl<T> ProofSystem<T> for GM17
 where
     T: NotBw6_761Field + Field + ZexeFieldExtensions<FqeRepr = Fq2>,
 {
-    type VerificationKey = VerificationKey;
-    type ProofPoints = ProofPoints;
+    type VerificationKey = VerificationKey<G1Affine, G2Affine>;
+    type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 
     fn setup(program: ir::Prog<T>) -> SetupKeypair<Self::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
@@ -72,7 +72,7 @@ where
         program: ir::Prog<T>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<ProofPoints> {
+    ) -> Proof<Self::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
         let params =
             Parameters::<<T as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
@@ -93,14 +93,14 @@ where
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        Proof::<ProofPoints>::new(proof_points, inputs, None)
+        Proof::<Self::ProofPoints>::new(proof_points, inputs, None)
     }
 
-    fn export_solidity_verifier(_vk: VerificationKey, _abi: SolidityAbi) -> String {
+    fn export_solidity_verifier(_vk: Self::VerificationKey, _abi: SolidityAbi) -> String {
         unimplemented!()
     }
 
-    fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
+    fn verify(vk: Self::VerificationKey, proof: Proof<Self::ProofPoints>) -> bool {
         let vk = VerifyingKey {
             h_g2: serialization::to_g2::<T>(vk.h),
             g_alpha_g1: serialization::to_g1::<T>(vk.g_alpha),
@@ -137,34 +137,17 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ProofPointsG2Fq {
-    a: G1Affine,
-    b: G2AffineFq,
-    c: G1Affine,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct VerificationKeyG2Fq {
-    h: G2AffineFq,
-    g_alpha: G1Affine,
-    h_beta: G2AffineFq,
-    g_gamma: G1Affine,
-    h_gamma: G2AffineFq,
-    query: Vec<G1Affine>,
-}
-
 impl ProofSystem<Bw6_761Field> for GM17 {
-    type VerificationKey = VerificationKeyG2Fq;
-    type ProofPoints = ProofPointsG2Fq;
+    type VerificationKey = VerificationKey<G1Affine, G2AffineFq>;
+    type ProofPoints = ProofPoints<G1Affine, G2AffineFq>;
 
-    fn setup(program: ir::Prog<Bw6_761Field>) -> SetupKeypair<VerificationKeyG2Fq> {
+    fn setup(program: ir::Prog<Bw6_761Field>) -> SetupKeypair<Self::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
         let mut pk: Vec<u8> = Vec::new();
         parameters.serialize_uncompressed(&mut pk).unwrap();
 
-        let vk = VerificationKeyG2Fq {
+        let vk = Self::VerificationKey {
             h: parse_g2_fq::<Bw6_761Field>(&parameters.vk.h_g2),
             g_alpha: parse_g1::<Bw6_761Field>(&parameters.vk.g_alpha_g1),
             h_beta: parse_g2_fq::<Bw6_761Field>(&parameters.vk.h_beta_g2),
@@ -185,7 +168,7 @@ impl ProofSystem<Bw6_761Field> for GM17 {
         program: ir::Prog<Bw6_761Field>,
         witness: ir::Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<ProofPointsG2Fq> {
+    ) -> Proof<Self::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
         let params = Parameters::<<Bw6_761Field as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
             &mut proving_key.as_slice(),
@@ -193,7 +176,7 @@ impl ProofSystem<Bw6_761Field> for GM17 {
         .unwrap();
 
         let proof = computation.clone().prove(&params);
-        let proof_points = ProofPointsG2Fq {
+        let proof_points = Self::ProofPoints {
             a: parse_g1::<Bw6_761Field>(&proof.a),
             b: parse_g2_fq::<Bw6_761Field>(&proof.b),
             c: parse_g1::<Bw6_761Field>(&proof.c),
@@ -205,14 +188,14 @@ impl ProofSystem<Bw6_761Field> for GM17 {
             .map(parse_fr::<Bw6_761Field>)
             .collect::<Vec<_>>();
 
-        Proof::<ProofPointsG2Fq>::new(proof_points, inputs, None)
+        Proof::<Self::ProofPoints>::new(proof_points, inputs, None)
     }
 
-    fn export_solidity_verifier(_vk: VerificationKeyG2Fq, _abi: SolidityAbi) -> String {
+    fn export_solidity_verifier(_vk: Self::VerificationKey, _abi: SolidityAbi) -> String {
         unimplemented!()
     }
 
-    fn verify(vk: VerificationKeyG2Fq, proof: Proof<ProofPointsG2Fq>) -> bool {
+    fn verify(vk: Self::VerificationKey, proof: Proof<Self::ProofPoints>) -> bool {
         let vk = VerifyingKey {
             h_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h),
             g_alpha_g1: serialization::to_g1::<Bw6_761Field>(vk.g_alpha),
