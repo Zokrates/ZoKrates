@@ -20,6 +20,8 @@ pub use self::parse::*;
 
 use rand_0_7::SeedableRng;
 
+pub struct Zexe;
+
 #[derive(Clone)]
 pub struct Computation<T> {
     program: Prog<T>,

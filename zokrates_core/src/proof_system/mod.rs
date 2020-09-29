@@ -3,10 +3,11 @@ pub mod bellman;
 pub mod libsnark;
 pub mod zexe;
 
+pub mod scheme;
 pub mod solidity;
 
 use crate::ir;
-use proof_system::solidity::SolidityAbi;
+use proof_system::scheme::Scheme;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use zokrates_field::Field;
@@ -74,23 +75,14 @@ impl ToString for G2Affine {
     }
 }
 
-pub trait ProofSystem<T: Field>
-where
-    Self::VerificationKey: Serialize + DeserializeOwned,
-    Self::ProofPoints: Serialize + DeserializeOwned,
-{
-    type VerificationKey;
-    type ProofPoints;
-
-    fn setup(program: ir::Prog<T>) -> SetupKeypair<Self::VerificationKey>;
+pub trait Backend<T: Field, S: Scheme<T>> {
+    fn setup(program: ir::Prog<T>) -> SetupKeypair<S::VerificationKey>;
 
     fn generate_proof(
         program: ir::Prog<T>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<Self::ProofPoints>;
+    ) -> Proof<S::ProofPoints>;
 
-    fn export_solidity_verifier(vk: Self::VerificationKey, abi: SolidityAbi) -> String;
-
-    fn verify(vk: Self::VerificationKey, proof: Proof<Self::ProofPoints>) -> bool;
+    fn verify(vk: S::VerificationKey, proof: Proof<S::ProofPoints>) -> bool;
 }

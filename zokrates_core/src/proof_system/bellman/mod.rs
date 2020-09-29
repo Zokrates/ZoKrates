@@ -19,6 +19,8 @@ use rand_0_4::ChaChaRng;
 
 pub use self::parse::*;
 
+pub struct Bellman;
+
 #[derive(Clone)]
 pub struct Computation<T> {
     program: Prog<T>,

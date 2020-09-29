@@ -4,48 +4,18 @@ use zexe_gm17::{
 };
 
 use algebra_core::serialize::{CanonicalDeserialize, CanonicalSerialize};
-use zokrates_field::{
-    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, ZexeFieldExtensions,
-};
+use zokrates_field::{Bw6_761Field, Field, ZexeFieldExtensions};
 
-use crate::ir;
 use crate::proof_system::zexe::Computation;
 use crate::proof_system::zexe::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
-use proof_system::solidity::SolidityAbi;
-use proof_system::{G1Affine, G2Affine, G2AffineFq, Proof, ProofSystem, SetupKeypair, Fq2};
+use ir::{Prog, Witness};
+use proof_system::scheme::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
+use proof_system::scheme::Scheme;
+use proof_system::zexe::Zexe;
+use proof_system::{Backend, Fq2, Proof, SetupKeypair};
 
-pub struct GM17 {}
-
-pub trait NotBw6_761Field {}
-impl NotBw6_761Field for Bls12_377Field {}
-impl NotBw6_761Field for Bls12_381Field {}
-impl NotBw6_761Field for Bn128Field {}
-
-#[derive(Serialize, Deserialize)]
-pub struct ProofPoints<G1, G2> {
-    a: G1,
-    b: G2,
-    c: G1,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct VerificationKey<G1, G2> {
-    h: G2,
-    g_alpha: G1,
-    h_beta: G2,
-    g_gamma: G1,
-    h_gamma: G2,
-    query: Vec<G1>,
-}
-
-impl<T> ProofSystem<T> for GM17
-where
-    T: NotBw6_761Field + Field + ZexeFieldExtensions<FqeRepr = Fq2>,
-{
-    type VerificationKey = VerificationKey<G1Affine, G2Affine>;
-    type ProofPoints = ProofPoints<G1Affine, G2Affine>;
-
-    fn setup(program: ir::Prog<T>) -> SetupKeypair<Self::VerificationKey> {
+impl<T: Field + ZexeFieldExtensions<FqeRepr = Fq2> + NotBw6_761Field> Backend<T, GM17> for Zexe {
+    fn setup(program: Prog<T>) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
         let mut pk: Vec<u8> = Vec::new();
@@ -63,16 +33,17 @@ where
                 .iter()
                 .map(|g1| parse_g1::<T>(g1))
                 .collect(),
+            raw: None,
         };
 
         SetupKeypair::new(vk, pk)
     }
 
     fn generate_proof(
-        program: ir::Prog<T>,
-        witness: ir::Witness<T>,
+        program: Prog<T>,
+        witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<Self::ProofPoints> {
+    ) -> Proof<<GM17 as Scheme<T>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
         let params =
             Parameters::<<T as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
@@ -93,14 +64,13 @@ where
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        Proof::<Self::ProofPoints>::new(proof_points, inputs, None)
+        Proof::new(proof_points, inputs, None)
     }
 
-    fn export_solidity_verifier(_vk: Self::VerificationKey, _abi: SolidityAbi) -> String {
-        unimplemented!()
-    }
-
-    fn verify(vk: Self::VerificationKey, proof: Proof<Self::ProofPoints>) -> bool {
+    fn verify(
+        vk: <GM17 as Scheme<T>>::VerificationKey,
+        proof: Proof<<GM17 as Scheme<T>>::ProofPoints>,
+    ) -> bool {
         let vk = VerifyingKey {
             h_g2: serialization::to_g2::<T>(vk.h),
             g_alpha_g1: serialization::to_g1::<T>(vk.g_alpha),
@@ -137,17 +107,16 @@ where
     }
 }
 
-impl ProofSystem<Bw6_761Field> for GM17 {
-    type VerificationKey = VerificationKey<G1Affine, G2AffineFq>;
-    type ProofPoints = ProofPoints<G1Affine, G2AffineFq>;
-
-    fn setup(program: ir::Prog<Bw6_761Field>) -> SetupKeypair<Self::VerificationKey> {
+impl Backend<Bw6_761Field, GM17> for Zexe {
+    fn setup(
+        program: Prog<Bw6_761Field>,
+    ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
         let mut pk: Vec<u8> = Vec::new();
         parameters.serialize_uncompressed(&mut pk).unwrap();
 
-        let vk = Self::VerificationKey {
+        let vk = VerificationKey {
             h: parse_g2_fq::<Bw6_761Field>(&parameters.vk.h_g2),
             g_alpha: parse_g1::<Bw6_761Field>(&parameters.vk.g_alpha_g1),
             h_beta: parse_g2_fq::<Bw6_761Field>(&parameters.vk.h_beta_g2),
@@ -159,24 +128,26 @@ impl ProofSystem<Bw6_761Field> for GM17 {
                 .iter()
                 .map(|g1| parse_g1::<Bw6_761Field>(g1))
                 .collect(),
+            raw: None,
         };
 
         SetupKeypair::new(vk, pk)
     }
 
     fn generate_proof(
-        program: ir::Prog<Bw6_761Field>,
-        witness: ir::Witness<Bw6_761Field>,
+        program: Prog<Bw6_761Field>,
+        witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<Self::ProofPoints> {
+    ) -> Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
-        let params = Parameters::<<Bw6_761Field as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
-            &mut proving_key.as_slice(),
-        )
-        .unwrap();
+        let params =
+            Parameters::<<Bw6_761Field as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
+                &mut proving_key.as_slice(),
+            )
+                .unwrap();
 
         let proof = computation.clone().prove(&params);
-        let proof_points = Self::ProofPoints {
+        let proof_points = ProofPoints {
             a: parse_g1::<Bw6_761Field>(&proof.a),
             b: parse_g2_fq::<Bw6_761Field>(&proof.b),
             c: parse_g1::<Bw6_761Field>(&proof.c),
@@ -188,14 +159,13 @@ impl ProofSystem<Bw6_761Field> for GM17 {
             .map(parse_fr::<Bw6_761Field>)
             .collect::<Vec<_>>();
 
-        Proof::<Self::ProofPoints>::new(proof_points, inputs, None)
+        Proof::new(proof_points, inputs, None)
     }
 
-    fn export_solidity_verifier(_vk: Self::VerificationKey, _abi: SolidityAbi) -> String {
-        unimplemented!()
-    }
-
-    fn verify(vk: Self::VerificationKey, proof: Proof<Self::ProofPoints>) -> bool {
+    fn verify(
+        vk: <GM17 as Scheme<Bw6_761Field>>::VerificationKey,
+        proof: Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints>,
+    ) -> bool {
         let vk = VerifyingKey {
             h_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h),
             g_alpha_g1: serialization::to_g1::<Bw6_761Field>(vk.g_alpha),
@@ -223,7 +193,7 @@ impl ProofSystem<Bw6_761Field> for GM17 {
             .iter()
             .map(|s| {
                 Bw6_761Field::try_from_str(s.trim_start_matches("0x"), 16)
-                    .expect(format!("Invalid {} value: {}", Bw6_761Field::name(), s).as_str())
+                    .unwrap()
                     .into_zexe()
             })
             .collect::<Vec<_>>();
@@ -235,7 +205,7 @@ impl ProofSystem<Bw6_761Field> for GM17 {
 pub mod serialization {
     use algebra_core::{AffineCurve, PairingEngine};
     use num_bigint::BigUint;
-    use proof_system::{G1Affine, G2Affine, G2AffineFq, Fq2, Fq};
+    use proof_system::{Fq, Fq2, G1Affine, G2Affine, G2AffineFq};
     use std::str::FromStr;
     use zokrates_field::ZexeFieldExtensions;
 
@@ -302,15 +272,16 @@ mod tests {
             private: vec![false],
         };
 
-        let keypair = GM17::setup(program.clone());
+        let keypair = <Zexe as Backend<Bls12_377Field, GM17>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
             .execute(&program, &vec![Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof = GM17::generate_proof(program, witness, keypair.pk);
-        let ans = <GM17 as ProofSystem<Bls12_377Field>>::verify(keypair.vk, proof);
+        let proof =
+            <Zexe as Backend<Bls12_377Field, GM17>>::generate_proof(program, witness, keypair.pk);
+        let ans = <Zexe as Backend<Bls12_377Field, GM17>>::verify(keypair.vk, proof);
 
         assert!(ans);
     }
@@ -330,15 +301,16 @@ mod tests {
             private: vec![false],
         };
 
-        let keypair = GM17::setup(program.clone());
+        let keypair = <Zexe as Backend<Bw6_761Field, GM17>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
             .execute(&program, &vec![Bw6_761Field::from(42)])
             .unwrap();
 
-        let proof = GM17::generate_proof(program, witness, keypair.pk);
-        let ans = <GM17 as ProofSystem<Bw6_761Field>>::verify(keypair.vk, proof);
+        let proof =
+            <Zexe as Backend<Bw6_761Field, GM17>>::generate_proof(program, witness, keypair.pk);
+        let ans = <Zexe as Backend<Bw6_761Field, GM17>>::verify(keypair.vk, proof);
 
         assert!(ans);
     }
