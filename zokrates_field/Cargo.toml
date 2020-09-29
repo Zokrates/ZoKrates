@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_field"
-version = "0.3.6"
+version = "0.3.7"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@gmail.com>"]
 edition = "2018"
 

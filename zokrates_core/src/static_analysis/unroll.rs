@@ -271,6 +271,7 @@ impl<'ast> Unroller<'ast> {
                                 .clone()
                                 .into_iter()
                                 .map(|member| match *member.ty {
+                                    Type::Int => unreachable!(),
                                     Type::FieldElement => {
                                         if member.id == head {
                                             Self::choose_many(
@@ -407,6 +408,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 let (variable, indices) = linear(assignee);
 
                 let base = match variable.get_type() {
+                    Type::Int => unreachable!(),
                     Type::FieldElement => {
                         FieldElementExpression::Identifier(variable.id.clone().into()).into()
                     }

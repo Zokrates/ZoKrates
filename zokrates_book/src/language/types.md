@@ -28,6 +28,16 @@ Internally, they use a binary encoding, which makes them particularly efficient 
 
 Similarly to booleans, unsigned integer inputs of the main function only accept values of the appropriate range.
 
+### Numeric inference
+
+In the case of decimal literals like `42`, the compiler tries to find the appropriate type (`field`, `u8`, `u16` or `u32`) depending on the context. If it cannot converge to a single option, an error is returned. This means that there is no default type for decimal literals.
+
+All operations between literals have the semantics of the infered type.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/numeric_inference.zok}}
+```
+
 ## Complex Types
 
 ZoKrates provides two complex types: arrays and structs.

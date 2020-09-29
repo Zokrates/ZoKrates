@@ -101,7 +101,7 @@ pub trait Folder<'ast, T: Field>: Sized {
             TypedExpression::Uint(e) => self.fold_uint_expression(e).into(),
             TypedExpression::Array(e) => self.fold_array_expression(e).into(),
             TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
-            TypedExpression::Int(_) => unreachable!(),
+            TypedExpression::Int(e) => self.fold_int_expression(e).into(),
         }
     }
 
@@ -121,6 +121,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         es: TypedExpressionList<'ast, T>,
     ) -> TypedExpressionList<'ast, T> {
         fold_expression_list(self, es)
+    }
+
+    fn fold_int_expression(&mut self, e: IntExpression<'ast, T>) -> IntExpression<'ast, T> {
+        fold_int_expression(self, e)
     }
 
     fn fold_field_expression(
@@ -332,6 +336,13 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
             FieldElementExpression::Select(box array, box index)
         }
     }
+}
+
+pub fn fold_int_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    _: &mut F,
+    _: IntExpression<'ast, T>,
+) -> IntExpression<'ast, T> {
+    unreachable!()
 }
 
 pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(

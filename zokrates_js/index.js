@@ -1,4 +1,4 @@
-import wrapper from './wrapper';
+import wrapper from './wrapper.js';
 import stdlib from './stdlib.json';
 import metadata from './metadata.json';
 

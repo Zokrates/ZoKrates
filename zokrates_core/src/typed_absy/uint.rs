@@ -55,68 +55,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::RightShift(box self, box by).annotate(bitwidth)
     }
-
-    pub fn try_from_int(i: IntExpression<'ast, T>, bitwidth: UBitwidth) -> Result<Self, String> {
-        use self::IntExpression::*;
-
-        match i {
-            Value(i) => {
-                if i <= BigUint::from(2u128.pow(bitwidth.to_usize() as u32 - 1)) {
-                    Ok(UExpressionInner::Value(
-                        u128::from_str_radix(&i.to_str_radix(16), 16).unwrap(),
-                    )
-                    .annotate(bitwidth))
-                } else {
-                    Err(format!(
-                        "Literal `{}` is too large for type u{}",
-                        i, bitwidth
-                    ))
-                }
-            }
-            Add(box e1, box e2) => Ok(UExpression::add(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Sub(box e1, box e2) => Ok(UExpression::sub(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Mult(box e1, box e2) => Ok(UExpression::mult(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            And(box e1, box e2) => Ok(UExpression::and(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Or(box e1, box e2) => Ok(UExpression::or(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Xor(box e1, box e2) => Ok(UExpression::xor(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            RightShift(box e1, box e2) => Ok(UExpression::right_shift(
-                Self::try_from_int(e1, bitwidth)?,
-                e2,
-            )),
-            LeftShift(box e1, box e2) => Ok(UExpression::left_shift(
-                Self::try_from_int(e1, bitwidth)?,
-                e2,
-            )),
-            IfElse(box condition, box consequence, box alternative) => Ok(UExpression::if_else(
-                condition,
-                Self::try_from_int(consequence, bitwidth)?,
-                Self::try_from_int(alternative, bitwidth)?,
-            )),
-            Select(..) => unimplemented!(),
-            i => Err(format!(
-                "Expected a `u{}` but found expression `{}`",
-                bitwidth, i
-            )),
-        }
-    }
 }
 
 impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {
@@ -150,7 +88,19 @@ impl<'ast, T> From<u32> for UExpression<'ast, T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+impl<'ast, T> From<u16> for UExpression<'ast, T> {
+    fn from(u: u16) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B16)
+    }
+}
+
+impl<'ast, T> From<u8> for UExpression<'ast, T> {
+    fn from(u: u8) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B8)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(u128),
@@ -177,6 +127,77 @@ pub enum UExpressionInner<'ast, T> {
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.inner {
+            UExpressionInner::Value(ref v) => write!(f, "{}u{}", v, self.bitwidth),
+            UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
+            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
+            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
+            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
+            UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            UExpressionInner::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
+            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "if {} then {} else {} fi",
+                condition, consequent, alternative
+            ),
+            UExpressionInner::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
+        }
+    }
+}
+
+impl<'ast, T: fmt::Debug> fmt::Debug for UExpressionInner<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            UExpressionInner::Identifier(ref var) => write!(f, "Ide({})", var),
+            UExpressionInner::Value(ref i) => write!(f, "Num({:?})", i),
+            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
+            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
+            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
+            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "IfElse({:?}, {:?}, {:?})",
+                condition, consequent, alternative
+            ),
+            UExpressionInner::Select(ref id, ref index) => {
+                write!(f, "Select({:?}, {:?})", id, index)
+            }
+            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),
+            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "Or({:?}, {:?})", lhs, rhs),
+            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "Xor({:?}, {:?})", lhs, rhs),
+            UExpressionInner::RightShift(ref e, ref by) => {
+                write!(f, "RightShift({:?}, {:?})", e, by)
+            }
+            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "LeftShift({:?}, {:?})", e, by),
+            UExpressionInner::Not(ref e) => write!(f, "Not({:?})", e),
+            UExpressionInner::FunctionCall(ref i, ref p) => {
+                write!(f, "FunctionCall({:?}, (", i)?;
+                f.debug_list().entries(p.iter()).finish()?;
+                write!(f, ")")
+            }
+            UExpressionInner::Member(ref struc, ref id) => {
+                write!(f, "Access({:?}, {:?})", struc, id)
+            }
+        }
+    }
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {

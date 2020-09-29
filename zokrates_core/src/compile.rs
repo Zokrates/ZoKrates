@@ -140,29 +140,12 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct CompileConfig {
-    is_release: bool,
-}
-
-impl CompileConfig {
-    pub fn with_is_release(mut self, is_release: bool) -> Self {
-        self.is_release = is_release;
-        self
-    }
-
-    pub fn is_release(&self) -> bool {
-        self.is_release
-    }
-}
-
 type FilePath = PathBuf;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
-    config: &CompileConfig,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
@@ -178,7 +161,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     let ir_prog = ir::Prog::from(program_flattened);
 
     // optimize
-    let optimized_ir_prog = ir_prog.optimize(config);
+    let optimized_ir_prog = ir_prog.optimize();
 
     // analyse (check for unused constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
@@ -206,7 +189,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
-    let compiled = compile_program(source, location.clone(), resolver, &arena)?;
+    let compiled = compile_program::<T, E>(source, location.clone(), resolver, &arena)?;
 
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
@@ -224,10 +207,10 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     arena: &'ast Arena<String>,
-) -> Result<Program<'ast, T>, CompileErrors> {
+) -> Result<Program<'ast>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = compile_module(&source, location.clone(), resolver, &mut modules, &arena)?;
+    let main = compile_module::<T, E>(&source, location.clone(), resolver, &mut modules, &arena)?;
 
     modules.insert(location.clone(), main);
 
@@ -241,18 +224,18 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
-    modules: &mut HashMap<ModuleId, Module<'ast, T>>,
+    modules: &mut HashMap<ModuleId, Module<'ast>>,
     arena: &'ast Arena<String>,
-) -> Result<Module<'ast, T>, CompileErrors> {
+) -> Result<Module<'ast>, CompileErrors> {
     let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
 
     let ast = process_macros::<T>(ast)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
 
-    let module_without_imports: Module<T> = Module::from(ast);
+    let module_without_imports: Module = Module::from(ast);
 
-    Importer::new().apply_imports(
+    Importer::new().apply_imports::<T, E>(
         module_without_imports,
         location.clone(),
         resolver,
@@ -278,7 +261,6 @@ mod test {
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
-            &CompileConfig::default(),
         );
         assert!(res.unwrap_err().0[0]
             .value()
@@ -297,7 +279,6 @@ mod test {
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
-            &CompileConfig::default(),
         );
         assert!(res.is_ok());
     }
@@ -378,7 +359,6 @@ struct Bar { field a }
                 main.to_string(),
                 "main".into(),
                 Some(&CustomResolver),
-                &CompileConfig::default(),
             )
             .unwrap();
 

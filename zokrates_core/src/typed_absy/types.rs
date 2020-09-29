@@ -297,14 +297,6 @@ impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
     }
 }
 
-// impl<S> PartialEq for GStructType<S> {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.members.eq(&other.members)
-//     }
-// }
-
-// impl<S> Eq for GStructType<S> {}
-
 impl<S> GStructType<S> {
     pub fn new(module: PathBuf, name: String, members: Vec<GStructMember<S>>) -> Self {
         GStructType {
@@ -365,20 +357,106 @@ impl fmt::Display for UBitwidth {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-#[serde(tag = "type", content = "components")]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum GType<S> {
-    #[serde(rename = "field")]
     FieldElement,
-    #[serde(rename = "bool")]
     Boolean,
-    #[serde(rename = "array")]
     Array(GArrayType<S>),
-    #[serde(rename = "struct")]
     Struct(GStructType<S>),
-    #[serde(rename = "u")]
     Uint(UBitwidth),
     Int,
+}
+
+impl<Z: Serialize> Serialize for GType<Z> {
+    fn serialize<S>(&self, s: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::Error;
+
+        match self {
+            GType::FieldElement => s.serialize_newtype_variant("Type", 0, "type", "field"),
+            GType::Boolean => s.serialize_newtype_variant("Type", 1, "type", "bool"),
+            GType::Array(array_type) => {
+                let mut map = s.serialize_map(Some(2))?;
+                map.serialize_entry("type", "array")?;
+                map.serialize_entry("components", array_type)?;
+                map.end()
+            }
+            GType::Struct(struct_type) => {
+                let mut map = s.serialize_map(Some(2))?;
+                map.serialize_entry("type", "struct")?;
+                map.serialize_entry("components", struct_type)?;
+                map.end()
+            }
+            GType::Uint(width) => s.serialize_newtype_variant(
+                "Type",
+                4,
+                "type",
+                format!("u{}", width.to_usize()).as_str(),
+            ),
+            GType::Int => Err(S::Error::custom(format!(
+                "Cannot serialize Int type as it's not allowed in function signatures"
+            ))),
+        }
+    }
+}
+
+impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
+    fn deserialize<D>(d: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Components<S> {
+            Array(GArrayType<S>),
+            Struct(GStructType<S>),
+        }
+
+        #[derive(Deserialize)]
+        struct Mapping<S> {
+            #[serde(rename = "type")]
+            ty: String,
+            components: Option<Components<S>>,
+        }
+
+        let strict_type =
+            |m: Mapping<S>, ty: GType<S>| -> Result<Self, <D as Deserializer<'de>>::Error> {
+                match m.components {
+                    Some(_) => Err(D::Error::custom(format!("unexpected `components` field",))),
+                    None => Ok(ty),
+                }
+            };
+
+        let mapping = Mapping::deserialize(d)?;
+        match mapping.ty.as_str() {
+            "field" => strict_type(mapping, GType::FieldElement),
+            "bool" => strict_type(mapping, GType::Boolean),
+            "array" => {
+                let components = mapping.components.ok_or(D::Error::custom(format_args!(
+                    "missing `components` field",
+                )))?;
+                match components {
+                    Components::Array(array_type) => Ok(GType::Array(array_type)),
+                    _ => Err(D::Error::custom(format!("invalid `components` variant",))),
+                }
+            }
+            "struct" => {
+                let components = mapping.components.ok_or(D::Error::custom(format_args!(
+                    "missing `components` field",
+                )))?;
+                match components {
+                    Components::Struct(struct_type) => Ok(GType::Struct(struct_type)),
+                    _ => Err(D::Error::custom(format!("invalid `components` variant",))),
+                }
+            }
+            "u8" => strict_type(mapping, GType::Uint(UBitwidth::B8)),
+            "u16" => strict_type(mapping, GType::Uint(UBitwidth::B16)),
+            "u32" => strict_type(mapping, GType::Uint(UBitwidth::B32)),
+            _ => Err(D::Error::custom(format!("invalid type"))),
+        }
+    }
 }
 
 pub type DeclarationType<'ast> = GType<Constant<'ast>>;
@@ -522,7 +600,21 @@ impl<S> GType<S> {
     }
 }
 
-impl<S: fmt::Display + std::cmp::PartialEq> GType<S> {
+impl<'ast, T: fmt::Display + PartialEq> Type<'ast, T> {
+    pub fn can_be_specialized_to(&self, other: &DeclarationType) -> bool {
+        use self::GType::*;
+
+        if self == other {
+            true
+        } else {
+            match (self, other) {
+                (Int, FieldElement) | (Int, Uint(..)) => true,
+                (Array(l), Array(r)) => true && l.ty.can_be_specialized_to(&r.ty),
+                _ => false,
+            }
+        }
+    }
+
     fn to_slug(&self) -> String {
         match self {
             GType::FieldElement => String::from("f"),
@@ -550,6 +642,7 @@ impl ConcreteType {
             GType::Boolean => 1,
             GType::Uint(_) => 1,
             GType::Array(array_type) => array_type.size * array_type.ty.get_primitive_count(),
+            GType::Int => unreachable!(),
             GType::Struct(struct_type) => struct_type
                 .iter()
                 .map(|member| member.ty.get_primitive_count())
@@ -644,6 +737,9 @@ impl<'ast, S: fmt::Display + std::cmp::PartialEq> GFunctionKey<'ast, S> {
 }
 
 pub use self::signature::{ConcreteSignature, DeclarationSignature, GSignature, Signature};
+use serde::de::Error;
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod signature {
     use super::*;

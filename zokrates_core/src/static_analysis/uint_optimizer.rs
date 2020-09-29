@@ -355,7 +355,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     force_no_reduce(consequence),
                     force_no_reduce(alternative),
                 )
-                .with_max(max)
+                .with_max(T::try_from(max).unwrap())
             }
         };
 

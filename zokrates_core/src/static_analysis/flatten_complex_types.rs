@@ -15,7 +15,8 @@ fn flatten_identifier_rec<'ast>(
     ty: typed_absy::types::ConcreteType,
 ) -> Vec<zir::Variable<'ast>> {
     match ty {
-        typed_absy::types::ConcreteType::FieldElement => vec![zir::Variable {
+        typed_absy::ConcreteType::Int => unreachable!(),
+        typed_absy::ConcreteType::FieldElement => vec![zir::Variable {
             id: zir::Identifier::Source(id),
             _type: zir::Type::FieldElement,
         }],

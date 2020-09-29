@@ -16,13 +16,12 @@ pub use crate::absy::parameter::{Parameter, ParameterNode};
 use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
 use embed::FlatEmbed;
-use num_bigint::BigUint;
 use std::path::PathBuf;
 
 use crate::imports::ImportNode;
 use std::fmt;
-use zokrates_field::Field;
 
+use num_bigint::BigUint;
 use std::collections::HashMap;
 
 /// An identifier of a function or a variable
@@ -32,33 +31,33 @@ pub type Identifier<'ast> = &'ast str;
 pub type ModuleId = PathBuf;
 
 /// A collection of `Module`s
-pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
+pub type Modules<'ast> = HashMap<ModuleId, Module<'ast>>;
 
 /// A collection of `SymbolDeclaration`. Duplicates are allowed here as they are fine syntactically.
-pub type Declarations<'ast, T> = Vec<SymbolDeclarationNode<'ast, T>>;
+pub type Declarations<'ast> = Vec<SymbolDeclarationNode<'ast>>;
 
 /// A `Program` is a collection of `Module`s and an id of the main `Module`
-pub struct Program<'ast, T> {
-    pub modules: HashMap<ModuleId, Module<'ast, T>>,
+pub struct Program<'ast> {
+    pub modules: HashMap<ModuleId, Module<'ast>>,
     pub main: ModuleId,
 }
 
 /// A declaration of a `FunctionSymbol`, be it from an import or a function definition
 #[derive(PartialEq, Clone, Debug)]
-pub struct SymbolDeclaration<'ast, T> {
+pub struct SymbolDeclaration<'ast> {
     pub id: Identifier<'ast>,
-    pub symbol: Symbol<'ast, T>,
+    pub symbol: Symbol<'ast>,
 }
 
 #[derive(PartialEq, Clone)]
-pub enum Symbol<'ast, T> {
-    HereType(StructDefinitionNode<'ast, T>),
-    HereFunction(FunctionNode<'ast, T>),
+pub enum Symbol<'ast> {
+    HereType(StructDefinitionNode<'ast>),
+    HereFunction(FunctionNode<'ast>),
     There(SymbolImportNode<'ast>),
     Flat(FlatEmbed),
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Symbol<'ast, T> {
+impl<'ast> fmt::Debug for Symbol<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Symbol::HereType(t) => write!(f, "HereType({:?})", t),
@@ -69,7 +68,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Symbol<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for SymbolDeclaration<'ast, T> {
+impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.symbol {
             Symbol::HereType(ref t) => write!(f, "struct {} {}", self.id, t),
@@ -82,18 +81,18 @@ impl<'ast, T: fmt::Display> fmt::Display for SymbolDeclaration<'ast, T> {
     }
 }
 
-pub type SymbolDeclarationNode<'ast, T> = Node<SymbolDeclaration<'ast, T>>;
+pub type SymbolDeclarationNode<'ast> = Node<SymbolDeclaration<'ast>>;
 
 /// A module as a collection of `FunctionDeclaration`s
 #[derive(Clone, PartialEq)]
-pub struct Module<'ast, T> {
+pub struct Module<'ast> {
     /// Symbols of the module
-    pub symbols: Declarations<'ast, T>,
+    pub symbols: Declarations<'ast>,
     pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
 }
 
-impl<'ast, T: Field> Module<'ast, T> {
-    pub fn with_symbols<I: IntoIterator<Item = SymbolDeclarationNode<'ast, T>>>(i: I) -> Self {
+impl<'ast> Module<'ast> {
+    pub fn with_symbols<I: IntoIterator<Item = SymbolDeclarationNode<'ast>>>(i: I) -> Self {
         Module {
             symbols: i.into_iter().collect(),
             imports: vec![],
@@ -106,15 +105,15 @@ impl<'ast, T: Field> Module<'ast, T> {
     }
 }
 
-pub type UnresolvedTypeNode<'ast, T> = Node<UnresolvedType<'ast, T>>;
+pub type UnresolvedTypeNode<'ast> = Node<UnresolvedType<'ast>>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructDefinition<'ast, T> {
-    pub fields: Vec<StructDefinitionFieldNode<'ast, T>>,
+pub struct StructDefinition<'ast> {
+    pub fields: Vec<StructDefinitionFieldNode<'ast>>,
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for StructDefinition<'ast, T> {
+impl<'ast> fmt::Display for StructDefinition<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -128,22 +127,22 @@ impl<'ast, T: fmt::Display> fmt::Display for StructDefinition<'ast, T> {
     }
 }
 
-pub type StructDefinitionNode<'ast, T> = Node<StructDefinition<'ast, T>>;
+pub type StructDefinitionNode<'ast> = Node<StructDefinition<'ast>>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructDefinitionField<'ast, T> {
+pub struct StructDefinitionField<'ast> {
     pub id: Identifier<'ast>,
-    pub ty: UnresolvedTypeNode<'ast, T>,
+    pub ty: UnresolvedTypeNode<'ast>,
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for StructDefinitionField<'ast, T> {
+impl<'ast> fmt::Display for StructDefinitionField<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}: {},", self.id, self.ty)
     }
 }
 
-type StructDefinitionFieldNode<'ast, T> = Node<StructDefinitionField<'ast, T>>;
+type StructDefinitionFieldNode<'ast> = Node<StructDefinitionField<'ast>>;
 
 /// An import
 #[derive(Debug, Clone, PartialEq)]
@@ -179,7 +178,7 @@ impl<'ast> fmt::Display for SymbolImport<'ast> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for Module<'ast, T> {
+impl<'ast> fmt::Display for Module<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
         res.extend(
@@ -198,7 +197,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Module<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Module<'ast, T> {
+impl<'ast> fmt::Debug for Module<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -221,20 +220,20 @@ pub type ConstantGenericNode<'ast> = Node<Identifier<'ast>>;
 
 /// A function defined locally
 #[derive(Clone, PartialEq)]
-pub struct Function<'ast, T> {
+pub struct Function<'ast> {
     /// Constant generics of the function
     pub generics: Vec<ConstantGenericNode<'ast>>,
     /// Arguments of the function
-    pub arguments: Vec<ParameterNode<'ast, T>>,
+    pub arguments: Vec<ParameterNode<'ast>>,
     /// Vector of statements that are executed when running the function
-    pub statements: Vec<StatementNode<'ast, T>>,
+    pub statements: Vec<StatementNode<'ast>>,
     /// function signature
-    pub signature: UnresolvedSignature<'ast, T>,
+    pub signature: UnresolvedSignature<'ast>,
 }
 
-pub type FunctionNode<'ast, T> = Node<Function<'ast, T>>;
+pub type FunctionNode<'ast> = Node<Function<'ast>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Function<'ast, T> {
+impl<'ast> fmt::Display for Function<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -253,7 +252,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Function<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Function<'ast, T> {
+impl<'ast> fmt::Debug for Function<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -270,15 +269,15 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Function<'ast, T> {
 
 /// Something that we can assign to
 #[derive(Clone, PartialEq)]
-pub enum Assignee<'ast, T> {
+pub enum Assignee<'ast> {
     Identifier(Identifier<'ast>),
-    Select(Box<AssigneeNode<'ast, T>>, Box<RangeOrExpression<'ast, T>>),
-    Member(Box<AssigneeNode<'ast, T>>, Box<Identifier<'ast>>),
+    Select(Box<AssigneeNode<'ast>>, Box<RangeOrExpression<'ast>>),
+    Member(Box<AssigneeNode<'ast>>, Box<Identifier<'ast>>),
 }
 
-pub type AssigneeNode<'ast, T> = Node<Assignee<'ast, T>>;
+pub type AssigneeNode<'ast> = Node<Assignee<'ast>>;
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Assignee<'ast, T> {
+impl<'ast> fmt::Debug for Assignee<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Assignee::Identifier(ref s) => write!(f, "Identifier({:?})", s),
@@ -288,7 +287,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Assignee<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for Assignee<'ast, T> {
+impl<'ast> fmt::Display for Assignee<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Assignee::Identifier(ref s) => write!(f, "{}", s),
@@ -300,23 +299,23 @@ impl<'ast, T: fmt::Display> fmt::Display for Assignee<'ast, T> {
 
 /// A statement in a `Function`
 #[derive(Clone, PartialEq)]
-pub enum Statement<'ast, T> {
-    Return(ExpressionListNode<'ast, T>),
-    Declaration(VariableNode<'ast, T>),
-    Definition(AssigneeNode<'ast, T>, ExpressionNode<'ast, T>),
-    Assertion(ExpressionNode<'ast, T>),
+pub enum Statement<'ast> {
+    Return(ExpressionListNode<'ast>),
+    Declaration(VariableNode<'ast>),
+    Definition(AssigneeNode<'ast>, ExpressionNode<'ast>),
+    Assertion(ExpressionNode<'ast>),
     For(
-        VariableNode<'ast, T>,
-        ExpressionNode<'ast, T>,
-        ExpressionNode<'ast, T>,
-        Vec<StatementNode<'ast, T>>,
+        VariableNode<'ast>,
+        ExpressionNode<'ast>,
+        ExpressionNode<'ast>,
+        Vec<StatementNode<'ast>>,
     ),
-    MultipleDefinition(Vec<AssigneeNode<'ast, T>>, ExpressionNode<'ast, T>),
+    MultipleDefinition(Vec<AssigneeNode<'ast>>, ExpressionNode<'ast>),
 }
 
-pub type StatementNode<'ast, T> = Node<Statement<'ast, T>>;
+pub type StatementNode<'ast> = Node<Statement<'ast>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Statement<'ast, T> {
+impl<'ast> fmt::Display for Statement<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
@@ -343,7 +342,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Statement<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Statement<'ast, T> {
+impl<'ast> fmt::Debug for Statement<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "Return({:?})", expr),
@@ -368,18 +367,18 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Statement<'ast, T> {
 
 /// An element of an inline array, can be a spread `...a` or an expression `a`
 #[derive(Clone, PartialEq)]
-pub enum SpreadOrExpression<'ast, T> {
-    Spread(SpreadNode<'ast, T>),
-    Expression(ExpressionNode<'ast, T>),
+pub enum SpreadOrExpression<'ast> {
+    Spread(SpreadNode<'ast>),
+    Expression(ExpressionNode<'ast>),
 }
 
-impl<'ast, T: Field> From<ExpressionNode<'ast, T>> for SpreadOrExpression<'ast, T> {
-    fn from(e: ExpressionNode<'ast, T>) -> SpreadOrExpression<'ast, T> {
+impl<'ast> From<ExpressionNode<'ast>> for SpreadOrExpression<'ast> {
+    fn from(e: ExpressionNode<'ast>) -> SpreadOrExpression<'ast> {
         SpreadOrExpression::Expression(e)
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for SpreadOrExpression<'ast, T> {
+impl<'ast> fmt::Display for SpreadOrExpression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             SpreadOrExpression::Spread(ref s) => write!(f, "{}", s),
@@ -388,7 +387,7 @@ impl<'ast, T: fmt::Display> fmt::Display for SpreadOrExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for SpreadOrExpression<'ast, T> {
+impl<'ast> fmt::Debug for SpreadOrExpression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             SpreadOrExpression::Spread(ref s) => write!(f, "{:?}", s),
@@ -399,12 +398,12 @@ impl<'ast, T: fmt::Debug> fmt::Debug for SpreadOrExpression<'ast, T> {
 
 /// The index in an array selector. Can be a range or an expression.
 #[derive(Clone, PartialEq)]
-pub enum RangeOrExpression<'ast, T> {
-    Range(RangeNode<'ast, T>),
-    Expression(ExpressionNode<'ast, T>),
+pub enum RangeOrExpression<'ast> {
+    Range(RangeNode<'ast>),
+    Expression(ExpressionNode<'ast>),
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for RangeOrExpression<'ast, T> {
+impl<'ast> fmt::Display for RangeOrExpression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             RangeOrExpression::Range(ref s) => write!(f, "{}", s),
@@ -413,7 +412,7 @@ impl<'ast, T: fmt::Display> fmt::Display for RangeOrExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for RangeOrExpression<'ast, T> {
+impl<'ast> fmt::Debug for RangeOrExpression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             RangeOrExpression::Range(ref s) => write!(f, "{:?}", s),
@@ -422,15 +421,15 @@ impl<'ast, T: fmt::Debug> fmt::Debug for RangeOrExpression<'ast, T> {
     }
 }
 
-pub type SpreadNode<'ast, T> = Node<Spread<'ast, T>>;
+pub type SpreadNode<'ast> = Node<Spread<'ast>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Spread<'ast, T> {
+impl<'ast> fmt::Display for Spread<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "...{}", self.expression)
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Spread<'ast, T> {
+impl<'ast> fmt::Debug for Spread<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Spread({:?})", self.expression)
     }
@@ -438,20 +437,20 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Spread<'ast, T> {
 
 /// A spread
 #[derive(Clone, PartialEq)]
-pub struct Spread<'ast, T> {
-    pub expression: ExpressionNode<'ast, T>,
+pub struct Spread<'ast> {
+    pub expression: ExpressionNode<'ast>,
 }
 
 /// A range
 #[derive(Clone, PartialEq)]
-pub struct Range<'ast, T> {
-    pub from: Option<ExpressionNode<'ast, T>>,
-    pub to: Option<ExpressionNode<'ast, T>>,
+pub struct Range<'ast> {
+    pub from: Option<ExpressionNode<'ast>>,
+    pub to: Option<ExpressionNode<'ast>>,
 }
 
-pub type RangeNode<'ast, T> = Node<Range<'ast, T>>;
+pub type RangeNode<'ast> = Node<Range<'ast>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Range<'ast, T> {
+impl<'ast> fmt::Display for Range<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -468,7 +467,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Range<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Range<'ast, T> {
+impl<'ast> fmt::Debug for Range<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Range({:?}, {:?})", self.from, self.to)
     }
@@ -476,54 +475,51 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Range<'ast, T> {
 
 /// An expression
 #[derive(Clone, PartialEq)]
-pub enum Expression<'ast, T> {
+pub enum Expression<'ast> {
     IntConstant(BigUint),
-    FieldConstant(T),
+    FieldConstant(BigUint),
     BooleanConstant(bool),
     U8Constant(u8),
     U16Constant(u16),
     U32Constant(u32),
     Identifier(Identifier<'ast>),
-    Add(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Sub(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Mult(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Div(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Pow(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    Add(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Sub(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Mult(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Div(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Pow(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     IfElse(
-        Box<ExpressionNode<'ast, T>>,
-        Box<ExpressionNode<'ast, T>>,
-        Box<ExpressionNode<'ast, T>>,
+        Box<ExpressionNode<'ast>>,
+        Box<ExpressionNode<'ast>>,
+        Box<ExpressionNode<'ast>>,
     ),
-    FunctionCall(FunctionIdentifier<'ast>, Vec<ExpressionNode<'ast, T>>),
-    Lt(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Le(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Eq(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Ge(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Gt(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    And(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Not(Box<ExpressionNode<'ast, T>>),
-    InlineArray(Vec<SpreadOrExpression<'ast, T>>),
-    ArrayInitializer(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    InlineStruct(UserTypeId, Vec<(Identifier<'ast>, ExpressionNode<'ast, T>)>),
-    Select(
-        Box<ExpressionNode<'ast, T>>,
-        Box<RangeOrExpression<'ast, T>>,
-    ),
-    Member(Box<ExpressionNode<'ast, T>>, Box<Identifier<'ast>>),
-    Or(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    BitXor(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    BitAnd(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    BitOr(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    LeftShift(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    RightShift(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    FunctionCall(FunctionIdentifier<'ast>, Vec<ExpressionNode<'ast>>),
+    Lt(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Le(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Eq(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Ge(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Gt(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    And(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Not(Box<ExpressionNode<'ast>>),
+    InlineArray(Vec<SpreadOrExpression<'ast>>),
+    ArrayInitializer(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    InlineStruct(UserTypeId, Vec<(Identifier<'ast>, ExpressionNode<'ast>)>),
+    Select(Box<ExpressionNode<'ast>>, Box<RangeOrExpression<'ast>>),
+    Member(Box<ExpressionNode<'ast>>, Box<Identifier<'ast>>),
+    Or(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    BitXor(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    BitAnd(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    BitOr(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    LeftShift(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    RightShift(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
 }
 
-pub type ExpressionNode<'ast, T> = Node<Expression<'ast, T>>;
+pub type ExpressionNode<'ast> = Node<Expression<'ast>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
+impl<'ast> fmt::Display for Expression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expression::FieldConstant(ref i) => write!(f, "{}", i),
+            Expression::FieldConstant(ref i) => write!(f, "{}", i.to_str_radix(10)),
             Expression::U8Constant(ref i) => write!(f, "{}", i),
             Expression::U16Constant(ref i) => write!(f, "{}", i),
             Expression::U32Constant(ref i) => write!(f, "{}", i),
@@ -578,6 +574,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
                 }
                 write!(f, "}}")
             }
+            Expression::ArrayInitializer(ref e, ref count) => write!(f, "[{}; {}]", e, count),
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
@@ -590,7 +587,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
+impl<'ast> fmt::Debug for Expression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::U8Constant(ref i) => write!(f, "U8({:x})", i),
@@ -635,6 +632,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
                 f.debug_list().entries(members.iter()).finish()?;
                 write!(f, "]")
             }
+            Expression::ArrayInitializer(ref e, ref count) => {
+                write!(f, "ArrayInitializer({:?}, {:?})", e, count)
+            }
             Expression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)
             }
@@ -653,21 +653,21 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
 
 /// A list of expressions, used in return statements
 #[derive(Clone, PartialEq)]
-pub struct ExpressionList<'ast, T> {
-    pub expressions: Vec<ExpressionNode<'ast, T>>,
+pub struct ExpressionList<'ast> {
+    pub expressions: Vec<ExpressionNode<'ast>>,
 }
 
-pub type ExpressionListNode<'ast, T> = Node<ExpressionList<'ast, T>>;
+pub type ExpressionListNode<'ast> = Node<ExpressionList<'ast>>;
 
-impl<'ast, T> ExpressionList<'ast, T> {
-    pub fn new() -> ExpressionList<'ast, T> {
+impl<'ast> ExpressionList<'ast> {
+    pub fn new() -> ExpressionList<'ast> {
         ExpressionList {
             expressions: vec![],
         }
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for ExpressionList<'ast, T> {
+impl<'ast> fmt::Display for ExpressionList<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
             write!(f, "{}", param)?;
@@ -679,7 +679,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ExpressionList<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for ExpressionList<'ast, T> {
+impl<'ast> fmt::Debug for ExpressionList<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
     }

@@ -20,6 +20,7 @@ impl From<typed_absy::types::ConcreteSignature> for zir::types::Signature {
 
 fn from_type(t: typed_absy::types::ConcreteType) -> Vec<zir::types::Type> {
     match t {
+        typed_absy::types::ConcreteType::Int => unreachable!(),
         typed_absy::types::ConcreteType::FieldElement => vec![zir::Type::FieldElement],
         typed_absy::types::ConcreteType::Boolean => vec![zir::Type::Boolean],
         typed_absy::types::ConcreteType::Uint(bitwidth) => {

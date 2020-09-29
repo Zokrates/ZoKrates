@@ -4,7 +4,6 @@
 // Note: parameters will be updated soon to be more compatible with zCash's implementation
 
 struct BabyJubJubParams {
-	field JUBJUBE
 	field JUBJUBC
 	field JUBJUBA
 	field JUBJUBD
@@ -17,8 +16,7 @@ struct BabyJubJubParams {
 
 def main() -> BabyJubJubParams:
 
-// Order of the curve E
-    field JUBJUBE = 21888242871839275222246405745257275088614511777268538073601725287587578984328
+	// Order of the curve for reference: 21888242871839275222246405745257275088614511777268538073601725287587578984328
     field JUBJUBC = 8   // Cofactor
     field JUBJUBA = 168700    // Coefficient A
     field JUBJUBD = 168696    // Coefficient D
@@ -40,7 +38,6 @@ return BabyJubJubParams {
 	INFINITY: INFINITY,
 	Gu: Gu,
 	Gv: Gv,
-	JUBJUBE: JUBJUBE,
 	JUBJUBC: JUBJUBC,
 	MONTA: MONTA,
 	MONTB: MONTB

@@ -5,9 +5,7 @@ use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
 use zokrates_common::Resolver;
-use zokrates_core::compile::{
-    compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
-};
+use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::bellman::groth16::G16;
@@ -99,17 +97,14 @@ pub fn compile(
     source: JsValue,
     location: JsValue,
     resolve_callback: &js_sys::Function,
-    config: JsValue,
 ) -> Result<JsValue, JsValue> {
     let resolver = JsResolver::new(resolve_callback);
-    let config: CompileConfig = config.into_serde().unwrap_or(CompileConfig::default());
 
     let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
     let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
-        &config,
     )
     .map_err(|ce| {
         JsValue::from_str(&format!(
