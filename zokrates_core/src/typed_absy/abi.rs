@@ -31,7 +31,7 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
     use typed_absy::types::{
-        ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType,
+        ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType, UBitwidth,
     };
     use typed_absy::{
         parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType,
@@ -113,7 +113,7 @@ mod tests {
 
         let abi: Abi = Abi {
             inputs: vec![],
-            outputs: vec![Type::Int],
+            outputs: vec![ConcreteType::Int],
         };
 
         let _ = serde_json::to_string_pretty(&abi).unwrap();
@@ -172,17 +172,17 @@ mod tests {
                 AbiInput {
                     name: String::from("a"),
                     public: true,
-                    ty: Type::Uint(UBitwidth::B8),
+                    ty: ConcreteType::Uint(UBitwidth::B8),
                 },
                 AbiInput {
                     name: String::from("b"),
                     public: true,
-                    ty: Type::Uint(UBitwidth::B16),
+                    ty: ConcreteType::Uint(UBitwidth::B16),
                 },
                 AbiInput {
                     name: String::from("c"),
                     public: true,
-                    ty: Type::Uint(UBitwidth::B32),
+                    ty: ConcreteType::Uint(UBitwidth::B32),
                 },
             ],
             outputs: vec![],

@@ -12,7 +12,7 @@ def main(field xL_in, field xR_in, field k) -> field[2]:
 	field[220] xR = [0; 220] //...
 	field c = 0
 
-	for field i in 0..nRounds do
+	for u32 i in 0..nRounds do
 		field idx = if i == 0 then 0 else i - 1  fi
 
 		c = IV[i]

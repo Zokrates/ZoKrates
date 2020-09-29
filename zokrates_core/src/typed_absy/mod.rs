@@ -21,7 +21,6 @@ pub use self::types::{
     ConcreteSignature, ConcreteType, DeclarationType, Signature, StructType, Type, UBitwidth,
 };
 use self::types::{DeclarationFunctionKey, DeclarationSignature, GType};
-use num_bigint::BigUint;
 
 pub use self::variable::{DeclarationVariable, GVariable, Variable};
 use std::path::PathBuf;
@@ -1307,57 +1306,57 @@ impl<'ast, T: Clone> IfElse<'ast, T> for StructExpression<'ast, T> {
 }
 
 pub trait Select<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self;
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self;
 }
 
 impl<'ast, T> Select<'ast, T> for FieldElementExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
-        FieldElementExpression::Select(box array, box index)
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
+        FieldElementExpression::Select(box array, box index.into())
     }
 }
 
 impl<'ast, T> Select<'ast, T> for IntExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
-        IntExpression::Select(box array, box index)
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
+        IntExpression::Select(box array, box index.into())
     }
 }
 
 impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
-        BooleanExpression::Select(box array, box index)
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
+        BooleanExpression::Select(box array, box index.into())
     }
 }
 
 impl<'ast, T: Clone> Select<'ast, T> for UExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
         let bitwidth = match array.inner_type().clone() {
             Type::Uint(bitwidth) => bitwidth,
             _ => unreachable!(),
         };
 
-        UExpressionInner::Select(box array, box index).annotate(bitwidth)
+        UExpressionInner::Select(box array, box index.into()).annotate(bitwidth)
     }
 }
 
 impl<'ast, T: Clone> Select<'ast, T> for ArrayExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
         let (ty, size) = match array.inner_type() {
             Type::Array(array_type) => (array_type.ty.clone(), array_type.size.clone()),
             _ => unreachable!(),
         };
 
-        ArrayExpressionInner::Select(box array, box index).annotate(*ty, size)
+        ArrayExpressionInner::Select(box array, box index.into()).annotate(*ty, size)
     }
 }
 
 impl<'ast, T: Clone> Select<'ast, T> for StructExpression<'ast, T> {
-    fn select(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
         let members = match array.inner_type().clone() {
             Type::Struct(members) => members,
             _ => unreachable!(),
         };
 
-        StructExpressionInner::Select(box array, box index).annotate(members)
+        StructExpressionInner::Select(box array, box index.into()).annotate(members)
     }
 }
 

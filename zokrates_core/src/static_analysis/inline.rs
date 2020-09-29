@@ -16,7 +16,7 @@
 
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
-use static_analysis::propagate_unroll::{Blocked, Output};
+use static_analysis::propagate_unroll::Blocked;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use typed_absy::types::{
@@ -863,10 +863,7 @@ mod tests {
             modules,
         };
 
-        let program = match Inliner::init(program.clone()).inline(program) {
-            Output::Complete(p) => p,
-            _ => unreachable!(),
-        };
+        let program = Inliner::init(program.clone()).inline(program);
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -991,10 +988,7 @@ mod tests {
             modules,
         };
 
-        let program = match Inliner::init(program.clone()).inline(program) {
-            Output::Complete(p) => p,
-            _ => unreachable!(),
-        };
+        let program = Inliner::init(program.clone()).inline(program);
 
         assert_eq!(program.modules.len(), 1);
 
@@ -1146,10 +1140,7 @@ mod tests {
             modules,
         };
 
-        let program = match Inliner::init(program.clone()).inline(program) {
-            Output::Complete(p) => p,
-            _ => unreachable!(),
-        };
+        let program = Inliner::init(program.clone()).inline(program);
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -1320,10 +1311,7 @@ mod tests {
             modules,
         };
 
-        let program = match Inliner::init(program.clone()).inline(program) {
-            Output::Complete(p) => p,
-            _ => unreachable!(),
-        };
+        let program = Inliner::init(program.clone()).inline(program);
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -1511,10 +1499,7 @@ mod tests {
             modules,
         };
 
-        let program = match Inliner::init(program.clone()).inline(program) {
-            Output::Complete(p) => p,
-            _ => unreachable!(),
-        };
+        let program = Inliner::init(program.clone()).inline(program);
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -1610,10 +1595,7 @@ mod tests {
             modules,
         };
 
-        let program = match Inliner::init(program.clone()).inline(program) {
-            Output::Complete(p) => p,
-            _ => unreachable!(),
-        };
+        let program = Inliner::init(program.clone()).inline(program);
 
         assert_eq!(program.modules.len(), 1);
         assert_eq!(
@@ -1746,10 +1728,7 @@ mod tests {
             modules,
         };
 
-        let program = match Inliner::init(program.clone()).inline(program) {
-            Output::Complete(p) => p,
-            _ => unreachable!(),
-        };
+        let program = Inliner::init(program.clone()).inline(program);
 
         let stack0 = vec![(
             "id".into(),

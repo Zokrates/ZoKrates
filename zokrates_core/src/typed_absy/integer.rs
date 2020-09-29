@@ -476,11 +476,12 @@ mod tests {
     fn field_from_int() {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![n.clone().into()]).annotate(Type::Int, 1);
+            ArrayExpressionInner::Value(vec![n.clone().into()]).annotate(Type::Int, 1u32);
         let t: FieldElementExpression<Bn128Field> = Bn128Field::from(42).into();
         let t_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![t.clone().into()]).annotate(Type::FieldElement, 1);
-        let i: FieldElementExpression<Bn128Field> = Bn128Field::from(0).into();
+            ArrayExpressionInner::Value(vec![t.clone().into()]).annotate(Type::FieldElement, 1u32);
+        let i: UExpression<Bn128Field> = 0u32.into();
+        let s: FieldElementExpression<Bn128Field> = Bn128Field::from(0).into();
         let c: BooleanExpression<Bn128Field> = true.into();
 
         let expressions = vec![
@@ -518,8 +519,8 @@ mod tests {
             IntExpression::xor(n.clone(), n.clone()),
             IntExpression::or(n.clone(), n.clone()),
             IntExpression::and(n.clone(), n.clone()),
-            IntExpression::left_shift(n.clone(), i.clone()),
-            IntExpression::right_shift(n.clone(), i.clone()),
+            IntExpression::left_shift(n.clone(), s.clone()),
+            IntExpression::right_shift(n.clone(), s.clone()),
             IntExpression::not(n.clone()),
         ];
 
@@ -535,11 +536,12 @@ mod tests {
     fn uint_from_int() {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![n.clone().into()]).annotate(Type::Int, 1);
+            ArrayExpressionInner::Value(vec![n.clone().into()]).annotate(Type::Int, 1u32);
         let t: UExpression<Bn128Field> = 42u32.into();
         let t_a: ArrayExpression<Bn128Field> = ArrayExpressionInner::Value(vec![t.clone().into()])
-            .annotate(Type::Uint(UBitwidth::B32), 1);
-        let i: FieldElementExpression<Bn128Field> = Bn128Field::from(0).into();
+            .annotate(Type::Uint(UBitwidth::B32), 1u32);
+        let i: UExpression<Bn128Field> = 0u32.into();
+        let s: FieldElementExpression<Bn128Field> = Bn128Field::from(0).into();
         let c: BooleanExpression<Bn128Field> = true.into();
 
         let expressions = vec![
@@ -550,8 +552,8 @@ mod tests {
             IntExpression::and(n.clone(), n.clone()),
             IntExpression::sub(n.clone(), n.clone()),
             IntExpression::mult(n.clone(), n.clone()),
-            IntExpression::left_shift(n.clone(), i.clone()),
-            IntExpression::right_shift(n.clone(), i.clone()),
+            IntExpression::left_shift(n.clone(), s.clone()),
+            IntExpression::right_shift(n.clone(), s.clone()),
             IntExpression::not(n.clone()),
             IntExpression::if_else(c.clone(), n.clone(), n.clone()),
             IntExpression::select(n_a.clone(), i.clone()),
@@ -565,8 +567,8 @@ mod tests {
             UExpression::and(t.clone(), t.clone()),
             UExpression::sub(t.clone(), t.clone()),
             UExpression::mult(t.clone(), t.clone()),
-            UExpression::left_shift(t.clone(), i.clone()),
-            UExpression::right_shift(t.clone(), i.clone()),
+            UExpression::left_shift(t.clone(), s.clone()),
+            UExpression::right_shift(t.clone(), s.clone()),
             UExpression::not(t.clone()),
             UExpression::if_else(c.clone(), t.clone(), t.clone()),
             UExpression::select(t_a.clone(), i.clone()),

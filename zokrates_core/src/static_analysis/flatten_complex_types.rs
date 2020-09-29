@@ -45,7 +45,6 @@ fn flatten_identifier_rec<'ast>(
                 )
             })
             .collect(),
-        typed_absy::types::ConcreteType::Int => unreachable!(),
     }
 }
 

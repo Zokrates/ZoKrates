@@ -1467,55 +1467,62 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         let size = e.size();
 
-                        unimplemented!()
-
-                        // match e.into_inner() {
-                        //     // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
-                        //     // this is not strictly needed, but it makes spreads memory linear rather than quadratic
-                        //     ArrayExpressionInner::Value(v) => Ok(v),
-                        //     // otherwise we return a[0], ..., a[a.size() -1 ]
-                        //     e => Ok((0..size)
-                        //         .map(|i| match &ty {
-                        //             Type::FieldElement => FieldElementExpression::select(
-                        //                 e.clone().annotate(Type::FieldElement, size as usize),
-                        //                 FieldElementExpression::Number(T::from(i)),
-                        //             )
-                        //             .into(),
-                        //             Type::Uint(bitwidth) => UExpression::select(
-                        //                 e.clone().annotate(Type::Uint(*bitwidth), size as usize),
-                        //                 FieldElementExpression::Number(T::from(i)),
-                        //             )
-                        //             .into(),
-                        //             Type::Boolean => BooleanExpression::select(
-                        //                 e.clone().annotate(Type::Boolean, size as usize),
-                        //                 FieldElementExpression::Number(T::from(i)),
-                        //             )
-                        //             .into(),
-                        //             Type::Array(array_type) => ArrayExpressionInner::Select(
-                        //                 box e.clone().annotate(
-                        //                     Type::Array(array_type.clone()),
-                        //                     size as usize,
-                        //                 ),
-                        //                 box FieldElementExpression::Number(T::from(i)),
-                        //             )
-                        //             .annotate(*array_type.ty.clone(), array_type.size.clone())
-                        //             .into(),
-                        //             Type::Struct(members) => StructExpressionInner::Select(
-                        //                 box e
-                        //                     .clone()
-                        //                     .annotate(Type::Struct(members.clone()), size as usize),
-                        //                 box FieldElementExpression::Number(T::from(i)),
-                        //             )
-                        //             .annotate(members.clone())
-                        //             .into(),
-                        //             Type::Int => IntExpression::select(
-                        //                 e.clone().annotate(Type::Int, size as usize),
-                        //                 FieldElementExpression::Number(T::from(i)),
-                        //             )
-                        //             .into(),
-                        //         })
-                        //         .collect()),
-                        // }
+                        match size.into_inner() {
+                            UExpressionInner::Value(size) => {
+                                                        match e.into_inner() {
+                            // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
+                            // this is not strictly needed, but it makes spreads memory linear rather than quadratic
+                            ArrayExpressionInner::Value(v) => Ok(v),
+                            // otherwise we return a[0], ..., a[a.size() -1 ]
+                            e => Ok((0..size)
+                                .map(|i| match &ty {
+                                    Type::FieldElement => FieldElementExpression::select(
+                                        e.clone().annotate(Type::FieldElement, size as usize),
+                                        i as u32,
+                                    )
+                                    .into(),
+                                    Type::Uint(bitwidth) => UExpression::select(
+                                        e.clone().annotate(Type::Uint(*bitwidth), size as usize),
+                                        i as u32,
+                                    )
+                                    .into(),
+                                    Type::Boolean => BooleanExpression::select(
+                                        e.clone().annotate(Type::Boolean, size as usize),
+                                        i as u32,
+                                    )
+                                    .into(),
+                                    Type::Array(array_type) => ArrayExpression::select(
+                                        e.clone().annotate(
+                                            Type::Array(array_type.clone()),
+                                            size as usize,
+                                        ),
+                                        i as u32,
+                                    )
+                                    .into(),
+                                    Type::Struct(members) => StructExpression::select(
+                                        e
+                                            .clone()
+                                            .annotate(Type::Struct(members.clone()), size as usize),
+                                        i as u32,
+                                    )
+                                    .into(),
+                                    Type::Int => IntExpression::select(
+                                        e.clone().annotate(Type::Int, size as usize),
+                                        i as u32,
+                                    )
+                                    .into(),
+                                })
+                                .collect()),
+                        }
+                    },
+                    size => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "The spread operator must apply on a constant-sized array, found size {}",
+                            size.annotate(UBitwidth::B32)
+                        ),
+                    })
+                        }
                     }
                     e => Err(ErrorInner {
                         pos: Some(pos),
@@ -3124,8 +3131,8 @@ mod tests {
             let expr =
                 Expression::FieldConstant(BigUint::from(Bn128Field::max_value().to_biguint()))
                     .mock();
-            assert!(Checker::new()
-                .check_expression::<Bn128Field>(expr, &module_id, &types)
+            assert!(Checker::<Bn128Field>::new()
+                .check_expression(expr, &module_id, &types)
                 .is_ok());
         }
 
@@ -3137,8 +3144,8 @@ mod tests {
             let value = Bn128Field::max_value().to_biguint().add(1u32);
             let expr = Expression::FieldConstant(BigUint::from(value)).mock();
 
-            assert!(Checker::new()
-                .check_expression::<Bn128Field>(expr, &module_id, &types)
+            assert!(Checker::<Bn128Field>::new()
+                .check_expression(expr, &module_id, &types)
                 .is_err());
         }
     }
@@ -3157,8 +3164,8 @@ mod tests {
                 Expression::BooleanConstant(true).mock().into(),
             ])
             .mock();
-            assert!(Checker::new()
-                .check_expression::<Bn128Field>(a, &module_id, &types)
+            assert!(Checker::<Bn128Field>::new()
+                .check_expression(a, &module_id, &types)
                 .is_err());
 
             // [[0f], [0f, 0f]]
@@ -3176,8 +3183,8 @@ mod tests {
                 .into(),
             ])
             .mock();
-            assert!(Checker::new()
-                .check_expression::<Bn128Field>(a, &module_id, &types)
+            assert!(Checker::<Bn128Field>::new()
+                .check_expression(a, &module_id, &types)
                 .is_err());
 
             // [[0f], true]
@@ -3192,8 +3199,8 @@ mod tests {
                     .into(),
             ])
             .mock();
-            assert!(Checker::new()
-                .check_expression::<Bn128Field>(a, &module_id, &types)
+            assert!(Checker::<Bn128Field>::new()
+                .check_expression(a, &module_id, &types)
                 .is_err());
         }
     }
@@ -3252,11 +3259,11 @@ mod tests {
     mod symbols {
         use super::*;
 
-        fn struct0<T: Field>() -> StructDefinitionNode<'static, T> {
+        fn struct0() -> StructDefinitionNode<'static> {
             StructDefinition { fields: vec![] }.mock()
         }
 
-        fn struct1<T: Field>() -> StructDefinitionNode<'static, T> {
+        fn struct1() -> StructDefinitionNode<'static> {
             StructDefinition {
                 fields: vec![StructDefinitionField {
                     id: "foo".into(),
@@ -3320,7 +3327,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
 
             assert_eq!(checker.check_module(&"bar".into(), &mut state), Ok(()));
             assert_eq!(
@@ -3372,7 +3379,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker
                     .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
@@ -3454,7 +3461,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker
                     .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
@@ -3503,7 +3510,7 @@ mod tests {
                         .collect(),
                 );
 
-                let mut checker = Checker::new();
+                let mut checker: Checker<Bn128Field> = Checker::new();
                 assert_eq!(
                     checker
                         .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
@@ -3566,7 +3573,7 @@ mod tests {
                         .collect(),
                 );
 
-                let mut checker = Checker::new();
+                let mut checker: Checker<Bn128Field> = Checker::new();
                 assert_eq!(
                     checker
                         .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
@@ -3609,7 +3616,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker.check_module(&PathBuf::from(MODULE_ID), &mut state),
                 Ok(())
@@ -3658,7 +3665,7 @@ mod tests {
             let mut state =
                 State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker
                     .check_module(&"main".into(), &mut state)
@@ -3696,7 +3703,7 @@ mod tests {
             let mut state =
                 State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker
                     .check_module(&"main".into(), &mut state)
@@ -3750,7 +3757,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker
                     .check_module(&PathBuf::from(MODULE_ID), &mut state)
@@ -3801,7 +3808,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker
                     .check_module(&PathBuf::from(MODULE_ID), &mut state)
@@ -3838,9 +3845,9 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::new();
         assert_eq!(
-            checker.check_statement::<Bn128Field>(statement, &module_id, &types),
+            checker.check_statement(statement, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"b\" is undefined".into()
@@ -3870,9 +3877,9 @@ mod tests {
             id: Variable::field_element("b"),
             level: 0,
         });
-        let mut checker = new_with_args(scope, 1, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
-            checker.check_statement::<Bn128Field>(statement, &module_id, &types),
+            checker.check_statement(statement, &module_id, &types),
             Ok(TypedStatement::Definition(
                 TypedAssignee::Identifier(typed_absy::Variable::field_element("a")),
                 FieldElementExpression::Identifier("b".into()).into()
@@ -3950,7 +3957,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
-        let mut checker = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::new();
         assert_eq!(
             checker.check_module(&"main".into(), &mut state),
             Err(vec![Error {
@@ -4072,7 +4079,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
-        let mut checker = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::new();
         assert!(checker.check_module(&"main".into(), &mut state).is_ok());
     }
 
@@ -4083,7 +4090,7 @@ mod tests {
         //   endfor
         //   return i
         // should fail
-        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![
+        let foo_statements: Vec<StatementNode> = vec![
             Statement::For(
                 absy::Variable::new("i", UnresolvedType::Uint(32).mock()).mock(),
                 Expression::IntConstant(0usize.into()).mock(),
@@ -4113,9 +4120,9 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::new();
         assert_eq!(
-            checker.check_function::<Bn128Field>(foo, &module_id, &types),
+            checker.check_function(foo, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"i\" is undefined".into()
@@ -4191,9 +4198,9 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::new();
         assert_eq!(
-            checker.check_function::<Bn128Field>(foo, &module_id, &types),
+            checker.check_function(foo, &module_id, &types),
             Ok(foo_checked)
         );
     }
@@ -4241,9 +4248,9 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function::<Bn128Field>(bar, &module_id, &types),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message:
@@ -4293,9 +4300,9 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function::<Bn128Field>(bar, &module_id, &types),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Function definition for function foo with signature () -> _ not found."
@@ -4335,9 +4342,9 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function::<Bn128Field>(bar, &module_id, &types),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -4442,7 +4449,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
-        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&"main".into(), &mut state),
             Err(vec![Error {
@@ -4537,7 +4544,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
-        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&"main".into(), &mut state),
             Err(vec![
@@ -4659,7 +4666,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
-        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&"main".into(), &mut state),
             Err(vec![Error {
@@ -4700,9 +4707,9 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function::<Bn128Field>(bar, &module_id, &types),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -4745,9 +4752,9 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function::<Bn128Field>(bar, &module_id, &types),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"a\" is undefined".into()
@@ -4851,7 +4858,7 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &module_id, &types),
             Ok(bar_checked)
@@ -4881,10 +4888,10 @@ mod tests {
             UnresolvedType::Boolean.mock(),
         ]);
 
-        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker
-                .check_function::<Bn128Field>(f, &"".into(), &HashMap::new())
+                .check_function(f, &"".into(), &HashMap::new())
                 .unwrap_err()[0]
                 .message,
             "Duplicate name in function definition: `a` was previously declared as an argument"
@@ -4968,9 +4975,9 @@ mod tests {
             main: "main".into(),
         };
 
-        let mut checker = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::new();
         assert_eq!(
-            checker.check_program::<Bn128Field>(program),
+            checker.check_program(program),
             Err(vec![Error {
                 inner: ErrorInner {
                     pos: None,
@@ -4990,7 +4997,7 @@ mod tests {
 
         let types = HashMap::new();
         let module_id = "".into();
-        let mut checker = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::new();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
@@ -5027,7 +5034,7 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
 
-        let mut checker = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::new();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
@@ -5059,7 +5066,9 @@ mod tests {
         use typed_absy::types::StructMember;
 
         /// solver function to create a module at location "" with a single symbol `Foo { foo: field }`
-        fn create_module_with_foo(s: StructDefinition<'static>) -> (Checker, State<Bn128Field>) {
+        fn create_module_with_foo(
+            s: StructDefinition<'static>,
+        ) -> (Checker<Bn128Field>, State<Bn128Field>) {
             let module_id: PathBuf = "".into();
 
             let module: Module = Module {
@@ -5074,7 +5083,7 @@ mod tests {
             let mut state =
                 State::<Bn128Field>::new(vec![(module_id.clone(), module)].into_iter().collect());
 
-            let mut checker = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::new();
 
             checker.check_module(&module_id, &mut state).unwrap();
 
@@ -5090,8 +5099,7 @@ mod tests {
                 // an empty struct should be allowed to be defined
                 let module_id = "".into();
                 let types = HashMap::new();
-                let declaration: StructDefinitionNode<Bn128Field> =
-                    StructDefinition { fields: vec![] }.mock();
+                let declaration: StructDefinitionNode = StructDefinition { fields: vec![] }.mock();
 
                 let expected_type = DeclarationType::Struct(DeclarationStructType::new(
                     "".into(),
@@ -5100,7 +5108,7 @@ mod tests {
                 ));
 
                 assert_eq!(
-                    Checker::new().check_struct_type_declaration::<Bn128Field>(
+                    Checker::<Bn128Field>::new().check_struct_type_declaration(
                         "Foo".into(),
                         declaration,
                         &module_id,
@@ -5115,7 +5123,7 @@ mod tests {
                 // a valid struct should be allowed to be defined
                 let module_id = "".into();
                 let types = HashMap::new();
-                let declaration: StructDefinitionNode<Bn128Field> = StructDefinition {
+                let declaration: StructDefinitionNode = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5141,7 +5149,7 @@ mod tests {
                 ));
 
                 assert_eq!(
-                    Checker::new().check_struct_type_declaration::<Bn128Field>(
+                    Checker::<Bn128Field>::new().check_struct_type_declaration(
                         "Foo".into(),
                         declaration,
                         &module_id,
@@ -5157,7 +5165,7 @@ mod tests {
                 let module_id = "".into();
                 let types = HashMap::new();
 
-                let declaration0: StructDefinitionNode<Bn128Field> = StructDefinition {
+                let declaration0: StructDefinitionNode = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5173,7 +5181,7 @@ mod tests {
                 }
                 .mock();
 
-                let declaration1: StructDefinitionNode<Bn128Field> = StructDefinition {
+                let declaration1: StructDefinitionNode = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "bar",
@@ -5190,13 +5198,13 @@ mod tests {
                 .mock();
 
                 assert_ne!(
-                    Checker::new().check_struct_type_declaration::<Bn128Field>(
+                    Checker::<Bn128Field>::new().check_struct_type_declaration(
                         "Foo".into(),
                         declaration0,
                         &module_id,
                         &types
                     ),
-                    Checker::new().check_struct_type_declaration::<Bn128Field>(
+                    Checker::<Bn128Field>::new().check_struct_type_declaration(
                         "Foo".into(),
                         declaration1,
                         &module_id,
@@ -5211,7 +5219,7 @@ mod tests {
                 let module_id = "".into();
                 let types = HashMap::new();
 
-                let declaration: StructDefinitionNode<Bn128Field> = StructDefinition {
+                let declaration: StructDefinitionNode = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5228,8 +5236,8 @@ mod tests {
                 .mock();
 
                 assert_eq!(
-                    Checker::new()
-                        .check_struct_type_declaration::<Bn128Field>(
+                    Checker::<Bn128Field>::new()
+                        .check_struct_type_declaration(
                             "Foo".into(),
                             declaration,
                             &module_id,
@@ -5453,7 +5461,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_type::<Bn128Field>(
+                    checker.check_type(
                         UnresolvedType::User("Foo".into()).mock(),
                         &PathBuf::from(MODULE_ID).into(),
                         &state.types
@@ -5467,7 +5475,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_type::<Bn128Field>(
+                        .check_type(
                             UnresolvedType::User("Bar".into()).mock(),
                             &PathBuf::from(MODULE_ID).into(),
                             &state.types
@@ -5493,7 +5501,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_parameter::<Bn128Field>(
+                    checker.check_parameter(
                         absy::Parameter {
                             id:
                                 absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
@@ -5523,7 +5531,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_parameter::<Bn128Field>(
+                        .check_parameter(
                             absy::Parameter {
                                 id: absy::Variable::new(
                                     "a",
@@ -5579,7 +5587,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_parameter::<Bn128Field>(
+                        .check_parameter(
                             absy::Parameter {
                                 id: absy::Variable::new(
                                     "a",
@@ -5620,7 +5628,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_expression::<Bn128Field>(
+                    checker.check_expression(
                         Expression::Member(
                             box Expression::InlineStruct(
                                 "Foo".into(),
@@ -5666,7 +5674,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression::<Bn128Field>(
+                        .check_expression(
                             Expression::Member(
                                 box Expression::InlineStruct(
                                     "Foo".into(),
@@ -5704,7 +5712,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression::<Bn128Field>(
+                        .check_expression(
                             Expression::InlineStruct(
                                 "Bar".into(),
                                 vec![("foo", Expression::IntConstant(42usize.into()).mock())]
@@ -5742,7 +5750,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_expression::<Bn128Field>(
+                    checker.check_expression(
                         Expression::InlineStruct(
                             "Foo".into(),
                             vec![
@@ -5793,7 +5801,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_expression::<Bn128Field>(
+                    checker.check_expression(
                         Expression::InlineStruct(
                             "Foo".into(),
                             vec![
@@ -5845,7 +5853,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression::<Bn128Field>(
+                        .check_expression(
                             Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![("foo", Expression::IntConstant(42usize.into()).mock())]
@@ -5886,7 +5894,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression::<Bn128Field>(
+                        .check_expression(
                             Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![(
@@ -5907,7 +5915,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression::<Bn128Field>(
+                        .check_expression(
                             Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![
@@ -6024,7 +6032,7 @@ mod tests {
                 modules: vec![("".into(), m)].into_iter().collect(),
             };
 
-            let errors = Checker::new().check_program::<Bn128Field>(p).unwrap_err();
+            let errors = Checker::<Bn128Field>::new().check_program(p).unwrap_err();
 
             assert_eq!(errors.len(), 1);
 
@@ -6156,7 +6164,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee::<Bn128Field>(a, &module_id, &types),
+                checker.check_assignee(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Select(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(

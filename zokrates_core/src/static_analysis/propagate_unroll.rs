@@ -52,7 +52,7 @@ impl PropagatedUnroller {
         loop {
             match Unroller::unroll(p.clone()) {
                 Output::Complete(p) => return Ok(p),
-                Output::Blocked(next, blocked, made_progress) => {
+                Output::Blocked(next, blocked, _) => {
                     let propagated = Propagator::propagate_main(next);
 
                     match blocked {

@@ -10,7 +10,6 @@ use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use typed_absy::identifier::CoreIdentifier;
-use typed_absy::types::FunctionKey;
 use zokrates_field::Field;
 
 use static_analysis::propagate_unroll::{Blocked, Output};
@@ -133,8 +132,7 @@ impl<'ast> Unroller<'ast> {
                                                     box head.clone(),
                                                 ),
                                                 match Self::choose_many(
-                                                    ArrayExpression::select(base.clone(), i.into())
-                                                        .into(),
+                                                    ArrayExpression::select(base.clone(), i).into(),
                                                     tail.clone(),
                                                     new_expression.clone(),
                                                     statements,
@@ -145,7 +143,7 @@ impl<'ast> Unroller<'ast> {
                                             e.get_type()
                                         ),
                                                 },
-                                                ArrayExpression::select(base.clone(), i.into()),
+                                                ArrayExpression::select(base.clone(), i),
                                             )
                                             .into(),
                                             Type::Struct(..) => StructExpression::if_else(
@@ -154,11 +152,8 @@ impl<'ast> Unroller<'ast> {
                                                     box head.clone(),
                                                 ),
                                                 match Self::choose_many(
-                                                    StructExpression::select(
-                                                        base.clone(),
-                                                        i.into(),
-                                                    )
-                                                    .into(),
+                                                    StructExpression::select(base.clone(), i)
+                                                        .into(),
                                                     tail.clone(),
                                                     new_expression.clone(),
                                                     statements,
@@ -169,7 +164,7 @@ impl<'ast> Unroller<'ast> {
                                             e.get_type()
                                         ),
                                                 },
-                                                StructExpression::select(base.clone(), i.into()),
+                                                StructExpression::select(base.clone(), i),
                                             )
                                             .into(),
                                             Type::FieldElement => FieldElementExpression::if_else(
@@ -178,11 +173,8 @@ impl<'ast> Unroller<'ast> {
                                                     box head.clone(),
                                                 ),
                                                 match Self::choose_many(
-                                                    FieldElementExpression::select(
-                                                        base.clone(),
-                                                        i.into(),
-                                                    )
-                                                    .into(),
+                                                    FieldElementExpression::select(base.clone(), i)
+                                                        .into(),
                                                     tail.clone(),
                                                     new_expression.clone(),
                                                     statements,
@@ -193,10 +185,7 @@ impl<'ast> Unroller<'ast> {
                                             e.get_type()
                                         ),
                                                 },
-                                                FieldElementExpression::select(
-                                                    base.clone(),
-                                                    i.into(),
-                                                ),
+                                                FieldElementExpression::select(base.clone(), i),
                                             )
                                             .into(),
                                             Type::Boolean => BooleanExpression::if_else(
@@ -205,11 +194,8 @@ impl<'ast> Unroller<'ast> {
                                                     box head.clone(),
                                                 ),
                                                 match Self::choose_many(
-                                                    BooleanExpression::select(
-                                                        base.clone(),
-                                                        i.into(),
-                                                    )
-                                                    .into(),
+                                                    BooleanExpression::select(base.clone(), i)
+                                                        .into(),
                                                     tail.clone(),
                                                     new_expression.clone(),
                                                     statements,
@@ -220,7 +206,7 @@ impl<'ast> Unroller<'ast> {
                                             e.get_type()
                                         ),
                                                 },
-                                                BooleanExpression::select(base.clone(), i.into()),
+                                                BooleanExpression::select(base.clone(), i),
                                             )
                                             .into(),
                                             Type::Uint(..) => UExpression::if_else(
@@ -229,8 +215,7 @@ impl<'ast> Unroller<'ast> {
                                                     box head.clone(),
                                                 ),
                                                 match Self::choose_many(
-                                                    UExpression::select(base.clone(), i.into())
-                                                        .into(),
+                                                    UExpression::select(base.clone(), i).into(),
                                                     tail.clone(),
                                                     new_expression.clone(),
                                                     statements,
@@ -241,7 +226,7 @@ impl<'ast> Unroller<'ast> {
                                             e.get_type()
                                         ),
                                                 },
-                                                UExpression::select(base.clone(), i.into()),
+                                                UExpression::select(base.clone(), i),
                                             )
                                             .into(),
                                             Type::Int => unreachable!(),
@@ -360,7 +345,6 @@ impl<'ast> Unroller<'ast> {
                                             .into()
                                         }
                                     }
-                                    Type::Int => unreachable!(),
                                 })
                                 .collect(),
                         )
@@ -430,7 +414,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                             .annotate(members)
                             .into()
                     }
-                    Type::Int => unreachable!(),
                 };
 
                 let base = self.fold_expression(base);
@@ -670,19 +653,19 @@ mod tests {
                 FieldElementExpression::if_else(
                     BooleanExpression::UintEq(box 0u32.into(), box 1u32.into()),
                     FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(a0.clone(), 0u32.into())
+                    FieldElementExpression::select(a0.clone(), 0u32)
                 )
                 .into(),
                 FieldElementExpression::if_else(
                     BooleanExpression::UintEq(box 1u32.into(), box 1u32.into()),
                     FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(a0.clone(), 1u32.into())
+                    FieldElementExpression::select(a0.clone(), 1u32)
                 )
                 .into(),
                 FieldElementExpression::if_else(
                     BooleanExpression::UintEq(box 2u32.into(), box 1u32.into()),
                     FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(a0.clone(), 2u32.into(),)
+                    FieldElementExpression::select(a0.clone(), 2u32)
                 )
                 .into()
             ])
@@ -713,19 +696,19 @@ mod tests {
                 ArrayExpression::if_else(
                     BooleanExpression::UintEq(box 0u32.into(), box 1u32.into()),
                     e.clone(),
-                    ArrayExpression::select(a0.clone(), 0u32.into())
+                    ArrayExpression::select(a0.clone(), 0u32)
                 )
                 .into(),
                 ArrayExpression::if_else(
                     BooleanExpression::UintEq(box 1u32.into(), box 1u32.into()),
                     e.clone(),
-                    ArrayExpression::select(a0.clone(), 1u32.into())
+                    ArrayExpression::select(a0.clone(), 1u32)
                 )
                 .into(),
                 ArrayExpression::if_else(
                     BooleanExpression::UintEq(box 2u32.into(), box 1u32.into()),
                     e.clone(),
-                    ArrayExpression::select(a0.clone(), 2u32.into())
+                    ArrayExpression::select(a0.clone(), 2u32)
                 )
                 .into()
             ])
@@ -760,8 +743,8 @@ mod tests {
                             BooleanExpression::UintEq(box 0u32.into(), box 0u32.into()),
                             e.clone(),
                             FieldElementExpression::select(
-                                ArrayExpression::select(a0.clone(), 0u32.into()),
-                                0u32.into()
+                                ArrayExpression::select(a0.clone(), 0u32),
+                                0u32
                             )
                         )
                         .into(),
@@ -769,14 +752,14 @@ mod tests {
                             BooleanExpression::UintEq(box 1u32.into(), box 0u32.into()),
                             e.clone(),
                             FieldElementExpression::select(
-                                ArrayExpression::select(a0.clone(), 0u32.into()),
-                                1u32.into()
+                                ArrayExpression::select(a0.clone(), 0u32),
+                                1u32
                             )
                         )
                         .into()
                     ])
                     .annotate(Type::FieldElement, 2u32),
-                    ArrayExpression::select(a0.clone(), 0u32.into())
+                    ArrayExpression::select(a0.clone(), 0u32)
                 )
                 .into(),
                 ArrayExpression::if_else(
@@ -786,8 +769,8 @@ mod tests {
                             BooleanExpression::UintEq(box 0u32.into(), box 0u32.into()),
                             e.clone(),
                             FieldElementExpression::select(
-                                ArrayExpression::select(a0.clone(), 1u32.into()),
-                                0u32.into()
+                                ArrayExpression::select(a0.clone(), 1u32),
+                                0u32
                             )
                         )
                         .into(),
@@ -795,14 +778,14 @@ mod tests {
                             BooleanExpression::UintEq(box 1u32.into(), box 0u32.into()),
                             e.clone(),
                             FieldElementExpression::select(
-                                ArrayExpression::select(a0.clone(), 1u32.into()),
-                                1u32.into()
+                                ArrayExpression::select(a0.clone(), 1u32),
+                                1u32
                             )
                         )
                         .into()
                     ])
                     .annotate(Type::FieldElement, 2u32),
-                    ArrayExpression::select(a0.clone(), 1u32.into())
+                    ArrayExpression::select(a0.clone(), 1u32)
                 )
                 .into(),
             ])

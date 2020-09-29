@@ -424,7 +424,10 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
         let strict_type =
             |m: Mapping<S>, ty: GType<S>| -> Result<Self, <D as Deserializer<'de>>::Error> {
                 match m.components {
-                    Some(_) => Err(D::Error::custom(format!("unexpected `components` field",))),
+                    Some(_) => Err(D::Error::custom(format!(
+                        "unexpected `components` field in type {}",
+                        m.ty
+                    ))),
                     None => Ok(ty),
                 }
             };
@@ -454,7 +457,7 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
             "u8" => strict_type(mapping, GType::Uint(UBitwidth::B8)),
             "u16" => strict_type(mapping, GType::Uint(UBitwidth::B16)),
             "u32" => strict_type(mapping, GType::Uint(UBitwidth::B32)),
-            _ => Err(D::Error::custom(format!("invalid type"))),
+            t => Err(D::Error::custom(format!("invalid type `{}`", t))),
         }
     }
 }
@@ -614,7 +617,9 @@ impl<'ast, T: fmt::Display + PartialEq> Type<'ast, T> {
             }
         }
     }
+}
 
+impl ConcreteType {
     fn to_slug(&self) -> String {
         match self {
             GType::FieldElement => String::from("f"),
@@ -647,7 +652,6 @@ impl ConcreteType {
                 .iter()
                 .map(|member| member.ty.get_primitive_count())
                 .sum(),
-            GType::Int => unreachable!(),
         }
     }
 }
@@ -730,7 +734,7 @@ impl<'ast, S> GFunctionKey<'ast, S> {
     }
 }
 
-impl<'ast, S: fmt::Display + std::cmp::PartialEq> GFunctionKey<'ast, S> {
+impl<'ast> ConcreteFunctionKey<'ast> {
     pub fn to_slug(&self) -> String {
         format!("{}_{}", self.id, self.signature.to_slug())
     }
@@ -932,7 +936,7 @@ pub mod signature {
         }
     }
 
-    impl<S: fmt::Display + std::cmp::PartialEq> GSignature<S> {
+    impl ConcreteSignature {
         /// Returns a slug for a signature, with the following encoding:
         /// i{inputs}o{outputs} where {inputs} and {outputs} each encode a list of types.
         /// A list of types is encoded by compressing sequences of the same type like so:
@@ -943,7 +947,7 @@ pub mod signature {
         /// [field, field, bool, field] -> 2fbf
         ///
         pub fn to_slug(&self) -> String {
-            let to_slug = |types: &[GType<S>]| {
+            let to_slug = |types: &[ConcreteType]| {
                 let mut res = vec![];
                 for t in types {
                     let len = res.len();
@@ -958,7 +962,7 @@ pub mod signature {
                     }
                 }
                 res.into_iter()
-                    .map(|(n, t): (usize, &GType<S>)| {
+                    .map(|(n, t): (usize, &ConcreteType)| {
                         let mut r = String::new();
 
                         if n > 1 {

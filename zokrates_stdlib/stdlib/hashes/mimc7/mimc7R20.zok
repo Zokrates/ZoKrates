@@ -7,7 +7,7 @@ def main(field x_in, field k) -> field:
 	field[20] t4 = [0; 20]
 	field[20] t6 = [0; 20]
 	field[20] t7 = [0; 20] // we define t7 length +1 to reference implementation as ZoKrates wont allow conditional branching. -> out of bounds array error
-	for field i in 0..20 do
+	for u32 i in 0..20 do
 		field i2 = if i == 0 then 0 else i - 1 fi 
 		t = if i == 0 then k+x_in else k + t7[i2] + c[i] fi
         t2[i] = t*t

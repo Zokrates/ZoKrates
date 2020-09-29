@@ -574,7 +574,6 @@ impl<'ast> fmt::Display for Expression<'ast> {
                 }
                 write!(f, "}}")
             }
-            Expression::ArrayInitializer(ref e, ref count) => write!(f, "[{}; {}]", e, count),
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
@@ -631,9 +630,6 @@ impl<'ast> fmt::Debug for Expression<'ast> {
                 write!(f, "InlineStruct({:?}, [", id)?;
                 f.debug_list().entries(members.iter()).finish()?;
                 write!(f, "]")
-            }
-            Expression::ArrayInitializer(ref e, ref count) => {
-                write!(f, "ArrayInitializer({:?}, {:?})", e, count)
             }
             Expression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)

@@ -35,7 +35,6 @@ impl<'ast, T: Field> Folder<'ast, T> for ReturnBinder {
                         Type::Uint(bitwidth) => UExpressionInner::Identifier(i.clone())
                             .annotate(bitwidth)
                             .into(),
-                        Type::Int => unreachable!(),
                     })
                     .collect();
 
