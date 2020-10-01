@@ -351,11 +351,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                     Err((key, expressions)) => {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), key.clone()))
-                                .unwrap(),
+                            id: CoreIdentifier::Call(
+                                key.clone(),
+                                *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                            ),
+                            version: 0,
                             stack: self.stack.clone(),
                         };
                         self.statement_buffer
@@ -388,11 +391,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                     Err((key, expressions)) => {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), key.clone()))
-                                .unwrap(),
+                            id: CoreIdentifier::Call(
+                                key.clone(),
+                                *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                            ),
+                            version: 0,
                             stack: self.stack.clone(),
                         };
                         self.statement_buffer
@@ -440,11 +446,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                     Err((embed_key, expressions)) => {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), embed_key.clone()))
-                                .unwrap(),
+                            id: CoreIdentifier::Call(
+                                key.clone(),
+                                *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                            ),
+                            version: 0,
                             stack: self.stack.clone(),
                         };
                         self.statement_buffer
@@ -493,11 +502,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                     Err((key, expressions)) => {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), key.clone()))
-                                .unwrap(),
+                            id: CoreIdentifier::Call(
+                                key.clone(),
+                                *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                            ),
+                            version: 0,
                             stack: self.stack.clone(),
                         };
                         self.statement_buffer
@@ -531,11 +543,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                     Err((embed_key, expressions)) => {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
-                            id: CoreIdentifier::Call(key.clone()),
-                            version: *self
-                                .call_count
-                                .get(&(self.module_id().clone(), embed_key.clone()))
-                                .unwrap(),
+                            id: CoreIdentifier::Call(
+                                key.clone(),
+                                *self
+                                    .call_count
+                                    .get(&(self.module_id().clone(), key.clone()))
+                                    .unwrap(),
+                            ),
+                            version: 0,
                             stack: self.stack.clone(),
                         };
                         self.statement_buffer

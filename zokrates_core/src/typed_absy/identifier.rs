@@ -6,7 +6,7 @@ use typed_absy::TypedModuleId;
 pub enum CoreIdentifier<'ast> {
     Source(&'ast str),
     Internal(&'static str, usize),
-    Call(FunctionKey<'ast>),
+    Call(FunctionKey<'ast>, usize),
 }
 
 impl<'ast> fmt::Display for CoreIdentifier<'ast> {
@@ -14,7 +14,7 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
         match self {
             CoreIdentifier::Source(s) => write!(f, "{}", s),
             CoreIdentifier::Internal(s, i) => write!(f, "#INTERNAL#_{}_{}", s, i),
-            CoreIdentifier::Call(k) => write!(f, "{}", k.to_slug()),
+            CoreIdentifier::Call(k, i) => write!(f, "{}_{}", k.to_slug(), i),
         }
     }
 }
