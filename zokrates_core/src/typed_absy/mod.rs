@@ -33,7 +33,9 @@ use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+
 pub use typed_absy::types::{ArrayType, FunctionKey, MemberId};
+
 use zokrates_field::Field;
 
 pub use self::folder::Folder;

@@ -216,9 +216,6 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
         &self,
         funcs: &HashSet<DeclarationFunctionKey<'ast>>,
     ) -> Vec<DeclarationFunctionKey<'ast>> {
-        println!("QUERY {:?}", self);
-        println!("FUNCTIONS {:#?}", funcs);
-
         funcs
             .iter()
             .filter(|func| self.match_func(func))
@@ -1440,7 +1437,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Some(_) => Ok(TypedAssignee::Member(box checked_assignee, member.into())),
                         None => Err(ErrorInner {
                             pos: Some(pos),
-                            message: format!("{} doesn't have member {}", ty, member),
+                            message: format!(
+                                "{} {{{}}} doesn't have member {}",
+                                ty,
+                                members
+                                    .iter()
+                                    .map(|m| format!("{}: {}", m.id, m.ty))
+                                    .collect::<Vec<_>>()
+                                    .join(", "),
+                                member
+                            ),
                         }),
                     },
                     ty => Err(ErrorInner {
@@ -2513,7 +2519,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             },
                             None => Err(ErrorInner {
                                 pos: Some(pos),
-                                message: format!("{} doesn't have member {}", s.get_type(), id,),
+                                message: format!(
+                                    "{} {{{}}} doesn't have member {}",
+                                    s.get_type(),
+                                    s.ty()
+                                        .members
+                                        .iter()
+                                        .map(|m| format!("{}: {}", m.id, m.ty))
+                                        .collect::<Vec<_>>()
+                                        .join(", "),
+                                    id,
+                                ),
                             }),
                         }
                     }
@@ -2767,9 +2783,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     return Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Inline struct {} does not match {}",
+                            "Inline struct {} does not match {} {{{}}}",
                             Expression::InlineStruct(id.clone(), inline_members),
-                            Type::Struct(struct_type)
+                            Type::Struct(struct_type.clone()),
+                            struct_type
+                                .members
+                                .iter()
+                                .map(|m| format!("{}: {}", m.id, m.ty))
+                                .collect::<Vec<_>>()
+                                .join(", ")
                         ),
                     });
                 }
@@ -2812,9 +2834,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             return Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
-                                    "Member {} of struct {} not found in value {}",
+                                    "Member {} of struct {} {{{}}} not found in value {}",
                                     member.id,
                                     Type::Struct(struct_type.clone()),
+                                    struct_type
+                                        .members
+                                        .iter()
+                                        .map(|m| format!("{}: {}", m.id, m.ty))
+                                        .collect::<Vec<_>>()
+                                        .join(", "),
                                     Expression::InlineStruct(id.clone(), inline_members),
                                 ),
                             })

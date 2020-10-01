@@ -5,7 +5,7 @@ def main(field xL_in, field xR_in, field k) -> field[2]:
 	field[220] IV = IVconstants()
 
 	field t = 0
-	field nRounds = 220
+	u32 nRounds = 220
 	field[220] t2 = [0; 220] //length: nRounds
 	field[220] t4 = [0; 220] //...
 	field[220] xL = [0; 220] //...

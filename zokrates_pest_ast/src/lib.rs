@@ -1273,7 +1273,11 @@ mod tests {
             Bar bar
         }
 
+<<<<<<< HEAD
         def main<P>(private field[Q] a) -> (bool[234 + 6]):
+=======
+        def main(private field[Q] a) -> (bool[234 + 6]):
+>>>>>>> number-inference
         field a = 1
         a[32 + x][55] = y
         for field i in 0..3 do

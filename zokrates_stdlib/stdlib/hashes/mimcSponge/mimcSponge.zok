@@ -2,8 +2,8 @@ import "./mimcFeistel" as MiMCFeistel
 
 def main(field[2] ins, field k) -> field[3]:
 	//nInputs = 2, nOutputs = 3,
-	field nInputs = 2
-	field nOutputs = 3 
+	u32 nInputs = 2
+	u32 nOutputs = 3 
 	field[4][2] S = [[0; 2]; 4] // Dim: (nInputs + nOutputs - 1, 2)
 	field[3] outs = [0; 3]
 

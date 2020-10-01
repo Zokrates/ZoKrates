@@ -616,10 +616,7 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
                     .iter()
                     .zip(r.members.iter())
                     .all(|(l, r)| l.ty.can_be_specialized_to(&r.ty)),
-                e => {
-                    println!("HEYYYYY{:#?}", e);
-                    false
-                }
+                e => false,
             }
         }
     }
