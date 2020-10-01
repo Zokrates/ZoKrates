@@ -68,6 +68,12 @@ impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
     }
 }
 
+impl<'ast, T> From<u32> for UExpression<'ast, T> {
+    fn from(u: u32) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B32)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum ShouldReduce {
     Unknown,

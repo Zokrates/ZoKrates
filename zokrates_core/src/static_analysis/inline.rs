@@ -216,27 +216,36 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     ) -> Result<Vec<TypedExpression<'ast, T>>, InlineError<'ast, T>> {
         match ConcreteFunctionKey::try_from(key.clone()) {
             Ok(concrete_key) => {
-                match self
-                    .call_cache()
-                    .get(&concrete_key)
-                    .map(|m| m.get(&expressions))
-                {
-                    Some(Some(exprs)) => return Ok(exprs.clone()),
-                    _ => {}
-                };
+                // match self
+                //     .call_cache()
+                //     .get(&concrete_key)
+                //     .map(|m| m.get(&expressions))
+                // {
+                //     Some(Some(res)) => {
+                //         Some(res.clone())
+                //     },
+                //     _ => None
+                // }.map(|res| {
+                //     self.statement_buffer.extend(vec![
+                //         TypedStatement::PushCallLog(self.module_id().clone(), concrete_key.clone()),
+                //         TypedStatement::PopCallLog
+                //     ]);
+                //     return res;
+                // });
 
                 // then, inline the generic function associated with this DeclarationFunctionKey
                 let res = self
                     .try_inline_declaration_call(concrete_key.clone(), expressions.clone())
                     .map_err(|e| InlineError::Flat(e.0.into(), e.1));
 
-                res.map(|exprs| {
-                    self.call_cache_mut()
-                        .entry(concrete_key.clone())
-                        .or_insert_with(|| HashMap::new())
-                        .insert(expressions, exprs.clone());
-                    exprs
-                })
+                res
+                // .map(|exprs| {
+                //     self.call_cache_mut()
+                //         .entry(concrete_key.clone())
+                //         .or_insert_with(|| HashMap::new())
+                //         .insert(expressions, exprs.clone());
+                //     exprs
+                // })
             }
             Err(()) => {
                 self.blocked = Some(Blocked::Inline);
@@ -256,12 +265,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         Vec<TypedExpression<'ast, T>>,
         (ConcreteFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     > {
-        // println!("KEY {:?}", concrete_key);
-
-        // println!("FUNCTIONS {:#?}", self
-        //     .module()
-        //     .functions.keys());
-
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
         match self
             .module()
@@ -281,14 +284,10 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
                 let module_id = self.module_id().clone();
 
-                // increase the number of calls for this function by one
-                let count = self
-                    .call_count
-                    .entry((self.module_id().clone(), concrete_key.clone()))
-                    .and_modify(|i| *i += 1)
-                    .or_insert(1);
-                // push this call to the stack
-                self.stack.push((module_id, concrete_key.clone(), *count));
+                let call_log = self
+                    .fold_statement(TypedStatement::PushCallLog(module_id, concrete_key.clone()));
+
+                self.statement_buffer.extend(call_log);
 
                 for (id, value) in assignment {
                     let assignee = self.fold_assignee(TypedAssignee::Identifier(
@@ -328,13 +327,14 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                         _ => true,
                     });
 
+                self.change_context(current_module, current_key);
+
                 // add all statements to the buffer
                 self.statement_buffer.extend(statements);
 
-                self.change_context(current_module, current_key);
-
                 // pop this call from the stack
-                self.stack.pop();
+                let pop_log = self.fold_statement(TypedStatement::PopCallLog);
+                self.statement_buffer.extend(pop_log);
 
                 match ret.pop().unwrap() {
                     TypedStatement::Return(exprs) => Ok(exprs),
@@ -347,7 +347,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 let (current_module, current_key) =
                     self.change_context(module_id.clone(), function_key.clone());
                 // inline the call there
-                let res = self.try_inline_declaration_call(concrete_key, expressions)?;
+                let res = self
+                    .try_inline_declaration_call(function_key.try_into().unwrap(), expressions)?;
                 // switch back focus
                 self.change_context(current_module, current_key);
                 Ok(res)
@@ -415,6 +416,22 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         s: TypedStatement<'ast, T>,
     ) -> Vec<TypedStatement<'ast, T>> {
         let folded = match s {
+            TypedStatement::PushCallLog(module_id, key) => {
+                // increase the number of calls for this function by one
+                let count = self
+                    .call_count
+                    .entry((self.module_id().clone(), key.clone()))
+                    .and_modify(|i| *i += 1)
+                    .or_insert(1);
+                // push this call to the stack
+                self.stack.push((module_id.clone(), key.clone(), *count));
+                vec![TypedStatement::PushCallLog(module_id, key)]
+            }
+            TypedStatement::PopCallLog => {
+                // push this call to the stack
+                self.stack.pop().unwrap();
+                vec![TypedStatement::PopCallLog]
+            }
             TypedStatement::For(v, from, to, statements) => {
                 self.blocked = Some(Blocked::Unroll);
                 fold_statement(self, TypedStatement::For(v, from, to, statements))
@@ -510,13 +527,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                     ),
                                 ));
 
-                            self.call_cache_mut()
-                                .entry(key.clone())
-                                .or_insert_with(|| HashMap::new())
-                                .insert(
-                                    expressions,
-                                    vec![FieldElementExpression::Identifier(id.clone()).into()],
-                                );
+                            // self.call_cache_mut()
+                            //     .entry(key.clone())
+                            //     .or_insert_with(|| HashMap::new())
+                            //     .insert(
+                            //         expressions,
+                            //         vec![FieldElementExpression::Identifier(id.clone()).into()],
+                            //     );
 
                             FieldElementExpression::Identifier(id)
                         }
@@ -570,13 +587,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                     ),
                                 ));
 
-                            self.call_cache_mut()
-                                .entry(key.clone())
-                                .or_insert_with(|| HashMap::new())
-                                .insert(
-                                    expressions,
-                                    vec![BooleanExpression::Identifier(id.clone()).into()],
-                                );
+                            // self.call_cache_mut()
+                            //     .entry(key.clone())
+                            //     .or_insert_with(|| HashMap::new())
+                            //     .insert(
+                            //         expressions,
+                            //         vec![BooleanExpression::Identifier(id.clone()).into()],
+                            //     );
 
                             BooleanExpression::Identifier(id)
                         }
@@ -634,13 +651,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                             let out = ArrayExpressionInner::Identifier(id);
 
-                            self.call_cache_mut()
-                                .entry(key.clone())
-                                .or_insert_with(|| HashMap::new())
-                                .insert(
-                                    expressions,
-                                    vec![out.clone().annotate(ty.clone().into(), size).into()],
-                                );
+                            // self.call_cache_mut()
+                            //     .entry(key.clone())
+                            //     .or_insert_with(|| HashMap::new())
+                            //     .insert(
+                            //         expressions,
+                            //         vec![out.clone().annotate(ty.clone().into(), size).into()],
+                            //     );
 
                             out
                         }
@@ -697,10 +714,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                             let out = StructExpressionInner::Identifier(id);
 
-                            self.call_cache_mut()
-                                .entry(key.clone())
-                                .or_insert_with(|| HashMap::new())
-                                .insert(expressions, vec![out.clone().annotate(ty.clone()).into()]);
+                            // self.call_cache_mut()
+                            //     .entry(key.clone())
+                            //     .or_insert_with(|| HashMap::new())
+                            //     .insert(expressions, vec![out.clone().annotate(ty.clone()).into()]);
 
                             out
                         }
@@ -757,10 +774,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                             let out = UExpressionInner::Identifier(id);
 
-                            self.call_cache_mut()
-                                .entry(key.clone())
-                                .or_insert_with(|| HashMap::new())
-                                .insert(expressions, vec![out.clone().annotate(size).into()]);
+                            // self.call_cache_mut()
+                            //     .entry(key.clone())
+                            //     .or_insert_with(|| HashMap::new())
+                            //     .insert(expressions, vec![out.clone().annotate(size).into()]);
 
                             out
                         }
@@ -797,6 +814,8 @@ mod tests {
         //
         // // inlined
         // def main() -> field:
+        //    // CALL foo
+        //    // POP
         //    return 42
 
         let main = TypedModule {
@@ -878,9 +897,19 @@ mod tests {
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![],
-                statements: vec![TypedStatement::Return(vec![
-                    FieldElementExpression::Number(Bn128Field::from(42)).into(),
-                ])],
+                statements: vec![
+                    TypedStatement::PushCallLog(
+                        "foo".into(),
+                        ConcreteFunctionKey::with_id("foo").signature(
+                            ConcreteSignature::new().outputs(vec![ConcreteType::FieldElement]),
+                        )
+                    ),
+                    TypedStatement::PopCallLog,
+                    TypedStatement::Return(vec![FieldElementExpression::Number(Bn128Field::from(
+                        42
+                    ))
+                    .into(),])
+                ],
                 signature: DeclarationSignature::new().outputs(vec![DeclarationType::FieldElement]),
             })
         );
@@ -900,7 +929,9 @@ mod tests {
         //
         // // inlined
         // def main(a) -> field:
+        //    // CALL foo
         //    field a_0 = a
+        //    // POP
         //    return a * a_0 * a_0
 
         let main = TypedModule {
@@ -1021,12 +1052,21 @@ mod tests {
                     DeclarationVariable::field_element("a")
                 )],
                 statements: vec![
+                    TypedStatement::PushCallLog(
+                        "foo".into(),
+                        ConcreteFunctionKey::with_id("foo").signature(
+                            ConcreteSignature::new()
+                                .inputs(vec![ConcreteType::FieldElement])
+                                .outputs(vec![ConcreteType::FieldElement]),
+                        )
+                    ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(stack.clone())
                         )),
                         FieldElementExpression::Identifier("a".into()).into()
                     ),
+                    TypedStatement::PopCallLog,
                     TypedStatement::Return(vec![FieldElementExpression::Mult(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Mult(
@@ -1060,8 +1100,9 @@ mod tests {
 
         // inlined
         // def main(field a) -> field
-        //     field _0 = a + a
-        //     return _0
+        //     field foo_0_a = a
+        //     field b = foo_0_a + foo_0_a
+        //     return b
 
         let signature = ConcreteSignature::new()
             .outputs(vec![ConcreteType::FieldElement])
@@ -1157,6 +1198,14 @@ mod tests {
                     private: true,
                 }],
                 statements: vec![
+                    TypedStatement::PushCallLog(
+                        "foo".into(),
+                        ConcreteFunctionKey::with_id("foo").signature(
+                            ConcreteSignature::new()
+                                .inputs(vec![ConcreteType::FieldElement])
+                                .outputs(vec![ConcreteType::FieldElement]),
+                        )
+                    ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
@@ -1167,6 +1216,16 @@ mod tests {
                         )),
                         FieldElementExpression::Identifier("a".into()).into()
                     ),
+                    TypedStatement::PopCallLog,
+                    TypedStatement::PushCallLog(
+                        "foo".into(),
+                        ConcreteFunctionKey::with_id("foo").signature(
+                            ConcreteSignature::new()
+                                .inputs(vec![ConcreteType::FieldElement])
+                                .outputs(vec![ConcreteType::FieldElement]),
+                        )
+                    ),
+                    TypedStatement::PopCallLog,
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element("b")),
                         FieldElementExpression::Add(
@@ -1419,13 +1478,15 @@ mod tests {
 
         // // main
         // def main() -> field:
-        //     field b = foo()
-        //     return b
+        //     field a = foo()
+        //     return a
 
         // inlined
         // def main() -> field
-        //     field _0 = 42
-        //     return _0
+        //     // CALL foo
+        //     // POP
+        //     field a = 42
+        //     return a
 
         let main = TypedModule {
             functions: vec![
@@ -1515,6 +1576,13 @@ mod tests {
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![],
                 statements: vec![
+                    TypedStatement::PushCallLog(
+                        "foo".into(),
+                        ConcreteFunctionKey::with_id("foo").signature(
+                            ConcreteSignature::new().outputs(vec![ConcreteType::FieldElement]),
+                        )
+                    ),
+                    TypedStatement::PopCallLog,
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element("a")),
                         FieldElementExpression::Number(Bn128Field::from(42)).into()
@@ -1611,6 +1679,13 @@ mod tests {
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![],
                 statements: vec![
+                    TypedStatement::PushCallLog(
+                        "main".into(),
+                        ConcreteFunctionKey::with_id("foo").signature(
+                            ConcreteSignature::new().outputs(vec![ConcreteType::FieldElement]),
+                        )
+                    ),
+                    TypedStatement::PopCallLog,
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element("a")),
                         FieldElementExpression::Number(Bn128Field::from(42)).into()
@@ -1636,8 +1711,12 @@ mod tests {
 
         // inlined
         // def main(field a) -> field
+        //     // CALL id
         //     id_main_0_a = a
+        //     // CALL id
         //     id_main_1_a = id_main_0_a
+        //     // POP
+        //     // POP
         //     return id_main_1_a
 
         let main = TypedModule {
@@ -1769,11 +1848,28 @@ mod tests {
                     DeclarationVariable::field_element("a")
                 )],
                 statements: vec![
+                    TypedStatement::PushCallLog(
+                        "id".into(),
+                        ConcreteFunctionKey::with_id("main").signature(
+                            ConcreteSignature::new()
+                                .inputs(vec![ConcreteType::FieldElement])
+                                .outputs(vec![ConcreteType::FieldElement]),
+                        )
+                    ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(stack0.clone())
                         )),
                         FieldElementExpression::Identifier("a".into()).into()
+                    ),
+                    TypedStatement::PopCallLog,
+                    TypedStatement::PushCallLog(
+                        "id".into(),
+                        ConcreteFunctionKey::with_id("main").signature(
+                            ConcreteSignature::new()
+                                .inputs(vec![ConcreteType::FieldElement])
+                                .outputs(vec![ConcreteType::FieldElement]),
+                        )
                     ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(
@@ -1784,6 +1880,7 @@ mod tests {
                         )
                         .into()
                     ),
+                    TypedStatement::PopCallLog,
                     TypedStatement::Return(vec![FieldElementExpression::Identifier(
                         Identifier::from("a").stack(stack1.clone())
                     )

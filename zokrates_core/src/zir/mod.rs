@@ -367,7 +367,7 @@ pub enum FieldElementExpression<'ast, T> {
     ),
     Pow(
         Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
     ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,

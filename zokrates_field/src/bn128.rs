@@ -210,50 +210,10 @@ mod tests {
         }
 
         #[test]
-        fn pow_small() {
-            assert_eq!(
-                "8".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("2").pow(FieldPrime::from("3"))).value
-            );
-            assert_eq!(
-                "8".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("2").pow(&FieldPrime::from("3"))).value
-            );
-        }
-
-        #[test]
         fn pow_usize() {
             assert_eq!(
                 "614787626176508399616".parse::<BigInt>().unwrap(),
                 (FieldPrime::from("54").pow(12)).value
-            );
-        }
-
-        #[test]
-        fn pow() {
-            assert_eq!(
-                "614787626176508399616".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("54").pow(FieldPrime::from("12"))).value
-            );
-            assert_eq!(
-                "614787626176508399616".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("54").pow(&FieldPrime::from("12"))).value
-            );
-        }
-
-        #[test]
-        fn pow_negative() {
-            assert_eq!(
-                "21888242871839275222246405745257275088548364400416034343686819230535502784513"
-                    .parse::<BigInt>()
-                    .unwrap(),
-                (FieldPrime::from("-54").pow(FieldPrime::from("11"))).value
-            );
-            assert_eq!(
-                "21888242871839275222246405745257275088548364400416034343686819230535502784513"
-                    .parse::<BigInt>()
-                    .unwrap(),
-                (FieldPrime::from("-54").pow(&FieldPrime::from("11"))).value
             );
         }
 

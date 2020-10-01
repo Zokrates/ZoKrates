@@ -5,10 +5,10 @@ def main(bool[128] bits) -> field:
 
 	field out = 0
 
-	field len = 128
+	u32 len = 128
 
 	for u32 j in 0..len do
-		field i = len - (j + 1)
+		u32 i = len - (j + 1)
 		out = out + if bits[i] then (2 ** j) else 0 fi
 	endfor
 

@@ -211,6 +211,8 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
             variables.into_iter().map(|v| f.fold_variable(v)).collect(),
             f.fold_expression_list(elist),
         ),
+        TypedStatement::PushCallLog(module_id, key) => TypedStatement::PushCallLog(module_id, key),
+        TypedStatement::PopCallLog => TypedStatement::PopCallLog,
     };
     vec![res]
 }
@@ -313,7 +315,7 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
         }
         FieldElementExpression::Pow(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
-            let e2 = f.fold_field_expression(e2);
+            let e2 = f.fold_uint_expression(e2);
             FieldElementExpression::Pow(box e1, box e2)
         }
         FieldElementExpression::IfElse(box cond, box cons, box alt) => {

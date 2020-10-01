@@ -365,8 +365,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
     }
 
     fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
-        println!("{}", s);
-
         match s {
             ZirStatement::Definition(a, e) => {
                 let e = self.fold_expression(e);
@@ -408,6 +406,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                                 should_reduce: ShouldReduce::False,
                             },
                         );
+
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
                             ZirExpressionList::FunctionCall(key, arguments, ty),

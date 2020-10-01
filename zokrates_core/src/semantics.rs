@@ -133,6 +133,7 @@ impl fmt::Display for ErrorInner {
 }
 
 /// A function query in the current module.
+#[derive(Debug)]
 struct FunctionQuery<'ast, T> {
     id: Identifier<'ast>,
     inputs: Vec<Type<'ast, T>>,
@@ -201,16 +202,23 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
                 .zip(func.signature.inputs.iter())
                 .all(|(input_ty, sig_ty)| input_ty.can_be_specialized_to(&sig_ty))
             && self.outputs.len() == func.signature.outputs.len()
-            && self.outputs.iter().enumerate().all(|(index, t)| match t {
-                Some(ref t) => t == &func.signature.outputs[index],
-                _ => true,
-            })
+            && self
+                .outputs
+                .iter()
+                .zip(func.signature.outputs.iter())
+                .all(|(output_ty, sig_ty)| match output_ty {
+                    Some(ref output_ty) => output_ty.can_be_specialized_to(&sig_ty),
+                    _ => true,
+                })
     }
 
     fn match_funcs(
         &self,
         funcs: &HashSet<DeclarationFunctionKey<'ast>>,
     ) -> Vec<DeclarationFunctionKey<'ast>> {
+        println!("QUERY {:?}", self);
+        println!("FUNCTIONS {:#?}", funcs);
+
         funcs
             .iter()
             .filter(|func| self.match_func(func))
@@ -696,7 +704,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         false => {
                             errors.push(ErrorInner {
                                 pos: Some(pos),
-                                message: format!("Duplicate name in function definition: {} was previously declared as an argument or generic constant", a)
+                                message: format!("Duplicate name in function definition: `{}` was previously declared as an argument or a generic constant", a.id.id)
                             });
                         }
                     };
@@ -1760,36 +1768,24 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
 
-                use self::TypedExpression::*;
-
-                let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
-                    e1_checked, e2_checked,
-                )
-                .map_err(|(e1, e2)| ErrorInner {
-                    pos: Some(pos),
-                    message: format!("Cannot apply `**` to {}, {}", e1.get_type(), e2.get_type()),
-                })?;
+                let e1_checked = match FieldElementExpression::try_from_typed(e1_checked) {
+                    Ok(e) => e.into(),
+                    Err(e) => e,
+                };
+                let e2_checked = match UExpression::try_from_typed(e2_checked, UBitwidth::B32) {
+                    Ok(e) => e.into(),
+                    Err(e) => e,
+                };
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(FieldElementExpression::Pow(
-                        box FieldElementExpression::try_from_int(e1).map_err(|e| ErrorInner {
-                            pos: Some(pos),
-                            message: format!("{} cannot be the first summand of operation `**`", e),
-                        })?,
-                        box FieldElementExpression::try_from_int(e2).map_err(|e| ErrorInner {
-                            pos: Some(pos),
-                            message: format!("{} cannot be the first summand of operation `**`", e),
-                        })?,
-                    )
-                    .into()),
-                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => Ok(
+                    (TypedExpression::FieldElement(e1), TypedExpression::Uint(e2)) => Ok(
                         TypedExpression::FieldElement(FieldElementExpression::Pow(box e1, box e2)),
                     ),
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected only field elements, found {:?}, {:?}",
+                            "Expected `field` and `u32`, found {:?}, {:?}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -4672,7 +4668,7 @@ mod tests {
             Err(vec![Error {
                 inner: ErrorInner {
                     pos: Some((Position::mock(), Position::mock())),
-                    message: "Only assignment to identifiers is supported, found a[0f]".into()
+                    message: "Only assignment to identifiers is supported, found a[0u32]".into()
                 },
                 module_id: "main".into()
             }])
@@ -4894,7 +4890,7 @@ mod tests {
                 .check_function(f, &"".into(), &HashMap::new())
                 .unwrap_err()[0]
                 .message,
-            "Duplicate name in function definition: `a` was previously declared as an argument"
+            "Duplicate name in function definition: `a` was previously declared as an argument or a generic constant"
         );
     }
 

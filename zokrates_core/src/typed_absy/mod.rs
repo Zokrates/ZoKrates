@@ -18,7 +18,8 @@ mod variable;
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
-    ConcreteSignature, ConcreteType, DeclarationType, Signature, StructType, Type, UBitwidth,
+    ConcreteFunctionKey, ConcreteSignature, ConcreteType, DeclarationType, Signature, StructType,
+    Type, UBitwidth,
 };
 use self::types::{DeclarationFunctionKey, DeclarationSignature, GType};
 
@@ -242,9 +243,21 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
         writeln!(f, "")?;
 
+        let mut tab = 0;
+
         for s in &self.statements {
-            s.fmt_indented(f, 1)?;
+            match s {
+                TypedStatement::PopCallLog => tab -= 1,
+                _ => {}
+            };
+
+            s.fmt_indented(f, 1 + tab)?;
             writeln!(f, "")?;
+
+            match s {
+                TypedStatement::PushCallLog(..) => tab += 1,
+                _ => {}
+            };
         }
 
         Ok(())
@@ -335,6 +348,9 @@ pub enum TypedStatement<'ast, T> {
         Vec<TypedStatement<'ast, T>>,
     ),
     MultipleDefinition(Vec<Variable<'ast, T>>, TypedExpressionList<'ast, T>),
+    // Aux
+    PushCallLog(TypedModuleId, ConcreteFunctionKey<'ast>),
+    PopCallLog,
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
@@ -365,6 +381,10 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
             }
+            TypedStatement::PushCallLog(ref module_id, ref key) => {
+                write!(f, "PushCallLog({:?}, {:?})", module_id, key)
+            }
+            TypedStatement::PopCallLog => write!(f, "PopCallLog"),
         }
     }
 }
@@ -418,6 +438,13 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 }
                 write!(f, " = {}", rhs)
             }
+            TypedStatement::PushCallLog(ref module_id, ref key) => write!(
+                f,
+                "// PUSH CALL TO {}_{}",
+                module_id.display(),
+                key.to_slug()
+            ),
+            TypedStatement::PopCallLog => write!(f, "// POP CALL"),
         }
     }
 }
@@ -517,7 +544,8 @@ impl<'ast, T: fmt::Display> fmt::Display for StructExpression<'ast, T> {
             StructExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             StructExpressionInner::Value(ref values) => write!(
                 f,
-                "{{{}}}",
+                "{} {{{}}}",
+                self.ty.name,
                 self.ty
                     .iter()
                     .map(|member| member.id.clone())
@@ -642,7 +670,7 @@ pub enum FieldElementExpression<'ast, T> {
     ),
     Pow(
         Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
     ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
@@ -677,7 +705,7 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
         FieldElementExpression::Div(box self, box other)
     }
 
-    pub fn pow(self, other: Self) -> Self {
+    pub fn pow(self, other: UExpression<'ast, T>) -> Self {
         FieldElementExpression::Pow(box self, box other)
     }
 }

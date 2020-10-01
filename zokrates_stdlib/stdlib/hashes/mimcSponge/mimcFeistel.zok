@@ -13,7 +13,7 @@ def main(field xL_in, field xR_in, field k) -> field[2]:
 	field c = 0
 
 	for u32 i in 0..nRounds do
-		field idx = if i == 0 then 0 else i - 1  fi
+		u32 idx = if i == 0 then 0 else i - 1  fi
 
 		c = IV[i]
 		t = if i == 0 then k + xL_in else k + xL[idx] + c fi

@@ -233,7 +233,7 @@ impl<'ast, T> From<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
     }
 }
 
-#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GStructType<S> {
     #[serde(skip)]
     pub module: PathBuf,
@@ -244,6 +244,14 @@ pub struct GStructType<S> {
 pub type DeclarationStructType<'ast> = GStructType<Constant<'ast>>;
 pub type ConcreteStructType = GStructType<usize>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
+
+impl<S: PartialEq> PartialEq for GStructType<S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.members.eq(&other.members)
+    }
+}
+
+impl<S: Eq> Eq for GStructType<S> {}
 
 impl<'ast, T: PartialEq> PartialEq<DeclarationStructType<'ast>> for StructType<'ast, T> {
     fn eq(&self, other: &DeclarationStructType<'ast>) -> bool {
@@ -551,17 +559,7 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
-            GType::Struct(ref struct_type) => write!(
-                f,
-                "{} {{{}}}",
-                struct_type.name,
-                struct_type
-                    .members
-                    .iter()
-                    .map(|member| format!("{}: {}", member.id, member.ty))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            GType::Struct(ref struct_type) => write!(f, "{}", struct_type.name,),
         }
     }
 }
@@ -603,7 +601,7 @@ impl<S> GType<S> {
     }
 }
 
-impl<'ast, T: fmt::Display + PartialEq> Type<'ast, T> {
+impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
     pub fn can_be_specialized_to(&self, other: &DeclarationType) -> bool {
         use self::GType::*;
 
@@ -613,7 +611,15 @@ impl<'ast, T: fmt::Display + PartialEq> Type<'ast, T> {
             match (self, other) {
                 (Int, FieldElement) | (Int, Uint(..)) => true,
                 (Array(l), Array(r)) => true && l.ty.can_be_specialized_to(&r.ty),
-                _ => false,
+                (Struct(l), Struct(r)) => l
+                    .members
+                    .iter()
+                    .zip(r.members.iter())
+                    .all(|(l, r)| l.ty.can_be_specialized_to(&r.ty)),
+                e => {
+                    println!("HEYYYYY{:#?}", e);
+                    false
+                }
             }
         }
     }
@@ -788,7 +794,7 @@ pub mod signature {
             (DeclarationType::FieldElement, ConcreteType::FieldElement)
             | (DeclarationType::Boolean, ConcreteType::Boolean) => true,
             (DeclarationType::Uint(b0), ConcreteType::Uint(b1)) => b0 == b1,
-            (DeclarationType::Struct(_), ConcreteType::Struct(_)) => unimplemented!(),
+            (DeclarationType::Struct(s0), ConcreteType::Struct(s1)) => true, // TODO check
             _ => false,
         }
     }

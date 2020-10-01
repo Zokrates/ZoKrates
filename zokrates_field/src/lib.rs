@@ -46,8 +46,6 @@ pub trait Field:
     + Div<Self, Output = Self>
     + for<'a> Div<&'a Self, Output = Self>
     + Pow<usize, Output = Self>
-    + Pow<Self, Output = Self>
-    + for<'a> Pow<&'a Self, Output = Self>
     + for<'a> Deserialize<'a>
     + Serialize
     + num_traits::CheckedAdd
@@ -421,38 +419,6 @@ mod prime_field {
                         res = res * &self;
                     }
                     res
-                }
-            }
-
-            impl Pow<FieldPrime> for FieldPrime {
-                type Output = FieldPrime;
-
-                fn pow(self, exp: FieldPrime) -> FieldPrime {
-                    let mut res = FieldPrime::one();
-                    let mut current = FieldPrime::zero();
-                    loop {
-                        if current >= exp {
-                            return res;
-                        }
-                        res = res * &self;
-                        current = current + FieldPrime::one();
-                    }
-                }
-            }
-
-            impl<'a> Pow<&'a FieldPrime> for FieldPrime {
-                type Output = FieldPrime;
-
-                fn pow(self, exp: &'a FieldPrime) -> FieldPrime {
-                    let mut res = FieldPrime::one();
-                    let mut current = FieldPrime::zero();
-                    loop {
-                        if &current >= exp {
-                            return res;
-                        }
-                        res = res * &self;
-                        current = current + FieldPrime::one();
-                    }
                 }
             }
 

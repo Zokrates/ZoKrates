@@ -363,6 +363,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     }
                 }
             }
+            s @ TypedStatement::PushCallLog(..) => Some(s),
+            s @ TypedStatement::PopCallLog => Some(s),
         };
 
         // In verbose mode, we always return a statement
@@ -671,20 +673,21 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             },
             FieldElementExpression::Pow(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
-                let e2 = self.fold_field_expression(e2);
-                match (e1, e2) {
-                    (_, FieldElementExpression::Number(ref n2)) if *n2 == T::from(0) => {
+                let e2 = self.fold_uint_expression(e2);
+                match (e1, e2.into_inner()) {
+                    (_, UExpressionInner::Value(ref n2)) if *n2 == 0 => {
                         FieldElementExpression::Number(T::from(1))
                     }
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        FieldElementExpression::Number(n1.pow(n2))
+                    (FieldElementExpression::Number(n1), UExpressionInner::Value(n2)) => {
+                        FieldElementExpression::Number(n1.pow(n2 as usize))
                     }
-                    (e1, FieldElementExpression::Number(n2)) => {
-                        FieldElementExpression::Pow(box e1, box FieldElementExpression::Number(n2))
-                    }
+                    (e1, UExpressionInner::Value(n2)) => FieldElementExpression::Pow(
+                        box e1,
+                        box UExpressionInner::Value(n2).annotate(UBitwidth::B32),
+                    ),
                     (_, e2) => unreachable!(format!(
                         "non-constant exponent {} detected during static analysis",
-                        e2
+                        e2.annotate(UBitwidth::B32)
                     )),
                 }
             }
@@ -1378,7 +1381,7 @@ mod tests {
             fn pow() {
                 let e = FieldElementExpression::Pow(
                     box FieldElementExpression::Number(Bn128Field::from(2)),
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
+                    box 3u32.into(),
                 );
 
                 assert_eq!(

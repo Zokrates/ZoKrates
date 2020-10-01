@@ -38,25 +38,30 @@ impl<'ast> Unroller<'ast> {
     }
 
     fn issue_next_ssa_variable<T: Field>(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
-        let res = match self
-            .substitution
-            .get(&(v.id.id.clone(), v.id.stack.clone()))
-        {
-            Some(i) => Variable {
-                id: Identifier {
-                    version: i + 1,
-                    ..v.id.clone()
-                },
-                ..v
-            },
-            None => Variable { ..v.clone() },
-        };
+        // let res = match self
+        //     .substitution
+        //     .get(&(v.id.id.clone(), v.id.stack.clone()))
+        // {
+        //     Some(i) => Variable {
+        //         id: Identifier {
+        //             version: i + 1,
+        //             ..v.id.clone()
+        //         },
+        //         ..v
+        //     },
+        //     None => Variable { ..v.clone() },
+        // };
 
-        self.substitution
-            .entry((v.id.id, v.id.stack))
-            .and_modify(|e| *e += 1)
-            .or_insert(0);
-        res
+        let version = *self
+            .substitution
+            .entry((v.id.id.clone(), v.id.stack.clone()))
+            .and_modify(|e| *e += 1) // if it was already declared, we increment
+            .or_insert(v.id.version); // otherwise, we start from this version
+
+        Variable {
+            id: Identifier { version, ..v.id },
+            ..v
+        }
     }
 
     pub fn unroll<T: Field>(p: TypedProgram<T>) -> Output<T> {

@@ -50,18 +50,26 @@ impl PropagatedUnroller {
         let mut p = p;
 
         loop {
+            //println!("GO {}", p);
             match Unroller::unroll(p.clone()) {
-                Output::Complete(p) => return Ok(p),
+                Output::Complete(p) => {
+                    //println!("RESULT {}", p);
+                    return Ok(p);
+                }
                 Output::Blocked(next, blocked, _) => {
+                    //println!("UNROLLED {}", p);
+
                     let propagated = Propagator::propagate_main(next);
+
+                    //println!("PROPAGATED {}", p);
 
                     match blocked {
                         Blocked::Inline => {
-                            println!("blocked by inline");
+                            //println!("blocked by inline");
                             p = inliner.inline(propagated);
                         }
                         Blocked::Unroll => {
-                            println!("blocked by unroll");
+                            //println!("blocked by unroll");
                             p = propagated;
                         }
                     }

@@ -8,7 +8,7 @@ def main(field[2] ins, field k) -> field[3]:
 	field[3] outs = [0; 3]
 
 	for u32 i in 0..nInputs do
-		field idx = if i == 0 then 0 else i - 1 fi
+		u32 idx = if i == 0 then 0 else i - 1 fi
 		S[i] = if i == 0 then MiMCFeistel(ins[0], 0, k) else MiMCFeistel(S[idx][0] + ins[i], S[idx][1], k) fi
 	endfor
 	outs[0] = S[nInputs - 1][0]

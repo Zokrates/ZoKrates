@@ -228,7 +228,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
             )),
             IntExpression::Pow(box e1, box e2) => Ok(Self::Pow(
                 box Self::try_from_int(e1)?,
-                box Self::try_from_int(e2)?,
+                box UExpression::try_from_int(e2, UBitwidth::B32)?,
             )),
             IntExpression::Div(box e1, box e2) => Ok(Self::Div(
                 box Self::try_from_int(e1)?,
@@ -500,7 +500,7 @@ mod tests {
             FieldElementExpression::add(t.clone(), t.clone()),
             FieldElementExpression::sub(t.clone(), t.clone()),
             FieldElementExpression::mult(t.clone(), t.clone()),
-            FieldElementExpression::pow(t.clone(), t.clone()),
+            FieldElementExpression::pow(t.clone(), i.clone()),
             FieldElementExpression::div(t.clone(), t.clone()),
             FieldElementExpression::if_else(c.clone(), t.clone(), t.clone()),
             FieldElementExpression::select(t_a.clone(), i.clone()),

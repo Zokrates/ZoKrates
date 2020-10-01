@@ -278,6 +278,8 @@ pub fn fold_statement<'ast, T: Field>(
                 f.fold_expression_list(elist),
             )]
         }
+        typed_absy::TypedStatement::PushCallLog(..) => vec![],
+        typed_absy::TypedStatement::PopCallLog => vec![],
     }
 }
 
@@ -518,7 +520,7 @@ pub fn fold_field_expression<'ast, T: Field>(
         }
         typed_absy::FieldElementExpression::Pow(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
-            let e2 = f.fold_field_expression(e2);
+            let e2 = f.fold_uint_expression(e2);
             zir::FieldElementExpression::Pow(box e1, box e2)
         }
         typed_absy::FieldElementExpression::IfElse(box cond, box cons, box alt) => {

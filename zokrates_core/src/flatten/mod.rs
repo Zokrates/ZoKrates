@@ -1838,8 +1838,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 inverse.into()
             }
             FieldElementExpression::Pow(box base, box exponent) => {
-                match exponent {
-                    FieldElementExpression::Number(ref e) => {
+                match exponent.into_inner() {
+                    UExpressionInner::Value(ref e) => {
                         // flatten the base expression
                         let base_flattened = self.flatten_field_expression(
                             symbols,
@@ -1850,8 +1850,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         // we require from the base to be linear
                         // TODO change that
                         assert!(base_flattened.is_linear());
-
-                        let e = e.to_dec_string().parse::<usize>().unwrap();
 
                         // convert the exponent to bytes, big endian
                         let ebytes_be = e.to_be_bytes();
@@ -2233,7 +2231,7 @@ mod tests {
                     Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
-                        box FieldElementExpression::Number(Bn128Field::from(0)),
+                        box 0u32.into(),
                     )
                     .into(),
                 ),
@@ -2292,7 +2290,7 @@ mod tests {
                     Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
-                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                        box 1u32.into(),
                     )
                     .into(),
                 ),
@@ -2371,7 +2369,7 @@ mod tests {
                     Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
-                        box FieldElementExpression::Number(Bn128Field::from(13)),
+                        box 13u32.into(),
                     )
                     .into(),
                 ),
