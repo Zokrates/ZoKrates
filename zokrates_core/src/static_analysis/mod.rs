@@ -39,6 +39,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> ZirProgram<'ast, T> {
         // propagated unrolling
         let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
+
         // return binding
         let r = ReturnBinder::bind(r);
 
