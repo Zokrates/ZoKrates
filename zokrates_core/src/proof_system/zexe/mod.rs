@@ -220,69 +220,57 @@ impl<T: Field + ZexeFieldExtensions>
 }
 
 mod parse {
-    use lazy_static::lazy_static;
-
     use super::*;
+    use algebra_core::ToBytes;
     use proof_system::{Fr, G1Affine, G2Affine, G2AffineFq};
-    use regex::Regex;
-
-    lazy_static! {
-        pub static ref G2_REGEX: Regex = Regex::new(r#"GroupAffine\(x=QuadExtField\(Fp\d{3} "\((?P<x0>[0-9a-fA-F]*)\)" \+ Fp\d{3} "\((?P<x1>[0-9a-fA-F]*)\)" \* u\), y=QuadExtField\(Fp\d{3} "\((?P<y0>[0-9a-fA-F]*)\)" \+ Fp\d{3} "\((?P<y1>[0-9a-fA-F]*)\)" \* u\)\)"#).unwrap();
-    }
-
-    lazy_static! {
-        static ref G1_REGEX: Regex =
-            Regex::new(r#"GroupAffine\(x=Fp\d{3} "\((?P<x>[0-9a-fA-F]*)\)", y=Fp\d{3} "\((?P<y>[0-9a-fA-F]*)\)"\)"#)
-                .unwrap();
-    }
-
-    lazy_static! {
-        static ref FR_REGEX: Regex = Regex::new(r#"Fp\d{3} "\((?P<x>[0-9a-fA-F]*)\)""#).unwrap();
-    }
-
-    lazy_static! {
-        pub static ref G1_G2_REGEX_FQ: Regex = Regex::new(r#"GroupAffine\(x=Fp\d{3} "\((?P<x>[0-9a-fA-F]*)\)", y=Fp\d{3} "\((?P<y>[0-9a-fA-F]*)\)"\)"#).unwrap();
-    }
-
-    lazy_static! {
-        static ref FR_REGEX_FQ: Regex = Regex::new(r#"Fp\d{3} "\((?P<x>[0-9a-fA-F]*)\)""#).unwrap();
-    }
 
     pub fn parse_g1<T: Field + ZexeFieldExtensions>(
         e: &<T::ZexeEngine as PairingEngine>::G1Affine,
     ) -> G1Affine {
-        let raw_e = e.to_string();
-        match T::name() {
-            "bw6_761" => {
-                let captures = G1_G2_REGEX_FQ.captures(&raw_e).unwrap();
-                G1Affine(
-                    ("0x".to_string() + captures.name(&"x").unwrap().as_str()).to_string(),
-                    ("0x".to_string() + captures.name(&"y").unwrap().as_str()).to_string(),
-                )
-            }
-            _ => {
-                let captures = G1_REGEX.captures(&raw_e).unwrap();
-                G1Affine(
-                    ("0x".to_string() + captures.name(&"x").unwrap().as_str()).to_string(),
-                    ("0x".to_string() + captures.name(&"y").unwrap().as_str()).to_string(),
-                )
-            }
-        }
+        let mut bytes: Vec<u8> = Vec::new();
+        e.write(&mut bytes).unwrap();
+
+        let length = bytes.len() - 1; // [x, y, infinity] - infinity
+        let element_length = length / 2;
+
+        let mut x = bytes[0..element_length].to_vec();
+        let mut y = bytes[element_length..length].to_vec();
+
+        x.reverse();
+        y.reverse();
+
+        G1Affine(
+            format!("0x{}", hex::encode(&x)),
+            format!("0x{}", hex::encode(&y)),
+        )
     }
 
-    pub fn parse_g2<T: ZexeFieldExtensions>(
+    pub fn parse_g2<T: Field + ZexeFieldExtensions>(
         e: &<T::ZexeEngine as PairingEngine>::G2Affine,
     ) -> G2Affine {
-        let raw_e = e.to_string();
-        let captures = G2_REGEX.captures(&raw_e).unwrap();
+        let mut bytes: Vec<u8> = Vec::new();
+        e.write(&mut bytes).unwrap();
+
+        let length = bytes.len() - 1; // [x, y, infinity] - infinity
+        let element_length = length / 4;
+
+        let mut elements = vec![];
+        for i in 0..4 {
+            let start = i * element_length;
+            let end = start + element_length;
+            let mut e = bytes[start..end].to_vec();
+            e.reverse();
+            elements.push(e);
+        }
+
         G2Affine(
             (
-                ("0x".to_string() + captures.name(&"x0").unwrap().as_str()).to_string(),
-                ("0x".to_string() + captures.name(&"x1").unwrap().as_str()).to_string(),
+                format!("0x{}", hex::encode(&elements[0])),
+                format!("0x{}", hex::encode(&elements[1])),
             ),
             (
-                ("0x".to_string() + captures.name(&"y0").unwrap().as_str()).to_string(),
-                ("0x".to_string() + captures.name(&"y1").unwrap().as_str()).to_string(),
+                format!("0x{}", hex::encode(&elements[2])),
+                format!("0x{}", hex::encode(&elements[3])),
             ),
         )
     }
@@ -290,17 +278,29 @@ mod parse {
     pub fn parse_g2_fq<T: ZexeFieldExtensions>(
         e: &<T::ZexeEngine as PairingEngine>::G2Affine,
     ) -> G2AffineFq {
-        let raw_e = e.to_string();
-        let captures = G1_G2_REGEX_FQ.captures(&raw_e).unwrap();
+        let mut bytes: Vec<u8> = Vec::new();
+        e.write(&mut bytes).unwrap();
+
+        let length = bytes.len() - 1; // [x, y, infinity] - infinity
+        let element_length = length / 2;
+
+        let mut x = bytes[0..element_length].to_vec();
+        let mut y = bytes[element_length..length].to_vec();
+
+        x.reverse();
+        y.reverse();
+
         G2AffineFq(
-            ("0x".to_string() + captures.name(&"x").unwrap().as_str()).to_string(),
-            ("0x".to_string() + captures.name(&"y").unwrap().as_str()).to_string(),
+            format!("0x{}", hex::encode(&x)),
+            format!("0x{}", hex::encode(&y)),
         )
     }
 
     pub fn parse_fr<T: ZexeFieldExtensions>(e: &<T::ZexeEngine as PairingEngine>::Fr) -> Fr {
-        let raw_e = e.to_string();
-        let captures = FR_REGEX.captures(&raw_e).unwrap();
-        ("0x".to_string() + captures.name(&"x").unwrap().as_str()).to_string()
+        let mut bytes: Vec<u8> = Vec::new();
+        e.write(&mut bytes).unwrap();
+        bytes.reverse();
+
+        format!("0x{}", hex::encode(&bytes))
     }
 }
