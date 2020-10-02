@@ -187,10 +187,16 @@ impl<'ast> FunctionQuery<'ast> {
                 .zip(func.signature.inputs.iter())
                 .all(|(input_ty, sig_ty)| input_ty.can_be_specialized_to(&sig_ty))
             && self.outputs.len() == func.signature.outputs.len()
-            && self.outputs.iter().enumerate().all(|(index, t)| match t {
-                Some(ref t) => t == &func.signature.outputs[index],
-                _ => true,
-            })
+            && self
+                .outputs
+                .iter()
+                .zip(func.signature.outputs.iter())
+                .all(|(output_ty, sig_ty)| {
+                    output_ty
+                        .as_ref()
+                        .map(|output_ty| output_ty.can_be_specialized_to(&sig_ty))
+                        .unwrap_or(true)
+                })
     }
 
     fn match_funcs(&self, funcs: &HashSet<FunctionKey<'ast>>) -> Vec<FunctionKey<'ast>> {
@@ -1517,7 +1523,10 @@ impl<'ast> Checker<'ast> {
                         })?,
                         box FieldElementExpression::try_from_int(e2).map_err(|e| ErrorInner {
                             pos: Some(pos),
-                            message: format!("{} cannot be the first summand of operation `**`", e),
+                            message: format!(
+                                "{} cannot be the second summand of operation `**`",
+                                e
+                            ),
                         })?,
                     )
                     .into()),
