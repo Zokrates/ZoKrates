@@ -203,49 +203,50 @@ impl Backend<Bw6_761Field, GM17> for Zexe {
 }
 
 pub mod serialization {
-    use algebra_core::{AffineCurve, PairingEngine};
-    use num_bigint::BigUint;
+    use algebra_core::{FromBytes, PairingEngine};
     use proof_system::{Fq, Fq2, G1Affine, G2Affine, G2AffineFq};
-    use std::str::FromStr;
     use zokrates_field::ZexeFieldExtensions;
 
-    fn to_dec_string(s: String) -> String {
-        BigUint::from_bytes_be(
-            hex::decode(s.strip_prefix("0x").unwrap())
-                .unwrap()
-                .as_slice(),
-        )
-        .to_str_radix(10)
+    #[inline]
+    fn decode_hex(value: String) -> Vec<u8> {
+        let mut bytes = hex::decode(value.strip_prefix("0x").unwrap()).unwrap();
+        bytes.reverse();
+        bytes
     }
 
     pub fn to_g1<T: ZexeFieldExtensions>(
         g1: G1Affine,
     ) -> <T::ZexeEngine as PairingEngine>::G1Affine {
-        let x = <T::ZexeEngine as PairingEngine>::Fq::from_str(to_dec_string(g1.0).as_str())
-            .map_err(|_| ())
-            .unwrap();
+        let mut bytes = vec![];
+        bytes.append(&mut decode_hex(g1.0));
+        bytes.append(&mut decode_hex(g1.1));
+        bytes.push(0u8); // infinity flag
 
-        let y = <T::ZexeEngine as PairingEngine>::Fq::from_str(to_dec_string(g1.1).as_str())
-            .map_err(|_| ())
-            .unwrap();
-
-        <T::ZexeEngine as PairingEngine>::G1Affine::from_xy_checked(x, y).unwrap()
+        <T::ZexeEngine as PairingEngine>::G1Affine::read(&*bytes).unwrap()
     }
 
     pub fn to_g2<T: ZexeFieldExtensions<FqeRepr = Fq2>>(
         g2: G2Affine,
     ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
-        let x = T::new_fqe((to_dec_string((g2.0).0), to_dec_string((g2.0).1)));
-        let y = T::new_fqe((to_dec_string((g2.1).0), to_dec_string((g2.1).1)));
-        <T::ZexeEngine as PairingEngine>::G2Affine::from_xy_checked(x, y).unwrap()
+        let mut bytes = vec![];
+        bytes.append(&mut decode_hex((g2.0).0));
+        bytes.append(&mut decode_hex((g2.0).1));
+        bytes.append(&mut decode_hex((g2.1).0));
+        bytes.append(&mut decode_hex((g2.1).1));
+        bytes.push(0u8); // infinity flag
+
+        <T::ZexeEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
     }
 
     pub fn to_g2_fq<T: ZexeFieldExtensions<FqeRepr = Fq>>(
         g2: G2AffineFq,
     ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
-        let x = T::new_fqe(to_dec_string(g2.0));
-        let y = T::new_fqe(to_dec_string(g2.1));
-        <T::ZexeEngine as PairingEngine>::G2Affine::from_xy_checked(x, y).unwrap()
+        let mut bytes = vec![];
+        bytes.append(&mut decode_hex(g2.0));
+        bytes.append(&mut decode_hex(g2.1));
+        bytes.push(0u8); // infinity flag
+
+        <T::ZexeEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
     }
 }
 

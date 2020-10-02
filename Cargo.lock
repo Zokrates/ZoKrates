@@ -27,7 +27,7 @@ dependencies = [
 [[package]]
 name = "algebra"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra-core",
 ]
@@ -35,7 +35,7 @@ dependencies = [
 [[package]]
 name = "algebra-core"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra-core-derive",
  "derivative",
@@ -50,7 +50,7 @@ dependencies = [
 [[package]]
 name = "algebra-core-derive"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "proc-macro2 1.0.19",
  "quote 1.0.7",
@@ -149,7 +149,7 @@ dependencies = [
 [[package]]
 name = "bench-utils"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 
 [[package]]
 name = "bincode"
@@ -418,7 +418,7 @@ dependencies = [
 [[package]]
 name = "crypto-primitives"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra-core",
  "bench-utils",
@@ -581,7 +581,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 [[package]]
 name = "ff-fft"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra-core",
  "rand 0.7.3",
@@ -628,7 +628,7 @@ dependencies = [
 [[package]]
 name = "field-assembly"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "mince",
 ]
@@ -792,7 +792,7 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 [[package]]
 name = "gm17"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra-core",
  "bench-utils",
@@ -805,7 +805,7 @@ dependencies = [
 [[package]]
 name = "groth16"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra-core",
  "bench-utils",
@@ -971,7 +971,7 @@ dependencies = [
 [[package]]
 name = "mince"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "quote 1.0.7",
  "syn 1.0.39",
@@ -1285,7 +1285,7 @@ dependencies = [
 [[package]]
 name = "r1cs-core"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra-core",
  "tracing",
@@ -1295,7 +1295,7 @@ dependencies = [
 [[package]]
 name = "r1cs-std"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/dark64/zexe.git?branch=dark64-patch#6d15b91fbbcd9cc9cbbb1f2783a6020be2761e64"
+source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra",
  "derivative",

@@ -36,12 +36,12 @@ rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
 pretty_assertions = "0.6.1"
 bellman_ce = { version = "^0.3", default-features = false}
-gm17 = { git = "https://github.com/dark64/zexe.git", branch = "dark64-patch", version = "0.1.1-alpha.0", features = ["parallel"]  }
-algebra-core = { git = "https://github.com/dark64/zexe.git", branch = "dark64-patch", version = "0.1.1-alpha.0", features = ["parallel"] }
-r1cs-core = { git = "https://github.com/dark64/zexe.git", branch = "dark64-patch", version = "0.1.1-alpha.0"}
-algebra = { git =  "https://github.com/dark64/zexe.git", branch = "dark64-patch", version = "0.1.1-alpha.0", features = ["bn254", "bls12_377", "bw6_761", "parallel"] }
-crypto-primitives = { default-features = false, git = "https://github.com/dark64/zexe.git", branch = "dark64-patch", version = "0.1.1-alpha.0", features = [ "parallel", "gm17", "r1cs" ] }
-r1cs-std = { git = "https://github.com/dark64/zexe.git", branch = "dark64-patch", version = "0.1.1-alpha.0", features = ["bls12_377", "parallel"] }
+gm17 = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel"]  }
+algebra-core = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel"] }
+r1cs-core = { git = "https://github.com/scipr-lab/zexe.git" }
+algebra = { git =  "https://github.com/scipr-lab/zexe.git", features = ["bn254", "bls12_377", "bw6_761", "parallel"] }
+crypto-primitives = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel", "gm17", "r1cs"], default-features = false }
+r1cs-std = { git = "https://github.com/scipr-lab/zexe.git", features = ["bls12_377", "parallel"] }
 
 [dev-dependencies]
 glob = "0.2.11"
