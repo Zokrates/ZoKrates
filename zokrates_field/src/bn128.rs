@@ -1,4 +1,4 @@
-use algebra::bn254::{Bn254};
+use algebra::bn254::Bn254;
 use bellman_ce::pairing::bn256::{Bn256, Fq2};
 
 prime_field!(

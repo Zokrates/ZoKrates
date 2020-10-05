@@ -11,7 +11,7 @@ use bellman_ce::pairing::Engine;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
@@ -43,7 +43,7 @@ pub trait Field:
     + From<u32>
     + From<usize>
     + From<u128>
-    + From<BigUint>
+    + TryFrom<BigUint, Error = ()>
     + Zero
     + One
     + Clone
@@ -131,6 +131,7 @@ mod prime_field {
             use num_traits::{One, Zero};
             use serde_derive::{Deserialize, Serialize};
             use std::convert::From;
+            use std::convert::TryFrom;
             use std::fmt;
             use std::fmt::{Debug, Display};
             use std::ops::{Add, Div, Mul, Sub};
@@ -290,11 +291,16 @@ mod prime_field {
                 }
             }
 
-            impl From<BigUint> for FieldPrime {
-                fn from(num: BigUint) -> Self {
-                    let x = ToBigInt::to_bigint(&num).unwrap();
-                    FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
+            impl TryFrom<BigUint> for FieldPrime {
+                type Error = ();
+
+                fn try_from(value: BigUint) -> Result<Self, ()> {
+                    match value <= Self::max_value().to_biguint() {
+                        true => {
+                            let x = ToBigInt::to_bigint(&value).unwrap();
+                            Ok(FieldPrime { value: x })
+                        }
+                        false => Err(()),
                     }
                 }
             }
