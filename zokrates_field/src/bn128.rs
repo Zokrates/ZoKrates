@@ -1,4 +1,4 @@
-use algebra::bn254::{Bn254, Fq2 as Bn254_Fq2};
+use algebra::bn254::{Bn254};
 use bellman_ce::pairing::bn256::{Bn256, Fq2};
 
 prime_field!(
@@ -7,7 +7,7 @@ prime_field!(
 );
 
 bellman_extensions!(Bn256, Fq2);
-zexe_extensions!(Bn254, Bn254_Fq2);
+zexe_extensions!(Bn254);
 
 #[cfg(test)]
 mod tests {

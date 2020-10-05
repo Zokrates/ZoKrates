@@ -12,9 +12,9 @@ use ir::{Prog, Witness};
 use proof_system::scheme::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
 use proof_system::scheme::Scheme;
 use proof_system::zexe::Zexe;
-use proof_system::{Backend, Fq2, Proof, SetupKeypair};
+use proof_system::{Backend, Proof, SetupKeypair};
 
-impl<T: Field + ZexeFieldExtensions<FqeRepr = Fq2> + NotBw6_761Field> Backend<T, GM17> for Zexe {
+impl<T: Field + ZexeFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Zexe {
     fn setup(program: Prog<T>) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
@@ -204,7 +204,7 @@ impl Backend<Bw6_761Field, GM17> for Zexe {
 
 pub mod serialization {
     use algebra_core::{FromBytes, PairingEngine};
-    use proof_system::{Fq, Fq2, G1Affine, G2Affine, G2AffineFq};
+    use proof_system::{G1Affine, G2Affine, G2AffineFq};
     use zokrates_field::ZexeFieldExtensions;
 
     #[inline]
@@ -225,7 +225,7 @@ pub mod serialization {
         <T::ZexeEngine as PairingEngine>::G1Affine::read(&*bytes).unwrap()
     }
 
-    pub fn to_g2<T: ZexeFieldExtensions<FqeRepr = Fq2>>(
+    pub fn to_g2<T: ZexeFieldExtensions>(
         g2: G2Affine,
     ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
         let mut bytes = vec![];
@@ -238,7 +238,7 @@ pub mod serialization {
         <T::ZexeEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
     }
 
-    pub fn to_g2_fq<T: ZexeFieldExtensions<FqeRepr = Fq>>(
+    pub fn to_g2_fq<T: ZexeFieldExtensions>(
         g2: G2AffineFq,
     ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
         let mut bytes = vec![];

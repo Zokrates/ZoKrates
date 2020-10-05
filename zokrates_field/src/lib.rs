@@ -33,11 +33,9 @@ pub trait BellmanFieldExtensions {
 pub trait ZexeFieldExtensions {
     /// An associated type to be able to operate with zexe ff traits
     type ZexeEngine: PairingEngine;
-    type FqeRepr;
 
     fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self;
     fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr;
-    fn new_fqe(value: Self::FqeRepr) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe;
 }
 
 pub trait Field:
@@ -544,7 +542,6 @@ mod prime_field {
 
             impl ZexeFieldExtensions for FieldPrime {
                 type ZexeEngine = $zexe_type;
-                type FqeRepr = String;
 
                 fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
                     use algebra_core::{BigInteger, PrimeField};
@@ -557,52 +554,6 @@ mod prime_field {
                     use core::str::FromStr;
                     let s = self.to_dec_string();
                     <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
-                }
-
-                fn new_fqe(
-                    value: Self::FqeRepr,
-                ) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe {
-                    use core::str::FromStr;
-                    <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe::from_str(value.as_str())
-                        .unwrap()
-                }
-            }
-        };
-        ($zexe_type:ty, $fq2_type:ident) => {
-            use crate::ZexeFieldExtensions;
-
-            impl ZexeFieldExtensions for FieldPrime {
-                type ZexeEngine = $zexe_type;
-                type FqeRepr = (String, String);
-
-                fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
-                    use algebra_core::{BigInteger, PrimeField};
-                    let mut res: Vec<u8> = vec![];
-                    e.into_repr().write_le(&mut res).unwrap();
-                    Self::from_byte_vector(res)
-                }
-
-                fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr {
-                    use core::str::FromStr;
-                    let s = self.to_dec_string();
-                    <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
-                }
-
-                fn new_fqe(
-                    value: Self::FqeRepr,
-                ) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fqe {
-                    use core::str::FromStr;
-                    $fq2_type {
-                        c0: <Self::ZexeEngine as algebra_core::PairingEngine>::Fq::from_str(
-                            value.0.as_str(),
-                        )
-                        .unwrap(),
-                        c1: <Self::ZexeEngine as algebra_core::PairingEngine>::Fq::from_str(
-                            value.1.as_str(),
-                        )
-                        .unwrap(),
-                        _parameters: core::marker::PhantomData,
-                    }
                 }
             }
         };
