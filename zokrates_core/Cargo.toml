@@ -11,6 +11,7 @@ default = ["bellman_ce/nolog"]
 libsnark = ["cc", "cmake", "git2"]
 wasm = ["bellman_ce/wasm"]
 multicore = ["bellman_ce/multicore"]
+zexe = []
 
 [dependencies]
 num = { version = "0.1.36", default-features = false }
@@ -46,7 +47,7 @@ r1cs-std = { git = "https://github.com/scipr-lab/zexe.git", features = ["bls12_3
 [dev-dependencies]
 glob = "0.2.11"
 assert_cli = "0.5"
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test = "^0.3.0"
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
