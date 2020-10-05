@@ -4,6 +4,7 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 extern crate algebra_core;
+extern crate num_bigint;
 
 use algebra_core::PairingEngine;
 use bellman_ce::pairing::ff::ScalarEngine;
