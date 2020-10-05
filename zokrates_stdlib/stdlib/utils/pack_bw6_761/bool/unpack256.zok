@@ -1,9 +1,0 @@
-#pragma curve bw6_761
-
-import "EMBED/unpack" as unpack
-
-def main(field i) -> (bool[256]):
-
-    bool[377] b = unpack(i)
-
-    return b[121..377]
