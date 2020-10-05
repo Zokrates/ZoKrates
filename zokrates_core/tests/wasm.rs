@@ -6,10 +6,9 @@ extern crate zokrates_field;
 use wasm_bindgen_test::*;
 use zokrates_core::flat_absy::FlatVariable;
 use zokrates_core::ir::{Function, Interpreter, Prog, Statement};
-use zokrates_core::proof_system::{Backend, ProofSystem};
+use zokrates_core::proof_system::Backend;
 use zokrates_field::Bn128Field;
 
-use zokrates_core::proof_system::bellman::groth16::G16;
 use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::scheme::groth16::G16;
 
