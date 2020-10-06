@@ -8,18 +8,24 @@ extern crate serde_json;
 extern crate typed_arena;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(feature = "zexe")]
 extern crate algebra as zexe_algebra;
+#[cfg(feature = "zexe")]
 extern crate algebra_core;
 extern crate bellman_ce as bellman;
 extern crate bincode;
+#[cfg(feature = "zexe")]
 extern crate crypto_primitives;
 extern crate csv;
 extern crate ff_ce as ff;
+#[cfg(feature = "zexe")]
 extern crate gm17 as zexe_gm17;
 extern crate hex;
 extern crate lazy_static;
 extern crate pairing_ce as pairing;
+#[cfg(feature = "zexe")]
 extern crate r1cs_core;
+#[cfg(feature = "zexe")]
 extern crate r1cs_std;
 extern crate rand_0_4;
 extern crate rand_0_7;

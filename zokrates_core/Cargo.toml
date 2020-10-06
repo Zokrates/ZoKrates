@@ -11,7 +11,7 @@ default = ["bellman_ce/nolog"]
 libsnark = ["cc", "cmake", "git2"]
 wasm = ["bellman_ce/wasm"]
 multicore = ["bellman_ce/multicore"]
-zexe = []
+zexe = ["gm17", "algebra-core", "r1cs-core", "algebra", "crypto-primitives", "r1cs-std"]
 
 [dependencies]
 num = { version = "0.1.36", default-features = false }
@@ -36,13 +36,13 @@ rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
 pretty_assertions = "0.6.1"
-bellman_ce = { version = "^0.3", default-features = false}
-gm17 = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel"]  }
-algebra-core = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel"] }
-r1cs-core = { git = "https://github.com/scipr-lab/zexe.git" }
-algebra = { git =  "https://github.com/scipr-lab/zexe.git", features = ["bn254", "bls12_377", "bw6_761", "parallel"] }
-crypto-primitives = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel", "gm17", "r1cs"], default-features = false }
-r1cs-std = { git = "https://github.com/scipr-lab/zexe.git", features = ["bls12_377", "parallel"] }
+bellman_ce = { version = "^0.3", default-features = false }
+gm17 = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel"], optional = true  }
+algebra-core = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel"], optional = true }
+r1cs-core = { git = "https://github.com/scipr-lab/zexe.git", optional = true }
+algebra = { git =  "https://github.com/scipr-lab/zexe.git", features = ["bn254", "bls12_377", "bw6_761", "parallel"], optional = true }
+crypto-primitives = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel", "gm17", "r1cs"], default-features = false, optional = true }
+r1cs-std = { git = "https://github.com/scipr-lab/zexe.git", features = ["bls12_377", "parallel"], optional = true }
 
 [dev-dependencies]
 glob = "0.2.11"

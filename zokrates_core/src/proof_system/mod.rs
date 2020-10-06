@@ -1,6 +1,7 @@
 pub mod bellman;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
+#[cfg(feature = "zexe")]
 pub mod zexe;
 
 pub mod scheme;
