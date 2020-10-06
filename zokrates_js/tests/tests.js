@@ -124,4 +124,31 @@ describe('tests', function() {
             })
         });
     });
+
+    describe("verify", () => {
+        it('should pass', function() {
+            assert.doesNotThrow(() => {
+                const code = 'def main(private field a) -> field: return a * a';
+                const artifacts = this.zokrates.compile(code);
+                const computationResult = this.zokrates.computeWitness(artifacts, ["2"])
+                const keypair = this.zokrates.setup(artifacts.program);
+                const proof = this.zokrates.generateProof(artifacts.program, computationResult.witness, keypair.pk);
+
+                assert(this.zokrates.verify(keypair.vk, proof) == true);
+            })
+        });
+        it('should fail', function() {
+            assert.doesNotThrow(() => {
+                const code = 'def main(private field a) -> field: return a * a';
+                const artifacts = this.zokrates.compile(code);
+                const computationResult = this.zokrates.computeWitness(artifacts, ["2"])
+                const keypair = this.zokrates.setup(artifacts.program);
+                let proof = this.zokrates.generateProof(artifacts.program, computationResult.witness, keypair.pk);
+
+                // falsify proof
+                proof["proof"]["a"][0] = "0x0000000000000000000000000000000000000000000000000000000000000000";
+                assert(this.zokrates.verify(keypair.vk, proof) == false);
+            })
+        });
+    });
 });

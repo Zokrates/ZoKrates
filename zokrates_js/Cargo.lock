@@ -37,24 +37,12 @@ name = "algebra-core"
 version = "0.1.1-alpha.0"
 source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
- "algebra-core-derive",
  "derivative",
  "field-assembly",
  "num-traits 0.2.12",
  "rand 0.7.3",
- "rayon",
  "rustc_version",
  "unroll",
-]
-
-[[package]]
-name = "algebra-core-derive"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "proc-macro2 1.0.18",
- "quote 1.0.7",
- "syn 1.0.34",
 ]
 
 [[package]]
@@ -103,11 +91,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bench-utils"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-
-[[package]]
 name = "bincode"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -133,18 +116,6 @@ name = "bit-vec"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f0dc55f2d8a1a85650ac47858bb001b4c0dd73d79e3c455a842925e68d29cd3"
-
-[[package]]
-name = "blake2"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94cb07b0da6a73955f8fb85d24c466778e70cda767a568229b104f0264089330"
-dependencies = [
- "byte-tools",
- "crypto-mac",
- "digest",
- "opaque-debug",
-]
 
 [[package]]
 name = "block-buffer"
@@ -211,83 +182,6 @@ checksum = "b8d976903543e0c48546a91908f21588a680a8c8f984df9a5d69feccb2b2a211"
 dependencies = [
  "cfg-if",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "crossbeam-channel"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b153fe7cbef478c567df0f972e02e6d736db11affe43dfc9c56a9374d1adfb87"
-dependencies = [
- "crossbeam-utils",
- "maybe-uninit",
-]
-
-[[package]]
-name = "crossbeam-deque"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f02af974daeee82218205558e51ec8768b48cf524bd01d550abe5573a608285"
-dependencies = [
- "crossbeam-epoch",
- "crossbeam-utils",
- "maybe-uninit",
-]
-
-[[package]]
-name = "crossbeam-epoch"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "058ed274caafc1f60c4997b5fc07bf7dc7cca454af7c6e81edffe5f33f70dace"
-dependencies = [
- "autocfg",
- "cfg-if",
- "crossbeam-utils",
- "lazy_static",
- "maybe-uninit",
- "memoffset",
- "scopeguard",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3c7c73a2d1e9fc0886a08b93e98eb643461230d5f1925e4036204d5f2e261a8"
-dependencies = [
- "autocfg",
- "cfg-if",
- "lazy_static",
-]
-
-[[package]]
-name = "crypto-mac"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4434400df11d95d556bac068ddfedd482915eb18fe8bea89bc80b6e4b1c179e5"
-dependencies = [
- "generic-array",
- "subtle",
-]
-
-[[package]]
-name = "crypto-primitives"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra-core",
- "bench-utils",
- "blake2",
- "derivative",
- "digest",
- "ff-fft",
- "gm17",
- "groth16",
- "r1cs-core",
- "r1cs-std",
- "rand 0.7.3",
- "rayon",
- "tracing",
 ]
 
 [[package]]
@@ -383,16 +277,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
-name = "ff-fft"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra-core",
- "rand 0.7.3",
- "rayon",
-]
-
-[[package]]
 name = "ff_ce"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -421,7 +305,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50c052fa6d4c2f12305ec364bfb8ef884836f3f61ea015b202372ff996d1ac4b"
 dependencies = [
- "num-bigint 0.2.6",
+ "num-bigint",
  "num-integer",
  "num-traits 0.2.12",
  "proc-macro2 1.0.18",
@@ -560,32 +444,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aaf91faf136cb47367fa430cd46e37a788775e7fa104f8b4bcb3861dc389b724"
 
 [[package]]
-name = "gm17"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra-core",
- "bench-utils",
- "ff-fft",
- "r1cs-core",
- "rand 0.7.3",
- "rayon",
-]
-
-[[package]]
-name = "groth16"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra-core",
- "bench-utils",
- "ff-fft",
- "r1cs-core",
- "rand 0.7.3",
- "rayon",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -652,25 +510,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
-name = "maybe-uninit"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
-
-[[package]]
 name = "memchr"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
-
-[[package]]
-name = "memoffset"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "043175f069eda7b85febe4a74abbaeff828d9f8b448515d3151a14a3542811aa"
-dependencies = [
- "autocfg",
-]
 
 [[package]]
 name = "mince"
@@ -698,16 +541,6 @@ checksum = "4703ad64153382334aa8db57c637364c322d3372e097840c72000dabdcf6156e"
 dependencies = [
  "num-integer",
  "num-iter",
- "num-traits 0.2.12",
-]
-
-[[package]]
-name = "num-bigint"
-version = "0.1.44"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e63899ad0da84ce718c14936262a41cee2c79c981fc0a0e7c7beb47d5a07e8c1"
-dependencies = [
- "num-integer",
  "num-traits 0.2.12",
 ]
 
@@ -887,12 +720,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pin-project-lite"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e555d9e657502182ac97b539fb3dae8b79cda19e3e4f8ffb5e8de4f18df93c95"
-
-[[package]]
 name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -950,27 +777,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa563d17ecb180e500da1cfd2b028310ac758de548efdd203e18f283af693f37"
 dependencies = [
  "proc-macro2 1.0.18",
-]
-
-[[package]]
-name = "r1cs-core"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra-core",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "r1cs-std"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra",
- "derivative",
- "r1cs-core",
- "tracing",
 ]
 
 [[package]]
@@ -1043,31 +849,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rayon"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcf6960dc9a5b4ee8d3e4c5787b4a112a8818e0290a42ff664ad60692fdf2032"
-dependencies = [
- "autocfg",
- "crossbeam-deque",
- "either",
- "rayon-core",
-]
-
-[[package]]
-name = "rayon-core"
-version = "1.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8c4fec834fb6e6d2dd5eece3c7b432a52f0ba887cf40e595190c4107edc08bf"
-dependencies = [
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-utils",
- "lazy_static",
- "num_cpus",
-]
-
-[[package]]
 name = "rdrand"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1133,12 +914,6 @@ name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
-
-[[package]]
-name = "scopeguard"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "semver"
@@ -1235,12 +1010,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 
 [[package]]
-name = "subtle"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d67a5a62ba6e01cb2192ff309324cb4875d0c451d55fe2319433abe7a05a8ee"
-
-[[package]]
 name = "syn"
 version = "0.15.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1281,47 +1050,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6b53e329000edc2b34dbe8545fd20e55a333362d0a321909685a19bd28c3f1b"
 dependencies = [
  "lazy_static",
-]
-
-[[package]]
-name = "tracing"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0987850db3733619253fe60e17cb59b82d37c7e6c0236bb81e4d6b87c879f27"
-dependencies = [
- "cfg-if",
- "pin-project-lite",
- "tracing-attributes",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-attributes"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80e0ccfc3378da0cce270c946b676a376943f5cd16aeba64568e7939806f4ada"
-dependencies = [
- "proc-macro2 1.0.18",
- "quote 1.0.7",
- "syn 1.0.34",
-]
-
-[[package]]
-name = "tracing-core"
-version = "0.1.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f50de3927f93d202783f4513cda820ab47ef17f624b03c096e86ef00c67e6b5f"
-dependencies = [
- "lazy_static",
-]
-
-[[package]]
-name = "tracing-subscriber"
-version = "0.2.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82bb5079aa76438620837198db8a5c529fb9878c730bc2b28179b0241cf04c10"
-dependencies = [
- "tracing-core",
 ]
 
 [[package]]
@@ -1495,22 +1223,16 @@ version = "0.1.0"
 name = "zokrates_core"
 version = "0.5.1"
 dependencies = [
- "algebra",
- "algebra-core",
  "bellman_ce",
  "bincode 0.8.0",
- "crypto-primitives",
  "csv",
  "ff_ce 0.9.0",
- "gm17",
  "hex",
  "lazy_static",
  "num",
- "num-bigint 0.1.44",
+ "num-bigint",
  "pairing_ce",
  "pretty_assertions",
- "r1cs-core",
- "r1cs-std",
  "rand 0.4.6",
  "rand 0.7.3",
  "reduce",
@@ -1534,7 +1256,7 @@ dependencies = [
  "bellman_ce",
  "bincode 0.8.0",
  "lazy_static",
- "num-bigint 0.2.6",
+ "num-bigint",
  "num-integer",
  "num-traits 0.2.12",
  "serde",

@@ -115,11 +115,10 @@ mod serialization {
     pub fn to_g1<T: BellmanFieldExtensions>(
         g1: G1Affine,
     ) -> <T::BellmanEngine as Engine>::G1Affine {
-        <T::BellmanEngine as Engine>::G1Affine::from_xy_checked(
+        <T::BellmanEngine as Engine>::G1Affine::from_xy_unchecked(
             from_hex(&g1.0).unwrap(),
             from_hex(&g1.1).unwrap(),
         )
-        .unwrap()
     }
     pub fn to_g2<T: BellmanFieldExtensions>(
         g2: G2Affine,
@@ -127,7 +126,7 @@ mod serialization {
         // apparently the order is reversed
         let x = T::new_fq2(&(g2.0).1, &(g2.0).0);
         let y = T::new_fq2(&(g2.1).1, &(g2.1).0);
-        <T::BellmanEngine as Engine>::G2Affine::from_xy_checked(x, y).unwrap()
+        <T::BellmanEngine as Engine>::G2Affine::from_xy_unchecked(x, y)
     }
 }
 

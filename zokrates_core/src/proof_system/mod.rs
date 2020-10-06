@@ -29,6 +29,7 @@ impl<V: Serialize + DeserializeOwned> SetupKeypair<V> {
 pub struct Proof<T> {
     proof: T,
     inputs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     raw: Option<String>,
 }
 

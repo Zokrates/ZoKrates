@@ -10,9 +10,9 @@ use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::scheme::groth16::G16;
-use zokrates_core::proof_system::scheme::{SolidityCompatibleScheme};
+use zokrates_core::proof_system::scheme::{Scheme, SolidityCompatibleScheme};
 use zokrates_core::proof_system::solidity::SolidityAbi;
-use zokrates_core::proof_system::Backend;
+use zokrates_core::proof_system::{Backend, Proof};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::Signature;
 use zokrates_field::Bn128Field;
@@ -33,12 +33,6 @@ pub struct CompilationResult {
 pub struct ComputationResult {
     witness: String,
     output: String,
-}
-
-impl ResolverResult {
-    fn into_tuple(self) -> (String, PathBuf) {
-        (self.source, PathBuf::from(self.location))
-    }
 }
 
 #[inline]
@@ -90,7 +84,7 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
             )))
         } else {
             let result: ResolverResult = value.into_serde().unwrap();
-            Ok(result.into_tuple())
+            Ok((result.source, PathBuf::from(result.location)))
         }
     }
 }
@@ -197,6 +191,15 @@ pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result
     );
 
     Ok(JsValue::from_serde(&proof).unwrap())
+}
+
+#[wasm_bindgen]
+pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
+    let vk: <G16 as Scheme<Bn128Field>>::VerificationKey = vk.into_serde().unwrap();
+    let proof: Proof<<G16 as Scheme<Bn128Field>>::ProofPoints> = proof.into_serde().unwrap();
+
+    let ans = <Bellman as Backend<Bn128Field, G16>>::verify(vk, proof);
+    Ok(JsValue::from_serde(&ans).unwrap())
 }
 
 #[wasm_bindgen(start)]

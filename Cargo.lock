@@ -175,18 +175,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
-name = "blake2"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94cb07b0da6a73955f8fb85d24c466778e70cda767a568229b104f0264089330"
-dependencies = [
- "byte-tools",
- "crypto-mac",
- "digest",
- "opaque-debug",
-]
-
-[[package]]
 name = "blake2b_simd"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -403,36 +391,6 @@ dependencies = [
  "autocfg",
  "cfg-if",
  "lazy_static",
-]
-
-[[package]]
-name = "crypto-mac"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4434400df11d95d556bac068ddfedd482915eb18fe8bea89bc80b6e4b1c179e5"
-dependencies = [
- "generic-array",
- "subtle",
-]
-
-[[package]]
-name = "crypto-primitives"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra-core",
- "bench-utils",
- "blake2",
- "derivative",
- "digest",
- "ff-fft",
- "gm17",
- "groth16",
- "r1cs-core",
- "r1cs-std",
- "rand 0.7.3",
- "rayon",
- "tracing",
 ]
 
 [[package]]
@@ -791,19 +749,6 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "gm17"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra-core",
- "bench-utils",
- "ff-fft",
- "r1cs-core",
- "rand 0.7.3",
- "rayon",
-]
-
-[[package]]
-name = "groth16"
 version = "0.1.1-alpha.0"
 source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
@@ -1198,6 +1143,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pin-project-lite"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e555d9e657502182ac97b539fb3dae8b79cda19e3e4f8ffb5e8de4f18df93c95"
+
+[[package]]
 name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1280,17 +1231,6 @@ dependencies = [
  "algebra-core",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "r1cs-std"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "algebra",
- "derivative",
- "r1cs-core",
- "tracing",
 ]
 
 [[package]]
@@ -1628,12 +1568,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
-name = "subtle"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d67a5a62ba6e01cb2192ff309324cb4875d0c451d55fe2319433abe7a05a8ee"
-
-[[package]]
 name = "syn"
 version = "0.15.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1717,31 +1651,20 @@ checksum = "238ce071d267c5710f9d31451efec16c5ee22de34df17cc05e56cbc92e967117"
 
 [[package]]
 name = "tracing"
-version = "0.1.19"
+version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d79ca061b032d6ce30c660fded31189ca0b9922bf483cd70759f13a2d86786c"
+checksum = "b0987850db3733619253fe60e17cb59b82d37c7e6c0236bb81e4d6b87c879f27"
 dependencies = [
  "cfg-if",
- "tracing-attributes",
+ "pin-project-lite",
  "tracing-core",
 ]
 
 [[package]]
-name = "tracing-attributes"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80e0ccfc3378da0cce270c946b676a376943f5cd16aeba64568e7939806f4ada"
-dependencies = [
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.39",
-]
-
-[[package]]
 name = "tracing-core"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bcf46c1f1f06aeea2d6b81f3c863d0930a596c86ad1920d4e5bad6dd1d7119a"
+checksum = "f50de3927f93d202783f4513cda820ab47ef17f624b03c096e86ef00c67e6b5f"
 dependencies = [
  "lazy_static",
 ]
@@ -2059,7 +1982,6 @@ dependencies = [
  "bincode",
  "cc",
  "cmake",
- "crypto-primitives",
  "csv",
  "ff_ce 0.9.0",
  "git2",
@@ -2072,7 +1994,6 @@ dependencies = [
  "pairing_ce",
  "pretty_assertions",
  "r1cs-core",
- "r1cs-std",
  "rand 0.4.6",
  "rand 0.7.3",
  "reduce",

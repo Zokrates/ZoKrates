@@ -10,15 +10,15 @@ serde_derive = "1.0"
 lazy_static = "1.4"
 bincode = "0.8.0"
 serde_json = "1.0"
-bellman_ce = { version = "^0.3", default-features = false}
-algebra-core = { git = "https://github.com/scipr-lab/zexe.git", features = ["parallel"] }
+bellman_ce = { version = "^0.3", default-features = false }
+algebra-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false }
 sha2 = "0.8.0"
 num-traits = { version = "0.2", default-features = false }
 num-integer = { version = "0.1", default-features = false }
 
 [dependencies.algebra]
 git = "https://github.com/scipr-lab/zexe.git"
-features = ["bn254", "bls12_377", "bw6_761", "parallel"]
+features = ["bn254", "bls12_377", "bw6_761"]
 
 [dev-dependencies]
 rand = "0.4"
