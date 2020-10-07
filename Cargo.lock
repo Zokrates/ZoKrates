@@ -42,7 +42,6 @@ dependencies = [
  "field-assembly",
  "num-traits 0.2.12",
  "rand 0.7.3",
- "rayon",
  "rustc_version",
  "unroll",
 ]
@@ -543,7 +542,6 @@ source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1d
 dependencies = [
  "algebra-core",
  "rand 0.7.3",
- "rayon",
 ]
 
 [[package]]
@@ -757,7 +755,6 @@ dependencies = [
  "ff-fft",
  "r1cs-core",
  "rand 0.7.3",
- "rayon",
 ]
 
 [[package]]
@@ -1143,12 +1140,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pin-project-lite"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e555d9e657502182ac97b539fb3dae8b79cda19e3e4f8ffb5e8de4f18df93c95"
-
-[[package]]
 name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1229,8 +1220,6 @@ version = "0.1.1-alpha.0"
 source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
  "algebra-core",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1300,31 +1289,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rayon"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfd016f0c045ad38b5251be2c9c0ab806917f82da4d36b2a327e5166adad9270"
-dependencies = [
- "autocfg",
- "crossbeam-deque",
- "either",
- "rayon-core",
-]
-
-[[package]]
-name = "rayon-core"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91739a34c4355b5434ce54c9086c5895604a9c278586d1f1aa95e04f66b525a0"
-dependencies = [
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-utils",
- "lazy_static",
- "num_cpus",
 ]
 
 [[package]]
@@ -1648,35 +1612,6 @@ name = "tinyvec"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "238ce071d267c5710f9d31451efec16c5ee22de34df17cc05e56cbc92e967117"
-
-[[package]]
-name = "tracing"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0987850db3733619253fe60e17cb59b82d37c7e6c0236bb81e4d6b87c879f27"
-dependencies = [
- "cfg-if",
- "pin-project-lite",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-core"
-version = "0.1.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f50de3927f93d202783f4513cda820ab47ef17f624b03c096e86ef00c67e6b5f"
-dependencies = [
- "lazy_static",
-]
-
-[[package]]
-name = "tracing-subscriber"
-version = "0.2.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82bb5079aa76438620837198db8a5c529fb9878c730bc2b28179b0241cf04c10"
-dependencies = [
- "tracing-core",
-]
 
 [[package]]
 name = "typed-arena"
