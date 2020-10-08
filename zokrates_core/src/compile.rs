@@ -290,7 +290,7 @@ mod test {
 
         #[test]
         fn use_struct_declaration_types() {
-            // when importing types and renaming them, we use the top-most renaming in the ABI
+            // when importing types and renaming them, we use the canonical struct names in the ABI
 
             // // main.zok
             // from foo import Foo as FooMain
@@ -303,7 +303,7 @@ mod test {
             // struct Bar { field a }
 
             // Expected resolved type for FooMain:
-            // FooMain { BarFoo b }
+            // Foo { Bar b }
 
             let main = r#"
 from "foo" import Foo as FooMain
@@ -368,21 +368,21 @@ struct Bar { field a }
                     inputs: vec![AbiInput {
                         name: "f".into(),
                         public: true,
-                        ty: ConcreteType::Struct(ConcreteStructType {
-                            module: "main".into(),
-                            name: "FooMain".into(),
-                            members: vec![ConcreteStructMember {
+                        ty: ConcreteType::Struct(ConcreteStructType::new(
+                            "foo".into(),
+                            "Foo".into(),
+                            vec![ConcreteStructMember {
                                 id: "b".into(),
-                                ty: box ConcreteType::Struct(ConcreteStructType {
-                                    module: "foo".into(),
-                                    name: "BarFoo".into(),
-                                    members: vec![ConcreteStructMember {
+                                ty: box ConcreteType::Struct(ConcreteStructType::new(
+                                    "bar".into(),
+                                    "Bar".into(),
+                                    vec![ConcreteStructMember {
                                         id: "a".into(),
                                         ty: box ConcreteType::FieldElement
                                     }]
-                                })
+                                ))
                             }]
-                        })
+                        ))
                     }],
                     outputs: vec![]
                 }

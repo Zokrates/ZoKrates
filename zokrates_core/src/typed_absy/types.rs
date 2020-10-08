@@ -1,6 +1,6 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use typed_absy::{TryFrom, TryInto};
 use typed_absy::{UExpression, UExpressionInner};
 
@@ -110,7 +110,7 @@ impl<'ast> TryInto<usize> for Constant<'ast> {
 
 pub type MemberId = String;
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GStructMember<S> {
     #[serde(rename = "name")]
     pub id: MemberId,
@@ -221,6 +221,13 @@ impl<'ast, T> From<ConcreteArrayType> for ArrayType<'ast, T> {
     }
 }
 
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
+pub struct StructLocation {
+    #[serde(skip)]
+    pub module: PathBuf,
+    pub name: String,
+}
+
 impl<'ast> From<ConcreteArrayType> for DeclarationArrayType<'ast> {
     fn from(t: ConcreteArrayType) -> Self {
         try_from_g_array_type(t).unwrap()
@@ -233,11 +240,12 @@ impl<'ast, T> From<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
     }
 }
 
-#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GStructType<S> {
+    #[serde(flatten)]
+    pub canonical_location: StructLocation,
     #[serde(skip)]
-    pub module: PathBuf,
-    pub name: String,
+    pub location: Option<StructLocation>,
     pub members: Vec<GStructMember<S>>,
 }
 
@@ -247,22 +255,16 @@ pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
 impl<S: PartialEq> PartialEq for GStructType<S> {
     fn eq(&self, other: &Self) -> bool {
-        self.members.eq(&other.members)
+        self.canonical_location.eq(&other.canonical_location)
     }
 }
 
 impl<S: Eq> Eq for GStructType<S> {}
 
-impl<'ast, T: PartialEq> PartialEq<DeclarationStructType<'ast>> for StructType<'ast, T> {
-    fn eq(&self, other: &DeclarationStructType<'ast>) -> bool {
-        self.module == other.module && self.name == other.name && self.members == other.members
-    }
-}
-
 fn try_from_g_struct_type<T: TryInto<U>, U>(t: GStructType<T>) -> Result<GStructType<U>, ()> {
     Ok(GStructType {
-        module: t.module,
-        name: t.name,
+        location: t.location,
+        canonical_location: t.canonical_location,
         members: t
             .members
             .into_iter()
@@ -308,8 +310,8 @@ impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
 impl<S> GStructType<S> {
     pub fn new(module: PathBuf, name: String, members: Vec<GStructMember<S>>) -> Self {
         GStructType {
-            module,
-            name,
+            canonical_location: StructLocation { module, name },
+            location: None,
             members,
         }
     }
@@ -320,6 +322,18 @@ impl<S> GStructType<S> {
 
     pub fn iter(&self) -> std::slice::Iter<GStructMember<S>> {
         self.members.iter()
+    }
+
+    fn location(&self) -> &StructLocation {
+        &self.location.as_ref().unwrap_or(&self.canonical_location)
+    }
+
+    pub fn name(&self) -> &str {
+        &self.location().name
+    }
+
+    pub fn module(&self) -> &Path {
+        &self.location().module
     }
 }
 
@@ -480,7 +494,7 @@ impl<'ast, T: PartialEq> PartialEq<DeclarationType<'ast>> for Type<'ast, T> {
 
         match (self, other) {
             (Array(l), Array(r)) => l == r,
-            (Struct(l), Struct(r)) => l == r,
+            (Struct(l), Struct(r)) => l.canonical_location == r.canonical_location,
             (FieldElement, FieldElement) | (Boolean, Boolean) => true,
             (Uint(l), Uint(r)) => l == r,
             _ => false,
@@ -559,7 +573,7 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
-            GType::Struct(ref struct_type) => write!(f, "{}", struct_type.name,),
+            GType::Struct(ref struct_type) => write!(f, "{}", struct_type.name(),),
         }
     }
 }
@@ -575,7 +589,7 @@ impl<S: fmt::Debug> fmt::Debug for GType<S> {
             GType::Struct(ref struct_type) => write!(
                 f,
                 "{:?} {{{:?}}}",
-                struct_type.name,
+                struct_type.name(),
                 struct_type
                     .members
                     .iter()
@@ -611,12 +625,10 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
             match (self, other) {
                 (Int, FieldElement) | (Int, Uint(..)) => true,
                 (Array(l), Array(r)) => true && l.ty.can_be_specialized_to(&r.ty),
-                (Struct(l), Struct(r)) => l
-                    .members
-                    .iter()
-                    .zip(r.members.iter())
-                    .all(|(l, r)| l.ty.can_be_specialized_to(&r.ty)),
-                e => false,
+                // types do not come into play for Struct equality, only the canonical location. Hence no inference
+                // can change anything
+                (Struct(_), Struct(_)) => false,
+                _ => false,
             }
         }
     }

@@ -997,7 +997,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn examples() {
+    fn compile_examples() {
         for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
@@ -1010,9 +1010,7 @@ mod tests {
 
             assert!(path.extension().expect("extension expected") == "zok");
 
-            if path.to_str().unwrap().contains("error") {
-                continue;
-            }
+            let should_error = path.to_str().unwrap().contains("compile_errors");
 
             println!("Testing {:?}", path);
 
@@ -1025,13 +1023,14 @@ mod tests {
 
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
-            let _: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+            let res = compile::<Bn128Field, _>(source, path, Some(&resolver));
+
+            assert_eq!(res.is_err(), should_error);
         }
     }
 
     #[test]
-    fn examples_with_input_success() {
+    fn execute_examples_ok() {
         //these examples should compile and run
         for p in glob("./examples/test*").expect("Failed to read glob pattern") {
             let path = match p {
@@ -1062,7 +1061,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn examples_with_input_failure() {
+    fn execute_examples_err() {
         //these examples should compile but not run
         for p in glob("./examples/runtime_errors/*").expect("Failed to read glob pattern") {
             let path = match p {

@@ -21,7 +21,7 @@ use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 use std::hash::{Hash, Hasher};
 use typed_absy::types::{
     ArrayType, Constant, DeclarationArrayType, DeclarationFunctionKey, DeclarationSignature,
-    DeclarationStructMember, DeclarationStructType, DeclarationType,
+    DeclarationStructMember, DeclarationStructType, DeclarationType, StructLocation,
 };
 
 use std::convert::TryInto;
@@ -206,9 +206,11 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
                 .outputs
                 .iter()
                 .zip(func.signature.outputs.iter())
-                .all(|(output_ty, sig_ty)| match output_ty {
-                    Some(ref output_ty) => output_ty.can_be_specialized_to(&sig_ty),
-                    _ => true,
+                .all(|(output_ty, sig_ty)| {
+                    output_ty
+                        .as_ref()
+                        .map(|output_ty| output_ty.can_be_specialized_to(&sig_ty))
+                        .unwrap_or(true)
                 })
     }
 
@@ -386,13 +388,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 }
                                 .in_file(module_id),
                             ),
-                            true => {}
+                            true => {
+                                // there should be no entry in the map for this type yet
+                                assert!(state
+                                    .types
+                                    .entry(module_id.clone())
+                                    .or_default()
+                                    .insert(declaration.id.to_string(), ty)
+                                    .is_none());
+                            }
                         };
-                        state
-                            .types
-                            .entry(module_id.clone())
-                            .or_default()
-                            .insert(declaration.id.to_string(), ty);
                     }
                     Err(e) => errors.extend(e.into_iter().map(|inner| Error {
                         inner,
@@ -464,8 +469,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 // rename the type to the declared symbol
                                 let t = match t {
                                     DeclarationType::Struct(t) => DeclarationType::Struct(DeclarationStructType {
-                                        module: module_id.clone(),
-                                        name: declaration.id.into(),
+                                        location: Some(StructLocation {
+                                            name: declaration.id.into(),
+                                            module: module_id.clone()
+                                        }),
                                         ..t
                                     }),
                                     _ => unreachable!()
@@ -759,45 +766,58 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(statement) => {
                             let statement = match statement {
                                 TypedStatement::Return(e) => {
-                                    match e
-                                        .iter()
-                                        .zip(s.outputs.clone())
-                                        .map(|(e, t)| {
-                                            TypedExpression::align_to_type(e.clone(), t.into())
-                                        })
-                                        .collect::<Result<Vec<_>, _>>()
-                                        .map_err(|e| {
-                                            vec![ErrorInner {
+                                    match e.len() == s.outputs.len() {
+                                        true => match e
+                                            .iter()
+                                            .zip(s.outputs.clone())
+                                            .map(|(e, t)| {
+                                                TypedExpression::align_to_type(e.clone(), t.into())
+                                            })
+                                            .collect::<Result<Vec<_>, _>>()
+                                            .map_err(|e| {
+                                                vec![ErrorInner {
+                                                    pos: Some(pos),
+                                                    message: format!("Expected return value to be of type {}, found {}", e.1, e.0),
+                                                }]
+                                            }) {
+                                            Ok(e) => {
+                                                match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
+                                                        == s.outputs
+                                                    {
+                                                        true => {},
+                                                        false => errors.push(ErrorInner {
+                                                            pos: Some(pos),
+                                                            message: format!(
+                                                                "Expected ({}) in return statement, found ({})",
+                                                                s.outputs
+                                                                    .iter()
+                                                                    .map(|t| t.to_string())
+                                                                    .collect::<Vec<_>>()
+                                                                    .join(", "),
+                                                                e.iter()
+                                                                    .map(|e| e.get_type())
+                                                                    .map(|t| t.to_string())
+                                                                    .collect::<Vec<_>>()
+                                                                    .join(", ")
+                                                            ),
+                                                        }),
+                                                    };
+                                                TypedStatement::Return(e)
+                                            }
+                                            Err(err) => {
+                                                errors.extend(err);
+                                                TypedStatement::Return(e)
+                                            }
+                                        },
+                                        false => {
+                                            errors.push(ErrorInner {
                                                 pos: Some(pos),
-                                                message: format!("Expected return value to be of type {}, found {}", e.1, e.0),
-                                            }]
-                                        }) {
-                                        Ok(e) => {
-                                            match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
-                                                    == s.outputs
-                                                {
-                                                    true => {},
-                                                    false => errors.push(ErrorInner {
-                                                        pos: Some(pos),
-                                                        message: format!(
-                                                            "Expected ({}) in return statement, found ({})",
-                                                            s.outputs
-                                                                .iter()
-                                                                .map(|t| t.to_string())
-                                                                .collect::<Vec<_>>()
-                                                                .join(", "),
-                                                            e.iter()
-                                                                .map(|e| e.get_type())
-                                                                .map(|t| t.to_string())
-                                                                .collect::<Vec<_>>()
-                                                                .join(", ")
-                                                        ),
-                                                    }),
-                                                };
-                                            TypedStatement::Return(e)
-                                        }
-                                        Err(err) => {
-                                            errors.extend(err);
+                                                message: format!(
+                                                    "Expected {} expressions in return statement, found {}",
+                                                    s.outputs.len(),
+                                                    e.len()
+                                                ),
+                                            });
                                             TypedStatement::Return(e)
                                         }
                                     }
@@ -5180,60 +5200,6 @@ mod tests {
                         &types
                     ),
                     Ok(expected_type)
-                );
-            }
-
-            #[test]
-            fn preserve_order() {
-                // two structs with inverted members are not equal
-                let module_id = "".into();
-                let types = HashMap::new();
-
-                let declaration0: StructDefinitionNode = StructDefinition {
-                    fields: vec![
-                        StructDefinitionField {
-                            id: "foo",
-                            ty: UnresolvedType::FieldElement.mock(),
-                        }
-                        .mock(),
-                        StructDefinitionField {
-                            id: "bar",
-                            ty: UnresolvedType::Boolean.mock(),
-                        }
-                        .mock(),
-                    ],
-                }
-                .mock();
-
-                let declaration1: StructDefinitionNode = StructDefinition {
-                    fields: vec![
-                        StructDefinitionField {
-                            id: "bar",
-                            ty: UnresolvedType::Boolean.mock(),
-                        }
-                        .mock(),
-                        StructDefinitionField {
-                            id: "foo",
-                            ty: UnresolvedType::FieldElement.mock(),
-                        }
-                        .mock(),
-                    ],
-                }
-                .mock();
-
-                assert_ne!(
-                    Checker::<Bn128Field>::new().check_struct_type_declaration(
-                        "Foo".into(),
-                        declaration0,
-                        &module_id,
-                        &types
-                    ),
-                    Checker::<Bn128Field>::new().check_struct_type_declaration(
-                        "Foo".into(),
-                        declaration1,
-                        &module_id,
-                        &types
-                    )
                 );
             }
 

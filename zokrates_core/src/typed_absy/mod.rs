@@ -547,7 +547,7 @@ impl<'ast, T: fmt::Display> fmt::Display for StructExpression<'ast, T> {
             StructExpressionInner::Value(ref values) => write!(
                 f,
                 "{} {{{}}}",
-                self.ty.name,
+                self.ty.name(),
                 self.ty
                     .iter()
                     .map(|member| member.id.clone())
