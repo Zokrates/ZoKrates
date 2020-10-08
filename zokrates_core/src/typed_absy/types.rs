@@ -1,5 +1,5 @@
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub type Identifier<'ast> = &'ast str;
 
@@ -20,17 +20,25 @@ pub struct ArrayType {
     pub ty: Box<Type>,
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct StructType {
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
+pub struct StructLocation {
     #[serde(skip)]
     pub module: PathBuf,
     pub name: String,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct StructType {
+    #[serde(flatten)]
+    pub canonical_location: StructLocation,
+    #[serde(skip)]
+    pub location: Option<StructLocation>,
     pub members: Vec<StructMember>,
 }
 
 impl PartialEq for StructType {
     fn eq(&self, other: &Self) -> bool {
-        self.members.eq(&other.members)
+        self.canonical_location.eq(&other.canonical_location) && self.members.eq(&other.members)
     }
 }
 
@@ -39,8 +47,8 @@ impl Eq for StructType {}
 impl StructType {
     pub fn new(module: PathBuf, name: String, members: Vec<StructMember>) -> Self {
         StructType {
-            module,
-            name,
+            canonical_location: StructLocation { module, name },
+            location: None,
             members,
         }
     }
@@ -51,6 +59,18 @@ impl StructType {
 
     pub fn iter(&self) -> std::slice::Iter<StructMember> {
         self.members.iter()
+    }
+
+    fn location(&self) -> &StructLocation {
+        &self.location.as_ref().unwrap_or(&self.canonical_location)
+    }
+
+    pub fn name(&self) -> &str {
+        &self.location().name
+    }
+
+    pub fn module(&self) -> &Path {
+        &self.location().module
     }
 }
 
@@ -230,7 +250,7 @@ impl fmt::Display for Type {
             Type::Struct(ref struct_type) => write!(
                 f,
                 "{} {{{}}}",
-                struct_type.name,
+                struct_type.name(),
                 struct_type
                     .members
                     .iter()
@@ -249,17 +269,7 @@ impl fmt::Debug for Type {
             Type::Boolean => write!(f, "bool"),
             Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
-            Type::Struct(ref struct_type) => write!(
-                f,
-                "{} {{{}}}",
-                struct_type.name,
-                struct_type
-                    .members
-                    .iter()
-                    .map(|member| format!("{}: {}", member.id, member.ty))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            Type::Struct(ref struct_type) => write!(f, "{:?}", struct_type),
         }
     }
 }
