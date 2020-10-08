@@ -16,7 +16,7 @@ use zokrates_field::Field;
 use crate::parser::Position;
 
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
-use crate::typed_absy::types::{FunctionKey, Signature, Type};
+use crate::typed_absy::types::{FunctionKey, Signature, StructLocation, Type};
 
 use std::hash::{Hash, Hasher};
 use typed_absy::types::{ArrayType, StructMember};
@@ -124,6 +124,7 @@ impl fmt::Display for ErrorInner {
 }
 
 /// A function query in the current module.
+#[derive(Debug)]
 struct FunctionQuery<'ast> {
     id: Identifier<'ast>,
     inputs: Vec<Type>,
@@ -439,8 +440,10 @@ impl<'ast> Checker<'ast> {
                                 // rename the type to the declared symbol
                                 let t = match t {
                                     Type::Struct(t) => Type::Struct(StructType {
-                                        module: module_id.clone(),
-                                        name: declaration.id.into(),
+                                        location: Some(StructLocation {
+                                            name: declaration.id.into(),
+                                            module: module_id.clone()
+                                        }),
                                         ..t
                                     }),
                                     _ => unreachable!()
