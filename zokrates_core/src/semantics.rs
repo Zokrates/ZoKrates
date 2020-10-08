@@ -18,7 +18,9 @@ use crate::parser::Position;
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
 use std::hash::{Hash, Hasher};
-use typed_absy::types::{ArrayType, FunctionKey, Signature, StructMember, StructType, Type};
+use typed_absy::types::{
+    ArrayType, FunctionKey, Signature, StructLocation, StructMember, StructType, Type,
+};
 
 #[derive(PartialEq, Debug)]
 pub struct ErrorInner {
@@ -123,6 +125,7 @@ impl fmt::Display for ErrorInner {
 }
 
 /// A function query in the current module.
+#[derive(Debug)]
 struct FunctionQuery<'ast> {
     id: Identifier<'ast>,
     inputs: Vec<Type>,
@@ -448,8 +451,10 @@ impl<'ast> Checker<'ast> {
                                 // rename the type to the declared symbol
                                 let t = match t {
                                     Type::Struct(t) => Type::Struct(StructType {
-                                        module: module_id.clone(),
-                                        name: declaration.id.into(),
+                                        location: Some(StructLocation {
+                                            name: declaration.id.into(),
+                                            module: module_id.clone()
+                                        }),
                                         ..t
                                     }),
                                     _ => unreachable!()
@@ -685,45 +690,58 @@ impl<'ast> Checker<'ast> {
                         Ok(statement) => {
                             let statement = match statement {
                                 TypedStatement::Return(e) => {
-                                    match e
-                                        .iter()
-                                        .zip(s.outputs.clone())
-                                        .map(|(e, t)| {
-                                            TypedExpression::align_to_type(e.clone(), t.into())
-                                        })
-                                        .collect::<Result<Vec<_>, _>>()
-                                        .map_err(|e| {
-                                            vec![ErrorInner {
+                                    match e.len() == s.outputs.len() {
+                                        true => match e
+                                            .iter()
+                                            .zip(s.outputs.clone())
+                                            .map(|(e, t)| {
+                                                TypedExpression::align_to_type(e.clone(), t.into())
+                                            })
+                                            .collect::<Result<Vec<_>, _>>()
+                                            .map_err(|e| {
+                                                vec![ErrorInner {
+                                                    pos: Some(pos),
+                                                    message: format!("Expected return value to be of type {}, found {}", e.1, e.0),
+                                                }]
+                                            }) {
+                                            Ok(e) => {
+                                                match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
+                                                        == s.outputs
+                                                    {
+                                                        true => {},
+                                                        false => errors.push(ErrorInner {
+                                                            pos: Some(pos),
+                                                            message: format!(
+                                                                "Expected ({}) in return statement, found ({})",
+                                                                s.outputs
+                                                                    .iter()
+                                                                    .map(|t| t.to_string())
+                                                                    .collect::<Vec<_>>()
+                                                                    .join(", "),
+                                                                e.iter()
+                                                                    .map(|e| e.get_type())
+                                                                    .map(|t| t.to_string())
+                                                                    .collect::<Vec<_>>()
+                                                                    .join(", ")
+                                                            ),
+                                                        }),
+                                                    };
+                                                TypedStatement::Return(e)
+                                            }
+                                            Err(err) => {
+                                                errors.extend(err);
+                                                TypedStatement::Return(e)
+                                            }
+                                        },
+                                        false => {
+                                            errors.push(ErrorInner {
                                                 pos: Some(pos),
-                                                message: format!("Expected return value to be of type {}, found {}", e.1, e.0),
-                                            }]
-                                        }) {
-                                        Ok(e) => {
-                                            match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
-                                                    == s.outputs
-                                                {
-                                                    true => {},
-                                                    false => errors.push(ErrorInner {
-                                                        pos: Some(pos),
-                                                        message: format!(
-                                                            "Expected ({}) in return statement, found ({})",
-                                                            s.outputs
-                                                                .iter()
-                                                                .map(|t| t.to_string())
-                                                                .collect::<Vec<_>>()
-                                                                .join(", "),
-                                                            e.iter()
-                                                                .map(|e| e.get_type())
-                                                                .map(|t| t.to_string())
-                                                                .collect::<Vec<_>>()
-                                                                .join(", ")
-                                                        ),
-                                                    }),
-                                                };
-                                            TypedStatement::Return(e)
-                                        }
-                                        Err(err) => {
-                                            errors.extend(err);
+                                                message: format!(
+                                                    "Expected {} expressions in return statement, found {}",
+                                                    s.outputs.len(),
+                                                    e.len()
+                                                ),
+                                            });
                                             TypedStatement::Return(e)
                                         }
                                     }
