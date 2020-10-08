@@ -38,7 +38,7 @@ pub struct StructType {
 
 impl PartialEq for StructType {
     fn eq(&self, other: &Self) -> bool {
-        self.canonical_location.eq(&other.canonical_location) && self.members.eq(&other.members)
+        self.canonical_location.eq(&other.canonical_location)
     }
 }
 
@@ -304,6 +304,9 @@ impl Type {
             match (self, other) {
                 (Int, FieldElement) | (Int, Uint(..)) => true,
                 (Array(l), Array(r)) => l.size == r.size && l.ty.can_be_specialized_to(&r.ty),
+                // types do not come into play for Struct equality, only the canonical location. Hence no inference
+                // can change anything
+                (Struct(_), Struct(_)) => false,
                 _ => false,
             }
         }

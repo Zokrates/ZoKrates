@@ -373,13 +373,16 @@ impl<'ast> Checker<'ast> {
                                 }
                                 .in_file(module_id),
                             ),
-                            true => {}
+                            true => {
+                                // there should be no entry in the map for this type yet
+                                assert!(state
+                                    .types
+                                    .entry(module_id.clone())
+                                    .or_default()
+                                    .insert(declaration.id.to_string(), ty)
+                                    .is_none());
+                            }
                         };
-                        state
-                            .types
-                            .entry(module_id.clone())
-                            .or_default()
-                            .insert(declaration.id.to_string(), ty);
                     }
                     Err(e) => errors.extend(e.into_iter().map(|inner| Error {
                         inner,
@@ -4580,60 +4583,6 @@ mod tests {
                         &types
                     ),
                     Ok(expected_type)
-                );
-            }
-
-            #[test]
-            fn preserve_order() {
-                // two structs with inverted members are not equal
-                let module_id = "".into();
-                let types = HashMap::new();
-
-                let declaration0 = StructDefinition {
-                    fields: vec![
-                        StructDefinitionField {
-                            id: "foo",
-                            ty: UnresolvedType::FieldElement.mock(),
-                        }
-                        .mock(),
-                        StructDefinitionField {
-                            id: "bar",
-                            ty: UnresolvedType::Boolean.mock(),
-                        }
-                        .mock(),
-                    ],
-                }
-                .mock();
-
-                let declaration1 = StructDefinition {
-                    fields: vec![
-                        StructDefinitionField {
-                            id: "bar",
-                            ty: UnresolvedType::Boolean.mock(),
-                        }
-                        .mock(),
-                        StructDefinitionField {
-                            id: "foo",
-                            ty: UnresolvedType::FieldElement.mock(),
-                        }
-                        .mock(),
-                    ],
-                }
-                .mock();
-
-                assert_ne!(
-                    Checker::new().check_struct_type_declaration::<Bn128Field>(
-                        "Foo".into(),
-                        declaration0,
-                        &module_id,
-                        &types
-                    ),
-                    Checker::new().check_struct_type_declaration::<Bn128Field>(
-                        "Foo".into(),
-                        declaration1,
-                        &module_id,
-                        &types
-                    )
                 );
             }
 
