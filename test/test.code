@@ -1,9 +1,0 @@
-def main( private field A, field B) -> ():
-    field C = A
-    for field i in 0..100000 do
-        C = (C * i) ** 2
-    endfor
-    C=0 // so that we can always lazily use the same witness for both curves
-    // CHECK THE INPUT B EQUALS THE CALCULATED thing
-    B == C
-    return
