@@ -8,9 +8,9 @@ pub struct GParameter<'ast, S> {
     pub private: bool,
 }
 
-impl<'ast, S> GParameter<'ast, S> {
-    #[cfg(test)]
-    pub fn private(v: GVariable<'ast, S>) -> Self {
+#[cfg(test)]
+impl<'ast, S> From<GVariable<'ast, S>> for GParameter<'ast, S> {
+    fn from(v: GVariable<'ast, S>) -> Self {
         GParameter {
             id: v,
             private: true,

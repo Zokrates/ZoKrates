@@ -20,6 +20,12 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
     }
 }
 
+impl<'ast> From<&'ast str> for CoreIdentifier<'ast> {
+    fn from(s: &str) -> CoreIdentifier {
+        CoreIdentifier::Source(s)
+    }
+}
+
 /// A identifier for a variable
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Identifier<'ast> {
@@ -83,15 +89,14 @@ impl<'ast> From<CoreIdentifier<'ast>> for Identifier<'ast> {
     }
 }
 
-#[cfg(test)]
 impl<'ast> Identifier<'ast> {
     pub fn version(mut self, version: usize) -> Self {
         self.version = version;
         self
     }
 
-    pub fn stack(mut self, stack: Vec<(TypedModuleId, ConcreteFunctionKey<'ast>, usize)>) -> Self {
-        self.stack = stack;
-        self
-    }
+    // pub fn stack(mut self, stack: Vec<(TypedModuleId, ConcreteFunctionKey<'ast>, usize)>) -> Self {
+    //     self.stack = stack;
+    //     self
+    // }
 }

@@ -63,6 +63,12 @@ pub struct TypedProgram<'ast, T> {
     pub main: TypedModuleId,
 }
 
+impl<'ast, T> TypedProgram<'ast, T> {
+    pub fn main_function(&self) -> TypedFunction<'ast, T> {
+        unimplemented!()
+    }
+}
+
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn abi(&self) -> Result<Abi, ()> {
         let main = self.modules[&self.main]
@@ -289,6 +295,12 @@ pub enum TypedAssignee<'ast, T> {
     Member(Box<TypedAssignee<'ast, T>>, MemberId),
 }
 
+impl<'ast, T> From<Variable<'ast, T>> for TypedAssignee<'ast, T> {
+    fn from(v: Variable<'ast, T>) -> Self {
+        TypedAssignee::Identifier(v)
+    }
+}
+
 impl<'ast, T: Clone> Typed<'ast, T> for TypedAssignee<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         match *self {
@@ -401,7 +413,7 @@ impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
                     s.fmt_indented(f, depth + 1)?;
                     writeln!(f, "")?;
                 }
-                writeln!(f, "{}endfor", "\t".repeat(depth))
+                write!(f, "{}endfor", "\t".repeat(depth))
             }
             s => write!(f, "{}{}", "\t".repeat(depth), s),
         }

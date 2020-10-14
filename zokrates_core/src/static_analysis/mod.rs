@@ -6,19 +6,20 @@
 
 mod flat_propagation;
 mod flatten_complex_types;
-mod inline;
-mod propagate_unroll;
+//mod inline;
+//mod propagate_unroll;
 mod propagation;
 mod redefinition;
+mod reducer;
 mod return_binder;
 mod trimmer;
 mod uint_optimizer;
 mod unconstrained_vars;
-mod unroll;
+//mod unroll;
 mod variable_access_remover;
 
 use self::flatten_complex_types::Flattener;
-use self::propagate_unroll::PropagatedUnroller;
+//use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
 use self::redefinition::RedefinitionOptimizer;
 use self::return_binder::ReturnBinder;
@@ -42,7 +43,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = ReturnBinder::bind(self);
 
         // propagated unrolling
-        let r = PropagatedUnroller::unroll(r).unwrap_or_else(|e| panic!(e));
+        //let r = PropagatedUnroller::unroll(r).unwrap_or_else(|e| panic!(e));
 
         let r = Trimmer::trim(r);
 
