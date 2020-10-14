@@ -303,3 +303,57 @@ pub fn r1cs_program<T: Field>(
     }
     (variables_list, private_inputs_offset, a, b, c)
 }
+
+pub mod serialization {
+    use proof_system::{G1Affine, G2Affine};
+    use std::io::Read;
+    use std::io::Write;
+
+    #[inline]
+    fn decode_hex(value: &String) -> Vec<u8> {
+        hex::decode(value.strip_prefix("0x").unwrap()).unwrap()
+    }
+
+    #[inline]
+    fn encode_hex<T: AsRef<[u8]>>(data: T) -> String {
+        format!("0x{}", hex::encode(data))
+    }
+
+    pub fn read_g1<R: Read>(reader: &mut R) -> Result<G1Affine, ()> {
+        let mut buffer = [0; 64];
+        reader.read_exact(&mut buffer).map_err(|_| ())?;
+
+        Ok(G1Affine(
+            encode_hex(&buffer[0..32].to_vec()),
+            encode_hex(&buffer[32..64].to_vec()),
+        ))
+    }
+
+    pub fn read_g2<R: Read>(reader: &mut R) -> Result<G2Affine, ()> {
+        let mut buffer = [0; 128];
+        reader.read_exact(&mut buffer).map_err(|_| ())?;
+
+        Ok(G2Affine(
+            (
+                encode_hex(&buffer[0..32].to_vec()),
+                encode_hex(&buffer[32..64].to_vec()),
+            ),
+            (
+                encode_hex(&buffer[64..96].to_vec()),
+                encode_hex(&buffer[96..128].to_vec()),
+            ),
+        ))
+    }
+
+    pub fn write_g1<W: Write>(writer: &mut W, g1: &G1Affine) {
+        writer.write(decode_hex(&g1.0).as_ref()).unwrap();
+        writer.write(decode_hex(&g1.1).as_ref()).unwrap();
+    }
+
+    pub fn write_g2<W: Write>(writer: &mut W, g2: &G2Affine) {
+        writer.write(decode_hex(&(g2.0).0).as_ref()).unwrap();
+        writer.write(decode_hex(&(g2.0).1).as_ref()).unwrap();
+        writer.write(decode_hex(&(g2.1).0).as_ref()).unwrap();
+        writer.write(decode_hex(&(g2.1).1).as_ref()).unwrap();
+    }
+}

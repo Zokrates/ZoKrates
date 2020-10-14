@@ -249,12 +249,12 @@ mod parse {
         let captures = G2_REGEX.captures(&raw_e).unwrap();
         G2Affine(
             (
-                captures.name(&"x1").unwrap().as_str().to_string(),
                 captures.name(&"x0").unwrap().as_str().to_string(),
+                captures.name(&"x1").unwrap().as_str().to_string(),
             ),
             (
-                captures.name(&"y1").unwrap().as_str().to_string(),
                 captures.name(&"y0").unwrap().as_str().to_string(),
+                captures.name(&"y1").unwrap().as_str().to_string(),
             ),
         )
     }

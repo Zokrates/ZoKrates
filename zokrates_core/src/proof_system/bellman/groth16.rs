@@ -64,7 +64,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        Proof::new(proof_points, inputs, None)
+        Proof::new(proof_points, inputs)
     }
 
     fn verify(
@@ -123,9 +123,8 @@ mod serialization {
     pub fn to_g2<T: BellmanFieldExtensions>(
         g2: G2Affine,
     ) -> <T::BellmanEngine as Engine>::G2Affine {
-        // apparently the order is reversed
-        let x = T::new_fq2(&(g2.0).1, &(g2.0).0);
-        let y = T::new_fq2(&(g2.1).1, &(g2.1).0);
+        let x = T::new_fq2(&(g2.0).0, &(g2.0).1);
+        let y = T::new_fq2(&(g2.1).0, &(g2.1).1);
         <T::BellmanEngine as Engine>::G2Affine::from_xy_unchecked(x, y)
     }
 }

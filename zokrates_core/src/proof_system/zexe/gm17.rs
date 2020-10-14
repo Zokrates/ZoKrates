@@ -33,7 +33,6 @@ impl<T: Field + ZexeFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Zexe
                 .iter()
                 .map(|g1| parse_g1::<T>(g1))
                 .collect(),
-            raw: None,
         };
 
         SetupKeypair::new(vk, pk)
@@ -64,7 +63,7 @@ impl<T: Field + ZexeFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Zexe
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        Proof::new(proof_points, inputs, None)
+        Proof::new(proof_points, inputs)
     }
 
     fn verify(
@@ -128,7 +127,6 @@ impl Backend<Bw6_761Field, GM17> for Zexe {
                 .iter()
                 .map(|g1| parse_g1::<Bw6_761Field>(g1))
                 .collect(),
-            raw: None,
         };
 
         SetupKeypair::new(vk, pk)
@@ -159,7 +157,7 @@ impl Backend<Bw6_761Field, GM17> for Zexe {
             .map(parse_fr::<Bw6_761Field>)
             .collect::<Vec<_>>();
 
-        Proof::new(proof_points, inputs, None)
+        Proof::new(proof_points, inputs)
     }
 
     fn verify(

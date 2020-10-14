@@ -28,7 +28,6 @@ pub struct VerificationKey<G1, G2> {
     pub g_gamma: G1,
     pub h_gamma: G2,
     pub query: Vec<G1>,
-    pub raw: Option<String>,
 }
 
 impl<T: Field + NotBw6_761Field> Scheme<T> for GM17 {
@@ -202,7 +201,7 @@ contract Verifier {
     function verifyTx(
             Proof memory proof<%input_argument%>
         ) public view returns (bool r) {
-        uint[] memory inputValues = new uint[](input.length);
+        uint[] memory inputValues = new uint[](<%vk_input_length%>);
         <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;
@@ -270,7 +269,7 @@ contract Verifier {
         proof.a = Pairing.G1Point(a[0], a[1]);
         proof.b = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
         proof.c = Pairing.G1Point(c[0], c[1]);
-        uint[] memory inputValues = new uint[](input.length);
+        uint[] memory inputValues = new uint[](<%vk_input_length%>);
         <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;

@@ -181,7 +181,7 @@ contract Verifier {
     function verifyTx(
             Proof memory proof<%input_argument%>
         ) public view returns (bool r) {
-        uint[] memory inputValues = new uint[](input.length);
+        uint[] memory inputValues = new uint[](<%vk_input_length%>);
         <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;

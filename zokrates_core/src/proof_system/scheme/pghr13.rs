@@ -30,7 +30,6 @@ pub struct VerificationKey<G1, G2> {
     pub gamma_beta_2: G2,
     pub z: G2,
     pub ic: Vec<G1>,
-    pub raw: Option<String>,
 }
 
 impl<T: Field> Scheme<T> for PGHR13 {
@@ -172,8 +171,8 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
         Pairing.G1Point b_p;
         Pairing.G1Point c;
         Pairing.G1Point c_p;
-        Pairing.G1Point k;
         Pairing.G1Point h;
+        Pairing.G1Point k;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
         vk.a = Pairing.G2Point(<%vk_a%>);
@@ -215,7 +214,7 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
     function verifyTx(
             Proof memory proof<%input_argument%>
         ) public view returns (bool r) {
-        uint[] memory inputValues = new uint[](input.length);
+        uint[] memory inputValues = new uint[](<%vk_input_length%>);
         <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;
@@ -245,8 +244,8 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
         Pairing.G1Point b_p;
         Pairing.G1Point c;
         Pairing.G1Point c_p;
-        Pairing.G1Point k;
         Pairing.G1Point h;
+        Pairing.G1Point k;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
         vk.a = Pairing.G2Point(<%vk_a%>);
@@ -304,7 +303,7 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
         proof.c_p = Pairing.G1Point(c_p[0], c_p[1]);
         proof.h = Pairing.G1Point(h[0], h[1]);
         proof.k = Pairing.G1Point(k[0], k[1]);
-        uint[] memory inputValues = new uint[](input.length);
+        uint[] memory inputValues = new uint[](<%vk_input_length%>);
         <%input_loop%>
         if (verify(inputValues, proof) == 0) {
             return true;
