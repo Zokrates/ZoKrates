@@ -43,8 +43,10 @@ void serialize_g1_affine(G1 point, uint8_t*& buffer)
     auto x = aff.X.as_bigint();
     auto y = aff.Y.as_bigint();
 
-    from_libff_bigint<Q>(x, buffer); buffer += ELEMENT_SIZE;
-    from_libff_bigint<Q>(y, buffer); buffer += ELEMENT_SIZE;
+    from_libff_bigint<Q>(x, buffer);
+    buffer += ELEMENT_SIZE;
+    from_libff_bigint<Q>(y, buffer);
+    buffer += ELEMENT_SIZE;
 }
 
 template <mp_size_t Q, typename G2>
@@ -60,10 +62,14 @@ void serialize_g2_affine(G2 point, uint8_t*& buffer)
     auto y0 = aff.Y.c0.as_bigint();
     auto y1 = aff.Y.c1.as_bigint();
 
-    from_libff_bigint<Q>(x0, buffer); buffer += ELEMENT_SIZE;
-    from_libff_bigint<Q>(x1, buffer); buffer += ELEMENT_SIZE;
-    from_libff_bigint<Q>(y0, buffer); buffer += ELEMENT_SIZE;
-    from_libff_bigint<Q>(y1, buffer); buffer += ELEMENT_SIZE;
+    from_libff_bigint<Q>(x0, buffer);
+    buffer += ELEMENT_SIZE;
+    from_libff_bigint<Q>(x1, buffer);
+    buffer += ELEMENT_SIZE;
+    from_libff_bigint<Q>(y0, buffer);
+    buffer += ELEMENT_SIZE;
+    from_libff_bigint<Q>(y1, buffer);
+    buffer += ELEMENT_SIZE;
 }
 
 template <mp_size_t Q, typename Fq, typename G1>
@@ -71,8 +77,10 @@ G1 deserialize_g1_affine(uint8_t*& buffer)
 {
     const size_t ELEMENT_SIZE = Q * sizeof(mp_limb_t);
 
-    auto x = to_libff_bigint<Q>(buffer); buffer += ELEMENT_SIZE;
-    auto y = to_libff_bigint<Q>(buffer); buffer += ELEMENT_SIZE;
+    auto x = to_libff_bigint<Q>(buffer);
+    buffer += ELEMENT_SIZE;
+    auto y = to_libff_bigint<Q>(buffer);
+    buffer += ELEMENT_SIZE;
 
     return G1(Fq(x), Fq(y), Fq::one());
 }
@@ -82,10 +90,14 @@ G2 deserialize_g2_affine(uint8_t*& buffer)
 {
     const size_t ELEMENT_SIZE = Q * sizeof(mp_limb_t);
 
-    auto x0 = to_libff_bigint<Q>(buffer); buffer += ELEMENT_SIZE;
-    auto x1 = to_libff_bigint<Q>(buffer); buffer += ELEMENT_SIZE;
-    auto y0 = to_libff_bigint<Q>(buffer); buffer += ELEMENT_SIZE;
-    auto y1 = to_libff_bigint<Q>(buffer); buffer += ELEMENT_SIZE;
+    auto x0 = to_libff_bigint<Q>(buffer);
+    buffer += ELEMENT_SIZE;
+    auto x1 = to_libff_bigint<Q>(buffer);
+    buffer += ELEMENT_SIZE;
+    auto y0 = to_libff_bigint<Q>(buffer);
+    buffer += ELEMENT_SIZE;
+    auto y1 = to_libff_bigint<Q>(buffer);
+    buffer += ELEMENT_SIZE;
 
     auto x = Fq2(x0, x1);
     auto y = Fq2(y0, y1);

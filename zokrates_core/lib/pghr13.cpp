@@ -14,9 +14,9 @@
 // contains definition of alt_bn128 ec public parameters
 #include "libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
 // contains required interfaces and types (keypair, proof, generator, prover, verifier)
-#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
 #include <libsnark/common/data_structures/accumulation_vector.hpp>
 #include <libsnark/knowledge_commitment/knowledge_commitment.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
 
 using namespace libsnark;
 
@@ -32,10 +32,7 @@ buffer_t serialize_verification_key(r1cs_ppzksnark_verification_key<ppT>* vk)
     const size_t G1_SIZE = Q * sizeof(mp_limb_t) * 2; // [x, y]
     const size_t G2_SIZE = Q * sizeof(mp_limb_t) * 4; // [[x0, x1], [y0, y1]]
 
-    const size_t LENGTH = 
-        (G1_SIZE * 3) + 
-        (G2_SIZE * 5) +
-        (QUERY_COUNT * G1_SIZE);
+    const size_t LENGTH = (G1_SIZE * 3) + (G2_SIZE * 5) + (QUERY_COUNT * G1_SIZE);
 
     // [ -------------------- LENGTH --------------------- ]
     // [ a, b, c, gamma, gamma_beta_1, gamma_beta_2, z, ic ]
@@ -76,14 +73,14 @@ buffer_t serialize_proof(r1cs_ppzksnark_proof<ppT>* proof)
     buffer.length = LENGTH;
 
     uint8_t* ptr = buffer.data;
-    serialize_g1_affine<Q, G1>(proof->g_A.g, ptr); 
-    serialize_g1_affine<Q, G1>(proof->g_A.h, ptr); 
-    serialize_g2_affine<Q, G2>(proof->g_B.g, ptr); 
-    serialize_g1_affine<Q, G1>(proof->g_B.h, ptr); 
-    serialize_g1_affine<Q, G1>(proof->g_C.g, ptr); 
-    serialize_g1_affine<Q, G1>(proof->g_C.h, ptr); 
-    serialize_g1_affine<Q, G1>(proof->g_H, ptr); 
-    serialize_g1_affine<Q, G1>(proof->g_K, ptr); 
+    serialize_g1_affine<Q, G1>(proof->g_A.g, ptr);
+    serialize_g1_affine<Q, G1>(proof->g_A.h, ptr);
+    serialize_g2_affine<Q, G2>(proof->g_B.g, ptr);
+    serialize_g1_affine<Q, G1>(proof->g_B.h, ptr);
+    serialize_g1_affine<Q, G1>(proof->g_C.g, ptr);
+    serialize_g1_affine<Q, G1>(proof->g_C.h, ptr);
+    serialize_g1_affine<Q, G1>(proof->g_H, ptr);
+    serialize_g1_affine<Q, G1>(proof->g_K, ptr);
 
     return buffer;
 }
@@ -155,7 +152,7 @@ bool verify(buffer_t* vk_buf, buffer_t* proof_buf, const uint8_t* public_inputs,
     // initialize curve parameters
     ppT::init_public_params();
 
-    uint8_t *ptr = vk_buf->data;
+    uint8_t* ptr = vk_buf->data;
     const G2 alphaA_g2 = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr);
     const G1 alphaB_g1 = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
     const G2 alphaC_g2 = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr);
@@ -167,37 +164,35 @@ bool verify(buffer_t* vk_buf, buffer_t* proof_buf, const uint8_t* public_inputs,
 
     std::vector<G1> ic_rest;
     const size_t ic_rest_count = ((vk_buf->data + vk_buf->length) - ptr) / (Q * sizeof(mp_limb_t) * 2);
-    for (size_t i = 0; i < ic_rest_count; i++)
-    {
+    for (size_t i = 0; i < ic_rest_count; i++) {
         auto ic_query = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
         ic_rest.push_back(ic_query);
     }
 
     accumulation_vector<G1> eIC(std::move(ic_first), std::move(ic_rest));
     const r1cs_ppzksnark_verification_key<ppT> vk(alphaA_g2, alphaB_g1, alphaC_g2, gamma_g2, gamma_beta_g1, gamma_beta_g2, rC_Z_g2, eIC);
-    
+
     ptr = proof_buf->data;
-    const G1 g_A_g = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
-    const G1 g_A_h = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
-    const G2 g_B_g = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr); 
-    const G1 g_B_h = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
-    const G1 g_C_g = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
-    const G1 g_C_h = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
+    const G1 g_A_g = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
+    const G1 g_A_h = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
+    const G2 g_B_g = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr);
+    const G1 g_B_h = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
+    const G1 g_C_g = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
+    const G1 g_C_h = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
 
     knowledge_commitment<G1, G1> g_A(g_A_g, g_A_h);
     knowledge_commitment<G2, G1> g_B(g_B_g, g_B_h);
     knowledge_commitment<G1, G1> g_C(g_C_g, g_C_h);
 
-    G1 g_H = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
-    G1 g_K = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
+    G1 g_H = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
+    G1 g_K = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
 
     const r1cs_ppzksnark_proof<ppT> proof(
-        std::move(g_A), 
-        std::move(g_B), 
+        std::move(g_A),
+        std::move(g_B),
         std::move(g_C),
         std::move(g_H),
-        std::move(g_K)
-    );
+        std::move(g_K));
 
     r1cs_primary_input<libff::Fr<ppT>> primary_input;
     for (int i = 0; i < public_inputs_length; i++) {

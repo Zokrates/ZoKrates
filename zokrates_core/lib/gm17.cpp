@@ -31,10 +31,7 @@ buffer_t serialize_verification_key(r1cs_se_ppzksnark_verification_key<ppT>* vk)
     const size_t G1_SIZE = Q * sizeof(mp_limb_t) * 2; // [x, y]
     const size_t G2_SIZE = Q * sizeof(mp_limb_t) * 4; // [[x0, x1], [y0, y1]]
 
-    const size_t LENGTH = 
-        (G1_SIZE * 2) + 
-        (G2_SIZE * 3) +
-        (QUERY_COUNT * G1_SIZE);
+    const size_t LENGTH = (G1_SIZE * 2) + (G2_SIZE * 3) + (QUERY_COUNT * G1_SIZE);
 
     // [ ----------------- LENGTH ------------------ ]
     // [ h, G_alpha, H_beta, G_gamma, H_gamma, query ]
@@ -73,9 +70,9 @@ buffer_t serialize_proof(r1cs_se_ppzksnark_proof<ppT>* proof)
     buffer.length = LENGTH;
 
     uint8_t* ptr = buffer.data;
-    serialize_g1_affine<Q, G1>(proof->A, ptr); 
-    serialize_g2_affine<Q, G2>(proof->B, ptr); 
-    serialize_g1_affine<Q, G1>(proof->C, ptr); 
+    serialize_g1_affine<Q, G1>(proof->A, ptr);
+    serialize_g2_affine<Q, G2>(proof->B, ptr);
+    serialize_g1_affine<Q, G1>(proof->C, ptr);
 
     return buffer;
 }
@@ -146,31 +143,30 @@ bool verify(buffer_t* vk_buf, buffer_t* proof_buf, const uint8_t* public_inputs,
     // initialize curve parameters
     ppT::init_public_params();
 
-    uint8_t *ptr = vk_buf->data;
+    uint8_t* ptr = vk_buf->data;
     const G2 H = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr);
     const G1 G_alpha = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
     const G2 H_beta = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr);
     const G1 G_gamma = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
     const G2 H_gamma = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr);
-    
+
     libff::G1_vector<ppT> query_G1_vector;
 
     const size_t query_count = ((vk_buf->data + vk_buf->length) - ptr) / (Q * sizeof(mp_limb_t) * 2);
-    for (size_t i = 0; i < query_count; i++)
-    {
+    for (size_t i = 0; i < query_count; i++) {
         auto query = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
         query_G1_vector.push_back(query);
     }
-    
+
     const r1cs_se_ppzksnark_verification_key<ppT> vk(H, G_alpha, H_beta, G_gamma, H_gamma, std::move(query_G1_vector));
 
     ptr = proof_buf->data;
-    G1 a = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
-    G2 b = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr); 
-    G1 c = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr); 
+    G1 a = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
+    G2 b = deserialize_g2_affine<Q, typename ppT::Fqe_type, G2>(ptr);
+    G1 c = deserialize_g1_affine<Q, typename ppT::Fq_type, G1>(ptr);
     r1cs_se_ppzksnark_proof<ppT> proof(
-        std::move(a), 
-        std::move(b), 
+        std::move(a),
+        std::move(b),
         std::move(c));
 
     r1cs_primary_input<libff::Fr<ppT>> primary_input;
