@@ -37,19 +37,27 @@ Some observations:
 - The keyword `field` is the basic type we use, which is an element of a given prime field.
 - The keyword `private` signals that we do not want to reveal this input, but still prove that we know its value.
 
-Then run the different phases of the protocol:
+To make it easier to use `zokrates` inside docker, create this file (call it `z`):
+```bash
+#! /bin/bash
+
+cd /files
+zokrates $*
+```
+
+Then run the different phases of the protocol. This is how you do it when you use zokrates in docker.
 
 ```bash
 # compile
-zokrates compile -i root.zok
+docker run -ti -v `pwd`:/files zokrates/zokrates /files/z compile -i root.zok
 # perform the setup phase
-zokrates setup
+docker run -ti -v `pwd`:/files zokrates/zokrates /files/z setup -b libsnark -s gm17
 # execute the program
-zokrates compute-witness -a 337 113569
+docker run -ti -v `pwd`:/files zokrates/zokrates /files/z compute-witness -a 337 113569
 # generate a proof of computation
-zokrates generate-proof
+docker run -ti -v `pwd`:/files zokrates/zokrates /files/z generate-proof -b libsnark -s gm17
 # export a solidity verifier
-zokrates export-verifier
+zokrates export-verifier -b libsnark -s gm17
 ```
 
 The CLI commands are explained in more detail in the [CLI reference](reference/cli.md).
