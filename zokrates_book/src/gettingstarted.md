@@ -11,10 +11,8 @@ To write your first SNARK program, check out the ZoKrates plugin in the [Remix o
 ZoKrates is available on Dockerhub.
 
 ```bash
-docker run -ti zokrates/zokrates /bin/bash
+docker run -ti zokrates/zokrates zokrates
 ```
-
-From there on, you can use the `zokrates` CLI.
 
 ### From source
 
