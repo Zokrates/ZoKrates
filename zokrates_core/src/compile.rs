@@ -292,7 +292,7 @@ mod test {
 
         #[test]
         fn use_struct_declaration_types() {
-            // when importing types and renaming them, we use the top-most renaming in the ABI
+            // when importing types and renaming them, we use the canonical struct names in the ABI
 
             // // main.zok
             // from foo import Foo as FooMain
@@ -305,7 +305,7 @@ mod test {
             // struct Bar { field a }
 
             // Expected resolved type for FooMain:
-            // FooMain { BarFoo b }
+            // Foo { Bar b }
 
             let main = r#"
 from "foo" import Foo as FooMain
@@ -370,21 +370,21 @@ struct Bar { field a }
                     inputs: vec![AbiInput {
                         name: "f".into(),
                         public: true,
-                        ty: Type::Struct(StructType {
-                            module: "main".into(),
-                            name: "FooMain".into(),
-                            members: vec![StructMember {
+                        ty: Type::Struct(StructType::new(
+                            "foo".into(),
+                            "Foo".into(),
+                            vec![StructMember {
                                 id: "b".into(),
-                                ty: box Type::Struct(StructType {
-                                    module: "foo".into(),
-                                    name: "BarFoo".into(),
-                                    members: vec![StructMember {
+                                ty: box Type::Struct(StructType::new(
+                                    "bar".into(),
+                                    "Bar".into(),
+                                    vec![StructMember {
                                         id: "a".into(),
                                         ty: box Type::FieldElement
                                     }]
-                                })
+                                ))
                             }]
-                        })
+                        ))
                     }],
                     outputs: vec![]
                 }
