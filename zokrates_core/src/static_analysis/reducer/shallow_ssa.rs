@@ -1,7 +1,7 @@
-// Our SSA transformation leaves gaps in the indices when it hits a for-loop, so that the body of the for-loop can
-// modify the variables in scope. The state of the indices is saved in an internal statement to account for that possibility.
+// The SSA transformation leaves gaps in the indices when it hits a for-loop, so that the body of the for-loop can
+// modify the variables in scope. The state of the indices before all for-loops is returned to account for that possibility.
 // Function calls are also left unvisited
-// Such a mechanism is not required for function calls, as they cannot modify their environment
+// Saving the indices is not required for function calls, as they cannot modify their environment
 
 // Example:
 // def main(field a) -> field:
@@ -17,10 +17,10 @@
 // def main(field a_0) -> field:
 //		u32 n_0 = 42
 //		a_1 = a_0 + 1
-//      field b_0 = foo(a_1) // we keep the function call
+//      field b_0 = foo(a_1) // we keep the function call as is
 //		# versions: {n: 0, a: 1, b: 0}
 // 		for u32 i_0 in 0..n_0:
-//			<body> // we keep the loop body
+//			<body> // we keep the loop body as is
 //		endfor
 //		return b_3 // we leave versions b_1 and b_2 to make b accessible and modifiable inside the for-loop
 
@@ -34,6 +34,8 @@ use zokrates_field::Field;
 use super::{Output, Versions};
 
 pub struct ShallowTransformer<'ast> {
+    // values for generics
+    generics: Vec<u32>,
     // version index for any variable name
     versions: Versions<'ast>,
     // A backup of the versions before each for-loop
@@ -43,12 +45,17 @@ pub struct ShallowTransformer<'ast> {
 }
 
 impl<'ast> ShallowTransformer<'ast> {
-    fn new() -> Self {
+    fn with_generics(generics: Vec<u32>) -> Self {
         ShallowTransformer {
+            generics,
             versions: Versions::default(),
             for_loop_backups: vec![],
             blocked: false,
         }
+    }
+
+    fn new() -> Self {
+        ShallowTransformer::with_generics(vec![])
     }
 
     // increase all versions by 2 and return the old versions
@@ -77,8 +84,8 @@ impl<'ast> ShallowTransformer<'ast> {
         }
     }
 
-    pub fn transform<T: Field>(f: TypedFunction<T>) -> Output<T> {
-        let mut unroller = ShallowTransformer::new();
+    pub fn transform<T: Field>(f: TypedFunction<T>, generics: Vec<u32>) -> Output<T> {
+        let mut unroller = ShallowTransformer::with_generics(generics);
 
         let f = unroller.fold_function(f);
 
@@ -449,6 +456,28 @@ impl<'ast, T: Field> Folder<'ast, T> for ShallowTransformer<'ast> {
 
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         self.versions = HashMap::new();
+
+        assert_eq!(f.generics.len(), self.generics.len());
+
+        let mut f = f;
+
+        f.statements = f
+            .generics
+            .iter()
+            .zip(self.generics.drain(..))
+            .map(|(g, v)| {
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::with_id_and_type(
+                        g.clone(),
+                        Type::Uint(UBitwidth::B32),
+                    )),
+                    TypedExpression::Uint(v.into()),
+                )
+            })
+            .chain(f.statements)
+            .collect();
+        f.generics = vec![];
+
         for arg in &f.arguments {
             assert!(self.versions.insert(arg.id.id.id.clone(), 0).is_none());
         }
@@ -751,12 +780,13 @@ mod tests {
             let statements = loops;
 
             let f = TypedFunction {
+                generics: vec![],
                 arguments: vec![],
                 signature: DeclarationSignature::new(),
                 statements,
             };
 
-            match ShallowTransformer::transform(f) {
+            match ShallowTransformer::transform(f, vec![]) {
                 Output::Incomplete(..) => {}
                 _ => unreachable!(),
             };
@@ -904,10 +934,10 @@ mod tests {
             let s: TypedStatement<Bn128Field> = TypedStatement::MultipleDefinition(
                 vec![Variable::field_element("a")],
                 TypedExpressionList::FunctionCall(
-                    FunctionKey::with_id("foo").signature(
-                        Signature::new()
-                            .inputs(vec![Type::FieldElement])
-                            .outputs(vec![Type::FieldElement]),
+                    DeclarationFunctionKey::with_id("foo").signature(
+                        DeclarationSignature::new()
+                            .inputs(vec![DeclarationType::FieldElement])
+                            .outputs(vec![DeclarationType::FieldElement]),
                     ),
                     vec![FieldElementExpression::Identifier("a".into()).into()],
                     vec![Type::FieldElement],
@@ -918,10 +948,10 @@ mod tests {
                 vec![TypedStatement::MultipleDefinition(
                     vec![Variable::field_element(Identifier::from("a").version(1))],
                     TypedExpressionList::FunctionCall(
-                        FunctionKey::with_id("foo").signature(
-                            Signature::new()
-                                .inputs(vec![Type::FieldElement])
-                                .outputs(vec![Type::FieldElement])
+                        DeclarationFunctionKey::with_id("foo").signature(
+                            DeclarationSignature::new()
+                                .inputs(vec![DeclarationType::FieldElement])
+                                .outputs(vec![DeclarationType::FieldElement])
                         ),
                         vec![
                             FieldElementExpression::Identifier(Identifier::from("a").version(0))
@@ -1172,7 +1202,7 @@ mod tests {
         use super::*;
         #[test]
         fn treat_loop() {
-            // def main(field a) -> field:
+            // def main<K>(field a) -> field:
             //      u32 n = 42
             //      n = n
             //      a = a
@@ -1186,8 +1216,9 @@ mod tests {
             //      a = a
             //      return a
 
-            // Expected
+            // When called with K := 1, expected:
             // def main(field a_0) -> field:
+            //      u32 K = 1
             //      u32 n_0 = 42
             //      n_1 = n_0
             //      a_1 = a_0
@@ -1205,6 +1236,7 @@ mod tests {
             //      # versions: {n: 5, a: 7}
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
+                generics: vec!["K".into()],
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
                     TypedStatement::Definition(
@@ -1268,11 +1300,16 @@ mod tests {
                     .outputs(vec![DeclarationType::FieldElement]),
             };
 
-            let ssa = ShallowTransformer::transform(f);
+            let ssa = ShallowTransformer::transform(f, vec![1]);
 
             let expected = TypedFunction {
+                generics: vec![],
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
+                    TypedStatement::Definition(
+                        Variable::uint("K", UBitwidth::B32).into(),
+                        TypedExpression::Uint(1u32.into()),
+                    ),
                     TypedStatement::Definition(
                         Variable::uint("n", UBitwidth::B32).into(),
                         TypedExpression::Uint(42u32.into()),
@@ -1340,14 +1377,14 @@ mod tests {
                 Output::Incomplete(
                     expected,
                     vec![
-                        vec![("n".into(), 1), ("a".into(), 1)]
+                        vec![("n".into(), 1), ("a".into(), 1), ("K".into(), 0)]
                             .into_iter()
                             .collect::<Versions>(),
-                        vec![("n".into(), 3), ("a".into(), 4)]
+                        vec![("n".into(), 3), ("a".into(), 4), ("K".into(), 2)]
                             .into_iter()
                             .collect::<Versions>()
                     ],
-                    vec![("n".into(), 5), ("a".into(), 7)]
+                    vec![("n".into(), 5), ("a".into(), 7), ("K".into(), 4)]
                         .into_iter()
                         .collect::<Versions>()
                 )
@@ -1360,7 +1397,7 @@ mod tests {
         // test that function calls are left in
         #[test]
         fn treat_calls() {
-            // def main(field a) -> field:
+            // def main<K>(field a) -> field:
             //      u32 n = 42
             //      n = n
             //      a = a
@@ -1369,8 +1406,9 @@ mod tests {
             //      a = a * foo::<n>(a)
             //      return a
 
-            // Expected
+            // When called with K := 1, expected:
             // def main(field a_0) -> field:
+            //      K = 1
             //      u32 n_0 = 42
             //      n_1 = n_0
             //      a_1 = a_0
@@ -1381,6 +1419,7 @@ mod tests {
             //      # versions: {n: 2, a: 3}
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
+                generics: vec!["K".into()],
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
                     TypedStatement::Definition(
@@ -1400,7 +1439,7 @@ mod tests {
                     TypedStatement::MultipleDefinition(
                         vec![Variable::field_element("a").into()],
                         TypedExpressionList::FunctionCall(
-                            FunctionKey::with_id("foo"),
+                            DeclarationFunctionKey::with_id("foo"),
                             vec![FieldElementExpression::Identifier("a".into()).into()],
                             vec![Type::FieldElement],
                         ),
@@ -1431,11 +1470,16 @@ mod tests {
                     .outputs(vec![DeclarationType::FieldElement]),
             };
 
-            let ssa = ShallowTransformer::transform(f);
+            let ssa = ShallowTransformer::transform(f, vec![1]);
 
             let expected = TypedFunction {
+                generics: vec![],
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
+                    TypedStatement::Definition(
+                        Variable::uint("K", UBitwidth::B32).into(),
+                        TypedExpression::Uint(1u32.into()),
+                    ),
                     TypedStatement::Definition(
                         Variable::uint("n", UBitwidth::B32).into(),
                         TypedExpression::Uint(42u32.into()),
@@ -1453,7 +1497,7 @@ mod tests {
                     TypedStatement::MultipleDefinition(
                         vec![Variable::field_element(Identifier::from("a").version(2)).into()],
                         TypedExpressionList::FunctionCall(
-                            FunctionKey::with_id("foo"),
+                            DeclarationFunctionKey::with_id("foo"),
                             vec![FieldElementExpression::Identifier(
                                 Identifier::from("a").version(1),
                             )
@@ -1496,7 +1540,7 @@ mod tests {
                 Output::Incomplete(
                     expected,
                     vec![],
-                    vec![("n".into(), 2), ("a".into(), 3)]
+                    vec![("n".into(), 2), ("a".into(), 3), ("K".into(), 0)]
                         .into_iter()
                         .collect::<Versions>()
                 )

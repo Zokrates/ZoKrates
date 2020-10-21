@@ -279,7 +279,7 @@ pub fn fold_statement<'ast, T: Field>(
             )]
         }
         typed_absy::TypedStatement::PushCallLog(..) => vec![],
-        typed_absy::TypedStatement::PopCallLog => vec![],
+        typed_absy::TypedStatement::PopCallLog(..) => vec![],
     }
 }
 

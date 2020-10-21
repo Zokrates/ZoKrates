@@ -45,6 +45,7 @@ mod tests {
         functions.insert(
             ConcreteFunctionKey::with_id("main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
+                generics: vec![],
                 arguments: vec![
                     DeclarationParameter {
                         id: DeclarationVariable::field_element("a"),

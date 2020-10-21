@@ -684,7 +684,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         // define variables for the constants
         for generic in funct.generics.clone() {
             let pos = generic.pos();
-            let v = Variable::with_id_and_type(generic.value, Type::Uint(UBitwidth::B32));
+            let v = Variable::with_id_and_type(generic.value.clone(), Type::Uint(UBitwidth::B32));
             match self.insert_into_scope(v.clone()) {
                 true => {}
                 false => {
@@ -694,7 +694,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     });
                 }
             };
-            constant_generics_checked.push(v);
+            constant_generics_checked.push(generic.value.into());
         }
 
         let mut used_constants = vec![];
@@ -847,6 +847,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         assert!(self.scope.is_empty());
 
         Ok(TypedFunction {
+            generics: constant_generics_checked,
             arguments: arguments_checked,
             statements: statements_checked,
             signature: signature.unwrap(),
@@ -4231,6 +4232,7 @@ mod tests {
         .mock();
 
         let foo_checked = TypedFunction {
+            generics: vec![],
             arguments: vec![],
             statements: foo_statements_checked,
             signature: DeclarationSignature {
@@ -4854,8 +4856,11 @@ mod tests {
                     typed_absy::Variable::field_element("b"),
                 ],
                 TypedExpressionList::FunctionCall(
-                    FunctionKey::with_id("foo").signature(
-                        Signature::new().outputs(vec![Type::FieldElement, Type::FieldElement]),
+                    DeclarationFunctionKey::with_id("foo").signature(
+                        DeclarationSignature::new().outputs(vec![
+                            DeclarationType::FieldElement,
+                            DeclarationType::FieldElement,
+                        ]),
                     ),
                     vec![],
                     vec![Type::FieldElement, Type::FieldElement],
@@ -4891,6 +4896,7 @@ mod tests {
         .mock();
 
         let bar_checked = TypedFunction {
+            generics: vec![],
             arguments: vec![],
             statements: bar_statements_checked,
             signature: DeclarationSignature {

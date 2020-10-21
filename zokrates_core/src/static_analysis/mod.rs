@@ -22,6 +22,7 @@ use self::flatten_complex_types::Flattener;
 //use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
 use self::redefinition::RedefinitionOptimizer;
+use self::reducer::reduce_program;
 use self::return_binder::ReturnBinder;
 use self::trimmer::Trimmer;
 use self::uint_optimizer::UintOptimizer;
@@ -44,6 +45,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 
         // propagated unrolling
         //let r = PropagatedUnroller::unroll(r).unwrap_or_else(|e| panic!(e));
+
+        let r = reduce_program(r).unwrap();
 
         let r = Trimmer::trim(r);
 

@@ -48,7 +48,7 @@ impl Trimmer {
         let u8_from_bits_key = u8_from_bits.key::<T>();
 
         TypedProgram {
-            main: "main".into(),
+            main: main_module_id.clone(),
             modules: vec![(
                 main_module_id,
                 TypedModule {

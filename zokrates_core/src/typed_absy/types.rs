@@ -826,11 +826,11 @@ pub mod signature {
         pub fn specialize(
             &self,
             concrete_signature: &ConcreteSignature,
-        ) -> Vec<(Identifier<'ast>, u32)> {
+        ) -> Result<Vec<(Identifier<'ast>, u32)>, ()> {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = HashMap::new();
 
-            assert!(self
+            let condition = self
                 .inputs
                 .iter()
                 .chain(self.outputs.iter())
@@ -838,11 +838,14 @@ pub mod signature {
                     concrete_signature
                         .inputs
                         .iter()
-                        .chain(concrete_signature.outputs.iter())
+                        .chain(concrete_signature.outputs.iter()),
                 )
-                .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants)));
+                .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants));
 
-            constants.into_iter().collect()
+            match condition {
+                true => Ok(constants.into_iter().collect()),
+                false => Err(()),
+            }
         }
     }
 

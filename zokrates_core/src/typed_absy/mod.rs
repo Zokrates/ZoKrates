@@ -18,12 +18,11 @@ mod variable;
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
-    ConcreteFunctionKey, ConcreteSignature, ConcreteType, DeclarationType, Signature, StructType,
-    Type, UBitwidth,
+    ConcreteFunctionKey, ConcreteSignature, ConcreteType, DeclarationFunctionKey,
+    DeclarationSignature, DeclarationType, GType, Signature, StructType, Type, UBitwidth,
 };
-use self::types::{DeclarationFunctionKey, DeclarationSignature, GType};
 
-pub use self::variable::{DeclarationVariable, GVariable, Variable};
+pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::path::PathBuf;
 
 pub use typed_absy::integer::IntExpression;
@@ -71,6 +70,10 @@ impl<'ast, T> TypedProgram<'ast, T> {
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn abi(&self) -> Result<Abi, ()> {
+        println!("{}", self);
+
+        println!("{}", self.main.display());
+
         let main = self.modules[&self.main]
             .functions
             .iter()
@@ -211,6 +214,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedModule<'ast, T> {
 /// A typed function
 #[derive(Clone, PartialEq)]
 pub struct TypedFunction<'ast, T> {
+    // generic parameters to the function
+    pub generics: Vec<Identifier<'ast>>,
     /// Arguments of the function
     pub arguments: Vec<DeclarationParameter<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -221,6 +226,15 @@ pub struct TypedFunction<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "<{}>",
+            self.generics
+                .iter()
+                .map(|g| g.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )?;
         write!(
             f,
             "({})",
@@ -255,7 +269,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
         for s in &self.statements {
             match s {
-                TypedStatement::PopCallLog => tab -= 1,
+                TypedStatement::PopCallLog(..) => tab -= 1,
                 _ => {}
             };
 
@@ -276,7 +290,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "TypedFunction(arguments: {:?}, ...):\n{}",
+            "TypedFunction(generics: {:?}, arguments: {:?}, ...):\n{}",
+            self.generics,
             self.arguments,
             self.statements
                 .iter()
@@ -363,8 +378,13 @@ pub enum TypedStatement<'ast, T> {
     ),
     MultipleDefinition(Vec<Variable<'ast, T>>, TypedExpressionList<'ast, T>),
     // Aux
-    PushCallLog(TypedModuleId, ConcreteFunctionKey<'ast>),
-    PopCallLog,
+    PushCallLog(
+        TypedModuleId,
+        DeclarationFunctionKey<'ast>,
+        Vec<u32>,
+        Vec<(ConcreteVariable<'ast>, TypedExpression<'ast, T>)>,
+    ),
+    PopCallLog(Vec<(ConcreteVariable<'ast>, TypedExpression<'ast, T>)>),
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
@@ -395,10 +415,16 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
             }
-            TypedStatement::PushCallLog(ref module_id, ref key) => {
-                write!(f, "PushCallLog({:?}, {:?})", module_id, key)
+            TypedStatement::PushCallLog(ref module_id, ref key, ref generics, ref assignments) => {
+                write!(
+                    f,
+                    "PushCallLog({:?}, {:?}, {:?}, {:?})",
+                    module_id, key, generics, assignments
+                )
             }
-            TypedStatement::PopCallLog => write!(f, "PopCallLog"),
+            TypedStatement::PopCallLog(ref assignments) => {
+                write!(f, "PopCallLog({:?})", assignments)
+            }
         }
     }
 }
@@ -452,13 +478,33 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 }
                 write!(f, " = {}", rhs)
             }
-            TypedStatement::PushCallLog(ref module_id, ref key) => write!(
+            TypedStatement::PushCallLog(ref module_id, ref key, ref generics, ref assignments) => {
+                write!(
+                    f,
+                    "// PUSH CALL TO {}_{}::<{}> with {}",
+                    module_id.display(),
+                    key.id,
+                    generics
+                        .iter()
+                        .map(|g| g.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    assignments
+                        .iter()
+                        .map(|(v, e)| format!("{} := {}", v, e))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            TypedStatement::PopCallLog(ref assignments) => write!(
                 f,
-                "// PUSH CALL TO {}_{}",
-                module_id.display(),
-                key.to_slug()
+                "// POP CALL with {}",
+                assignments
+                    .iter()
+                    .map(|(v, e)| format!("{} := {}", v, e))
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
-            TypedStatement::PopCallLog => write!(f, "// POP CALL"),
         }
     }
 }
@@ -647,7 +693,7 @@ pub trait MultiTyped<'ast, T> {
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedExpressionList<'ast, T> {
     FunctionCall(
-        FunctionKey<'ast, T>,
+        DeclarationFunctionKey<'ast>,
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
