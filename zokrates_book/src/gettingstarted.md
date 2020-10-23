@@ -11,7 +11,7 @@ To write your first SNARK program, check out the ZoKrates plugin in the [Remix o
 ZoKrates is available on Dockerhub.
 
 ```bash
-docker run -ti zokrates/zokrates zokrates
+docker run zokrates/zokrates zokrates
 ```
 
 ### From source
@@ -49,15 +49,15 @@ Then run the different phases of the protocol. This is how you do it when you us
 
 ```bash
 # compile
-docker run -ti -v `pwd`:/files zokrates/zokrates /files/z compile -i root.zok
+docker run -v `pwd`:/files zokrates/zokrates /files/z compile -i root.zok
 # perform the setup phase
-docker run -ti -v `pwd`:/files zokrates/zokrates /files/z setup -b libsnark -s gm17
+docker run -v `pwd`:/files zokrates/zokrates /files/z setup -b libsnark -s gm17
 # execute the program
-docker run -ti -v `pwd`:/files zokrates/zokrates /files/z compute-witness -a 337 113569
+docker run -v `pwd`:/files zokrates/zokrates /files/z compute-witness -a 337 113569
 # generate a proof of computation
-docker run -ti -v `pwd`:/files zokrates/zokrates /files/z generate-proof -b libsnark -s gm17
+docker run -v `pwd`:/files zokrates/zokrates /files/z generate-proof -b libsnark -s gm17
 # export a solidity verifier
-zokrates export-verifier -b libsnark -s gm17
+docker run -v `pwd`:/files zokrates/zokrates /files/z export-verifier -b libsnark -s gm17
 ```
 
 The CLI commands are explained in more detail in the [CLI reference](reference/cli.md).
