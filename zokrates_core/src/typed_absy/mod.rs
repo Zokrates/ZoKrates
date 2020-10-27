@@ -19,8 +19,10 @@ pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteType, DeclarationFunctionKey,
-    DeclarationSignature, DeclarationType, GType, Signature, StructType, Type, UBitwidth,
+    DeclarationSignature, DeclarationType, GType, GenericIdentifier, Signature, StructType, Type,
+    UBitwidth,
 };
+use typed_absy::types::GenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::path::PathBuf;
@@ -215,7 +217,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedModule<'ast, T> {
 #[derive(Clone, PartialEq)]
 pub struct TypedFunction<'ast, T> {
     // generic parameters to the function
-    pub generics: Vec<Identifier<'ast>>,
+    pub generics: Vec<GenericIdentifier<'ast>>,
     /// Arguments of the function
     pub arguments: Vec<DeclarationParameter<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -381,7 +383,7 @@ pub enum TypedStatement<'ast, T> {
     PushCallLog(
         TypedModuleId,
         DeclarationFunctionKey<'ast>,
-        Vec<u32>,
+        GenericsAssignment<'ast>,
         Vec<(ConcreteVariable<'ast>, TypedExpression<'ast, T>)>,
     ),
     PopCallLog(Vec<(ConcreteVariable<'ast>, TypedExpression<'ast, T>)>),
@@ -484,11 +486,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                     "// PUSH CALL TO {}_{}::<{}> with {}",
                     module_id.display(),
                     key.id,
-                    generics
-                        .iter()
-                        .map(|g| g.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", "),
+                    generics,
                     assignments
                         .iter()
                         .map(|(v, e)| format!("{} := {}", v, e))
@@ -1316,6 +1314,21 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedExpressionList<'ast, T> {
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
+        }
+    }
+}
+
+// Variable to TypedExpression conversion
+
+impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
+    fn from(v: Variable<'ast, T>) -> Self {
+        match v.get_type() {
+            Type::FieldElement => FieldElementExpression::Identifier(v.id).into(),
+            Type::Boolean => BooleanExpression::Identifier(v.id).into(),
+            Type::Array(ty) => ArrayExpressionInner::Identifier(v.id)
+                .annotate(*ty.ty, ty.size)
+                .into(),
+            _ => unimplemented!(),
         }
     }
 }

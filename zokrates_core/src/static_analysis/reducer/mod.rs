@@ -15,36 +15,33 @@ mod inline;
 mod shallow_ssa;
 mod unroll;
 
-use self::inline::inline_call;
+use self::inline::{inline_call, InlineError};
 use std::collections::HashMap;
-use typed_absy::Folder;
+use typed_absy::types::GenericsAssignment;
+
 use typed_absy::{
-    CoreIdentifier, Signature, TypedExpressionList, TypedFunction, TypedFunctionSymbol,
-    TypedModule, TypedModules, TypedProgram, TypedStatement,
+    CoreIdentifier, TypedExpressionList, TypedFunction, TypedFunctionSymbol, TypedModule,
+    TypedModules, TypedProgram, TypedStatement,
 };
 use zokrates_field::Field;
 
 use self::shallow_ssa::ShallowTransformer;
+
+use static_analysis::Propagator;
 
 // An SSA version map, giving access to the latest version number for each identifier
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
 
 // A container to represent whether more treatment must be applied to the function
 #[derive(Debug, PartialEq)]
-pub enum Output<'ast, T> {
-    Complete(TypedFunction<'ast, T>),
-    Incomplete(TypedFunction<'ast, T>, Vec<Versions<'ast>>, Versions<'ast>),
+pub enum Output<U, V> {
+    Complete(U),
+    Incomplete(U, V),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Error {
-    Generic,
-}
-
-struct Reducer<'ast, T> {
-    generics: Vec<u32>,
-    modules: TypedModules<'ast, T>,
-    error: Option<Error>,
+    Incompatible,
 }
 
 pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
@@ -64,142 +61,180 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
 
     assert_eq!(main_function.generics.len(), 0);
 
-    let mut reducer = Reducer {
-        generics: vec![],
-        modules: p.modules.clone(),
-        error: None,
-    };
+    let main_function = reduce_function(main_function, GenericsAssignment::default(), &p.modules)?;
 
-    let main_function = reducer.fold_function(main_function);
-
-    match reducer.error {
-        Some(e) => Err(e),
-        None => Ok(TypedProgram {
-            main: p.main.clone(),
-            modules: vec![(
-                p.main,
-                TypedModule {
-                    functions: vec![(main_key.clone(), TypedFunctionSymbol::Here(main_function))]
-                        .into_iter()
-                        .collect(),
-                },
-            )]
-            .into_iter()
-            .collect(),
-        }),
-    }
+    Ok(TypedProgram {
+        main: p.main.clone(),
+        modules: vec![(
+            p.main,
+            TypedModule {
+                functions: vec![(main_key.clone(), TypedFunctionSymbol::Here(main_function))]
+                    .into_iter()
+                    .collect(),
+            },
+        )]
+        .into_iter()
+        .collect(),
+    })
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for Reducer<'ast, T> {
-    fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
-        match ShallowTransformer::transform(f, self.generics.clone()) {
-            Output::Complete(f) => f,
-            Output::Incomplete(new_f, new_for_loop_versions, new_versions) => {
-                let mut versions = new_versions;
-                let mut for_loop_versions = new_for_loop_versions;
+fn reduce_function<'ast, T: Field>(
+    f: TypedFunction<'ast, T>,
+    generics: GenericsAssignment<'ast>,
+    modules: &TypedModules<'ast, T>,
+) -> Result<TypedFunction<'ast, T>, Error> {
+    let mut versions = Versions::default();
 
-                let mut f = new_f;
+    match ShallowTransformer::transform(f, &generics, &mut versions) {
+        Output::Complete(f) => Ok(f),
+        Output::Incomplete(new_f, new_for_loop_versions) => {
+            let mut for_loop_versions = new_for_loop_versions;
 
-                let statements = loop {
-                    match reduce_statements(
-                        f.statements,
-                        for_loop_versions,
-                        versions,
-                        &self.modules,
-                    ) {
-                        Ok(statements) => {
-                            break statements;
-                        }
-                        Err((new_statements, new_for_loop_versions, new_versions)) => {
-                            let new_f = TypedFunction {
-                                statements: new_statements,
-                                ..f
-                            };
+            let mut f = new_f;
 
-                            f = propagate(new_f);
-                            versions = new_versions;
-                            for_loop_versions = new_for_loop_versions;
-                        }
+            let statements = loop {
+                match reduce_statements(
+                    f.statements,
+                    &mut for_loop_versions,
+                    &mut versions,
+                    modules,
+                ) {
+                    Ok(Output::Complete(statements)) => {
+                        break statements;
                     }
-                };
+                    Ok(Output::Incomplete(new_statements, new_for_loop_versions)) => {
+                        let new_f = TypedFunction {
+                            statements: new_statements,
+                            ..f
+                        };
 
-                TypedFunction { statements, ..f }
-            }
+                        use typed_absy::folder::Folder;
+
+                        f = Propagator::verbose().fold_function(new_f);
+                        for_loop_versions = new_for_loop_versions;
+                    }
+                    Err(e) => return Err(e),
+                }
+            };
+
+            Ok(TypedFunction { statements, ..f })
         }
     }
 }
 
 fn reduce_statements<'ast, T: Field>(
     statements: Vec<TypedStatement<'ast, T>>,
-    for_loop_versions: Vec<Versions<'ast>>,
-    versions: Versions<'ast>,
+    for_loop_versions: &mut Vec<Versions<'ast>>,
+    versions: &mut Versions<'ast>,
     modules: &TypedModules<'ast, T>,
-) -> Result<
-    Vec<TypedStatement<'ast, T>>,
-    (
-        Vec<TypedStatement<'ast, T>>,
-        Vec<Versions<'ast>>,
-        Versions<'ast>,
-    ),
-> {
+) -> Result<Output<Vec<TypedStatement<'ast, T>>, Vec<Versions<'ast>>>, Error> {
     let mut versions = versions;
-    let mut for_loop_versions = for_loop_versions;
-    let statements = statements
-        .into_iter()
-        .map(|s| reduce_statement(s, &mut for_loop_versions, &mut versions, modules));
 
     let statements = statements
         .into_iter()
-        .fold(Ok(vec![]), |state, e| match (state, e) {
-            (Ok(mut v), Ok(stats)) => {
-                v.extend(stats);
-                Ok(v)
-            }
-            (Ok(mut v), Err(stats)) => {
-                v.extend(stats);
-                Err(v)
-            }
-            (Err(mut v), Ok(stats)) => {
-                v.extend(stats);
-                Err(v)
-            }
-            (Err(mut v), Err(stats)) => {
-                v.extend(stats);
-                Err(v)
-            }
-        });
+        .map(|s| reduce_statement(s, for_loop_versions, &mut versions, modules));
 
-    statements.map_err(|statements| (statements, for_loop_versions, versions))
+    statements
+        .into_iter()
+        .fold(Ok(Output::Complete(vec![])), |state, e| match (state, e) {
+            (Ok(state), Ok(e)) => {
+                use self::Output::*;
+                match (state, e) {
+                    (Complete(mut s), Complete(c)) => {
+                        s.extend(c);
+                        Ok(Complete(s))
+                    }
+                    (Complete(mut s), Incomplete(stats, for_loop_versions)) => {
+                        s.extend(stats);
+                        Ok(Incomplete(s, for_loop_versions))
+                    }
+                    (Incomplete(mut stats, new_for_loop_versions), Complete(c)) => {
+                        stats.extend(c);
+                        Ok(Incomplete(stats, new_for_loop_versions))
+                    }
+                    (Incomplete(mut stats, mut versions), Incomplete(new_stats, new_versions)) => {
+                        stats.extend(new_stats);
+                        versions.extend(new_versions);
+                        Ok(Incomplete(stats, versions))
+                    }
+                }
+            }
+            (Err(state), _) => Err(state),
+            (Ok(_), Err(e)) => Err(e),
+        })
 }
 
 fn reduce_statement<'ast, T: Field>(
     statement: TypedStatement<'ast, T>,
-    _: &mut Vec<Versions>,
-    _: &mut Versions<'ast>,
+    _for_loop_versions: &mut Vec<Versions<'ast>>,
+    versions: &mut Versions<'ast>,
     modules: &TypedModules<'ast, T>,
-) -> Result<Vec<TypedStatement<'ast, T>>, Vec<TypedStatement<'ast, T>>> {
+) -> Result<Output<Vec<TypedStatement<'ast, T>>, Vec<Versions<'ast>>>, Error> {
+    use self::Output::*;
+
     match statement {
         TypedStatement::MultipleDefinition(
             v,
-            TypedExpressionList::FunctionCall(key, arguments, types),
-        ) => inline_call(v, "main".into(), key, arguments, modules),
+            TypedExpressionList::FunctionCall(key, arguments, output_types),
+        ) => match inline_call(
+            "main".into(),
+            key,
+            arguments,
+            output_types,
+            modules,
+            versions,
+        ) {
+            Ok(Output::Complete((statements, expressions))) => {
+                assert_eq!(v.len(), expressions.len());
+                Ok(Output::Complete(
+                    statements
+                        .into_iter()
+                        .chain(
+                            v.into_iter()
+                                .zip(expressions)
+                                .map(|(v, e)| TypedStatement::Definition(v.into(), e)),
+                        )
+                        .collect(),
+                ))
+            }
+            Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
+                assert_eq!(v.len(), expressions.len());
+                Ok(Output::Incomplete(
+                    statements
+                        .into_iter()
+                        .chain(
+                            v.into_iter()
+                                .zip(expressions)
+                                .map(|(v, e)| TypedStatement::Definition(v.into(), e)),
+                        )
+                        .collect(),
+                    delta_for_loop_versions,
+                ))
+            }
+            Err(InlineError::Generic(..)) => Err(Error::Incompatible),
+            Err(InlineError::NonConstant(_module, key, arguments, output_types)) => {
+                Ok(Output::Incomplete(
+                    vec![TypedStatement::MultipleDefinition(
+                        v,
+                        TypedExpressionList::FunctionCall(key, arguments, output_types),
+                    )],
+                    vec![],
+                ))
+            }
+            Err(InlineError::Flat) => unimplemented!(),
+        },
         TypedStatement::For(..) => unimplemented!(),
-        s => Ok(vec![s]),
+        s => Ok(Complete(vec![s])),
     }
-}
-
-fn propagate<'ast, T>(f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
-    f
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::typed_absy::{
-        ArrayExpressionInner, ConcreteFunctionKey, ConcreteSignature, ConcreteType,
-        ConcreteVariable, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
-        FieldElementExpression, FunctionKey, Identifier, Type, TypedExpression,
-        TypedExpressionList, UBitwidth, UExpressionInner, Variable,
+        ArrayExpressionInner, ConcreteType, ConcreteVariable, DeclarationFunctionKey,
+        DeclarationType, DeclarationVariable, FieldElementExpression, Identifier, Type,
+        TypedExpression, TypedExpressionList, UBitwidth, UExpression, UExpressionInner, Variable,
     };
     use typed_absy::types::Constant;
     use typed_absy::types::DeclarationSignature;
@@ -222,8 +257,9 @@ mod tests {
         //      u32 n_0 = 42
         //      n_1 = n_0
         //      a_1 = a_0
-        //      # PUSH CALL to foo with a_0 := a_1
-        //      # POP CALL with a_2 := a_0
+        //      # PUSH CALL to foo with a_3 := a_1
+        //      # POP CALL with foo_ifof_42 := a_3
+        //      a_2 = foo_ifof_42
         //      n_2 = n_1
         //      return a_2
 
@@ -339,19 +375,29 @@ mod tests {
                             .inputs(vec![DeclarationType::FieldElement])
                             .outputs(vec![DeclarationType::FieldElement]),
                     ),
-                    vec![],
+                    GenericsAssignment::default(),
                     vec![(
-                        ConcreteVariable::with_id_and_type("a", ConcreteType::FieldElement),
+                        ConcreteVariable::with_id_and_type(
+                            Identifier::from("a").version(3),
+                            ConcreteType::FieldElement,
+                        ),
                         FieldElementExpression::Identifier(Identifier::from("a").version(1)).into(),
                     )],
                 ),
                 TypedStatement::PopCallLog(vec![(
                     ConcreteVariable::with_id_and_type(
-                        Identifier::from("a").version(2),
+                        Identifier::from(CoreIdentifier::Call(0)).version(0),
                         ConcreteType::FieldElement,
                     ),
-                    FieldElementExpression::Identifier("a".into()).into(),
+                    FieldElementExpression::Identifier(Identifier::from("a").version(3)).into(),
                 )]),
+                TypedStatement::Definition(
+                    Variable::field_element(Identifier::from("a").version(2)).into(),
+                    FieldElementExpression::Identifier(
+                        Identifier::from(CoreIdentifier::Call(0)).version(0),
+                    )
+                    .into(),
+                ),
                 TypedStatement::Definition(
                     Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
                     UExpressionInner::Identifier(Identifier::from("n").version(1))
@@ -368,7 +414,7 @@ mod tests {
                 .outputs(vec![DeclarationType::FieldElement]),
         };
 
-        let expected = TypedProgram {
+        let expected: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),
             modules: vec![(
                 "main".into(),
@@ -410,7 +456,8 @@ mod tests {
         //      n_1 = n_0
         //      field[1] b_0 = [42]
         //      # PUSH CALL to foo::<1> with a_0 := b_0
-        //      # POP CALL with b_1 := a_0
+        //      # POP CALL with foo_if[1]_of[1]_42 := a_0
+        //      b_1 = foo_if[1]_of[1]_42
         //      n_2 = n_1
         //      return a_2
 
@@ -539,24 +586,46 @@ mod tests {
                 TypedStatement::PushCallLog(
                     "main".into(),
                     DeclarationFunctionKey::with_id("foo").signature(foo_signature.clone()),
-                    vec![1u32],
+                    GenericsAssignment(vec![("K", 1)].into_iter().collect()),
                     vec![(
-                        ConcreteVariable::array("a", ConcreteType::FieldElement, 1).into(),
+                        ConcreteVariable::array(
+                            Identifier::from("a").version(1),
+                            ConcreteType::FieldElement,
+                            1,
+                        )
+                        .into(),
                         ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
                     )],
                 ),
+                TypedStatement::Definition(
+                    Variable::uint("K", UBitwidth::B32).into(),
+                    UExpression::from(1u32).into(),
+                ),
                 TypedStatement::PopCallLog(vec![(
                     ConcreteVariable::array(
-                        Identifier::from("b").version(1),
+                        Identifier::from(CoreIdentifier::Call(0)).version(0),
                         ConcreteType::FieldElement,
                         1,
                     ),
-                    ArrayExpressionInner::Identifier("a".into())
+                    ArrayExpressionInner::Identifier(Identifier::from("a").version(1))
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 )]),
+                TypedStatement::Definition(
+                    Variable::array(
+                        Identifier::from("b").version(1),
+                        Type::FieldElement,
+                        1u32.into(),
+                    )
+                    .into(),
+                    ArrayExpressionInner::Identifier(
+                        Identifier::from(CoreIdentifier::Call(0)).version(0),
+                    )
+                    .annotate(Type::FieldElement, 1u32)
+                    .into(),
+                ),
                 TypedStatement::Definition(
                     Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
                     UExpressionInner::Identifier(Identifier::from("n").version(1))
@@ -609,11 +678,12 @@ mod tests {
         // expected:
         // def main(field a_0) -> field:
         //      u32 n_0 = 2
-        //      n_1 = n_0
+        //      n_1 = 2
         //      field[1] b_0 = [42]
-        //      # PUSH CALL to foo::<1> with a_0 := b_0
-        //      # POP CALL with b_1 := a_0
-        //      n_2 = n_1
+        //      # PUSH CALL to foo::<1> with a_3 := b_0
+        //      # POP CALL with foo_if[1]of[1]_42 := a_3
+        //      b_1 = foo_if[1]of[1]_42
+        //      n_2 = 2
         //      return a_2
 
         let foo_signature = DeclarationSignature::new()
@@ -760,9 +830,7 @@ mod tests {
                 ),
                 TypedStatement::Definition(
                     Variable::uint(Identifier::from("n").version(1), UBitwidth::B32).into(),
-                    UExpressionInner::Identifier("n".into())
-                        .annotate(UBitwidth::B32)
-                        .into(),
+                    TypedExpression::Uint(2u32.into()),
                 ),
                 TypedStatement::Definition(
                     Variable::array("b", Type::FieldElement, 1u32.into()).into(),
@@ -775,29 +843,51 @@ mod tests {
                 TypedStatement::PushCallLog(
                     "main".into(),
                     DeclarationFunctionKey::with_id("foo").signature(foo_signature.clone()),
-                    vec![1u32],
+                    GenericsAssignment(vec![("K", 1)].into_iter().collect()),
                     vec![(
-                        ConcreteVariable::array("a", ConcreteType::FieldElement, 1).into(),
-                        ArrayExpressionInner::Identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                        ConcreteVariable::array(
+                            Identifier::from("a").version(1),
+                            ConcreteType::FieldElement,
+                            1,
+                        )
+                        .into(),
+                        ArrayExpressionInner::Value(vec![
+                            FieldElementExpression::Number(1.into()).into()
+                        ])
+                        .annotate(Type::FieldElement, 1u32)
+                        .into(),
                     )],
+                ),
+                TypedStatement::Definition(
+                    Variable::uint("K", UBitwidth::B32).into(),
+                    UExpression::from(1u32).into(),
                 ),
                 TypedStatement::PopCallLog(vec![(
                     ConcreteVariable::array(
-                        Identifier::from("b").version(1),
+                        Identifier::from(CoreIdentifier::Call(0)).version(0),
                         ConcreteType::FieldElement,
                         1,
                     ),
-                    ArrayExpressionInner::Identifier("a".into())
+                    ArrayExpressionInner::Identifier(Identifier::from("a").version(1))
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 )]),
                 TypedStatement::Definition(
+                    Variable::array(
+                        Identifier::from("b").version(1),
+                        Type::FieldElement,
+                        1u32.into(),
+                    )
+                    .into(),
+                    ArrayExpressionInner::Identifier(
+                        Identifier::from(CoreIdentifier::Call(0)).version(0),
+                    )
+                    .annotate(Type::FieldElement, 1u32)
+                    .into(),
+                ),
+                TypedStatement::Definition(
                     Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
-                    UExpressionInner::Identifier(Identifier::from("n").version(1))
-                        .annotate(UBitwidth::B32)
-                        .into(),
+                    TypedExpression::Uint(2u32.into()),
                 ),
                 TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
             ],
@@ -828,5 +918,305 @@ mod tests {
         };
 
         assert_eq!(reduced.unwrap(), expected);
+    }
+
+    // #[test]
+    // fn call_in_call() {
+    //     // we use a global ssa counter, hence reusing variable names in called functions
+    //     // leads to counter increase
+
+    //     // def bar<K>(field[K] a) -> field[K]:
+    //     //      return a
+
+    //     // def foo<K>(field[K] a) -> field[K]:
+    //     //      field[K] ret = bar([...a, 0])[0..K]
+    //     //      return ret
+
+    //     // def main():
+    //     //      field[1] b = foo([1])
+    //     //      return
+
+    //     // expected:
+    //     // def main():
+    //     //      # PUSH CALL to foo::<1> with a_0 := [1]
+    //     //      # PUSH CALL to bar::<2> with a_0 := [...a, 0]
+    //     //      # POP CALL with field[1] ~bar_0 := a_0
+    //     //      field[1] ret = ~bar_0[0..1]
+    //     //      # POP CALL with field[1] b_0 := ret
+    //     //      return
+
+    //     let foo_signature = DeclarationSignature::new()
+    //         .inputs(vec![DeclarationType::array(
+    //             DeclarationType::FieldElement,
+    //             Constant::Generic("K"),
+    //         )])
+    //         .outputs(vec![DeclarationType::array(
+    //             DeclarationType::FieldElement,
+    //             Constant::Generic("K"),
+    //         )]);
+
+    //     let foo: TypedFunction<Bn128Field> = TypedFunction {
+    //         generics: vec!["K".into()],
+    //         arguments: vec![DeclarationVariable::array(
+    //             "a",
+    //             DeclarationType::FieldElement,
+    //             "K".into(),
+    //         )
+    //         .into()],
+    //         statements: vec![TypedStatement::Return(vec![
+    //             ArrayExpressionInner::Identifier("a".into())
+    //                 .annotate(
+    //                     Type::FieldElement,
+    //                     UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
+    //                 )
+    //                 .into(),
+    //         ])],
+    //         signature: foo_signature.clone(),
+    //     };
+
+    //     let bar_signature = DeclarationSignature::new()
+    //         .inputs(vec![DeclarationType::array(
+    //             DeclarationType::FieldElement,
+    //             Constant::Generic("K"),
+    //         )])
+    //         .outputs(vec![DeclarationType::array(
+    //             DeclarationType::FieldElement,
+    //             Constant::Generic("K"),
+    //         )]);
+
+    //     let bar: TypedFunction<Bn128Field> = TypedFunction {
+    //         generics: vec!["K".into()],
+    //         arguments: vec![DeclarationVariable::array(
+    //             "a",
+    //             DeclarationType::FieldElement,
+    //             "K".into(),
+    //         )
+    //         .into()],
+    //         statements: vec![TypedStatement::Return(vec![
+    //             ArrayExpressionInner::Identifier("a".into())
+    //                 .annotate(
+    //                     Type::FieldElement,
+    //                     UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
+    //                 )
+    //                 .into(),
+    //         ])],
+    //         signature: foo_signature.clone(),
+    //     };
+
+    //     let main: TypedFunction<Bn128Field> = TypedFunction {
+    //         generics: vec![],
+    //         arguments: vec![DeclarationVariable::field_element("a").into()],
+    //         statements: vec![
+    //             TypedStatement::MultipleDefinition(
+    //                 vec![Variable::array("b", Type::FieldElement, 1u32.into()).into()],
+    //                 TypedExpressionList::FunctionCall(
+    //                     DeclarationFunctionKey::with_id("foo").signature(foo_signature.clone()),
+    //                     vec![ArrayExpressionInner::Identifier("b".into())
+    //                         .annotate(Type::FieldElement, 1u32)
+    //                         .into()],
+    //                     vec![Type::array(Type::FieldElement, 1u32)],
+    //                 ),
+    //             ),
+    //             TypedStatement::Return(vec![]),
+    //         ],
+    //         signature: DeclarationSignature::new(),
+    //     };
+
+    //     let p = TypedProgram {
+    //         main: "main".into(),
+    //         modules: vec![(
+    //             "main".into(),
+    //             TypedModule {
+    //                 functions: vec![
+    //                     (
+    //                         DeclarationFunctionKey::with_id("foo").signature(foo_signature.clone()),
+    //                         TypedFunctionSymbol::Here(foo),
+    //                     ),
+    //                     (
+    //                         DeclarationFunctionKey::with_id("main"),
+    //                         TypedFunctionSymbol::Here(main),
+    //                     ),
+    //                 ]
+    //                 .into_iter()
+    //                 .collect(),
+    //             },
+    //         )]
+    //         .into_iter()
+    //         .collect(),
+    //     };
+
+    //     let reduced = reduce_program(p);
+
+    //     let expected_main = TypedFunction {
+    //         generics: vec![],
+    //         arguments: vec![DeclarationVariable::field_element("a").into()],
+    //         statements: vec![
+    //             TypedStatement::Definition(
+    //                 Variable::uint("n", UBitwidth::B32).into(),
+    //                 TypedExpression::Uint(42u32.into()),
+    //             ),
+    //             TypedStatement::Definition(
+    //                 Variable::uint(Identifier::from("n").version(1), UBitwidth::B32).into(),
+    //                 UExpressionInner::Identifier("n".into())
+    //                     .annotate(UBitwidth::B32)
+    //                     .into(),
+    //             ),
+    //             TypedStatement::Definition(
+    //                 Variable::array("b", Type::FieldElement, 1u32.into()).into(),
+    //                 ArrayExpressionInner::Value(vec![
+    //                     FieldElementExpression::Number(1.into()).into()
+    //                 ])
+    //                 .annotate(Type::FieldElement, 1u32)
+    //                 .into(),
+    //             ),
+    //             TypedStatement::PushCallLog(
+    //                 "main".into(),
+    //                 DeclarationFunctionKey::with_id("foo").signature(foo_signature.clone()),
+    //                 GenericsAssignment(vec![("K", 1)].into_iter().collect()),
+    //                 vec![(
+    //                     ConcreteVariable::array("a", ConcreteType::FieldElement, 1).into(),
+    //                     ArrayExpressionInner::Identifier("b".into())
+    //                         .annotate(Type::FieldElement, 1u32)
+    //                         .into(),
+    //                 )],
+    //             ),
+    //             TypedStatement::Definition(
+    //                 Variable::uint("K", UBitwidth::B32).into(),
+    //                 UExpression::from(1u32).into(),
+    //             ),
+    //             TypedStatement::PopCallLog(vec![(
+    //                 ConcreteVariable::array(
+    //                     Identifier::from("b").version(1),
+    //                     ConcreteType::FieldElement,
+    //                     1,
+    //                 ),
+    //                 ArrayExpressionInner::Identifier("a".into())
+    //                     .annotate(Type::FieldElement, 1u32)
+    //                     .into(),
+    //             )]),
+    //             TypedStatement::Definition(
+    //                 Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
+    //                 UExpressionInner::Identifier(Identifier::from("n").version(1))
+    //                     .annotate(UBitwidth::B32)
+    //                     .into(),
+    //             ),
+    //             TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
+    //         ],
+    //         signature: DeclarationSignature::new()
+    //             .inputs(vec![DeclarationType::FieldElement])
+    //             .outputs(vec![DeclarationType::FieldElement]),
+    //     };
+
+    //     let expected = TypedProgram {
+    //         main: "main".into(),
+    //         modules: vec![(
+    //             "main".into(),
+    //             TypedModule {
+    //                 functions: vec![(
+    //                     DeclarationFunctionKey::with_id("main").signature(
+    //                         DeclarationSignature::new()
+    //                             .inputs(vec![DeclarationType::FieldElement])
+    //                             .outputs(vec![DeclarationType::FieldElement]),
+    //                     ),
+    //                     TypedFunctionSymbol::Here(expected_main),
+    //                 )]
+    //                 .into_iter()
+    //                 .collect(),
+    //             },
+    //         )]
+    //         .into_iter()
+    //         .collect(),
+    //     };
+
+    //     println!("{}", reduced.clone().unwrap());
+    //     println!("{}", expected);
+
+    //     assert_eq!(reduced.unwrap(), expected);
+    // }
+
+    #[test]
+    fn incompatible() {
+        // def foo<K>(field[K] a) -> field[K]:
+        //      return a
+        // def main():
+        //      field[1] b = foo([])
+        //      return
+
+        // expected:
+        // Error: Incompatible
+
+        let foo_signature = DeclarationSignature::new()
+            .inputs(vec![DeclarationType::array(
+                DeclarationType::FieldElement,
+                Constant::Generic("K"),
+            )])
+            .outputs(vec![DeclarationType::array(
+                DeclarationType::FieldElement,
+                Constant::Generic("K"),
+            )]);
+
+        let foo: TypedFunction<Bn128Field> = TypedFunction {
+            generics: vec!["K".into()],
+            arguments: vec![DeclarationVariable::array(
+                "a",
+                DeclarationType::FieldElement,
+                "K".into(),
+            )
+            .into()],
+            statements: vec![TypedStatement::Return(vec![
+                ArrayExpressionInner::Identifier("a".into())
+                    .annotate(Type::FieldElement, 1u32)
+                    .into(),
+            ])],
+            signature: foo_signature.clone(),
+        };
+
+        let main: TypedFunction<Bn128Field> = TypedFunction {
+            generics: vec![],
+            arguments: vec![],
+            statements: vec![
+                TypedStatement::MultipleDefinition(
+                    vec![Variable::array("b", Type::FieldElement, 1u32.into()).into()],
+                    TypedExpressionList::FunctionCall(
+                        DeclarationFunctionKey::with_id("foo").signature(foo_signature.clone()),
+                        vec![ArrayExpressionInner::Value(vec![])
+                            .annotate(Type::FieldElement, 0u32)
+                            .into()],
+                        vec![Type::array(Type::FieldElement, 1u32)],
+                    ),
+                ),
+                TypedStatement::Return(vec![]),
+            ],
+            signature: DeclarationSignature::new().inputs(vec![]).outputs(vec![]),
+        };
+
+        let p = TypedProgram {
+            main: "main".into(),
+            modules: vec![(
+                "main".into(),
+                TypedModule {
+                    functions: vec![
+                        (
+                            DeclarationFunctionKey::with_id("foo").signature(foo_signature.clone()),
+                            TypedFunctionSymbol::Here(foo),
+                        ),
+                        (
+                            DeclarationFunctionKey::with_id("main").signature(
+                                DeclarationSignature::new().inputs(vec![]).outputs(vec![]),
+                            ),
+                            TypedFunctionSymbol::Here(main),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let reduced = reduce_program(p);
+
+        assert_eq!(reduced, Err(Error::Incompatible));
     }
 }

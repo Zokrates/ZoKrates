@@ -19,18 +19,34 @@
 // n_0 = 42
 // a_1 = a_0
 // n_1 = n_0
-// # Pop call with _ret_foo_42_1 := a_1
+// # Pop call with #CALL_RETURN_AT_INDEX_0_0 := a_1
 
 // Notes:
 // - The body of the function is in SSA form
 // - The return value(s) are assigned to internal variables
 
+use static_analysis::reducer::Output;
+use static_analysis::reducer::ShallowTransformer;
+use static_analysis::reducer::Versions;
+use typed_absy::CoreIdentifier;
+use typed_absy::Identifier;
 use typed_absy::{
-    ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, FunctionKey,
-    Signature, TypedExpression, TypedFunction, TypedFunctionSymbol, TypedModuleId, TypedModules,
+    ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, DeclarationSignature, Signature,
+    Type, TypedExpression, TypedFunction, TypedFunctionSymbol, TypedModuleId, TypedModules,
     TypedStatement, Variable,
 };
 use zokrates_field::Field;
+
+pub enum InlineError<'ast, T> {
+    Generic(DeclarationSignature<'ast>, ConcreteSignature),
+    Flat,
+    NonConstant(
+        TypedModuleId,
+        DeclarationFunctionKey<'ast>,
+        Vec<TypedExpression<'ast, T>>,
+        Vec<Type<'ast, T>>,
+    ),
+}
 
 fn get_canonical_function<'ast, T: Field>(
     module_id: TypedModuleId,
@@ -54,22 +70,18 @@ fn get_canonical_function<'ast, T: Field>(
     }
 }
 
-pub enum InlineError {
-    Incompatible,
-    NeedsPropagation,
-}
-
-pub fn inline_call<'ast, T: Field>(
-    res: Vec<Variable<'ast, T>>,
+pub fn inline_call<'a, 'ast, T: Field>(
     module_id: TypedModuleId,
     k: DeclarationFunctionKey<'ast>,
     arguments: Vec<TypedExpression<'ast, T>>,
+    output_types: Vec<Type<'ast, T>>,
     modules: &TypedModules<'ast, T>,
-) -> Result<Vec<TypedStatement<'ast, T>>, Vec<TypedStatement<'ast, T>>> {
+    versions: &'a mut Versions<'ast>,
+) -> Result<
+    Output<(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>), Vec<Versions<'ast>>>,
+    InlineError<'ast, T>,
+> {
     use std::convert::TryFrom;
-
-    let (module_id, decl_key, f) = get_canonical_function(module_id, k.clone(), modules);
-    assert_eq!(f.arguments.len(), arguments.len());
 
     use typed_absy::Typed;
 
@@ -77,30 +89,55 @@ pub fn inline_call<'ast, T: Field>(
     // this is where we could handle explicit annotations
     let inferred_signature = Signature::new()
         .inputs(arguments.iter().map(|a| a.get_type()).collect())
-        .outputs(res.iter().map(|v| v.get_type()).collect());
+        .outputs(output_types.clone());
 
     // we try to get concrete values for the whole signature. if this fails we should propagate again
-    let inferred_signature = ConcreteSignature::try_from(inferred_signature).unwrap();
+    let inferred_signature = match ConcreteSignature::try_from(inferred_signature) {
+        Ok(s) => s,
+        Err(()) => {
+            return Err(InlineError::NonConstant(
+                module_id,
+                k,
+                arguments,
+                output_types,
+            ));
+        }
+    };
+
+    let (module_id, decl_key, f) = get_canonical_function(module_id, k.clone(), modules);
+    assert_eq!(f.arguments.len(), arguments.len());
 
     // get an assignment of generics for this call site
-    let assignment = decl_key.signature.specialize(&inferred_signature).unwrap();
+    let assignment = decl_key
+        .signature
+        .specialize(&inferred_signature)
+        .map_err(|_| {
+            InlineError::Generic(decl_key.signature.clone(), inferred_signature.clone())
+        })?;
+
+    let (ssa_f, incomplete_data) = match ShallowTransformer::transform(f, &assignment, versions) {
+        Output::Complete(v) => (v, None),
+        Output::Incomplete(statements, for_loop_versions) => (statements, Some(for_loop_versions)),
+    };
 
     let call_log = TypedStatement::PushCallLog(
         module_id,
         decl_key.clone(),
-        assignment.into_iter().map(|x| x.1).collect(),
-        f.arguments
+        assignment,
+        ssa_f
+            .arguments
             .into_iter()
-            .zip(inferred_signature.inputs)
+            .zip(inferred_signature.inputs.clone())
             .map(|(p, t)| ConcreteVariable::with_id_and_type(p.id.id, t))
             .zip(arguments)
             .collect(),
     );
 
-    let (statements, returns): (Vec<_>, Vec<_>) = f.statements.into_iter().partition(|s| match s {
-        TypedStatement::Return(..) => false,
-        _ => true,
-    });
+    let (statements, returns): (Vec<_>, Vec<_>) =
+        ssa_f.statements.into_iter().partition(|s| match s {
+            TypedStatement::Return(..) => false,
+            _ => true,
+        });
 
     assert_eq!(returns.len(), 1);
 
@@ -109,17 +146,30 @@ pub fn inline_call<'ast, T: Field>(
         _ => unreachable!(),
     };
 
+    let res: Vec<ConcreteVariable<'ast>> = inferred_signature
+        .outputs
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            ConcreteVariable::with_id_and_type(Identifier::from(CoreIdentifier::Call(i)), t.clone())
+        })
+        .collect();
+
+    let expressions: Vec<TypedExpression<_>> = res
+        .iter()
+        .map(|v| TypedExpression::from(Variable::from(v.clone())))
+        .collect();
+
     assert_eq!(res.len(), returns.len());
 
-    let res = res
-        .into_iter()
-        .zip(inferred_signature.outputs)
-        .map(|(v, t)| ConcreteVariable::with_id_and_type(v.id, t));
+    let call_pop = TypedStatement::PopCallLog(res.into_iter().zip(returns).collect());
 
-    let call_pop = TypedStatement::PopCallLog(res.zip(returns).collect());
-
-    Ok(std::iter::once(call_log)
+    let statements: Vec<_> = std::iter::once(call_log)
         .chain(statements)
         .chain(std::iter::once(call_pop))
-        .collect())
+        .collect();
+
+    Ok(incomplete_data
+        .map(|d| Output::Incomplete((statements.clone(), expressions.clone()), d))
+        .unwrap_or_else(|| Output::Complete((statements, expressions))))
 }

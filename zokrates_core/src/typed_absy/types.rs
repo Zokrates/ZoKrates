@@ -1,14 +1,15 @@
+use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use typed_absy::{TryFrom, TryInto};
 use typed_absy::{UExpression, UExpressionInner};
 
-pub type Identifier<'ast> = &'ast str;
+pub type GenericIdentifier<'ast> = &'ast str;
 
 #[derive(Debug, Clone)]
 pub enum Constant<'ast> {
-    Generic(Identifier<'ast>),
+    Generic(GenericIdentifier<'ast>),
     Concrete(u32),
 }
 
@@ -54,8 +55,8 @@ impl<'ast> From<usize> for Constant<'ast> {
     }
 }
 
-impl<'ast> From<Identifier<'ast>> for Constant<'ast> {
-    fn from(e: Identifier<'ast>) -> Self {
+impl<'ast> From<GenericIdentifier<'ast>> for Constant<'ast> {
+    fn from(e: GenericIdentifier<'ast>) -> Self {
         Constant::Generic(e)
     }
 }
@@ -683,6 +684,23 @@ pub type DeclarationFunctionKey<'ast> = GFunctionKey<'ast, Constant<'ast>>;
 pub type ConcreteFunctionKey<'ast> = GFunctionKey<'ast, usize>;
 pub type FunctionKey<'ast, T> = GFunctionKey<'ast, UExpression<'ast, T>>;
 
+#[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]
+pub struct GenericsAssignment<'ast>(pub BTreeMap<GenericIdentifier<'ast>, u32>);
+
+impl<'ast> fmt::Display for GenericsAssignment<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|(k, v)| format!("{}: {}", k, v))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
 impl<'ast> PartialEq<DeclarationFunctionKey<'ast>> for ConcreteFunctionKey<'ast> {
     fn eq(&self, other: &DeclarationFunctionKey<'ast>) -> bool {
         self.id == other.id && self.signature == other.signature
@@ -731,7 +749,7 @@ impl<'ast, T> From<DeclarationFunctionKey<'ast>> for FunctionKey<'ast, T> {
 }
 
 impl<'ast, S> GFunctionKey<'ast, S> {
-    pub fn with_id<U: Into<Identifier<'ast>>>(id: U) -> Self {
+    pub fn with_id<U: Into<FunctionIdentifier<'ast>>>(id: U) -> Self {
         GFunctionKey {
             id: id.into(),
             signature: GSignature::new(),
@@ -743,7 +761,7 @@ impl<'ast, S> GFunctionKey<'ast, S> {
         self
     }
 
-    pub fn id<U: Into<Identifier<'ast>>>(mut self, id: U) -> Self {
+    pub fn id<U: Into<FunctionIdentifier<'ast>>>(mut self, id: U) -> Self {
         self.id = id.into();
         self
     }
@@ -774,12 +792,12 @@ pub mod signature {
     pub type ConcreteSignature = GSignature<usize>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
-    use std::collections::hash_map::{Entry, HashMap};
+    use std::collections::btree_map::Entry;
 
     fn check_type<'ast>(
         decl_ty: &DeclarationType<'ast>,
         ty: &ConcreteType,
-        constants: &mut HashMap<Identifier<'ast>, u32>,
+        constants: &mut GenericsAssignment<'ast>,
     ) -> bool {
         match (decl_ty, ty) {
             (DeclarationType::Array(t0), ConcreteType::Array(t1)) => {
@@ -790,7 +808,7 @@ pub mod signature {
                     && match t0.size {
                         // if the declared size is an identifier, we insert into the map, or check if the concrete size
                         // matches if this identifier is already in the map
-                        Constant::Generic(id) => match constants.entry(id) {
+                        Constant::Generic(id) => match constants.0.entry(id) {
                             Entry::Occupied(e) => *e.get() == s1,
                             Entry::Vacant(e) => {
                                 e.insert(s1);
@@ -811,7 +829,7 @@ pub mod signature {
     impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
         fn eq(&self, other: &DeclarationSignature<'ast>) -> bool {
             // we keep track of the value of constants in a map, as a given constant can only have one value
-            let mut constants = HashMap::new();
+            let mut constants = GenericsAssignment::default();
 
             other
                 .inputs
@@ -826,9 +844,9 @@ pub mod signature {
         pub fn specialize(
             &self,
             concrete_signature: &ConcreteSignature,
-        ) -> Result<Vec<(Identifier<'ast>, u32)>, ()> {
+        ) -> Result<GenericsAssignment<'ast>, ()> {
             // we keep track of the value of constants in a map, as a given constant can only have one value
-            let mut constants = HashMap::new();
+            let mut constants = GenericsAssignment::default();
 
             let condition = self
                 .inputs
@@ -843,7 +861,7 @@ pub mod signature {
                 .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants));
 
             match condition {
-                true => Ok(constants.into_iter().collect()),
+                true => Ok(constants),
                 false => Err(()),
             }
         }

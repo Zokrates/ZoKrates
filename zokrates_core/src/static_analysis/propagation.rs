@@ -27,7 +27,7 @@ pub struct Propagator<'ast, T: Field> {
 }
 
 impl<'ast, T: Field> Propagator<'ast, T> {
-    fn verbose() -> Self {
+    pub fn verbose() -> Self {
         Propagator {
             constants: HashMap::new(),
             verbose: true,
@@ -43,39 +43,6 @@ impl<'ast, T: Field> Propagator<'ast, T> {
 
     pub fn propagate(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         Propagator::new().fold_program(p)
-    }
-
-    pub fn propagate_main(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        let mut propagator = Propagator::verbose();
-
-        let main_module_id = p.main;
-
-        // get the main module
-        let main_module = p.modules.get(&main_module_id).unwrap().clone();
-
-        // get the main function in the main module
-        let functions = main_module
-            .functions
-            .into_iter()
-            .map(|(k, f)| {
-                if k.id == "main" {
-                    // unroll the main function
-                    let main = propagator.fold_function_symbol(f);
-                    (k, main)
-                } else {
-                    (k, f)
-                }
-            })
-            .collect();
-
-        let mut modules = p.modules;
-
-        modules.insert("main".into(), TypedModule { functions });
-
-        TypedProgram {
-            main: "main".into(),
-            modules,
-        }
     }
 }
 

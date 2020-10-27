@@ -591,7 +591,7 @@ pub fn fold_expression_list<'ast, T: Field, F: Folder<'ast, T>>(
                     .into_iter()
                     .map(|a| f.fold_expression(a))
                     .collect(),
-                types,
+                types.into_iter().map(|t| f.fold_type(t)).collect(),
             )
         }
     }
