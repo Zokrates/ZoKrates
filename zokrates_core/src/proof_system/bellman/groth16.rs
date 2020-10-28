@@ -27,11 +27,19 @@ pub struct ProofPoints {
 }
 
 impl ProofPoints {
-    fn into_bellman<T: Field>(self) -> BellmanProof<T::BellmanEngine> {
+    pub fn into_bellman<T: Field>(self) -> BellmanProof<T::BellmanEngine> {
         BellmanProof {
             a: serialization::to_g1::<T>(self.a),
             b: serialization::to_g2::<T>(self.b),
             c: serialization::to_g1::<T>(self.c),
+        }
+    }
+
+    pub fn from_bellman<T: Field>(proof: &BellmanProof<T::BellmanEngine>) -> Self {
+        ProofPoints {
+            a: parse_g1::<T>(&proof.a),
+            b: parse_g2::<T>(&proof.b),
+            c: parse_g1::<T>(&proof.c),
         }
     }
 }
@@ -106,12 +114,7 @@ impl<T: Field> ProofSystem<T> for G16 {
         let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
         let proof = computation.clone().prove(&params);
-
-        let proof_points = ProofPoints {
-            a: parse_g1::<T>(&proof.a),
-            b: parse_g2::<T>(&proof.b),
-            c: parse_g1::<T>(&proof.c),
-        };
+        let proof_points = ProofPoints::from_bellman::<T>(&proof);
 
         let inputs = computation
             .public_inputs_values()
