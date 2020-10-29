@@ -119,10 +119,6 @@ ConstraintSystem<ppT> create_constraint_system(const uint8_t* a,
     cs.primary_input_size = inputs;
     cs.auxiliary_input_size = variables - inputs - 1; // ~one not included
 
-    // std::cout << "num variables: " << variables << std::endl;
-    // std::cout << "num constraints: " << constraints << std::endl;
-    // std::cout << "num inputs: " << inputs << std::endl;
-
     struct vvmap_t {
         int constraint_id;
         int variable_id;

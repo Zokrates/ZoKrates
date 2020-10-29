@@ -12,8 +12,8 @@ use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
 use ir::{Prog, Witness};
 use proof_system::bellman::Bellman;
-use proof_system::scheme::groth16::{ProofPoints, VerificationKey, G16};
-use proof_system::scheme::Scheme;
+use proof_system::groth16::{ProofPoints, VerificationKey, G16};
+use proof_system::Scheme;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
@@ -58,13 +58,13 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
             c: parse_g1::<T>(&proof.c),
         };
 
-        let inputs = computation
+        let public_inputs: Vec<String> = computation
             .public_inputs_values()
             .iter()
             .map(parse_fr::<T>)
-            .collect::<Vec<_>>();
+            .collect();
 
-        Proof::new(proof_points, inputs)
+        Proof::new(proof_points, public_inputs)
     }
 
     fn verify(

@@ -243,24 +243,6 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
-                // EXPORT-VERIFIER
-                if backend != "zexe" {
-                    assert_cli::Assert::command(&[
-                        "../target/release/zokrates",
-                        "export-verifier",
-                        "-i",
-                        verification_key_path.to_str().unwrap(),
-                        "-o",
-                        verification_contract_path.to_str().unwrap(),
-                        "--backend",
-                        backend,
-                        "--proving-scheme",
-                        scheme,
-                    ])
-                    .succeeds()
-                    .unwrap();
-                }
-
                 // GENERATE-PROOF
                 assert_cli::Assert::command(&[
                     "../target/release/zokrates",

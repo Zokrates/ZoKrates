@@ -1,10 +1,10 @@
 use ir::{Prog, Witness};
+use proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::libsnark::{
     prepare_generate_proof, prepare_public_inputs, prepare_setup, serialization::*, Libsnark,
 };
-use proof_system::scheme::gm17::{ProofPoints, VerificationKey, GM17};
-use proof_system::scheme::Scheme;
+use proof_system::Scheme;
 use proof_system::{Backend, G1Affine, G2Affine, Proof, SetupKeypair};
 use std::io::{BufReader, BufWriter, Write};
 use zokrates_field::{Bn128Field, Field};
@@ -134,15 +134,9 @@ impl Backend<Bn128Field, GM17> for Libsnark {
 
         let points = ProofPoints::<G1Affine, G2Affine> { a, b, c };
         let public_inputs: Vec<String> = program
-            .main
-            .arguments
-            .clone()
+            .public_inputs(&witness)
             .iter()
-            .zip(program.private.clone())
-            .filter(|(_, p)| !*p)
-            .map(|(v, _)| witness.clone().0.get(v).unwrap().clone())
-            .chain(witness.clone().return_values())
-            .map(|v| format!("0x{:064x}", v.to_biguint()))
+            .map(|f| format!("0x{:064x}", f.to_biguint()))
             .collect();
 
         Proof::new(points, public_inputs)

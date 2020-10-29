@@ -1,8 +1,8 @@
-use proof_system::scheme::{Scheme, SolidityCompatibleScheme};
+use proof_system::scheme::Scheme;
 use proof_system::solidity::{
     SolidityAbi, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::{G1Affine, G2Affine};
+use proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use zokrates_field::Field;
 
@@ -37,7 +37,7 @@ impl<T: Field> Scheme<T> for PGHR13 {
     type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 }
 
-impl<T: Field> SolidityCompatibleScheme<T> for PGHR13 {
+impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
     fn export_solidity_verifier(
         vk: <PGHR13 as Scheme<T>>::VerificationKey,
         abi: SolidityAbi,

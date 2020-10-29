@@ -1,7 +1,5 @@
 pub mod groth16;
 
-// extern crate rand;
-
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
 use bellman::groth16::Proof;
 use bellman::groth16::{
@@ -181,15 +179,8 @@ impl<T: BellmanFieldExtensions + Field> Computation<T> {
 
     pub fn public_inputs_values(&self) -> Vec<<T::BellmanEngine as ScalarEngine>::Fr> {
         self.program
-            .main
-            .arguments
-            .clone()
+            .public_inputs(self.witness.as_ref().unwrap())
             .iter()
-            .zip(self.program.private.clone())
-            .filter(|(_, p)| !p)
-            .map(|(a, _)| a)
-            .map(|v| self.witness.clone().unwrap().0.get(v).unwrap().clone())
-            .chain(self.witness.clone().unwrap().return_values())
             .map(|v| v.clone().into_bellman())
             .collect()
     }

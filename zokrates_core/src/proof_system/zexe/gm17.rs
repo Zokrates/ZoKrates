@@ -9,9 +9,9 @@ use zokrates_field::{Bw6_761Field, Field, ZexeFieldExtensions};
 use crate::proof_system::zexe::Computation;
 use crate::proof_system::zexe::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
 use ir::{Prog, Witness};
-use proof_system::scheme::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
-use proof_system::scheme::Scheme;
+use proof_system::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
 use proof_system::zexe::Zexe;
+use proof_system::Scheme;
 use proof_system::{Backend, Proof, SetupKeypair};
 
 impl<T: Field + ZexeFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Zexe {

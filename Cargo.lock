@@ -1916,6 +1916,7 @@ dependencies = [
  "bellman_ce",
  "bincode",
  "cc",
+ "cfg-if",
  "cmake",
  "csv",
  "ff_ce 0.9.0",

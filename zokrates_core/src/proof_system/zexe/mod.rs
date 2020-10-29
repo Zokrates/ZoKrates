@@ -186,15 +186,8 @@ impl<T: Field + ZexeFieldExtensions> Computation<T> {
 
     pub fn public_inputs_values(&self) -> Vec<<T::ZexeEngine as PairingEngine>::Fr> {
         self.program
-            .main
-            .arguments
-            .clone()
+            .public_inputs(self.witness.as_ref().unwrap())
             .iter()
-            .zip(self.program.private.clone())
-            .filter(|(_, p)| !p)
-            .map(|(a, _)| a)
-            .map(|v| self.witness.clone().unwrap().0.get(v).unwrap().clone())
-            .chain(self.witness.clone().unwrap().return_values())
             .map(|v| v.clone().into_zexe())
             .collect()
     }

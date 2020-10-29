@@ -10,7 +10,7 @@ use zokrates_core::proof_system::Backend;
 use zokrates_field::Bn128Field;
 
 use zokrates_core::proof_system::bellman::Bellman;
-use zokrates_core::proof_system::scheme::groth16::G16;
+use zokrates_core::proof_system::groth16::G16;
 
 #[wasm_bindgen_test]
 fn generate_proof() {

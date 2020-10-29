@@ -4,11 +4,13 @@ pub mod libsnark;
 #[cfg(feature = "zexe")]
 pub mod zexe;
 
-pub mod scheme;
-pub mod solidity;
+mod scheme;
+mod solidity;
+
+pub use self::scheme::*;
+pub use self::solidity::*;
 
 use crate::ir;
-use proof_system::scheme::Scheme;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use zokrates_field::Field;
@@ -27,8 +29,8 @@ impl<V: Serialize + DeserializeOwned> SetupKeypair<V> {
 
 #[derive(Serialize, Deserialize)]
 pub struct Proof<T> {
-    proof: T,
-    inputs: Vec<String>,
+    pub proof: T,
+    pub inputs: Vec<String>,
 }
 
 impl<T: Serialize + DeserializeOwned> Proof<T> {

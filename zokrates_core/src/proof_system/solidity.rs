@@ -1,3 +1,13 @@
+use proof_system::Scheme;
+use zokrates_field::{Bn128Field, Field};
+
+pub trait SolidityCompatibleField: Field {}
+impl SolidityCompatibleField for Bn128Field {}
+
+pub trait SolidityCompatibleScheme<T: SolidityCompatibleField>: Scheme<T> {
+    fn export_solidity_verifier(vk: Self::VerificationKey, abi: SolidityAbi) -> String;
+}
+
 pub enum SolidityAbi {
     V1,
     V2,

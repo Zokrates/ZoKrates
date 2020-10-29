@@ -14,6 +14,7 @@ multicore = ["bellman_ce/multicore"]
 zexe = ["gm17", "algebra-core", "r1cs-core", "algebra"]
 
 [dependencies]
+cfg-if = "0.1"
 num = { version = "0.1.36", default-features = false }
 num-bigint = { version = "0.2", default-features = false }
 lazy_static = "1.4"
@@ -35,7 +36,6 @@ zokrates_common = { path = "../zokrates_common" }
 rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
-pretty_assertions = "0.6.1"
 bellman_ce = { version = "^0.3", default-features = false }
 gm17 = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, optional = true }
 algebra-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, optional = true }
@@ -46,6 +46,7 @@ algebra = { git =  "https://github.com/scipr-lab/zexe.git", features = ["bn254",
 glob = "0.2.11"
 assert_cli = "0.5"
 wasm-bindgen-test = "^0.3.0"
+pretty_assertions = "0.6.1"
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }

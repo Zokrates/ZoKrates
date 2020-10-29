@@ -9,10 +9,8 @@ use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, Comp
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::bellman::Bellman;
-use zokrates_core::proof_system::scheme::groth16::G16;
-use zokrates_core::proof_system::scheme::{Scheme, SolidityCompatibleScheme};
-use zokrates_core::proof_system::solidity::SolidityAbi;
-use zokrates_core::proof_system::{Backend, Proof};
+use zokrates_core::proof_system::groth16::G16;
+use zokrates_core::proof_system::{Backend, Proof, Scheme, SolidityAbi, SolidityCompatibleScheme};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::Signature;
 use zokrates_field::Bn128Field;

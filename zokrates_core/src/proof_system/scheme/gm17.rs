@@ -1,8 +1,10 @@
-use proof_system::scheme::{Scheme, SolidityCompatibleScheme};
+use proof_system::scheme::Scheme;
 use proof_system::solidity::{
     SolidityAbi, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::{G1Affine, G2Affine, G2AffineFq};
+use proof_system::{
+    G1Affine, G2Affine, G2AffineFq, SolidityCompatibleField, SolidityCompatibleScheme,
+};
 use regex::Regex;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
@@ -40,7 +42,7 @@ impl Scheme<Bw6_761Field> for GM17 {
     type ProofPoints = ProofPoints<G1Affine, G2AffineFq>;
 }
 
-impl<T: Field + NotBw6_761Field> SolidityCompatibleScheme<T> for GM17 {
+impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for GM17 {
     fn export_solidity_verifier(
         vk: <GM17 as Scheme<T>>::VerificationKey,
         abi: SolidityAbi,

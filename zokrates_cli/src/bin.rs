@@ -21,21 +21,18 @@ use std::string::String;
 use zokrates_abi::Encode;
 use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
-use zokrates_core::proof_system::bellman::Bellman;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::Libsnark;
-use zokrates_core::proof_system::scheme::gm17::GM17;
-use zokrates_core::proof_system::scheme::groth16::G16;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::scheme::pghr13::PGHR13;
-use zokrates_core::proof_system::scheme::{Scheme, SolidityCompatibleScheme};
-use zokrates_core::proof_system::solidity::SolidityAbi;
-use zokrates_core::proof_system::zexe::Zexe;
-use zokrates_core::proof_system::*;
+use zokrates_core::proof_system::{
+    bellman::Bellman, gm17::GM17, groth16::G16, zexe::Zexe, SolidityCompatibleField,
+};
+use zokrates_core::proof_system::{Backend, Scheme, SolidityAbi, SolidityCompatibleScheme};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
+#[cfg(feature = "libsnark")]
+use {
+    zokrates_core::proof_system::libsnark::Libsnark, zokrates_core::proof_system::pghr13::PGHR13,
+};
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -85,7 +82,7 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     Ok(())
 }
 
-fn cli_export_verifier<T: Field, S: SolidityCompatibleScheme<T>>(
+fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T>>(
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Exporting verifier...");
@@ -800,21 +797,21 @@ fn cli() -> Result<(), String> {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
-            let curve = CurveDimension::try_from(sub_matches.value_of("curve").unwrap())?;
+            let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
             match curve {
-                CurveDimension::Bn128 => cli_compile::<Bn128Field>(sub_matches)?,
-                CurveDimension::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches)?,
-                CurveDimension::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches)?,
-                CurveDimension::Bw6_761 => cli_compile::<Bw6_761Field>(sub_matches)?,
+                CurveParameter::Bn128 => cli_compile::<Bn128Field>(sub_matches)?,
+                CurveParameter::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches)?,
+                CurveParameter::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches)?,
+                CurveParameter::Bw6_761 => cli_compile::<Bw6_761Field>(sub_matches)?,
             }
         }
         ("check", Some(sub_matches)) => {
-            let curve = CurveDimension::try_from(sub_matches.value_of("curve").unwrap())?;
+            let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
             match curve {
-                CurveDimension::Bn128 => cli_check::<Bn128Field>(sub_matches)?,
-                CurveDimension::Bls12_377 => cli_check::<Bls12_377Field>(sub_matches)?,
-                CurveDimension::Bls12_381 => cli_check::<Bls12_381Field>(sub_matches)?,
-                CurveDimension::Bw6_761 => cli_check::<Bw6_761Field>(sub_matches)?,
+                CurveParameter::Bn128 => cli_check::<Bn128Field>(sub_matches)?,
+                CurveParameter::Bls12_377 => cli_check::<Bls12_377Field>(sub_matches)?,
+                CurveParameter::Bls12_381 => cli_check::<Bls12_381Field>(sub_matches)?,
+                CurveParameter::Bw6_761 => cli_check::<Bw6_761Field>(sub_matches)?,
             }
         }
         ("compute-witness", Some(sub_matches)) => {
@@ -841,7 +838,7 @@ fn cli() -> Result<(), String> {
             let mut reader = BufReader::new(file);
             let prog = ProgEnum::deserialize(&mut reader)?;
 
-            let dimensions = Dimensions::try_from((
+            let parameters = Parameters::try_from((
                 sub_matches.value_of("backend").unwrap(),
                 match prog {
                     ProgEnum::Bn128Program(_) => constants::BN128,
@@ -852,32 +849,32 @@ fn cli() -> Result<(), String> {
                 sub_matches.value_of("proving-scheme").unwrap(),
             ))?;
 
-            match dimensions {
-                Dimensions(BackendDimension::Bellman, _, SchemeDimension::G16) => match prog {
+            match parameters {
+                Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
                     ProgEnum::Bls12_381Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
                     _ => unreachable!(),
                 },
-                Dimensions(BackendDimension::Zexe, _, SchemeDimension::GM17) => match prog {
+                Parameters(BackendParameter::Zexe, _, SchemeParameter::GM17) => match prog {
                     ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
                     ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
                     ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
-                Dimensions(
-                    BackendDimension::Libsnark,
-                    CurveDimension::Bn128,
-                    SchemeDimension::GM17,
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::GM17,
                 ) => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Libsnark>(p, sub_matches),
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
-                Dimensions(
-                    BackendDimension::Libsnark,
-                    CurveDimension::Bn128,
-                    SchemeDimension::PGHR13,
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::PGHR13,
                 ) => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13, Libsnark>(p, sub_matches),
                     _ => unreachable!(),
@@ -888,21 +885,21 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => {
             let curve = sub_matches.value_of("curve").unwrap();
             let scheme = sub_matches.value_of("proving-scheme").unwrap();
-            let curve_dimension = CurveDimension::try_from(curve)?;
-            let scheme_dimension = SchemeDimension::try_from(scheme)?;
+            let curve_parameter = CurveParameter::try_from(curve)?;
+            let scheme_parameter = SchemeParameter::try_from(scheme)?;
 
-            match (curve_dimension, scheme_dimension) {
-                (CurveDimension::Bn128, SchemeDimension::G16) => {
+            match (curve_parameter, scheme_parameter) {
+                (CurveParameter::Bn128, SchemeParameter::G16) => {
                     cli_export_verifier::<Bn128Field, G16>(sub_matches)
                 }
-                (CurveDimension::Bn128, SchemeDimension::GM17) => {
+                (CurveParameter::Bn128, SchemeParameter::GM17) => {
                     cli_export_verifier::<Bn128Field, GM17>(sub_matches)
                 }
                 #[cfg(feature = "libsnark")]
-                (CurveDimension::Bn128, SchemeDimension::PGHR13) => {
+                (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
                     cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
                 }
-                _ => Err(format!("Could not export verifier for given dimensions (curve: {}, scheme: {}): not supported", curve, scheme))
+                _ => Err(format!("Could not export verifier with given parameters (curve: {}, scheme: {}): not supported", curve, scheme))
             }?
         }
         ("generate-proof", Some(sub_matches)) => {
@@ -913,7 +910,7 @@ fn cli() -> Result<(), String> {
             let mut reader = BufReader::new(program_file);
             let prog = ProgEnum::deserialize(&mut reader)?;
 
-            let dimensions = Dimensions::try_from((
+            let parameters = Parameters::try_from((
                 sub_matches.value_of("backend").unwrap(),
                 match prog {
                     ProgEnum::Bn128Program(_) => constants::BN128,
@@ -924,8 +921,8 @@ fn cli() -> Result<(), String> {
                 sub_matches.value_of("proving-scheme").unwrap(),
             ))?;
 
-            match dimensions {
-                Dimensions(BackendDimension::Bellman, _, SchemeDimension::G16) => match prog {
+            match parameters {
+                Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
                     ProgEnum::Bn128Program(p) => {
                         cli_generate_proof::<_, G16, Bellman>(p, sub_matches)
                     }
@@ -934,7 +931,7 @@ fn cli() -> Result<(), String> {
                     }
                     _ => unreachable!(),
                 },
-                Dimensions(BackendDimension::Zexe, _, SchemeDimension::GM17) => match prog {
+                Parameters(BackendParameter::Zexe, _, SchemeParameter::GM17) => match prog {
                     ProgEnum::Bls12_377Program(p) => {
                         cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
                     }
@@ -947,10 +944,10 @@ fn cli() -> Result<(), String> {
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
-                Dimensions(
-                    BackendDimension::Libsnark,
-                    CurveDimension::Bn128,
-                    SchemeDimension::GM17,
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::GM17,
                 ) => match prog {
                     ProgEnum::Bn128Program(p) => {
                         cli_generate_proof::<_, GM17, Libsnark>(p, sub_matches)
@@ -958,10 +955,10 @@ fn cli() -> Result<(), String> {
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
-                Dimensions(
-                    BackendDimension::Libsnark,
-                    CurveDimension::Bn128,
-                    SchemeDimension::PGHR13,
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::PGHR13,
                 ) => match prog {
                     ProgEnum::Bn128Program(p) => {
                         cli_generate_proof::<_, PGHR13, Libsnark>(p, sub_matches)
@@ -1008,49 +1005,49 @@ fn cli() -> Result<(), String> {
             }
         }
         ("verify", Some(sub_matches)) => {
-            let dimensions = Dimensions::try_from((
+            let parameters = Parameters::try_from((
                 sub_matches.value_of("backend").unwrap(),
                 sub_matches.value_of("curve").unwrap(),
                 sub_matches.value_of("proving-scheme").unwrap(),
             ))?;
 
-            match dimensions {
-                Dimensions(
-                    BackendDimension::Bellman,
-                    CurveDimension::Bn128,
-                    SchemeDimension::G16,
+            match parameters {
+                Parameters(
+                    BackendParameter::Bellman,
+                    CurveParameter::Bn128,
+                    SchemeParameter::G16,
                 ) => cli_verify::<Bn128Field, G16, Bellman>(sub_matches),
-                Dimensions(
-                    BackendDimension::Bellman,
-                    CurveDimension::Bls12_381,
-                    SchemeDimension::G16,
+                Parameters(
+                    BackendParameter::Bellman,
+                    CurveParameter::Bls12_381,
+                    SchemeParameter::G16,
                 ) => cli_verify::<Bls12_381Field, G16, Bellman>(sub_matches),
-                Dimensions(
-                    BackendDimension::Zexe,
-                    CurveDimension::Bls12_377,
-                    SchemeDimension::GM17,
+                Parameters(
+                    BackendParameter::Zexe,
+                    CurveParameter::Bls12_377,
+                    SchemeParameter::GM17,
                 ) => cli_verify::<Bls12_377Field, GM17, Zexe>(sub_matches),
-                Dimensions(
-                    BackendDimension::Zexe,
-                    CurveDimension::Bw6_761,
-                    SchemeDimension::GM17,
+                Parameters(
+                    BackendParameter::Zexe,
+                    CurveParameter::Bw6_761,
+                    SchemeParameter::GM17,
                 ) => cli_verify::<Bw6_761Field, GM17, Zexe>(sub_matches),
-                Dimensions(
-                    BackendDimension::Zexe,
-                    CurveDimension::Bn128,
-                    SchemeDimension::GM17,
+                Parameters(
+                    BackendParameter::Zexe,
+                    CurveParameter::Bn128,
+                    SchemeParameter::GM17,
                 ) => cli_verify::<Bn128Field, GM17, Zexe>(sub_matches),
                 #[cfg(feature = "libsnark")]
-                Dimensions(
-                    BackendDimension::Libsnark,
-                    CurveDimension::Bn128,
-                    SchemeDimension::GM17,
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::GM17,
                 ) => cli_verify::<Bn128Field, GM17, Libsnark>(sub_matches),
                 #[cfg(feature = "libsnark")]
-                Dimensions(
-                    BackendDimension::Libsnark,
-                    CurveDimension::Bn128,
-                    SchemeDimension::PGHR13,
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::PGHR13,
                 ) => cli_verify::<Bn128Field, PGHR13, Libsnark>(sub_matches),
                 _ => unreachable!(),
             }?

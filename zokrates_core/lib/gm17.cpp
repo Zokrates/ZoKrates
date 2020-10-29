@@ -50,6 +50,7 @@ buffer_t serialize_verification_key(r1cs_se_ppzksnark_verification_key<ppT>* vk)
     for (size_t i = 0; i < QUERY_COUNT; ++i)
         serialize_g1_affine<Q, G1>(vk->query[i], ptr);
 
+    assert(ptr == buffer.data + buffer.length);
     return buffer;
 }
 
@@ -74,6 +75,7 @@ buffer_t serialize_proof(r1cs_se_ppzksnark_proof<ppT>* proof)
     serialize_g2_affine<Q, G2>(proof->B, ptr);
     serialize_g1_affine<Q, G1>(proof->C, ptr);
 
+    assert(ptr == buffer.data + buffer.length);
     return buffer;
 }
 

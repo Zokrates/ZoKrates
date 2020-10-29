@@ -20,7 +20,7 @@ extern "C" {
 }
 
 impl Buffer {
-    pub unsafe fn from_vec(v: &Vec<u8>) -> Buffer {
+    pub fn from_vec(v: &Vec<u8>) -> Buffer {
         let mut buf = vec![0; v.len()].into_boxed_slice();
         buf.copy_from_slice(v.as_slice());
 

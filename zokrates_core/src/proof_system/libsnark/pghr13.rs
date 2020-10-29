@@ -6,8 +6,8 @@ use proof_system::{Backend, G1Affine, G2Affine, Proof, SetupKeypair};
 
 use ir::{Prog, Witness};
 use proof_system::libsnark::serialization::{read_g1, read_g2, write_g1, write_g2};
-use proof_system::scheme::pghr13::{ProofPoints, VerificationKey, PGHR13};
-use proof_system::scheme::Scheme;
+use proof_system::pghr13::{ProofPoints, VerificationKey, PGHR13};
+use proof_system::Scheme;
 use std::io::{BufReader, BufWriter, Write};
 use zokrates_field::Bn128Field;
 use zokrates_field::Field;
@@ -156,15 +156,9 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
         };
 
         let public_inputs: Vec<String> = program
-            .main
-            .arguments
-            .clone()
+            .public_inputs(&witness)
             .iter()
-            .zip(program.private.clone())
-            .filter(|(_, p)| !*p)
-            .map(|(v, _)| witness.clone().0.get(v).unwrap().clone())
-            .chain(witness.clone().return_values())
-            .map(|v| format!("0x{:064x}", v.to_biguint()))
+            .map(|f| format!("0x{:064x}", f.to_biguint()))
             .collect();
 
         Proof::new(points, public_inputs)
