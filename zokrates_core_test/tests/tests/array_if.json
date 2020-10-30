@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/array_if.zok",
-	"curves": ["Bn128", "Bls12"],
+	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
 	"tests": [
 		{
 			"input": {

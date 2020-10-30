@@ -1,7 +1,10 @@
 declare module 'zokrates-js' {
 
-  export type G1Affine = [string, string];
-  export type G2Affine = [G1Affine, G1Affine];
+  export type Fq = string;
+  export type Fq2 = [Fq, Fq];
+
+  export type G1Affine = [Fq, Fq];
+  export type G2Affine = [Fq2, Fq2];
   export type ProvingKey = Uint8Array;
 
   export type SolidityAbi = "v1" | "v2";
@@ -17,8 +20,7 @@ declare module 'zokrates-js' {
     beta: G2Affine,
     gamma: G2Affine,
     delta: G2Affine,
-    gamma_abc: G1Affine[],
-    raw: string,
+    gamma_abc: G1Affine[]
   }
 
   export interface ProofPoints {
@@ -29,8 +31,7 @@ declare module 'zokrates-js' {
 
   export interface Proof {
     proof: ProofPoints,
-    inputs: string[],
-    raw: string
+    inputs: string[]
   }
 
   export interface ResolverResult {
@@ -57,8 +58,9 @@ declare module 'zokrates-js' {
     compile(source: string, options?: CompileOptions): CompilationArtifacts;
     setup(program: Uint8Array): SetupKeypair;
     computeWitness(artifacts: CompilationArtifacts, args: any[]): ComputationResult;
-    exportSolidityVerifier(verifyingKey: VerificationKey, abi: SolidityAbi): string;
+    exportSolidityVerifier(verificationKey: VerificationKey, abi: SolidityAbi): string;
     generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): Proof;
+    verify(verificationKey: VerificationKey, proof: Proof): boolean;
   }
 
   export interface Metadata {

@@ -218,7 +218,10 @@ mod integration {
         };
 
         #[cfg(not(feature = "libsnark"))]
-        let backends = map! {"bellman" => ["g16"]};
+        let backends = map! {
+            "bellman" => ["g16"],
+            "zexe" => ["gm17"]
+        };
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
@@ -276,37 +279,39 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
-                for abi_version in &["v1", "v2"] {
-                    // EXPORT-VERIFIER
-                    assert_cli::Assert::command(&[
-                        "../target/release/zokrates",
-                        "export-verifier",
-                        "-i",
-                        verification_key_path.to_str().unwrap(),
-                        "-o",
-                        verification_contract_path.to_str().unwrap(),
-                        "--backend",
-                        backend,
-                        "--proving-scheme",
-                        scheme,
-                        "-a",
-                        abi_version,
-                    ])
-                    .succeeds()
-                    .unwrap();
+                if backend != "zexe" {
+                    for abi_version in &["v1", "v2"] {
+                        // EXPORT-VERIFIER
+                        assert_cli::Assert::command(&[
+                            "../target/release/zokrates",
+                            "export-verifier",
+                            "-i",
+                            verification_key_path.to_str().unwrap(),
+                            "-o",
+                            verification_contract_path.to_str().unwrap(),
+                            "--backend",
+                            backend,
+                            "--proving-scheme",
+                            scheme,
+                            "-a",
+                            abi_version,
+                        ])
+                        .succeeds()
+                        .unwrap();
 
-                    // TEST VERIFIER
-                    assert_cli::Assert::command(&[
-                        "node",
-                        "test.js",
-                        verification_contract_path.to_str().unwrap(),
-                        proof_path.to_str().unwrap(),
-                        scheme,
-                        abi_version,
-                    ])
-                    .current_dir(concat!(env!("OUT_DIR"), "/contract"))
-                    .succeeds()
-                    .unwrap();
+                        // TEST VERIFIER
+                        assert_cli::Assert::command(&[
+                            "node",
+                            "test.js",
+                            verification_contract_path.to_str().unwrap(),
+                            proof_path.to_str().unwrap(),
+                            scheme,
+                            abi_version,
+                        ])
+                        .current_dir(concat!(env!("OUT_DIR"), "/contract"))
+                        .succeeds()
+                        .unwrap();
+                    }
                 }
             }
         }

@@ -8,8 +8,10 @@ const ZOKRATES_VERSION_1: &[u8; 4] = &[0, 0, 0, 1];
 
 #[derive(PartialEq, Debug)]
 pub enum ProgEnum {
-    Bls12Program(Prog<Bls12Field>),
+    Bls12_381Program(Prog<Bls12_381Field>),
     Bn128Program(Prog<Bn128Field>),
+    Bls12_377Program(Prog<Bls12_377Field>),
+    Bw6_761Program(Prog<Bw6_761Field>),
 }
 
 impl<T: Field> Prog<T> {
@@ -42,10 +44,16 @@ impl ProgEnum {
                     .map_err(|_| String::from("Cannot read curve identifier"))?;
 
                 match curve {
-                    m if m == Bls12Field::id() => Ok(ProgEnum::Bls12Program(
+                    m if m == Bls12_381Field::id() => Ok(ProgEnum::Bls12_381Program(
                         deserialize_from(&mut r, Infinite).unwrap(),
                     )),
                     m if m == Bn128Field::id() => Ok(ProgEnum::Bn128Program(
+                        deserialize_from(&mut r, Infinite).unwrap(),
+                    )),
+                    m if m == Bls12_377Field::id() => Ok(ProgEnum::Bls12_377Program(
+                        deserialize_from(&mut r, Infinite).unwrap(),
+                    )),
+                    m if m == Bw6_761Field::id() => Ok(ProgEnum::Bw6_761Program(
                         deserialize_from(&mut r, Infinite).unwrap(),
                     )),
                     _ => Err(String::from("Unknown curve identifier")),
@@ -64,7 +72,7 @@ mod tests {
     use super::*;
     use ir;
     use std::io::{Cursor, Seek, SeekFrom};
-    use zokrates_field::{Bls12Field, Bn128Field};
+    use zokrates_field::{Bls12_381Field, Bn128Field};
 
     #[test]
     fn ser_deser_v1() {
@@ -89,7 +97,7 @@ mod tests {
 
         assert_eq!(ProgEnum::Bn128Program(p), deserialized_p);
 
-        let p: ir::Prog<Bls12Field> = ir::Prog {
+        let p: ir::Prog<Bls12_381Field> = ir::Prog {
             main: ir::Function {
                 arguments: vec![],
                 id: "something".to_string(),
@@ -108,6 +116,6 @@ mod tests {
         // deserialize
         let deserialized_p = ProgEnum::deserialize(buffer).unwrap();
 
-        assert_eq!(ProgEnum::Bls12Program(p), deserialized_p);
+        assert_eq!(ProgEnum::Bls12_381Program(p), deserialized_p);
     }
 }

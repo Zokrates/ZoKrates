@@ -1,5 +1,3 @@
-#pragma curve bn128
-
 import "EMBED/u32_to_bits" as to_bits
 from "../bool/pack256.zok" import main as pack256
 

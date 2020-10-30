@@ -61,6 +61,9 @@ module.exports = (dep) => {
         },
         generateProof: (program, witness, provingKey) => {
             return zokrates.generate_proof(program, witness, provingKey);
+        },
+        verify: (verificationKey, proof) => {
+            return zokrates.verify(verificationKey, proof);
         }
     }
 };

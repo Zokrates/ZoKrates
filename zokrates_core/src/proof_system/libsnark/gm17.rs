@@ -1,34 +1,13 @@
-use ir;
+use ir::{Prog, Witness};
+use proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
-use proof_system::libsnark::{prepare_generate_proof, prepare_public_inputs, prepare_setup};
-use proof_system::solidity::{
-    SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
+use proof_system::libsnark::{
+    prepare_generate_proof, prepare_public_inputs, prepare_setup, serialization::*, Libsnark,
 };
-use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair, SolidityAbi};
-use regex::Regex;
-
-use zokrates_field::Bn128Field;
-use zokrates_field::Field;
-
-pub struct GM17 {}
-
-#[derive(Serialize, Deserialize)]
-pub struct VerificationKey {
-    h: G2Affine,
-    g_alpha: G1Affine,
-    h_beta: G2Affine,
-    g_gamma: G1Affine,
-    h_gamma: G2Affine,
-    query: Vec<G1Affine>,
-    raw: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ProofPoints {
-    a: G1Affine,
-    b: G2Affine,
-    c: G1Affine,
-}
+use proof_system::Scheme;
+use proof_system::{Backend, G1Affine, G2Affine, Proof, SetupKeypair};
+use std::io::{BufReader, BufWriter, Write};
+use zokrates_field::{Bn128Field, Field};
 
 extern "C" {
     fn gm17_bn128_setup(
@@ -59,15 +38,14 @@ extern "C" {
     ) -> bool;
 }
 
-impl ProofSystem<Bn128Field> for GM17 {
-    type VerificationKey = VerificationKey;
-    type ProofPoints = ProofPoints;
-
-    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair<VerificationKey> {
+impl Backend<Bn128Field, GM17> for Libsnark {
+    fn setup(
+        program: Prog<Bn128Field>,
+    ) -> SetupKeypair<<GM17 as Scheme<Bn128Field>>::VerificationKey> {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
-        let keypair = unsafe {
+        let (vk, pk) = unsafe {
             let result: SetupResult = gm17_bn128_setup(
                 a_arr.as_ptr(),
                 b_arr.as_ptr(),
@@ -85,29 +63,50 @@ impl ProofSystem<Bn128Field> for GM17 {
             let pk: Vec<u8> =
                 std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
 
-            // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
-            // free the memory.
+            // free c allocated buffers
             result.vk.free();
             result.pk.free();
 
             (vk, pk)
         };
 
-        let vk = serde_json::from_str(String::from_utf8(keypair.0).unwrap().as_str()).unwrap();
-        SetupKeypair::new(vk, keypair.1)
+        let vk_slice = vk.as_slice();
+        let mut reader = BufReader::new(vk_slice);
+
+        let h = read_g2(&mut reader).unwrap();
+        let g_alpha = read_g1(&mut reader).unwrap();
+        let h_beta = read_g2(&mut reader).unwrap();
+        let g_gamma = read_g1(&mut reader).unwrap();
+        let h_gamma = read_g2(&mut reader).unwrap();
+
+        let mut query = vec![];
+        while let Ok(q) = read_g1(&mut reader) {
+            query.push(q);
+        }
+
+        let vk = VerificationKey::<G1Affine, G2Affine> {
+            h,
+            g_alpha,
+            h_beta,
+            g_gamma,
+            h_gamma,
+            query,
+        };
+
+        SetupKeypair::new(vk, pk)
     }
 
     fn generate_proof(
-        program: ir::Prog<Bn128Field>,
-        witness: ir::Witness<Bn128Field>,
+        program: Prog<Bn128Field>,
+        witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<ProofPoints> {
+    ) -> Proof<<GM17 as Scheme<Bn128Field>>::ProofPoints> {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
-            prepare_generate_proof(program, witness);
-
-        let mut pk_buffer = Buffer::from_vec(&proving_key);
+            prepare_generate_proof(program.clone(), witness.clone());
 
         let proof = unsafe {
+            let mut pk_buffer = Buffer::from_vec(&proving_key);
+
             let result = gm17_bn128_generate_proof(
                 &mut pk_buffer as *mut _,
                 public_inputs_arr[0].as_ptr(),
@@ -122,140 +121,64 @@ impl ProofSystem<Bn128Field> for GM17 {
                 std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
                     .to_vec();
 
-            // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
-            // free the memory.
+            // free c allocated buffer
             result.proof.free();
 
             proof
         };
 
-        serde_json::from_str(String::from_utf8(proof).unwrap().as_str()).unwrap()
+        let mut reader = BufReader::new(proof.as_slice());
+        let a = read_g1(&mut reader).unwrap();
+        let b = read_g2(&mut reader).unwrap();
+        let c = read_g1(&mut reader).unwrap();
+
+        let points = ProofPoints::<G1Affine, G2Affine> { a, b, c };
+        let public_inputs: Vec<String> = program
+            .public_inputs(&witness)
+            .iter()
+            .map(|f| format!("0x{:064x}", f.to_biguint()))
+            .collect();
+
+        Proof::new(points, public_inputs)
     }
 
-    fn export_solidity_verifier(vk: VerificationKey, abi: SolidityAbi) -> String {
-        let (mut template_text, solidity_pairing_lib) = match abi {
-            SolidityAbi::V1 => (
-                String::from(CONTRACT_TEMPLATE),
-                String::from(SOLIDITY_PAIRING_LIB),
-            ),
-            SolidityAbi::V2 => (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            ),
-        };
+    fn verify(
+        vk: <GM17 as Scheme<Bn128Field>>::VerificationKey,
+        proof: Proof<<GM17 as Scheme<Bn128Field>>::ProofPoints>,
+    ) -> bool {
+        let vk_buffer = vec![];
+        let mut vk_writer = BufWriter::new(vk_buffer);
 
-        // replace things in template
-        let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
-        let vk_query_len_regex = Regex::new(r#"(<%vk_query_length%>)"#).unwrap();
-        let vk_query_repeat_regex = Regex::new(r#"(<%vk_query_pts%>)"#).unwrap();
-        let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
-        let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
-        let input_argument = Regex::new(r#"(<%input_argument%>)"#).unwrap();
+        write_g2(&mut vk_writer, &vk.h);
+        write_g1(&mut vk_writer, &vk.g_alpha);
+        write_g2(&mut vk_writer, &vk.h_beta);
+        write_g1(&mut vk_writer, &vk.g_gamma);
+        write_g2(&mut vk_writer, &vk.h_gamma);
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.h.to_string().as_str())
-            .into_owned();
+        vk.query.iter().for_each(|q| write_g1(&mut vk_writer, q));
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.g_alpha.to_string().as_str())
-            .into_owned();
+        vk_writer.flush().unwrap();
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.h_beta.to_string().as_str())
-            .into_owned();
+        let proof_buffer = vec![];
+        let mut proof_writer = BufWriter::new(proof_buffer);
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.g_gamma.to_string().as_str())
-            .into_owned();
-
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.h_gamma.to_string().as_str())
-            .into_owned();
-
-        let query_count: usize = vk.query.len();
-        template_text = vk_query_len_regex
-            .replace(template_text.as_str(), format!("{}", query_count).as_str())
-            .into_owned();
-
-        template_text = vk_input_len_regex
-            .replace(
-                template_text.as_str(),
-                format!("{}", query_count - 1).as_str(),
-            )
-            .into_owned();
-
-        // feed input values only if there are any
-        template_text = if query_count > 1 {
-            input_loop.replace(
-                template_text.as_str(),
-                r#"
-        for(uint i = 0; i < input.length; i++){
-            inputValues[i] = input[i];
-        }"#,
-            )
-        } else {
-            input_loop.replace(template_text.as_str(), "")
-        }
-        .to_string();
-
-        // take input values as argument only if there are any
-        template_text = if query_count > 1 {
-            input_argument.replace(
-                template_text.as_str(),
-                format!(", uint[{}] memory input", query_count - 1).as_str(),
-            )
-        } else {
-            input_argument.replace(template_text.as_str(), "")
-        }
-        .to_string();
-
-        let mut query_repeat_text = String::new();
-        for (i, g1) in vk.query.iter().enumerate() {
-            query_repeat_text.push_str(
-                format!(
-                    "vk.query[{}] = Pairing.G1Point({});",
-                    i,
-                    g1.to_string().as_str()
-                )
-                .as_str(),
-            );
-            if i < query_count - 1 {
-                query_repeat_text.push_str("\n        ");
-            }
-        }
-
-        template_text = vk_query_repeat_regex
-            .replace(template_text.as_str(), query_repeat_text.as_str())
-            .into_owned();
-
-        let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
-        template_text = re.replace_all(&template_text, "uint256($v)").to_string();
-
-        format!(
-            "{}{}{}",
-            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
-        )
-    }
-
-    fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
-        let vk_raw = hex::decode(vk.raw.clone()).unwrap();
-        let proof_raw = hex::decode(proof.raw.unwrap().clone()).unwrap();
+        write_g1(&mut proof_writer, &proof.proof.a);
+        write_g2(&mut proof_writer, &proof.proof.b);
+        write_g1(&mut proof_writer, &proof.proof.c);
+        proof_writer.flush().unwrap();
 
         let public_inputs: Vec<_> = proof
             .inputs
             .iter()
-            .map(|v| {
-                Bn128Field::try_from_str(v.as_str().trim_start_matches("0x"), 16)
-                    .expect(format!("Invalid bn128 value: {}", v.as_str()).as_str())
-            })
+            .map(|v| Bn128Field::try_from_str(v.as_str().trim_start_matches("0x"), 16).unwrap())
             .collect();
 
         let (public_inputs_arr, public_inputs_length) = prepare_public_inputs(public_inputs);
 
-        let mut vk_buffer = Buffer::from_vec(&vk_raw);
-        let mut proof_buffer = Buffer::from_vec(&proof_raw);
-
         unsafe {
+            let mut vk_buffer = Buffer::from_vec(vk_writer.get_ref());
+            let mut proof_buffer = Buffer::from_vec(proof_writer.get_ref());
+
             let ans = gm17_bn128_verify(
                 &mut vk_buffer as *mut _,
                 &mut proof_buffer as *mut _,
@@ -271,132 +194,40 @@ impl ProofSystem<Bn128Field> for GM17 {
     }
 }
 
-const CONTRACT_TEMPLATE_V2: &str = r#"
-contract Verifier {
-    using Pairing for *;
-    struct VerifyingKey {
-        Pairing.G2Point h;
-        Pairing.G1Point g_alpha;
-        Pairing.G2Point h_beta;
-        Pairing.G1Point g_gamma;
-        Pairing.G2Point h_gamma;
-        Pairing.G1Point[] query;
-    }
-    struct Proof {
-        Pairing.G1Point a;
-        Pairing.G2Point b;
-        Pairing.G1Point c;
-    }
-    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.h= Pairing.G2Point(<%vk_h%>);
-        vk.g_alpha = Pairing.G1Point(<%vk_g_alpha%>);
-        vk.h_beta = Pairing.G2Point(<%vk_h_beta%>);
-        vk.g_gamma = Pairing.G1Point(<%vk_g_gamma%>);
-        vk.h_gamma = Pairing.G2Point(<%vk_h_gamma%>);
-        vk.query = new Pairing.G1Point[](<%vk_query_length%>);
-        <%vk_query_pts%>
-    }
-    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
-        uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-        VerifyingKey memory vk = verifyingKey();
-        require(input.length + 1 == vk.query.length);
-        // Compute the linear combination vk_x
-        Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
-        for (uint i = 0; i < input.length; i++) {
-            require(input[i] < snark_scalar_field);
-            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.query[i + 1], input[i]));
-        }
-        vk_x = Pairing.addition(vk_x, vk.query[0]);
-        /**
-         * e(A*G^{alpha}, B*H^{beta}) = e(G^{alpha}, H^{beta}) * e(G^{psi}, H^{gamma})
-         *                              * e(C, H)
-         * where psi = \sum_{i=0}^l input_i pvk.query[i]
-         */
-        if (!Pairing.pairingProd4(vk.g_alpha, vk.h_beta, vk_x, vk.h_gamma, proof.c, vk.h, Pairing.negate(Pairing.addition(proof.a, vk.g_alpha)), Pairing.addition(proof.b, vk.h_beta))) return 1;
-        /**
-         * e(A, H^{gamma}) = e(G^{gamma}, B)
-         */
-        if (!Pairing.pairingProd2(proof.a, vk.h_gamma, Pairing.negate(vk.g_gamma), proof.b)) return 2;
-        return 0;
-    }
-    function verifyTx(
-            Proof memory proof<%input_argument%>
-        ) public view returns (bool r) {
-        uint[] memory inputValues = new uint[](<%vk_input_length%>);
-        <%input_loop%>
-        if (verify(inputValues, proof) == 0) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-}
-"#;
+#[cfg(feature = "libsnark")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::flat_absy::FlatVariable;
+    use crate::ir::{Function, Interpreter, Prog, Statement};
+    use zokrates_field::Bn128Field;
 
-const CONTRACT_TEMPLATE: &str = r#"
-contract Verifier {
-    using Pairing for *;
-    struct VerifyingKey {
-        Pairing.G2Point h;
-        Pairing.G1Point g_alpha;
-        Pairing.G2Point h_beta;
-        Pairing.G1Point g_gamma;
-        Pairing.G2Point h_gamma;
-        Pairing.G1Point[] query;
-    }
-    struct Proof {
-        Pairing.G1Point a;
-        Pairing.G2Point b;
-        Pairing.G1Point c;
-    }
-    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.h = Pairing.G2Point(<%vk_h%>);
-        vk.g_alpha = Pairing.G1Point(<%vk_g_alpha%>);
-        vk.h_beta = Pairing.G2Point(<%vk_h_beta%>);
-        vk.g_gamma = Pairing.G1Point(<%vk_g_gamma%>);
-        vk.h_gamma = Pairing.G2Point(<%vk_h_gamma%>);
-        vk.query = new Pairing.G1Point[](<%vk_query_length%>);
-        <%vk_query_pts%>
-    }
-    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
-        uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-        VerifyingKey memory vk = verifyingKey();
-        require(input.length + 1 == vk.query.length);
-        // Compute the linear combination vk_x
-        Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
-        for (uint i = 0; i < input.length; i++) {
-            require(input[i] < snark_scalar_field);
-            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.query[i + 1], input[i]));
-        }
-        vk_x = Pairing.addition(vk_x, vk.query[0]);
-        /**
-         * e(A*G^{alpha}, B*H^{beta}) = e(G^{alpha}, H^{beta}) * e(G^{psi}, H^{gamma})
-         *                              * e(C, H)
-         * where psi = \sum_{i=0}^l input_i pvk.query[i]
-         */
-        if (!Pairing.pairingProd4(vk.g_alpha, vk.h_beta, vk_x, vk.h_gamma, proof.c, vk.h, Pairing.negate(Pairing.addition(proof.a, vk.g_alpha)), Pairing.addition(proof.b, vk.h_beta))) return 1;
-        /**
-         * e(A, H^{gamma}) = e(G^{gamma}, b)
-         */
-        if (!Pairing.pairingProd2(proof.a, vk.h_gamma, Pairing.negate(vk.g_gamma), proof.b)) return 2;
-        return 0;
-    }
-    function verifyTx(
-            uint[2] memory a,
-            uint[2][2] memory b,
-            uint[2] memory c<%input_argument%>
-        ) public view returns (bool r) {
-        Proof memory proof;
-        proof.a = Pairing.G1Point(a[0], a[1]);
-        proof.b = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
-        proof.c = Pairing.G1Point(c[0], c[1]);
-        uint[] memory inputValues = new uint[](<%vk_input_length%>);
-        <%input_loop%>
-        if (verify(inputValues, proof) == 0) {
-            return true;
-        } else {
-            return false;
-        }
+    #[test]
+    fn verify() {
+        let program: Prog<Bn128Field> = Prog {
+            main: Function {
+                id: String::from("main"),
+                arguments: vec![FlatVariable::new(0)],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::Constraint(
+                    FlatVariable::new(0).into(),
+                    FlatVariable::public(0).into(),
+                )],
+            },
+            private: vec![true],
+        };
+
+        let keypair = <Libsnark as Backend<Bn128Field, GM17>>::setup(program.clone());
+        let interpreter = Interpreter::default();
+
+        let witness = interpreter
+            .execute(&program, &vec![Bn128Field::from(42)])
+            .unwrap();
+
+        let proof =
+            <Libsnark as Backend<Bn128Field, GM17>>::generate_proof(program, witness, keypair.pk);
+
+        let ans = <Libsnark as Backend<Bn128Field, GM17>>::verify(keypair.vk, proof);
+        assert!(ans);
     }
 }
-"#;
