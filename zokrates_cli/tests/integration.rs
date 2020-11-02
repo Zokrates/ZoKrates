@@ -289,8 +289,6 @@ mod integration {
                             verification_key_path.to_str().unwrap(),
                             "-o",
                             verification_contract_path.to_str().unwrap(),
-                            "--backend",
-                            backend,
                             "--proving-scheme",
                             scheme,
                             "-a",
