@@ -1,4 +1,4 @@
-# Tutorial: Using Hash and Zero Knowledge Proofs for a Random Number Generator
+# Tutorial: Hash and Zero Knowledge Proofs for a Random Number Generator
 
 ## Prerequisites
 
