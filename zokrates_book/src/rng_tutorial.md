@@ -1,6 +1,6 @@
 # Tutorial: Using Hash and Zero Knowledge Proofs for a Random Number Generator
 
-## Pre-requisites
+## Prerequisites
 
 Make sure you have followed the instructions in the [Getting Started](gettingstarted.md) chapter and are able to run the "Hello World" example described there.
 
