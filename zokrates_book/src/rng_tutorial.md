@@ -159,9 +159,23 @@ value of the bit being revealed.
 def main(private u32[16] secret, field bitNum) -> (u32[8], bool):
 ```
 
+To find the value of the bit being revealed, we convert the entire secret value into bits and then find it in
+the array. In a normal programming environment that would be a *very inefficient* algorithm when we can just
+find the word and bit and set a value to that. However, Zokrates is not a normal programming environment.
+Instead of machine languages, it compiles to a list of equations. This limits our ability to do some operations
+that are very simple in a normal language.
+
+The first line defines an array of 512 boolean values (`bool[512]`) called `secretBits`. It is initialized to
+an array of 512 `false` values. The syntax `[<value>; <number>]` initializes the an array of `<number>` 
+copies of `<value>`. It is necessary to include it here because a Zokrates variable must be initialized
+when it is declared (except for function parameters).
+
 ```javascript
   // Convert the secret to bits
   bool[512] secretBits = [false; 512]
+```
+
+```javascript
   for field i in 0..16 do
     bool[32] val = u32_to_bits(secret[i])
     for field bit in 0..32 do
