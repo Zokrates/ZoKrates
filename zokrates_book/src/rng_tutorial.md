@@ -101,7 +101,10 @@ Finally, return `h` to the caller to display the hash.
 
 ## Reveal a single bit
 
-```
+The next step is to reveal a single bit.
+
+1. Use this program, `reveal_bit.zok`:
+```javascript
 // Ori Pomerantz qbzzt1@gmail.com
 
 import "hashes/sha256/512bit" as sha256
@@ -126,6 +129,19 @@ def main(private u32[16] secret, field bitNum) -> (u32[8], bool):
 
   return sha256(secret[0..8], secret[8..16]), secretBits[bitNum]
 ```
+
+2. Compile and run as you did the previous program:
+```bash
+zokrates compile -i reveal_bit.zok -o reveal_bit --light
+zokrates compute-witness --light -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510
+```
+3. The output should be similar to:
+```
+Witness:
+
+["3592665057","2164530888","1223339564","3041196771","2006723467","2963045520","3851824201","3453903005","1"]
+```
+
 
 ### Detailed explanation
 
