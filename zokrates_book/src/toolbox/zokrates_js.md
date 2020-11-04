@@ -139,3 +139,12 @@ Parameters:
 * `provingKey` - Proving key from the setup keypair
 
 Returns: `Proof`
+
+##### verify(verificationKey, proof)
+Verifies the generated proof.
+
+Parameters:
+* `verificationKey` - Verification key from the setup keypair
+* `proof` - Generated proof
+
+Returns: `boolean`
