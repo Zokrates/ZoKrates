@@ -85,10 +85,14 @@ def main(private u32[16] hashMe) -> u32[8]:
 This line does several things. First, `u32[8] h` defines a variable called `h`, whose type is an array of eight 32-bit unsigned integers.
 To get the value of this variable, we call `sha256`, the function we 
 [imported from the standard library](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok).
+The `sha256` function expects to get two arrays of eight values each, so we use a [slice `..`](https://zokrates.github.io/language/types.html#slices)
+to divide `hashMe` into two arrays.
 
 ```javascript
   u32[8] h = sha256(hashMe[0..8], hashMe[8..16])
 ```
+
+Finally, return `h` to the caller to display the hash.
 
 ```javascript
   return h
