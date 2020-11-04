@@ -143,7 +143,35 @@ Witness:
 ```
 
 
-### Detailed explanation
+### Detailed explanation (of the new parts)
+
+This function converts a `u32` value to an array of 32 booleans. There are embedded functions to convert `u8`s, 
+`u16`s, and `u32`s to boolean arrays and back again (`u32_from_bits`, etc.).
+
+```javascript
+import "EMBED/u32_to_bits" as u32_to_bits
+```
+
+A Zokrates function can return multiple values. In this case, it returns the hash and a boolean which is the 
+value of the bit being revealed.
+
+```javascript
+def main(private u32[16] secret, field bitNum) -> (u32[8], bool):
+```
+
+```javascript
+  // Convert the secret to bits
+  bool[512] secretBits = [false; 512]
+  for field i in 0..16 do
+    bool[32] val = u32_to_bits(secret[i])
+    for field bit in 0..32 do
+      secretBits[i*32+bit] = val[bit]
+    endfor
+  endfor
+
+  return sha256(secret[0..8], secret[8..16]), secretBits[bitNum]
+```
+
 
 
 ## Putting it all together
