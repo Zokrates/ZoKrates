@@ -41,12 +41,16 @@ pub trait Analyse {
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> (ZirProgram<'ast, T>, Abi) {
         // return binding
-        let r = ReturnBinder::bind(self);
+        //let r = ReturnBinder::bind(self);
 
         // propagated unrolling
         //let r = PropagatedUnroller::unroll(r).unwrap_or_else(|e| panic!(e));
 
-        let r = reduce_program(r).unwrap();
+        println!("{:#?}", self);
+
+        let r = reduce_program(self).unwrap();
+
+        println!("reduced");
 
         let r = Trimmer::trim(r);
 

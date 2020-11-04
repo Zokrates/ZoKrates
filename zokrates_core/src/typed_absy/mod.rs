@@ -8,6 +8,7 @@
 pub mod abi;
 pub mod folder;
 pub mod identifier;
+pub mod result_folder;
 
 mod integer;
 mod parameter;
@@ -19,8 +20,8 @@ pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteType, DeclarationFunctionKey,
-    DeclarationSignature, DeclarationType, GType, GenericIdentifier, Signature, StructType, Type,
-    UBitwidth,
+    DeclarationSignature, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
+    Signature, StructType, Type, UBitwidth,
 };
 use typed_absy::types::GenericsAssignment;
 
@@ -141,7 +142,7 @@ pub struct TypedModule<'ast, T> {
 #[derive(Clone, PartialEq)]
 pub enum TypedFunctionSymbol<'ast, T> {
     Here(TypedFunction<'ast, T>),
-    There(DeclarationFunctionKey<'ast>, TypedModuleId),
+    There(DeclarationFunctionKey<'ast>),
     Flat(FlatEmbed),
 }
 
@@ -150,7 +151,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedFunctionSymbol<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TypedFunctionSymbol::Here(s) => write!(f, "Here({:?})", s),
-            TypedFunctionSymbol::There(key, module) => write!(f, "There({:?}, {:?})", key, module),
+            TypedFunctionSymbol::There(key) => write!(f, "There({:?})", key),
             TypedFunctionSymbol::Flat(s) => write!(f, "Flat({:?})", s),
         }
     }
@@ -163,8 +164,8 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
     ) -> DeclarationSignature<'ast> {
         match self {
             TypedFunctionSymbol::Here(f) => f.signature.clone(),
-            TypedFunctionSymbol::There(key, module_id) => modules
-                .get(module_id)
+            TypedFunctionSymbol::There(key) => modules
+                .get(&key.module)
                 .unwrap()
                 .functions
                 .get(key)
@@ -183,10 +184,10 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
             .iter()
             .map(|(key, symbol)| match symbol {
                 TypedFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
-                TypedFunctionSymbol::There(ref fun_key, ref module_id) => format!(
+                TypedFunctionSymbol::There(ref fun_key) => format!(
                     "import {} from \"{}\" as {} // with signature {}",
                     fun_key.id,
-                    module_id.display(),
+                    fun_key.module.display(),
                     key.id,
                     key.signature
                 ),
@@ -230,12 +231,16 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "<{}>",
-            self.generics
-                .iter()
-                .map(|g| g.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
+            "{}",
+            if self.generics.len() > 0 {
+                self.generics
+                    .iter()
+                    .map(|g| g.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            } else {
+                "".to_string()
+            }
         )?;
         write!(
             f,
@@ -271,7 +276,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
         for s in &self.statements {
             match s {
-                TypedStatement::PopCallLog(..) => tab -= 1,
+                TypedStatement::PopCallLog => tab -= 1,
                 _ => {}
             };
 
@@ -380,13 +385,8 @@ pub enum TypedStatement<'ast, T> {
     ),
     MultipleDefinition(Vec<Variable<'ast, T>>, TypedExpressionList<'ast, T>),
     // Aux
-    PushCallLog(
-        TypedModuleId,
-        DeclarationFunctionKey<'ast>,
-        GenericsAssignment<'ast>,
-        Vec<(ConcreteVariable<'ast>, TypedExpression<'ast, T>)>,
-    ),
-    PopCallLog(Vec<(ConcreteVariable<'ast>, TypedExpression<'ast, T>)>),
+    PushCallLog(DeclarationFunctionKey<'ast>, GenericsAssignment<'ast>),
+    PopCallLog,
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
@@ -417,16 +417,10 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
             }
-            TypedStatement::PushCallLog(ref module_id, ref key, ref generics, ref assignments) => {
-                write!(
-                    f,
-                    "PushCallLog({:?}, {:?}, {:?}, {:?})",
-                    module_id, key, generics, assignments
-                )
+            TypedStatement::PushCallLog(ref key, ref generics) => {
+                write!(f, "PushCallLog({:?}, {:?})", key, generics)
             }
-            TypedStatement::PopCallLog(ref assignments) => {
-                write!(f, "PopCallLog({:?})", assignments)
-            }
+            TypedStatement::PopCallLog => write!(f, "PopCallLog"),
         }
     }
 }
@@ -480,29 +474,14 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 }
                 write!(f, " = {}", rhs)
             }
-            TypedStatement::PushCallLog(ref module_id, ref key, ref generics, ref assignments) => {
-                write!(
-                    f,
-                    "// PUSH CALL TO {}_{}::<{}> with {}",
-                    module_id.display(),
-                    key.id,
-                    generics,
-                    assignments
-                        .iter()
-                        .map(|(v, e)| format!("{} := {}", v, e))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            }
-            TypedStatement::PopCallLog(ref assignments) => write!(
+            TypedStatement::PushCallLog(ref key, ref generics) => write!(
                 f,
-                "// POP CALL with {}",
-                assignments
-                    .iter()
-                    .map(|(v, e)| format!("{} := {}", v, e))
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                "// PUSH CALL TO {}/{}::<{}>",
+                key.module.display(),
+                key.id,
+                generics,
             ),
+            TypedStatement::PopCallLog => write!(f, "// POP CALL",),
         }
     }
 }
@@ -735,7 +714,7 @@ pub enum FieldElementExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(FunctionKey<'ast, T>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     Member(Box<StructExpression<'ast, T>>, MemberId),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
@@ -822,7 +801,7 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
-    FunctionCall(FunctionKey<'ast, T>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
@@ -848,7 +827,7 @@ pub struct ArrayExpression<'ast, T> {
 pub enum ArrayExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(Vec<TypedExpression<'ast, T>>),
-    FunctionCall(FunctionKey<'ast, T>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<ArrayExpression<'ast, T>>,
@@ -939,7 +918,7 @@ impl<'ast, T> StructExpression<'ast, T> {
 pub enum StructExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(Vec<TypedExpression<'ast, T>>),
-    FunctionCall(FunctionKey<'ast, T>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<StructExpression<'ast, T>>,
@@ -1328,7 +1307,9 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
             Type::Array(ty) => ArrayExpressionInner::Identifier(v.id)
                 .annotate(*ty.ty, ty.size)
                 .into(),
-            _ => unimplemented!(),
+            Type::Struct(ty) => StructExpressionInner::Identifier(v.id).annotate(ty).into(),
+            Type::Uint(w) => UExpressionInner::Identifier(v.id).annotate(w).into(),
+            Type::Int => unreachable!(),
         }
     }
 }
@@ -1534,5 +1515,71 @@ impl<'ast, T: Clone> Member<'ast, T> for StructExpression<'ast, T> {
         };
 
         StructExpressionInner::Member(box s, member_id).annotate(members)
+    }
+}
+
+pub trait FunctionCall<'ast, T> {
+    fn function_call(
+        key: DeclarationFunctionKey<'ast>,
+        arguments: Vec<TypedExpression<'ast, T>>,
+    ) -> Self;
+}
+
+impl<'ast, T> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
+    fn function_call(
+        key: DeclarationFunctionKey<'ast>,
+        arguments: Vec<TypedExpression<'ast, T>>,
+    ) -> Self {
+        FieldElementExpression::FunctionCall(key, arguments)
+    }
+}
+
+impl<'ast, T> FunctionCall<'ast, T> for BooleanExpression<'ast, T> {
+    fn function_call(
+        key: DeclarationFunctionKey<'ast>,
+        arguments: Vec<TypedExpression<'ast, T>>,
+    ) -> Self {
+        BooleanExpression::FunctionCall(key, arguments)
+    }
+}
+
+impl<'ast, T: Clone> FunctionCall<'ast, T> for UExpression<'ast, T> {
+    fn function_call(
+        key: DeclarationFunctionKey<'ast>,
+        arguments: Vec<TypedExpression<'ast, T>>,
+    ) -> Self {
+        let bitwidth = match &key.signature.outputs[0] {
+            DeclarationType::Uint(bitwidth) => bitwidth.clone(),
+            _ => unreachable!(),
+        };
+        UExpressionInner::FunctionCall(key, arguments).annotate(bitwidth)
+    }
+}
+
+impl<'ast, T: Clone> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
+    fn function_call(
+        key: DeclarationFunctionKey<'ast>,
+        arguments: Vec<TypedExpression<'ast, T>>,
+    ) -> Self {
+        let array_ty = match &key.signature.outputs[0] {
+            DeclarationType::Array(array_ty) => array_ty.clone(),
+            _ => unreachable!(),
+        };
+        ArrayExpressionInner::FunctionCall(key, arguments)
+            .annotate(Type::<T>::from(*array_ty.ty), array_ty.size)
+    }
+}
+
+impl<'ast, T: Clone> FunctionCall<'ast, T> for StructExpression<'ast, T> {
+    fn function_call(
+        key: DeclarationFunctionKey<'ast>,
+        arguments: Vec<TypedExpression<'ast, T>>,
+    ) -> Self {
+        let struct_ty = match &key.signature.outputs[0] {
+            DeclarationType::Struct(struct_ty) => struct_ty.clone(),
+            _ => unreachable!(),
+        };
+
+        StructExpressionInner::FunctionCall(key, arguments).annotate(StructType::from(struct_ty))
     }
 }

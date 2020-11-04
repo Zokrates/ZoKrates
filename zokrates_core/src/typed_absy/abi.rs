@@ -43,7 +43,7 @@ mod tests {
     fn generate_abi_from_typed_ast() {
         let mut functions = HashMap::new();
         functions.insert(
-            ConcreteFunctionKey::with_id("main").into(),
+            ConcreteFunctionKey::with_location("main", "main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
                 generics: vec![],
                 arguments: vec![

@@ -4,6 +4,7 @@ use zir;
 impl<'ast> From<typed_absy::types::ConcreteFunctionKey<'ast>> for zir::types::FunctionKey<'ast> {
     fn from(k: typed_absy::types::ConcreteFunctionKey<'ast>) -> zir::types::FunctionKey<'ast> {
         zir::types::FunctionKey {
+            module: k.module,
             id: k.id,
             signature: k.signature.into(),
         }

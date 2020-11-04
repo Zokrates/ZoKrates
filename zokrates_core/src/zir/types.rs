@@ -1,4 +1,5 @@
 use std::fmt;
+use zir::ZirModuleId;
 
 pub type Identifier<'ast> = &'ast str;
 
@@ -95,13 +96,18 @@ pub type FunctionIdentifier<'ast> = &'ast str;
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct FunctionKey<'ast> {
+    pub module: ZirModuleId,
     pub id: FunctionIdentifier<'ast>,
     pub signature: Signature,
 }
 
 impl<'ast> FunctionKey<'ast> {
-    pub fn with_id<S: Into<Identifier<'ast>>>(id: S) -> Self {
+    pub fn with_location<T: Into<ZirModuleId>, S: Into<Identifier<'ast>>>(
+        module: T,
+        id: S,
+    ) -> Self {
         FunctionKey {
+            module: module.into(),
             id: id.into(),
             signature: Signature::new(),
         }
@@ -114,6 +120,11 @@ impl<'ast> FunctionKey<'ast> {
 
     pub fn id<S: Into<Identifier<'ast>>>(mut self, id: S) -> Self {
         self.id = id.into();
+        self
+    }
+
+    pub fn module<T: Into<ZirModuleId>>(mut self, module: T) -> Self {
+        self.module = module.into();
         self
     }
 

@@ -13,7 +13,7 @@ enum Curve {
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Tests {
-    pub entry_point: PathBuf,
+    pub entry_point: Option<PathBuf>,
     pub curves: Option<Vec<Curve>>,
     pub max_constraint_count: Option<usize>,
     pub tests: Vec<Test>,
@@ -92,6 +92,14 @@ pub fn test_inner(test_path: &str) {
 
     let curves = t.curves.clone().unwrap_or(vec![Curve::Bn128]);
 
+    let t = Tests {
+        entry_point: Some(
+            t.entry_point
+                .unwrap_or(PathBuf::from(String::from(test_path)).with_extension("zok")),
+        ),
+        ..t
+    };
+
     for c in &curves {
         match c {
             Curve::Bn128 => compile_and_run::<Bn128Field>(t.clone()),
@@ -101,11 +109,13 @@ pub fn test_inner(test_path: &str) {
 }
 
 fn compile_and_run<T: Field>(t: Tests) {
-    let code = std::fs::read_to_string(&t.entry_point).unwrap();
+    let entry_point = t.entry_point.unwrap();
+
+    let code = std::fs::read_to_string(&entry_point).unwrap();
 
     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
-    let artifacts = compile::<T, _>(code, t.entry_point.clone(), Some(&resolver)).unwrap();
+    let artifacts = compile::<T, _>(code, entry_point.clone(), Some(&resolver)).unwrap();
 
     let bin = artifacts.prog();
 
@@ -115,7 +125,7 @@ fn compile_and_run<T: Field>(t: Tests) {
 
             println!(
                 "{} at {}% of max",
-                t.entry_point.display(),
+                entry_point.display(),
                 (count as f32) / (target_count as f32) * 100_f32
             );
         }
@@ -131,7 +141,7 @@ fn compile_and_run<T: Field>(t: Tests) {
 
         match compare(output, test.output) {
             Err(e) => {
-                let mut code = File::open(&t.entry_point).unwrap();
+                let mut code = File::open(&entry_point).unwrap();
                 let mut s = String::new();
                 code.read_to_string(&mut s).unwrap();
                 let context = format!(

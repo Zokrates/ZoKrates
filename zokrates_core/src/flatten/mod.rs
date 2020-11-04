@@ -889,7 +889,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .inputs(param_expressions.iter().map(|e| e.get_type()).collect())
             .outputs(return_types);
 
-        let key = FunctionKey::with_id(id).signature(passed_signature);
+        let key = FunctionKey::with_location("#EMBED#", id).signature(passed_signature);
 
         let funct = self.get_embed(&key, &symbols);
 

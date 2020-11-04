@@ -1,10 +1,10 @@
-def sum_array<P>(field[P] a) -> field:
-	field res = 0
-	for u32 i in 0..P do
-		res = res + a[i]
+def main():
+	field a = 3
+	for u32 i in 0..2 do
+		for u32 j in 0..2 do
+			a = a + 1
+		endfor
+		a = a + 1
 	endfor
-	return res
-
-def main(u32 i) -> (field):
-	u32[2][4] a = [[1, 2, 3, 4], [1, 2, 3, 4]]
-	return 1
+	field b = a
+	return

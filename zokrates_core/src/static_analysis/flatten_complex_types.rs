@@ -279,7 +279,7 @@ pub fn fold_statement<'ast, T: Field>(
             )]
         }
         typed_absy::TypedStatement::PushCallLog(..) => vec![],
-        typed_absy::TypedStatement::PopCallLog(..) => vec![],
+        typed_absy::TypedStatement::PopCallLog => vec![],
     }
 }
 
@@ -906,9 +906,8 @@ pub fn fold_function_symbol<'ast, T: Field>(
         typed_absy::TypedFunctionSymbol::Here(fun) => {
             zir::ZirFunctionSymbol::Here(f.fold_function(fun))
         }
-        typed_absy::TypedFunctionSymbol::There(key, module) => zir::ZirFunctionSymbol::There(
+        typed_absy::TypedFunctionSymbol::There(key) => zir::ZirFunctionSymbol::There(
             f.fold_function_key(typed_absy::types::ConcreteFunctionKey::try_from(key).unwrap()),
-            module,
         ), // by default, do not fold modules recursively
         typed_absy::TypedFunctionSymbol::Flat(flat) => zir::ZirFunctionSymbol::Flat(flat),
     }

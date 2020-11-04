@@ -422,12 +422,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     };
 
                     self.functions.insert(
-                        DeclarationFunctionKey::with_id(declaration.id.clone())
-                            .signature(funct.signature.clone()),
+                        DeclarationFunctionKey::with_location(
+                            module_id.clone(),
+                            declaration.id.clone(),
+                        )
+                        .signature(funct.signature.clone()),
                     );
                     functions.insert(
-                        DeclarationFunctionKey::with_id(declaration.id.clone())
-                            .signature(funct.signature.clone()),
+                        DeclarationFunctionKey::with_location(
+                            module_id.clone(),
+                            declaration.id.clone(),
+                        )
+                        .signature(funct.signature.clone()),
                         TypedFunctionSymbol::Here(funct),
                     );
                 }
@@ -450,6 +456,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .iter()
                             .filter(|(k, _)| k.id == import.symbol_id)
                             .map(|(_, v)| DeclarationFunctionKey {
+                                module: import.module_id.clone(),
                                 id: import.symbol_id.clone(),
                                 signature: v.signature(&state.typed_modules).clone(),
                             })
@@ -525,12 +532,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         true => {}
                                     };
 
-                                    self.functions.insert(candidate.clone().id(declaration.id));
+                                    let local_key = candidate.clone().id(declaration.id).module(module_id.clone());
+
+                                    self.functions.insert(local_key.clone());
                                     functions.insert(
-                                        candidate.clone().id(declaration.id),
-                                        TypedFunctionSymbol::There(
-                                            candidate,
-                                            import.module_id.clone(),
+                                        local_key,
+                                        TypedFunctionSymbol::There(candidate,
                                         ),
                                     );
                                 }
@@ -562,12 +569,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 };
 
                 self.functions.insert(
-                    DeclarationFunctionKey::with_id(declaration.id.clone())
-                        .signature(funct.signature().clone().try_into().unwrap()),
+                    DeclarationFunctionKey::with_location(
+                        module_id.clone(),
+                        declaration.id.clone(),
+                    )
+                    .signature(funct.signature().clone().try_into().unwrap()),
                 );
                 functions.insert(
-                    DeclarationFunctionKey::with_id(declaration.id.clone())
-                        .signature(funct.signature().clone().try_into().unwrap()),
+                    DeclarationFunctionKey::with_location(
+                        module_id.clone(),
+                        declaration.id.clone(),
+                    )
+                    .signature(funct.signature().clone().try_into().unwrap()),
                     TypedFunctionSymbol::Flat(funct),
                 );
             }
@@ -1363,11 +1376,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 let f = functions.pop().unwrap();
 
                                 let arguments_checked = arguments_checked.into_iter().zip(f.signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t.into())).collect::<Result<Vec<_>, _>>().map_err(|e| vec![ErrorInner {
-                            pos: Some(pos),
-                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
-                        }])?;
+                                    pos: Some(pos),
+                                    message: format!("Expected function call argument to be of type {}, found {} of type {}", e.1, e.0, e.0.get_type())
+                                }])?;
 
-                                let call = TypedExpressionList::FunctionCall(f.clone().into(), arguments_checked, Signature::from(f.signature.clone()).outputs);
+                                let call = TypedExpressionList::FunctionCall(f.clone().into(), arguments_checked, variables.iter().map(|v| v.get_type()).collect());
 
                                 Ok(TypedStatement::MultipleDefinition(variables, call))
                     		},
@@ -1914,9 +1927,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         let f = functions.pop().unwrap();
 
-                        let signature: Signature<T> = f.signature.into();
+                        let signature = f.signature;
 
-                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t)).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
+                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t.into())).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
                             pos: Some(pos),
                             message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
@@ -1924,25 +1937,28 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         // the return count has to be 1
                         match signature.outputs.len() {
                             1 => match &signature.outputs[0] {
-                                Type::Int => unreachable!(),
-                                Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
-                                    FunctionKey {
+                                DeclarationType::Int => unreachable!(),
+                                DeclarationType::FieldElement => Ok(FieldElementExpression::FunctionCall(
+                                    DeclarationFunctionKey {
+                                        module: module_id.clone(),
                                         id: f.id.clone(),
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
                                 .into()),
-                                Type::Boolean => Ok(BooleanExpression::FunctionCall(
-                                    FunctionKey {
+                                DeclarationType::Boolean => Ok(BooleanExpression::FunctionCall(
+                                    DeclarationFunctionKey {
+                                        module: module_id.clone(),
                                         id: f.id.clone(),
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
                                 .into()),
-                                Type::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
-                                    FunctionKey {
+                                DeclarationType::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
+                                    DeclarationFunctionKey {
+                                        module: module_id.clone(),
                                         id: f.id.clone(),
                                         signature: signature.clone(),
                                     },
@@ -1950,23 +1966,25 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 )
                                 .annotate(*bitwidth)
                                 .into()),
-                                Type::Struct(members) => Ok(StructExpressionInner::FunctionCall(
-                                    FunctionKey {
+                                DeclarationType::Struct(members) => Ok(StructExpressionInner::FunctionCall(
+                                    DeclarationFunctionKey {
+                                        module: module_id.clone(),
                                         id: f.id.clone(),
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
-                                .annotate(members.clone())
+                                .annotate(members.clone().into())
                                 .into()),
-                                Type::Array(array_type) => Ok(ArrayExpressionInner::FunctionCall(
-                                    FunctionKey {
+                                DeclarationType::Array(array_type) => Ok(ArrayExpressionInner::FunctionCall(
+                                    DeclarationFunctionKey {
+                                        module: module_id.clone(),
                                         id: f.id.clone(),
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,
                                 )
-                                .annotate(*array_type.ty.clone(), array_type.size.clone())
+                                .annotate(Type::from(*array_type.ty.clone()), array_type.size.clone())
                                 .into()),
                             },
                             n => Err(ErrorInner {
@@ -2592,6 +2610,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .next()
                     .unwrap_or(Type::Int);
 
+                println!("INFERRED TYPE {:?}", inferred_type);
+
                 match inferred_type {
                     Type::Int => {
                         // no need to check the expressions have the same type, this is guaranteed above
@@ -2642,6 +2662,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .collect::<Result<Vec<_>, _>>()?;
 
                         let size = unwrapped_expressions.len() as u32;
+
+                        println!("hey");
 
                         Ok(ArrayExpressionInner::Value(unwrapped_expressions)
                             .annotate(Type::Boolean, size as usize)
@@ -3379,12 +3401,11 @@ mod tests {
                 state.typed_modules.get(&PathBuf::from("bar")),
                 Some(&TypedModule {
                     functions: vec![(
-                        DeclarationFunctionKey::with_id("main")
+                        DeclarationFunctionKey::with_location("bar", "main")
                             .signature(DeclarationSignature::new()),
                         TypedFunctionSymbol::There(
-                            DeclarationFunctionKey::with_id("main")
+                            DeclarationFunctionKey::with_location("foo", "main")
                                 .signature(DeclarationSignature::new()),
-                            "foo".into()
                         )
                     )]
                     .into_iter()
@@ -3672,16 +3693,19 @@ mod tests {
                 .unwrap()
                 .functions
                 .contains_key(
-                    &DeclarationFunctionKey::with_id("foo").signature(DeclarationSignature::new())
+                    &DeclarationFunctionKey::with_location(MODULE_ID, "foo")
+                        .signature(DeclarationSignature::new())
                 ));
             assert!(state
                 .typed_modules
                 .get(&PathBuf::from(MODULE_ID))
                 .unwrap()
                 .functions
-                .contains_key(&DeclarationFunctionKey::with_id("foo").signature(
-                    DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
-                )))
+                .contains_key(
+                    &DeclarationFunctionKey::with_location(MODULE_ID, "foo").signature(
+                        DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
+                    )
+                ))
         }
 
         #[test]
@@ -4271,6 +4295,7 @@ mod tests {
         ];
 
         let foo = DeclarationFunctionKey {
+            module: "main".into(),
             id: "foo",
             signature: DeclarationSignature {
                 inputs: vec![],
@@ -4323,6 +4348,7 @@ mod tests {
         .mock()];
 
         let foo = DeclarationFunctionKey {
+            module: "main".into(),
             id: "foo",
             signature: DeclarationSignature {
                 inputs: vec![],
@@ -4856,7 +4882,7 @@ mod tests {
                     typed_absy::Variable::field_element("b"),
                 ],
                 TypedExpressionList::FunctionCall(
-                    DeclarationFunctionKey::with_id("foo").signature(
+                    DeclarationFunctionKey::with_location(MODULE_ID, "foo").signature(
                         DeclarationSignature::new().outputs(vec![
                             DeclarationType::FieldElement,
                             DeclarationType::FieldElement,
@@ -4874,6 +4900,7 @@ mod tests {
         ];
 
         let foo = DeclarationFunctionKey {
+            module: "main".into(),
             id: "foo",
             signature: DeclarationSignature {
                 inputs: vec![],

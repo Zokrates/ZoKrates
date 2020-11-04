@@ -52,7 +52,7 @@ impl FlatEmbed {
     }
 
     pub fn key<T: Field>(&self) -> ConcreteFunctionKey<'static> {
-        ConcreteFunctionKey::with_id(self.id()).signature(self.signature())
+        ConcreteFunctionKey::with_location("#EMBED#", self.id()).signature(self.signature())
     }
 
     pub fn id(&self) -> &'static str {

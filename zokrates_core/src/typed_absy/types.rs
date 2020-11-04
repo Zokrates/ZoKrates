@@ -3,7 +3,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use typed_absy::{TryFrom, TryInto};
-use typed_absy::{UExpression, UExpressionInner};
+use typed_absy::{TypedModuleId, UExpression, UExpressionInner};
 
 pub type GenericIdentifier<'ast> = &'ast str;
 
@@ -15,7 +15,7 @@ pub enum Constant<'ast> {
 
 // At this stage we want all constants to be equal
 impl<'ast> PartialEq for Constant<'ast> {
-    fn eq(&self, _: &Self) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         true
     }
 }
@@ -190,6 +190,14 @@ impl<'ast, T: PartialEq> PartialEq<DeclarationArrayType<'ast>> for ArrayType<'as
                 (UExpressionInner::Identifier(_), Constant::Concrete(_)) => true,
                 _ => unreachable!(),
             }
+    }
+}
+
+impl<'ast, T: PartialEq> ArrayType<'ast, T> {
+    // array type equality with non-strict size checks
+    // sizes always match unless they are different constants
+    pub fn weak_eq(&self, other: &Self) -> bool {
+        self.ty == other.ty
     }
 }
 
@@ -676,6 +684,7 @@ pub type FunctionIdentifier<'ast> = &'ast str;
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct GFunctionKey<'ast, S> {
+    pub module: TypedModuleId,
     pub id: FunctionIdentifier<'ast>,
     pub signature: GSignature<S>,
 }
@@ -703,12 +712,13 @@ impl<'ast> fmt::Display for GenericsAssignment<'ast> {
 
 impl<'ast> PartialEq<DeclarationFunctionKey<'ast>> for ConcreteFunctionKey<'ast> {
     fn eq(&self, other: &DeclarationFunctionKey<'ast>) -> bool {
-        self.id == other.id && self.signature == other.signature
+        self.module == other.module && self.id == other.id && self.signature == other.signature
     }
 }
 
 fn try_from_g_function_key<T: TryInto<U>, U>(k: GFunctionKey<T>) -> Result<GFunctionKey<U>, ()> {
     Ok(GFunctionKey {
+        module: k.module,
         signature: signature::try_from_g_signature(k.signature)?,
         id: k.id,
     })
@@ -749,8 +759,12 @@ impl<'ast, T> From<DeclarationFunctionKey<'ast>> for FunctionKey<'ast, T> {
 }
 
 impl<'ast, S> GFunctionKey<'ast, S> {
-    pub fn with_id<U: Into<FunctionIdentifier<'ast>>>(id: U) -> Self {
+    pub fn with_location<T: Into<TypedModuleId>, U: Into<FunctionIdentifier<'ast>>>(
+        module: T,
+        id: U,
+    ) -> Self {
         GFunctionKey {
+            module: module.into(),
             id: id.into(),
             signature: GSignature::new(),
         }
@@ -765,11 +779,21 @@ impl<'ast, S> GFunctionKey<'ast, S> {
         self.id = id.into();
         self
     }
+
+    pub fn module<T: Into<TypedModuleId>>(mut self, module: T) -> Self {
+        self.module = module.into();
+        self
+    }
 }
 
 impl<'ast> ConcreteFunctionKey<'ast> {
     pub fn to_slug(&self) -> String {
-        format!("{}_{}", self.id, self.signature.to_slug())
+        format!(
+            "{}/{}_{}",
+            self.module.display(),
+            self.id,
+            self.signature.to_slug()
+        )
     }
 }
 

@@ -381,80 +381,70 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
     ) -> Result<Self, TypedExpression<'ast, T>> {
         let array_ty = array.get_array_type();
 
-        if array_ty == target_array_ty {
+        if array_ty.weak_eq(&target_array_ty) {
             return Ok(array);
         }
 
-        // sizes must be equal
-        let converted = match target_array_ty.size == array_ty.size {
-            true =>
-            // elements must fit in the target type
-            {
-                match array.into_inner() {
-                    ArrayExpressionInner::Value(inline_array) => {
-                        match *target_array_ty.ty {
-                            Type::Int => Ok(inline_array),
-                            Type::FieldElement => {
-                                // try to convert all elements to field
-                                inline_array
-                                    .into_iter()
-                                    .map(|e| {
-                                        FieldElementExpression::try_from_typed(e)
-                                            .map(TypedExpression::from)
-                                    })
-                                    .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                                    .map_err(TypedExpression::from)
-                            }
-                            Type::Uint(bitwidth) => {
-                                // try to convert all elements to uint
-                                inline_array
-                                    .into_iter()
-                                    .map(|e| {
-                                        UExpression::try_from_typed(e, bitwidth)
-                                            .map(TypedExpression::from)
-                                    })
-                                    .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                                    .map_err(TypedExpression::from)
-                            }
-                            Type::Array(ref inner_array_ty) => {
-                                // try to convert all elements to array
-                                inline_array
-                                    .into_iter()
-                                    .map(|e| {
-                                        ArrayExpression::try_from_typed(e, inner_array_ty.clone())
-                                            .map(TypedExpression::from)
-                                    })
-                                    .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                                    .map_err(TypedExpression::from)
-                            }
-                            Type::Struct(ref struct_ty) => {
-                                // try to convert all elements to struct
-                                inline_array
-                                    .into_iter()
-                                    .map(|e| {
-                                        StructExpression::try_from_typed(e, struct_ty.clone())
-                                            .map(TypedExpression::from)
-                                    })
-                                    .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                                    .map_err(TypedExpression::from)
-                            }
-                            Type::Boolean => {
-                                // try to convert all elements to boolean
-                                inline_array
-                                    .into_iter()
-                                    .map(|e| {
-                                        BooleanExpression::try_from_typed(e)
-                                            .map(TypedExpression::from)
-                                    })
-                                    .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                                    .map_err(TypedExpression::from)
-                            }
-                        }
+        // elements must fit in the target type
+        let converted = match array.into_inner() {
+            ArrayExpressionInner::Value(inline_array) => {
+                match *target_array_ty.ty {
+                    Type::Int => Ok(inline_array),
+                    Type::FieldElement => {
+                        // try to convert all elements to field
+                        inline_array
+                            .into_iter()
+                            .map(|e| {
+                                FieldElementExpression::try_from_typed(e).map(TypedExpression::from)
+                            })
+                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
+                            .map_err(TypedExpression::from)
                     }
-                    _ => unreachable!(""),
+                    Type::Uint(bitwidth) => {
+                        // try to convert all elements to uint
+                        inline_array
+                            .into_iter()
+                            .map(|e| {
+                                UExpression::try_from_typed(e, bitwidth).map(TypedExpression::from)
+                            })
+                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
+                            .map_err(TypedExpression::from)
+                    }
+                    Type::Array(ref inner_array_ty) => {
+                        // try to convert all elements to array
+                        inline_array
+                            .into_iter()
+                            .map(|e| {
+                                ArrayExpression::try_from_typed(e, inner_array_ty.clone())
+                                    .map(TypedExpression::from)
+                            })
+                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
+                            .map_err(TypedExpression::from)
+                    }
+                    Type::Struct(ref struct_ty) => {
+                        // try to convert all elements to struct
+                        inline_array
+                            .into_iter()
+                            .map(|e| {
+                                StructExpression::try_from_typed(e, struct_ty.clone())
+                                    .map(TypedExpression::from)
+                            })
+                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
+                            .map_err(TypedExpression::from)
+                    }
+                    Type::Boolean => {
+                        // try to convert all elements to boolean
+                        inline_array
+                            .into_iter()
+                            .map(|e| {
+                                BooleanExpression::try_from_typed(e).map(TypedExpression::from)
+                            })
+                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
+                            .map_err(TypedExpression::from)
+                    }
                 }
             }
-            false => Err(array.into()),
+            _ => unreachable!(),
         }?;
 
         Ok(ArrayExpressionInner::Value(converted).annotate(*target_array_ty.ty, array_ty.size))

@@ -331,7 +331,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 }
             }
             s @ TypedStatement::PushCallLog(..) => Some(s),
-            s @ TypedStatement::PopCallLog(..) => Some(s),
+            s @ TypedStatement::PopCallLog => Some(s),
         };
 
         // In verbose mode, we always return a statement

@@ -37,15 +37,15 @@ use super::{Output, Versions};
 
 pub struct ShallowTransformer<'ast, 'a> {
     // version index for any variable name
-    versions: &'a mut Versions<'ast>,
+    pub versions: &'a mut Versions<'ast>,
     // A backup of the versions before each for-loop
-    for_loop_backups: Vec<Versions<'ast>>,
+    pub for_loop_backups: Vec<Versions<'ast>>,
     // whether all statements could be unrolled so far. Loops with variable bounds cannot.
-    blocked: bool,
+    pub blocked: bool,
 }
 
 impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
-    fn with_versions(versions: &'a mut Versions<'ast>) -> Self {
+    pub fn with_versions(versions: &'a mut Versions<'ast>) -> Self {
         ShallowTransformer {
             versions,
             for_loop_backups: Vec::default(),
@@ -568,7 +568,8 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         e: TypedExpressionList<'ast, T>,
     ) -> TypedExpressionList<'ast, T> {
         match e {
-            TypedExpressionList::FunctionCall(ref k, _, _) => {
+            TypedExpressionList::FunctionCall(ref k, ref a, _) => {
+                println!("{:#?}", a.iter().map(|a| a.get_type()).collect::<Vec<_>>());
                 if !k.id.starts_with("_") {
                     self.blocked = true;
                 }
@@ -929,7 +930,7 @@ mod tests {
             let s: TypedStatement<Bn128Field> = TypedStatement::MultipleDefinition(
                 vec![Variable::field_element("a")],
                 TypedExpressionList::FunctionCall(
-                    DeclarationFunctionKey::with_id("foo").signature(
+                    DeclarationFunctionKey::with_location("main", "foo").signature(
                         DeclarationSignature::new()
                             .inputs(vec![DeclarationType::FieldElement])
                             .outputs(vec![DeclarationType::FieldElement]),
@@ -943,7 +944,7 @@ mod tests {
                 vec![TypedStatement::MultipleDefinition(
                     vec![Variable::field_element(Identifier::from("a").version(1))],
                     TypedExpressionList::FunctionCall(
-                        DeclarationFunctionKey::with_id("foo").signature(
+                        DeclarationFunctionKey::with_location("main", "foo").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement])
@@ -1447,7 +1448,7 @@ mod tests {
                     TypedStatement::MultipleDefinition(
                         vec![Variable::field_element("a").into()],
                         TypedExpressionList::FunctionCall(
-                            DeclarationFunctionKey::with_id("foo"),
+                            DeclarationFunctionKey::with_location("main", "foo"),
                             vec![FieldElementExpression::Identifier("a".into()).into()],
                             vec![Type::FieldElement],
                         ),
@@ -1463,7 +1464,7 @@ mod tests {
                         FieldElementExpression::mult(
                             FieldElementExpression::Identifier("a".into()),
                             FieldElementExpression::FunctionCall(
-                                FunctionKey::with_id("foo"),
+                                DeclarationFunctionKey::with_location("main", "foo"),
                                 vec![FieldElementExpression::Identifier("a".into()).into()],
                             ),
                         )
@@ -1511,7 +1512,7 @@ mod tests {
                     TypedStatement::MultipleDefinition(
                         vec![Variable::field_element(Identifier::from("a").version(2)).into()],
                         TypedExpressionList::FunctionCall(
-                            DeclarationFunctionKey::with_id("foo"),
+                            DeclarationFunctionKey::with_location("main", "foo"),
                             vec![FieldElementExpression::Identifier(
                                 Identifier::from("a").version(1),
                             )
@@ -1530,7 +1531,7 @@ mod tests {
                         FieldElementExpression::mult(
                             FieldElementExpression::Identifier(Identifier::from("a").version(2)),
                             FieldElementExpression::FunctionCall(
-                                FunctionKey::with_id("foo"),
+                                DeclarationFunctionKey::with_location("main", "foo"),
                                 vec![FieldElementExpression::Identifier(
                                     Identifier::from("a").version(2),
                                 )

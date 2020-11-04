@@ -74,7 +74,7 @@ pub struct ZirModule<'ast, T> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ZirFunctionSymbol<'ast, T> {
     Here(ZirFunction<'ast, T>),
-    There(FunctionKey<'ast>, ZirModuleId),
+    There(FunctionKey<'ast>),
     Flat(FlatEmbed),
 }
 
@@ -82,8 +82,8 @@ impl<'ast, T> ZirFunctionSymbol<'ast, T> {
     pub fn signature<'a>(&'a self, modules: &'a ZirModules<T>) -> Signature {
         match self {
             ZirFunctionSymbol::Here(f) => f.signature.clone(),
-            ZirFunctionSymbol::There(key, module_id) => modules
-                .get(module_id)
+            ZirFunctionSymbol::There(key) => modules
+                .get(&key.module)
                 .unwrap()
                 .functions
                 .get(key)
@@ -102,10 +102,10 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirModule<'ast, T> {
             .iter()
             .map(|(key, symbol)| match symbol {
                 ZirFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
-                ZirFunctionSymbol::There(ref fun_key, ref module_id) => format!(
+                ZirFunctionSymbol::There(ref fun_key) => format!(
                     "import {} from \"{}\" as {} // with signature {}",
                     fun_key.id,
-                    module_id.display(),
+                    fun_key.module.display(),
                     key.id,
                     key.signature
                 ),
