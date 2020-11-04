@@ -168,24 +168,47 @@ that are very simple in a normal language.
 The first line defines an array of 512 boolean values (`bool[512]`) called `secretBits`. It is initialized to
 an array of 512 `false` values. The syntax `[<value>; <number>]` initializes the an array of `<number>` 
 copies of `<value>`. It is necessary to include it here because a Zokrates variable must be initialized
-when it is declared (except for function parameters).
+when it is declared.
 
 ```javascript
   // Convert the secret to bits
   bool[512] secretBits = [false; 512]
 ```
 
+This is a [for loop](https://zokrates.github.io/language/control_flow.html#for-loops). For loops 
+have to have an index of type `field`, and fixed boundaries that are known at compile time. 
+In this case, we go over each of the sixteen 32 bit words.
 ```javascript
   for field i in 0..16 do
+```
+
+The function we imported, `u32_to_bits`, converts a `u32` value to an array of bits. We store the value
+to avoid having to run this function 32 times.
+
+```javascript
     bool[32] val = u32_to_bits(secret[i])
+```
+
+The inner loop copies the bits from `val` to the 512 bit array.
+
+```javascript
     for field bit in 0..32 do
       secretBits[i*32+bit] = val[bit]
+```
+
+We use `endfor` to end a for loop.
+
+```javascript
     endfor
   endfor
+```
 
+To return multiple values, separate them by commas. 
+
+```javascript
   return sha256(secret[0..8], secret[8..16]), secretBits[bitNum]
 ```
 
 
 
-## Putting it all together
+## Actually using zero knowledge proofs
