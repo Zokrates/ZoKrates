@@ -51,7 +51,7 @@ Witness:
 ["3592665057","2164530888","1223339564","3041196771","2006723467","2963045520","3851824201","3453903005"]
 ```
 
-Pick you own value and copy the hash somewhere.
+Pick you own value and store it somewhere.
 
 ### Detailed explanation
 
@@ -107,20 +107,24 @@ Finally, return `h` to the caller to display the hash.
 import "hashes/sha256/512bit" as sha256
 import "EMBED/u32_to_bits" as u32_to_bits
 
-def main(private u32[16] hashMe, u32[8] hashVal, field bitNum) -> bool:
-  bool[512] hashMeBits = [false; 512]
+// Reveal a bit from a 512 bit value, and return it with the corresponding hash
+// for that value.
+//
+// WARNING, once enough bits have been revealed it is possible to brute force
+// the remaining secret bits.
+
+def main(private u32[16] secret, field bitNum) -> (u32[8], bool):
+                                                                                                                       
+  // Convert the secret to bits
+  bool[512] secretBits = [false; 512]
   for field i in 0..16 do
-    bool[32] val = u32_to_bits(hashMe[i])
+    bool[32] val = u32_to_bits(secret[i])
     for field bit in 0..32 do
-      hashMeBits[i*32+bit] = val[bit]
+      secretBits[i*32+bit] = val[bit]
     endfor
   endfor
-  u32[8] hashCalculated = sha256(hashMe[0..8], hashMe[8..16])
-  assert(hashVal == hashCalculated)
-  return hashMeBits[bitNum]
 
-// WARNING: After enough bits have been revealed the whole value can be brute
-// forced
+  return sha256(secret[0..8], secret[8..16]), secretBits[bitNum]
 ```
 
 ### Detailed explanation
