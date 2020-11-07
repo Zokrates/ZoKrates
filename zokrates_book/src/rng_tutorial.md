@@ -212,3 +212,51 @@ To return multiple values, separate them by commas.
 
 
 ## Actually using zero knowledge proofs
+
+The `reveal_bit.zok`program reveals a bit from the preimage, but who runs it?
+
+1. If Alice runs the program, she can feed it her secret preimage and receive the correct result. However, when she sends the output there is no reason
+   for Bob to trust that she is providing the correct output.
+2. If Bob runs the program, he does not have Alice's secret preimage. If Alice discloses her secret preimage, Bob can know the value of all the bits.
+
+So we need to have Alice run the program and produce the output, but produce it in such a way Bob will know it is the correct output. This is what Zero Knowledge
+Proofs give us.
+
+### Set up the environment
+
+1. Create two separate directories, `alice` and `bob`. You will perform the actions of Alice in the `alice` directory,
+   and the Bob actions in the `bob` directory.
+   
+### Bob's setup stage
+
+2. Compile `reveal_bit.zok` and create the proving and verification keys.
+   ```
+   zokrates compile -i reveal_bit.zok -o reveal_bit --light
+   zokrates setup -i reveal_bit
+   ```
+3. Copy the file `proving.key` to Alice's directory.
+
+### Alice reveals a bit
+
+4. Alice should compile `reveal_bit.zok` independently to make sure it doesn't disclose information she wants to keep a secret.
+   ```
+   zokrates compile -i reveal_bit.zok -o reveal_bit --light
+   ```   
+   
+5. Next, Alice creates the `witness` file with the values of all the parameters in the program, and out of it generates a 
+   proof with Bob's `proving.key`
+   ```
+   zokrates compute-witness -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510 --light
+   zokrates generate-proof -i reveal_bit
+   ``` 
+   
+6. The proof is created in the file `proof.json`. Copy this file to Bob's directory.
+
+### Bob accepts the proof
+
+7. Finally, bob verifies the proof:
+   ```
+   zokrates verify
+   ```
+   
+8. As a sanity check, modify `proof.json` to an invalid value and see that the verification fails.
