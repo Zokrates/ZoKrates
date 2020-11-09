@@ -570,7 +570,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         e: TypedExpressionList<'ast, T>,
     ) -> TypedExpressionList<'ast, T> {
         match e {
-            TypedExpressionList::FunctionCall(ref k, ref a, _) => {
+            TypedExpressionList::FunctionCall(ref k, _, _) => {
                 if !k.id.starts_with("_") {
                     self.blocked = true;
                 }
@@ -584,7 +584,6 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::FunctionKey;
     use typed_absy::types::DeclarationSignature;
     use zokrates_field::Bn128Field;
     mod normal {

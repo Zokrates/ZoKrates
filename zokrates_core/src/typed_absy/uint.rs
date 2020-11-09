@@ -1,4 +1,4 @@
-use typed_absy::types::{FunctionKey, UBitwidth};
+use typed_absy::types::UBitwidth;
 use typed_absy::*;
 use zokrates_field::Field;
 

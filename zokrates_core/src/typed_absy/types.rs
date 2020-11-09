@@ -15,7 +15,7 @@ pub enum Constant<'ast> {
 
 // At this stage we want all constants to be equal
 impl<'ast> PartialEq for Constant<'ast> {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _: &Self) -> bool {
         true
     }
 }
@@ -851,7 +851,9 @@ pub mod signature {
             (DeclarationType::FieldElement, ConcreteType::FieldElement)
             | (DeclarationType::Boolean, ConcreteType::Boolean) => true,
             (DeclarationType::Uint(b0), ConcreteType::Uint(b1)) => b0 == b1,
-            (DeclarationType::Struct(s0), ConcreteType::Struct(s1)) => true, // TODO check
+            (DeclarationType::Struct(s0), ConcreteType::Struct(s1)) => {
+                s0.canonical_location == s1.canonical_location
+            }
             _ => false,
         }
     }
