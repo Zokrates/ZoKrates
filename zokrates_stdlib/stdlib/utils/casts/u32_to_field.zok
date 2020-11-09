@@ -1,0 +1,10 @@
+import "EMBED/u32_to_bits" as to_bits
+
+def main(u32 i) -> field:
+	bool[32] bits = to_bits(i)
+	field res = 0
+	for field j in 0..32 do
+		field exponent = 32 - j - 1
+		res = res + if bits[j] then 2 ** exponent else 0 fi
+	endfor
+	return res
