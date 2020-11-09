@@ -131,9 +131,6 @@ fn register<'ast>(
     substitute: &Versions<'ast>,
     with: &Versions<'ast>,
 ) {
-    // println!("STATE: {:#?}", substitutions);
-    // println!("SUBSTITUTE {:#?} WITH {:#?}", substitute, with);
-    //assert!(substitute.len() <= with.len());
     for (id, key, value) in substitute
         .iter()
         .filter_map(|(id, version)| with.get(&id).clone().map(|to| (id, version, to)))
@@ -568,13 +565,6 @@ fn reduce_function<'ast, T: Field>(
             let mut substitutions = Substitutions::default();
 
             loop {
-                // println!("ITERATION {}", f);
-                // println!("VERSIONS {:#?}", versions);
-                // println!("SUBSTITUTIONS {:#?}", substitutions);
-                // println!("FOR LOOPS {:#?}", for_loop_versions);
-
-                // println!("-------------------------------------------------------------\n");
-
                 let mut reducer = Reducer::new(
                     &modules,
                     &mut versions,
@@ -596,10 +586,6 @@ fn reduce_function<'ast, T: Field>(
                 match reducer.complete {
                     true => {
                         let f = TypedFunction { statements, ..f };
-
-                        // println!("FINAL BEFORE SUBSTITUTION {}", f);
-                        // println!("FINAL VERSIONS {:#?}", versions);
-                        // println!("FINAL SUBSTITUTIONS {:#?}", substitutions);
 
                         substitutions = substitutions.canonicalize();
 
@@ -823,9 +809,6 @@ mod tests {
             .into_iter()
             .collect(),
         };
-
-        println!("{}", reduced.clone().unwrap());
-        println!("{}", expected);
 
         assert_eq!(reduced.unwrap(), expected);
     }
@@ -1058,9 +1041,6 @@ mod tests {
             .into_iter()
             .collect(),
         };
-
-        println!("{}", reduced.clone().unwrap());
-        println!("{}", expected);
 
         assert_eq!(reduced.unwrap(), expected);
     }
@@ -1325,9 +1305,6 @@ mod tests {
             .into_iter()
             .collect(),
         };
-
-        println!("{}", reduced.clone().unwrap());
-        println!("{}", expected);
 
         assert_eq!(reduced.unwrap(), expected);
     }

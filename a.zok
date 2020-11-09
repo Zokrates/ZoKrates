@@ -1,6 +1,0 @@
-def foo(u32 a):
-	return
-
-def main():
-	u32[3] a = [1,2,3]
-	return
