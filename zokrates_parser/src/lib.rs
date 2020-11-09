@@ -73,36 +73,49 @@ mod tests {
                 ",
                 rule: Rule::function_definition,
                 tokens: [
-                    function_definition(0, 45, [
+                    function_definition(0, 54, [
                         identifier(4, 7),
+                        identifier(8, 9),
+                        identifier(11, 12),
                         // parameter_list is not created (silent rule)
-                        parameter(8, 15, [
-                            ty(8, 13, [
-                                ty_basic(8, 13, [
-                                    ty_field(8, 13)
+                        parameter(14, 24, [
+                            ty(14, 23, [
+                                ty_array(14, 23, [
+                                    ty_basic_or_struct(14, 19, [
+                                        ty_basic(14, 19, [
+                                            ty_field(14, 19)
+                                        ])
+                                    ]),
+                                    expression(20, 21, [
+                                        term(20, 21, [
+                                            primary_expression(20, 21, [
+                                                identifier(20, 21)
+                                            ])
+                                        ])
+                                    ])
                                 ])
                             ]),
-                            identifier(14, 15)
+                            identifier(23, 24)
                         ]),
                         // type_list is not created (silent rule)
-                        ty(21, 26, [
-                            ty_basic(21, 26, [
-                                ty_field(21, 26)
+                        ty(30, 35, [
+                            ty_basic(30, 35, [
+                                ty_field(30, 35)
                             ])
                         ]),
-                        ty(28, 33, [
-                            ty_basic(28, 33, [
-                                ty_field(28, 33)
+                        ty(37, 42, [
+                            ty_basic(37, 42, [
+                                ty_field(37, 42)
                             ])
                         ]),
-                        statement(36, 45, [
-                            return_statement(36, 44, [
-                                expression(43, 44, [
-                                    term(43, 44, [
-                                        primary_expression(43, 44, [
-                                            literal(43, 44, [
-                                                decimal_literal(43, 44, [
-                                                    decimal_number(43, 44)
+                        statement(45, 54, [
+                            return_statement(45, 53, [
+                                expression(52, 53, [
+                                    term(52, 53, [
+                                        primary_expression(52, 53, [
+                                            literal(52, 53, [
+                                                decimal_literal(52, 53, [
+                                                    decimal_number(52, 53)
                                                 ])
                                             ])
                                         ])

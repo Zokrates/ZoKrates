@@ -1723,7 +1723,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         match expr {
             FieldElementExpression::Number(x) => FlatExpression::Number(x), // force to be a field element
             FieldElementExpression::Identifier(x) => {
-                FlatExpression::Identifier(self.layout.get(&x).unwrap().clone())
+                FlatExpression::Identifier(self.layout.get(&x).expect(&format!("{}", x)).clone())
             }
             FieldElementExpression::Add(box left, box right) => {
                 let left_flattened =

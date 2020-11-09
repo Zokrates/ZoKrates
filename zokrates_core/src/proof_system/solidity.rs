@@ -1,4 +1,30 @@
+use proof_system::Scheme;
+use zokrates_field::{Bn128Field, Field};
+
+pub trait SolidityCompatibleField: Field {}
+impl SolidityCompatibleField for Bn128Field {}
+
+pub trait SolidityCompatibleScheme<T: SolidityCompatibleField>: Scheme<T> {
+    fn export_solidity_verifier(vk: Self::VerificationKey, abi: SolidityAbi) -> String;
+}
+
+pub enum SolidityAbi {
+    V1,
+    V2,
+}
+
+impl SolidityAbi {
+    pub fn from(v: &str) -> Result<Self, &str> {
+        match v {
+            "v1" => Ok(SolidityAbi::V1),
+            "v2" => Ok(SolidityAbi::V2),
+            _ => Err("Invalid ABI version"),
+        }
+    }
+}
+
 pub const SOLIDITY_G2_ADDITION_LIB: &str = r#"// SPDX-License-Identifier: LGPL-3.0-only
+// This file is LGPL3 Licensed
 pragma solidity ^0.6.1;
 
 /**
@@ -420,10 +446,10 @@ library Pairing {
     /// @return the generator of G2
     function P2() pure internal returns (G2Point memory) {
         return G2Point(
-            [11559732032986387107991004021392285783925812861821192530917403151452391805634,
-             10857046999023057135944570762232829481370756359578518086990519993285655852781],
-            [4082367875863433681332203403145435568316851327593401208105741076214120093531,
-             8495653923123431417604973247489272438418190587263600148770280649306958101930]
+            [10857046999023057135944570762232829481370756359578518086990519993285655852781,
+             11559732032986387107991004021392285783925812861821192530917403151452391805634],
+            [8495653923123431417604973247489272438418190587263600148770280649306958101930,
+             4082367875863433681332203403145435568316851327593401208105741076214120093531]
         );
     }
     /// @return the negation of p, i.e. p.addition(p.negate()) should be zero.
@@ -451,7 +477,7 @@ library Pairing {
     }
     /// @return r the sum of two points of G2
     function addition(G2Point memory p1, G2Point memory p2) internal view returns (G2Point memory r) {
-        (r.X[1], r.X[0], r.Y[1], r.Y[0]) = BN256G2.ECTwistAdd(p1.X[1],p1.X[0],p1.Y[1],p1.Y[0],p2.X[1],p2.X[0],p2.Y[1],p2.Y[0]);
+        (r.X[0], r.X[1], r.Y[0], r.Y[1]) = BN256G2.ECTwistAdd(p1.X[0],p1.X[1],p1.Y[0],p1.Y[1],p2.X[0],p2.X[1],p2.Y[0],p2.Y[1]);
     }
     /// @return r the product of a point on G1 and a scalar, i.e.
     /// p == p.scalar_mul(1) and p.addition(p) == p.scalar_mul(2) for all points p.
@@ -481,10 +507,10 @@ library Pairing {
         {
             input[i * 6 + 0] = p1[i].X;
             input[i * 6 + 1] = p1[i].Y;
-            input[i * 6 + 2] = p2[i].X[0];
-            input[i * 6 + 3] = p2[i].X[1];
-            input[i * 6 + 4] = p2[i].Y[0];
-            input[i * 6 + 5] = p2[i].Y[1];
+            input[i * 6 + 2] = p2[i].X[1];
+            input[i * 6 + 3] = p2[i].X[0];
+            input[i * 6 + 4] = p2[i].Y[1];
+            input[i * 6 + 5] = p2[i].Y[0];
         }
         uint[1] memory out;
         bool success;
@@ -568,10 +594,10 @@ library Pairing {
     /// @return the generator of G2
     function P2() pure internal returns (G2Point memory) {
         return G2Point(
-            [11559732032986387107991004021392285783925812861821192530917403151452391805634,
-             10857046999023057135944570762232829481370756359578518086990519993285655852781],
-            [4082367875863433681332203403145435568316851327593401208105741076214120093531,
-             8495653923123431417604973247489272438418190587263600148770280649306958101930]
+            [10857046999023057135944570762232829481370756359578518086990519993285655852781,
+             11559732032986387107991004021392285783925812861821192530917403151452391805634],
+            [8495653923123431417604973247489272438418190587263600148770280649306958101930,
+             4082367875863433681332203403145435568316851327593401208105741076214120093531]
         );
     }
     /// @return the negation of p, i.e. p.addition(p.negate()) should be zero.
@@ -599,7 +625,7 @@ library Pairing {
     }
     /// @return r the sum of two points of G2
     function addition(G2Point memory p1, G2Point memory p2) internal view returns (G2Point memory r) {
-        (r.X[1], r.X[0], r.Y[1], r.Y[0]) = BN256G2.ECTwistAdd(p1.X[1],p1.X[0],p1.Y[1],p1.Y[0],p2.X[1],p2.X[0],p2.Y[1],p2.Y[0]);
+        (r.X[0], r.X[1], r.Y[0], r.Y[1]) = BN256G2.ECTwistAdd(p1.X[0],p1.X[1],p1.Y[0],p1.Y[1],p2.X[0],p2.X[1],p2.Y[0],p2.Y[1]);
     }
     /// @return r the product of a point on G1 and a scalar, i.e.
     /// p == p.scalar_mul(1) and p.addition(p) == p.scalar_mul(2) for all points p.
@@ -629,10 +655,10 @@ library Pairing {
         {
             input[i * 6 + 0] = p1[i].X;
             input[i * 6 + 1] = p1[i].Y;
-            input[i * 6 + 2] = p2[i].X[0];
-            input[i * 6 + 3] = p2[i].X[1];
-            input[i * 6 + 4] = p2[i].Y[0];
-            input[i * 6 + 5] = p2[i].Y[1];
+            input[i * 6 + 2] = p2[i].X[1];
+            input[i * 6 + 3] = p2[i].X[0];
+            input[i * 6 + 4] = p2[i].Y[1];
+            input[i * 6 + 5] = p2[i].Y[0];
         }
         uint[1] memory out;
         bool success;

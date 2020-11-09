@@ -462,6 +462,8 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
                 vec![TypedStatement::MultipleDefinition(variables, exprs)]
             }
             TypedStatement::For(v, from, to, stats) => {
+                let from = self.fold_uint_expression(from);
+                let to = self.fold_uint_expression(to);
                 self.blocked = true;
                 let versions_before_loop = self.create_version_gap();
                 self.for_loop_backups.push(versions_before_loop);
@@ -569,7 +571,6 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     ) -> TypedExpressionList<'ast, T> {
         match e {
             TypedExpressionList::FunctionCall(ref k, ref a, _) => {
-                println!("{:#?}", a.iter().map(|a| a.get_type()).collect::<Vec<_>>());
                 if !k.id.starts_with("_") {
                     self.blocked = true;
                 }
@@ -1332,12 +1333,14 @@ mod tests {
                     ),
                     TypedStatement::For(
                         Variable::uint("i", UBitwidth::B32),
-                        UExpressionInner::Identifier("n".into())
+                        UExpressionInner::Identifier(Identifier::from("n").version(1))
                             .annotate(UBitwidth::B32)
                             .into(),
                         UExpression::mult(
-                            UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
-                            UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
+                            UExpressionInner::Identifier(Identifier::from("n").version(1))
+                                .annotate(UBitwidth::B32),
+                            UExpressionInner::Identifier(Identifier::from("n").version(1))
+                                .annotate(UBitwidth::B32),
                         )
                         .into(),
                         vec![TypedStatement::Definition(
@@ -1351,12 +1354,14 @@ mod tests {
                     ),
                     TypedStatement::For(
                         Variable::uint("i", UBitwidth::B32),
-                        UExpressionInner::Identifier("n".into())
+                        UExpressionInner::Identifier(Identifier::from("n").version(3))
                             .annotate(UBitwidth::B32)
                             .into(),
                         UExpression::mult(
-                            UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
-                            UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
+                            UExpressionInner::Identifier(Identifier::from("n").version(3))
+                                .annotate(UBitwidth::B32),
+                            UExpressionInner::Identifier(Identifier::from("n").version(3))
+                                .annotate(UBitwidth::B32),
                         )
                         .into(),
                         vec![TypedStatement::Definition(
@@ -1384,20 +1389,35 @@ mod tests {
                     .into_iter()
                     .collect::<Versions>()
             );
-            assert_eq!(
-                ssa,
-                Output::Incomplete(
-                    expected,
-                    vec![
-                        vec![("n".into(), 1), ("a".into(), 1), ("K".into(), 0)]
-                            .into_iter()
-                            .collect::<Versions>(),
-                        vec![("n".into(), 3), ("a".into(), 4), ("K".into(), 2)]
-                            .into_iter()
-                            .collect::<Versions>()
-                    ],
-                )
+
+            let expected = Output::Incomplete(
+                expected,
+                vec![
+                    vec![("n".into(), 1), ("a".into(), 1), ("K".into(), 0)]
+                        .into_iter()
+                        .collect::<Versions>(),
+                    vec![("n".into(), 3), ("a".into(), 4), ("K".into(), 2)]
+                        .into_iter()
+                        .collect::<Versions>(),
+                ],
             );
+
+            println!(
+                "{}",
+                match ssa {
+                    Output::Incomplete(ref e, _) => e,
+                    _ => unreachable!(),
+                }
+            );
+            println!(
+                "{}",
+                match expected {
+                    Output::Incomplete(ref e, _) => e,
+                    _ => unreachable!(),
+                }
+            );
+
+            assert_eq!(ssa, expected);
         }
     }
 

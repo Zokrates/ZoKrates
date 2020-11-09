@@ -1712,7 +1712,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected only field elements, found {:?}, {:?}",
+                            "Expected only field elements, found {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -1797,7 +1797,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected only field elements, found {:?}, {:?}",
+                            "Expected only field elements, found {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -1825,7 +1825,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected `field` and `u32`, found {:?}, {:?}",
+                            "Expected `field` and `u32`, found {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -2610,8 +2610,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .next()
                     .unwrap_or(Type::Int);
 
-                println!("INFERRED TYPE {:?}", inferred_type);
-
                 match inferred_type {
                     Type::Int => {
                         // no need to check the expressions have the same type, this is guaranteed above
@@ -2662,8 +2660,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .collect::<Result<Vec<_>, _>>()?;
 
                         let size = unwrapped_expressions.len() as u32;
-
-                        println!("hey");
 
                         Ok(ArrayExpressionInner::Value(unwrapped_expressions)
                             .annotate(Type::Boolean, size as usize)
@@ -4900,7 +4896,7 @@ mod tests {
         ];
 
         let foo = DeclarationFunctionKey {
-            module: "main".into(),
+            module: MODULE_ID.into(),
             id: "foo",
             signature: DeclarationSignature {
                 inputs: vec![],
@@ -4933,11 +4929,10 @@ mod tests {
         };
 
         let types = HashMap::new();
-        let module_id = "".into();
 
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function(bar, &module_id, &types),
+            checker.check_function(bar, &MODULE_ID.into(), &types),
             Ok(bar_checked)
         );
     }

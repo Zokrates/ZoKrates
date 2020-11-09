@@ -1,5 +1,5 @@
 {
-	"curves": ["Bn128", "Bls12"],
+	"curves": ["Bn128", "Bls12_381"],
 	"tests": [
 		{
             "input": {

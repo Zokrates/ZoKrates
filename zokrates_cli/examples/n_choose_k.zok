@@ -1,9 +1,11 @@
+import "utils/casts/u32_to_field" as to_field
+
 // Binomial Coeffizient, n!/(k!*(n-k)!).
 def fac(field x) -> field:
     field f = 1
     field counter = 0
     for u32 i in 1..100 do
-        f = if counter == x then f else f * i fi
+        f = if counter == x then f else f * to_field(i) fi
         counter = if counter == x then counter else counter + 1 fi
     endfor
     return f

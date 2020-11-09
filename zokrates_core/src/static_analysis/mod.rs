@@ -6,25 +6,17 @@
 
 mod flat_propagation;
 mod flatten_complex_types;
-//mod inline;
-//mod propagate_unroll;
 mod propagation;
 mod redefinition;
 mod reducer;
-mod return_binder;
-mod trimmer;
 mod uint_optimizer;
 mod unconstrained_vars;
-//mod unroll;
 mod variable_access_remover;
 
 use self::flatten_complex_types::Flattener;
-//use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
 use self::redefinition::RedefinitionOptimizer;
 use self::reducer::reduce_program;
-use self::return_binder::ReturnBinder;
-use self::trimmer::Trimmer;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_access_remover::VariableAccessRemover;
@@ -40,19 +32,7 @@ pub trait Analyse {
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> (ZirProgram<'ast, T>, Abi) {
-        // return binding
-        //let r = ReturnBinder::bind(self);
-
-        // propagated unrolling
-        //let r = PropagatedUnroller::unroll(r).unwrap_or_else(|e| panic!(e));
-
-        println!("{:#?}", self);
-
         let r = reduce_program(self).unwrap();
-
-        println!("reduced");
-
-        let r = Trimmer::trim(r);
 
         let abi = r.abi().unwrap();
 

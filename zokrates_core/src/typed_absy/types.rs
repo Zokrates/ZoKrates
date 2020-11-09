@@ -249,7 +249,7 @@ impl<'ast, T> From<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
     }
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GStructType<S> {
     #[serde(flatten)]
     pub canonical_location: StructLocation,
@@ -265,6 +265,12 @@ pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 impl<S: PartialEq> PartialEq for GStructType<S> {
     fn eq(&self, other: &Self) -> bool {
         self.canonical_location.eq(&other.canonical_location)
+    }
+}
+
+impl<S: Hash> Hash for GStructType<S> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.canonical_location.hash(state);
     }
 }
 

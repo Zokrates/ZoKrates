@@ -176,6 +176,18 @@ impl<T: Field> Prog<T> {
             })
             .collect()
     }
+
+    pub fn public_inputs(&self, witness: &Witness<T>) -> Vec<T> {
+        self.main
+            .arguments
+            .clone()
+            .iter()
+            .zip(self.private.iter())
+            .filter(|(_, p)| !**p)
+            .map(|(v, _)| witness.0.get(v).unwrap().clone())
+            .chain(witness.return_values())
+            .collect()
+    }
 }
 
 impl<T: Field> fmt::Display for Prog<T> {
