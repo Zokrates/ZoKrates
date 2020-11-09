@@ -6,8 +6,8 @@ Make sure you have followed the instructions in the [Getting Started](gettingsta
 
 ## Description of the problem
 
-We have two users, Alice and Bob, who want to have a random number generator so they can bet with each other. However, they don't trust each other
-and want to make sure the other user can't influence the chosen value.
+We have two users, Alice and Bob, who want to have a random number generator so they can bet with each other. Each time they just need a single random
+bit. However, they don't trust each other and want to make sure the other user can't influence the chosen value.
 
 One way for them to do this is for each of them to commit to a 512 bit value by sending a hash. Then, they can reveal the 0th bit, the 1st bit, etc. The RNG value for 
 each bit is *RNG<sub>n</sub>=ALICE<sub>n</sub> &oplus; BOB<sub>n</sub>*, so neither of them can know in advance what each bit will be. They can use the first 384 bits,
@@ -32,7 +32,7 @@ def main(private u32[16] hashMe) -> u32[8]:
 ```
 2. Compile the program to a form that is usable for zero knowledge proofs. This command writes 
 the binary to `get_hash`. You can see a textual representation, somewhat analogous to assembler 
-coming from a compiler, at `get_hash.ztf`.
+coming from a compiler, at `get_hash.ztf` if you remove the `--light` command line option.
 ```
 zokrates compile -i get_hash.zok -o get_hash --light
 ```
@@ -152,6 +152,9 @@ This function converts a `u32` value to an array of 32 booleans. There are embed
 import "EMBED/u32_to_bits" as u32_to_bits
 ```
 
+Note that `u32_to_bits` is going to be added to the standard library soon, and you'll import it as 
+`stdlib/u32_to_bits`.
+
 A Zokrates function can return multiple values. In this case, it returns the hash and a boolean which is the 
 value of the bit being revealed.
 
@@ -254,9 +257,23 @@ Proofs give us.
 
 ### Bob accepts the proof
 
-7. Finally, bob verifies the proof:
+7. Finally, Bob verifies the proof:
    ```
    zokrates verify
    ```
    
 8. As a sanity check, modify `proof.json` to an invalid value and see that the verification fails.
+
+
+## Connecting to Ethereum
+
+So far Alice and Bob calculated the random bit between themselves. However, it is often useful to have the values
+published on the blockchain. To do this, Bob creates a Solidity program:
+
+```
+zokrates export-verifier
+```
+
+The Solidity program is called `verifier.sol`. The exact mechanism to run it depends on your Ethereum development environment. 
+Here is how you do it using the [HardHat](https://hardhat.org/) environment:
+
