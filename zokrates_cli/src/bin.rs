@@ -1119,7 +1119,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn execute_examples_err() {
         //these examples should compile but not run
         for p in glob("./examples/runtime_errors/*").expect("Failed to read glob pattern") {
@@ -1143,9 +1142,9 @@ mod tests {
 
             let interpreter = ir::Interpreter::default();
 
-            let _ = interpreter
-                .execute(&artifacts.prog(), &vec![Bn128Field::from(0)])
-                .unwrap();
+            let res = interpreter.execute(&artifacts.prog(), &vec![Bn128Field::from(0)]);
+
+            assert!(res.is_err());
         }
     }
 }
