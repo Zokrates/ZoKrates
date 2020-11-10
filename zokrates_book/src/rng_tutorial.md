@@ -153,7 +153,7 @@ import "EMBED/u32_to_bits" as u32_to_bits
 ```
 
 Note that `u32_to_bits` is going to be added to the standard library soon, and you'll import it as 
-`stdlib/u32_to_bits`.
+`utils/casts/u32_to_bits`.
 
 A Zokrates function can return multiple values. In this case, it returns the hash and a boolean which is the 
 value of the bit being revealed.
