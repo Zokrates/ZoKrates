@@ -25,8 +25,8 @@ use typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, ConcreteFunctionKey, CoreIdentifier,
     DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier, StructExpression,
     StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList, TypedFunction,
-    TypedFunctionSymbol, TypedModule, TypedModules, TypedProgram, TypedStatement, UExpression,
-    UExpressionInner, Variable,
+    TypedFunctionSymbol, TypedModule, TypedModuleId, TypedModules, TypedProgram, TypedStatement,
+    UExpression, UExpressionInner, Variable,
 };
 
 use std::convert::{TryFrom, TryInto};
@@ -36,6 +36,8 @@ use zokrates_field::Field;
 use self::shallow_ssa::ShallowTransformer;
 
 use static_analysis::Propagator;
+
+use std::fmt;
 
 // An SSA version map, giving access to the latest version number for each identifier
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
@@ -49,7 +51,21 @@ pub enum Output<U, V> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
-    Incompatible,
+    Incompatible(String, String),
+    GenericsInMain,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Incompatible(decl, conc) => write!(
+                f,
+                "Call site `{}` incompatible with declaration `{}`",
+                conc, decl
+            ),
+            Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
+        }
+    }
 }
 
 type CallCache<'ast, T> = HashMap<
@@ -185,7 +201,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_types: Vec<Type<'ast, T>>,
-    ) -> Result<E, <Self as ResultFolder<'ast, T>>::Error>
+    ) -> Result<E, Error>
     where
         E: FunctionCall<'ast, T> + TryFrom<TypedExpression<'ast, T>, Error = ()> + std::fmt::Debug,
     {
@@ -214,7 +230,9 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
                 Ok(expressions[0].clone().try_into().unwrap())
             }
-            Err(InlineError::Generic(..)) => Err(Error::Incompatible),
+            Err(InlineError::Generic(decl, conc)) => {
+                Err(Error::Incompatible(decl.to_string(), conc.to_string()))
+            }
             Err(InlineError::NonConstant(key, arguments, _)) => {
                 self.complete = false;
 
@@ -301,7 +319,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             )
                             .collect())
                     }
-                    Err(InlineError::Generic(..)) => Err(Error::Incompatible),
+                    Err(InlineError::Generic(decl, conc)) => {
+                        Err(Error::Incompatible(decl.to_string(), conc.to_string()))
+                    }
                     Err(InlineError::NonConstant(key, arguments, output_types)) => {
                         self.complete = false;
 
@@ -452,68 +472,72 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     }
 }
 
-pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
+pub fn reduce_program<'ast, T: Field>(
+    p: TypedProgram<'ast, T>,
+) -> Result<TypedProgram<'ast, T>, Error> {
     let mut p = p;
 
-    // define a function in the main module for the `unpack` embed
+    // define a function in the embed module for the `unpack` embed
     let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
     let unpack_key = unpack.key::<T>();
 
-    // define a function in the main module for the `u32_to_bits` embed
+    // define a function in the embed module for the `u32_to_bits` embed
     let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
     let u32_to_bits_key = u32_to_bits.key::<T>();
 
-    // define a function in the main module for the `u16_to_bits` embed
+    // define a function in the embed module for the `u16_to_bits` embed
     let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
     let u16_to_bits_key = u16_to_bits.key::<T>();
 
-    // define a function in the main module for the `u8_to_bits` embed
+    // define a function in the embed module for the `u8_to_bits` embed
     let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
     let u8_to_bits_key = u8_to_bits.key::<T>();
 
-    // define a function in the main module for the `u32_from_bits` embed
+    // define a function in the embed module for the `u32_from_bits` embed
     let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
     let u32_from_bits_key = u32_from_bits.key::<T>();
 
-    // define a function in the main module for the `u16_from_bits` embed
+    // define a function in the embed module for the `u16_from_bits` embed
     let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
     let u16_from_bits_key = u16_from_bits.key::<T>();
 
-    // define a function in the main module for the `u8_from_bits` embed
+    // define a function in the embed module for the `u8_from_bits` embed
     let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
     let u8_from_bits_key = u8_from_bits.key::<T>();
 
-    p.modules.insert(
-        "#EMBED#".into(),
-        TypedModule {
-            functions: vec![
-                (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
-                (
-                    u32_from_bits_key.into(),
-                    TypedFunctionSymbol::Flat(u32_from_bits),
-                ),
-                (
-                    u16_from_bits_key.into(),
-                    TypedFunctionSymbol::Flat(u16_from_bits),
-                ),
-                (
-                    u8_from_bits_key.into(),
-                    TypedFunctionSymbol::Flat(u8_from_bits),
-                ),
-                (
-                    u32_to_bits_key.into(),
-                    TypedFunctionSymbol::Flat(u32_to_bits),
-                ),
-                (
-                    u16_to_bits_key.into(),
-                    TypedFunctionSymbol::Flat(u16_to_bits),
-                ),
-                (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
-            ]
-            .into_iter()
-            .collect(),
-        },
-    );
+    let embed_module = TypedModule {
+        functions: vec![
+            (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
+            (
+                u32_from_bits_key.into(),
+                TypedFunctionSymbol::Flat(u32_from_bits),
+            ),
+            (
+                u16_from_bits_key.into(),
+                TypedFunctionSymbol::Flat(u16_from_bits),
+            ),
+            (
+                u8_from_bits_key.into(),
+                TypedFunctionSymbol::Flat(u8_from_bits),
+            ),
+            (
+                u32_to_bits_key.into(),
+                TypedFunctionSymbol::Flat(u32_to_bits),
+            ),
+            (
+                u16_to_bits_key.into(),
+                TypedFunctionSymbol::Flat(u16_to_bits),
+            ),
+            (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
+        ]
+        .into_iter()
+        .collect(),
+    };
+
+    let embed_module_key: TypedModuleId = "#EMBED#".into();
+
+    p.modules
+        .insert(embed_module_key.clone(), embed_module.clone());
 
     let main_module = p.modules.get(&p.main).unwrap().clone();
 
@@ -529,23 +553,33 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
         _ => unreachable!(),
     };
 
-    assert_eq!(main_function.generics.len(), 0);
+    match main_function.generics.len() {
+        0 => {
+            let main_function =
+                reduce_function(main_function, GenericsAssignment::default(), &p.modules)?;
 
-    let main_function = reduce_function(main_function, GenericsAssignment::default(), &p.modules)?;
-
-    Ok(TypedProgram {
-        main: p.main.clone(),
-        modules: vec![(
-            p.main,
-            TypedModule {
-                functions: vec![(main_key.clone(), TypedFunctionSymbol::Here(main_function))]
-                    .into_iter()
-                    .collect(),
-            },
-        )]
-        .into_iter()
-        .collect(),
-    })
+            Ok(TypedProgram {
+                main: p.main.clone(),
+                modules: vec![
+                    (embed_module_key, embed_module),
+                    (
+                        p.main,
+                        TypedModule {
+                            functions: vec![(
+                                main_key.clone(),
+                                TypedFunctionSymbol::Here(main_function),
+                            )]
+                            .into_iter()
+                            .collect(),
+                        },
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            })
+        }
+        _ => Err(Error::GenericsInMain),
+    }
 }
 
 fn reduce_function<'ast, T: Field>(
@@ -1534,6 +1568,8 @@ mod tests {
         // expected:
         // Error: Incompatible
 
+        use typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
+
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array(
                 DeclarationType::FieldElement,
@@ -1608,6 +1644,26 @@ mod tests {
 
         let reduced = reduce_program(p);
 
-        assert_eq!(reduced, Err(Error::Incompatible));
+        assert_eq!(
+            reduced,
+            Err(Error::Incompatible(
+                DeclarationFunctionKey::with_location("main", "foo")
+                    .signature(foo_signature.clone())
+                    .to_string(),
+                ConcreteFunctionKey::with_location("main", "foo")
+                    .signature(
+                        ConcreteSignature::new()
+                            .inputs(vec![ConcreteType::array(
+                                ConcreteType::FieldElement,
+                                0usize
+                            )])
+                            .outputs(vec![ConcreteType::array(
+                                ConcreteType::FieldElement,
+                                1usize
+                            )])
+                    )
+                    .to_string()
+            ))
+        );
     }
 }

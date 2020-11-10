@@ -699,6 +699,12 @@ pub type DeclarationFunctionKey<'ast> = GFunctionKey<'ast, Constant<'ast>>;
 pub type ConcreteFunctionKey<'ast> = GFunctionKey<'ast, usize>;
 pub type FunctionKey<'ast, T> = GFunctionKey<'ast, UExpression<'ast, T>>;
 
+impl<'ast, S: fmt::Display> fmt::Display for GFunctionKey<'ast, S> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}/{}{}", self.module.display(), self.id, self.signature)
+    }
+}
+
 #[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct GenericsAssignment<'ast>(pub BTreeMap<GenericIdentifier<'ast>, u32>);
 

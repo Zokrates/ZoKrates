@@ -760,7 +760,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 for c in decl_set.difference(&use_set) {
                     errors.push(ErrorInner {
                         pos: Some(*decl_pos.get(c).unwrap()),
-                        message: format!("Unused generic variable in function definition: `{}` isn't used in the function signature", c)
+                        message: format!("Unused generic parameter in function definition: `{}` isn't used in the function signature", c)
                     });
                 }
 
@@ -768,7 +768,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 for c in use_set.difference(&decl_set) {
                     errors.push(ErrorInner {
                         pos: Some(*use_pos.get(c).unwrap()),
-                        message: format!("Undeclared generic variable in function definition: `{}` isn't declared as a generic constant", c)
+                        message: format!("Undeclared generic parameter in function definition: `{}` isn't declared as a generic constant", c)
                     });
                 }
 
@@ -2583,8 +2583,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
             }
             Expression::InlineArray(expressions) => {
-                assert!(expressions.len() > 0);
-
                 // check each expression, getting its type
                 let mut expressions_checked = vec![];
                 for e in expressions {
@@ -3579,7 +3577,7 @@ mod tests {
                         .unwrap_err()[0]
                         .inner
                         .message,
-                    "Unused generic variable in function definition: `P` isn\'t used in the function signature"
+                    "Unused generic parameter in function definition: `P` isn\'t used in the function signature"
                 );
             }
 
@@ -3642,7 +3640,7 @@ mod tests {
                         .unwrap_err()[0]
                         .inner
                         .message,
-                    "Undeclared generic variable in function definition: `P` isn\'t declared as a generic constant"
+                    "Undeclared generic parameter in function definition: `P` isn\'t declared as a generic constant"
                 );
             }
         }

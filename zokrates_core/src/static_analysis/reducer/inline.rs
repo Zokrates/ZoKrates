@@ -41,7 +41,7 @@ use typed_absy::{
 use zokrates_field::Field;
 
 pub enum InlineError<'ast, T> {
-    Generic(DeclarationSignature<'ast>, ConcreteSignature),
+    Generic(DeclarationFunctionKey<'ast>, ConcreteFunctionKey<'ast>),
     Flat(FlatEmbed, Vec<TypedExpression<'ast, T>>, Vec<Type<'ast, T>>),
     NonConstant(
         DeclarationFunctionKey<'ast>,
@@ -106,7 +106,14 @@ pub fn inline_call<'a, 'ast, T: Field>(
         .signature
         .specialize(&inferred_signature)
         .map_err(|_| {
-            InlineError::Generic(decl_key.signature.clone(), inferred_signature.clone())
+            InlineError::Generic(
+                decl_key.clone(),
+                ConcreteFunctionKey {
+                    module: decl_key.module.clone(),
+                    id: decl_key.id.clone(),
+                    signature: inferred_signature.clone(),
+                },
+            )
         })?;
 
     let concrete_key = ConcreteFunctionKey {

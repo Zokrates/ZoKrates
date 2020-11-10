@@ -10,6 +10,7 @@ use ir;
 use macros;
 use macros::process_macros;
 use semantics::{self, Checker};
+use static_analysis;
 use static_analysis::Analyse;
 use std::collections::HashMap;
 use std::fmt;
@@ -54,6 +55,7 @@ pub enum CompileErrorInner {
     MacroError(macros::Error),
     SemanticError(semantics::ErrorInner),
     ReadError(io::Error),
+    AnalysisError(static_analysis::Error),
 }
 
 impl CompileErrorInner {
@@ -128,6 +130,12 @@ impl From<semantics::Error> for CompileError {
     }
 }
 
+impl From<static_analysis::Error> for CompileErrorInner {
+    fn from(error: static_analysis::Error) -> Self {
+        CompileErrorInner::AnalysisError(error)
+    }
+}
+
 impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -136,6 +144,7 @@ impl fmt::Display for CompileErrorInner {
             CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
             CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
             CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::AnalysisError(ref e) => write!(f, "{}", e),
         }
     }
 }
@@ -196,10 +205,12 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
         CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
     })?;
 
-    // analyse (unroll and constant propagation)
-    let (typed_ast, abi) = typed_ast.analyse();
+    let main_module = typed_ast.main.clone();
 
-    Ok((typed_ast, abi))
+    // analyse (unroll and constant propagation)
+    typed_ast
+        .analyse()
+        .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
