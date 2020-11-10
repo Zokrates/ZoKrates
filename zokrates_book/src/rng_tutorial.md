@@ -277,3 +277,31 @@ zokrates export-verifier
 The Solidity program is called `verifier.sol`. The exact mechanism to run it depends on your Ethereum development environment. 
 Here is how you do it using the [HardHat](https://hardhat.org/) environment:
 
+1. Install the environment [as explained here](https://hardhat.org/tutorial/setting-up-the-environment.html)
+2. In a new project directory, install and initialize HardHat:
+   ```
+   npm init --yes
+   npm install --save-dev hardhat
+   npx hardhat 
+   ```
+   In the last step, choose **Create an empty hardhat.config.js**.
+3. Install some HardHat plugins we'll use:
+   ```
+   npm install --save-dev @nomiclabs/hardhat-ethers ethers @nomiclabs/hardhat-waffle ethereum-waffle chai
+   ```
+4. Create a `contracts` directory and copy `verifier.sol` to `<project directory>/contracts/verifier.sol`.
+5. Get the version of Solidity required for the project:
+   ```
+   grep "pragma solidity" contracts/verifier.sol
+   ```
+6. Edit `hardhat.config.js`:
+   * Add this line at the top:
+     ```
+     require("@nomiclabs/hardhat-waffle")
+     ```
+   * Use the version of Solidity required for the verifier (0.6.1 at writing).
+7. Compile the verifier:
+   ```
+   npx hardhat compile
+   ```
+   
