@@ -235,7 +235,7 @@ Proofs give us.
 2. Compile `reveal_bit.zok` and create the proving and verification keys.
    ```
    zokrates compile -i reveal_bit.zok -o reveal_bit --light
-   zokrates setup -i reveal_bit
+   zokrates setup -i reveal_bit --light
    ```
 3. Copy the file `proving.key` to Alice's directory.
 
@@ -304,4 +304,58 @@ Here is how you do it using the [HardHat](https://hardhat.org/) environment:
    ```
    npx hardhat compile
    ```
-   
+8. Create a `test` directory. In it place `Verifier.js`:
+   ```javascript
+   const proofFileName = "/home/qbzzt1/tutorial_zok/alice/proof.json"
+
+   const { expect } = require("chai")
+   const fs = require("fs")
+
+   const proof = JSON.parse(fs.readFileSync(proofFileName))
+
+
+   describe("Verifier should only verify correct submissions", async () => {
+
+      it("Reject random values", async () => {
+          const contract = await (await ethers.getContractFactory("Verifier")).deploy()
+          const result = await contract.verifyTx(
+                 [0,0],           // a
+                 [[0,0],[0,0]],   // b
+                 [0,0],           // c
+                 [1,2,3,4,5,6,7,8,9,10])   // input
+          expect(result).to.equal(false)
+      })    // it "Reject random values"
+
+      it("Accept valid proofs", async () => {
+          const contract = await (await ethers.getContractFactory("Verifier")).deploy()
+          const result = await contract.verifyTx(
+                 proof.proof.a,
+                 proof.proof.b,
+                 proof.proof.c,
+                 proof.inputs)
+          expect(result).to.equal(true)
+      })    // it "Accept valid proofs"
+
+      it("Reject cheats", async () => {
+          const contract = await (await ethers.getContractFactory("Verifier")).deploy()
+
+          // Try to cheat, create an inputs array that flips the last value,
+          // the result bit (the other values are the bit's number and the hash)
+          var cheatInputs = [...proof.inputs]
+          var resultBit = proof.inputs[proof.inputs.length-1]
+          if (resultBit.slice(-1) === '1')
+              cheatInputs[proof.inputs.length-1] = 0
+           else
+              cheatInputs[proof.inputs.length-1] = 1
+
+          const result = await contract.verifyTx(
+                 proof.proof.a,
+                 proof.proof.b,
+                 proof.proof.c,
+                 cheatInputs)
+          expect(result).to.equal(false)
+      })   // it "Reject cheats"
+   })      // describe "Verifier..."
+
+   ```
+   Remember to change the first line to point to Alice's `proof.json`
