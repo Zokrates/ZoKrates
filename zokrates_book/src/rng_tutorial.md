@@ -306,6 +306,8 @@ Here is how you do it using the [HardHat](https://hardhat.org/) environment:
    ```
 8. Create a `test` directory. In it place `Verifier.js`:
    ```javascript
+   // Ori Pomerantz qbzzt1@gmail.com 
+   
    const proofFileName = "/home/qbzzt1/tutorial_zok/alice/proof.json"
 
    const { expect } = require("chai")
@@ -358,4 +360,8 @@ Here is how you do it using the [HardHat](https://hardhat.org/) environment:
    })      // describe "Verifier..."
 
    ```
-   Remember to change the first line to point to Alice's `proof.json`
+   Remember to change the `proofFileName` definition to point to Alice's `proof.json`.
+   
+### Detailed Explanation
+
+<<<NEED TO WRITE THIS>>
