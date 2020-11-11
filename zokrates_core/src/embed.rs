@@ -5,6 +5,7 @@ use flat_absy::{
 };
 use std::collections::HashMap;
 use typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
+use typed_absy::TypedModuleId;
 use zokrates_field::Field;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
@@ -51,8 +52,11 @@ impl FlatEmbed {
         }
     }
 
-    pub fn key<T: Field>(&self) -> ConcreteFunctionKey<'static> {
-        ConcreteFunctionKey::with_location("#EMBED#", self.id()).signature(self.signature())
+    pub fn key_in_module<T: Field>(
+        &self,
+        module_id: &TypedModuleId,
+    ) -> ConcreteFunctionKey<'static> {
+        ConcreteFunctionKey::with_location(module_id.clone(), self.id()).signature(self.signature())
     }
 
     pub fn id(&self) -> &'static str {

@@ -164,7 +164,7 @@ struct Reducer<'ast, 'a, T> {
     statement_buffer: Vec<TypedStatement<'ast, T>>,
     for_loop_versions: Vec<Versions<'ast>>,
     for_loop_versions_after: Vec<Versions<'ast>>,
-    modules: &'a TypedModules<'ast, T>,
+    program: &'a TypedProgram<'ast, T>,
     versions: &'a mut Versions<'ast>,
     substitutions: &'a mut Substitutions<'ast>,
     cache: CallCache<'ast, T>,
@@ -173,7 +173,7 @@ struct Reducer<'ast, 'a, T> {
 
 impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
     fn new(
-        modules: &'a TypedModules<'ast, T>,
+        program: &'a TypedProgram<'ast, T>,
         versions: &'a mut Versions<'ast>,
         substitutions: &'a mut Substitutions<'ast>,
         for_loop_versions: Vec<Versions<'ast>>,
@@ -190,7 +190,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             for_loop_versions,
             cache: CallCache::default(),
             substitutions,
-            modules,
+            program,
             versions,
             complete: true,
         }
@@ -213,7 +213,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             key.clone(),
             arguments,
             output_types,
-            &self.modules,
+            &self.program,
             &mut self.cache,
             &mut self.versions,
         );
@@ -254,7 +254,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                     .push(TypedStatement::MultipleDefinition(
                         v,
                         TypedExpressionList::FunctionCall(
-                            embed.key::<T>().into(),
+                            embed.key_in_module::<T>(&self.program.main).into(),
                             arguments,
                             output_types,
                         ),
@@ -286,7 +286,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     key,
                     arguments,
                     output_types,
-                    &self.modules,
+                    &self.program,
                     &mut self.cache,
                     &mut self.versions,
                 ) {
@@ -334,7 +334,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
                             TypedExpressionList::FunctionCall(
-                                embed.key::<T>().into(),
+                                embed.key_in_module::<T>(&self.program.main).into(),
                                 arguments,
                                 output_types,
                             ),
@@ -479,65 +479,56 @@ pub fn reduce_program<'ast, T: Field>(
 
     // define a function in the embed module for the `unpack` embed
     let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
-    let unpack_key = unpack.key::<T>();
+    let unpack_key = unpack.key_in_module::<T>(&p.main);
 
     // define a function in the embed module for the `u32_to_bits` embed
     let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
-    let u32_to_bits_key = u32_to_bits.key::<T>();
+    let u32_to_bits_key = u32_to_bits.key_in_module::<T>(&p.main);
 
     // define a function in the embed module for the `u16_to_bits` embed
     let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
-    let u16_to_bits_key = u16_to_bits.key::<T>();
+    let u16_to_bits_key = u16_to_bits.key_in_module::<T>(&p.main);
 
     // define a function in the embed module for the `u8_to_bits` embed
     let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
-    let u8_to_bits_key = u8_to_bits.key::<T>();
+    let u8_to_bits_key = u8_to_bits.key_in_module::<T>(&p.main);
 
     // define a function in the embed module for the `u32_from_bits` embed
     let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
-    let u32_from_bits_key = u32_from_bits.key::<T>();
+    let u32_from_bits_key = u32_from_bits.key_in_module::<T>(&p.main);
 
     // define a function in the embed module for the `u16_from_bits` embed
     let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
-    let u16_from_bits_key = u16_from_bits.key::<T>();
+    let u16_from_bits_key = u16_from_bits.key_in_module::<T>(&p.main);
 
     // define a function in the embed module for the `u8_from_bits` embed
     let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
-    let u8_from_bits_key = u8_from_bits.key::<T>();
+    let u8_from_bits_key = u8_from_bits.key_in_module::<T>(&p.main);
 
-    let embed_module = TypedModule {
-        functions: vec![
-            (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
-            (
-                u32_from_bits_key.into(),
-                TypedFunctionSymbol::Flat(u32_from_bits),
-            ),
-            (
-                u16_from_bits_key.into(),
-                TypedFunctionSymbol::Flat(u16_from_bits),
-            ),
-            (
-                u8_from_bits_key.into(),
-                TypedFunctionSymbol::Flat(u8_from_bits),
-            ),
-            (
-                u32_to_bits_key.into(),
-                TypedFunctionSymbol::Flat(u32_to_bits),
-            ),
-            (
-                u16_to_bits_key.into(),
-                TypedFunctionSymbol::Flat(u16_to_bits),
-            ),
-            (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
-        ]
-        .into_iter()
-        .collect(),
-    };
-
-    let embed_module_key: TypedModuleId = "#EMBED#".into();
-
-    p.modules
-        .insert(embed_module_key.clone(), embed_module.clone());
+    let embed_functions = vec![
+        (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
+        (
+            u32_from_bits_key.into(),
+            TypedFunctionSymbol::Flat(u32_from_bits),
+        ),
+        (
+            u16_from_bits_key.into(),
+            TypedFunctionSymbol::Flat(u16_from_bits),
+        ),
+        (
+            u8_from_bits_key.into(),
+            TypedFunctionSymbol::Flat(u8_from_bits),
+        ),
+        (
+            u32_to_bits_key.into(),
+            TypedFunctionSymbol::Flat(u32_to_bits),
+        ),
+        (
+            u16_to_bits_key.into(),
+            TypedFunctionSymbol::Flat(u16_to_bits),
+        ),
+        (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
+    ];
 
     let main_module = p.modules.get(&p.main).unwrap().clone();
 
@@ -553,27 +544,28 @@ pub fn reduce_program<'ast, T: Field>(
         _ => unreachable!(),
     };
 
+    let main_module = p.modules.get_mut(&p.main).unwrap();
+
+    main_module.functions.extend(embed_functions.clone());
+
     match main_function.generics.len() {
         0 => {
-            let main_function =
-                reduce_function(main_function, GenericsAssignment::default(), &p.modules)?;
+            let main_function = reduce_function(main_function, GenericsAssignment::default(), &p)?;
 
             Ok(TypedProgram {
                 main: p.main.clone(),
-                modules: vec![
-                    (embed_module_key, embed_module),
-                    (
-                        p.main,
-                        TypedModule {
-                            functions: vec![(
-                                main_key.clone(),
-                                TypedFunctionSymbol::Here(main_function),
-                            )]
-                            .into_iter()
-                            .collect(),
-                        },
-                    ),
-                ]
+                modules: vec![(
+                    p.main,
+                    TypedModule {
+                        functions: vec![(
+                            main_key.clone(),
+                            TypedFunctionSymbol::Here(main_function),
+                        )]
+                        .into_iter()
+                        .chain(embed_functions)
+                        .collect(),
+                    },
+                )]
                 .into_iter()
                 .collect(),
             })
@@ -585,7 +577,7 @@ pub fn reduce_program<'ast, T: Field>(
 fn reduce_function<'ast, T: Field>(
     f: TypedFunction<'ast, T>,
     generics: GenericsAssignment<'ast>,
-    modules: &TypedModules<'ast, T>,
+    program: &TypedProgram<'ast, T>,
 ) -> Result<TypedFunction<'ast, T>, Error> {
     let mut versions = Versions::default();
 
@@ -600,7 +592,7 @@ fn reduce_function<'ast, T: Field>(
 
             loop {
                 let mut reducer = Reducer::new(
-                    &modules,
+                    &program,
                     &mut versions,
                     &mut substitutions,
                     for_loop_versions,

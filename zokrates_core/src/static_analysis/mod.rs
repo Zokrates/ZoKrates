@@ -9,7 +9,6 @@ mod flatten_complex_types;
 mod propagation;
 mod redefinition;
 mod reducer;
-mod trimmer;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod variable_access_remover;
@@ -18,7 +17,6 @@ use self::flatten_complex_types::Flattener;
 use self::propagation::Propagator;
 use self::redefinition::RedefinitionOptimizer;
 use self::reducer::reduce_program;
-use self::trimmer::Trimmer;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_access_remover::VariableAccessRemover;
@@ -39,8 +37,6 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = reduce_program(self)?;
 
         let abi = r.abi().unwrap();
-
-        let r = Trimmer::trim(r);
 
         // propagate
         let r = Propagator::propagate(r);

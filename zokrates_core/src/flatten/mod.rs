@@ -2193,12 +2193,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         key: &'a FunctionKey<'ast>,
         symbols: &'a ZirFunctionSymbols<'ast, T>,
     ) -> crate::embed::FlatEmbed {
-        let f = symbols.get(&key).expect(&format!("{}", key.id)).clone();
+        let f = symbols
+            .iter()
+            .find(|(k, _)| key.id == k.id && key.signature == k.signature)
+            .expect(&format!("{}", key.id))
+            .1;
         let res = match f {
             ZirFunctionSymbol::Flat(flat_function) => flat_function,
             _ => unreachable!("only local flat symbols can be flattened"),
         };
-        res
+        res.clone()
     }
 }
 

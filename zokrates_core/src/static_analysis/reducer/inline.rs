@@ -36,7 +36,7 @@ use typed_absy::TypedAssignee;
 use typed_absy::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey,
     DeclarationSignature, Signature, Type, TypedExpression, TypedFunction, TypedFunctionSymbol,
-    TypedModules, TypedStatement, Variable,
+    TypedModules, TypedProgram, TypedStatement, Variable,
 };
 use zokrates_field::Field;
 
@@ -52,9 +52,12 @@ pub enum InlineError<'ast, T> {
 
 fn get_canonical_function<'ast, T: Field>(
     function_key: DeclarationFunctionKey<'ast>,
-    modules: &TypedModules<'ast, T>,
+    program: &TypedProgram<'ast, T>,
 ) -> Result<(DeclarationFunctionKey<'ast>, TypedFunction<'ast, T>), FlatEmbed> {
-    match modules
+    println!("{:?}", function_key);
+
+    match program
+        .modules
         .get(&function_key.module)
         .unwrap()
         .functions
@@ -63,7 +66,7 @@ fn get_canonical_function<'ast, T: Field>(
         .unwrap()
     {
         (key, TypedFunctionSymbol::Here(f)) => Ok((key.clone(), f.clone())),
-        (_, TypedFunctionSymbol::There(key)) => get_canonical_function(key.clone(), &modules),
+        (_, TypedFunctionSymbol::There(key)) => get_canonical_function(key.clone(), &program),
         (_, TypedFunctionSymbol::Flat(f)) => Err(f.clone()),
     }
 }
@@ -72,7 +75,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     k: DeclarationFunctionKey<'ast>,
     arguments: Vec<TypedExpression<'ast, T>>,
     output_types: Vec<Type<'ast, T>>,
-    modules: &TypedModules<'ast, T>,
+    program: &TypedProgram<'ast, T>,
     cache: &mut CallCache<'ast, T>,
     versions: &'a mut Versions<'ast>,
 ) -> Result<
@@ -97,7 +100,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         }
     };
 
-    let (decl_key, f) = get_canonical_function(k.clone(), modules)
+    let (decl_key, f) = get_canonical_function(k.clone(), program)
         .map_err(|e| InlineError::Flat(e, arguments.clone(), output_types))?;
     assert_eq!(f.arguments.len(), arguments.len());
 
