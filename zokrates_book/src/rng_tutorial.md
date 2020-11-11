@@ -392,15 +392,43 @@ describe("Verifier should only verify correct submissions", async () => {
   it("Reject random values", async () => {
 ```
 
-The process 
+The package we use to talk to the blockchain is [Ethers](https://docs.ethers.io/v5/).
+The first step is to create a [Contract object](https://docs.ethers.io/v5/api/contract/contract/),
+using this process:
+
+1. Create a [contract factory](https://docs.ethers.io/v5/api/contract/contract-factory/) with the
+   name of the contract. This is a relatively long process, so it has to 
+   run [asynchronously](https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Asynchronous/Async_await)
+   using the `await` keyword.
+2. Using that contract factory, `deploy` an instance of the contract itself into the blockchain.
 
 ```javascript
      const contract = await (await ethers.getContractFactory("Verifier")).deploy()
+```
+
+Verifiers exported by Zokrates have a `verifyTx` function that verifies transactions.
+
+```javascript
      const result = await contract.verifyTx(
+```     
+   
+The proof is composed of four points: *a*, *b[0]*, *b[1]*, and *c*.   
+   
+```javascript   
              [0,0],           // a
              [[0,0],[0,0]],   // b
              [0,0],           // c
+```
+
+In addition, `verifyTx` requires the public inputs and the results of the proof.
+
+```javascript
              [1,2,3,4,5,6,7,8,9,10])   // input
+```
+
+
+
+```javascript
      expect(result).to.equal(false)
   })    // it "Reject random values"
 
