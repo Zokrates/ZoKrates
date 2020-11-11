@@ -32,7 +32,8 @@ mod tests {
     use std::collections::HashMap;
     use typed_absy::types::{ArrayType, FunctionKey, StructMember, StructType};
     use typed_absy::{
-        Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, Variable,
+        Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, UBitwidth,
+        Variable,
     };
     use zokrates_field::Bn128Field;
 
@@ -95,7 +96,9 @@ mod tests {
         };
 
         let json = serde_json::to_string(&abi).unwrap();
-        assert_eq!(&json, r#"{"inputs":[],"outputs":[]}"#)
+        assert_eq!(&json, r#"{"inputs":[],"outputs":[]}"#);
+        let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
+        assert_eq!(de_abi, abi);
     }
 
     #[test]
@@ -138,7 +141,62 @@ mod tests {
     }
   ]
 }"#
-        )
+        );
+
+        let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
+        assert_eq!(de_abi, abi);
+    }
+
+    #[test]
+    fn serialize_uints() {
+        let abi: Abi = Abi {
+            inputs: vec![
+                AbiInput {
+                    name: String::from("a"),
+                    public: true,
+                    ty: Type::Uint(UBitwidth::B8),
+                },
+                AbiInput {
+                    name: String::from("b"),
+                    public: true,
+                    ty: Type::Uint(UBitwidth::B16),
+                },
+                AbiInput {
+                    name: String::from("c"),
+                    public: true,
+                    ty: Type::Uint(UBitwidth::B32),
+                },
+            ],
+            outputs: vec![],
+        };
+
+        let json = serde_json::to_string_pretty(&abi).unwrap();
+        assert_eq!(
+            &json,
+            r#"{
+  "inputs": [
+    {
+      "name": "a",
+      "public": true,
+      "type": "u8"
+    },
+    {
+      "name": "b",
+      "public": true,
+      "type": "u16"
+    },
+    {
+      "name": "c",
+      "public": true,
+      "type": "u32"
+    }
+  ],
+  "outputs": []
+}"#
+        );
+
+        let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
+        assert_eq!(de_abi, abi);
     }
 
     #[test]
@@ -209,7 +267,10 @@ mod tests {
     }
   ]
 }"#
-        )
+        );
+
+        let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
+        assert_eq!(de_abi, abi);
     }
 
     #[test]
@@ -272,7 +333,10 @@ mod tests {
   ],
   "outputs": []
 }"#
-        )
+        );
+
+        let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
+        assert_eq!(de_abi, abi);
     }
 
     #[test]
@@ -330,7 +394,10 @@ mod tests {
     }
   ]
 }"#
-        )
+        );
+
+        let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
+        assert_eq!(de_abi, abi);
     }
 
     #[test]
@@ -372,6 +439,9 @@ mod tests {
     }
   ]
 }"#
-        )
+        );
+
+        let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
+        assert_eq!(de_abi, abi);
     }
 }

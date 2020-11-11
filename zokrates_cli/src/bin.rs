@@ -21,16 +21,18 @@ use std::string::String;
 use zokrates_abi::Encode;
 use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
-use zokrates_core::proof_system::bellman::groth16::G16;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::gm17::GM17;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::pghr13::PGHR13;
-use zokrates_core::proof_system::*;
+use zokrates_core::proof_system::{
+    bellman::Bellman, gm17::GM17, groth16::G16, zexe::Zexe, SolidityCompatibleField,
+};
+use zokrates_core::proof_system::{Backend, Scheme, SolidityAbi, SolidityCompatibleScheme};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
-use zokrates_field::{Bls12Field, Bn128Field, Field};
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
+#[cfg(feature = "libsnark")]
+use {
+    zokrates_core::proof_system::libsnark::Libsnark, zokrates_core::proof_system::pghr13::PGHR13,
+};
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -39,7 +41,7 @@ fn main() {
     })
 }
 
-fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
+fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     program: ir::Prog<T>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -67,20 +69,20 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
         .read_to_end(&mut pk)
         .map_err(|why| format!("Couldn't read {}: {}", pk_path.display(), why))?;
 
-    let proof = P::generate_proof(program, witness, pk);
+    let proof = B::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
 
     let proof = serde_json::to_string_pretty(&proof).unwrap();
-    println!("Proof:\n{}", format!("{}", proof));
-
     proof_file
         .write(proof.as_bytes())
         .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
 
+    println!("Proof:\n{}", format!("{}", proof));
+
     Ok(())
 }
 
-fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
+fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T>>(
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Exporting verifier...");
@@ -96,7 +98,7 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
 
     let abi = SolidityAbi::from(sub_matches.value_of("solidity-abi").unwrap())?;
 
-    let verifier = P::export_solidity_verifier(vk, abi);
+    let verifier = S::export_solidity_verifier(vk, abi);
 
     //write output file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -113,7 +115,7 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     Ok(())
 }
 
-fn cli_setup<T: Field, P: ProofSystem<T>>(
+fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     program: ir::Prog<T>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -129,7 +131,7 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
     // run setup phase
-    let keypair = P::setup(program);
+    let keypair = B::setup(program);
 
     // write verification key
     let mut vk_file = File::create(vk_path)
@@ -292,7 +294,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let resolver = FileSystemResolver::new();
+    let resolver =
+        FileSystemResolver::with_stdlib_root(sub_matches.value_of("stdlib-path").unwrap());
     let artifacts: CompilationArtifacts<T> =
         compile(source, path, Some(&resolver)).map_err(|e| {
             format!(
@@ -377,7 +380,8 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let resolver = FileSystemResolver::new();
+    let resolver =
+        FileSystemResolver::with_stdlib_root(sub_matches.value_of("stdlib-path").unwrap());
     let _ = check::<T, _>(source, path, Some(&resolver)).map_err(|e| {
         format!(
             "Check failed:\n\n{}",
@@ -393,7 +397,9 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     Ok(())
 }
 
-fn cli_verify<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_verify<T: Field, S: Scheme<T>, B: Backend<T, S>>(
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
     let vk_file = File::open(&vk_path)
         .map_err(|why| format!("Couldn't open {}: {}", vk_path.display(), why))?;
@@ -413,7 +419,7 @@ fn cli_verify<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(
     println!("Performing verification...");
     println!(
         "The verification result is: {}",
-        match P::verify(vk, proof) {
+        match B::verify(vk, proof) {
             true => "PASS",
             false => "FAIL",
         }
@@ -434,6 +440,9 @@ fn cli() -> Result<(), String> {
     let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(constants::BELLMAN.into());
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(constants::G16.into());
     let default_solidity_abi = "v1";
+    let default_stdlib_path = dirs::home_dir()
+        .map(|p| p.join(".zokrates/stdlib"))
+        .unwrap();
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -450,6 +459,14 @@ fn cli() -> Result<(), String> {
             .value_name("FILE")
             .takes_value(true)
             .required(true)
+        ).arg(Arg::with_name("stdlib-path")
+            .long("stdlib-path")
+            .help("Path to the standard library")
+            .value_name("PATH")
+            .takes_value(true)
+            .required(false)
+            .env("ZOKRATES_STDLIB")
+            .default_value(default_stdlib_path.to_str().unwrap_or(""))
         ).arg(Arg::with_name("abi_spec")
             .short("s")
             .long("abi_spec")
@@ -489,6 +506,14 @@ fn cli() -> Result<(), String> {
             .value_name("FILE")
             .takes_value(true)
             .required(true)
+        ).arg(Arg::with_name("stdlib-path")
+            .long("stdlib-path")
+            .help("Path to the standard library")
+            .value_name("PATH")
+            .takes_value(true)
+            .required(false)
+            .env("ZOKRATES_STDLIB")
+            .default_value(default_stdlib_path.to_str().unwrap_or(""))
         ).arg(Arg::with_name("curve")
             .short("c")
             .long("curve")
@@ -573,14 +598,6 @@ fn cli() -> Result<(), String> {
             .required(false)
             .possible_values(CURVES)
             .default_value(&default_curve)
-        ).arg(Arg::with_name("backend")
-            .short("b")
-            .long("backend")
-            .help("Backend to use")
-            .takes_value(true)
-            .required(false)
-            .possible_values(BACKENDS)
-            .default_value(&default_backend)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
@@ -772,19 +789,21 @@ fn cli() -> Result<(), String> {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
-            let curve = Curve::try_from(sub_matches.value_of("curve").unwrap())?;
+            let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
             match curve {
-                Curve::Bn128 => cli_compile::<Bn128Field>(sub_matches)?,
-                Curve::Bls12 => cli_compile::<Bls12Field>(sub_matches)?,
+                CurveParameter::Bn128 => cli_compile::<Bn128Field>(sub_matches)?,
+                CurveParameter::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches)?,
+                CurveParameter::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches)?,
+                CurveParameter::Bw6_761 => cli_compile::<Bw6_761Field>(sub_matches)?,
             }
         }
         ("check", Some(sub_matches)) => {
-            let curve = sub_matches.value_of("curve").unwrap();
-
+            let curve = CurveParameter::try_from(sub_matches.value_of("curve").unwrap())?;
             match curve {
-                constants::BN128 => cli_check::<Bn128Field>(sub_matches)?,
-                constants::BLS12_381 => cli_check::<Bls12Field>(sub_matches)?,
-                _ => unreachable!(),
+                CurveParameter::Bn128 => cli_check::<Bn128Field>(sub_matches)?,
+                CurveParameter::Bls12_377 => cli_check::<Bls12_377Field>(sub_matches)?,
+                CurveParameter::Bls12_381 => cli_check::<Bls12_381Field>(sub_matches)?,
+                CurveParameter::Bw6_761 => cli_check::<Bw6_761Field>(sub_matches)?,
             }
         }
         ("compute-witness", Some(sub_matches)) => {
@@ -797,7 +816,9 @@ fn cli() -> Result<(), String> {
 
             match ProgEnum::deserialize(&mut reader)? {
                 ProgEnum::Bn128Program(p) => cli_compute(p, sub_matches)?,
-                ProgEnum::Bls12Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bls12_377Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bls12_381Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bw6_761Program(p) => cli_compute(p, sub_matches)?,
             }
         }
         ("setup", Some(sub_matches)) => {
@@ -809,58 +830,68 @@ fn cli() -> Result<(), String> {
             let mut reader = BufReader::new(file);
             let prog = ProgEnum::deserialize(&mut reader)?;
 
-            let dimensions = Dimensions::try_from((
+            let parameters = Parameters::try_from((
                 sub_matches.value_of("backend").unwrap(),
                 match prog {
                     ProgEnum::Bn128Program(_) => constants::BN128,
-                    ProgEnum::Bls12Program(_) => constants::BLS12_381,
+                    ProgEnum::Bls12_377Program(_) => constants::BLS12_377,
+                    ProgEnum::Bls12_381Program(_) => constants::BLS12_381,
+                    ProgEnum::Bw6_761Program(_) => constants::BW6_761,
                 },
                 sub_matches.value_of("proving-scheme").unwrap(),
             ))?;
 
-            match dimensions {
-                Dimensions(Backend::Bellman, _, ProvingScheme::G16) => match prog {
-                    ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches),
-                    ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches),
+            match parameters {
+                Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
+                    ProgEnum::Bls12_381Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
+                    _ => unreachable!(),
                 },
-                #[cfg(feature = "libsnark")]
-                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::GM17) => match prog {
-                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches),
+                Parameters(BackendParameter::Zexe, _, SchemeParameter::GM17) => match prog {
+                    ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
+                    ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
-                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::PGHR13) => match prog {
-                    ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13>(p, sub_matches),
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::GM17,
+                ) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Libsnark>(p, sub_matches),
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::PGHR13,
+                ) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13, Libsnark>(p, sub_matches),
+                    _ => unreachable!(),
+                },
                 _ => unreachable!(),
             }?
         }
         ("export-verifier", Some(sub_matches)) => {
-            let dimensions = Dimensions::try_from((
-                sub_matches.value_of("backend").unwrap(),
-                sub_matches.value_of("curve").unwrap(),
-                sub_matches.value_of("proving-scheme").unwrap(),
-            ))?;
+            let curve = sub_matches.value_of("curve").unwrap();
+            let scheme = sub_matches.value_of("proving-scheme").unwrap();
+            let curve_parameter = CurveParameter::try_from(curve)?;
+            let scheme_parameter = SchemeParameter::try_from(scheme)?;
 
-            match dimensions {
-                Dimensions(Backend::Bellman, Curve::Bn128, ProvingScheme::G16) => {
+            match (curve_parameter, scheme_parameter) {
+                (CurveParameter::Bn128, SchemeParameter::G16) => {
                     cli_export_verifier::<Bn128Field, G16>(sub_matches)
                 }
-                Dimensions(Backend::Bellman, Curve::Bls12, ProvingScheme::G16) => {
-                    cli_export_verifier::<Bls12Field, G16>(sub_matches)
-                }
-                #[cfg(feature = "libsnark")]
-                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::GM17) => {
+                (CurveParameter::Bn128, SchemeParameter::GM17) => {
                     cli_export_verifier::<Bn128Field, GM17>(sub_matches)
                 }
                 #[cfg(feature = "libsnark")]
-                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::PGHR13) => {
+                (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
                     cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
                 }
-                #[cfg(feature = "libsnark")]
-                _ => unreachable!(),
+                _ => Err(format!("Could not export verifier with given parameters (curve: {}, scheme: {}): not supported", curve, scheme))
             }?
         }
         ("generate-proof", Some(sub_matches)) => {
@@ -871,31 +902,61 @@ fn cli() -> Result<(), String> {
             let mut reader = BufReader::new(program_file);
             let prog = ProgEnum::deserialize(&mut reader)?;
 
-            let dimensions = Dimensions::try_from((
+            let parameters = Parameters::try_from((
                 sub_matches.value_of("backend").unwrap(),
                 match prog {
                     ProgEnum::Bn128Program(_) => constants::BN128,
-                    ProgEnum::Bls12Program(_) => constants::BLS12_381,
+                    ProgEnum::Bls12_381Program(_) => constants::BLS12_381,
+                    ProgEnum::Bls12_377Program(_) => constants::BLS12_377,
+                    ProgEnum::Bw6_761Program(_) => constants::BW6_761,
                 },
                 sub_matches.value_of("proving-scheme").unwrap(),
             ))?;
 
-            match dimensions {
-                Dimensions(Backend::Bellman, _, ProvingScheme::G16) => match prog {
-                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
-                    ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
+            match parameters {
+                Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
+                    ProgEnum::Bn128Program(p) => {
+                        cli_generate_proof::<_, G16, Bellman>(p, sub_matches)
+                    }
+                    ProgEnum::Bls12_381Program(p) => {
+                        cli_generate_proof::<_, G16, Bellman>(p, sub_matches)
+                    }
+                    _ => unreachable!(),
                 },
-                #[cfg(feature = "libsnark")]
-                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::GM17) => match prog {
-                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches),
+                Parameters(BackendParameter::Zexe, _, SchemeParameter::GM17) => match prog {
+                    ProgEnum::Bls12_377Program(p) => {
+                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                    }
+                    ProgEnum::Bw6_761Program(p) => {
+                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                    }
+                    ProgEnum::Bn128Program(p) => {
+                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                    }
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
-                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::PGHR13) => match prog {
-                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, PGHR13>(p, sub_matches),
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::GM17,
+                ) => match prog {
+                    ProgEnum::Bn128Program(p) => {
+                        cli_generate_proof::<_, GM17, Libsnark>(p, sub_matches)
+                    }
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::PGHR13,
+                ) => match prog {
+                    ProgEnum::Bn128Program(p) => {
+                        cli_generate_proof::<_, PGHR13, Libsnark>(p, sub_matches)
+                    }
+                    _ => unreachable!(),
+                },
                 _ => unreachable!(),
             }?
         }
@@ -936,28 +997,50 @@ fn cli() -> Result<(), String> {
             }
         }
         ("verify", Some(sub_matches)) => {
-            let dimensions = Dimensions::try_from((
+            let parameters = Parameters::try_from((
                 sub_matches.value_of("backend").unwrap(),
                 sub_matches.value_of("curve").unwrap(),
                 sub_matches.value_of("proving-scheme").unwrap(),
             ))?;
 
-            match dimensions {
-                Dimensions(Backend::Bellman, Curve::Bn128, ProvingScheme::G16) => {
-                    cli_verify::<Bn128Field, G16>(sub_matches)
-                }
-                Dimensions(Backend::Bellman, Curve::Bls12, ProvingScheme::G16) => {
-                    cli_verify::<Bls12Field, G16>(sub_matches)
-                }
+            match parameters {
+                Parameters(
+                    BackendParameter::Bellman,
+                    CurveParameter::Bn128,
+                    SchemeParameter::G16,
+                ) => cli_verify::<Bn128Field, G16, Bellman>(sub_matches),
+                Parameters(
+                    BackendParameter::Bellman,
+                    CurveParameter::Bls12_381,
+                    SchemeParameter::G16,
+                ) => cli_verify::<Bls12_381Field, G16, Bellman>(sub_matches),
+                Parameters(
+                    BackendParameter::Zexe,
+                    CurveParameter::Bls12_377,
+                    SchemeParameter::GM17,
+                ) => cli_verify::<Bls12_377Field, GM17, Zexe>(sub_matches),
+                Parameters(
+                    BackendParameter::Zexe,
+                    CurveParameter::Bw6_761,
+                    SchemeParameter::GM17,
+                ) => cli_verify::<Bw6_761Field, GM17, Zexe>(sub_matches),
+                Parameters(
+                    BackendParameter::Zexe,
+                    CurveParameter::Bn128,
+                    SchemeParameter::GM17,
+                ) => cli_verify::<Bn128Field, GM17, Zexe>(sub_matches),
                 #[cfg(feature = "libsnark")]
-                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::GM17) => {
-                    cli_verify::<Bn128Field, GM17>(sub_matches)
-                }
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::GM17,
+                ) => cli_verify::<Bn128Field, GM17, Libsnark>(sub_matches),
                 #[cfg(feature = "libsnark")]
-                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::PGHR13) => {
-                    cli_verify::<Bn128Field, PGHR13>(sub_matches)
-                }
-                #[cfg(feature = "libsnark")]
+                Parameters(
+                    BackendParameter::Libsnark,
+                    CurveParameter::Bn128,
+                    SchemeParameter::PGHR13,
+                ) => cli_verify::<Bn128Field, PGHR13, Libsnark>(sub_matches),
                 _ => unreachable!(),
             }?
         }
@@ -973,7 +1056,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn examples() {
+    fn compile_examples() {
         for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
@@ -986,9 +1069,7 @@ mod tests {
 
             assert!(path.extension().expect("extension expected") == "zok");
 
-            if path.to_str().unwrap().contains("error") {
-                continue;
-            }
+            let should_error = path.to_str().unwrap().contains("compile_errors");
 
             println!("Testing {:?}", path);
 
@@ -999,14 +1080,16 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
-            let _: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+            let res = compile::<Bn128Field, _>(source, path, Some(&resolver));
+
+            assert_eq!(res.is_err(), should_error);
         }
     }
 
     #[test]
-    fn examples_with_input_success() {
+    fn execute_examples_ok() {
         //these examples should compile and run
         for p in glob("./examples/test*").expect("Failed to read glob pattern") {
             let path = match p {
@@ -1021,7 +1104,9 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
 
@@ -1034,8 +1119,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn examples_with_input_failure() {
+    fn execute_examples_err() {
         //these examples should compile but not run
         for p in glob("./examples/runtime_errors/*").expect("Failed to read glob pattern") {
             let path = match p {
@@ -1050,15 +1134,17 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
 
             let interpreter = ir::Interpreter::default();
 
-            let _ = interpreter
-                .execute(&artifacts.prog(), &vec![Bn128Field::from(0)])
-                .unwrap();
+            let res = interpreter.execute(&artifacts.prog(), &vec![Bn128Field::from(0)]);
+
+            assert!(res.is_err());
         }
     }
 }

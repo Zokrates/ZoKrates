@@ -7,7 +7,7 @@ COPY . src
 RUN cd src; ./build_release.sh
 
 FROM ubuntu:18.04
-ENV ZOKRATES_BASE=/home/zokrates/.zokrates
+ENV ZOKRATES_HOME=/home/zokrates/.zokrates
 
 COPY --from=build /build/src/scripts/install_libsnark_prerequisites.sh /tmp/
 
@@ -17,9 +17,9 @@ RUN /tmp/install_libsnark_prerequisites.sh \
 USER zokrates
 WORKDIR /home/zokrates
 
-COPY --from=build --chown=zokrates:zokrates /build/src/target/release/zokrates $ZOKRATES_BASE/bin/
-COPY --from=build --chown=zokrates:zokrates /build/src/zokrates_cli/examples $ZOKRATES_BASE/examples
-COPY --from=build --chown=zokrates:zokrates /build/src/zokrates_stdlib/stdlib $ZOKRATES_BASE/stdlib
+COPY --from=build --chown=zokrates:zokrates /build/src/target/release/zokrates $ZOKRATES_HOME/bin/
+COPY --from=build --chown=zokrates:zokrates /build/src/zokrates_cli/examples $ZOKRATES_HOME/examples
+COPY --from=build --chown=zokrates:zokrates /build/src/zokrates_stdlib/stdlib $ZOKRATES_HOME/stdlib
 
-ENV PATH "$ZOKRATES_BASE/bin:$PATH"
-ENV ZOKRATES_HOME "$ZOKRATES_BASE/stdlib"
+ENV PATH "$ZOKRATES_HOME/bin:$PATH"
+ENV ZOKRATES_STDLIB "$ZOKRATES_HOME/stdlib"

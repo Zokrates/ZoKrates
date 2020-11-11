@@ -1,11 +1,11 @@
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub type Identifier<'ast> = &'ast str;
 
 pub type MemberId = String;
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct StructMember {
     #[serde(rename = "name")]
     pub id: MemberId,
@@ -13,24 +13,32 @@ pub struct StructMember {
     pub ty: Box<Type>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct ArrayType {
     pub size: usize,
     #[serde(flatten)]
     pub ty: Box<Type>,
 }
 
-#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct StructType {
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
+pub struct StructLocation {
     #[serde(skip)]
     pub module: PathBuf,
     pub name: String,
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct StructType {
+    #[serde(flatten)]
+    pub canonical_location: StructLocation,
+    #[serde(skip)]
+    pub location: Option<StructLocation>,
     pub members: Vec<StructMember>,
 }
 
 impl PartialEq for StructType {
     fn eq(&self, other: &Self) -> bool {
-        self.members.eq(&other.members)
+        self.canonical_location.eq(&other.canonical_location) && self.members.eq(&other.members)
     }
 }
 
@@ -39,8 +47,8 @@ impl Eq for StructType {}
 impl StructType {
     pub fn new(module: PathBuf, name: String, members: Vec<StructMember>) -> Self {
         StructType {
-            module,
-            name,
+            canonical_location: StructLocation { module, name },
+            location: None,
             members,
         }
     }
@@ -51,6 +59,18 @@ impl StructType {
 
     pub fn iter(&self) -> std::slice::Iter<StructMember> {
         self.members.iter()
+    }
+
+    fn location(&self) -> &StructLocation {
+        &self.location.as_ref().unwrap_or(&self.canonical_location)
+    }
+
+    pub fn name(&self) -> &str {
+        &self.location().name
+    }
+
+    pub fn module(&self) -> &Path {
+        &self.location().module
     }
 }
 
@@ -96,19 +116,110 @@ impl fmt::Display for UBitwidth {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-#[serde(tag = "type", content = "components")]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Type {
-    #[serde(rename = "field")]
     FieldElement,
-    #[serde(rename = "bool")]
     Boolean,
-    #[serde(rename = "array")]
     Array(ArrayType),
-    #[serde(rename = "struct")]
     Struct(StructType),
-    #[serde(rename = "u")]
     Uint(UBitwidth),
+}
+
+impl Serialize for Type {
+    fn serialize<S>(&self, s: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Type::FieldElement => s.serialize_newtype_variant("Type", 0, "type", "field"),
+            Type::Boolean => s.serialize_newtype_variant("Type", 1, "type", "bool"),
+            Type::Array(array_type) => {
+                let mut map = s.serialize_map(Some(2))?;
+                map.serialize_entry("type", "array")?;
+                map.serialize_entry("components", array_type)?;
+                map.end()
+            }
+            Type::Struct(struct_type) => {
+                let mut map = s.serialize_map(Some(2))?;
+                map.serialize_entry("type", "struct")?;
+                map.serialize_entry("components", struct_type)?;
+                map.end()
+            }
+            Type::Uint(width) => s.serialize_newtype_variant(
+                "Type",
+                4,
+                "type",
+                format!("u{}", width.to_usize()).as_str(),
+            ),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Type {
+    fn deserialize<D>(d: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Debug, Deserialize)]
+        #[serde(untagged)]
+        enum Components {
+            Array(ArrayType),
+            Struct(StructType),
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct Mapping {
+            #[serde(rename = "type")]
+            ty: String,
+            components: Option<Components>,
+        }
+
+        let strict_type = |m: Mapping, ty: Type| -> Result<Self, <D as Deserializer<'de>>::Error> {
+            match m.components {
+                Some(_) => Err(D::Error::custom(format!(
+                    "unexpected `components` field for type `{}`",
+                    ty
+                ))),
+                None => Ok(ty),
+            }
+        };
+
+        let mapping = Mapping::deserialize(d)?;
+        match mapping.ty.as_str() {
+            "field" => strict_type(mapping, Type::FieldElement),
+            "bool" => strict_type(mapping, Type::Boolean),
+            "array" => {
+                let components = mapping.components.ok_or(D::Error::custom(format_args!(
+                    "missing `components` field for type `{}'",
+                    mapping.ty
+                )))?;
+                match components {
+                    Components::Array(array_type) => Ok(Type::Array(array_type)),
+                    _ => Err(D::Error::custom(format!(
+                        "invalid `components` variant for type `{}`",
+                        mapping.ty
+                    ))),
+                }
+            }
+            "struct" => {
+                let components = mapping.components.ok_or(D::Error::custom(format_args!(
+                    "missing `components` field for type `{}'",
+                    mapping.ty
+                )))?;
+                match components {
+                    Components::Struct(struct_type) => Ok(Type::Struct(struct_type)),
+                    _ => Err(D::Error::custom(format!(
+                        "invalid `components` variant for type `{}`",
+                        mapping.ty
+                    ))),
+                }
+            }
+            "u8" => strict_type(mapping, Type::Uint(UBitwidth::B8)),
+            "u16" => strict_type(mapping, Type::Uint(UBitwidth::B16)),
+            "u32" => strict_type(mapping, Type::Uint(UBitwidth::B32)),
+            _ => Err(D::Error::custom(format!("invalid type `{}`", mapping.ty))),
+        }
+    }
 }
 
 impl ArrayType {
@@ -139,7 +250,7 @@ impl fmt::Display for Type {
             Type::Struct(ref struct_type) => write!(
                 f,
                 "{} {{{}}}",
-                struct_type.name,
+                struct_type.name(),
                 struct_type
                     .members
                     .iter()
@@ -158,17 +269,7 @@ impl fmt::Debug for Type {
             Type::Boolean => write!(f, "bool"),
             Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
-            Type::Struct(ref struct_type) => write!(
-                f,
-                "{} {{{}}}",
-                struct_type.name,
-                struct_type
-                    .members
-                    .iter()
-                    .map(|member| format!("{}: {}", member.id, member.ty))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            Type::Struct(ref struct_type) => write!(f, "{:?}", struct_type),
         }
     }
 }
@@ -250,6 +351,9 @@ impl<'ast> FunctionKey<'ast> {
 }
 
 pub use self::signature::Signature;
+use serde::de::Error;
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod signature {
     use super::*;

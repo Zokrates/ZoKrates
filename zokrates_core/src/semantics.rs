@@ -16,7 +16,7 @@ use zokrates_field::Field;
 use crate::parser::Position;
 
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
-use crate::typed_absy::types::{FunctionKey, Signature, Type};
+use crate::typed_absy::types::{FunctionKey, Signature, StructLocation, Type};
 
 use std::hash::{Hash, Hasher};
 use typed_absy::types::{ArrayType, StructMember};
@@ -48,7 +48,7 @@ type TypeMap = HashMap<ModuleId, HashMap<UserTypeId, Type>>;
 #[derive(Debug)]
 struct State<'ast, T: Field> {
     /// The modules yet to be checked, which we consume as we explore the dependency tree
-    modules: Modules<'ast, T>,
+    modules: Modules<'ast>,
     /// The already checked modules, which we're returning at the end
     typed_modules: TypedModules<'ast, T>,
     /// The user-defined types, which we keep track at this phase only. In later phases, we rely only on basic types and combinations thereof
@@ -104,7 +104,7 @@ impl SymbolUnifier {
 }
 
 impl<'ast, T: Field> State<'ast, T> {
-    fn new(modules: Modules<'ast, T>) -> Self {
+    fn new(modules: Modules<'ast>) -> Self {
         State {
             modules,
             typed_modules: HashMap::new(),
@@ -124,6 +124,7 @@ impl fmt::Display for ErrorInner {
 }
 
 /// A function query in the current module.
+#[derive(Debug)]
 struct FunctionQuery<'ast> {
     id: Identifier<'ast>,
     inputs: Vec<Type>,
@@ -242,13 +243,13 @@ impl<'ast> Checker<'ast> {
     /// # Arguments
     ///
     /// * `prog` - The `Program` to be checked
-    pub fn check<T: Field>(prog: Program<'ast, T>) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
+    pub fn check<T: Field>(prog: Program<'ast>) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
         Checker::new().check_program(prog)
     }
 
     fn check_program<T: Field>(
         &mut self,
-        program: Program<'ast, T>,
+        program: Program<'ast>,
     ) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
         let mut state = State::new(program.modules);
 
@@ -330,7 +331,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_symbol_declaration<T: Field>(
         &mut self,
-        declaration: SymbolDeclarationNode<'ast, T>,
+        declaration: SymbolDeclarationNode<'ast>,
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
         functions: &mut HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
@@ -439,8 +440,10 @@ impl<'ast> Checker<'ast> {
                                 // rename the type to the declared symbol
                                 let t = match t {
                                     Type::Struct(t) => Type::Struct(StructType {
-                                        module: module_id.clone(),
-                                        name: declaration.id.into(),
+                                        location: Some(StructLocation {
+                                            name: declaration.id.into(),
+                                            module: module_id.clone()
+                                        }),
                                         ..t
                                     }),
                                     _ => unreachable!()
@@ -642,7 +645,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_function<T: Field>(
         &mut self,
-        funct_node: FunctionNode<'ast, T>,
+        funct_node: FunctionNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedFunction<'ast, T>, Vec<ErrorInner>> {
@@ -826,7 +829,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_statement<T: Field>(
         &mut self,
-        stat: StatementNode<'ast, T>,
+        stat: StatementNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
@@ -964,7 +967,7 @@ impl<'ast> Checker<'ast> {
                     Expression::FunctionCall(fun_id, arguments) => {
 
                         // check lhs assignees are defined
-                        let (assignees, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| self.check_assignee(a, module_id, types)).partition(|r| r.is_ok());
+                        let (assignees, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| self.check_assignee::<T>(a, module_id, types)).partition(|r| r.is_ok());
 
                         if errors.len() > 0 {
                             return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
@@ -1024,7 +1027,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_assignee<T: Field>(
         &mut self,
-        assignee: AssigneeNode<'ast, T>,
+        assignee: AssigneeNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedAssignee<'ast, T>, ErrorInner> {
@@ -1112,7 +1115,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_spread_or_expression<T: Field>(
         &mut self,
-        spread_or_expression: SpreadOrExpression<'ast, T>,
+        spread_or_expression: SpreadOrExpression<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Vec<TypedExpression<'ast, T>>, ErrorInner> {
@@ -1190,7 +1193,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_expression<T: Field>(
         &mut self,
-        expr: ExpressionNode<'ast, T>,
+        expr: ExpressionNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
@@ -1411,7 +1414,17 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(n).into()),
+            Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(
+                T::try_from(n).map_err(|_| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Field constant not in the representable range [{}, {}]",
+                        T::min_value(),
+                        T::max_value()
+                    ),
+                })?,
+            )
+            .into()),
             Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
@@ -2320,13 +2333,47 @@ impl<'ast> Checker<'ast> {
 mod tests {
     use super::*;
     use absy;
+    use num_bigint::BigUint;
     use typed_absy;
     use zokrates_field::Bn128Field;
 
     const MODULE_ID: &str = "";
 
+    mod constants {
+        use super::*;
+        use num_bigint::BigUint;
+        use std::ops::Add;
+
+        #[test]
+        fn field_in_range() {
+            let types = HashMap::new();
+            let module_id = "".into();
+
+            let expr =
+                Expression::FieldConstant(BigUint::from(Bn128Field::max_value().to_biguint()))
+                    .mock();
+            assert!(Checker::new()
+                .check_expression::<Bn128Field>(expr, &module_id, &types)
+                .is_ok());
+        }
+
+        #[test]
+        fn field_overflow() {
+            let types = HashMap::new();
+            let module_id = "".into();
+
+            let value = Bn128Field::max_value().to_biguint().add(1u32);
+            let expr = Expression::FieldConstant(BigUint::from(value)).mock();
+
+            assert!(Checker::new()
+                .check_expression::<Bn128Field>(expr, &module_id, &types)
+                .is_err());
+        }
+    }
+
     mod array {
         use super::*;
+        use num_bigint::BigUint;
 
         #[test]
         fn element_type_mismatch() {
@@ -2334,36 +2381,36 @@ mod tests {
             let module_id = "".into();
             // [3, true]
             let a = Expression::InlineArray(vec![
-                Expression::FieldConstant(Bn128Field::from(3)).mock().into(),
+                Expression::FieldConstant(BigUint::from(3u32)).mock().into(),
                 Expression::BooleanConstant(true).mock().into(),
             ])
             .mock();
             assert!(Checker::new()
-                .check_expression(a, &module_id, &types)
+                .check_expression::<Bn128Field>(a, &module_id, &types)
                 .is_err());
 
             // [[0], [0, 0]]
             let a = Expression::InlineArray(vec![
-                Expression::InlineArray(vec![Expression::FieldConstant(Bn128Field::from(0))
+                Expression::InlineArray(vec![Expression::FieldConstant(BigUint::from(0u32))
                     .mock()
                     .into()])
                 .mock()
                 .into(),
                 Expression::InlineArray(vec![
-                    Expression::FieldConstant(Bn128Field::from(0)).mock().into(),
-                    Expression::FieldConstant(Bn128Field::from(0)).mock().into(),
+                    Expression::FieldConstant(BigUint::from(0u32)).mock().into(),
+                    Expression::FieldConstant(BigUint::from(0u32)).mock().into(),
                 ])
                 .mock()
                 .into(),
             ])
             .mock();
             assert!(Checker::new()
-                .check_expression(a, &module_id, &types)
+                .check_expression::<Bn128Field>(a, &module_id, &types)
                 .is_err());
 
             // [[0], true]
             let a = Expression::InlineArray(vec![
-                Expression::InlineArray(vec![Expression::FieldConstant(Bn128Field::from(0))
+                Expression::InlineArray(vec![Expression::FieldConstant(BigUint::from(0u32))
                     .mock()
                     .into()])
                 .mock()
@@ -2374,7 +2421,7 @@ mod tests {
             ])
             .mock();
             assert!(Checker::new()
-                .check_expression(a, &module_id, &types)
+                .check_expression::<Bn128Field>(a, &module_id, &types)
                 .is_err());
         }
     }
@@ -2383,8 +2430,8 @@ mod tests {
         use super::*;
 
         /// Helper function to create ((): return)
-        fn function0() -> FunctionNode<'static, Bn128Field> {
-            let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+        fn function0() -> FunctionNode<'static> {
+            let statements: Vec<StatementNode> = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![],
                 }
@@ -2405,8 +2452,8 @@ mod tests {
         }
 
         /// Helper function to create ((private field a): return)
-        fn function1() -> FunctionNode<'static, Bn128Field> {
-            let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+        fn function1() -> FunctionNode<'static> {
+            let statements: Vec<StatementNode> = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![],
                 }
@@ -2474,7 +2521,7 @@ mod tests {
 
             // after semantic check, `bar` should import a checked function
 
-            let foo: Module<Bn128Field> = Module {
+            let foo: Module = Module {
                 symbols: vec![SymbolDeclaration {
                     id: "main",
                     symbol: Symbol::HereFunction(function0()),
@@ -2483,7 +2530,7 @@ mod tests {
                 imports: vec![],
             };
 
-            let bar: Module<Bn128Field> = Module {
+            let bar: Module = Module {
                 symbols: vec![SymbolDeclaration {
                     id: "main",
                     symbol: Symbol::There(SymbolImport::with_id_in_module("main", "foo").mock()),
@@ -2492,7 +2539,7 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(
+            let mut state = State::<Bn128Field>::new(
                 vec![("foo".into(), foo), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
@@ -2542,7 +2589,7 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(
+            let mut state = State::<Bn128Field>::new(
                 vec![(PathBuf::from(MODULE_ID).into(), module)]
                     .into_iter()
                     .collect(),
@@ -2584,7 +2631,7 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(
+            let mut state = State::<Bn128Field>::new(
                 vec![(PathBuf::from(MODULE_ID), module)]
                     .into_iter()
                     .collect(),
@@ -2619,7 +2666,7 @@ mod tests {
             //
             // should fail
 
-            let module: Module<Bn128Field> = Module {
+            let module: Module = Module {
                 symbols: vec![
                     SymbolDeclaration {
                         id: "foo",
@@ -2635,7 +2682,8 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+            let mut state =
+                State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
             assert_eq!(
@@ -2672,7 +2720,8 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+            let mut state =
+                State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
             assert_eq!(
@@ -2722,7 +2771,7 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(
+            let mut state = State::<Bn128Field>::new(
                 vec![(PathBuf::from(MODULE_ID), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
@@ -2773,7 +2822,7 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(
+            let mut state = State::<Bn128Field>::new(
                 vec![(PathBuf::from(MODULE_ID), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
@@ -2797,9 +2846,9 @@ mod tests {
         functions: HashSet<FunctionKey<'ast>>,
     ) -> Checker<'ast> {
         Checker {
-            scope: scope,
-            functions: functions,
-            level: level,
+            scope,
+            functions,
+            level,
         }
     }
 
@@ -2807,7 +2856,7 @@ mod tests {
     fn undefined_variable_in_statement() {
         // a = b
         // b undefined
-        let statement: StatementNode<Bn128Field> = Statement::Definition(
+        let statement: StatementNode = Statement::Definition(
             Assignee::Identifier("a").mock(),
             Expression::Identifier("b").mock(),
         )
@@ -2818,7 +2867,7 @@ mod tests {
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_statement(statement, &module_id, &types),
+            checker.check_statement::<Bn128Field>(statement, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"b\" is undefined".into()
@@ -2830,7 +2879,7 @@ mod tests {
     fn defined_variable_in_statement() {
         // a = b
         // b defined
-        let statement: StatementNode<Bn128Field> = Statement::Definition(
+        let statement: StatementNode = Statement::Definition(
             Assignee::Identifier("a").mock(),
             Expression::Identifier("b").mock(),
         )
@@ -2850,7 +2899,7 @@ mod tests {
         });
         let mut checker = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
-            checker.check_statement(statement, &module_id, &types),
+            checker.check_statement::<Bn128Field>(statement, &module_id, &types),
             Ok(TypedStatement::Definition(
                 TypedAssignee::Identifier(typed_absy::Variable::field_element("a")),
                 FieldElementExpression::Identifier("b".into()).into()
@@ -2873,7 +2922,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                Expression::FieldConstant(BigUint::from(1u32)).mock(),
             )
             .mock(),
         ];
@@ -2923,7 +2972,8 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+        let mut state =
+            State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = Checker::new();
         assert_eq!(
@@ -2956,7 +3006,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                Expression::FieldConstant(BigUint::from(1u32)).mock(),
             )
             .mock(),
         ];
@@ -2979,7 +3029,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                Expression::FieldConstant(BigUint::from(2u32)).mock(),
             )
             .mock(),
             Statement::Return(
@@ -3003,7 +3053,7 @@ mod tests {
         let main_args = vec![];
         let main_statements = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(BigUint::from(1u32)).mock()],
             }
             .mock(),
         )
@@ -3041,7 +3091,8 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+        let mut state =
+            State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = Checker::new();
         assert!(checker.check_module(&"main".into(), &mut state).is_ok());
@@ -3057,8 +3108,8 @@ mod tests {
         let foo_statements = vec![
             Statement::For(
                 absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-                Expression::FieldConstant(Bn128Field::from(0)).mock(),
-                Expression::FieldConstant(Bn128Field::from(10)).mock(),
+                Expression::FieldConstant(BigUint::from(0u32)).mock(),
+                Expression::FieldConstant(BigUint::from(10u32)).mock(),
                 vec![],
             )
             .mock(),
@@ -3085,7 +3136,7 @@ mod tests {
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_function(foo, &module_id, &types),
+            checker.check_function::<Bn128Field>(foo, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"i\" is undefined".into()
@@ -3115,8 +3166,8 @@ mod tests {
 
         let foo_statements = vec![Statement::For(
             absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-            Expression::FieldConstant(Bn128Field::from(0)).mock(),
-            Expression::FieldConstant(Bn128Field::from(10)).mock(),
+            Expression::FieldConstant(BigUint::from(0u32)).mock(),
+            Expression::FieldConstant(BigUint::from(10u32)).mock(),
             for_statements,
         )
         .mock()];
@@ -3131,8 +3182,8 @@ mod tests {
 
         let foo_statements_checked = vec![TypedStatement::For(
             typed_absy::Variable::field_element("i"),
-            FieldElementExpression::Number(Bn128Field::from(0)),
-            FieldElementExpression::Number(Bn128Field::from(10)),
+            FieldElementExpression::Number(Bn128Field::from(0u32)),
+            FieldElementExpression::Number(Bn128Field::from(10u32)),
             for_statements_checked,
         )];
 
@@ -3160,7 +3211,7 @@ mod tests {
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_function(foo, &module_id, &types),
+            checker.check_function::<Bn128Field>(foo, &module_id, &types),
             Ok(foo_checked)
         );
     }
@@ -3172,7 +3223,7 @@ mod tests {
         // def bar():
         //   field a = foo()
         // should fail
-        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
+        let bar_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3209,7 +3260,7 @@ mod tests {
 
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function(bar, &module_id, &types),
+            checker.check_function::<Bn128Field>(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message:
@@ -3226,9 +3277,9 @@ mod tests {
         // def bar():
         //   2 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Assertion(
+        let bar_statements: Vec<StatementNode> = vec![Statement::Assertion(
             Expression::Eq(
-                box Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                box Expression::FieldConstant(BigUint::from(2u32)).mock(),
                 box Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
@@ -3260,7 +3311,7 @@ mod tests {
 
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function(bar, &module_id, &types),
+            checker.check_function::<Bn128Field>(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Function definition for function foo with signature () -> _ not found."
@@ -3274,7 +3325,7 @@ mod tests {
         // def bar():
         //   field a = foo()
         // should fail
-        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
+        let bar_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3301,7 +3352,7 @@ mod tests {
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &module_id, &types),
+            checker.check_function::<Bn128Field>(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -3321,11 +3372,11 @@ mod tests {
         // 	return 1
         // should fail
 
-        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+        let foo_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::FieldConstant(Bn128Field::from(1)).mock(),
-                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                    Expression::FieldConstant(BigUint::from(1u32)).mock(),
+                    Expression::FieldConstant(BigUint::from(2u32)).mock(),
                 ],
             }
             .mock(),
@@ -3349,7 +3400,7 @@ mod tests {
         }
         .mock();
 
-        let main_statements: Vec<StatementNode<Bn128Field>> = vec![
+        let main_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3368,7 +3419,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                    expressions: vec![Expression::FieldConstant(BigUint::from(1u32)).mock()],
                 }
                 .mock(),
             )
@@ -3401,7 +3452,8 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+        let mut state =
+            State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
@@ -3425,11 +3477,11 @@ mod tests {
         //  return 1
         // should fail
 
-        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+        let foo_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::FieldConstant(Bn128Field::from(1)).mock(),
-                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                    Expression::FieldConstant(BigUint::from(1u32)).mock(),
+                    Expression::FieldConstant(BigUint::from(2u32)).mock(),
                 ],
             }
             .mock(),
@@ -3449,7 +3501,7 @@ mod tests {
         }
         .mock();
 
-        let main_statements: Vec<StatementNode<Bn128Field>> = vec![
+        let main_statements: Vec<StatementNode> = vec![
             Statement::MultipleDefinition(
                 vec![
                     Assignee::Identifier("a").mock(),
@@ -3493,7 +3545,8 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+        let mut state =
+            State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
@@ -3527,9 +3580,9 @@ mod tests {
         //  return
         // should fail
 
-        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+        let foo_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(BigUint::from(1u32)).mock()],
             }
             .mock(),
         )
@@ -3545,7 +3598,7 @@ mod tests {
         }
         .mock();
 
-        let main_statements: Vec<StatementNode<Bn128Field>> = vec![
+        let main_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
                 absy::Variable::new(
                     "a",
@@ -3557,7 +3610,7 @@ mod tests {
             Statement::Definition(
                 Assignee::Identifier("a".into()).mock(),
                 Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(
-                    Expression::FieldConstant(Bn128Field::from(0)).mock(),
+                    Expression::FieldConstant(BigUint::from(0u32)).mock(),
                 )])
                 .mock(),
             )
@@ -3566,7 +3619,7 @@ mod tests {
                 vec![Assignee::Select(
                     box Assignee::Identifier("a").mock(),
                     box RangeOrExpression::Expression(
-                        absy::Expression::FieldConstant(Bn128Field::from(0)).mock(),
+                        absy::Expression::FieldConstant(BigUint::from(0u32)).mock(),
                     ),
                 )
                 .mock()],
@@ -3608,7 +3661,8 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+        let mut state =
+            State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
@@ -3628,9 +3682,9 @@ mod tests {
         // def bar():
         //   1 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Assertion(
+        let bar_statements: Vec<StatementNode> = vec![Statement::Assertion(
             Expression::Eq(
-                box Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                box Expression::FieldConstant(BigUint::from(1u32)).mock(),
                 box Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
@@ -3652,7 +3706,7 @@ mod tests {
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &module_id, &types),
+            checker.check_function::<Bn128Field>(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -3667,7 +3721,7 @@ mod tests {
         // def bar():
         //   return a, b
         // should fail
-        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+        let bar_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
                     Expression::Identifier("a").mock(),
@@ -3696,7 +3750,7 @@ mod tests {
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &module_id, &types),
+            checker.check_function::<Bn128Field>(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"a\" is undefined".into()
@@ -3713,7 +3767,7 @@ mod tests {
         //   return a + b
         //
         // should pass
-        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
+        let bar_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3814,9 +3868,9 @@ mod tests {
         //   return 1
         //
         // should fail
-        let main1_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+        let main1_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(BigUint::from(1u32)).mock()],
             }
             .mock(),
         )
@@ -3828,9 +3882,9 @@ mod tests {
         }
         .mock()];
 
-        let main2_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
+        let main2_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(BigUint::from(1u32)).mock()],
             }
             .mock(),
         )
@@ -3883,7 +3937,7 @@ mod tests {
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_program(program),
+            checker.check_program::<Bn128Field>(program),
             Err(vec![Error {
                 inner: ErrorInner {
                     pos: None,
@@ -3976,7 +4030,7 @@ mod tests {
         ) -> (Checker<'static>, State<'static, Bn128Field>) {
             let module_id: PathBuf = "".into();
 
-            let module: Module<Bn128Field> = Module {
+            let module: Module = Module {
                 imports: vec![],
                 symbols: vec![SymbolDeclaration {
                     id: "Foo",
@@ -3985,7 +4039,8 @@ mod tests {
                 .mock()],
             };
 
-            let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+            let mut state =
+                State::<Bn128Field>::new(vec![(module_id.clone(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
 
@@ -4158,7 +4213,7 @@ mod tests {
 
                 let module_id: PathBuf = "".into();
 
-                let module: Module<Bn128Field> = Module {
+                let module: Module = Module {
                     imports: vec![],
                     symbols: vec![
                         SymbolDeclaration {
@@ -4192,7 +4247,9 @@ mod tests {
                     ],
                 };
 
-                let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+                let mut state = State::<Bn128Field>::new(
+                    vec![(module_id.clone(), module)].into_iter().collect(),
+                );
 
                 assert!(Checker::new().check_module(&module_id, &mut state).is_ok());
                 assert_eq!(
@@ -4225,7 +4282,7 @@ mod tests {
 
                 let module_id: PathBuf = "".into();
 
-                let module: Module<Bn128Field> = Module {
+                let module: Module = Module {
                     imports: vec![],
                     symbols: vec![SymbolDeclaration {
                         id: "Bar",
@@ -4243,7 +4300,9 @@ mod tests {
                     .mock()],
                 };
 
-                let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+                let mut state = State::<Bn128Field>::new(
+                    vec![(module_id.clone(), module)].into_iter().collect(),
+                );
 
                 assert!(Checker::new().check_module(&module_id, &mut state).is_err());
             }
@@ -4256,7 +4315,7 @@ mod tests {
 
                 let module_id: PathBuf = "".into();
 
-                let module: Module<Bn128Field> = Module {
+                let module: Module = Module {
                     imports: vec![],
                     symbols: vec![SymbolDeclaration {
                         id: "Foo",
@@ -4274,7 +4333,9 @@ mod tests {
                     .mock()],
                 };
 
-                let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+                let mut state = State::<Bn128Field>::new(
+                    vec![(module_id.clone(), module)].into_iter().collect(),
+                );
 
                 assert!(Checker::new().check_module(&module_id, &mut state).is_err());
             }
@@ -4288,7 +4349,7 @@ mod tests {
 
                 let module_id: PathBuf = "".into();
 
-                let module: Module<Bn128Field> = Module {
+                let module: Module = Module {
                     imports: vec![],
                     symbols: vec![
                         SymbolDeclaration {
@@ -4322,7 +4383,9 @@ mod tests {
                     ],
                 };
 
-                let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+                let mut state = State::<Bn128Field>::new(
+                    vec![(module_id.clone(), module)].into_iter().collect(),
+                );
 
                 assert!(Checker::new().check_module(&module_id, &mut state).is_err());
             }
@@ -4511,13 +4574,13 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_expression(
+                    checker.check_expression::<Bn128Field>(
                         Expression::Member(
                             box Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                    Expression::FieldConstant(BigUint::from(42u32)).mock()
                                 )]
                             )
                             .mock(),
@@ -4529,7 +4592,7 @@ mod tests {
                     ),
                     Ok(FieldElementExpression::Member(
                         box StructExpressionInner::Value(vec![FieldElementExpression::Number(
-                            Bn128Field::from(42)
+                            Bn128Field::from(42u32)
                         )
                         .into()])
                         .annotate(StructType::new(
@@ -4560,13 +4623,13 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::Member(
                                 box Expression::InlineStruct(
                                     "Foo".into(),
                                     vec![(
                                         "foo",
-                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                        Expression::FieldConstant(BigUint::from(42u32)).mock()
                                     )]
                                 )
                                 .mock(),
@@ -4601,12 +4664,12 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::InlineStruct(
                                 "Bar".into(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                    Expression::FieldConstant(BigUint::from(42u32)).mock()
                                 )]
                             )
                             .mock(),
@@ -4642,13 +4705,13 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_expression(
+                    checker.check_expression::<Bn128Field>(
                         Expression::InlineStruct(
                             "Foo".into(),
                             vec![
                                 (
                                     "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                    Expression::FieldConstant(BigUint::from(42u32)).mock()
                                 ),
                                 ("bar", Expression::BooleanConstant(true).mock())
                             ]
@@ -4658,7 +4721,7 @@ mod tests {
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42u32)).into(),
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(StructType::new(
@@ -4696,14 +4759,14 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_expression(
+                    checker.check_expression::<Bn128Field>(
                         Expression::InlineStruct(
                             "Foo".into(),
                             vec![
                                 ("bar", Expression::BooleanConstant(true).mock()),
                                 (
                                     "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                    Expression::FieldConstant(BigUint::from(42u32)).mock()
                                 )
                             ]
                         )
@@ -4712,7 +4775,7 @@ mod tests {
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42u32)).into(),
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(StructType::new(
@@ -4751,12 +4814,12 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                    Expression::FieldConstant(BigUint::from(42u32)).mock()
                                 )]
                             )
                             .mock(),
@@ -4795,7 +4858,7 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![(
@@ -4803,7 +4866,7 @@ mod tests {
                                     Expression::BooleanConstant(true).mock()
                                 ),(
                                     "foo",
-                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                    Expression::FieldConstant(BigUint::from(42u32)).mock()
                                 )]
                             )
                             .mock(),
@@ -4816,17 +4879,17 @@ mod tests {
 
                 assert_eq!(
                     checker
-                        .check_expression(
+                        .check_expression::<Bn128Field>(
                             Expression::InlineStruct(
                                 "Foo".into(),
                                 vec![
                                     (
                                         "bar",
-                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                        Expression::FieldConstant(BigUint::from(42u32)).mock()
                                     ),
                                     (
                                         "foo",
-                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
+                                        Expression::FieldConstant(BigUint::from(42u32)).mock()
                                     )
                                 ]
                             )
@@ -4844,11 +4907,12 @@ mod tests {
 
     mod assignee {
         use super::*;
+        use num_bigint::BigUint;
 
         #[test]
         fn identifier() {
             // a = 42
-            let a = Assignee::Identifier::<Bn128Field>("a").mock();
+            let a = Assignee::Identifier("a").mock();
 
             let types = HashMap::new();
             let module_id = "".into();
@@ -4865,7 +4929,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a, &module_id, &types),
+                checker.check_assignee::<Bn128Field>(a, &module_id, &types),
                 Ok(TypedAssignee::Identifier(
                     typed_absy::Variable::field_element("a")
                 ))
@@ -4879,7 +4943,7 @@ mod tests {
             let a = Assignee::Select(
                 box Assignee::Identifier("a").mock(),
                 box RangeOrExpression::Expression(
-                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                    Expression::FieldConstant(BigUint::from(2u32)).mock(),
                 ),
             )
             .mock();
@@ -4904,10 +4968,10 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a, &module_id, &types),
+                checker.check_assignee::<Bn128Field>(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array("a", 33)),
-                    box FieldElementExpression::Number(Bn128Field::from(2)).into()
+                    box FieldElementExpression::Number(Bn128Field::from(2u32)).into()
                 ))
             );
         }
@@ -4920,12 +4984,12 @@ mod tests {
                 box Assignee::Select(
                     box Assignee::Identifier("a").mock(),
                     box RangeOrExpression::Expression(
-                        Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                        Expression::FieldConstant(BigUint::from(1u32)).mock(),
                     ),
                 )
                 .mock(),
                 box RangeOrExpression::Expression(
-                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                    Expression::FieldConstant(BigUint::from(2u32)).mock(),
                 ),
             )
             .mock();
@@ -4954,7 +5018,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a, &module_id, &types),
+                checker.check_assignee::<Bn128Field>(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Select(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(
@@ -4962,9 +5026,9 @@ mod tests {
                             Type::array(Type::FieldElement, 33),
                             42
                         )),
-                        box FieldElementExpression::Number(Bn128Field::from(1)).into()
+                        box FieldElementExpression::Number(Bn128Field::from(1u32)).into()
                     ),
-                    box FieldElementExpression::Number(Bn128Field::from(2)).into()
+                    box FieldElementExpression::Number(Bn128Field::from(2u32)).into()
                 ))
             );
         }

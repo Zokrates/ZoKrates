@@ -1,4 +1,30 @@
-pub const SOLIDITY_G2_ADDITION_LIB: &str = r#"// This file is LGPL3 Licensed
+use proof_system::Scheme;
+use zokrates_field::{Bn128Field, Field};
+
+pub trait SolidityCompatibleField: Field {}
+impl SolidityCompatibleField for Bn128Field {}
+
+pub trait SolidityCompatibleScheme<T: SolidityCompatibleField>: Scheme<T> {
+    fn export_solidity_verifier(vk: Self::VerificationKey, abi: SolidityAbi) -> String;
+}
+
+pub enum SolidityAbi {
+    V1,
+    V2,
+}
+
+impl SolidityAbi {
+    pub fn from(v: &str) -> Result<Self, &str> {
+        match v {
+            "v1" => Ok(SolidityAbi::V1),
+            "v2" => Ok(SolidityAbi::V2),
+            _ => Err("Invalid ABI version"),
+        }
+    }
+}
+
+pub const SOLIDITY_G2_ADDITION_LIB: &str = r#"// SPDX-License-Identifier: LGPL-3.0-only
+// This file is LGPL3 Licensed
 pragma solidity ^0.6.1;
 
 /**
@@ -420,10 +446,10 @@ library Pairing {
     /// @return the generator of G2
     function P2() pure internal returns (G2Point memory) {
         return G2Point(
-            [11559732032986387107991004021392285783925812861821192530917403151452391805634,
-             10857046999023057135944570762232829481370756359578518086990519993285655852781],
-            [4082367875863433681332203403145435568316851327593401208105741076214120093531,
-             8495653923123431417604973247489272438418190587263600148770280649306958101930]
+            [10857046999023057135944570762232829481370756359578518086990519993285655852781,
+             11559732032986387107991004021392285783925812861821192530917403151452391805634],
+            [8495653923123431417604973247489272438418190587263600148770280649306958101930,
+             4082367875863433681332203403145435568316851327593401208105741076214120093531]
         );
     }
     /// @return the negation of p, i.e. p.addition(p.negate()) should be zero.
@@ -435,7 +461,7 @@ library Pairing {
         return G1Point(p.X, q - (p.Y % q));
     }
     /// @return r the sum of two points of G1
-    function addition(G1Point memory p1, G1Point memory p2) internal returns (G1Point memory r) {
+    function addition(G1Point memory p1, G1Point memory p2) internal view returns (G1Point memory r) {
         uint[4] memory input;
         input[0] = p1.X;
         input[1] = p1.Y;
@@ -443,15 +469,15 @@ library Pairing {
         input[3] = p2.Y;
         bool success;
         assembly {
-            success := call(sub(gas(), 2000), 6, 0, input, 0xc0, r, 0x60)
+            success := staticcall(sub(gas(), 2000), 6, input, 0xc0, r, 0x60)
             // Use "invalid" to make gas estimation work
             switch success case 0 { invalid() }
         }
         require(success);
     }
     /// @return r the sum of two points of G2
-    function addition(G2Point memory p1, G2Point memory p2) internal returns (G2Point memory r) {
-        (r.X[1], r.X[0], r.Y[1], r.Y[0]) = BN256G2.ECTwistAdd(p1.X[1],p1.X[0],p1.Y[1],p1.Y[0],p2.X[1],p2.X[0],p2.Y[1],p2.Y[0]);
+    function addition(G2Point memory p1, G2Point memory p2) internal view returns (G2Point memory r) {
+        (r.X[0], r.X[1], r.Y[0], r.Y[1]) = BN256G2.ECTwistAdd(p1.X[0],p1.X[1],p1.Y[0],p1.Y[1],p2.X[0],p2.X[1],p2.Y[0],p2.Y[1]);
     }
     /// @return r the product of a point on G1 and a scalar, i.e.
     /// p == p.scalar_mul(1) and p.addition(p) == p.scalar_mul(2) for all points p.
@@ -462,7 +488,7 @@ library Pairing {
         input[2] = s;
         bool success;
         assembly {
-            success := call(sub(gas(), 2000), 7, 0, input, 0x80, r, 0x60)
+            success := staticcall(sub(gas(), 2000), 7, input, 0x80, r, 0x60)
             // Use "invalid" to make gas estimation work
             switch success case 0 { invalid() }
         }
@@ -472,7 +498,7 @@ library Pairing {
     /// e(p1[0], p2[0]) *  .... * e(p1[n], p2[n]) == 1
     /// For example pairing([P1(), P1().negate()], [P2(), P2()]) should
     /// return true.
-    function pairing(G1Point[] memory p1, G2Point[] memory p2) internal returns (bool) {
+    function pairing(G1Point[] memory p1, G2Point[] memory p2) internal view returns (bool) {
         require(p1.length == p2.length);
         uint elements = p1.length;
         uint inputSize = elements * 6;
@@ -481,15 +507,15 @@ library Pairing {
         {
             input[i * 6 + 0] = p1[i].X;
             input[i * 6 + 1] = p1[i].Y;
-            input[i * 6 + 2] = p2[i].X[0];
-            input[i * 6 + 3] = p2[i].X[1];
-            input[i * 6 + 4] = p2[i].Y[0];
-            input[i * 6 + 5] = p2[i].Y[1];
+            input[i * 6 + 2] = p2[i].X[1];
+            input[i * 6 + 3] = p2[i].X[0];
+            input[i * 6 + 4] = p2[i].Y[1];
+            input[i * 6 + 5] = p2[i].Y[0];
         }
         uint[1] memory out;
         bool success;
         assembly {
-            success := call(sub(gas(), 2000), 8, 0, add(input, 0x20), mul(inputSize, 0x20), out, 0x20)
+            success := staticcall(sub(gas(), 2000), 8, add(input, 0x20), mul(inputSize, 0x20), out, 0x20)
             // Use "invalid" to make gas estimation work
             switch success case 0 { invalid() }
         }
@@ -497,7 +523,7 @@ library Pairing {
         return out[0] != 0;
     }
     /// Convenience method for a pairing check for two pairs.
-    function pairingProd2(G1Point memory a1, G2Point memory a2, G1Point memory b1, G2Point memory b2) internal returns (bool) {
+    function pairingProd2(G1Point memory a1, G2Point memory a2, G1Point memory b1, G2Point memory b2) internal view returns (bool) {
         G1Point[] memory p1 = new G1Point[](2);
         G2Point[] memory p2 = new G2Point[](2);
         p1[0] = a1;
@@ -511,7 +537,7 @@ library Pairing {
             G1Point memory a1, G2Point memory a2,
             G1Point memory b1, G2Point memory b2,
             G1Point memory c1, G2Point memory c2
-    ) internal returns (bool) {
+    ) internal view returns (bool) {
         G1Point[] memory p1 = new G1Point[](3);
         G2Point[] memory p2 = new G2Point[](3);
         p1[0] = a1;
@@ -528,7 +554,7 @@ library Pairing {
             G1Point memory b1, G2Point memory b2,
             G1Point memory c1, G2Point memory c2,
             G1Point memory d1, G2Point memory d2
-    ) internal returns (bool) {
+    ) internal view returns (bool) {
         G1Point[] memory p1 = new G1Point[](4);
         G2Point[] memory p2 = new G2Point[](4);
         p1[0] = a1;
@@ -568,10 +594,10 @@ library Pairing {
     /// @return the generator of G2
     function P2() pure internal returns (G2Point memory) {
         return G2Point(
-            [11559732032986387107991004021392285783925812861821192530917403151452391805634,
-             10857046999023057135944570762232829481370756359578518086990519993285655852781],
-            [4082367875863433681332203403145435568316851327593401208105741076214120093531,
-             8495653923123431417604973247489272438418190587263600148770280649306958101930]
+            [10857046999023057135944570762232829481370756359578518086990519993285655852781,
+             11559732032986387107991004021392285783925812861821192530917403151452391805634],
+            [8495653923123431417604973247489272438418190587263600148770280649306958101930,
+             4082367875863433681332203403145435568316851327593401208105741076214120093531]
         );
     }
     /// @return the negation of p, i.e. p.addition(p.negate()) should be zero.
@@ -599,7 +625,7 @@ library Pairing {
     }
     /// @return r the sum of two points of G2
     function addition(G2Point memory p1, G2Point memory p2) internal view returns (G2Point memory r) {
-        (r.X[1], r.X[0], r.Y[1], r.Y[0]) = BN256G2.ECTwistAdd(p1.X[1],p1.X[0],p1.Y[1],p1.Y[0],p2.X[1],p2.X[0],p2.Y[1],p2.Y[0]);
+        (r.X[0], r.X[1], r.Y[0], r.Y[1]) = BN256G2.ECTwistAdd(p1.X[0],p1.X[1],p1.Y[0],p1.Y[1],p2.X[0],p2.X[1],p2.Y[0],p2.Y[1]);
     }
     /// @return r the product of a point on G1 and a scalar, i.e.
     /// p == p.scalar_mul(1) and p.addition(p) == p.scalar_mul(2) for all points p.
@@ -629,10 +655,10 @@ library Pairing {
         {
             input[i * 6 + 0] = p1[i].X;
             input[i * 6 + 1] = p1[i].Y;
-            input[i * 6 + 2] = p2[i].X[0];
-            input[i * 6 + 3] = p2[i].X[1];
-            input[i * 6 + 4] = p2[i].Y[0];
-            input[i * 6 + 5] = p2[i].Y[1];
+            input[i * 6 + 2] = p2[i].X[1];
+            input[i * 6 + 3] = p2[i].X[0];
+            input[i * 6 + 4] = p2[i].Y[1];
+            input[i * 6 + 5] = p2[i].Y[0];
         }
         uint[1] memory out;
         bool success;

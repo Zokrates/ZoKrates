@@ -91,12 +91,16 @@ mod integration {
         // create a tmp folder to store artifacts
         fs::create_dir(test_case_path).unwrap();
 
+        let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+
         // prepare compile arguments
         let compile = vec![
             "../target/release/zokrates",
             "compile",
             "-i",
             program_path.to_str().unwrap(),
+            "--stdlib-path",
+            stdlib.to_str().unwrap(),
             "-s",
             abi_spec_path.to_str().unwrap(),
             "-o",
@@ -214,7 +218,10 @@ mod integration {
         };
 
         #[cfg(not(feature = "libsnark"))]
-        let backends = map! {"bellman" => ["g16"]};
+        let backends = map! {
+            "bellman" => ["g16"],
+            "zexe" => ["gm17"]
+        };
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
@@ -228,22 +235,6 @@ mod integration {
                     proving_key_path.to_str().unwrap(),
                     "-v",
                     verification_key_path.to_str().unwrap(),
-                    "--backend",
-                    backend,
-                    "--proving-scheme",
-                    scheme,
-                ])
-                .succeeds()
-                .unwrap();
-
-                // EXPORT-VERIFIER
-                assert_cli::Assert::command(&[
-                    "../target/release/zokrates",
-                    "export-verifier",
-                    "-i",
-                    verification_key_path.to_str().unwrap(),
-                    "-o",
-                    verification_contract_path.to_str().unwrap(),
                     "--backend",
                     backend,
                     "--proving-scheme",
@@ -288,18 +279,38 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
-                // TEST VERIFIER
-                assert_cli::Assert::command(&[
-                    "node",
-                    "test.js",
-                    verification_contract_path.to_str().unwrap(),
-                    proof_path.to_str().unwrap(),
-                    scheme,
-                    "v1",
-                ])
-                .current_dir(concat!(env!("OUT_DIR"), "/contract"))
-                .succeeds()
-                .unwrap();
+                if backend != "zexe" {
+                    for abi_version in &["v1", "v2"] {
+                        // EXPORT-VERIFIER
+                        assert_cli::Assert::command(&[
+                            "../target/release/zokrates",
+                            "export-verifier",
+                            "-i",
+                            verification_key_path.to_str().unwrap(),
+                            "-o",
+                            verification_contract_path.to_str().unwrap(),
+                            "--proving-scheme",
+                            scheme,
+                            "-a",
+                            abi_version,
+                        ])
+                        .succeeds()
+                        .unwrap();
+
+                        // TEST VERIFIER
+                        assert_cli::Assert::command(&[
+                            "node",
+                            "test.js",
+                            verification_contract_path.to_str().unwrap(),
+                            proof_path.to_str().unwrap(),
+                            scheme,
+                            abi_version,
+                        ])
+                        .current_dir(concat!(env!("OUT_DIR"), "/contract"))
+                        .succeeds()
+                        .unwrap();
+                    }
+                }
             }
         }
     }

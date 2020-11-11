@@ -1,19 +1,22 @@
 [package]
 name = "zokrates_core"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/JacobEberhardt/ZoKrates"
 readme = "README.md"
 build = "build.rs"
 
 [features]
-default = ["bellman_ce/nolog"]
+default = []
 libsnark = ["cc", "cmake", "git2"]
-wasm = ["bellman_ce/wasm"]
+wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
 multicore = ["bellman_ce/multicore"]
+zexe = ["gm17", "algebra-core", "r1cs-core", "algebra"]
 
 [dependencies]
-num = {version = "0.1.36", default-features = false}
+cfg-if = "0.1"
+num = { version = "0.1.36", default-features = false }
+num-bigint = { version = "0.2", default-features = false }
 lazy_static = "1.4"
 typed-arena = "1.4.1"
 reduce = "0.1.1"
@@ -30,18 +33,19 @@ ff_ce = "^0.9"
 zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
 zokrates_common = { path = "../zokrates_common" }
-rand = "0.4"
+rand_0_4 = { version = "0.4", package = "rand" }
+rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
 bellman_ce = { version = "^0.3", default-features = false }
-
-[dependencies.num-bigint]
-version = "0.2"
-features = ["serde"]
+gm17 = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, optional = true }
+algebra-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, optional = true }
+r1cs-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, optional = true }
+algebra = { git =  "https://github.com/scipr-lab/zexe.git", features = ["bn254", "bls12_377", "bw6_761"], default-features = false, optional = true }
 
 [dev-dependencies]
 glob = "0.2.11"
 assert_cli = "0.5"
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
 
 [build-dependencies]

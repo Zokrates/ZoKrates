@@ -1,7 +1,5 @@
-#pragma curve bn128
-
 import "EMBED/u32_to_bits" as to_bits
-import "../bool/pack256"
+from "../bool/pack256.zok" import main as pack256
 
 // pack 256 big-endian bits into one field element
 // Note: This is not a injective operation as `p` is smaller than `2**256 - 1 for bn128

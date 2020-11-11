@@ -4,23 +4,31 @@
 
 Proving schemes supported by ZoKrates require a pairing-friendly elliptic curve. The options are the following:
 
-### ALT_BN128
-This curve is supported by Ethereum.
+| Curve | CLI flag | Supported by Ethereum |
+| ----- | -------- | --------------------- |
+| ALT_BN128 | `--curve bn128` | Yes ([EIP-196](https://eips.ethereum.org/EIPS/eip-196), [EIP-197](https://eips.ethereum.org/EIPS/eip-197))  |
+| BLS12_381 | `--curve bls12_381` | No ([EIP-2537](https://eips.ethereum.org/EIPS/eip-2537))|
+| BLS12_377 | `--curve bls12_377` | No ([EIP-2539](https://eips.ethereum.org/EIPS/eip-2539))|
+| BW6_761 | `--curve bw6_761` | No ([EIP-3026](https://eips.ethereum.org/EIPS/eip-3026)) |
 
-### BLS12_381
-This curve is *not* supported by Ethereum and is currently only available for the G16 [proving scheme](#schemes).
+Default: `ALT_BN128`
+
+When not using the default, the CLI flag has to be provided for the following commands:
+- `compile`
+- `export-verifier`
+- `verify`
 
 ## Schemes
 
-ZoKrates supports different proving schemes. All of the available schemes rely on the ALT_BN128 curve, which means that they're all compatible with Ethereum.
+ZoKrates supports different proving schemes. We identify the schemes by the reference to the paper that introduced them. Currently the options available are:
 
-We identify the schemes by the reference to the paper that introduced them. Currently the options available are:
+| Scheme | CLI flag | Curves |
+| ---- | -------- | ------ |
+| [G16](https://eprint.iacr.org/2016/260) | `--proving-scheme g16` | ALTBN_128, BLS12_381 |
+| [GM17](https://eprint.iacr.org/2017/540) | `--proving-scheme gm17` | ALTBN_128, BLS12_377, BW6_761 |
+| [PGHR13](https://eprint.iacr.org/2013/279) | `--proving-scheme pghr13` | ALTBN_128 |
 
-| Name | CLI flag | Requires libsnark | Curves |
-| ---- | -------- | ----------------- | ------ |
-| [PGHR13](https://eprint.iacr.org/2013/279) | `--proving-scheme pghr13` | Yes | ALTBN_128 |
-| [G16](https://eprint.iacr.org/2016/260) | `--proving-scheme g16` | No | ALTBN_128, BLS12_381 |
-| [GM17](https://eprint.iacr.org/2017/540) | `--proving-scheme gm17` | Yes | ALTBN_128 |
+Default: `G16`
 
 When not using the default, the CLI flag has to be provided for the following commands:
 - `setup`
@@ -30,7 +38,20 @@ When not using the default, the CLI flag has to be provided for the following co
 
 ## Supporting backends
 
-As shown in the table above, the `PGHR13` and `GM17`schemes require [libsnark](https://github.com/scipr-lab/libsnark) as a backend, while G16 uses [bellman](https://github.com/zkcrypto/bellman), which is included as the default backend.
+ZoKrates supports multiple backends. The options are the following:
+
+| Backend | CLI flag | Proving schemes | Curves |
+| ---- | -------- | --------------- | ------ |
+| Bellman | `--backend bellman` | G16 | ALTBN_128, BLS12_381 |
+| Libsnark | `--backend libsnark` | GM17, PGHR13 | ALTBN_128 |
+| Zexe | `--backend zexe` | GM17 | ALTBN_128, BLS12_377, BW6_761 |
+
+Default: `bellman`
+
+When not using the default, the CLI flag has to be provided for the following commands:
+- `setup`
+- `generate-proof`
+- `verify`
 
 To include libsnark in the build, compile ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the `libsnark` feature:
 ```bash

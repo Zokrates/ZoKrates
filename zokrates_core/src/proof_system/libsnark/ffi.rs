@@ -41,8 +41,7 @@ impl Buffer {
         Box::from_raw(s);
     }
 
-    /// The purpose of this function is to free memory previously allocated by "malloc"
-    /// from C standard library. Do not use otherwise.
+    /// The purpose of this function is to free memory allocated by C. Do not use otherwise.
     pub fn free(self) {
         unsafe { __free(self.data) };
     }

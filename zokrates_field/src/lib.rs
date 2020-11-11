@@ -3,13 +3,16 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
+extern crate algebra_core;
+extern crate num_bigint;
 
+use algebra_core::PairingEngine;
 use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
@@ -19,12 +22,29 @@ pub trait Pow<RHS> {
     fn pow(self, _: RHS) -> Self::Output;
 }
 
+pub trait BellmanFieldExtensions {
+    /// An associated type to be able to operate with Bellman ff traits
+    type BellmanEngine: Engine;
+
+    fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self;
+    fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr;
+    fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
+}
+
+pub trait ZexeFieldExtensions {
+    /// An associated type to be able to operate with zexe ff traits
+    type ZexeEngine: PairingEngine;
+
+    fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self;
+    fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr;
+}
+
 pub trait Field:
     From<i32>
     + From<u32>
     + From<usize>
     + From<u128>
-    + From<BigUint>
+    + TryFrom<BigUint, Error = ()>
     + Zero
     + One
     + Clone
@@ -51,24 +71,6 @@ pub trait Field:
     + num_traits::CheckedAdd
     + num_traits::CheckedMul
 {
-    /// An associated type to be able to operate with Bellman ff traits
-    type BellmanEngine: Engine;
-
-    fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self {
-        use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
-        let mut res: Vec<u8> = vec![];
-        e.into_repr().write_le(&mut res).unwrap();
-        Self::from_byte_vector(res)
-    }
-
-    fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
-        use bellman_ce::pairing::ff::PrimeField;
-        let s = self.to_dec_string();
-        <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
-    }
-
-    fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
-
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -122,7 +124,7 @@ pub trait Field:
 #[macro_use]
 mod prime_field {
     macro_rules! prime_field {
-        ($modulus:expr, $bellman_type:ty, $fq2_type: ident, $name:expr) => {
+        ($modulus:expr, $name:expr) => {
             use crate::{Field, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
@@ -130,6 +132,7 @@ mod prime_field {
             use num_traits::{One, Zero};
             use serde_derive::{Deserialize, Serialize};
             use std::convert::From;
+            use std::convert::TryFrom;
             use std::fmt;
             use std::fmt::{Debug, Display};
             use std::ops::{Add, Div, Mul, Sub};
@@ -144,17 +147,8 @@ mod prime_field {
             }
 
             impl Field for FieldPrime {
-                type BellmanEngine = $bellman_type;
-
                 fn bits(&self) -> u32 {
                     self.value.bits() as u32
-                }
-
-                fn new_fq2(c0: &str, c1: &str) -> $fq2_type {
-                    $fq2_type {
-                        c0: bellman_ce::pairing::from_hex(c0).unwrap(),
-                        c1: bellman_ce::pairing::from_hex(c1).unwrap(),
-                    }
                 }
 
                 fn to_biguint(&self) -> BigUint {
@@ -298,11 +292,16 @@ mod prime_field {
                 }
             }
 
-            impl From<BigUint> for FieldPrime {
-                fn from(num: BigUint) -> Self {
-                    let x = ToBigInt::to_bigint(&num).unwrap();
-                    FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
+            impl TryFrom<BigUint> for FieldPrime {
+                type Error = ();
+
+                fn try_from(value: BigUint) -> Result<Self, ()> {
+                    match value <= Self::max_value().to_biguint() {
+                        true => {
+                            let x = ToBigInt::to_bigint(&value).unwrap();
+                            Ok(FieldPrime { value: x })
+                        }
+                        false => Err(()),
                     }
                 }
             }
@@ -509,10 +508,71 @@ mod prime_field {
             }
         };
     }
+
+    macro_rules! bellman_extensions {
+        ($bellman_type:ty, $fq2_type:ident) => {
+            use crate::BellmanFieldExtensions;
+            use bellman_ce::pairing::ff::ScalarEngine;
+
+            impl BellmanFieldExtensions for FieldPrime {
+                type BellmanEngine = $bellman_type;
+
+                fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self {
+                    use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                    let mut res: Vec<u8> = vec![];
+                    e.into_repr().write_le(&mut res).unwrap();
+                    Self::from_byte_vector(res)
+                }
+
+                fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
+                    use bellman_ce::pairing::ff::PrimeField;
+                    let s = self.to_dec_string();
+                    <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
+                }
+
+                fn new_fq2(
+                    c0: &str,
+                    c1: &str,
+                ) -> <Self::BellmanEngine as bellman_ce::pairing::Engine>::Fqe {
+                    $fq2_type {
+                        c0: bellman_ce::pairing::from_hex(c0).unwrap(),
+                        c1: bellman_ce::pairing::from_hex(c1).unwrap(),
+                    }
+                }
+            }
+        };
+    }
+
+    macro_rules! zexe_extensions {
+        ($zexe_type:ty) => {
+            use crate::ZexeFieldExtensions;
+
+            impl ZexeFieldExtensions for FieldPrime {
+                type ZexeEngine = $zexe_type;
+
+                fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
+                    use algebra_core::{BigInteger, PrimeField};
+                    let mut res: Vec<u8> = vec![];
+                    e.into_repr().write_le(&mut res).unwrap();
+                    Self::from_byte_vector(res)
+                }
+
+                fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr {
+                    use core::str::FromStr;
+                    let s = self.to_dec_string();
+                    <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
+                }
+            }
+        };
+    }
 }
 
+pub mod bls12_377;
 pub mod bls12_381;
 pub mod bn128;
+pub mod bw6_761;
 
-pub use bls12_381::FieldPrime as Bls12Field;
+pub use bls12_377::FieldPrime as Bls12_377Field;
+pub use bls12_381::FieldPrime as Bls12_381Field;
 pub use bn128::FieldPrime as Bn128Field;
+pub use bw6_761::FieldPrime as Bw6_761Field;

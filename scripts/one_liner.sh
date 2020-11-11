@@ -323,7 +323,6 @@ main() {
 ZoKrates was installed successfully!
 If this is the first time you're installing ZoKrates run the following:
 export PATH=$PATH:$HOME/.zokrates/bin
-export ZOKRATES_HOME=$HOME/.zokrates/stdlib
 EOF
 }
 

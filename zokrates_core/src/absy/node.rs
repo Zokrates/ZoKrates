@@ -74,24 +74,24 @@ impl<V: NodeValue> From<V> for Node<V> {
 
 use crate::absy::*;
 use crate::imports::*;
-use zokrates_field::Field;
+use absy::types::UnresolvedType;
 
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Expression<'ast, T> {}
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for ExpressionList<'ast, T> {}
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Assignee<'ast, T> {}
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Statement<'ast, T> {}
-impl<'ast, T: Field> NodeValue for SymbolDeclaration<'ast, T> {}
+impl<'ast> NodeValue for Expression<'ast> {}
+impl<'ast> NodeValue for ExpressionList<'ast> {}
+impl<'ast> NodeValue for Assignee<'ast> {}
+impl<'ast> NodeValue for Statement<'ast> {}
+impl<'ast> NodeValue for SymbolDeclaration<'ast> {}
 impl NodeValue for UnresolvedType {}
 impl<'ast> NodeValue for StructDefinition<'ast> {}
 impl<'ast> NodeValue for StructDefinitionField<'ast> {}
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Function<'ast, T> {}
-impl<'ast, T: Field> NodeValue for Module<'ast, T> {}
+impl<'ast> NodeValue for Function<'ast> {}
+impl<'ast> NodeValue for Module<'ast> {}
 impl<'ast> NodeValue for SymbolImport<'ast> {}
 impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
 impl<'ast> NodeValue for Import<'ast> {}
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Spread<'ast, T> {}
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Range<'ast, T> {}
+impl<'ast> NodeValue for Spread<'ast> {}
+impl<'ast> NodeValue for Range<'ast> {}
 
 impl<T: PartialEq> PartialEq for Node<T> {
     fn eq(&self, other: &Node<T>) -> bool {
