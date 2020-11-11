@@ -108,7 +108,7 @@ The next step is to reveal a single bit.
 // Ori Pomerantz qbzzt1@gmail.com
 
 import "hashes/sha256/512bit" as sha256
-import "EMBED/u32_to_bits" as u32_to_bits
+import "utils/casts/u32_to_bits" as u32_to_bits
 
 // Reveal a bit from a 512 bit value, and return it with the corresponding hash
 // for that value.
@@ -145,15 +145,13 @@ Witness:
 
 ### Detailed explanation (of the new parts)
 
-This function converts a `u32` value to an array of 32 booleans. There are embedded functions to convert `u8`s, 
-`u16`s, and `u32`s to boolean arrays and back again (`u32_from_bits`, etc.).
+This function converts a `u32` value to an array of 32 booleans. There are cast functions to convert `u8`s, 
+`u16`s, and `u32`s to boolean arrays and back again, [you can see them here]
+(https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/utils/casts).
 
 ```javascript
-import "EMBED/u32_to_bits" as u32_to_bits
+import "utils/casts/u32_to_bits" as u32_to_bits
 ```
-
-Note that `u32_to_bits` is going to be added to the standard library soon, and you'll import it as 
-`utils/casts/u32_to_bits`.
 
 A Zokrates function can return multiple values. In this case, it returns the hash and a boolean which is the 
 value of the bit being revealed.
