@@ -420,19 +420,31 @@ The proof is composed of four points: *a*, *b[0]*, *b[1]*, and *c*.
              [0,0],           // c
 ```
 
-In addition, `verifyTx` requires the public inputs and the results of the proof.
+In addition, `verifyTx` requires the public inputs and the results from `compute-witness`,
+which are used as the input for `generate-proof`.
 
 ```javascript
              [1,2,3,4,5,6,7,8,9,10])   // input
 ```
 
-
+This is one of the ways to asset a value in Chai. In this case we expect the result
+to be `false` because the inputs to `verifyTx` are not valid.
 
 ```javascript
      expect(result).to.equal(false)
   })    // it "Reject random values"
+```
 
+The next step is to use the values we read from `proof.json` to verify the legitimate
+proof.
+
+```javascript
   it("Accept valid proofs", async () => {
+```
+
+Every `it` test is supposed to start from scratch, so we deploy the contract again.
+
+```javascript
        const contract = await (await ethers.getContractFactory("Verifier")).deploy()
        const result = await contract.verifyTx(
               proof.proof.a,
@@ -441,15 +453,38 @@ In addition, `verifyTx` requires the public inputs and the results of the proof.
               proof.inputs)
        expect(result).to.equal(true)
    })    // it "Accept valid proofs"
+```
 
+Finally, pretend the Alice tried to cheat by flipping the revealed bit's value.
+
+```javascript
    it("Reject cheats", async () => {
        const contract = await (await ethers.getContractFactory("Verifier")).deploy()
 
        // Try to cheat, create an inputs array that flips the last value,
        // the result bit (the other values are the bit's number and the hash)
+```
+
+This syntax, `[...<array>]`, creates a copy of an array.
+
+```javascript
        var cheatInputs = [...proof.inputs]
+```
+
+The last value in `proof.inputs` is the revealed bit. The values in the proof
+are all of type `uint`, which is a 256 bit value, so they are represented in JavaScript 
+as strings. Because we know the value is a bit, either one or zero, we can just look at
+the last character.
+
+```javascript
        var resultBit = proof.inputs[proof.inputs.length-1]
        if (resultBit.slice(-1) === '1')
+```
+
+The default representation is a string, but an integer works just as well for values that
+fit in an integer.
+
+```javascript
            cheatInputs[proof.inputs.length-1] = 0
         else
            cheatInputs[proof.inputs.length-1] = 1
@@ -465,3 +500,15 @@ In addition, `verifyTx` requires the public inputs and the results of the proof.
 
 ```  
   
+## Conclusion
+
+At this point you should know how to use Zokrates to create zero knowledge proofs and verify them from the command
+line. You should also be able to publish a verifier to a blockchain, generate proofs from the command line, and submit
+them using JavaScript.
+
+However, one important feature is still missing. Users don't typically use the command line when they communicate with 
+the blockchain. They use dapps written in JavaScript, so they can do all the processing inside their own browsers without
+having to worry about installing software.
+
+I hope to have another tutorial soon that teachs you how to create dapps that use Zokrates and submit proofs to the
+blockchain.
