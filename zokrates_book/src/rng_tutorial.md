@@ -364,23 +364,38 @@ Here is how you do it using the [HardHat](https://hardhat.org/) environment:
    
 ### Detailed Explanation
 
-<<<NEED TO WRITE THIS>>
-  
-```javascript
-// Ori Pomerantz qbzzt1@gmail.com 
-   
-const proofFileName = "/home/qbzzt1/tutorial_zok/alice/proof.json"
+This is the path to Alice's `proof.json`. Modify it as appropriate to your environment.
 
+```javascript
+const proofFileName = "/home/qbzzt1/tutorial_zok/alice/proof.json"
+```
+
+[Chai](https://www.chaijs.com/) is an assertion package for JavaScript. [FS](https://nodejs.org/dist/latest-v12.x/docs/api/fs.html)
+is the file system package we use to access `proof.json`.
+
+```javascript
 const { expect } = require("chai")
 const fs = require("fs")
+```
 
+Read `proof.json`, and parse it as [JSON](https://www.w3schools.com/js/js_json_parse.asp). 
+
+```javascript
 const proof = JSON.parse(fs.readFileSync(proofFileName))
+```
 
+The two testing functions we use, `describe` and `it`, are part of the [Mocha](https://mochajs.org/) package. 
 
+```javascript
 describe("Verifier should only verify correct submissions", async () => {
 
   it("Reject random values", async () => {
-        const contract = await (await ethers.getContractFactory("Verifier")).deploy()
+```
+
+The process 
+
+```javascript
+     const contract = await (await ethers.getContractFactory("Verifier")).deploy()
      const result = await contract.verifyTx(
              [0,0],           // a
              [[0,0],[0,0]],   // b
