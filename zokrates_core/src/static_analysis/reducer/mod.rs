@@ -25,8 +25,8 @@ use typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, ConcreteFunctionKey, CoreIdentifier,
     DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier, StructExpression,
     StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList, TypedFunction,
-    TypedFunctionSymbol, TypedModule, TypedModuleId, TypedModules, TypedProgram, TypedStatement,
-    UExpression, UExpressionInner, Variable,
+    TypedFunctionSymbol, TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
+    Variable,
 };
 
 use std::convert::{TryFrom, TryInto};

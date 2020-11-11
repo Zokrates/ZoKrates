@@ -34,9 +34,9 @@ use typed_absy::CoreIdentifier;
 use typed_absy::Identifier;
 use typed_absy::TypedAssignee;
 use typed_absy::{
-    ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey,
-    DeclarationSignature, Signature, Type, TypedExpression, TypedFunction, TypedFunctionSymbol,
-    TypedModules, TypedProgram, TypedStatement, Variable,
+    ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Signature,
+    Type, TypedExpression, TypedFunction, TypedFunctionSymbol, TypedProgram, TypedStatement,
+    Variable,
 };
 use zokrates_field::Field;
 
