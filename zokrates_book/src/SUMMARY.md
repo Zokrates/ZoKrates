@@ -23,6 +23,6 @@
     - [JSON ABI](toolbox/abi.md)
 	- [zokrates.js](toolbox/zokrates_js.md)
 
-- [Tutorial: Proof of preimage](sha256example.md)
+- [Tutorial: Zero Knowledge Proofs for a Random Number Generator](rng_tutorial.md)
 
 - [Testing](testing.md)
