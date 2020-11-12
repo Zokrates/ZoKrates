@@ -12,7 +12,7 @@ use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::groth16::G16;
 use zokrates_core::proof_system::{Backend, Proof, Scheme, SolidityAbi, SolidityCompatibleScheme};
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::Signature;
+use zokrates_core::typed_absy::types::ConcreteSignature as Signature;
 use zokrates_field::Bn128Field;
 
 #[derive(Serialize, Deserialize)]
