@@ -155,7 +155,7 @@ Witness:
 ```
 
 
-### Detailed explanation (of the new parts)
+### Detailed explanation
 
 This function converts a `u32` value to an array of 32 booleans. There are cast functions to convert `u8`s, 
 `u16`s, and `u32`s to boolean arrays and back again, 
@@ -284,6 +284,26 @@ zokrates export-verifier
 ```
 
 The Solidity program is called `verifier.sol`. 
+
+Here are the instructions to use this program when using [Truffle and Ganache](https://www.trufflesuite.com/).
+I assume you already have them installed, and the Ganache blockchains is running on localhost.
+
+1. Create a new project with `truffle init` and copy `verify.sol` to the subdirectory `contracts`.
+2. Identify the version of Solidity used by `verifier.sol`:
+   ```
+   grep solidity contracts/verifier.sol
+   ```
+3. Edit `truffle-config.js` to change `module.exports.compilers.solc.version` to the version required by `verifier.sol`.
+4. Compile the contract.
+   ```
+   truffle compile
+   ```
+
+
+GOON GOON GOON
+
+
+
 Here is how you do it using the [HardHat](https://hardhat.org/) environment:
 
 1. Install the environment [as explained here](https://hardhat.org/tutorial/setting-up-the-environment.html)
