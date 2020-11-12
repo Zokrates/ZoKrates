@@ -8,13 +8,13 @@ Make sure you have followed the instructions in the [Getting Started](gettingsta
 
 Alice and Bob want to bet on the result of a series of coin tosses. To do so, they need to generate a series of random bits. They proceed as follows:
 
-1. Each of them commits to a 512bit value. Let’s call this value the ***preimage***. They publish the hash of the preimage.
+1. Each of them commits to a 512 bit value. Let’s call this value the ***preimage***. They publish the hash of the preimage.
 2. Each time they need a new random value, they reveal one bit from their preimage, and agree that the new random value is the result of XORing these 
    two bits, so that neither of them can control the output.
 
 Note that We are making a few assumptions here:
 
-1. They make sure they do not use all 512bits of their preimage, as the more they reveal, the easier it gets for the other to brute-force their preimage.
+1. They make sure they do not use all 512 bits of their preimage, as the more they reveal, the easier it gets for the other to brute-force their preimage.
 2. They need a way to be convinced that the bit the other revealed is indeed part of their preimage. 
 
 In this tutorial you learn how to use Zokrates and zero knowledge proofs to reveal a single bit from the preimage of a hash value.
@@ -81,7 +81,7 @@ This is the main function. The input (`u32[16]`) is an array of sixteen values, 
 between 0 and 2<sup>32</sup>-1). As you have seen above, you specify these numbers using the `-a` command
 line parameter. The total number of input bits is *32 &times; 16 = 512*.
 
-The input is `private`, meaning it will not be part of the output. This will be relevant
+The input is `private`, meaning it will not be revealed to the verifier. This will be relevant
 later when we actually create zero knowledge proofs.
 
 The output is `u32[8]`, a *32 &times; 8 = 256* bit value.
@@ -93,7 +93,7 @@ def main(private u32[16] hashMe) -> u32[8]:
 &nbsp;
 
 This line does several things. First, `u32[8] h` defines a variable called `h`, whose type is an array of eight 32-bit unsigned integers.
-To get the value of this variable, we call `sha256`, the function we 
+This variable is initialized using `sha256`, the function we 
 [imported from the standard library](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok).
 The `sha256` function expects to get two arrays of eight values each, so we use a [slice `..`](https://zokrates.github.io/language/types.html#slices)
 to divide `hashMe` into two arrays.
@@ -176,13 +176,8 @@ def main(private u32[16] secret, field bitNum) -> (u32[8], bool):
 
 &nbsp;
 
-To find the value of the bit being revealed, we convert the entire secret value into bits and then find it in
-the array. In a normal programming environment that would be a *very inefficient* algorithm when we can just
-find the word and bit and set a value to that. However, Zokrates is not a normal programming environment.
-Instead of machine languages, it compiles to a list of equations. This limits our ability to do some operations
-that are very simple in a normal language.
-
-The first line defines an array of 512 boolean values (`bool[512]`) called `secretBits`. It is initialized to
+To find the value of the bit being revealed, we convert the entire preimage into bits and then find it in
+the array. The first line defines an array of 512 boolean values (`bool[512]`) called `secretBits`. It is initialized to
 an array of 512 `false` values. The syntax `[<value>; <number>]` initializes the an array of `<number>` 
 copies of `<value>`. It is necessary to include it here because a Zokrates variable must be initialized
 when it is declared.
@@ -195,14 +190,13 @@ when it is declared.
 &nbsp;
 
 This is a [for loop](https://zokrates.github.io/language/control_flow.html#for-loops). For loops 
-have to have an index of type `field`, and fixed boundaries that are known at compile time. 
+have to have an index of type `field`, and their bounds need to be known at compile time.
 In this case, we go over each of the sixteen 32 bit words.
 ```javascript
   for field i in 0..16 do
 ```
 
-The function we imported, `u32_to_bits`, converts a `u32` value to an array of bits. We store the value
-to avoid having to run this function 32 times.
+The function we imported, `u32_to_bits`, converts a `u32` value to an array of bits.
 
 ```javascript
     bool[32] val = u32_to_bits(secret[i])
@@ -210,7 +204,7 @@ to avoid having to run this function 32 times.
 
 &nbsp;
 
-The inner loop copies the bits from `val` to the 512 bit array.
+The inner loop copies the bits from `val` to `secretBits` the bit array for the preimage.
 
 ```javascript
     for field bit in 0..32 do
@@ -256,7 +250,7 @@ Proofs give us.
 
 ### Alice reveals a bit
 
-4. Alice should compile `reveal_bit.zok` independently to make sure it doesn't disclose information she wants to keep a secret.
+4. Alice should compile `reveal_bit.zok` independently to make sure it doesn't disclose information she wants to keep secret.
    ```
    zokrates compile -i reveal_bit.zok -o reveal_bit --light
    ```   
@@ -277,7 +271,7 @@ Proofs give us.
    zokrates verify
    ```
    
-8. As a sanity check, modify `proof.json` to an invalid value and see that the verification fails.
+8. As a sanity check, modify any of the values in `proof.json` and see that the verification fails.
 
 
 ## Connecting to Ethereum
@@ -289,7 +283,7 @@ published on the blockchain. To do this, Bob creates a Solidity program:
 zokrates export-verifier
 ```
 
-The Solidity program is called `verifier.sol`. The exact mechanism to run it depends on your Ethereum development environment. 
+The Solidity program is called `verifier.sol`. 
 Here is how you do it using the [HardHat](https://hardhat.org/) environment:
 
 1. Install the environment [as explained here](https://hardhat.org/tutorial/setting-up-the-environment.html)
