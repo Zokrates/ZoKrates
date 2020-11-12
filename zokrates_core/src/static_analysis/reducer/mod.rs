@@ -25,8 +25,8 @@ use typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, ConcreteFunctionKey, CoreIdentifier,
     DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier, StructExpression,
     StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList, TypedFunction,
-    TypedFunctionSymbol, TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
-    Variable,
+    TypedFunctionSymbol, TypedModule, TypedModuleId, TypedProgram, TypedStatement, UExpression,
+    UExpressionInner, Variable,
 };
 
 use std::convert::{TryFrom, TryInto};
@@ -158,6 +158,63 @@ fn register<'ast>(
 
         sub.insert(*key, *sub.get(value).unwrap_or(value));
     }
+}
+
+fn embeds_in_module<'ast, T: Field>(
+    module_id: &TypedModuleId,
+) -> Vec<(DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>)> {
+    // define a function in the embed module for the `unpack` embed
+    let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
+    let unpack_key = unpack.key_in_module::<T>(module_id);
+
+    // define a function in the embed module for the `u32_to_bits` embed
+    let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
+    let u32_to_bits_key = u32_to_bits.key_in_module::<T>(module_id);
+
+    // define a function in the embed module for the `u16_to_bits` embed
+    let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
+    let u16_to_bits_key = u16_to_bits.key_in_module::<T>(module_id);
+
+    // define a function in the embed module for the `u8_to_bits` embed
+    let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
+    let u8_to_bits_key = u8_to_bits.key_in_module::<T>(module_id);
+
+    // define a function in the embed module for the `u32_from_bits` embed
+    let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
+    let u32_from_bits_key = u32_from_bits.key_in_module::<T>(module_id);
+
+    // define a function in the embed module for the `u16_from_bits` embed
+    let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
+    let u16_from_bits_key = u16_from_bits.key_in_module::<T>(module_id);
+
+    // define a function in the embed module for the `u8_from_bits` embed
+    let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
+    let u8_from_bits_key = u8_from_bits.key_in_module::<T>(module_id);
+
+    vec![
+        (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
+        (
+            u32_from_bits_key.into(),
+            TypedFunctionSymbol::Flat(u32_from_bits),
+        ),
+        (
+            u16_from_bits_key.into(),
+            TypedFunctionSymbol::Flat(u16_from_bits),
+        ),
+        (
+            u8_from_bits_key.into(),
+            TypedFunctionSymbol::Flat(u8_from_bits),
+        ),
+        (
+            u32_to_bits_key.into(),
+            TypedFunctionSymbol::Flat(u32_to_bits),
+        ),
+        (
+            u16_to_bits_key.into(),
+            TypedFunctionSymbol::Flat(u16_to_bits),
+        ),
+        (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
+    ]
 }
 
 struct Reducer<'ast, 'a, T> {
@@ -477,59 +534,6 @@ pub fn reduce_program<'ast, T: Field>(
 ) -> Result<TypedProgram<'ast, T>, Error> {
     let mut p = p;
 
-    // define a function in the embed module for the `unpack` embed
-    let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
-    let unpack_key = unpack.key_in_module::<T>(&p.main);
-
-    // define a function in the embed module for the `u32_to_bits` embed
-    let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
-    let u32_to_bits_key = u32_to_bits.key_in_module::<T>(&p.main);
-
-    // define a function in the embed module for the `u16_to_bits` embed
-    let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
-    let u16_to_bits_key = u16_to_bits.key_in_module::<T>(&p.main);
-
-    // define a function in the embed module for the `u8_to_bits` embed
-    let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
-    let u8_to_bits_key = u8_to_bits.key_in_module::<T>(&p.main);
-
-    // define a function in the embed module for the `u32_from_bits` embed
-    let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
-    let u32_from_bits_key = u32_from_bits.key_in_module::<T>(&p.main);
-
-    // define a function in the embed module for the `u16_from_bits` embed
-    let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
-    let u16_from_bits_key = u16_from_bits.key_in_module::<T>(&p.main);
-
-    // define a function in the embed module for the `u8_from_bits` embed
-    let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
-    let u8_from_bits_key = u8_from_bits.key_in_module::<T>(&p.main);
-
-    let embed_functions = vec![
-        (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
-        (
-            u32_from_bits_key.into(),
-            TypedFunctionSymbol::Flat(u32_from_bits),
-        ),
-        (
-            u16_from_bits_key.into(),
-            TypedFunctionSymbol::Flat(u16_from_bits),
-        ),
-        (
-            u8_from_bits_key.into(),
-            TypedFunctionSymbol::Flat(u8_from_bits),
-        ),
-        (
-            u32_to_bits_key.into(),
-            TypedFunctionSymbol::Flat(u32_to_bits),
-        ),
-        (
-            u16_to_bits_key.into(),
-            TypedFunctionSymbol::Flat(u16_to_bits),
-        ),
-        (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
-    ];
-
     let main_module = p.modules.get(&p.main).unwrap().clone();
 
     let (main_key, main_function) = main_module
@@ -546,7 +550,7 @@ pub fn reduce_program<'ast, T: Field>(
 
     let main_module = p.modules.get_mut(&p.main).unwrap();
 
-    main_module.functions.extend(embed_functions.clone());
+    main_module.functions.extend(embeds_in_module(&p.main));
 
     match main_function.generics.len() {
         0 => {
@@ -555,14 +559,14 @@ pub fn reduce_program<'ast, T: Field>(
             Ok(TypedProgram {
                 main: p.main.clone(),
                 modules: vec![(
-                    p.main,
+                    p.main.clone(),
                     TypedModule {
                         functions: vec![(
                             main_key.clone(),
                             TypedFunctionSymbol::Here(main_function),
                         )]
                         .into_iter()
-                        .chain(embed_functions)
+                        .chain(embeds_in_module(&p.main))
                         .collect(),
                     },
                 )]
@@ -829,6 +833,7 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
+                    .chain(embeds_in_module(&"main".into()))
                     .collect(),
                 },
             )]
@@ -1061,6 +1066,7 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
+                    .chain(embeds_in_module(&"main".into()))
                     .collect(),
                 },
             )]
@@ -1325,6 +1331,7 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
+                    .chain(embeds_in_module(&"main".into()))
                     .collect(),
                 },
             )]
