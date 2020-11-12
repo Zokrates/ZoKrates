@@ -1,4 +1,4 @@
-# Tutorial: Zero Knowledge Proofs for a Random Number Generator
+# Tutorial: A SNARK Powered RNG
 
 ## Prerequisites
 
