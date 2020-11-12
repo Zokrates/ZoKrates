@@ -17,6 +17,12 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::Sub(box self, box other).annotate(bitwidth)
     }
 
+    pub fn floor_sub(self, other: Self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(bitwidth, other.bitwidth);
+        UExpressionInner::FloorSub(box self, box other).annotate(bitwidth)
+    }
+
     pub fn mult(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
@@ -106,6 +112,7 @@ pub enum UExpressionInner<'ast, T> {
     Value(u128),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    FloorSub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Xor(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
@@ -139,6 +146,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
             UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
             UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            UExpressionInner::FloorSub(..) => unreachable!("FloorSub is internal only"),
             UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
@@ -171,6 +179,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for UExpressionInner<'ast, T> {
             UExpressionInner::Value(ref i) => write!(f, "Num({:?})", i),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
+            UExpressionInner::FloorSub(ref lhs, ref rhs) => {
+                write!(f, "FloorSub({:?}, {:?})", lhs, rhs)
+            }
             UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
             UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,

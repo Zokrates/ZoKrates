@@ -177,7 +177,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_array_expression_inner(
         &mut self,
         ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        size: &UExpression<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         fold_array_expression_inner(self, ty, size, e)
@@ -234,7 +234,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     _: &Type<'ast, T>,
-    _: UExpression<'ast, T>,
+    _: &UExpression<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> Result<ArrayExpressionInner<'ast, T>, F::Error> {
     let e = match e {
@@ -267,6 +267,12 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
             let array = f.fold_array_expression(array)?;
             let index = f.fold_uint_expression(index)?;
             ArrayExpressionInner::Select(box array, box index)
+        }
+        ArrayExpressionInner::Slice(box array, box from, box to) => {
+            let array = f.fold_array_expression(array)?;
+            let from = f.fold_uint_expression(from)?;
+            let to = f.fold_uint_expression(to)?;
+            ArrayExpressionInner::Slice(box array, box from, box to)
         }
     };
     Ok(e)
@@ -523,6 +529,12 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
             UExpressionInner::Sub(box left, box right)
         }
+        UExpressionInner::FloorSub(box left, box right) => {
+            let left = f.fold_uint_expression(left)?;
+            let right = f.fold_uint_expression(right)?;
+
+            UExpressionInner::FloorSub(box left, box right)
+        }
         UExpressionInner::Mult(box left, box right) => {
             let left = f.fold_uint_expression(left)?;
             let right = f.fold_uint_expression(right)?;
@@ -617,10 +629,12 @@ pub fn fold_array_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: ArrayExpression<'ast, T>,
 ) -> Result<ArrayExpression<'ast, T>, F::Error> {
     let size = f.fold_uint_expression(e.size)?;
+    let ty = f.fold_type(e.ty)?;
 
     Ok(ArrayExpression {
-        inner: f.fold_array_expression_inner(&e.ty, size.clone(), e.inner)?,
+        inner: f.fold_array_expression_inner(&ty, &size, e.inner)?,
         size,
+        ty,
         ..e
     })
 }

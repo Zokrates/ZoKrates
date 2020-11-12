@@ -2303,34 +2303,31 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     RangeOrExpression::Range(r) => {
                         match array {
                             TypedExpression::Array(array) => {
-                                match array.size().into_inner() {
-                                    UExpressionInner::Value(array_size) => {
-                                        let array_size = array_size as u32;
+                                let array_size = array.size();
 
-                                        let inner_type = array.inner_type().clone();
+                                let inner_type = array.inner_type().clone();
 
-                                        // check that the bounds are valid expressions
-                                        let from = r
-                                            .value
-                                            .from
-                                            .map(|e| self.check_expression(e, module_id, &types))
-                                            .unwrap_or(Ok(UExpression::from(0u32).into()))?;
+                                // check that the bounds are valid expressions
+                                let from = r
+                                    .value
+                                    .from
+                                    .map(|e| self.check_expression(e, module_id, &types))
+                                    .unwrap_or(Ok(UExpression::from(0u32).into()))?;
 
-                                        let to = r
-                                            .value
-                                            .to
-                                            .map(|e| self.check_expression(e, module_id, &types))
-                                            .unwrap_or(Ok(UExpression::from(array_size)
-                                            .into()))?;
+                                let to = r
+                                    .value
+                                    .to
+                                    .map(|e| self.check_expression(e, module_id, &types))
+                                    .unwrap_or(Ok(array_size.clone().into()))?;
 
-                                        // check the bounds are field constants
-                                        // Note: it would be nice to allow any field expression, and check it's a constant after constant propagation,
-                                        // but it's tricky from a type perspective: the size of the slice changes the type of the resulting array,
-                                        // which doesn't work well with our static array approach. Enabling arrays to have unknown size introduces a lot
-                                        // of complexity in the compiler, as function selection in inlining requires knowledge of the array size, but
-                                        // determining array size potentially requires inlining and propagating. This suggests we would need semantic checking
-                                        // to happen iteratively with inlining and propagation, which we can't do now as we go from absy to typed_absy
-                                        let from = match from {
+                                // check the bounds are field constants
+                                // Note: it would be nice to allow any field expression, and check it's a constant after constant propagation,
+                                // but it's tricky from a type perspective: the size of the slice changes the type of the resulting array,
+                                // which doesn't work well with our static array approach. Enabling arrays to have unknown size introduces a lot
+                                // of complexity in the compiler, as function selection in inlining requires knowledge of the array size, but
+                                // determining array size potentially requires inlining and propagating. This suggests we would need semantic checking
+                                // to happen iteratively with inlining and propagation, which we can't do now as we go from absy to typed_absy
+                                let from = match from {
                                             TypedExpression::Uint(e) => Ok(e),
                                             TypedExpression::Int(v) => UExpression::try_from_int(v.clone(), UBitwidth::B32).map_err(|_| ErrorInner {
                                                     pos: Some(pos),
@@ -2348,17 +2345,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             })
                                         }?;
 
-                                        let from = match from.bitwidth() {
-                                            UBitwidth::B32 => match from.into_inner() {
-                                                UExpressionInner::Value(v) => Ok(v),
-                                                e => Err(ErrorInner {
-                                                    pos: Some(pos),
-                                                    message: format!(
-                                                        "Expected the lower bound of the range to be a constant u32, found {}",
-                                                        e.annotate(UBitwidth::B32)
-                                                    ),
-                                                })
-                                            },
+                                let from = match from.bitwidth() {
+                                            UBitwidth::B32 => Ok(from),
                                             _ => Err(ErrorInner {
                                                 pos: Some(pos),
                                                 message: format!(
@@ -2366,9 +2354,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                                     from.get_type()
                                                 ),
                                             })
-                                        }? as u32;
+                                        }?;
 
-                                        let to = match to {
+                                let to = match to {
                                             TypedExpression::Uint(e) => Ok(e),
                                             TypedExpression::Int(v) => UExpression::try_from_int(v.clone(), UBitwidth::B32).map_err(|_| ErrorInner {
                                                     pos: Some(pos),
@@ -2386,96 +2374,39 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             })
                                         }?;
 
-                                        let to = match to.bitwidth() {
-                                                UBitwidth::B32 => match to.into_inner() {
-                                                    UExpressionInner::Value(v) => Ok(v),
-                                                    e => Err(ErrorInner {
-                                                        pos: Some(pos),
-                                                        message: format!(
-                                                            "Expected the upper bound of the range to be a constant u32, found {}",
-                                                            e.annotate(UBitwidth::B32)
-                                                        ),
-                                                    })
-                                                },
+                                let to = match to.bitwidth() {
+                                                UBitwidth::B32 => Ok(to),
                                                 _ => Err(ErrorInner {
                                                     pos: Some(pos),
                                                     message: format!(
-                                                        "Expected the upper bound of the range to be a constant u32, found {}",
+                                                        "Expected the upper bound of the range to be a u32, found {}",
                                                         to.get_type()
                                                     ),
                                                 })
-                                            }? as u32;
+                                            }?;
 
-                                        match (from, to, array_size) {
-                                            (f, _, s) if f > s => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Lower range bound {} is out of array bounds [0, {}]",
-                                                    f, s,
-                                                ),
-                                            }),
-                                            (_, t, s) if t > s => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Higher range bound {} is out of array bounds [0, {}]",
-                                                    t, s,
-                                                ),
-                                            }),
-                                            (f, t, _) if f > t => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Lower range bound {} is larger than higher range bound {}",
-                                                    f, t,
-                                                ),
-                                            }),
-                                            (f, t, _) => Ok(ArrayExpressionInner::Value(
-                                                (f..t)
-                                                    .map(|i| match inner_type.clone() {
-                                                        Type::FieldElement => FieldElementExpression::Select(
-                                                            box array.clone(),
-                                                            box i.into(),
-                                                        )
-                                                        .into(),
-                                                        Type::Boolean => BooleanExpression::Select(
-                                                            box array.clone(),
-                                                            box i.into(),
-                                                        )
-                                                        .into(),
-                                                        Type::Uint(bitwidth) => UExpressionInner::Select(
-                                                            box array.clone(),
-                                                            box i.into(),
-                                                        )
-                                                        .annotate(bitwidth)
-                                                        .into(),
-                                                        Type::Struct(struct_ty) => {
-                                                            StructExpressionInner::Select(
-                                                                box array.clone(),
-                                                                box i.into(),
-                                                            )
-                                                            .annotate(struct_ty)
-                                                            .into()
-                                                        }
-                                                        Type::Array(array_ty) => ArrayExpressionInner::Select(
-                                                            box array.clone(),
-                                                            box i.into(),
-                                                        )
-                                                        .annotate(*array_ty.ty, array_ty.size)
-                                                        .into(),
-                                                        Type::Int => unreachable!(),
-                                                    })
-                                                    .collect(),
-                                            )
-                                            .annotate(inner_type, t - f)
-                                            .into()),
-                                        }
-                                    },
-                                    _ => Err(ErrorInner {
-                                        pos: Some(pos),
-                                        message: format!(
-                                            "Range are not available for arrays of non-constant length, found {}",
-                                            array.size(),
-                                        ),
-                                    })
+                                match (from, to, array_size) {
+                                    // (f, _, s) if f > s => Err(ErrorInner {
+                                    //     pos: Some(pos),
+                                    //     message: format!(
+                                    //         "Lower range bound {} is out of array bounds [0, {}]",
+                                    //         f, s,
+                                    //     ),
+                                    // }),
+                                    // (_, t, s) if t > s => Err(ErrorInner {
+                                    //     pos: Some(pos),
+                                    //     message: format!(
+                                    //         "Higher range bound {} is out of array bounds [0, {}]",
+                                    //         t, s,
+                                    //     ),
+                                    // }),
+                                    (f, t, _) => Ok(ArrayExpressionInner::Slice(
+                                        box array,
+                                        box f.clone(),
+                                        box t.clone(),
+                                    )
+                                    .annotate(inner_type, UExpression::floor_sub(t, f))
+                                    .into()),
                                 }
                             }
                             e => Err(ErrorInner {

@@ -154,7 +154,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     fn fold_array_expression_inner(
         &mut self,
         ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        size: &UExpression<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         fold_array_expression_inner(self, ty, size, e)
@@ -219,7 +219,7 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
 pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     _: &Type<'ast, T>,
-    _: UExpression<'ast, T>,
+    _: &UExpression<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> ArrayExpressionInner<'ast, T> {
     match e {
@@ -246,6 +246,12 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             let array = f.fold_array_expression(array);
             let index = f.fold_uint_expression(index);
             ArrayExpressionInner::Select(box array, box index)
+        }
+        ArrayExpressionInner::Slice(box array, box from, box to) => {
+            let array = f.fold_array_expression(array);
+            let from = f.fold_uint_expression(from);
+            let to = f.fold_uint_expression(to);
+            ArrayExpressionInner::Slice(box array, box from, box to)
         }
     }
 }
@@ -484,6 +490,12 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
 
             UExpressionInner::Sub(box left, box right)
         }
+        UExpressionInner::FloorSub(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            UExpressionInner::FloorSub(box left, box right)
+        }
         UExpressionInner::Mult(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
@@ -571,10 +583,12 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: ArrayExpression<'ast, T>,
 ) -> ArrayExpression<'ast, T> {
     let size = f.fold_uint_expression(e.size);
+    let ty = f.fold_type(e.ty);
 
     ArrayExpression {
-        inner: f.fold_array_expression_inner(&e.ty, size.clone(), e.inner),
+        inner: f.fold_array_expression_inner(&ty, &size, e.inner),
         size,
+        ty,
         ..e
     }
 }

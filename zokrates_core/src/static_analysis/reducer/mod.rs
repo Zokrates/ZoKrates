@@ -503,15 +503,42 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         }
     }
 
-    fn fold_array_expression(
+    fn fold_array_expression_inner(
         &mut self,
-        e: ArrayExpression<'ast, T>,
-    ) -> Result<ArrayExpression<'ast, T>, Self::Error> {
-        match e.as_inner() {
-            ArrayExpressionInner::FunctionCall(key, arguments) => {
-                self.fold_function_call(key.clone(), arguments.clone(), vec![e.get_type()])
+        ty: &Type<'ast, T>,
+        size: &UExpression<'ast, T>,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
+        match e {
+            ArrayExpressionInner::FunctionCall(key, arguments) => self
+                .fold_function_call::<ArrayExpression<_>>(
+                    key.clone(),
+                    arguments.clone(),
+                    vec![Type::array(ty.clone(), size.clone())],
+                )
+                .map(|e| e.into_inner()),
+            ArrayExpressionInner::Slice(box array, box from, box to) => {
+                let array = self.fold_array_expression(array)?;
+                let from = self.fold_uint_expression(from)?;
+                let to = self.fold_uint_expression(to)?;
+
+                match (from.as_inner(), to.as_inner()) {
+                    (UExpressionInner::Value(from_v), UExpressionInner::Value(to_v)) => {
+                        // assert that the slice size is still synced with the slice type
+                        // see semantic checking where we store both values
+                        assert_eq!(
+                            &UExpressionInner::Value(to_v.checked_sub(*from_v).unwrap_or(0)),
+                            size.as_inner()
+                        );
+                        Ok(ArrayExpressionInner::Slice(box array, box from, box to))
+                    }
+                    _ => {
+                        self.complete = false;
+                        Ok(ArrayExpressionInner::Slice(box array, box from, box to))
+                    }
+                }
             }
-            _ => fold_array_expression(self, e),
+            _ => fold_array_expression_inner(self, &ty, size, e),
         }
     }
 

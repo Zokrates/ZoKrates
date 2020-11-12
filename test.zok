@@ -1,0 +1,10 @@
+def bar<K>(field[K] a) -> field[K]:
+     return a
+
+def foo<K>(field[K] a) -> field[K]:
+     field[K + 1] b = bar(a[0..K])
+     return b[0..K]
+
+def main() -> field[1]:
+     field[1] b = foo([1])
+     return b

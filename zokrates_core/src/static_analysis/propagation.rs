@@ -52,6 +52,7 @@ fn is_constant<'ast, T: Field>(e: &TypedExpression<'ast, T>) -> bool {
         TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
         TypedExpression::Array(a) => match a.as_inner() {
             ArrayExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
+            ArrayExpressionInner::Slice(box a, ..) => is_constant(&a.clone().into()),
             _ => false,
         },
         TypedExpression::Struct(a) => match a.as_inner() {
@@ -394,9 +395,31 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         (v1.wrapping_sub(v2)) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     )
                 }
-                (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
+                (e, UExpressionInner::Value(v)) => match v {
                     0 => e,
                     _ => UExpressionInner::Sub(
+                        box e.annotate(bitwidth),
+                        box UExpressionInner::Value(v).annotate(bitwidth),
+                    ),
+                },
+                (e1, e2) => {
+                    UExpressionInner::Sub(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                }
+            },
+            UExpressionInner::FloorSub(box e1, box e2) => match (
+                self.fold_uint_expression(e1).into_inner(),
+                self.fold_uint_expression(e2).into_inner(),
+            ) {
+                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                    use std::convert::TryInto;
+                    UExpressionInner::Value(
+                        (v1.checked_sub(v2).unwrap_or(0))
+                            % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                    )
+                }
+                (e, UExpressionInner::Value(v)) => match v {
+                    0 => e,
+                    _ => UExpressionInner::FloorSub(
                         box e.annotate(bitwidth),
                         box UExpressionInner::Value(v).annotate(bitwidth),
                     ),
@@ -757,7 +780,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
     fn fold_array_expression_inner(
         &mut self,
         ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        size: &UExpression<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
@@ -767,7 +790,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     .get(&TypedAssignee::Identifier(Variable::array(
                         id.clone(),
                         ty.clone(),
-                        size,
+                        size.clone(),
                     ))) {
                     Some(e) => match e {
                         TypedExpression::Array(e) => e.as_inner().clone(),

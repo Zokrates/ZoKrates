@@ -835,6 +835,11 @@ pub enum ArrayExpressionInner<'ast, T> {
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Slice(
+        Box<ArrayExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
+    ),
 }
 
 impl<'ast, T> ArrayExpressionInner<'ast, T> {
@@ -1111,6 +1116,9 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
             ),
             ArrayExpressionInner::Member(ref s, ref id) => write!(f, "{}.{}", s, id),
             ArrayExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            ArrayExpressionInner::Slice(ref a, ref from, ref to) => {
+                write!(f, "{}[{}..{}]", a, from, to)
+            }
         }
     }
 }
@@ -1234,8 +1242,11 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ArrayExpressionInner<'ast, T> {
             ArrayExpressionInner::Member(ref struc, ref id) => {
                 write!(f, "Member({:?}, {:?})", struc, id)
             }
-            ArrayExpressionInner::Select(ref id, ref index) => {
-                write!(f, "Select({:?}, {:?})", id, index)
+            ArrayExpressionInner::Select(ref array, ref index) => {
+                write!(f, "Select({:?}, {:?})", array, index)
+            }
+            ArrayExpressionInner::Slice(ref array, ref from, ref to) => {
+                write!(f, "Slice({:?}, {:?}, {:?})", array, from, to)
             }
         }
     }

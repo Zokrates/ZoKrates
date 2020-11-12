@@ -110,7 +110,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
     fn fold_array_expression_inner(
         &mut self,
         ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        size: &UExpression<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {

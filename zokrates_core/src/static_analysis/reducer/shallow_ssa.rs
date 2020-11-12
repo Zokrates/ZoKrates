@@ -533,7 +533,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     fn fold_array_expression_inner(
         &mut self,
         ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        size: &UExpression<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {

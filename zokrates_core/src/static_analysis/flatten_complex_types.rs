@@ -378,6 +378,24 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 _ => unreachable!(),
             }
         }
+        typed_absy::ArrayExpressionInner::Slice(box array, box from, box to) => {
+            let array = f.fold_array_expression(array);
+            let from = f.fold_uint_expression(from);
+            let to = f.fold_uint_expression(to);
+
+            match (from.into_inner(), to.into_inner()) {
+                (zir::UExpressionInner::Value(from), zir::UExpressionInner::Value(to)) => {
+                    let size = typed_absy::types::ConcreteType::try_from(t.clone())
+                        .unwrap()
+                        .get_primitive_count()
+                        * size;
+                    let start = from as usize * size;
+                    let end = to as usize * size;
+                    array[start..end].to_vec()
+                }
+                _ => unreachable!(),
+            }
+        }
     }
 }
 
@@ -768,6 +786,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
 
             zir::UExpressionInner::Sub(box left, box right)
         }
+        typed_absy::UExpressionInner::FloorSub(..) => unreachable!(),
         typed_absy::UExpressionInner::Mult(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
