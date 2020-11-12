@@ -6,18 +6,22 @@ Make sure you have followed the instructions in the [Getting Started](gettingsta
 
 ## Description of the problem
 
-We have two users, Alice and Bob, who want to have a random number generator so they can bet with each other. Each time they just need a single random
-bit. However, they don't trust each other and want to make sure the other user can't influence the chosen value.
+Alice and Bob want to bet on the result of a series of coin tosses. To do so, they need to generate a series of random bits. They proceed as follows:
 
-One way for them to do this is for each of them to commit to a 512 bit value by sending a hash. Then, they can reveal the 0th bit, the 1st bit, etc. The RNG value for 
-each bit is *RNG<sub>n</sub>=ALICE<sub>n</sub> &oplus; BOB<sub>n</sub>*, so neither of them can know in advance what each bit will be. They can use the first 384 bits,
-and when they get down to 128 bits commit to a new value because it is getting too easy to brute force the hash value.
+1. Each of them commits to a 512bit value. Let’s call this value the ***preimage***. They publish the hash of the preimage.
+2. Each time they need a new random value, they reveal one bit from their preimage, and agree that the new random value is the result of XORing these 
+   two bits, so that neither of them can control the output.
+
+Note that We are making a few assumptions here:
+
+1. They make sure they do not use all 512bits of their preimage, as the more they reveal, the easier it gets for the other to brute-force their preimage.
+2. They need a way to be convinced that the bit the other revealed is indeed part of their preimage. 
 
 In this tutorial you learn how to use Zokrates and zero knowledge proofs to reveal a single bit from the preimage of a hash value.
 
-## Calculate the hash (so you can commit to it)
+## Commit to a preimage
 
-The first step is for Alice and Bob to each come up with a 512 bit value and calculate the hash to commit to it. There are many ways to calculate a hash,
+The first step is for Alice and Bob to each come up with a preimage value and calculate the hash to commit to it. There are many ways to calculate a hash,
 but here we use Zokrates. 
 
 1. Create this file under the name `get_hash.zok`:
@@ -37,7 +41,7 @@ coming from a compiler, at `get_hash.ztf` if you remove the `--light` command li
 zokrates compile -i get_hash.zok -o get_hash --light
 ```
 3. The input to the Zokrates program is sixteen 32 bit values, each in decimal. specify those values 
-to get a hash. For example, to calculate the hash of `0x000000000000000100000002000000030000000400000005000000060000000700000008000000090000000a0000000b0000000c0000000d0000000e0000000f`
+to get a hash. For example, to calculate the hash of `0x00000000000000010000000200000003000000040000000500000006...`
 use this command:
 ```
 zokrates compute-witness --light -i get_hash -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
@@ -51,7 +55,7 @@ Witness:
 ["3592665057","2164530888","1223339564","3041196771","2006723467","2963045520","3851824201","3453903005"]
 ```
 
-Pick you own value and store it somewhere.
+Pick your own value and store it somewhere.
 
 ### Detailed explanation
 
@@ -59,6 +63,8 @@ This is the way you put comments in the code
 ```javascript
 // Ori Pomerantz qbzzt1@gmail.com
 ```
+
+&nbsp;
 
 This line imports a Zokrates function from the standard library. 
 [You can see the standard library here](https://github.com/Zokrates/ZoKrates/tree/master/zokrates_stdlib/stdlib). 
@@ -68,6 +74,8 @@ called `sha256`.
 ```javascript
 import "hashes/sha256/512bit" as sha256
 ```
+
+&nbsp;
 
 This is the main function. The input (`u32[16]`) is an array of sixteen values, each an unsigned 32-bit integer (a number 
 between 0 and 2<sup>32</sup>-1). As you have seen above, you specify these numbers using the `-a` command
@@ -82,6 +90,8 @@ The output is `u32[8]`, a *32 &times; 8 = 256* bit value.
 def main(private u32[16] hashMe) -> u32[8]:
 ```
 
+&nbsp;
+
 This line does several things. First, `u32[8] h` defines a variable called `h`, whose type is an array of eight 32-bit unsigned integers.
 To get the value of this variable, we call `sha256`, the function we 
 [imported from the standard library](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok).
@@ -91,6 +101,8 @@ to divide `hashMe` into two arrays.
 ```javascript
   u32[8] h = sha256(hashMe[0..8], hashMe[8..16])
 ```
+
+&nbsp;
 
 Finally, return `h` to the caller to display the hash.
 
@@ -146,12 +158,14 @@ Witness:
 ### Detailed explanation (of the new parts)
 
 This function converts a `u32` value to an array of 32 booleans. There are cast functions to convert `u8`s, 
-`u16`s, and `u32`s to boolean arrays and back again, [you can see them here]
-(https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/utils/casts).
+`u16`s, and `u32`s to boolean arrays and back again, 
+[you can see them here](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/utils/casts).
 
 ```javascript
 import "utils/casts/u32_to_bits" as u32_to_bits
 ```
+
+&nbsp;
 
 A Zokrates function can return multiple values. In this case, it returns the hash and a boolean which is the 
 value of the bit being revealed.
@@ -159,6 +173,8 @@ value of the bit being revealed.
 ```javascript
 def main(private u32[16] secret, field bitNum) -> (u32[8], bool):
 ```
+
+&nbsp;
 
 To find the value of the bit being revealed, we convert the entire secret value into bits and then find it in
 the array. In a normal programming environment that would be a *very inefficient* algorithm when we can just
@@ -176,6 +192,8 @@ when it is declared.
   bool[512] secretBits = [false; 512]
 ```
 
+&nbsp;
+
 This is a [for loop](https://zokrates.github.io/language/control_flow.html#for-loops). For loops 
 have to have an index of type `field`, and fixed boundaries that are known at compile time. 
 In this case, we go over each of the sixteen 32 bit words.
@@ -190,19 +208,18 @@ to avoid having to run this function 32 times.
     bool[32] val = u32_to_bits(secret[i])
 ```
 
+&nbsp;
+
 The inner loop copies the bits from `val` to the 512 bit array.
 
 ```javascript
     for field bit in 0..32 do
       secretBits[i*32+bit] = val[bit]
-```
-
-We use `endfor` to end a for loop.
-
-```javascript
     endfor
   endfor
 ```
+
+&nbsp;
 
 To return multiple values, separate them by commas. 
 
