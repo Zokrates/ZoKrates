@@ -404,9 +404,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 match (from.as_inner(), to.as_inner()) {
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
-                        // println!("STORED VERSIONS: {:#?}", versions_before);
-                        // println!("CURRENT VERSIONS: {:#?}", self.versions);
-
                         let mut out_statements = vec![];
 
                         // get a fresh set of versions for all variables to use as a starting point inside the loop
@@ -456,6 +453,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         Ok(out_statements)
                     }
                     _ => {
+                        let from = self.fold_uint_expression(from)?;
+                        let to = self.fold_uint_expression(to)?;
                         self.complete = false;
                         self.for_loop_versions_after.push(versions_before);
                         Ok(vec![TypedStatement::For(v, from, to, statements)])
