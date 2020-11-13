@@ -289,245 +289,48 @@ Here are the instructions to use this program when using [Truffle and Ganache](h
 I assume you already have them installed, and the Ganache blockchains is running on localhost.
 
 1. Create a new project with `truffle init` and copy `verify.sol` to the subdirectory `contracts`.
-2. Identify the version of Solidity used by `verifier.sol`:
+1. Identify the version of Solidity used by `verifier.sol`:
    ```
    grep solidity contracts/verifier.sol
    ```
-3. Edit `truffle-config.js` to change `module.exports.compilers.solc.version` to the version required by `verifier.sol`.
-4. Compile the contract.
+1. Edit `truffle-config.js`:
+   * Change `module.exports.compilers.solc.version` to the version required by `verifier.sol`.
+   * Uncomment `modules.exports.networks.development`. Make sure you delete the comma after the definition.
+1. Compile the contract.
    ```
    truffle compile
    ```
-
-
-GOON GOON GOON
-
-
-
-Here is how you do it using the [HardHat](https://hardhat.org/) environment:
-
-1. Install the environment [as explained here](https://hardhat.org/tutorial/setting-up-the-environment.html)
-2. In a new project directory, install and initialize HardHat:
+1. Start the Truffle console. The rest of this procedure is done in the JavaScript prompt inside that console.
    ```
-   npm init --yes
-   npm install --save-dev hardhat
-   npx hardhat 
+   truffle console
    ```
-   In the last step, choose **Create an empty hardhat.config.js**.
-3. Install some HardHat plugins we'll use:
-   ```
-   npm install --save-dev @nomiclabs/hardhat-ethers ethers @nomiclabs/hardhat-waffle ethereum-waffle chai
-   ```
-4. Create a `contracts` directory and copy `verifier.sol` to `<project directory>/contracts/verifier.sol`.
-5. Get the version of Solidity required for the project:
-   ```
-   grep "pragma solidity" contracts/verifier.sol
-   ```
-6. Edit `hardhat.config.js`:
-   * Add this line at the top:
-     ```
-     require("@nomiclabs/hardhat-waffle")
-     ```
-   * Use the version of Solidity required for the verifier (0.6.1 at writing).
-7. Compile the verifier:
-   ```
-   npx hardhat compile
-   ```
-8. Create a `test` directory. In it place `Verifier.js`:
+1. Deploy the Verifier contract.
    ```javascript
-   // Ori Pomerantz qbzzt1@gmail.com 
-   
-   const proofFileName = "/home/qbzzt1/tutorial_zok/alice/proof.json"
-
-   const { expect } = require("chai")
-   const fs = require("fs")
-
-   const proof = JSON.parse(fs.readFileSync(proofFileName))
-
-
-   describe("Verifier should only verify correct submissions", async () => {
-
-      it("Reject random values", async () => {
-          const contract = await (await ethers.getContractFactory("Verifier")).deploy()
-          const result = await contract.verifyTx(
-                 [0,0],           // a
-                 [[0,0],[0,0]],   // b
-                 [0,0],           // c
-                 [1,2,3,4,5,6,7,8,9,10])   // input
-          expect(result).to.equal(false)
-      })    // it "Reject random values"
-
-      it("Accept valid proofs", async () => {
-          const contract = await (await ethers.getContractFactory("Verifier")).deploy()
-          const result = await contract.verifyTx(
-                 proof.proof.a,
-                 proof.proof.b,
-                 proof.proof.c,
-                 proof.inputs)
-          expect(result).to.equal(true)
-      })    // it "Accept valid proofs"
-
-      it("Reject cheats", async () => {
-          const contract = await (await ethers.getContractFactory("Verifier")).deploy()
-
-          // Try to cheat, create an inputs array that flips the last value,
-          // the result bit (the other values are the bit's number and the hash)
-          var cheatInputs = [...proof.inputs]
-          var resultBit = proof.inputs[proof.inputs.length-1]
-          if (resultBit.slice(-1) === '1')
-              cheatInputs[proof.inputs.length-1] = 0
-           else
-              cheatInputs[proof.inputs.length-1] = 1
-
-          const result = await contract.verifyTx(
-                 proof.proof.a,
-                 proof.proof.b,
-                 proof.proof.c,
-                 cheatInputs)
-          expect(result).to.equal(false)
-      })   // it "Reject cheats"
-   })      // describe "Verifier..."
-
+   contract = await Verifier.new()
    ```
-   Remember to change the `proofFileName` definition to point to Alice's `proof.json`.
-   
-### Detailed Explanation
-
-This is the path to Alice's `proof.json`. Modify it as appropriate to your environment.
-
-```javascript
-const proofFileName = "/home/qbzzt1/tutorial_zok/alice/proof.json"
-```
-
-[Chai](https://www.chaijs.com/) is an assertion package for JavaScript. [FS](https://nodejs.org/dist/latest-v12.x/docs/api/fs.html)
-is the file system package we use to access `proof.json`.
-
-```javascript
-const { expect } = require("chai")
-const fs = require("fs")
-```
-
-Read `proof.json`, and parse it as [JSON](https://www.w3schools.com/js/js_json_parse.asp). 
-
-```javascript
-const proof = JSON.parse(fs.readFileSync(proofFileName))
-```
-
-The two testing functions we use, `describe` and `it`, are part of the [Mocha](https://mochajs.org/) package. 
-
-```javascript
-describe("Verifier should only verify correct submissions", async () => {
-
-  it("Reject random values", async () => {
-```
-
-The package we use to talk to the blockchain is [Ethers](https://docs.ethers.io/v5/).
-The first step is to create a [Contract object](https://docs.ethers.io/v5/api/contract/contract/),
-using this process:
-
-1. Create a [contract factory](https://docs.ethers.io/v5/api/contract/contract-factory/) with the
-   name of the contract. This is a relatively long process, so it has to 
-   run [asynchronously](https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Asynchronous/Async_await)
-   using the `await` keyword.
-2. Using that contract factory, `deploy` an instance of the contract itself into the blockchain.
-
-```javascript
-     const contract = await (await ethers.getContractFactory("Verifier")).deploy()
-```
-
-Verifiers exported by Zokrates have a `verifyTx` function that verifies transactions.
-
-```javascript
-     const result = await contract.verifyTx(
-```     
-   
-The proof is composed of four points: *a*, *b[0]*, *b[1]*, and *c*.   
-   
-```javascript   
-             [0,0],           // a
-             [[0,0],[0,0]],   // b
-             [0,0],           // c
-```
-
-In addition, `verifyTx` requires the public inputs and the results from `compute-witness`,
-which are used as the input for `generate-proof`.
-
-```javascript
-             [1,2,3,4,5,6,7,8,9,10])   // input
-```
-
-This is one of the ways to asset a value in Chai. In this case we expect the result
-to be `false` because the inputs to `verifyTx` are not valid.
-
-```javascript
-     expect(result).to.equal(false)
-  })    // it "Reject random values"
-```
-
-The next step is to use the values we read from `proof.json` to verify the legitimate
-proof.
-
-```javascript
-  it("Accept valid proofs", async () => {
-```
-
-Every `it` test is supposed to start from scratch, so we deploy the contract again.
-
-```javascript
-       const contract = await (await ethers.getContractFactory("Verifier")).deploy()
-       const result = await contract.verifyTx(
-              proof.proof.a,
-              proof.proof.b,
-              proof.proof.c,
-              proof.inputs)
-       expect(result).to.equal(true)
-   })    // it "Accept valid proofs"
-```
-
-Finally, pretend the Alice tried to cheat by flipping the revealed bit's value.
-
-```javascript
-   it("Reject cheats", async () => {
-       const contract = await (await ethers.getContractFactory("Verifier")).deploy()
-
-       // Try to cheat, create an inputs array that flips the last value,
-       // the result bit (the other values are the bit's number and the hash)
-```
-
-This syntax, `[...<array>]`, creates a copy of an array.
-
-```javascript
-       var cheatInputs = [...proof.inputs]
-```
-
-The last value in `proof.inputs` is the revealed bit. The values in the proof
-are all of type `uint`, which is a 256 bit value, so they are represented in JavaScript 
-as strings. Because we know the value is a bit, either one or zero, we can just look at
-the last character.
-
-```javascript
-       var resultBit = proof.inputs[proof.inputs.length-1]
-       if (resultBit.slice(-1) === '1')
-```
-
-The default representation is a string, but an integer works just as well for values that
-fit in an integer.
-
-```javascript
-           cheatInputs[proof.inputs.length-1] = 0
-        else
-           cheatInputs[proof.inputs.length-1] = 1
-
-       const result = await contract.verifyTx(
-              proof.proof.a,
-              proof.proof.b,
-              proof.proof.c,
-              cheatInputs)
-       expect(result).to.equal(false)
-   })   // it "Reject cheats"
-})      // describe "Verifier..."
-
-```  
+1. Read the content of `proof.json`.
+   ```javascript
+   proof = JSON.parse(fs.readFileSync( << put the path name here >>))
+   ```
+1. Verify the proof. See you get the result `true`.
+   ```javascript
+   await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, proof.inputs)
+   ```
+1. Pretend to be Alice and try to cheat. Create `cheatInputs` which flips the result
+   bit.
+   ```javascript
+   cheat = [...proof.inputs]
+   cheat[cheat.length-1] = cheat[cheat.length-1].replace(/[01]$/, cheat[cheat.length-1][65] == '1' ? '0': '1')
+   ```
+1. As Bob, try to verify a cheating proof, and see that it fails.
+   ```javascript
+   await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, cheat)
+   ```
+1. Flip the last bit again, and see that this time the verification is successful.
+   ```javascript
+   cheat[cheat.length-1] = cheat[cheat.length-1].replace(/[01]$/, cheat[cheat.length-1][65] == '1' ? '0': '1')
+   await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, cheat)
+   ```
   
 ## Conclusion
 
