@@ -387,7 +387,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         (v1.wrapping_sub(v2)) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     )
                 }
-                (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
+                (e, UExpressionInner::Value(v)) => match v {
                     0 => e,
                     _ => UExpressionInner::Sub(
                         box e.annotate(bitwidth),
