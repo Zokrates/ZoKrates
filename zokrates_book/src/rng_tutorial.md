@@ -316,7 +316,7 @@ I assume you already have them installed, and the Ganache blockchains is running
    ```javascript
    await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, proof.inputs)
    ```
-1. Pretend to be Alice and try to cheat. Create `cheatInputs` which flips the result
+1. Pretend to be Alice and try to cheat. Create `cheat` which flips the result
    bit.
    ```javascript
    cheat = [...proof.inputs]
