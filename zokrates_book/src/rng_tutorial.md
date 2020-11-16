@@ -336,10 +336,3 @@ I assume you already have them installed, and the Ganache blockchains is running
 At this point you should know how to use Zokrates to create zero knowledge proofs and verify them from the command
 line. You should also be able to publish a verifier to a blockchain, generate proofs from the command line, and submit
 them using JavaScript.
-
-However, one important feature is still missing. Users don't typically use the command line when they communicate with 
-the blockchain. They use dapps written in JavaScript, so they can do all the processing inside their own browsers without
-having to worry about installing software.
-
-I hope to have another tutorial soon that teachs you how to create dapps that use Zokrates and submit proofs to the
-blockchain.
