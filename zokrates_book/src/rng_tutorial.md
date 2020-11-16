@@ -321,7 +321,7 @@ I assume you already have them installed, and the Ganache blockchains is running
    cheat = [...proof.inputs]
    cheat[cheat.length-1] = cheat[cheat.length-1].replace(/[01]$/, cheat[cheat.length-1][65] == '1' ? '0': '1')
    ```
-1. As Bob, try to verify a cheating proof, and see that it fails.
+1. As Bob, try to verify a cheating proof, and check that it fails.
    ```javascript
    await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, cheat)
    ```
