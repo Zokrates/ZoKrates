@@ -229,7 +229,7 @@ The `reveal_bit.zok`program reveals a bit from the preimage, but who runs it?
    for Bob to trust that she is providing the correct output.
 2. If Bob runs the program, he does not have Alice's secret preimage. If Alice discloses her secret preimage, Bob can know the value of all the bits.
 
-So we need to have Alice run the program and produce the output, but produce it in such a way Bob will know it is the correct output. This is what Zero Knowledge
+Therefore, we need to have Alice run the program and produce the output, but produce it in such a way Bob will know it is the correct output. This is what Zero Knowledge
 Proofs give us.
 
 ### Set up the environment
