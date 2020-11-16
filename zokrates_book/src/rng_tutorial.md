@@ -311,7 +311,7 @@ I assume you already have them installed, and the Ganache blockchains is running
    ```javascript
    proof = JSON.parse(fs.readFileSync( << put the path name here >>))
    ```
-1. Verify the proof. See you get the result `true`.
+1. Verify the proof. Check that you get the result `true`.
    ```javascript
    await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, proof.inputs)
    ```
