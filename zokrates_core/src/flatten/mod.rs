@@ -2075,7 +2075,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     FlatExpression::Mult(box variable.into(), box variable.into()),
                 ));
             }
-            _ => {}
+            Type::FieldElement => {
+                if parameter.private {
+                    // we insert a dummy statement to avoid unconstrained private parameters
+                    // translates to x * x == y
+                    statements_flattened.push(FlatStatement::Condition(
+                        self.use_sym().into(),
+                        FlatExpression::Mult(box variable.into(), box variable.into()),
+                    ));
+                }
+            }
         }
 
         FlatParameter {

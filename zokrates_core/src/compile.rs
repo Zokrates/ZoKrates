@@ -163,7 +163,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    // analyse (check for unused constraints)
+    // analyse (check constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
 
     Ok(CompilationArtifacts {
