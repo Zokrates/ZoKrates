@@ -235,7 +235,7 @@ Proofs give us.
 ### Set up the environment
 
 1. Create two separate directories, `alice` and `bob`. You will perform the actions of Alice in the `alice` directory,
-   and the Bob actions in the `bob` directory.
+   and the actions of Bob in the `bob` directory.
    
 ### Bob's setup stage
 
