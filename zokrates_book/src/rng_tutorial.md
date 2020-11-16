@@ -174,7 +174,8 @@ def main(private u32[16] preimage, field bitNum) -> (u32[8], bool):
 
 &nbsp;
 
-To find the value of the bit being revealed, we convert the entire preimage into bits and access it at the index `bitNum`. The first line defines an array of 512 boolean values (`bool[512]`) called `secretBits`. It is initialized to
+To find the value of the bit being revealed, we convert the entire preimage into bits and access it at the index `bitNum`. 
+The first line defines an array of 512 boolean values (`bool[512]`) called `preimageBits`. It is initialized to
 an array of 512 `false` values. The syntax `[<value>; <number>]` initializes the an array of `<number>` 
 copies of `<value>`. It is necessary to include it here because a Zokrates variable must be initialized
 when it is declared.
