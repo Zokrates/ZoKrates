@@ -30,7 +30,7 @@ There are many ways to calculate a hash, but here we use Zokrates.
 
 import "hashes/sha256/512bit" as sha256
 
-def main(private u32[16] hashMe) -> u32[8]:
+def main(u32[16] hashMe) -> u32[8]:
   u32[8] h = sha256(hashMe[0..8], hashMe[8..16])
   return h
 ```
@@ -80,13 +80,10 @@ This is the main function. The input (`u32[16]`) is an array of sixteen values, 
 between \\(0\\) and \\( 2^{32} - 1 \\)). As you have seen above, you specify these numbers using the `-a` command
 line parameter. The total number of input bits is *32 &times; 16 = 512*.
 
-The input is `private`, meaning it will not be revealed to the verifier. This will be relevant
-later when we actually create zero knowledge proofs.
-
 The output is `u32[8]`, a *32 &times; 8 = 256* bit value.
 
 ```javascript
-def main(private u32[16] hashMe) -> u32[8]:
+def main(u32[16] hashMe) -> u32[8]:
 ```
 
 &nbsp;
@@ -125,20 +122,20 @@ import "utils/casts/u32_to_bits" as u32_to_bits
 // for that value.
 //
 // WARNING, once enough bits have been revealed it is possible to brute force
-// the remaining secret bits.
+// the remaining preimage bits.
 
-def main(private u32[16] secret, field bitNum) -> (u32[8], bool):
+def main(private u32[16] preimage, field bitNum) -> (u32[8], bool):
                                                                                                                        
-  // Convert the secret to bits
-  bool[512] secretBits = [false; 512]
+  // Convert the preimage to bits
+  bool[512] preimageBits = [false; 512]
   for field i in 0..16 do
-    bool[32] val = u32_to_bits(secret[i])
+    bool[32] val = u32_to_bits(preimage[i])
     for field bit in 0..32 do
-      secretBits[i*32+bit] = val[bit]
+      preimageBits[i*32+bit] = val[bit]
     endfor
   endfor
-
-  return sha256(secret[0..8], secret[8..16]), secretBits[bitNum]
+  
+  return sha256(preimage[0..8], preimage[8..16]), preimageBits[bitNum]
 ```
 
 2. Compile and run as you did the previous program:
@@ -166,11 +163,13 @@ import "utils/casts/u32_to_bits" as u32_to_bits
 
 &nbsp;
 
+The preimage is declared `private` so it won't be revealed by the zero knowledge proof.
+
 A Zokrates function can return multiple values. In this case, it returns the hash and a boolean which is the 
 value of the bit being revealed.
 
 ```javascript
-def main(private u32[16] secret, field bitNum) -> (u32[8], bool):
+def main(private u32[16] preimage, field bitNum) -> (u32[8], bool):
 ```
 
 &nbsp;
@@ -183,7 +182,7 @@ when it is declared.
 
 ```javascript
   // Convert the secret to bits
-  bool[512] secretBits = [false; 512]
+  bool[512] preimageBits = [false; 512]
 ```
 
 &nbsp;
@@ -198,16 +197,16 @@ In this case, we go over each of the sixteen 32 bit words.
 The function we imported, `u32_to_bits`, converts a `u32` value to an array of bits.
 
 ```javascript
-    bool[32] val = u32_to_bits(secret[i])
+    bool[32] val = u32_to_bits(preimage[i])
 ```
 
 &nbsp;
 
-The inner loop copies the bits from `val` to `secretBits`, the bit array for the preimage.
+The inner loop copies the bits from `val` to `preimageBits`, the bit array for the preimage.
 
 ```javascript
     for field bit in 0..32 do
-      secretBits[i*32+bit] = val[bit]
+      preimageBits[i*32+bit] = val[bit]
     endfor
   endfor
 ```
@@ -217,7 +216,7 @@ The inner loop copies the bits from `val` to `secretBits`, the bit array for the
 To return multiple values, separate them by commas. 
 
 ```javascript
-  return sha256(secret[0..8], secret[8..16]), secretBits[bitNum]
+  return sha256(preimage[0..8], preimage[8..16]), preimageBits[bitNum]
 ```
 
 
@@ -323,11 +322,6 @@ I assume you already have them installed, and the Ganache blockchains is running
    ```
 1. As Bob, try to verify a cheating proof, and check that it fails.
    ```javascript
-   await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, cheat)
-   ```
-1. Flip the last bit again, and see that this time the verification is successful.
-   ```javascript
-   cheat[cheat.length-1] = cheat[cheat.length-1].replace(/[01]$/, cheat[cheat.length-1][65] == '1' ? '0': '1')
    await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, cheat)
    ```
   
