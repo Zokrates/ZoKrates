@@ -23,6 +23,6 @@
     - [JSON ABI](toolbox/abi.md)
 	- [zokrates.js](toolbox/zokrates_js.md)
 
-- [Tutorial: Zero Knowledge Proofs for a Random Number Generator](rng_tutorial.md)
+- [Tutorial: A zkSNARK RNG](rng_tutorial.md)
 
 - [Testing](testing.md)
