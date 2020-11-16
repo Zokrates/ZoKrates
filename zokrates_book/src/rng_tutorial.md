@@ -203,7 +203,7 @@ The function we imported, `u32_to_bits`, converts a `u32` value to an array of b
 
 &nbsp;
 
-The inner loop copies the bits from `val` to `secretBits` the bit array for the preimage.
+The inner loop copies the bits from `val` to `secretBits`, the bit array for the preimage.
 
 ```javascript
     for field bit in 0..32 do
