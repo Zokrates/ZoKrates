@@ -21,8 +21,8 @@ In this tutorial you learn how to use Zokrates and zero knowledge proofs to reve
 
 ## Commit to a preimage
 
-The first step is for Alice and Bob to each come up with a preimage value and calculate the hash to commit to it. There are many ways to calculate a hash,
-but here we use Zokrates. 
+The first step is for Alice and Bob to each come up with a preimage value and calculate the hash to commit to it. 
+There are many ways to calculate a hash, but here we use Zokrates. 
 
 1. Create this file under the name `get_hash.zok`:
 ```javascript
