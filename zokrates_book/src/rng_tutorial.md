@@ -153,8 +153,8 @@ Witness:
 
 ### Detailed explanation
 
-This function converts a `u32` value to an array of 32 booleans. There are cast functions to convert `u8`s, 
-`u16`s, and `u32`s to boolean arrays and back again, 
+This line imports a function that converts a `u32` value to an array of 32 booleans. 
+There are cast functions to convert `u8`s, `u16`s, and `u32`s to boolean arrays and back again, 
 [you can see them here](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/utils/casts).
 
 ```javascript
