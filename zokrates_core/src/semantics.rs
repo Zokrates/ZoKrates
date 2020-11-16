@@ -250,6 +250,7 @@ impl<'ast, T> Eq for ScopedVariable<'ast, T> {}
 
 /// Checker checks the semantics of a program, keeping track of functions and variables in scope
 pub struct Checker<'ast, T> {
+    return_types: Option<Vec<DeclarationType<'ast>>>,
     scope: HashSet<ScopedVariable<'ast, T>>,
     functions: HashSet<DeclarationFunctionKey<'ast>>,
     level: usize,
@@ -258,6 +259,7 @@ pub struct Checker<'ast, T> {
 impl<'ast, T: Field> Checker<'ast, T> {
     fn new() -> Self {
         Checker {
+            return_types: None,
             scope: HashSet::new(),
             functions: HashSet::new(),
             level: 0,
@@ -683,6 +685,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         types: &TypeMap<'ast>,
     ) -> Result<TypedFunction<'ast, T>, Vec<ErrorInner>> {
         assert!(self.scope.is_empty());
+        assert!(self.return_types.is_none());
 
         self.enter_scope();
 
@@ -777,66 +780,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     match self.check_statement(stat, module_id, types) {
                         Ok(statement) => {
-                            let statement = match statement {
-                                TypedStatement::Return(e) => {
-                                    match e.len() == s.outputs.len() {
-                                        true => match e
-                                            .iter()
-                                            .zip(s.outputs.clone())
-                                            .map(|(e, t)| {
-                                                TypedExpression::align_to_type(e.clone(), t.into())
-                                            })
-                                            .collect::<Result<Vec<_>, _>>()
-                                            .map_err(|e| {
-                                                vec![ErrorInner {
-                                                    pos: Some(pos),
-                                                    message: format!("Expected return value to be of type {}, found {}", e.1, e.0),
-                                                }]
-                                            }) {
-                                            Ok(e) => {
-                                                match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
-                                                        == s.outputs
-                                                    {
-                                                        true => {},
-                                                        false => errors.push(ErrorInner {
-                                                            pos: Some(pos),
-                                                            message: format!(
-                                                                "Expected ({}) in return statement, found ({})",
-                                                                s.outputs
-                                                                    .iter()
-                                                                    .map(|t| t.to_string())
-                                                                    .collect::<Vec<_>>()
-                                                                    .join(", "),
-                                                                e.iter()
-                                                                    .map(|e| e.get_type())
-                                                                    .map(|t| t.to_string())
-                                                                    .collect::<Vec<_>>()
-                                                                    .join(", ")
-                                                            ),
-                                                        }),
-                                                    };
-                                                TypedStatement::Return(e)
-                                            }
-                                            Err(err) => {
-                                                errors.extend(err);
-                                                TypedStatement::Return(e)
-                                            }
-                                        },
-                                        false => {
-                                            errors.push(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected {} expressions in return statement, found {}",
-                                                    s.outputs.len(),
-                                                    e.len()
-                                                ),
-                                            });
-                                            TypedStatement::Return(e)
-                                        }
-                                    }
-                                }
-                                statement => statement,
-                            };
                             statements_checked.push(statement);
                         }
                         Err(e) => {
@@ -857,6 +800,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             return Err(errors);
         }
 
+        self.return_types = None;
         assert!(self.scope.is_empty());
 
         Ok(TypedFunction {
@@ -893,8 +837,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let mut inputs = vec![];
         let mut outputs = vec![];
 
-        // TODO: check that generics are declared
-
         for t in signature.inputs {
             match self.check_declaration_type(t, module_id, types, constants) {
                 Ok(t) => {
@@ -920,6 +862,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         if errors.len() > 0 {
             return Err(errors);
         }
+
+        self.return_types = Some(outputs.clone());
 
         Ok(DeclarationSignature { inputs, outputs })
     }
@@ -1223,17 +1167,76 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = stat.pos();
 
         match stat.value {
-            Statement::Return(list) => {
+            Statement::Return(e) => {
                 let mut expression_list_checked = vec![];
+                let mut errors = vec![];
 
-                for e in list.value.expressions {
+                let return_types = std::mem::take(&mut self.return_types).unwrap();
+
+                for e in e.value.expressions.into_iter() {
                     let e_checked = self
                         .check_expression(e, module_id, &types)
                         .map_err(|e| vec![e])?;
                     expression_list_checked.push(e_checked);
                 }
 
-                Ok(TypedStatement::Return(expression_list_checked))
+                match expression_list_checked.len() == return_types.len() {
+                    true => match expression_list_checked
+                        .iter()
+                        .zip(return_types.clone())
+                        .map(|(e, t)| TypedExpression::align_to_type(e.clone(), t.into()))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(|e| {
+                            vec![ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Expected return value to be of type {}, found {}",
+                                    e.1, e.0
+                                ),
+                            }]
+                        }) {
+                        Ok(e) => {
+                            match e.iter().map(|e| e.get_type()).collect::<Vec<_>>() == return_types
+                            {
+                                true => {}
+                                false => errors.push(ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Expected ({}) in return statement, found ({})",
+                                        return_types
+                                            .iter()
+                                            .map(|t| t.to_string())
+                                            .collect::<Vec<_>>()
+                                            .join(", "),
+                                        e.iter()
+                                            .map(|e| e.get_type())
+                                            .map(|t| t.to_string())
+                                            .collect::<Vec<_>>()
+                                            .join(", ")
+                                    ),
+                                }),
+                            };
+                            Ok(TypedStatement::Return(expression_list_checked))
+                        }
+                        Err(err) => {
+                            errors.extend(err);
+                            Ok(TypedStatement::Return(expression_list_checked))
+                        }
+                    },
+                    false => {
+                        errors.push(ErrorInner {
+                            pos: Some(pos),
+                            message: format!(
+                                "Expected {} expressions in return statement, found {}",
+                                return_types.len(),
+                                expression_list_checked.len()
+                            ),
+                        });
+                        Ok(TypedStatement::Return(expression_list_checked))
+                    }
+                }
+
+                // Ok(TypedStatement::Return(expression_list_checked))
             }
             Statement::Declaration(var) => {
                 let var = self.check_variable(var, module_id, types)?;
@@ -1934,11 +1937,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
 
+                        let output_types = signature.get_output_types(arguments_checked.iter().map(|a| a.get_type()).collect());
+
                         // the return count has to be 1
-                        match signature.outputs.len() {
-                            1 => match &signature.outputs[0] {
-                                DeclarationType::Int => unreachable!(),
-                                DeclarationType::FieldElement => Ok(FieldElementExpression::FunctionCall(
+                        match output_types.len() {
+                            1 => match &output_types[0] {
+                                Type::Int => unreachable!(),
+                                Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
                                         id: f.id.clone(),
@@ -1947,7 +1952,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     arguments_checked,
                                 )
                                 .into()),
-                                DeclarationType::Boolean => Ok(BooleanExpression::FunctionCall(
+                                Type::Boolean => Ok(BooleanExpression::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
                                         id: f.id.clone(),
@@ -1956,7 +1961,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     arguments_checked,
                                 )
                                 .into()),
-                                DeclarationType::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
+                                Type::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
                                         id: f.id.clone(),
@@ -1966,7 +1971,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 )
                                 .annotate(*bitwidth)
                                 .into()),
-                                DeclarationType::Struct(members) => Ok(StructExpressionInner::FunctionCall(
+                                Type::Struct(members) => Ok(StructExpressionInner::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
                                         id: f.id.clone(),
@@ -1976,7 +1981,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 )
                                 .annotate(members.clone().into())
                                 .into()),
-                                DeclarationType::Array(array_type) => Ok(ArrayExpressionInner::FunctionCall(
+                                Type::Array(array_type) => Ok(ArrayExpressionInner::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
                                         id: f.id.clone(),
@@ -1984,7 +1989,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     },
                                     arguments_checked,
                                 )
-                                .annotate(Type::from(*array_type.ty.clone()), array_type.size.clone())
+                                .annotate(*array_type.ty.clone(), array_type.size.clone())
                                 .into()),
                             },
                             n => Err(ErrorInner {

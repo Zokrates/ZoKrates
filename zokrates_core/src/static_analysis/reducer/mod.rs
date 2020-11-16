@@ -18,7 +18,8 @@ mod unroll;
 use self::inline::{inline_call, InlineError};
 use std::collections::HashMap;
 use typed_absy::result_folder::*;
-use typed_absy::types::GenericsAssignment;
+use typed_absy::types::ConcreteGenericsAssignment;
+use typed_absy::types::GGenericsAssignment;
 use typed_absy::Folder;
 
 use typed_absy::{
@@ -553,7 +554,7 @@ pub fn reduce_program<'ast, T: Field>(
 
     match main_function.generics.len() {
         0 => {
-            let main_function = reduce_function(main_function, GenericsAssignment::default(), &p)?;
+            let main_function = reduce_function(main_function, GGenericsAssignment::default(), &p)?;
 
             Ok(TypedProgram {
                 main: p.main.clone(),
@@ -579,7 +580,7 @@ pub fn reduce_program<'ast, T: Field>(
 
 fn reduce_function<'ast, T: Field>(
     f: TypedFunction<'ast, T>,
-    generics: GenericsAssignment<'ast>,
+    generics: ConcreteGenericsAssignment<'ast>,
     program: &TypedProgram<'ast, T>,
 ) -> Result<TypedFunction<'ast, T>, Error> {
     let mut versions = Versions::default();

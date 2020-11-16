@@ -23,7 +23,8 @@ pub use self::types::{
     DeclarationSignature, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
     Signature, StructType, Type, UBitwidth,
 };
-use typed_absy::types::GenericsAssignment;
+use typed_absy::types::ConcreteGenericsAssignment;
+use typed_absy::types::GGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::path::PathBuf;
@@ -385,7 +386,10 @@ pub enum TypedStatement<'ast, T> {
     ),
     MultipleDefinition(Vec<Variable<'ast, T>>, TypedExpressionList<'ast, T>),
     // Aux
-    PushCallLog(DeclarationFunctionKey<'ast>, GenericsAssignment<'ast>),
+    PushCallLog(
+        DeclarationFunctionKey<'ast>,
+        ConcreteGenericsAssignment<'ast>,
+    ),
     PopCallLog,
 }
 

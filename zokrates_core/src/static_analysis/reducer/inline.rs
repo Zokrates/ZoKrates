@@ -30,6 +30,8 @@ use static_analysis::reducer::CallCache;
 use static_analysis::reducer::Output;
 use static_analysis::reducer::ShallowTransformer;
 use static_analysis::reducer::Versions;
+use typed_absy::types::ConcreteGenericsAssignment;
+use typed_absy::types::GGenericsAssignment;
 use typed_absy::CoreIdentifier;
 use typed_absy::Identifier;
 use typed_absy::TypedAssignee;
@@ -105,7 +107,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     assert_eq!(f.arguments.len(), arguments.len());
 
     // get an assignment of generics for this call site
-    let assignment = decl_key
+    let assignment: ConcreteGenericsAssignment<'ast> = decl_key
         .signature
         .specialize(&inferred_signature)
         .map_err(|_| {

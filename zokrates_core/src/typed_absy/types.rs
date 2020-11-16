@@ -705,10 +705,19 @@ impl<'ast, S: fmt::Display> fmt::Display for GFunctionKey<'ast, S> {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]
-pub struct GenericsAssignment<'ast>(pub BTreeMap<GenericIdentifier<'ast>, u32>);
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct GGenericsAssignment<'ast, S>(pub BTreeMap<GenericIdentifier<'ast>, S>);
 
-impl<'ast> fmt::Display for GenericsAssignment<'ast> {
+pub type ConcreteGenericsAssignment<'ast> = GGenericsAssignment<'ast, usize>;
+pub type GenericsAssignment<'ast, T> = GGenericsAssignment<'ast, UExpression<'ast, T>>;
+
+impl<'ast, S> Default for GGenericsAssignment<'ast, S> {
+    fn default() -> Self {
+        GGenericsAssignment(BTreeMap::new())
+    }
+}
+
+impl<'ast, S: fmt::Display> fmt::Display for GGenericsAssignment<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -830,14 +839,14 @@ pub mod signature {
 
     use std::collections::btree_map::Entry;
 
-    fn check_type<'ast>(
+    fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
         decl_ty: &DeclarationType<'ast>,
-        ty: &ConcreteType,
-        constants: &mut GenericsAssignment<'ast>,
+        ty: &GType<S>,
+        constants: &mut GGenericsAssignment<'ast, S>,
     ) -> bool {
         match (decl_ty, ty) {
-            (DeclarationType::Array(t0), ConcreteType::Array(t1)) => {
-                let s1 = t1.size as u32;
+            (DeclarationType::Array(t0), GType::Array(t1)) => {
+                let s1 = t1.size.clone();
 
                 // both the inner type and the size must match
                 check_type(&t0.ty, &t1.ty, constants)
@@ -851,13 +860,13 @@ pub mod signature {
                                 true
                             }
                         },
-                        Constant::Concrete(s0) => s0 == s1,
+                        Constant::Concrete(s0) => s1 == s0 as usize,
                     }
             }
-            (DeclarationType::FieldElement, ConcreteType::FieldElement)
-            | (DeclarationType::Boolean, ConcreteType::Boolean) => true,
-            (DeclarationType::Uint(b0), ConcreteType::Uint(b1)) => b0 == b1,
-            (DeclarationType::Struct(s0), ConcreteType::Struct(s1)) => {
+            (DeclarationType::FieldElement, GType::FieldElement)
+            | (DeclarationType::Boolean, GType::Boolean) => true,
+            (DeclarationType::Uint(b0), GType::Uint(b1)) => b0 == b1,
+            (DeclarationType::Struct(s0), GType::Struct(s1)) => {
                 s0.canonical_location == s1.canonical_location
             }
             _ => false,
@@ -867,41 +876,40 @@ pub mod signature {
     impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
         fn eq(&self, other: &DeclarationSignature<'ast>) -> bool {
             // we keep track of the value of constants in a map, as a given constant can only have one value
-            let mut constants = GenericsAssignment::default();
+            let mut constants = ConcreteGenericsAssignment::default();
 
             other
                 .inputs
                 .iter()
                 .chain(other.outputs.iter())
                 .zip(self.inputs.iter().chain(self.outputs.iter()))
-                .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants))
+                .all(|(decl_ty, ty)| check_type::<usize>(decl_ty, ty, &mut constants))
         }
     }
 
     impl<'ast> DeclarationSignature<'ast> {
         pub fn specialize(
             &self,
-            concrete_signature: &ConcreteSignature,
-        ) -> Result<GenericsAssignment<'ast>, ()> {
+            signature: &ConcreteSignature,
+        ) -> Result<ConcreteGenericsAssignment<'ast>, ()> {
             // we keep track of the value of constants in a map, as a given constant can only have one value
-            let mut constants = GenericsAssignment::default();
+            let mut constants = ConcreteGenericsAssignment::default();
 
             let condition = self
                 .inputs
                 .iter()
                 .chain(self.outputs.iter())
-                .zip(
-                    concrete_signature
-                        .inputs
-                        .iter()
-                        .chain(concrete_signature.outputs.iter()),
-                )
+                .zip(signature.inputs.iter().chain(signature.outputs.iter()))
                 .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants));
 
             match condition {
                 true => Ok(constants),
                 false => Err(()),
             }
+        }
+
+        pub fn get_output_types<T>(&self, inputs: Vec<Type<'ast, T>>) -> Vec<Type<'ast, T>> {
+            unimplemented!()
         }
     }
 

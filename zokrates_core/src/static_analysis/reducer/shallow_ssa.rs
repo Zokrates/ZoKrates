@@ -27,7 +27,9 @@
 use crate::typed_absy::folder::*;
 use crate::typed_absy::types::{MemberId, Type};
 use crate::typed_absy::*;
-use static_analysis::reducer::GenericsAssignment;
+use typed_absy::types::ConcreteGenericsAssignment;
+use typed_absy::types::GGenericsAssignment;
+use typed_absy::types::GenericsAssignment;
 
 use std::collections::HashSet;
 
@@ -81,7 +83,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
 
     pub fn transform<T: Field>(
         f: TypedFunction<'ast, T>,
-        generics: &GenericsAssignment<'ast>,
+        generics: &ConcreteGenericsAssignment<'ast>,
         versions: &'a mut Versions<'ast>,
     ) -> Output<TypedFunction<'ast, T>, Vec<Versions<'ast>>> {
         let mut unroller = ShallowTransformer::with_versions(versions);
@@ -97,7 +99,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
     fn fold_function<T: Field>(
         &mut self,
         f: TypedFunction<'ast, T>,
-        generics: &GenericsAssignment<'ast>,
+        generics: &ConcreteGenericsAssignment<'ast>,
     ) -> TypedFunction<'ast, T> {
         assert_eq!(
             f.generics.iter().collect::<HashSet<_>>(),
@@ -115,7 +117,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
                         g.clone(),
                         Type::Uint(UBitwidth::B32),
                     )),
-                    TypedExpression::Uint(v.clone().into()),
+                    TypedExpression::Uint(unimplemented!()),
                 )
             })
             .chain(f.statements)
