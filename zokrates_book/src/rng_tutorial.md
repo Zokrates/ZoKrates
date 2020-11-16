@@ -77,7 +77,7 @@ import "hashes/sha256/512bit" as sha256
 &nbsp;
 
 This is the main function. The input (`u32[16]`) is an array of sixteen values, each an unsigned 32-bit integer (a number 
-between 0 and 2<sup>32</sup>-1). As you have seen above, you specify these numbers using the `-a` command
+between \\(0\\) and \\( 2^{32} - 1 \\)). As you have seen above, you specify these numbers using the `-a` command
 line parameter. The total number of input bits is *32 &times; 16 = 512*.
 
 The input is `private`, meaning it will not be revealed to the verifier. This will be relevant
