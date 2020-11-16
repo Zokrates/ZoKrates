@@ -66,8 +66,7 @@ This is the way you put comments in the code
 
 &nbsp;
 
-This line imports a Zokrates function from the standard library. 
-[You can see the standard library here](https://github.com/Zokrates/ZoKrates/tree/master/zokrates_stdlib/stdlib). 
+This line imports a Zokrates function from the [standard library](https://github.com/Zokrates/ZoKrates/tree/master/zokrates_stdlib/stdlib). 
 You can see the specific function we are importing 
 [here](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok). It will be
 called `sha256`.
