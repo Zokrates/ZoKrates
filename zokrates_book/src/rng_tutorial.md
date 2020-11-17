@@ -284,7 +284,7 @@ zokrates export-verifier
 The Solidity program is called `verifier.sol`. 
 
 Here are the instructions to use this program when using [Truffle and Ganache](https://www.trufflesuite.com/).
-I assume you already have them installed, and the Ganache blockchains is running on localhost.
+We'll assume they are installed, and the Ganache blockchain is running.
 
 1. Create a new project with `truffle init` and copy `verify.sol` to the subdirectory `contracts`.
 1. Identify the version of Solidity used by `verifier.sol`:
