@@ -274,7 +274,7 @@ Proofs give us.
 
 ## Connecting to Ethereum
 
-So far Alice and Bob calculated the random bit between themselves. However, it is often useful to have the values
+So far, Alice and Bob calculated the random bit between themselves. However, it is often useful to have the values
 published on the blockchain. To do this, Bob creates a Solidity program:
 
 ```
