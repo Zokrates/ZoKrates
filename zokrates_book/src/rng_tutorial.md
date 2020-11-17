@@ -58,14 +58,6 @@ Witness:
 Pick your own value and store it somewhere.
 
 ### Detailed explanation
-
-This is the way you put comments in the code 
-```javascript
-// Ori Pomerantz qbzzt1@gmail.com
-```
-
-&nbsp;
-
 This line imports a Zokrates function from the [standard library](https://github.com/Zokrates/ZoKrates/tree/master/zokrates_stdlib/stdlib). 
 You can see the specific function we are importing 
 [here](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok). It will be
