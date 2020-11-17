@@ -253,8 +253,8 @@ Proofs give us.
    zokrates compile -i reveal_bit.zok -o reveal_bit --light
    ```   
    
-5. Next, Alice creates the `witness` file with the values of all the parameters in the program, and out of it generates a 
-   proof with Bob's `proving.key`
+5. Next, Alice creates the `witness` file with the values of all the parameters in the program. Using this `witness`, 
+   Bob's `proving.key`, and the compiled program she generates the actual proof.
    ```
    zokrates compute-witness -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510 --light
    zokrates generate-proof -i reveal_bit
