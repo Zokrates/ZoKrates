@@ -54,6 +54,8 @@ pub enum Output<U, V> {
 pub enum Error {
     Incompatible(String, String),
     GenericsInMain,
+    // TODO: give more details about what's blocking the progress
+    NoProgress,
 }
 
 impl fmt::Display for Error {
@@ -65,6 +67,7 @@ impl fmt::Display for Error {
                 conc, decl
             ),
             Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
+            Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds")
         }
     }
 }
@@ -291,10 +294,14 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             Err(InlineError::Generic(decl, conc)) => {
                 Err(Error::Incompatible(decl.to_string(), conc.to_string()))
             }
-            Err(InlineError::NonConstant(key, arguments, _)) => {
+            Err(InlineError::NonConstant(key, arguments, mut output_types)) => {
                 self.complete = false;
 
-                Ok(E::function_call(key, arguments))
+                Ok(E::function_call(
+                    key,
+                    arguments,
+                    output_types.pop().unwrap(),
+                ))
             }
             Err(InlineError::Flat(embed, arguments, output_types)) => {
                 let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
@@ -594,6 +601,8 @@ fn reduce_function<'ast, T: Field>(
 
             let mut substitutions = Substitutions::default();
 
+            let mut hash = None;
+
             loop {
                 let mut reducer = Reducer::new(
                     &program,
@@ -629,11 +638,27 @@ fn reduce_function<'ast, T: Field>(
                         let new_f = Sub::new(&substitutions).fold_function(new_f);
 
                         f = Propagator::verbose().fold_function(new_f);
+
+                        let new_hash = Some(compute_hash(&f));
+
+                        if new_hash == hash {
+                            break Err(Error::NoProgress);
+                        } else {
+                            hash = new_hash
+                        }
                     }
                 }
             }
         }
     }
+}
+
+fn compute_hash<'ast, T: Field>(f: &TypedFunction<'ast, T>) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut s = DefaultHasher::new();
+    f.hash(&mut s);
+    s.finish()
 }
 
 #[cfg(test)]
@@ -784,7 +809,7 @@ mod tests {
                             .inputs(vec![DeclarationType::FieldElement])
                             .outputs(vec![DeclarationType::FieldElement]),
                     ),
-                    GenericsAssignment::default(),
+                    GGenericsAssignment::default(),
                 ),
                 TypedStatement::Definition(
                     Variable::field_element(Identifier::from("a").version(3)).into(),
@@ -997,7 +1022,7 @@ mod tests {
                 TypedStatement::PushCallLog(
                     DeclarationFunctionKey::with_location("main", "foo")
                         .signature(foo_signature.clone()),
-                    GenericsAssignment(vec![("K", 1)].into_iter().collect()),
+                    GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
                 ),
                 TypedStatement::Definition(
                     Variable::array(
@@ -1262,7 +1287,7 @@ mod tests {
                 TypedStatement::PushCallLog(
                     DeclarationFunctionKey::with_location("main", "foo")
                         .signature(foo_signature.clone()),
-                    GenericsAssignment(vec![("K", 1)].into_iter().collect()),
+                    GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
                 ),
                 TypedStatement::Definition(
                     Variable::array(

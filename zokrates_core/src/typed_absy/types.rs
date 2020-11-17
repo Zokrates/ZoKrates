@@ -873,6 +873,41 @@ pub mod signature {
         }
     }
 
+    fn specialize_type<'ast, S: Clone + PartialEq + PartialEq<usize> + From<u32>>(
+        decl_ty: DeclarationType<'ast>,
+        constants: &GGenericsAssignment<'ast, S>,
+    ) -> GType<S> {
+        match decl_ty {
+            DeclarationType::Int => unreachable!(),
+            DeclarationType::Array(t0) => {
+                // let s1 = t1.size.clone();
+
+                let ty = box specialize_type(*t0.ty, &constants);
+                let size = match t0.size {
+                    Constant::Generic(s) => constants.0.get(&s).unwrap().clone(),
+                    Constant::Concrete(s) => s.into(),
+                };
+
+                GType::Array(GArrayType { ty, size })
+            }
+            DeclarationType::FieldElement => GType::FieldElement,
+            DeclarationType::Boolean => GType::Boolean,
+            DeclarationType::Uint(b0) => GType::Uint(b0),
+            DeclarationType::Struct(s0) => GType::Struct(GStructType {
+                members: s0
+                    .members
+                    .into_iter()
+                    .map(|m| GStructMember {
+                        ty: box specialize_type(*m.ty, constants),
+                        id: m.id,
+                    })
+                    .collect(),
+                canonical_location: s0.canonical_location,
+                location: s0.location,
+            }),
+        }
+    }
+
     impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
         fn eq(&self, other: &DeclarationSignature<'ast>) -> bool {
             // we keep track of the value of constants in a map, as a given constant can only have one value
@@ -908,8 +943,26 @@ pub mod signature {
             }
         }
 
-        pub fn get_output_types<T>(&self, inputs: Vec<Type<'ast, T>>) -> Vec<Type<'ast, T>> {
-            unimplemented!()
+        pub fn get_output_types<T: Clone + PartialEq + fmt::Debug>(
+            &self,
+            inputs: Vec<Type<'ast, T>>,
+        ) -> Vec<Type<'ast, T>> {
+            // we keep track of the value of constants in a map, as a given constant can only have one value
+            let mut constants = GenericsAssignment::default();
+
+            // fill the map with the inputs
+            let _ = self
+                .inputs
+                .iter()
+                .zip(inputs.iter())
+                .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants));
+
+            // get the outputs from the map
+            self.outputs
+                .clone()
+                .into_iter()
+                .map(|t| specialize_type(t, &constants))
+                .collect()
         }
     }
 

@@ -28,8 +28,6 @@ use crate::typed_absy::folder::*;
 use crate::typed_absy::types::{MemberId, Type};
 use crate::typed_absy::*;
 use typed_absy::types::ConcreteGenericsAssignment;
-use typed_absy::types::GGenericsAssignment;
-use typed_absy::types::GenericsAssignment;
 
 use std::collections::HashSet;
 
@@ -117,7 +115,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
                         g.clone(),
                         Type::Uint(UBitwidth::B32),
                     )),
-                    TypedExpression::Uint(unimplemented!()),
+                    UExpression::from(*v as u32).into(),
                 )
             })
             .chain(f.statements)
@@ -777,7 +775,7 @@ mod tests {
 
             match ShallowTransformer::transform(
                 f,
-                &GenericsAssignment::default(),
+                &ConcreteGenericsAssignment::default(),
                 &mut Versions::default(),
             ) {
                 Output::Incomplete(..) => {}
@@ -1202,6 +1200,7 @@ mod tests {
 
     mod for_loop {
         use super::*;
+        use typed_absy::types::GGenericsAssignment;
         #[test]
         fn treat_loop() {
             // def main<K>(field a) -> field:
@@ -1306,7 +1305,7 @@ mod tests {
 
             let ssa = ShallowTransformer::transform(
                 f,
-                &GenericsAssignment(vec![("K".into(), 1)].into_iter().collect()),
+                &GGenericsAssignment(vec![("K".into(), 1)].into_iter().collect()),
                 &mut versions,
             );
 
@@ -1403,27 +1402,13 @@ mod tests {
                 ],
             );
 
-            println!(
-                "{}",
-                match ssa {
-                    Output::Incomplete(ref e, _) => e,
-                    _ => unreachable!(),
-                }
-            );
-            println!(
-                "{}",
-                match expected {
-                    Output::Incomplete(ref e, _) => e,
-                    _ => unreachable!(),
-                }
-            );
-
             assert_eq!(ssa, expected);
         }
     }
 
     mod function_call {
         use super::*;
+        use typed_absy::types::GGenericsAssignment;
         // test that function calls are left in
         #[test]
         fn treat_calls() {
@@ -1504,7 +1489,7 @@ mod tests {
 
             let ssa = ShallowTransformer::transform(
                 f,
-                &GenericsAssignment(vec![("K".into(), 1)].into_iter().collect()),
+                &GGenericsAssignment(vec![("K".into(), 1)].into_iter().collect()),
                 &mut versions,
             );
 

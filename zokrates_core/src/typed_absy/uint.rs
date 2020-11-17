@@ -100,6 +100,15 @@ impl<'ast, T> From<u8> for UExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
+    fn eq(&self, other: &usize) -> bool {
+        match self.as_inner() {
+            UExpressionInner::Value(v) => *v == *other as u128,
+            _ => true,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),

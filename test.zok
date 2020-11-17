@@ -1,5 +1,6 @@
-def bar<K>(field[K] a) -> field[K]:
+def bar<K>(field[K] a, field[K] b) -> field[K]:
      return a
 
-def main() -> field[1]:
-     return bar([1])
+def main(u32 s) -> field[1]:
+	field[s - 3] c = [1]
+    return bar([1], c)

@@ -24,7 +24,6 @@ pub use self::types::{
     Signature, StructType, Type, UBitwidth,
 };
 use typed_absy::types::ConcreteGenericsAssignment;
-use typed_absy::types::GGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::path::PathBuf;
@@ -74,10 +73,6 @@ impl<'ast, T> TypedProgram<'ast, T> {
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn abi(&self) -> Result<Abi, ()> {
-        println!("{}", self);
-
-        println!("{}", self.main.display());
-
         let main = self.modules[&self.main]
             .functions
             .iter()
@@ -216,7 +211,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedModule<'ast, T> {
 }
 
 /// A typed function
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct TypedFunction<'ast, T> {
     // generic parameters to the function
     pub generics: Vec<GenericIdentifier<'ast>>,
@@ -1526,64 +1521,71 @@ pub trait FunctionCall<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self;
 }
 
-impl<'ast, T> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
+        assert_eq!(output_type, Type::FieldElement);
         FieldElementExpression::FunctionCall(key, arguments)
     }
 }
 
-impl<'ast, T> FunctionCall<'ast, T> for BooleanExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for BooleanExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
+        assert_eq!(output_type, Type::Boolean);
         BooleanExpression::FunctionCall(key, arguments)
     }
 }
 
-impl<'ast, T: Clone> FunctionCall<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for UExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
-        let bitwidth = match &key.signature.outputs[0] {
-            DeclarationType::Uint(bitwidth) => bitwidth.clone(),
+        let bitwidth = match output_type {
+            Type::Uint(bitwidth) => bitwidth,
             _ => unreachable!(),
         };
         UExpressionInner::FunctionCall(key, arguments).annotate(bitwidth)
     }
 }
 
-impl<'ast, T: Clone> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
-        let array_ty = match &key.signature.outputs[0] {
-            DeclarationType::Array(array_ty) => array_ty.clone(),
+        let array_ty = match output_type {
+            Type::Array(array_ty) => array_ty,
             _ => unreachable!(),
         };
-        ArrayExpressionInner::FunctionCall(key, arguments)
-            .annotate(Type::<T>::from(*array_ty.ty), array_ty.size)
+        ArrayExpressionInner::FunctionCall(key, arguments).annotate(*array_ty.ty, array_ty.size)
     }
 }
 
-impl<'ast, T: Clone> FunctionCall<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
-        let struct_ty = match &key.signature.outputs[0] {
-            DeclarationType::Struct(struct_ty) => struct_ty.clone(),
+        let struct_ty = match output_type {
+            Type::Struct(struct_ty) => struct_ty,
             _ => unreachable!(),
         };
 
-        StructExpressionInner::FunctionCall(key, arguments).annotate(StructType::from(struct_ty))
+        StructExpressionInner::FunctionCall(key, arguments).annotate(struct_ty)
     }
 }

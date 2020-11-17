@@ -776,8 +776,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
 
                 for stat in funct.statements.into_iter() {
-                    let pos = stat.pos();
-
                     match self.check_statement(stat, module_id, types) {
                         Ok(statement) => {
                             statements_checked.push(statement);
@@ -1180,7 +1178,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     expression_list_checked.push(e_checked);
                 }
 
-                match expression_list_checked.len() == return_types.len() {
+                let res = match expression_list_checked.len() == return_types.len() {
                     true => match expression_list_checked
                         .iter()
                         .zip(return_types.clone())
@@ -1216,11 +1214,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     ),
                                 }),
                             };
-                            Ok(TypedStatement::Return(expression_list_checked))
+                            TypedStatement::Return(e)
                         }
                         Err(err) => {
                             errors.extend(err);
-                            Ok(TypedStatement::Return(expression_list_checked))
+                            TypedStatement::Return(expression_list_checked)
                         }
                     },
                     false => {
@@ -1232,11 +1230,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 expression_list_checked.len()
                             ),
                         });
-                        Ok(TypedStatement::Return(expression_list_checked))
+                        TypedStatement::Return(expression_list_checked)
                     }
+                };
+
+                if errors.len() > 0 {
+                    return Err(errors);
                 }
 
-                // Ok(TypedStatement::Return(expression_list_checked))
+                Ok(res)
             }
             Statement::Declaration(var) => {
                 let var = self.check_variable(var, module_id, types)?;
@@ -3897,6 +3899,7 @@ mod tests {
             scope,
             functions,
             level,
+            return_types: None,
         }
     }
 

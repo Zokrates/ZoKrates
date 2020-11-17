@@ -31,7 +31,6 @@ use static_analysis::reducer::Output;
 use static_analysis::reducer::ShallowTransformer;
 use static_analysis::reducer::Versions;
 use typed_absy::types::ConcreteGenericsAssignment;
-use typed_absy::types::GGenericsAssignment;
 use typed_absy::CoreIdentifier;
 use typed_absy::Identifier;
 use typed_absy::TypedAssignee;
@@ -56,8 +55,6 @@ fn get_canonical_function<'ast, T: Field>(
     function_key: DeclarationFunctionKey<'ast>,
     program: &TypedProgram<'ast, T>,
 ) -> Result<(DeclarationFunctionKey<'ast>, TypedFunction<'ast, T>), FlatEmbed> {
-    println!("{:?}", function_key);
-
     match program
         .modules
         .get(&function_key.module)
