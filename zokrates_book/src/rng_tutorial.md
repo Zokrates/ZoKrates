@@ -300,7 +300,7 @@ We'll assume they are installed, and the Ganache blockchain is running.
    ```
 1. Read the content of `proof.json`.
    ```javascript
-   proof = JSON.parse(fs.readFileSync( << put the path name here >>))
+   proof = JSON.parse(fs.readFileSync("path/to/your/proof.json"))
    ```
 1. Verify the proof. Check that you get the result `true`.
    ```javascript
