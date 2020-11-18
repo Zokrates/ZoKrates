@@ -9,5 +9,5 @@ zokrates_test = { version = "0.1", path = "../zokrates_test" }
 
 [build-dependencies]
 fs_extra = "1.1.0"
-zokrates_test = { version = "0.1", path = "../zokrates_test" }
+zokrates_test_derive = { version = "0.0", path = "../zokrates_test_derive" }
 
