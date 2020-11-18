@@ -26,8 +26,6 @@ There are many ways to calculate a hash, but here we use Zokrates.
 
 1. Create this file under the name `get_hash.zok`:
 ```javascript
-// Ori Pomerantz qbzzt1@gmail.com
-
 import "hashes/sha256/512bit" as sha256
 
 def main(u32[16] hashMe) -> u32[8]:
@@ -105,8 +103,6 @@ The next step is to reveal a single bit.
 
 1. Use this program, `reveal_bit.zok`:
 ```javascript
-// Ori Pomerantz qbzzt1@gmail.com
-
 import "hashes/sha256/512bit" as sha256
 import "utils/casts/u32_to_bits" as u32_to_bits
 
@@ -322,3 +318,8 @@ We'll assume they are installed, and the Ganache blockchain is running.
 At this point you should know how to use Zokrates to create zero knowledge proofs and verify them from the command
 line. You should also be able to publish a verifier to a blockchain, generate proofs from the command line, and submit
 them using JavaScript.
+
+
+---------------------------------------------------------------
+
+Original version of this tutorial by Ori Pomerantz qbzzt1@gmail.com
