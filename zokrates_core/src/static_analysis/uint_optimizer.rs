@@ -258,6 +258,45 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::mult(left, right).with_max(max)
             }
+            Div(box left, box right) => {
+                // reduce the two terms
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                // let left_max = left.metadata.clone().unwrap().max;
+                // let right_max = right.metadata.clone().unwrap().max;
+
+                // let (should_reduce_left, should_reduce_right, max) = left_max
+                //     .checked_mul(&right_max)
+                //     .map(|max| (false, false, max))
+                //     .unwrap_or_else(|| {
+                //         range_max
+                //             .clone()
+                //             .checked_mul(&right_max)
+                //             .map(|max| (true, false, max))
+                //             .unwrap_or_else(|| {
+                //                 left_max
+                //                     .checked_mul(&range_max.clone())
+                //                     .map(|max| (false, true, max))
+                //                     .unwrap_or_else(|| (true, true, range_max.clone() * range_max))
+                //             })
+                //     });
+
+                // let left = if should_reduce_left {
+                //     force_reduce(left)
+                // } else {
+                //     force_no_reduce(left)
+                // };
+                // let right = if should_reduce_right {
+                //     force_reduce(right)
+                // } else {
+                //     force_no_reduce(right)
+                // };
+
+                let max = range_max;
+
+                UExpression::div(force_reduce(left), force_reduce(right)).with_max(max)
+            }
             Not(box e) => {
                 let e = self.fold_uint_expression(e);
 

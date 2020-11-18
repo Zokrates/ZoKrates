@@ -1243,7 +1243,7 @@ impl<'ast> Checker<'ast> {
                                 pos: Some(pos),
 
                                 message: format!(
-                                    "Cannot apply `+` to {:?}, {:?}",
+                                    "Cannot apply `+` to {}, {}",
                                     e1.get_type(),
                                     e2.get_type()
                                 ),
@@ -1254,7 +1254,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Cannot apply `+` to {:?}, {:?}",
+                            "Cannot apply `+` to {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -1277,7 +1277,7 @@ impl<'ast> Checker<'ast> {
                                 pos: Some(pos),
 
                                 message: format!(
-                                    "Cannot apply `+` to {:?}, {:?}",
+                                    "Cannot apply `+` to {}, {}",
                                     e1.get_type(),
                                     e2.get_type()
                                 ),
@@ -1288,7 +1288,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected only field elements, found {:?}, {:?}",
+                            "Expected only field elements, found {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -1311,7 +1311,7 @@ impl<'ast> Checker<'ast> {
                                 pos: Some(pos),
 
                                 message: format!(
-                                    "Cannot apply `*` to {:?}, {:?}",
+                                    "Cannot apply `*` to {}, {}",
                                     e1.get_type(),
                                     e2.get_type()
                                 ),
@@ -1322,7 +1322,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Cannot apply `*` to {:?}, {:?}",
+                            "Cannot apply `*` to {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -1337,11 +1337,26 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Div(box e1, box e2).into())
                     }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(UExpression::div(e1, e2).into())
+                        } else {
+                            Err(ErrorInner {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Cannot apply `/` to {}, {}",
+                                    e1.get_type(),
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected only field elements, found {:?}, {:?}",
+                            "Cannot apply `/` to {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -1360,7 +1375,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected only field elements, found {:?}, {:?}",
+                            "Expected only field elements, found {}, {}",
                             t1.get_type(),
                             t2.get_type()
                         ),
