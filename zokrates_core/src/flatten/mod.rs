@@ -1270,17 +1270,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     solver: Solver::EuclideanDiv,
                 }));
 
-                // q*d in range
-
-                let qd = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(
-                    qd,
-                    FlatExpression::Mult(box q.into(), box d.clone().into()),
-                ));
-                let qd = FlatExpression::Identifier(qd);
-                let qd = FlatUExpression::with_field(qd);
+                // q in range
                 let _ = self.get_bits(
-                    qd,
+                    FlatUExpression::with_field(FlatExpression::from(q)),
                     target_bitwidth.to_usize(),
                     target_bitwidth,
                     statements_flattened,
@@ -1294,19 +1286,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                 );
 
-                //
-                // if `r < d`
-                // then
-                // r - d + 2**w < 2**w
-                // also we know that r and d are in [0, 2**w[, so:
-                // 0 <= r - d + 2**w
-                // therefore `r - d + 2**w` is in [0, 2**w[
-
-                // if `r - d + 2**w` is in [0, 2**w[
-                // then
-                // r - d + 2+*w < 2**w
-                // then `r < d`
-
+                // r < d <=> r - d + 2**w < 2**w
                 let _ = self.get_bits(
                     FlatUExpression::with_field(FlatExpression::Add(
                         box FlatExpression::Sub(box r.into(), box d.clone().into()),
