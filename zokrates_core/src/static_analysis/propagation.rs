@@ -432,13 +432,34 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 }
                 (e, UExpressionInner::Value(v)) => match v {
                     1 => e,
-                    _ => UExpressionInner::Mult(
+                    _ => UExpressionInner::Div(
                         box e.annotate(bitwidth),
                         box UExpressionInner::Value(v).annotate(bitwidth),
                     ),
                 },
                 (e1, e2) => {
                     UExpressionInner::Div(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                }
+            },
+            UExpressionInner::Rem(box e1, box e2) => match (
+                self.fold_uint_expression(e1).into_inner(),
+                self.fold_uint_expression(e2).into_inner(),
+            ) {
+                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                    use std::convert::TryInto;
+                    UExpressionInner::Value(
+                        (v1 % v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                    )
+                }
+                (e, UExpressionInner::Value(v)) => match v {
+                    1 => UExpressionInner::Value(0),
+                    _ => UExpressionInner::Rem(
+                        box e.annotate(bitwidth),
+                        box UExpressionInner::Value(v).annotate(bitwidth),
+                    ),
+                },
+                (e1, e2) => {
+                    UExpressionInner::Rem(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
                 }
             },
             UExpressionInner::RightShift(box e, box by) => {

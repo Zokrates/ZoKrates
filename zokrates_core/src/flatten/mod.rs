@@ -1307,6 +1307,91 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatUExpression::with_field(FlatExpression::Identifier(q))
             }
+            UExpressionInner::Rem(box left, box right) => {
+                let left_flattened = self
+                    .flatten_uint_expression(symbols, statements_flattened, left)
+                    .get_field_unchecked();
+                let right_flattened = self
+                    .flatten_uint_expression(symbols, statements_flattened, right)
+                    .get_field_unchecked();
+                let n = if left_flattened.is_linear() {
+                    left_flattened
+                } else {
+                    let id = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(id, left_flattened));
+                    FlatExpression::Identifier(id)
+                };
+                let d = if right_flattened.is_linear() {
+                    right_flattened
+                } else {
+                    let id = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(id, right_flattened));
+                    FlatExpression::Identifier(id)
+                };
+
+                // first check that the d is not 0 by giving its inverse
+                let invd = self.use_sym();
+
+                // # invd = 1/d
+                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
+                    vec![invd],
+                    Solver::Div,
+                    vec![FlatExpression::Number(T::one()), d.clone()],
+                )));
+
+                // assert(invd * d == 1)
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::one()),
+                    FlatExpression::Mult(box invd.into(), box d.clone().into()),
+                ));
+
+                // now introduce the quotient and remainder
+                let q = self.use_sym();
+                let r = self.use_sym();
+
+                statements_flattened.push(FlatStatement::Directive(FlatDirective {
+                    inputs: vec![n.clone(), d.clone()],
+                    outputs: vec![q.clone(), r.clone()],
+                    solver: Solver::EuclideanDiv,
+                }));
+
+                // q in range
+                let _ = self.get_bits(
+                    FlatUExpression::with_field(FlatExpression::from(q)),
+                    target_bitwidth.to_usize(),
+                    target_bitwidth,
+                    statements_flattened,
+                );
+
+                // r in range
+                let _ = self.get_bits(
+                    FlatUExpression::with_field(FlatExpression::from(r)),
+                    target_bitwidth.to_usize(),
+                    target_bitwidth,
+                    statements_flattened,
+                );
+
+                // r < d <=> r - d + 2**w < 2**w
+                let _ = self.get_bits(
+                    FlatUExpression::with_field(FlatExpression::Add(
+                        box FlatExpression::Sub(box r.into(), box d.clone().into()),
+                        box FlatExpression::Number(T::from(
+                            2usize.pow(target_bitwidth.to_usize() as u32),
+                        )),
+                    )),
+                    target_bitwidth.to_usize(),
+                    target_bitwidth,
+                    statements_flattened,
+                );
+
+                // q*d == n - r
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Sub(box n, box r.into()),
+                    FlatExpression::Mult(box q.into(), box d),
+                ));
+
+                FlatUExpression::with_field(FlatExpression::Identifier(r))
+            }
             UExpressionInner::IfElse(box condition, box consequence, box alternative) => self
                 .flatten_if_else_expression(
                     symbols,

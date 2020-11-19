@@ -1363,6 +1363,37 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
+            Expression::Rem(box e1, box e2) => {
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
+
+                match (e1_checked, e2_checked) {
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(UExpression::rem(e1, e2).into())
+                        } else {
+                            Err(ErrorInner {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Cannot apply `%` to {}, {}",
+                                    e1.get_type(),
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
+                    (t1, t2) => Err(ErrorInner {
+                        pos: Some(pos),
+
+                        message: format!(
+                            "Cannot apply `%` to {}, {}",
+                            t1.get_type(),
+                            t2.get_type()
+                        ),
+                    }),
+                }
+            }
             Expression::Pow(box e1, box e2) => {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;

@@ -730,6 +730,12 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
 
             zir::UExpressionInner::Div(box left, box right)
         }
+        typed_absy::UExpressionInner::Rem(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            zir::UExpressionInner::Rem(box left, box right)
+        }
         typed_absy::UExpressionInner::Xor(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);

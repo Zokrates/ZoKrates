@@ -1,0 +1,2 @@
+def main(u8 n, u8 d) -> (u8, u8):
+	return n / d, n % d
