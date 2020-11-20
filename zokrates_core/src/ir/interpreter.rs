@@ -141,7 +141,10 @@ impl Interpreter {
         let res = match s {
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
-                false => vec![T::one(), T::one() / &inputs[0]],
+                false => vec![
+                    T::one(),
+                    T::one().checked_div(&inputs[0]).unwrap_or(T::one()),
+                ],
             },
             Solver::Bits(bit_width) => {
                 let mut num = inputs[0].clone();
@@ -183,7 +186,10 @@ impl Interpreter {
                 let c = inputs[2].clone();
                 vec![a * (b - c.clone()) + c]
             }
-            Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
+            Solver::Div => vec![inputs[0]
+                .clone()
+                .checked_div(&inputs[1])
+                .unwrap_or(T::one())],
             Solver::EuclideanDiv => {
                 use num::CheckedDiv;
 
