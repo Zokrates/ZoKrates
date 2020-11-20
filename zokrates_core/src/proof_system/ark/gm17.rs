@@ -1,20 +1,20 @@
-use zexe_gm17::{
-    prepare_verifying_key, verify_proof, Parameters, PreparedVerifyingKey, Proof as ZexeProof,
+use ark_gm17::{
+    prepare_verifying_key, verify_proof, PreparedVerifyingKey, Proof as ArkProof, ProvingKey,
     VerifyingKey,
 };
 
-use algebra_core::serialize::{CanonicalDeserialize, CanonicalSerialize};
-use zokrates_field::{Bw6_761Field, Field, ZexeFieldExtensions};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
 
-use crate::proof_system::zexe::Computation;
-use crate::proof_system::zexe::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
+use crate::proof_system::ark::Computation;
+use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
 use ir::{Prog, Witness};
+use proof_system::ark::Ark;
 use proof_system::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
-use proof_system::zexe::Zexe;
 use proof_system::Scheme;
 use proof_system::{Backend, Proof, SetupKeypair};
 
-impl<T: Field + ZexeFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Zexe {
+impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
     fn setup(program: Prog<T>) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
@@ -44,11 +44,10 @@ impl<T: Field + ZexeFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Zexe
         proving_key: Vec<u8>,
     ) -> Proof<<GM17 as Scheme<T>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
-        let params =
-            Parameters::<<T as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
-                &mut proving_key.as_slice(),
-            )
-            .unwrap();
+        let params = ProvingKey::<<T as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
+            &mut proving_key.as_slice(),
+        )
+        .unwrap();
 
         let proof = computation.clone().prove(&params);
         let proof_points = ProofPoints {
@@ -83,13 +82,13 @@ impl<T: Field + ZexeFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Zexe
                 .collect(),
         };
 
-        let zexe_proof = ZexeProof {
+        let ark_proof = ArkProof {
             a: serialization::to_g1::<T>(proof.proof.a),
             b: serialization::to_g2::<T>(proof.proof.b),
             c: serialization::to_g1::<T>(proof.proof.c),
         };
 
-        let pvk: PreparedVerifyingKey<<T as ZexeFieldExtensions>::ZexeEngine> =
+        let pvk: PreparedVerifyingKey<<T as ArkFieldExtensions>::ArkEngine> =
             prepare_verifying_key(&vk);
 
         let public_inputs: Vec<_> = proof
@@ -98,15 +97,15 @@ impl<T: Field + ZexeFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Zexe
             .map(|s| {
                 T::try_from_str(s.trim_start_matches("0x"), 16)
                     .unwrap()
-                    .into_zexe()
+                    .into_ark()
             })
             .collect::<Vec<_>>();
 
-        verify_proof(&pvk, &zexe_proof, &public_inputs).unwrap()
+        verify_proof(&pvk, &ark_proof, &public_inputs).unwrap()
     }
 }
 
-impl Backend<Bw6_761Field, GM17> for Zexe {
+impl Backend<Bw6_761Field, GM17> for Ark {
     fn setup(
         program: Prog<Bw6_761Field>,
     ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
@@ -139,7 +138,7 @@ impl Backend<Bw6_761Field, GM17> for Zexe {
     ) -> Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
         let params =
-            Parameters::<<Bw6_761Field as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
+            ProvingKey::<<Bw6_761Field as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
                 &mut proving_key.as_slice(),
             )
                 .unwrap();
@@ -177,13 +176,13 @@ impl Backend<Bw6_761Field, GM17> for Zexe {
                 .collect(),
         };
 
-        let zexe_proof = ZexeProof {
+        let ark_proof = ArkProof {
             a: serialization::to_g1::<Bw6_761Field>(proof.proof.a),
             b: serialization::to_g2_fq::<Bw6_761Field>(proof.proof.b),
             c: serialization::to_g1::<Bw6_761Field>(proof.proof.c),
         };
 
-        let pvk: PreparedVerifyingKey<<Bw6_761Field as ZexeFieldExtensions>::ZexeEngine> =
+        let pvk: PreparedVerifyingKey<<Bw6_761Field as ArkFieldExtensions>::ArkEngine> =
             prepare_verifying_key(&vk);
 
         let public_inputs: Vec<_> = proof
@@ -192,18 +191,19 @@ impl Backend<Bw6_761Field, GM17> for Zexe {
             .map(|s| {
                 Bw6_761Field::try_from_str(s.trim_start_matches("0x"), 16)
                     .unwrap()
-                    .into_zexe()
+                    .into_ark()
             })
             .collect::<Vec<_>>();
 
-        verify_proof(&pvk, &zexe_proof, &public_inputs).unwrap()
+        verify_proof(&pvk, &ark_proof, &public_inputs).unwrap()
     }
 }
 
 pub mod serialization {
-    use algebra_core::{FromBytes, PairingEngine};
+    use ark_ec::PairingEngine;
+    use ark_ff::FromBytes;
     use proof_system::{G1Affine, G2Affine, G2AffineFq};
-    use zokrates_field::ZexeFieldExtensions;
+    use zokrates_field::ArkFieldExtensions;
 
     #[inline]
     fn decode_hex(value: String) -> Vec<u8> {
@@ -212,20 +212,16 @@ pub mod serialization {
         bytes
     }
 
-    pub fn to_g1<T: ZexeFieldExtensions>(
-        g1: G1Affine,
-    ) -> <T::ZexeEngine as PairingEngine>::G1Affine {
+    pub fn to_g1<T: ArkFieldExtensions>(g1: G1Affine) -> <T::ArkEngine as PairingEngine>::G1Affine {
         let mut bytes = vec![];
         bytes.append(&mut decode_hex(g1.0));
         bytes.append(&mut decode_hex(g1.1));
         bytes.push(0u8); // infinity flag
 
-        <T::ZexeEngine as PairingEngine>::G1Affine::read(&*bytes).unwrap()
+        <T::ArkEngine as PairingEngine>::G1Affine::read(&*bytes).unwrap()
     }
 
-    pub fn to_g2<T: ZexeFieldExtensions>(
-        g2: G2Affine,
-    ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
+    pub fn to_g2<T: ArkFieldExtensions>(g2: G2Affine) -> <T::ArkEngine as PairingEngine>::G2Affine {
         let mut bytes = vec![];
         bytes.append(&mut decode_hex((g2.0).0));
         bytes.append(&mut decode_hex((g2.0).1));
@@ -233,18 +229,18 @@ pub mod serialization {
         bytes.append(&mut decode_hex((g2.1).1));
         bytes.push(0u8); // infinity flag
 
-        <T::ZexeEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
+        <T::ArkEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
     }
 
-    pub fn to_g2_fq<T: ZexeFieldExtensions>(
+    pub fn to_g2_fq<T: ArkFieldExtensions>(
         g2: G2AffineFq,
-    ) -> <T::ZexeEngine as PairingEngine>::G2Affine {
+    ) -> <T::ArkEngine as PairingEngine>::G2Affine {
         let mut bytes = vec![];
         bytes.append(&mut decode_hex(g2.0));
         bytes.append(&mut decode_hex(g2.1));
         bytes.push(0u8); // infinity flag
 
-        <T::ZexeEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
+        <T::ArkEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
     }
 }
 
@@ -271,7 +267,7 @@ mod tests {
             private: vec![false],
         };
 
-        let keypair = <Zexe as Backend<Bls12_377Field, GM17>>::setup(program.clone());
+        let keypair = <Ark as Backend<Bls12_377Field, GM17>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -279,8 +275,8 @@ mod tests {
             .unwrap();
 
         let proof =
-            <Zexe as Backend<Bls12_377Field, GM17>>::generate_proof(program, witness, keypair.pk);
-        let ans = <Zexe as Backend<Bls12_377Field, GM17>>::verify(keypair.vk, proof);
+            <Ark as Backend<Bls12_377Field, GM17>>::generate_proof(program, witness, keypair.pk);
+        let ans = <Ark as Backend<Bls12_377Field, GM17>>::verify(keypair.vk, proof);
 
         assert!(ans);
     }
@@ -300,7 +296,7 @@ mod tests {
             private: vec![false],
         };
 
-        let keypair = <Zexe as Backend<Bw6_761Field, GM17>>::setup(program.clone());
+        let keypair = <Ark as Backend<Bw6_761Field, GM17>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -308,8 +304,8 @@ mod tests {
             .unwrap();
 
         let proof =
-            <Zexe as Backend<Bw6_761Field, GM17>>::generate_proof(program, witness, keypair.pk);
-        let ans = <Zexe as Backend<Bw6_761Field, GM17>>::verify(keypair.vk, proof);
+            <Ark as Backend<Bw6_761Field, GM17>>::generate_proof(program, witness, keypair.pk);
+        let ans = <Ark as Backend<Bw6_761Field, GM17>>::verify(keypair.vk, proof);
 
         assert!(ans);
     }

@@ -1,8 +1,8 @@
+#[cfg(feature = "ark")]
+pub mod ark;
 pub mod bellman;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
-#[cfg(feature = "zexe")]
-pub mod zexe;
 
 mod scheme;
 mod solidity;
