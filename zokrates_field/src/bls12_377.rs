@@ -1,3 +1,5 @@
+extern crate ark_bls12_377;
+
 use ark_bls12_377::Bls12_377;
 
 prime_field!(

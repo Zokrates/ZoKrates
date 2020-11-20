@@ -1,3 +1,5 @@
+extern crate ark_bn254;
+
 use ark_bn254::Bn254;
 use bellman_ce::pairing::bn256::{Bn256, Fq2};
 

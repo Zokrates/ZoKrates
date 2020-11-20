@@ -220,7 +220,7 @@ mod integration {
         #[cfg(not(feature = "libsnark"))]
         let backends = map! {
             "bellman" => ["g16"],
-            "Ark" => ["gm17"]
+            "ark" => ["gm17"]
         };
 
         for (backend, schemes) in backends {
@@ -279,7 +279,7 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
-                if backend != "Ark" {
+                if backend != "ark" {
                     for abi_version in &["v1", "v2"] {
                         // EXPORT-VERIFIER
                         assert_cli::Assert::command(&[

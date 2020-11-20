@@ -1,7 +1,7 @@
 pub const BELLMAN: &str = "bellman";
 #[cfg(feature = "libsnark")]
 pub const LIBSNARK: &str = "libsnark";
-pub const ARK: &str = "ARK";
+pub const ARK: &str = "ark";
 
 #[cfg(feature = "libsnark")]
 pub const BACKENDS: &[&str] = &[BELLMAN, LIBSNARK, ARK];

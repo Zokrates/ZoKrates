@@ -4,8 +4,6 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 extern crate ark_bls12_377;
-extern crate ark_bn254;
-extern crate ark_bw6_761;
 extern crate ark_ec;
 extern crate ark_ff;
 extern crate num_bigint;
