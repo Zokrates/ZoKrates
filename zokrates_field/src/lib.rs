@@ -3,10 +3,12 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
-extern crate algebra_core;
+extern crate ark_bls12_377;
+extern crate ark_ec;
+extern crate ark_ff;
 extern crate num_bigint;
 
-use algebra_core::PairingEngine;
+use ark_ec::PairingEngine;
 use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
 use num_bigint::BigUint;
@@ -31,12 +33,12 @@ pub trait BellmanFieldExtensions {
     fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
 }
 
-pub trait ZexeFieldExtensions {
-    /// An associated type to be able to operate with zexe ff traits
-    type ZexeEngine: PairingEngine;
+pub trait ArkFieldExtensions {
+    /// An associated type to be able to operate with ark ff traits
+    type ArkEngine: PairingEngine;
 
-    fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self;
-    fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr;
+    fn from_ark(e: <Self::ArkEngine as ark_ec::PairingEngine>::Fr) -> Self;
+    fn into_ark(self) -> <Self::ArkEngine as ark_ec::PairingEngine>::Fr;
 }
 
 pub trait Field:
@@ -552,24 +554,24 @@ mod prime_field {
         };
     }
 
-    macro_rules! zexe_extensions {
-        ($zexe_type:ty) => {
-            use crate::ZexeFieldExtensions;
+    macro_rules! ark_extensions {
+        ($ark_type:ty) => {
+            use crate::ArkFieldExtensions;
 
-            impl ZexeFieldExtensions for FieldPrime {
-                type ZexeEngine = $zexe_type;
+            impl ArkFieldExtensions for FieldPrime {
+                type ArkEngine = $ark_type;
 
-                fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
-                    use algebra_core::{BigInteger, PrimeField};
+                fn from_ark(e: <Self::ArkEngine as ark_ec::PairingEngine>::Fr) -> Self {
+                    use ark_ff::{BigInteger, PrimeField};
                     let mut res: Vec<u8> = vec![];
                     e.into_repr().write_le(&mut res).unwrap();
                     Self::from_byte_vector(res)
                 }
 
-                fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr {
+                fn into_ark(self) -> <Self::ArkEngine as ark_ec::PairingEngine>::Fr {
                     use core::str::FromStr;
                     let s = self.to_dec_string();
-                    <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
+                    <Self::ArkEngine as ark_ec::PairingEngine>::Fr::from_str(&s).unwrap()
                 }
             }
         };

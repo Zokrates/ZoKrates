@@ -24,12 +24,16 @@ extern crate ff_ce as ff;
 extern crate pairing_ce as pairing;
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "zexe")] {
-        extern crate algebra as zexe_algebra;
-        extern crate algebra_core;
-        extern crate gm17 as zexe_gm17;
+    if #[cfg(feature = "ark")] {
+        extern crate ark_bls12_377;
+        extern crate ark_bn254;
+        extern crate ark_bw6_761;
+        extern crate ark_gm17;
+        extern crate ark_ff;
+        extern crate ark_ec;
+        extern crate ark_serialize;
+        extern crate ark_relations;
         extern crate rand_0_7;
-        extern crate r1cs_core;
     }
 }
 
