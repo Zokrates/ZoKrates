@@ -22,7 +22,7 @@ use zokrates_abi::Encode;
 use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::{
-    bellman::Bellman, gm17::GM17, groth16::G16, zexe::Zexe, SolidityCompatibleField,
+    ark::Ark, bellman::Bellman, gm17::GM17, groth16::G16, SolidityCompatibleField,
 };
 use zokrates_core::proof_system::{Backend, Scheme, SolidityAbi, SolidityCompatibleScheme};
 use zokrates_core::typed_absy::abi::Abi;
@@ -847,10 +847,10 @@ fn cli() -> Result<(), String> {
                     ProgEnum::Bls12_381Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
                     _ => unreachable!(),
                 },
-                Parameters(BackendParameter::Zexe, _, SchemeParameter::GM17) => match prog {
-                    ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
-                    ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
-                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
+                Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
+                    ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
+                    ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
@@ -923,16 +923,14 @@ fn cli() -> Result<(), String> {
                     }
                     _ => unreachable!(),
                 },
-                Parameters(BackendParameter::Zexe, _, SchemeParameter::GM17) => match prog {
+                Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
                     ProgEnum::Bls12_377Program(p) => {
-                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                        cli_generate_proof::<_, GM17, Ark>(p, sub_matches)
                     }
                     ProgEnum::Bw6_761Program(p) => {
-                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                        cli_generate_proof::<_, GM17, Ark>(p, sub_matches)
                     }
-                    ProgEnum::Bn128Program(p) => {
-                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
-                    }
+                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17, Ark>(p, sub_matches),
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
@@ -1015,20 +1013,18 @@ fn cli() -> Result<(), String> {
                     SchemeParameter::G16,
                 ) => cli_verify::<Bls12_381Field, G16, Bellman>(sub_matches),
                 Parameters(
-                    BackendParameter::Zexe,
+                    BackendParameter::Ark,
                     CurveParameter::Bls12_377,
                     SchemeParameter::GM17,
-                ) => cli_verify::<Bls12_377Field, GM17, Zexe>(sub_matches),
+                ) => cli_verify::<Bls12_377Field, GM17, Ark>(sub_matches),
                 Parameters(
-                    BackendParameter::Zexe,
+                    BackendParameter::Ark,
                     CurveParameter::Bw6_761,
                     SchemeParameter::GM17,
-                ) => cli_verify::<Bw6_761Field, GM17, Zexe>(sub_matches),
-                Parameters(
-                    BackendParameter::Zexe,
-                    CurveParameter::Bn128,
-                    SchemeParameter::GM17,
-                ) => cli_verify::<Bn128Field, GM17, Zexe>(sub_matches),
+                ) => cli_verify::<Bw6_761Field, GM17, Ark>(sub_matches),
+                Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
+                    cli_verify::<Bn128Field, GM17, Ark>(sub_matches)
+                }
                 #[cfg(feature = "libsnark")]
                 Parameters(
                     BackendParameter::Libsnark,
@@ -1119,7 +1115,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn execute_examples_err() {
         //these examples should compile but not run
         for p in glob("./examples/runtime_errors/*").expect("Failed to read glob pattern") {
@@ -1143,9 +1138,9 @@ mod tests {
 
             let interpreter = ir::Interpreter::default();
 
-            let _ = interpreter
-                .execute(&artifacts.prog(), &vec![Bn128Field::from(0)])
-                .unwrap();
+            let res = interpreter.execute(&artifacts.prog(), &vec![Bn128Field::from(0)]);
+
+            assert!(res.is_err());
         }
     }
 }

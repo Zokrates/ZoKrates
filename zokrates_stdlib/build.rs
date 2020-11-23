@@ -1,7 +1,7 @@
 use fs_extra::copy_items;
 use fs_extra::dir::CopyOptions;
 use std::env;
-use zokrates_test::write_tests;
+use zokrates_test_derive::write_tests;
 
 fn main() {
     // export stdlib folder to OUT_DIR

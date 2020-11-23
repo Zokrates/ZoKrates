@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_stdlib"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["Stefan Deml <stefandeml@gmail.com>", "schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
@@ -9,5 +9,5 @@ zokrates_test = { version = "0.1", path = "../zokrates_test" }
 
 [build-dependencies]
 fs_extra = "1.1.0"
-zokrates_test = { version = "0.1", path = "../zokrates_test" }
+zokrates_test_derive = { version = "0.0", path = "../zokrates_test_derive" }
 

@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 zokrates_parser = { version = "0.1.0", path = "../zokrates_parser" }
-zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 pest = "2.0"
 pest-ast = "0.3.3"
 from-pest = "0.3.1"

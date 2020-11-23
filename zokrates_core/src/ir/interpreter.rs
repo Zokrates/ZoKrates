@@ -155,7 +155,6 @@ impl Interpreter {
                         res.push(T::zero());
                     }
                 }
-                assert_eq!(num, T::zero());
                 res
             }
             Solver::Xor => {
