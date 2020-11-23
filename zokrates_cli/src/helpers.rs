@@ -12,7 +12,7 @@ pub enum CurveParameter {
 
 pub enum BackendParameter {
     Bellman,
-    Zexe,
+    Ark,
     #[cfg(feature = "libsnark")]
     Libsnark,
 }
@@ -44,7 +44,7 @@ impl TryFrom<&str> for BackendParameter {
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
             BELLMAN => Ok(BackendParameter::Bellman),
-            ZEXE => Ok(BackendParameter::Zexe),
+            ARK => Ok(BackendParameter::Ark),
             #[cfg(feature = "libsnark")]
             LIBSNARK => Ok(BackendParameter::Libsnark),
             _ => Err(format!("Unknown backend {}", s)),
@@ -83,9 +83,9 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
         match (&backend, &curve, &proving_scheme) {
             (BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => Ok(()),
             (BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => Ok(()),
-            (BackendParameter::Zexe, CurveParameter::Bls12_377, SchemeParameter::GM17) => Ok(()),
-            (BackendParameter::Zexe, CurveParameter::Bw6_761, SchemeParameter::GM17) => Ok(()),
-            (BackendParameter::Zexe, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
+            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => Ok(()),
+            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => Ok(()),
+            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
             #[cfg(feature = "libsnark")]
             (BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
             #[cfg(feature = "libsnark")]

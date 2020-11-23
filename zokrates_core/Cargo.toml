@@ -11,7 +11,7 @@ default = []
 libsnark = ["cc", "cmake", "git2"]
 wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
 multicore = ["bellman_ce/multicore"]
-zexe = ["gm17", "algebra-core", "r1cs-core", "algebra"]
+ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-serialize", "ark-relations"]
 
 [dependencies]
 cfg-if = "0.1"
@@ -24,7 +24,6 @@ reduce = "0.1.1"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-serde_bytes = "0.10"
 bincode = "0.8.0"
 hex = "0.4.2"
 regex = "0.2"
@@ -37,14 +36,21 @@ rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
 bellman_ce = { version = "^0.3", default-features = false }
-gm17 = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, optional = true }
-algebra-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, optional = true }
-r1cs-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, optional = true }
-algebra = { git =  "https://github.com/scipr-lab/zexe.git", features = ["bn254", "bls12_377", "bw6_761"], default-features = false, optional = true }
+
+ark-ff = { git = "https://github.com/arkworks-rs/algebra", default-features = false, optional = true }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra", default-features = false, optional = true }
+
+ark-bn254 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"], default-features = false, optional = true }
+ark-bls12-377 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"], default-features = false, optional = true }
+ark-bw6-761 = { git = "https://github.com/arkworks-rs/curves", default-features = false, optional = true }
+
+
+ark-gm17 = { git = "https://github.com/arkworks-rs/gm17", default-features = false, optional = true }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra", default-features = false, optional = true }
+ark-relations = { git = "https://github.com/arkworks-rs/snark", default-features = false, optional = true }
+#algebra = { git =  "https://github.com/scipr-lab/ark.git", features = ["bn254", "bls12_377", "bw6_761"], default-features = false, optional = true }
 
 [dev-dependencies]
-glob = "0.2.11"
-assert_cli = "0.5"
 wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
 
