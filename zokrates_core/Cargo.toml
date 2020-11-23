@@ -24,7 +24,6 @@ reduce = "0.1.1"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-serde_bytes = "0.10"
 bincode = "0.8.0"
 hex = "0.4.2"
 regex = "0.2"
@@ -52,8 +51,6 @@ ark-relations = { git = "https://github.com/arkworks-rs/snark", default-features
 #algebra = { git =  "https://github.com/scipr-lab/ark.git", features = ["bn254", "bls12_377", "bw6_761"], default-features = false, optional = true }
 
 [dev-dependencies]
-glob = "0.2.11"
-assert_cli = "0.5"
 wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
 
