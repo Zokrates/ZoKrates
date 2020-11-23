@@ -1037,6 +1037,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (e1, e2) => BooleanExpression::FieldEq(box e1, box e2),
                 }
             }
+            BooleanExpression::UintEq(box e1, box e2) => {
+                let e1 = self.fold_uint_expression(e1);
+                let e2 = self.fold_uint_expression(e2);
+
+                match (e1.as_inner(), e2.as_inner()) {
+                    (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                        BooleanExpression::Value(v1 == v2)
+                    }
+                    _ => BooleanExpression::UintEq(box e1, box e2),
+                }
+            }
             BooleanExpression::BoolEq(box e1, box e2) => {
                 let e1 = self.fold_boolean_expression(e1);
                 let e2 = self.fold_boolean_expression(e2);

@@ -228,7 +228,7 @@ struct Reducer<'ast, 'a, T> {
     program: &'a TypedProgram<'ast, T>,
     versions: &'a mut Versions<'ast>,
     substitutions: &'a mut Substitutions<'ast>,
-    cache: CallCache<'ast, T>,
+    cache: &'a mut CallCache<'ast, T>,
     complete: bool,
 }
 
@@ -237,6 +237,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         program: &'a TypedProgram<'ast, T>,
         versions: &'a mut Versions<'ast>,
         substitutions: &'a mut Substitutions<'ast>,
+        cache: &'a mut CallCache<'ast, T>,
         for_loop_versions: Vec<Versions<'ast>>,
     ) -> Self {
         // we reverse the vector as it's cheaper to `pop` than to take from
@@ -249,7 +250,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             statement_buffer: vec![],
             for_loop_versions_after: vec![],
             for_loop_versions,
-            cache: CallCache::default(),
+            cache: cache,
             substitutions,
             program,
             versions,
@@ -601,6 +602,8 @@ fn reduce_function<'ast, T: Field>(
 
             let mut substitutions = Substitutions::default();
 
+            let mut call_cache = CallCache::new();
+
             let mut hash = None;
 
             loop {
@@ -608,6 +611,7 @@ fn reduce_function<'ast, T: Field>(
                     &program,
                     &mut versions,
                     &mut substitutions,
+                    &mut call_cache,
                     for_loop_versions,
                 );
 
