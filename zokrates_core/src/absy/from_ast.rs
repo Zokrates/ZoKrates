@@ -333,6 +333,10 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode<'ast> {
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),
             ),
+            pest::BinaryOperator::Rem => absy::Expression::Rem(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
             pest::BinaryOperator::Eq => absy::Expression::Eq(
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),

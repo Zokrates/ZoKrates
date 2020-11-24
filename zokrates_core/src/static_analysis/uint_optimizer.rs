@@ -294,6 +294,20 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::mult(left, right).with_max(max)
             }
+            Div(box left, box right) => {
+                // reduce the two terms
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                UExpression::div(force_reduce(left), force_reduce(right)).with_max(range_max)
+            }
+            Rem(box left, box right) => {
+                // reduce the two terms
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                UExpression::rem(force_reduce(left), force_reduce(right)).with_max(range_max)
+            }
             Not(box e) => {
                 let e = self.fold_uint_expression(e);
 

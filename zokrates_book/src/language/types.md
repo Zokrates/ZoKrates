@@ -16,6 +16,8 @@ While `field` values mostly behave like unsigned integers, one should keep in mi
 {{#include ../../../zokrates_cli/examples/book/field_overflow.zok}}
 ```
 
+Note that for field elements, the division operation multiplies the numerator with the denominator's inverse field element. The results coincide with integer divisions for cases with remainder 0, but differ otherwise.
+
 ### `bool`
 
 Booleans are available in ZoKrates. When a boolean is used as a parameter of the main function, the program is constrained to only accept `0` or `1` for that parameter. A boolean can be asserted to be true using an `assert(bool)` statement.
@@ -27,6 +29,8 @@ Unsigned integers represent positive numbers of the interval `[0, 2 ** bitwidth[
 Internally, they use a binary encoding, which makes them particularly efficient for implementing programs that operate on that binary representation, e.g., the SHA256 hash function.
 
 Similarly to booleans, unsigned integer inputs of the main function only accept values of the appropriate range.
+
+The division operation calculates the standard floor division for integers. The `%` operand can be used to obtain the remainder.
 
 ### Numeric inference
 

@@ -263,7 +263,7 @@ impl<T: Field> Div<&T> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn div(self, scalar: &T) -> LinComb<T> {
-        self * &scalar.inverse_mul()
+        self * &scalar.inverse_mul().unwrap()
     }
 }
 
