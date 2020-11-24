@@ -12,7 +12,7 @@ use ark_ec::PairingEngine;
 use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
 use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::{From, TryFrom};
 use std::fmt::{Debug, Display};
@@ -63,8 +63,8 @@ pub trait Field:
     + for<'a> Sub<&'a Self, Output = Self>
     + Mul<Self, Output = Self>
     + for<'a> Mul<&'a Self, Output = Self>
+    + CheckedDiv
     + Div<Self, Output = Self>
-    + for<'a> Div<&'a Self, Output = Self>
     + Pow<usize, Output = Self>
     + Pow<Self, Output = Self>
     + for<'a> Pow<&'a Self, Output = Self>
@@ -80,7 +80,7 @@ pub trait Field:
     /// Returns this `Field`'s contents as decimal string
     fn to_dec_string(&self) -> String;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
-    fn inverse_mul(&self) -> Self;
+    fn inverse_mul(&self) -> Option<Self>;
     /// Returns the smallest value that can be represented by this field type.
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
@@ -131,7 +131,7 @@ mod prime_field {
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
             use num_integer::Integer;
-            use num_traits::{One, Zero};
+            use num_traits::{CheckedDiv, One, Zero};
             use serde_derive::{Deserialize, Serialize};
             use std::convert::From;
             use std::convert::TryFrom;
@@ -175,11 +175,14 @@ mod prime_field {
                     self.value.to_str_radix(10)
                 }
 
-                fn inverse_mul(&self) -> FieldPrime {
+                fn inverse_mul(&self) -> Option<FieldPrime> {
                     let (b, s, _) = extended_euclid(&self.value, &*P);
-                    assert_eq!(b, BigInt::one());
-                    FieldPrime {
-                        value: &s - s.div_floor(&*P) * &*P,
+                    if b == BigInt::one() {
+                        Some(FieldPrime {
+                            value: &s - s.div_floor(&*P) * &*P,
+                        })
+                    } else {
+                        None
                     }
                 }
                 fn min_value() -> FieldPrime {
@@ -389,11 +392,17 @@ mod prime_field {
                 }
             }
 
+            impl CheckedDiv for FieldPrime {
+                fn checked_div(&self, other: &FieldPrime) -> Option<FieldPrime> {
+                    other.inverse_mul().map(|inv| inv * self)
+                }
+            }
+
             impl Div<FieldPrime> for FieldPrime {
                 type Output = FieldPrime;
 
                 fn div(self, other: FieldPrime) -> FieldPrime {
-                    self * other.inverse_mul()
+                    self.checked_div(&other).unwrap()
                 }
             }
 
@@ -401,7 +410,7 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn div(self, other: &FieldPrime) -> FieldPrime {
-                    self / other.clone()
+                    self.checked_div(&other).unwrap()
                 }
             }
 

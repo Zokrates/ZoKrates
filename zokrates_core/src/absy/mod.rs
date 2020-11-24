@@ -482,6 +482,7 @@ pub enum Expression<'ast> {
     Sub(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Mult(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Div(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Rem(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Pow(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     IfElse(
         Box<ExpressionNode<'ast>>,
@@ -522,6 +523,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
+            Expression::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "({}**{})", lhs, rhs),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
@@ -590,6 +592,7 @@ impl<'ast> fmt::Debug for Expression<'ast> {
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
+            Expression::Rem(ref lhs, ref rhs) => write!(f, "Rem({:?}, {:?})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
