@@ -1603,15 +1603,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let res = match should_reduce {
             true => {
-                if actual_bitwidth != target_bitwidth.to_usize() {
-                    let bits = self.get_bits(
-                        res.clone(),
-                        actual_bitwidth,
-                        target_bitwidth,
-                        statements_flattened,
-                    );
+                let bits = self.get_bits(
+                    res.clone(),
+                    actual_bitwidth,
+                    target_bitwidth,
+                    statements_flattened,
+                );
 
-                    let field = bits.iter().enumerate().fold(
+                let field = if actual_bitwidth > target_bitwidth.to_usize() {
+                    bits.iter().enumerate().fold(
                         FlatExpression::Number(T::from(0)),
                         |acc, (index, bit)| {
                             FlatExpression::Add(
@@ -1624,12 +1624,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 ),
                             )
                         },
-                    );
-
-                    FlatUExpression::with_bits(bits).field(field)
+                    )
                 } else {
-                    res
-                }
+                    res.get_field_unchecked()
+                };
+
+                FlatUExpression::with_bits(bits).field(field)
             }
             false => res,
         };
