@@ -1603,33 +1603,29 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let res = match should_reduce {
             true => {
-                if actual_bitwidth != target_bitwidth.to_usize() {
-                    let bits = self.get_bits(
-                        res.clone(),
-                        actual_bitwidth,
-                        target_bitwidth,
-                        statements_flattened,
-                    );
+                let bits = self.get_bits(
+                    res.clone(),
+                    actual_bitwidth,
+                    target_bitwidth,
+                    statements_flattened,
+                );
 
-                    let field = bits.iter().enumerate().fold(
-                        FlatExpression::Number(T::from(0)),
-                        |acc, (index, bit)| {
-                            FlatExpression::Add(
-                                box acc,
-                                box FlatExpression::Mult(
-                                    box FlatExpression::Number(
-                                        T::from(2).pow(target_bitwidth.to_usize() - index - 1),
-                                    ),
-                                    box bit.clone().into(),
+                let field = bits.iter().enumerate().fold(
+                    FlatExpression::Number(T::from(0)),
+                    |acc, (index, bit)| {
+                        FlatExpression::Add(
+                            box acc,
+                            box FlatExpression::Mult(
+                                box FlatExpression::Number(
+                                    T::from(2).pow(target_bitwidth.to_usize() - index - 1),
                                 ),
-                            )
-                        },
-                    );
+                                box bit.clone().into(),
+                            ),
+                        )
+                    },
+                );
 
-                    FlatUExpression::with_bits(bits).field(field)
-                } else {
-                    res
-                }
+                FlatUExpression::with_bits(bits).field(field)
             }
             false => res,
         };
