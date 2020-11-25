@@ -1981,7 +1981,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // push parameters
         let arguments_flattened = funct
             .arguments
-            .into_iter()
+            .iter()
             .map(|p| self.use_parameter(&p, &mut statements_flattened))
             .collect();
 
@@ -2077,8 +2077,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             Type::FieldElement => {
                 if parameter.private {
-                    // we insert a dummy statement to avoid unconstrained private parameters
-                    // translates to x * x == y
+                    // we insert dummy condition statement for private field elements
+                    // to avoid unconstrained variables
+                    // translates to y = x * x
                     statements_flattened.push(FlatStatement::Condition(
                         self.use_sym().into(),
                         FlatExpression::Mult(box variable.into(), box variable.into()),
