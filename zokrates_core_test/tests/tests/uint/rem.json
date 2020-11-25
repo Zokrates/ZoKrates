@@ -1,0 +1,26 @@
+{
+	"entry_point": "./tests/tests/uint/rem.zok",
+	"max_constraint_count": 43,
+	"tests": [
+		{
+			"input": {
+				"values": ["255", "1"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["42", "10"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["2"]
+				}
+			}
+		}
+	]
+}
