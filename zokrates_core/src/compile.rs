@@ -149,20 +149,29 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
+    println!("check");
+
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
+    println!("flatten");
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
+
+    println!("analyse flat");
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
 
+    println!("convert to ir");
+
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
 
+    println!("optimize");
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
+    println!("analyse ir");
     // analyse (check for unused constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
 
@@ -189,8 +198,12 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
+
+    println!("parse {}", location.display());
+
     let compiled = compile_program::<T, E>(source, location.clone(), resolver, &arena)?;
 
+    println!("check semantics {}", location.display());
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
         CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
@@ -198,6 +211,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
 
     let abi = typed_ast.abi();
 
+    println!("analyse typed");
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 

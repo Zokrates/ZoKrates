@@ -42,14 +42,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
-        match a {
-            TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.fold_variable(v)),
-            TypedAssignee::Select(box a, box index) => TypedAssignee::Select(
-                box self.fold_assignee(a),
-                box self.fold_field_expression(index),
-            ),
-            TypedAssignee::Member(box s, m) => TypedAssignee::Member(box self.fold_assignee(s), m),
-        }
+        fold_assignee(self, a)
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
@@ -175,8 +168,8 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
                 .flat_map(|s| f.fold_statement(s))
                 .collect(),
         ),
-        TypedStatement::MultipleDefinition(variables, elist) => TypedStatement::MultipleDefinition(
-            variables.into_iter().map(|v| f.fold_variable(v)).collect(),
+        TypedStatement::MultipleDefinition(assignees, elist) => TypedStatement::MultipleDefinition(
+            assignees.into_iter().map(|a| f.fold_assignee(a)).collect(),
             f.fold_expression_list(elist),
         ),
     };
@@ -545,6 +538,19 @@ pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
     match s {
         TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
         there => there, // by default, do not fold modules recursively
+    }
+}
+
+pub fn fold_assignee<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    a: TypedAssignee<'ast, T>,
+) -> TypedAssignee<'ast, T> {
+    match a {
+        TypedAssignee::Identifier(v) => TypedAssignee::Identifier(f.fold_variable(v)),
+        TypedAssignee::Select(box a, box index) => {
+            TypedAssignee::Select(box f.fold_assignee(a), box f.fold_field_expression(index))
+        }
+        TypedAssignee::Member(box s, m) => TypedAssignee::Member(box f.fold_assignee(s), m),
     }
 }
 

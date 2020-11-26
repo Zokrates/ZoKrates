@@ -38,26 +38,27 @@ pub trait Analyse {
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> ZirProgram<'ast, T> {
         // propagated unrolling
+        println!("propagate unroll");
         let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
-
+        println!("bind");
         // return binding
         let r = ReturnBinder::bind(r);
-
+        println!("inline");
         // inline
         let r = Inliner::inline(r);
-
+        println!("propagate");
         // propagate
         let r = Propagator::propagate(r);
-
+        println!("redef");
         // optimize redefinitions
         let r = RedefinitionOptimizer::optimize(r);
-
+        println!("variable access");
         // remove variable access to complex types
         let r = VariableAccessRemover::apply(r);
-
+        println!("flattenerr");
         // convert to zir, removing complex types
         let zir = Flattener::flatten(r);
-
+        println!("uint opt");
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);
 

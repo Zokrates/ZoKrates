@@ -106,8 +106,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     ))
                 }
             }
-            TypedStatement::Definition(TypedAssignee::Select(..), _) => {
-                unreachable!("array updates should have been replaced with full array redef")
+            TypedStatement::Definition(TypedAssignee::Select(box a, box i), e) => {
+                let e = self.fold_expression(e);
+                let i = self.fold_field_expression(i);
+                let a = self.fold_assignee(a);
+                self.constants.remove(&a);
+                Some(TypedStatement::Definition(
+                    TypedAssignee::Select(box a, box i),
+                    e,
+                ))
             }
             TypedStatement::Definition(TypedAssignee::Member(..), _) => {
                 unreachable!("struct update should have been replaced with full struct redef")
@@ -129,7 +136,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 Some(TypedStatement::For(v, from, to, statements))
             }
-            TypedStatement::MultipleDefinition(variables, expression_list) => {
+            TypedStatement::MultipleDefinition(assignees, expression_list) => {
                 let expression_list = self.fold_expression_list(expression_list);
                 match expression_list {
                     TypedExpressionList::FunctionCall(key, arguments, types) => {
@@ -139,7 +146,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             .collect();
 
                         fn process_u_from_bits<'ast, T: Field>(
-                            variables: Vec<Variable<'ast>>,
+                            variables: Vec<TypedAssignee<'ast, T>>,
                             arguments: Vec<TypedExpression<'ast, T>>,
                             bitwidth: UBitwidth,
                         ) -> TypedExpression<'ast, T> {
@@ -183,7 +190,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         }
 
                         fn process_u_to_bits<'ast, T: Field>(
-                            variables: Vec<Variable<'ast>>,
+                            variables: Vec<TypedAssignee<'ast, T>>,
                             arguments: Vec<TypedExpression<'ast, T>>,
                             bitwidth: UBitwidth,
                         ) -> TypedExpression<'ast, T> {
@@ -224,37 +231,37 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match key.id {
                                     "_U32_FROM_BITS" => Some(process_u_from_bits(
-                                        variables.clone(),
+                                        assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B32,
                                     )),
                                     "_U16_FROM_BITS" => Some(process_u_from_bits(
-                                        variables.clone(),
+                                        assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B16,
                                     )),
                                     "_U8_FROM_BITS" => Some(process_u_from_bits(
-                                        variables.clone(),
+                                        assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B8,
                                     )),
                                     "_U32_TO_BITS" => Some(process_u_to_bits(
-                                        variables.clone(),
+                                        assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B32,
                                     )),
                                     "_U16_TO_BITS" => Some(process_u_to_bits(
-                                        variables.clone(),
+                                        assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B16,
                                     )),
                                     "_U8_TO_BITS" => Some(process_u_to_bits(
-                                        variables.clone(),
+                                        assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B8,
                                     )),
                                     "_UNPACK" => {
-                                        assert_eq!(variables.len(), 1);
+                                        assert_eq!(assignees.len(), 1);
                                         assert_eq!(arguments.len(), 1);
 
                                         match FieldElementExpression::try_from(arguments[0].clone())
@@ -295,13 +302,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                                 match r {
                                     Some(expr) => {
-                                        self.constants.insert(
-                                            TypedAssignee::Identifier(variables[0].clone()),
-                                            expr.clone(),
-                                        );
+                                        self.constants.insert(assignees[0].clone(), expr.clone());
                                         match self.verbose {
                                             true => Some(TypedStatement::MultipleDefinition(
-                                                variables,
+                                                assignees,
                                                 TypedExpressionList::FunctionCall(
                                                     key, arguments, types,
                                                 ),
@@ -313,13 +317,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                         let l = TypedExpressionList::FunctionCall(
                                             key, arguments, types,
                                         );
-                                        Some(TypedStatement::MultipleDefinition(variables, l))
+                                        Some(TypedStatement::MultipleDefinition(assignees, l))
                                     }
                                 }
                             }
                             false => {
                                 let l = TypedExpressionList::FunctionCall(key, arguments, types);
-                                Some(TypedStatement::MultipleDefinition(variables, l))
+                                Some(TypedStatement::MultipleDefinition(assignees, l))
                             }
                         }
                     }

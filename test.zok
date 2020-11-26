@@ -1,0 +1,11 @@
+def foo() -> field:
+	return 42
+
+def main():
+	field[3] a = [0,0,0]
+	a[1] = foo()
+	a[2] = foo()
+
+	u8 b = 0x00
+	b = b + b
+	return

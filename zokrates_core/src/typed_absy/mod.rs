@@ -259,6 +259,12 @@ pub enum TypedAssignee<'ast, T> {
     Member(Box<TypedAssignee<'ast, T>>, MemberId),
 }
 
+impl<'ast, T> From<Variable<'ast>> for TypedAssignee<'ast, T> {
+    fn from(v: Variable<'ast>) -> Self {
+        TypedAssignee::Identifier(v)
+    }
+}
+
 impl<'ast, T> Typed for TypedAssignee<'ast, T> {
     fn get_type(&self) -> Type {
         match *self {
@@ -319,7 +325,7 @@ pub enum TypedStatement<'ast, T> {
         FieldElementExpression<'ast, T>,
         Vec<TypedStatement<'ast, T>>,
     ),
-    MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
+    MultipleDefinition(Vec<TypedAssignee<'ast, T>>, TypedExpressionList<'ast, T>),
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {

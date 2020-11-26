@@ -100,7 +100,23 @@ impl<'ast, T: Field> Flattener<T> {
     ) -> Vec<zir::ZirAssignee<'ast>> {
         match a {
             typed_absy::TypedAssignee::Identifier(v) => self.fold_variable(v),
-            _ => unreachable!(),
+            typed_absy::TypedAssignee::Select(box a, box i) => {
+                use typed_absy::Typed;
+                let count = match a.get_type() {
+                    typed_absy::Type::Array(array_ty) => array_ty.ty.get_primitive_count(),
+                    _ => unreachable!(),
+                };
+                let a = self.fold_assignee(a);
+
+                match i {
+                    typed_absy::FieldElementExpression::Number(n) => {
+                        let index = n.to_dec_string().parse::<usize>().unwrap();
+                        a[index * count..(index + 1) * count].to_vec()
+                    }
+                    i => unimplemented!("index {} not allowed, should be a constant", i),
+                }
+            }
+            _ => unimplemented!(),
         }
     }
 
@@ -257,7 +273,7 @@ pub fn fold_statement<'ast, T: Field>(
             vec![zir::ZirStatement::MultipleDefinition(
                 variables
                     .into_iter()
-                    .flat_map(|v| f.fold_variable(v))
+                    .flat_map(|v| f.fold_assignee(v))
                     .collect(),
                 f.fold_expression_list(elist),
             )]
