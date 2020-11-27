@@ -810,11 +810,13 @@ mod tests {
 
         let stack = vec![(
             "foo".into(),
-            FunctionKey::with_id("foo").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
-            ),
+            FunctionKey::with_id("foo")
+                .signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                )
+                .hash(),
             1,
         )];
 
@@ -973,7 +975,9 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "foo".into(),
-                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                FunctionKey::with_id("foo")
+                                    .signature(signature.clone())
+                                    .hash(),
                                 1
                             )])
                         )),
@@ -985,14 +989,14 @@ mod tests {
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    FunctionKey::with_id("foo").signature(signature.clone()).hash(),
                                     1
                                 )]
                             )),
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    FunctionKey::with_id("foo").signature(signature.clone()).hash(),
                                     1
                                 )]
                             ))
@@ -1144,7 +1148,9 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "foo".into(),
-                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                FunctionKey::with_id("foo")
+                                    .signature(signature.clone())
+                                    .hash(),
                                 1
                             )])
                         )),
@@ -1154,7 +1160,9 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "main".into(),
-                                FunctionKey::with_id("bar").signature(signature.clone()),
+                                FunctionKey::with_id("bar")
+                                    .signature(signature.clone())
+                                    .hash(),
                                 1
                             )])
                         )),
@@ -1165,19 +1173,23 @@ mod tests {
                             Identifier::from("a").stack(vec![
                                 (
                                     "main".into(),
-                                    FunctionKey::with_id("bar").signature(signature.clone()),
+                                    FunctionKey::with_id("bar")
+                                        .signature(signature.clone())
+                                        .hash(),
                                     1
                                 ),
                                 (
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    FunctionKey::with_id("foo")
+                                        .signature(signature.clone())
+                                        .hash(),
                                     2
                                 )
                             ])
                         )),
                         FieldElementExpression::Identifier(Identifier::from("a").stack(vec![(
                             "main".into(),
-                            FunctionKey::with_id("bar").signature(signature.clone()),
+                            FunctionKey::with_id("bar").signature(signature.clone()).hash(),
                             1
                         )]))
                         .into()
@@ -1188,7 +1200,7 @@ mod tests {
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    FunctionKey::with_id("foo").signature(signature.clone()).hash(),
                                     1
                                 )]
                             )),
@@ -1196,12 +1208,16 @@ mod tests {
                                 vec![
                                     (
                                         "main".into(),
-                                        FunctionKey::with_id("bar").signature(signature.clone()),
+                                        FunctionKey::with_id("bar")
+                                            .signature(signature.clone())
+                                            .hash(),
                                         1
                                     ),
                                     (
                                         "foo".into(),
-                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        FunctionKey::with_id("foo")
+                                            .signature(signature.clone())
+                                            .hash(),
                                         2
                                     )
                                 ]
@@ -1526,20 +1542,24 @@ mod tests {
 
         let stack0 = vec![(
             "id".into(),
-            FunctionKey::with_id("main").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
-            ),
+            FunctionKey::with_id("main")
+                .signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                )
+                .hash(),
             1,
         )];
         let stack1 = vec![(
             "id".into(),
-            FunctionKey::with_id("main").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
-            ),
+            FunctionKey::with_id("main")
+                .signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                )
+                .hash(),
             2,
         )];
 
