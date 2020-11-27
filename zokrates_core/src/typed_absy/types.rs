@@ -327,12 +327,22 @@ pub struct FunctionKey<'ast> {
     pub signature: Signature,
 }
 
+pub type FunctionKeyHash = u64;
+
 impl<'ast> FunctionKey<'ast> {
     pub fn with_id<S: Into<Identifier<'ast>>>(id: S) -> Self {
         FunctionKey {
             id: id.into(),
             signature: Signature::new(),
         }
+    }
+
+    pub fn hash(&self) -> FunctionKeyHash {
+        use std::hash::Hasher;
+
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        <Self as std::hash::Hash>::hash(self, &mut hasher);
+        hasher.finish()
     }
 
     pub fn signature(mut self, signature: Signature) -> Self {
