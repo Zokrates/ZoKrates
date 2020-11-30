@@ -2208,15 +2208,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// * `prog` - `ZirProgram` that will be flattened.
     fn flatten_program(&mut self, prog: ZirProgram<'ast, T>) -> FlatProg<T> {
-        let main_module = prog.modules.get(&prog.main).unwrap();
+        let mut prog = prog;
 
-        let main = main_module
+        let mut main_module = prog.modules.remove(&prog.main).unwrap();
+
+        let main_key = main_module
             .functions
-            .iter()
-            .find(|(k, _)| k.id == "main")
+            .keys()
+            .find(|k| k.id == "main")
             .unwrap()
-            .1
             .clone();
+
+        let main = main_module.functions.remove(&main_key).unwrap();
 
         let symbols = &main_module.functions;
 

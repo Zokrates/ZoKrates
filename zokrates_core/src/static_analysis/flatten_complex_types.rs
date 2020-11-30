@@ -12,7 +12,7 @@ pub struct Flattener<T: Field> {
 
 fn flatten_identifier_rec<'ast>(
     id: zir::SourceIdentifier<'ast>,
-    ty: typed_absy::types::ConcreteType,
+    ty: &typed_absy::types::ConcreteType,
 ) -> Vec<zir::Variable<'ast>> {
     match ty {
         typed_absy::ConcreteType::Int => unreachable!(),
@@ -32,16 +32,16 @@ fn flatten_identifier_rec<'ast>(
             .flat_map(|i| {
                 flatten_identifier_rec(
                     zir::SourceIdentifier::Select(box id.clone(), i),
-                    *array_type.ty.clone(),
+                    &array_type.ty,
                 )
             })
             .collect(),
         typed_absy::types::ConcreteType::Struct(members) => members
-            .into_iter()
+            .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_rec(
-                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id),
-                    *struct_member.ty,
+                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id.clone()),
+                    &struct_member.ty,
                 )
             })
             .collect(),
@@ -99,7 +99,7 @@ impl<'ast, T: Field> Flattener<T> {
 
         let ty = typed_absy::types::ConcreteType::try_from(ty).unwrap();
 
-        flatten_identifier_rec(id, ty)
+        flatten_identifier_rec(id, &ty)
     }
 
     fn fold_assignee(
@@ -293,7 +293,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
         typed_absy::ArrayExpressionInner::Identifier(id) => {
             let variables = flatten_identifier_rec(
                 f.fold_name(id),
-                typed_absy::types::ConcreteType::array(t.clone(), size),
+                &typed_absy::types::ConcreteType::array(t.clone(), size),
             );
             variables
                 .into_iter()
@@ -390,7 +390,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
         typed_absy::StructExpressionInner::Identifier(id) => {
             let variables = flatten_identifier_rec(
                 f.fold_name(id),
-                typed_absy::types::ConcreteType::struc(t.clone()),
+                &typed_absy::types::ConcreteType::struc(t.clone()),
             );
             variables
                 .into_iter()
@@ -492,7 +492,7 @@ pub fn fold_field_expression<'ast, T: Field>(
             zir::FieldElementExpression::Identifier(
                 flatten_identifier_rec(
                     f.fold_name(id),
-                    typed_absy::types::ConcreteType::FieldElement,
+                    &typed_absy::types::ConcreteType::FieldElement,
                 )[0]
                 .id
                 .clone(),
@@ -567,7 +567,7 @@ pub fn fold_boolean_expression<'ast, T: Field>(
     match e {
         typed_absy::BooleanExpression::Value(v) => zir::BooleanExpression::Value(v),
         typed_absy::BooleanExpression::Identifier(id) => zir::BooleanExpression::Identifier(
-            flatten_identifier_rec(f.fold_name(id), typed_absy::types::ConcreteType::Boolean)[0]
+            flatten_identifier_rec(f.fold_name(id), &typed_absy::types::ConcreteType::Boolean)[0]
                 .id
                 .clone(),
         ),
@@ -751,7 +751,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
         typed_absy::UExpressionInner::Identifier(id) => zir::UExpressionInner::Identifier(
             flatten_identifier_rec(
                 f.fold_name(id),
-                typed_absy::types::ConcreteType::Uint(bitwidth),
+                &typed_absy::types::ConcreteType::Uint(bitwidth),
             )[0]
             .id
             .clone(),
