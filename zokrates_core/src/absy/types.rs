@@ -1,4 +1,4 @@
-use absy::UnresolvedTypeNode;
+use crate::absy::UnresolvedTypeNode;
 use std::fmt;
 
 pub type Identifier<'ast> = &'ast str;
@@ -7,7 +7,7 @@ pub type MemberId = String;
 
 pub type UserTypeId = String;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum UnresolvedType {
     FieldElement,
     Boolean,
@@ -41,9 +41,9 @@ pub use self::signature::UnresolvedSignature;
 mod signature {
     use std::fmt;
 
-    use absy::UnresolvedTypeNode;
+    use crate::absy::UnresolvedTypeNode;
 
-    #[derive(Clone, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, PartialEq)]
     pub struct UnresolvedSignature {
         pub inputs: Vec<UnresolvedTypeNode>,
         pub outputs: Vec<UnresolvedTypeNode>,

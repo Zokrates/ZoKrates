@@ -1,4 +1,5 @@
 use crate::flat_absy::FlatVariable;
+use serde::{Deserialize, Serialize};
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
 use std::ops::{Add, Div, Mul, Sub};

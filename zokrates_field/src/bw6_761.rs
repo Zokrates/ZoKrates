@@ -4,4 +4,6 @@ prime_field!(
 );
 
 #[cfg(feature = "ark")]
-ark_extensions!(ark_bw6_761::BW6_761);
+use ark_bw6_761::BW6_761;
+#[cfg(feature = "ark")]
+ark_extensions!(BW6_761);

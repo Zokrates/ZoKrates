@@ -4,7 +4,6 @@ prime_field!(
 );
 
 #[cfg(feature = "bellman")]
-bellman_extensions!(
-    bellman_ce::pairing::bls12_381::Bls12,
-    bellman_ce::pairing::bls12_381::Fq2
-);
+use bellman_ce::pairing::bls12_381::{Bls12, Fq2};
+#[cfg(feature = "ark")]
+bellman_extensions!(Bls12, Fq2);

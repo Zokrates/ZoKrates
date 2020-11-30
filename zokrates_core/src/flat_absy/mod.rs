@@ -11,7 +11,7 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use solvers::Solver;
+use crate::solvers::Solver;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
@@ -209,7 +209,7 @@ impl<T: Field> fmt::Display for FlatDirective<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum FlatExpression<T> {
     Number(T),
     Identifier(FlatVariable),

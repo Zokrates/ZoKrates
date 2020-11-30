@@ -13,7 +13,7 @@ pub use self::solidity::*;
 
 use crate::ir;
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
 #[derive(Serialize)]
@@ -34,6 +34,7 @@ pub struct Proof<T> {
     pub inputs: Vec<String>,
 }
 
+#[allow(dead_code)]
 impl<T: Serialize + DeserializeOwned> Proof<T> {
     fn new(proof: T, inputs: Vec<String>) -> Self {
         Proof { proof, inputs }

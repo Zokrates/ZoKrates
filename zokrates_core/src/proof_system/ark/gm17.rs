@@ -6,13 +6,13 @@ use ark_gm17::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
 
+use crate::ir::{Prog, Witness};
+use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
-use ir::{Prog, Witness};
-use proof_system::ark::Ark;
-use proof_system::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
-use proof_system::Scheme;
-use proof_system::{Backend, Proof, SetupKeypair};
+use crate::proof_system::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
+use crate::proof_system::Scheme;
+use crate::proof_system::{Backend, Proof, SetupKeypair};
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
     fn setup(program: Prog<T>) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
@@ -200,9 +200,9 @@ impl Backend<Bw6_761Field, GM17> for Ark {
 }
 
 pub mod serialization {
+    use crate::proof_system::{G1Affine, G2Affine, G2AffineFq};
     use ark_ec::PairingEngine;
     use ark_ff::FromBytes;
-    use proof_system::{G1Affine, G2Affine, G2AffineFq};
     use zokrates_field::ArkFieldExtensions;
 
     #[inline]

@@ -12,7 +12,7 @@
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::*;
 use crate::ir::*;
-use solvers::Solver;
+use crate::solvers::Solver;
 use std::collections::hash_map::{Entry, HashMap};
 use zokrates_field::Field;
 

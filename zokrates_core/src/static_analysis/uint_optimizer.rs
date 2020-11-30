@@ -1,6 +1,6 @@
+use crate::zir::folder::*;
 use crate::zir::*;
 use std::collections::HashMap;
-use zir::folder::*;
 use zokrates_field::Field;
 
 #[derive(Default)]

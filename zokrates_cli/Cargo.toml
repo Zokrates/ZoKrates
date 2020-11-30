@@ -12,6 +12,7 @@ bellman = ["zokrates_core/bellman"]
 ark = ["zokrates_core/ark"]
 
 [dependencies]
+cfg-if = "0.1"
 clap = "2.26.2"
 bincode = "0.8.0"
 regex = "0.2"

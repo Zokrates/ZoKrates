@@ -1,8 +1,5 @@
 #![feature(box_patterns, box_syntax)]
 
-#[macro_use]
-extern crate serde_derive;
-
 cfg_if::cfg_if! {
     if #[cfg(feature = "ark")] {
         extern crate bellman_ce as bellman;
