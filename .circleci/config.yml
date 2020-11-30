@@ -28,7 +28,6 @@ jobs:
   test:
     docker:
       - image: zokrates/env:latest
-    resource_class: xlarge
     steps:
       - checkout
       - run:
@@ -82,7 +81,6 @@ jobs:
       - image: zokrates/env:latest
       - image: trufflesuite/ganache-cli:next
         port: 8545:8545
-    resource_class: xlarge
     steps:
       - checkout
       - run:
