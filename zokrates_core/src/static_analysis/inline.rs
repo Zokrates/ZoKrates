@@ -78,6 +78,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     }
 
     pub fn inline(p: TypedProgram<T>) -> TypedProgram<T> {
+        log::info!("Inline");
+
         let main_module_id = p.main;
 
         // get the main module

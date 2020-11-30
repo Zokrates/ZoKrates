@@ -7,6 +7,8 @@ pub struct ReturnBinder;
 
 impl ReturnBinder {
     pub fn bind<'ast, T: Field>(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        log::info!("Bind outputs");
+
         ReturnBinder {}.fold_program(p)
     }
 }

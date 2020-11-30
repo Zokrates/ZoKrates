@@ -16,6 +16,8 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
     }
 
     pub fn optimize(p: ZirProgram<'ast, T>) -> ZirProgram<'ast, T> {
+        log::info!("Optimize uint");
+
         UintOptimizer::new().fold_program(p)
     }
 

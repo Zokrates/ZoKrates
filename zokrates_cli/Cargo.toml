@@ -19,6 +19,7 @@ zokrates_core = { version = "0.5", path = "../zokrates_core", features = ["multi
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 serde_json = "1.0"
 dirs = "3.0.1"
+env_logger = "0.8.2"
 
 [dev-dependencies]
 glob = "0.2.11"

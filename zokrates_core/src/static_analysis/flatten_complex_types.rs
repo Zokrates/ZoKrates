@@ -47,6 +47,8 @@ fn flatten_identifier_rec<'a>(
 
 impl<'ast, T: Field> Flattener<T> {
     pub fn flatten(p: typed_absy::TypedProgram<T>) -> zir::ZirProgram<T> {
+        log::info!("Flatten complex types");
+
         let mut f = Flattener {
             phantom: PhantomData,
         };

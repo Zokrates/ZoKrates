@@ -7,6 +7,7 @@ use absy::{Module, ModuleId, Program};
 use flatten::Flattener;
 use imports::{self, Importer};
 use ir;
+use log::info;
 use macros;
 use macros::process_macros;
 use semantics::{self, Checker};
@@ -147,6 +148,8 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
+    info!("Compile \"{}\"", location.display());
+
     let arena = Arena::new();
 
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
@@ -189,7 +192,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
-    let compiled = compile_program::<T, E>(source, location.clone(), resolver, &arena)?;
+    let compiled = parse_program::<T, E>(source, location.clone(), resolver, &arena)?;
 
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
@@ -204,7 +207,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     Ok((typed_ast, abi))
 }
 
-pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
+pub fn parse_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
@@ -212,7 +215,7 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 ) -> Result<Program<'ast>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = compile_module::<T, E>(&source, location.clone(), resolver, &mut modules, &arena)?;
+    let main = parse_module::<T, E>(&source, location.clone(), resolver, &mut modules, &arena)?;
 
     modules.insert(location.clone(), main);
 
@@ -222,13 +225,15 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     })
 }
 
-pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
+pub fn parse_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast>, CompileErrors> {
+    info!("Parse module \"{}\"", location.display());
+
     let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
 

@@ -19,6 +19,8 @@ extern crate zokrates_common;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
 
+extern crate log;
+
 extern crate bellman_ce as bellman;
 extern crate ff_ce as ff;
 extern crate pairing_ce as pairing;

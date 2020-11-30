@@ -42,10 +42,12 @@ impl<'ast, T: Field> Propagator<'ast, T> {
     }
 
     pub fn propagate(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        log::info!("Propagate");
         Propagator::new().fold_program(p)
     }
 
     pub fn propagate_verbose(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        log::info!("Propagate (verbose)");
         Propagator::verbose().fold_program(p)
     }
 }

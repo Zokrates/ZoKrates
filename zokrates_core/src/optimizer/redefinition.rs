@@ -60,6 +60,8 @@ impl<T: Field> RedefinitionOptimizer<T> {
     }
 
     pub fn optimize(p: Prog<T>) -> Prog<T> {
+        log::info!("Optimize redefinitions");
+
         RedefinitionOptimizer::new().fold_module(p)
     }
 }

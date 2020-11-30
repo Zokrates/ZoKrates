@@ -28,6 +28,8 @@ impl DuplicateOptimizer {
     }
 
     pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
+        log::info!("Optimize duplicate constraints");
+
         Self::new().fold_module(p)
     }
 }

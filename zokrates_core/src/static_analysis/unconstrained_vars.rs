@@ -22,6 +22,8 @@ impl UnconstrainedVariableDetector {
         }
     }
     pub fn detect<T: Field>(p: Prog<T>) -> Prog<T> {
+        log::info!("Detect unconstrained variables");
+
         let mut instance = Self::new(&p);
         let p = instance.fold_module(p);
 

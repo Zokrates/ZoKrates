@@ -149,6 +149,8 @@ impl<T: Field> FlatUExpression<T> {
 
 impl<'ast, T: Field> Flattener<'ast, T> {
     pub fn flatten(p: ZirProgram<'ast, T>) -> FlatProg<T> {
+        log::info!("Flatten ({} statements)", p.main().statements.len());
+
         Flattener::new().flatten_program(p)
     }
 

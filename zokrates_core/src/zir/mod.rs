@@ -42,6 +42,19 @@ pub struct ZirProgram<'ast, T> {
     pub main: ZirModuleId,
 }
 
+impl<'ast, T> ZirProgram<'ast, T> {
+    pub fn main(&self) -> &ZirFunction<'ast, T> {
+        self.modules
+            .get(&self.main)
+            .map(|m| m.functions.iter().find(|(k, _)| k.id == "main").unwrap().1)
+            .map(|f| match f {
+                ZirFunctionSymbol::Here(f) => f,
+                _ => unreachable!(),
+            })
+            .unwrap()
+    }
+}
+
 impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (module_id, module) in &self.modules {

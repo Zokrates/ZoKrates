@@ -102,6 +102,8 @@ impl<T: Field> Propagate<T> for FlatFunction<T> {
 
 impl<T: Field> FlatProg<T> {
     pub fn propagate(self) -> FlatProg<T> {
+        log::info!("Propagate (flat)");
+
         let main = self.main.propagate();
 
         FlatProg { main }

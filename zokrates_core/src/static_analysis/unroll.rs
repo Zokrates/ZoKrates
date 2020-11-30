@@ -55,6 +55,8 @@ impl<'ast> Unroller<'ast> {
     }
 
     pub fn unroll<T: Field>(p: TypedProgram<T>) -> Output<T> {
+        log::info!("Unroll");
+
         let mut unroller = Unroller::new();
         let p = unroller.fold_program(p);
 

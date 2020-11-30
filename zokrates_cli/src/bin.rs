@@ -11,6 +11,7 @@ use constants::*;
 use helpers::*;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
+use env_logger;
 use serde_json::{from_reader, to_writer_pretty, Value};
 use std::convert::TryFrom;
 use std::env;
@@ -35,6 +36,10 @@ use {
 };
 
 fn main() {
+    let mut log_builder = env_logger::Builder::from_default_env();
+
+    log_builder.format_module_path(false).init();
+
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);

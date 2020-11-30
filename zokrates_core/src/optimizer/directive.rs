@@ -32,6 +32,8 @@ impl<T: Field> DirectiveOptimizer<T> {
     }
 
     pub fn optimize(p: Prog<T>) -> Prog<T> {
+        log::info!("Optimize directives");
+
         DirectiveOptimizer::new().fold_module(p)
     }
 }

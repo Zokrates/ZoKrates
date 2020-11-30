@@ -23,6 +23,8 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
     }
 
     pub fn apply(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        log::info!("Remove variable access");
+
         Self::new().fold_program(p)
     }
 

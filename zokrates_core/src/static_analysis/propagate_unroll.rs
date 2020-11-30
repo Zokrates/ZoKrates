@@ -30,6 +30,8 @@ impl PropagatedUnroller {
     pub fn unroll<'ast, T: Field>(
         p: TypedProgram<'ast, T>,
     ) -> Result<TypedProgram<'ast, T>, &'static str> {
+        log::info!("Unroll (iterative)");
+
         let mut blocked_at = None;
 
         // unroll a first time, retrieving whether the unroll is complete

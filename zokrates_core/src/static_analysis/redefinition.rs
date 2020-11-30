@@ -15,6 +15,8 @@ impl<'ast> RedefinitionOptimizer<'ast> {
     }
 
     pub fn optimize<T: Field>(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        log::info!("Optimize redefinitions");
+
         RedefinitionOptimizer::new().fold_program(p)
     }
 }
