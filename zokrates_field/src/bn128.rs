@@ -1,15 +1,16 @@
-extern crate ark_bn254;
-
-use ark_bn254::Bn254;
-use bellman_ce::pairing::bn256::{Bn256, Fq2};
-
 prime_field!(
     b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
     "bn128"
 );
 
-bellman_extensions!(Bn256, Fq2);
-ark_extensions!(Bn254);
+#[cfg(feature = "bellman")]
+bellman_extensions!(
+    bellman_ce::pairing::bn256::Bn256,
+    bellman_ce::pairing::bn256::Fq2
+);
+
+#[cfg(feature = "ark")]
+ark_extensions!(ark_bn254::Bn254);
 
 #[cfg(test)]
 mod tests {
@@ -379,6 +380,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "bellman")]
     mod bellman {
         use super::*;
 

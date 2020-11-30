@@ -125,7 +125,7 @@ pub enum Type {
     Uint(UBitwidth),
 }
 
-impl Serialize for Type {
+impl serde::Serialize for Type {
     fn serialize<S>(&self, s: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
     where
         S: Serializer,
@@ -155,7 +155,7 @@ impl Serialize for Type {
     }
 }
 
-impl<'de> Deserialize<'de> for Type {
+impl<'de> serde::Deserialize<'de> for Type {
     fn deserialize<D>(d: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
         D: Deserializer<'de>,
@@ -361,9 +361,9 @@ impl<'ast> FunctionKey<'ast> {
 }
 
 pub use self::signature::Signature;
-use serde::de::Error;
-use serde::ser::SerializeMap;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+// use serde::de::Error;
+// use serde::ser::SerializeMap;
+// use serde::{Deserializer, Serializer};
 
 pub mod signature {
     use super::*;

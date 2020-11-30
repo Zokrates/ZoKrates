@@ -467,8 +467,7 @@ mod tests {
     use super::*;
     use zokrates_field::Bn128Field;
 
-    extern crate pretty_assertions;
-    use self::pretty_assertions::assert_eq;
+    use pretty_assertions::assert_eq;
 
     macro_rules! uint_test {
         ( $left_max:expr, $left_reduce:expr, $right_max:expr, $right_reduce:expr, $method:ident, $res_max:expr  ) => {{

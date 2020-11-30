@@ -1,5 +1,6 @@
 #[cfg(feature = "ark")]
 pub mod ark;
+#[cfg(feature = "bellman")]
 pub mod bellman;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;

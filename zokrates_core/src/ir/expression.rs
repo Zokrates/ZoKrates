@@ -358,7 +358,7 @@ mod tests {
         }
     }
 
-    mod try {
+    mod try_summand {
         use super::*;
 
         #[test]
