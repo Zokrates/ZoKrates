@@ -4792,7 +4792,7 @@ mod tests {
             Err(vec![Error {
                 inner: ErrorInner {
                     pos: Some((Position::mock(), Position::mock())),
-                    message: "Only assignment to identifiers is supported, found a[0u32]".into()
+                    message: "Only assignment to identifiers is supported, found a[0]".into()
                 },
                 module_id: "main".into()
             }])
