@@ -12,6 +12,7 @@ use zokrates_field::Bn128Field;
 use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::groth16::G16;
 
+#[cfg(feature = "bellman")]
 #[wasm_bindgen_test]
 fn generate_proof() {
     let program: Prog<Bn128Field> = Prog {
