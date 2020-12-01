@@ -23,25 +23,26 @@ pub use self::types::{
     DeclarationSignature, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
     Signature, StructType, Type, UBitwidth,
 };
-use typed_absy::types::ConcreteGenericsAssignment;
+use crate::typed_absy::types::ConcreteGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::path::PathBuf;
 
-pub use typed_absy::integer::IntExpression;
-pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
+pub use crate::typed_absy::integer::IntExpression;
+pub use crate::typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
-use embed::FlatEmbed;
+use crate::embed::FlatEmbed;
+
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
-pub use typed_absy::types::{ArrayType, FunctionKey, MemberId};
+pub use crate::typed_absy::types::{ArrayType, FunctionKey, MemberId};
 
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
-use typed_absy::abi::{Abi, AbiInput};
+use crate::typed_absy::abi::{Abi, AbiInput};
 
 pub use self::identifier::Identifier;
 

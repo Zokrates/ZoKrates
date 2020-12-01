@@ -1,5 +1,6 @@
+use crate::zir::ZirModuleId;
+use serde::{Deserialize, Serialize};
 use std::fmt;
-use zir::ZirModuleId;
 
 pub type Identifier<'ast> = &'ast str;
 

@@ -9,14 +9,14 @@ mod variable;
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
+pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 use std::path::PathBuf;
-pub use zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
-use embed::FlatEmbed;
+use crate::embed::FlatEmbed;
+use crate::zir::types::{FunctionKey, Signature};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use zir::types::{FunctionKey, Signature};
 use zokrates_field::Field;
 
 pub use self::folder::Folder;

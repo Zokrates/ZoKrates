@@ -11,10 +11,10 @@
 //! @date 2018
 
 use crate::typed_absy::folder::*;
+use crate::typed_absy::types::Type;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use typed_absy::types::Type;
 use zokrates_field::Field;
 
 pub struct Propagator<'ast, T: Field> {

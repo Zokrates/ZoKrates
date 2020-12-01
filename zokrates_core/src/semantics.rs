@@ -18,11 +18,11 @@ use crate::parser::Position;
 
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
-use std::hash::{Hash, Hasher};
-use typed_absy::types::{
+use crate::typed_absy::types::{
     ArrayType, Constant, DeclarationArrayType, DeclarationFunctionKey, DeclarationSignature,
     DeclarationStructMember, DeclarationStructType, DeclarationType, StructLocation,
 };
+use std::hash::{Hash, Hasher};
 
 use std::convert::TryInto;
 
@@ -3226,8 +3226,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use absy;
-    use typed_absy;
+    use crate::absy;
+    use crate::typed_absy;
     use zokrates_field::Bn128Field;
 
     const MODULE_ID: &str = "";
@@ -5187,7 +5187,7 @@ mod tests {
 
     mod structs {
         use super::*;
-        use typed_absy::types::StructMember;
+        use crate::typed_absy::types::StructMember;
 
         /// solver function to create a module at location "" with a single symbol `Foo { foo: field }`
         fn create_module_with_foo(

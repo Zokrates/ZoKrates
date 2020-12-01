@@ -13,16 +13,15 @@
 
 mod inline;
 mod shallow_ssa;
-mod unroll;
 
 use self::inline::{inline_call, InlineError};
+use crate::typed_absy::result_folder::*;
+use crate::typed_absy::types::ConcreteGenericsAssignment;
+use crate::typed_absy::types::GGenericsAssignment;
+use crate::typed_absy::Folder;
 use std::collections::HashMap;
-use typed_absy::result_folder::*;
-use typed_absy::types::ConcreteGenericsAssignment;
-use typed_absy::types::GGenericsAssignment;
-use typed_absy::Folder;
 
-use typed_absy::{
+use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, ConcreteFunctionKey, CoreIdentifier,
     DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier, StructExpression,
     StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList, TypedFunction,
@@ -36,7 +35,7 @@ use zokrates_field::Field;
 
 use self::shallow_ssa::ShallowTransformer;
 
-use static_analysis::Propagator;
+use crate::static_analysis::Propagator;
 
 use std::fmt;
 
@@ -668,13 +667,13 @@ fn compute_hash<'ast, T: Field>(f: &TypedFunction<'ast, T>) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::typed_absy::types::Constant;
+    use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
         ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
         FieldElementExpression, Identifier, Type, TypedExpression, TypedExpressionList, UBitwidth,
         UExpression, UExpressionInner, Variable,
     };
-    use typed_absy::types::Constant;
-    use typed_absy::types::DeclarationSignature;
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -1596,7 +1595,7 @@ mod tests {
         // expected:
         // Error: Incompatible
 
-        use typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
+        use crate::typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
 
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array(

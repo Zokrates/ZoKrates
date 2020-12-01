@@ -1,7 +1,7 @@
+use crate::flat_absy::FlatVariable;
+use crate::ir::folder::Folder;
+use crate::ir::Directive;
 use crate::ir::Prog;
-use flat_absy::FlatVariable;
-use ir::folder::Folder;
-use ir::Directive;
 use std::collections::HashSet;
 use zokrates_field::Field;
 
@@ -54,9 +54,9 @@ impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flat_absy::FlatVariable;
-    use ir::{Function, LinComb, Prog, QuadComb, Statement};
-    use solvers::Solver;
+    use crate::flat_absy::FlatVariable;
+    use crate::ir::{Function, LinComb, Prog, QuadComb, Statement};
+    use crate::solvers::Solver;
     use zokrates_field::Bn128Field;
 
     #[test]

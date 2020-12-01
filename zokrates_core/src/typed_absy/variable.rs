@@ -1,9 +1,9 @@
 use crate::typed_absy::types::GType;
+use crate::typed_absy::types::{Constant, GStructType, UBitwidth};
 use crate::typed_absy::Identifier;
+use crate::typed_absy::UExpression;
+use crate::typed_absy::{TryFrom, TryInto};
 use std::fmt;
-use typed_absy::types::{Constant, GStructType, UBitwidth};
-use typed_absy::UExpression;
-use typed_absy::{TryFrom, TryInto};
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct GVariable<'ast, S> {

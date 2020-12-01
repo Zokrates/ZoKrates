@@ -1,5 +1,5 @@
-use typed_absy::types::UBitwidth;
-use typed_absy::*;
+use crate::typed_absy::types::UBitwidth;
+use crate::typed_absy::*;
 use zokrates_field::Field;
 
 type Bitwidth = usize;

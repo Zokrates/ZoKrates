@@ -1,7 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
+use crate::typed_absy::types::{ArrayType, StructMember, StructType};
 use crate::typed_absy::*;
-use typed_absy::types::{ArrayType, StructMember, StructType};
 use zokrates_field::Field;
 
 pub trait ResultFolder<'ast, T: Field>: Sized {

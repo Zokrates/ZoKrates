@@ -1,5 +1,5 @@
-use typed_absy::types::ConcreteSignature;
-use typed_absy::types::ConcreteType;
+use crate::typed_absy::types::{ConcreteSignature, ConcreteType};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct AbiInput {
@@ -29,14 +29,15 @@ impl Abi {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-    use typed_absy::types::{
+    use crate::typed_absy::types::{
         ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType, UBitwidth,
     };
-    use typed_absy::{
+    use crate::typed_absy::{
         parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType,
         TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
     };
+    use std::collections::HashMap;
+    use std::collections::HashMap;
     use zokrates_field::Bn128Field;
 
     #[test]

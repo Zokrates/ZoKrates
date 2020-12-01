@@ -21,18 +21,24 @@ use std::string::String;
 use zokrates_abi::Encode;
 use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
+
 use zokrates_core::proof_system::{
-    ark::Ark, bellman::Bellman, gm17::GM17, groth16::G16, SolidityCompatibleField,
+    gm17::GM17, groth16::G16, pghr13::PGHR13, SolidityCompatibleField,
 };
-use zokrates_core::proof_system::{Backend, Scheme, SolidityAbi, SolidityCompatibleScheme};
+use zokrates_core::proof_system::{SolidityAbi, SolidityCompatibleScheme};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::ConcreteSignature, ConcreteType};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
+
+#[cfg(feature = "ark")]
+use zokrates_core::proof_system::ark::Ark;
+#[cfg(feature = "bellman")]
+use zokrates_core::proof_system::bellman::Bellman;
 #[cfg(feature = "libsnark")]
-use {
-    zokrates_core::proof_system::libsnark::Libsnark, zokrates_core::proof_system::pghr13::PGHR13,
-};
+use zokrates_core::proof_system::libsnark::Libsnark;
+#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+use zokrates_core::proof_system::{Backend, Scheme};
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -41,6 +47,7 @@ fn main() {
     })
 }
 
+#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     program: ir::Prog<T>,
     sub_matches: &ArgMatches,
@@ -115,6 +122,7 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
     Ok(())
 }
 
+#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     program: ir::Prog<T>,
     sub_matches: &ArgMatches,
@@ -400,6 +408,7 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 fn cli_verify<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -824,6 +833,7 @@ fn cli() -> Result<(), String> {
                 ProgEnum::Bw6_761Program(p) => cli_compute(p, sub_matches)?,
             }
         }
+        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("setup", Some(sub_matches)) => {
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
@@ -845,11 +855,13 @@ fn cli() -> Result<(), String> {
             ))?;
 
             match parameters {
+                #[cfg(feature = "bellman")]
                 Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
                     ProgEnum::Bls12_381Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
                     _ => unreachable!(),
                 },
+                #[cfg(feature = "ark")]
                 Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
                     ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
                     ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
@@ -890,13 +902,13 @@ fn cli() -> Result<(), String> {
                 (CurveParameter::Bn128, SchemeParameter::GM17) => {
                     cli_export_verifier::<Bn128Field, GM17>(sub_matches)
                 }
-                #[cfg(feature = "libsnark")]
                 (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
                     cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
                 }
                 _ => Err(format!("Could not export verifier with given parameters (curve: {}, scheme: {}): not supported", curve, scheme))
             }?
         }
+        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("generate-proof", Some(sub_matches)) => {
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
             let program_file = File::open(&program_path)
@@ -917,6 +929,7 @@ fn cli() -> Result<(), String> {
             ))?;
 
             match parameters {
+                #[cfg(feature = "bellman")]
                 Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
                     ProgEnum::Bn128Program(p) => {
                         cli_generate_proof::<_, G16, Bellman>(p, sub_matches)
@@ -926,6 +939,7 @@ fn cli() -> Result<(), String> {
                     }
                     _ => unreachable!(),
                 },
+                #[cfg(feature = "ark")]
                 Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
                     ProgEnum::Bls12_377Program(p) => {
                         cli_generate_proof::<_, GM17, Ark>(p, sub_matches)
@@ -997,6 +1011,7 @@ fn cli() -> Result<(), String> {
                 _ => unreachable!(),
             }
         }
+        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("verify", Some(sub_matches)) => {
             let parameters = Parameters::try_from((
                 sub_matches.value_of("backend").unwrap(),
@@ -1005,26 +1020,31 @@ fn cli() -> Result<(), String> {
             ))?;
 
             match parameters {
+                #[cfg(feature = "bellman")]
                 Parameters(
                     BackendParameter::Bellman,
                     CurveParameter::Bn128,
                     SchemeParameter::G16,
                 ) => cli_verify::<Bn128Field, G16, Bellman>(sub_matches),
+                #[cfg(feature = "bellman")]
                 Parameters(
                     BackendParameter::Bellman,
                     CurveParameter::Bls12_381,
                     SchemeParameter::G16,
                 ) => cli_verify::<Bls12_381Field, G16, Bellman>(sub_matches),
+                #[cfg(feature = "ark")]
                 Parameters(
                     BackendParameter::Ark,
                     CurveParameter::Bls12_377,
                     SchemeParameter::GM17,
                 ) => cli_verify::<Bls12_377Field, GM17, Ark>(sub_matches),
+                #[cfg(feature = "ark")]
                 Parameters(
                     BackendParameter::Ark,
                     CurveParameter::Bw6_761,
                     SchemeParameter::GM17,
                 ) => cli_verify::<Bw6_761Field, GM17, Ark>(sub_matches),
+                #[cfg(feature = "ark")]
                 Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
                     cli_verify::<Bn128Field, GM17, Ark>(sub_matches)
                 }

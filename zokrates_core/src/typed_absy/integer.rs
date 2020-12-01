@@ -1,12 +1,12 @@
-use num_bigint::BigUint;
-use std::convert::TryFrom;
-use std::fmt;
-use typed_absy::types::{ArrayType, Type};
-use typed_absy::UBitwidth;
-use typed_absy::{
+use crate::typed_absy::types::{ArrayType, Type};
+use crate::typed_absy::UBitwidth;
+use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, FieldElementExpression, IfElse,
     Select, StructExpression, Typed, TypedExpression, UExpression, UExpressionInner,
 };
+use num_bigint::BigUint;
+use std::convert::TryFrom;
+use std::fmt;
 use zokrates_field::Field;
 
 impl<'ast, T: Field> TypedExpression<'ast, T> {

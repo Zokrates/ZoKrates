@@ -4,16 +4,16 @@ use bellman::groth16::{
 };
 use pairing::{CurveAffine, Engine};
 
-use proof_system::{Backend, Proof, SetupKeypair};
+use crate::proof_system::{Backend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
+use crate::ir::{Prog, Witness};
+use crate::proof_system::bellman::Bellman;
 use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
-use ir::{Prog, Witness};
-use proof_system::bellman::Bellman;
-use proof_system::groth16::{ProofPoints, VerificationKey, G16};
-use proof_system::Scheme;
+use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
+use crate::proof_system::Scheme;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
@@ -109,7 +109,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 mod serialization {
     use pairing::{from_hex, CurveAffine, Engine};
 
-    use proof_system::{G1Affine, G2Affine};
+    use crate::proof_system::{G1Affine, G2Affine};
     use zokrates_field::BellmanFieldExtensions;
 
     pub fn to_g1<T: BellmanFieldExtensions>(

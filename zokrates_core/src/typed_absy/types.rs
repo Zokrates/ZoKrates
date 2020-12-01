@@ -1,9 +1,10 @@
+use crate::typed_absy::{TryFrom, TryInto};
+use crate::typed_absy::{TypedModuleId, UExpression, UExpressionInner};
+use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use typed_absy::{TryFrom, TryInto};
-use typed_absy::{TypedModuleId, UExpression, UExpressionInner};
 
 pub type GenericIdentifier<'ast> = &'ast str;
 
@@ -819,9 +820,6 @@ impl<'ast> ConcreteFunctionKey<'ast> {
 }
 
 pub use self::signature::{ConcreteSignature, DeclarationSignature, GSignature, Signature};
-use serde::de::Error;
-use serde::ser::SerializeMap;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod signature {
     use super::*;

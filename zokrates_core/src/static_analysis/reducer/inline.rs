@@ -25,16 +25,16 @@
 // - The body of the function is in SSA form
 // - The return value(s) are assigned to internal variables
 
-use embed::FlatEmbed;
-use static_analysis::reducer::CallCache;
-use static_analysis::reducer::Output;
-use static_analysis::reducer::ShallowTransformer;
-use static_analysis::reducer::Versions;
-use typed_absy::types::ConcreteGenericsAssignment;
-use typed_absy::CoreIdentifier;
-use typed_absy::Identifier;
-use typed_absy::TypedAssignee;
-use typed_absy::{
+use crate::embed::FlatEmbed;
+use crate::static_analysis::reducer::CallCache;
+use crate::static_analysis::reducer::Output;
+use crate::static_analysis::reducer::ShallowTransformer;
+use crate::static_analysis::reducer::Versions;
+use crate::typed_absy::types::ConcreteGenericsAssignment;
+use crate::typed_absy::CoreIdentifier;
+use crate::typed_absy::Identifier;
+use crate::typed_absy::TypedAssignee;
+use crate::typed_absy::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Signature,
     Type, TypedExpression, TypedFunction, TypedFunctionSymbol, TypedProgram, TypedStatement,
     Variable,
@@ -83,7 +83,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
 > {
     use std::convert::TryFrom;
 
-    use typed_absy::Typed;
+    use crate::typed_absy::Typed;
 
     // we infer a signature based on inputs and outputs
     // this is where we could handle explicit annotations

@@ -1,11 +1,11 @@
-use crate::solvers::Solver;
-use flat_absy::{
+use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
     FlatVariable,
 };
+use crate::solvers::Solver;
+use crate::typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
+use crate::typed_absy::TypedModuleId;
 use std::collections::HashMap;
-use typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
-use typed_absy::TypedModuleId;
 use zokrates_field::Field;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until

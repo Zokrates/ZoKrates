@@ -1,5 +1,5 @@
-use absy::ExpressionNode;
-use absy::UnresolvedTypeNode;
+use crate::absy::ExpressionNode;
+use crate::absy::UnresolvedTypeNode;
 use std::fmt;
 
 pub type Identifier<'ast> = &'ast str;
@@ -42,7 +42,7 @@ pub use self::signature::UnresolvedSignature;
 mod signature {
     use std::fmt;
 
-    use absy::UnresolvedTypeNode;
+    use crate::absy::UnresolvedTypeNode;
 
     #[derive(Clone, PartialEq)]
     pub struct UnresolvedSignature<'ast> {

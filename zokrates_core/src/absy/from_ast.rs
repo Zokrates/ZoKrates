@@ -1,5 +1,6 @@
-use absy;
-use imports;
+use crate::absy;
+use crate::imports;
+
 use num_bigint::BigUint;
 use zokrates_pest_ast as pest;
 
@@ -21,7 +22,7 @@ impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
 
 impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
     fn from(import: pest::ImportDirective<'ast>) -> absy::ImportNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         match import {
             pest::ImportDirective::Main(import) => {
@@ -46,7 +47,7 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
 
 impl<'ast> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'ast> {
     fn from(definition: pest::StructDefinition<'ast>) -> absy::SymbolDeclarationNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         let span = definition.span;
 
@@ -71,7 +72,7 @@ impl<'ast> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'a
 
 impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'ast> {
     fn from(field: pest::StructField<'ast>) -> absy::StructDefinitionFieldNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         let span = field.span;
 
@@ -85,7 +86,7 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'as
 
 impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
     fn from(function: pest::Function<'ast>) -> absy::SymbolDeclarationNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         let span = function.span;
 
@@ -149,7 +150,7 @@ impl<'ast> From<pest::IdentifierExpression<'ast>> for absy::ConstantGenericNode<
 
 impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
     fn from(param: pest::Parameter<'ast>) -> absy::ParameterNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         let private = param
             .visibility
@@ -179,7 +180,7 @@ fn statements_from_statement(statement: pest::Statement) -> Vec<absy::StatementN
 }
 
 fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy::StatementNode> {
-    use absy::NodeValue;
+    use crate::absy::NodeValue;
 
     let lhs = definition.lhs;
 
@@ -253,7 +254,7 @@ fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy
 
 impl<'ast> From<pest::ReturnStatement<'ast>> for absy::StatementNode<'ast> {
     fn from(statement: pest::ReturnStatement<'ast>) -> absy::StatementNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         absy::Statement::Return(
             absy::ExpressionList {
@@ -271,7 +272,7 @@ impl<'ast> From<pest::ReturnStatement<'ast>> for absy::StatementNode<'ast> {
 
 impl<'ast> From<pest::AssertionStatement<'ast>> for absy::StatementNode<'ast> {
     fn from(statement: pest::AssertionStatement<'ast>) -> absy::StatementNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         absy::Statement::Assertion(absy::ExpressionNode::from(statement.expression))
             .span(statement.span)
@@ -280,7 +281,7 @@ impl<'ast> From<pest::AssertionStatement<'ast>> for absy::StatementNode<'ast> {
 
 impl<'ast> From<pest::IterationStatement<'ast>> for absy::StatementNode<'ast> {
     fn from(statement: pest::IterationStatement<'ast>) -> absy::StatementNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
         let from = absy::ExpressionNode::from(statement.from);
         let to = absy::ExpressionNode::from(statement.to);
         let index = statement.index.span.as_str();
@@ -315,7 +316,7 @@ impl<'ast> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast> {
 
 impl<'ast> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::BinaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
         match expression.op {
             pest::BinaryOperator::Add => absy::Expression::Add(
                 box absy::ExpressionNode::from(*expression.left),
@@ -404,7 +405,7 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode<'ast> {
 
 impl<'ast> From<pest::TernaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::TernaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
         absy::Expression::IfElse(
             box absy::ExpressionNode::from(*expression.first),
             box absy::ExpressionNode::from(*expression.second),
@@ -416,7 +417,7 @@ impl<'ast> From<pest::TernaryExpression<'ast>> for absy::ExpressionNode<'ast> {
 
 impl<'ast> From<pest::Spread<'ast>> for absy::SpreadNode<'ast> {
     fn from(spread: pest::Spread<'ast>) -> absy::SpreadNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
         absy::Spread {
             expression: absy::ExpressionNode::from(spread.expression),
         }
@@ -426,7 +427,7 @@ impl<'ast> From<pest::Spread<'ast>> for absy::SpreadNode<'ast> {
 
 impl<'ast> From<pest::Range<'ast>> for absy::RangeNode<'ast> {
     fn from(range: pest::Range<'ast>) -> absy::RangeNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         let from = range.from.map(|e| absy::ExpressionNode::from(e.0));
 
@@ -466,7 +467,7 @@ impl<'ast> From<pest::SpreadOrExpression<'ast>> for absy::SpreadOrExpression<'as
 
 impl<'ast> From<pest::InlineArrayExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(array: pest::InlineArrayExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
         absy::Expression::InlineArray(
             array
                 .expressions
@@ -480,7 +481,7 @@ impl<'ast> From<pest::InlineArrayExpression<'ast>> for absy::ExpressionNode<'ast
 
 impl<'ast> From<pest::InlineStructExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(s: pest::InlineStructExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
         absy::Expression::InlineStruct(
             s.ty.span.as_str().to_string(),
             s.members
@@ -499,7 +500,7 @@ impl<'ast> From<pest::InlineStructExpression<'ast>> for absy::ExpressionNode<'as
 
 impl<'ast> From<pest::ArrayInitializerExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(initializer: pest::ArrayInitializerExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         let value = absy::ExpressionNode::from(*initializer.value);
         let count = absy::ExpressionNode::from(initializer.count);
@@ -509,7 +510,7 @@ impl<'ast> From<pest::ArrayInitializerExpression<'ast>> for absy::ExpressionNode
 
 impl<'ast> From<pest::UnaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(unary: pest::UnaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         match unary.op {
             pest::UnaryOperator::Not(_) => {
@@ -522,7 +523,7 @@ impl<'ast> From<pest::UnaryExpression<'ast>> for absy::ExpressionNode<'ast> {
 
 impl<'ast> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::PostfixExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         let id_str = expression.id.span.as_str();
         let id = absy::ExpressionNode::from(expression.id);
@@ -556,7 +557,7 @@ impl<'ast> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<'ast> {
 
 impl<'ast> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::DecimalLiteralExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         match expression.suffix {
             Some(suffix) => match suffix {
@@ -584,7 +585,7 @@ impl<'ast> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'
 
 impl<'ast> From<pest::HexLiteralExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::HexLiteralExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         match expression.value {
             pest::HexNumberExpression::U32(e) => {
@@ -603,7 +604,8 @@ impl<'ast> From<pest::HexLiteralExpression<'ast>> for absy::ExpressionNode<'ast>
 
 impl<'ast> From<pest::LiteralExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::LiteralExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
+
         match expression {
             pest::LiteralExpression::BooleanLiteral(c) => {
                 absy::Expression::BooleanConstant(c.value.parse().unwrap()).span(c.span)
@@ -616,14 +618,14 @@ impl<'ast> From<pest::LiteralExpression<'ast>> for absy::ExpressionNode<'ast> {
 
 impl<'ast> From<pest::IdentifierExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::IdentifierExpression<'ast>) -> absy::ExpressionNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
         absy::Expression::Identifier(expression.span.as_str()).span(expression.span)
     }
 }
 
 impl<'ast> From<pest::IdentifierExpression<'ast>> for absy::AssigneeNode<'ast> {
     fn from(expression: pest::IdentifierExpression<'ast>) -> absy::AssigneeNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         absy::Assignee::Identifier(expression.span.as_str()).span(expression.span)
     }
@@ -631,7 +633,7 @@ impl<'ast> From<pest::IdentifierExpression<'ast>> for absy::AssigneeNode<'ast> {
 
 impl<'ast> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast> {
     fn from(assignee: pest::Assignee<'ast>) -> absy::AssigneeNode<'ast> {
-        use absy::NodeValue;
+        use crate::absy::NodeValue;
 
         let a = absy::AssigneeNode::from(assignee.id);
         let span = assignee.span;
@@ -652,8 +654,8 @@ impl<'ast> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast> {
 
 impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
     fn from(t: pest::Type<'ast>) -> absy::UnresolvedTypeNode<'ast> {
-        use absy::types::UnresolvedType;
-        use absy::NodeValue;
+        use crate::absy::types::UnresolvedType;
+        use crate::absy::NodeValue;
 
         match t {
             pest::Type::Basic(t) => match t {
@@ -700,8 +702,8 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use absy::types::{UnresolvedSignature, UnresolvedType};
-    use absy::NodeValue;
+    use crate::absy::types::{UnresolvedSignature, UnresolvedType};
+    use crate::absy::NodeValue;
 
     #[test]
     fn return_forty_two() {
