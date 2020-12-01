@@ -25,25 +25,84 @@ dependencies = [
 ]
 
 [[package]]
-name = "algebra"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
+name = "ark-bls12-377"
+version = "0.1.0"
+source = "git+https://github.com/arkworks-rs/curves#23e87bf224c23be5c5bccc6084aae31fff8bb83f"
 dependencies = [
- "algebra-core",
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
 ]
 
 [[package]]
-name = "algebra-core"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
+name = "ark-bn254"
+version = "0.1.0"
+source = "git+https://github.com/arkworks-rs/curves#23e87bf224c23be5c5bccc6084aae31fff8bb83f"
 dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
+name = "ark-bw6-761"
+version = "0.1.0"
+source = "git+https://github.com/arkworks-rs/curves#23e87bf224c23be5c5bccc6084aae31fff8bb83f"
+dependencies = [
+ "ark-bls12-377",
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
+name = "ark-ec"
+version = "0.1.0"
+source = "git+https://github.com/arkworks-rs/algebra#9bc541722707e1ac495e82fbf86446bbfde38a82"
+dependencies = [
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
  "derivative",
- "field-assembly",
+ "num-traits 0.2.12",
+ "rand 0.7.3",
+]
+
+[[package]]
+name = "ark-ff"
+version = "0.1.0"
+source = "git+https://github.com/arkworks-rs/algebra#9bc541722707e1ac495e82fbf86446bbfde38a82"
+dependencies = [
+ "ark-ff-asm",
+ "ark-serialize",
+ "ark-std",
+ "derivative",
  "num-traits 0.2.12",
  "rand 0.7.3",
  "rustc_version",
- "unroll",
 ]
+
+[[package]]
+name = "ark-ff-asm"
+version = "0.1.0"
+source = "git+https://github.com/arkworks-rs/algebra#9bc541722707e1ac495e82fbf86446bbfde38a82"
+dependencies = [
+ "quote 1.0.7",
+ "syn 1.0.34",
+]
+
+[[package]]
+name = "ark-serialize"
+version = "0.1.0"
+source = "git+https://github.com/arkworks-rs/algebra#9bc541722707e1ac495e82fbf86446bbfde38a82"
+dependencies = [
+ "ark-std",
+]
+
+[[package]]
+name = "ark-std"
+version = "0.1.0"
+source = "git+https://github.com/arkworks-rs/utils#f6974ac72f59339b7ab798a728a84c5a7b8bac45"
 
 [[package]]
 name = "autocfg"
@@ -289,14 +348,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "field-assembly"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "mince",
-]
-
-[[package]]
 name = "from-pest"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -489,15 +540,6 @@ name = "memchr"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
-
-[[package]]
-name = "mince"
-version = "0.1.1-alpha.0"
-source = "git+https://github.com/scipr-lab/zexe.git#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
-dependencies = [
- "quote 1.0.7",
- "syn 1.0.34",
-]
 
 [[package]]
 name = "miniz_oxide"
@@ -856,9 +898,9 @@ checksum = "4c691c0e608126e00913e33f0ccf3727d5fc84573623b8d65b2df340b5201783"
 
 [[package]]
 name = "rustc_version"
-version = "0.2.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
+checksum = "65c94201b44764d6d1f7e37c15a8289ed55e546c1762c7f1d57f616966e0c181"
 dependencies = [
  "semver",
 ]
@@ -871,18 +913,21 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
 name = "semver"
-version = "0.9.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
+checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
 dependencies = [
  "semver-parser",
 ]
 
 [[package]]
 name = "semver-parser"
-version = "0.7.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
+checksum = "42ef146c2ad5e5f4b037cd6ce2ebb775401729b19a82040c1beac9d36c7d1428"
+dependencies = [
+ "pest",
+]
 
 [[package]]
 name = "serde"
@@ -891,15 +936,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5317f7588f0a5078ee60ef675ef96735a1442132dc645eb1d12c018620ed8cd3"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde_bytes"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "defbb8a83d7f34cc8380751eeb892b825944222888aff18996ea7901f24aec88"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -1043,16 +1079,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
-name = "unroll"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85890b49d9724df33edc575c4bacd5b0081977da22c4c4984d0c62ec44ed6e09"
-dependencies = [
- "quote 0.6.13",
- "syn 0.15.44",
-]
-
-[[package]]
 name = "utf8-ranges"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1192,8 +1218,6 @@ dependencies = [
  "reduce",
  "regex",
  "serde",
- "serde_bytes",
- "serde_derive",
  "serde_json",
  "typed-arena",
  "zokrates_common",
@@ -1205,8 +1229,11 @@ dependencies = [
 name = "zokrates_field"
 version = "0.3.7"
 dependencies = [
- "algebra",
- "algebra-core",
+ "ark-bls12-377",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-ec",
+ "ark-ff",
  "bellman_ce",
  "bincode 0.8.0",
  "lazy_static",
@@ -1251,6 +1278,5 @@ dependencies = [
  "lazy_static",
  "pest",
  "pest-ast",
- "zokrates_field",
  "zokrates_parser",
 ]

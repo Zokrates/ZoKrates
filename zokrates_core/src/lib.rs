@@ -1,7 +1,7 @@
 #![feature(box_patterns, box_syntax)]
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "ark")] {
+    if #[cfg(feature = "bellman")] {
         extern crate bellman_ce as bellman;
         extern crate ff_ce as ff;
         extern crate pairing_ce as pairing;

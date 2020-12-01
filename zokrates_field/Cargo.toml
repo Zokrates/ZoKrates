@@ -5,7 +5,7 @@ authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@
 edition = "2018"
 
 [features]
-default = []
+default = ["ark", "bellman"]
 ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761"]
 bellman = ["bellman_ce"]
 
