@@ -448,7 +448,7 @@ fn cli() -> Result<(), String> {
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
     .version(env!("CARGO_PKG_VERSION"))
-    .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml, Darko Masesic")
+    .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml, Darko Macesic")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
         .about("Compiles into flattened conditions. Produces two files: human-readable '.ztf' file for debugging and binary file")
