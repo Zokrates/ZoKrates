@@ -1,4 +1,4 @@
-use zokrates_test::write_tests;
+use zokrates_test_derive::write_tests;
 
 fn main() {
     // generate tests

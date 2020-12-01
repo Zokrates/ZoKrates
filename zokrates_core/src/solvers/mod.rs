@@ -10,6 +10,7 @@ pub enum Solver {
     Or,
     ShaAndXorAndXorAnd,
     ShaCh,
+    EuclideanDiv,
 }
 
 impl fmt::Display for Solver {
@@ -28,6 +29,7 @@ impl Solver {
             Solver::Or => (2, 1),
             Solver::ShaAndXorAndXorAnd => (3, 1),
             Solver::ShaCh => (3, 1),
+            Solver::EuclideanDiv => (2, 2),
         }
     }
 }

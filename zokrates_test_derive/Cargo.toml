@@ -1,0 +1,10 @@
+[package]
+name = "zokrates_test_derive"
+version = "0.0.1"
+authors = ["schaeff <thibaut@schaeff.fr>"]
+edition = "2018"
+
+[dependencies]
+glob = "0.3.0"
+
+[lib]

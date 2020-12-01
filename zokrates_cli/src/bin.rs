@@ -22,7 +22,7 @@ use zokrates_abi::Encode;
 use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::{
-    bellman::Bellman, gm17::GM17, groth16::G16, zexe::Zexe, SolidityCompatibleField,
+    ark::Ark, bellman::Bellman, gm17::GM17, groth16::G16, SolidityCompatibleField,
 };
 use zokrates_core::proof_system::{Backend, Scheme, SolidityAbi, SolidityCompatibleScheme};
 use zokrates_core::typed_absy::abi::Abi;
@@ -448,7 +448,7 @@ fn cli() -> Result<(), String> {
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
     .version(env!("CARGO_PKG_VERSION"))
-    .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml")
+    .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml, Darko Macesic")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
         .about("Compiles into flattened conditions. Produces two files: human-readable '.ztf' file for debugging and binary file")
@@ -602,7 +602,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use to export the verifier")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .possible_values(SCHEMES)
@@ -714,7 +713,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use to generate the proof")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .possible_values(SCHEMES)
@@ -771,7 +769,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -847,10 +844,10 @@ fn cli() -> Result<(), String> {
                     ProgEnum::Bls12_381Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
                     _ => unreachable!(),
                 },
-                Parameters(BackendParameter::Zexe, _, SchemeParameter::GM17) => match prog {
-                    ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
-                    ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
-                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
+                Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
+                    ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
+                    ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
@@ -923,16 +920,14 @@ fn cli() -> Result<(), String> {
                     }
                     _ => unreachable!(),
                 },
-                Parameters(BackendParameter::Zexe, _, SchemeParameter::GM17) => match prog {
+                Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
                     ProgEnum::Bls12_377Program(p) => {
-                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                        cli_generate_proof::<_, GM17, Ark>(p, sub_matches)
                     }
                     ProgEnum::Bw6_761Program(p) => {
-                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                        cli_generate_proof::<_, GM17, Ark>(p, sub_matches)
                     }
-                    ProgEnum::Bn128Program(p) => {
-                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
-                    }
+                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17, Ark>(p, sub_matches),
                     _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
@@ -1015,20 +1010,18 @@ fn cli() -> Result<(), String> {
                     SchemeParameter::G16,
                 ) => cli_verify::<Bls12_381Field, G16, Bellman>(sub_matches),
                 Parameters(
-                    BackendParameter::Zexe,
+                    BackendParameter::Ark,
                     CurveParameter::Bls12_377,
                     SchemeParameter::GM17,
-                ) => cli_verify::<Bls12_377Field, GM17, Zexe>(sub_matches),
+                ) => cli_verify::<Bls12_377Field, GM17, Ark>(sub_matches),
                 Parameters(
-                    BackendParameter::Zexe,
+                    BackendParameter::Ark,
                     CurveParameter::Bw6_761,
                     SchemeParameter::GM17,
-                ) => cli_verify::<Bw6_761Field, GM17, Zexe>(sub_matches),
-                Parameters(
-                    BackendParameter::Zexe,
-                    CurveParameter::Bn128,
-                    SchemeParameter::GM17,
-                ) => cli_verify::<Bn128Field, GM17, Zexe>(sub_matches),
+                ) => cli_verify::<Bw6_761Field, GM17, Ark>(sub_matches),
+                Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
+                    cli_verify::<Bn128Field, GM17, Ark>(sub_matches)
+                }
                 #[cfg(feature = "libsnark")]
                 Parameters(
                     BackendParameter::Libsnark,

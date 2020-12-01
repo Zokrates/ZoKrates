@@ -10,8 +10,8 @@ pub struct Flattener<T: Field> {
 
 fn flatten_identifier_rec<'a>(
     id: zir::SourceIdentifier<'a>,
-    ty: typed_absy::Type,
-) -> Vec<zir::Variable> {
+    ty: &typed_absy::Type,
+) -> Vec<zir::Variable<'a>> {
     match ty {
         typed_absy::Type::FieldElement => vec![zir::Variable {
             id: zir::Identifier::Source(id),
@@ -29,16 +29,16 @@ fn flatten_identifier_rec<'a>(
             .flat_map(|i| {
                 flatten_identifier_rec(
                     zir::SourceIdentifier::Select(box id.clone(), i),
-                    *array_type.ty.clone(),
+                    &array_type.ty,
                 )
             })
             .collect(),
         typed_absy::Type::Struct(members) => members
-            .into_iter()
+            .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_rec(
-                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id),
-                    *struct_member.ty,
+                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id.clone()),
+                    &struct_member.ty,
                 )
             })
             .collect(),
@@ -91,7 +91,7 @@ impl<'ast, T: Field> Flattener<T> {
         let id = self.fold_name(v.id.clone());
         let ty = v.get_type();
 
-        flatten_identifier_rec(id, ty)
+        flatten_identifier_rec(id, &ty)
     }
 
     fn fold_assignee(
@@ -274,7 +274,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
     match e {
         typed_absy::ArrayExpressionInner::Identifier(id) => {
             let variables =
-                flatten_identifier_rec(f.fold_name(id), typed_absy::Type::array(t.clone(), size));
+                flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::array(t.clone(), size));
             variables
                 .into_iter()
                 .map(|v| match v._type {
@@ -362,7 +362,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
     match e {
         typed_absy::StructExpressionInner::Identifier(id) => {
             let variables =
-                flatten_identifier_rec(f.fold_name(id), typed_absy::Type::struc(t.clone()));
+                flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::struc(t.clone()));
             variables
                 .into_iter()
                 .map(|v| match v._type {
@@ -458,7 +458,7 @@ pub fn fold_field_expression<'ast, T: Field>(
         typed_absy::FieldElementExpression::Number(n) => zir::FieldElementExpression::Number(n),
         typed_absy::FieldElementExpression::Identifier(id) => {
             zir::FieldElementExpression::Identifier(
-                flatten_identifier_rec(f.fold_name(id), typed_absy::Type::FieldElement)[0]
+                flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::FieldElement)[0]
                     .id
                     .clone(),
             )
@@ -536,7 +536,7 @@ pub fn fold_boolean_expression<'ast, T: Field>(
     match e {
         typed_absy::BooleanExpression::Value(v) => zir::BooleanExpression::Value(v),
         typed_absy::BooleanExpression::Identifier(id) => zir::BooleanExpression::Identifier(
-            flatten_identifier_rec(f.fold_name(id), typed_absy::Type::Boolean)[0]
+            flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::Boolean)[0]
                 .id
                 .clone(),
         ),
@@ -702,7 +702,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
     match e {
         typed_absy::UExpressionInner::Value(v) => zir::UExpressionInner::Value(v),
         typed_absy::UExpressionInner::Identifier(id) => zir::UExpressionInner::Identifier(
-            flatten_identifier_rec(f.fold_name(id), typed_absy::Type::Uint(bitwidth))[0]
+            flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::Uint(bitwidth))[0]
                 .id
                 .clone(),
         ),
@@ -723,6 +723,18 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
             let right = f.fold_uint_expression(right);
 
             zir::UExpressionInner::Mult(box left, box right)
+        }
+        typed_absy::UExpressionInner::Div(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            zir::UExpressionInner::Div(box left, box right)
+        }
+        typed_absy::UExpressionInner::Rem(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            zir::UExpressionInner::Rem(box left, box right)
         }
         typed_absy::UExpressionInner::Xor(box left, box right) => {
             let left = f.fold_uint_expression(left);
