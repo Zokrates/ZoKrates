@@ -20,7 +20,7 @@ use zokrates_field::Field;
 pub struct Propagator<'ast, T: Field> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
-    constants: HashMap<TypedAssignee<'ast, T>, TypedExpression<'ast, T>>,
+    constants: HashMap<Identifier<'ast>, TypedExpression<'ast, T>>,
     // the verbose mode doesn't remove statements which assign constants to variables
     // it's required when using propagation in combination with unrolling
     verbose: bool,
@@ -90,14 +90,18 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 let expr = self.fold_expression(expr);
 
                 if is_constant(&expr) {
-                    self.constants
-                        .insert(TypedAssignee::Identifier(var.clone()), expr.clone());
                     match self.verbose {
-                        true => Some(TypedStatement::Definition(
-                            TypedAssignee::Identifier(var),
-                            expr,
-                        )),
-                        false => None,
+                        true => {
+                            self.constants.insert(var.id.clone(), expr.clone());
+                            Some(TypedStatement::Definition(
+                                TypedAssignee::Identifier(var),
+                                expr,
+                            ))
+                        }
+                        false => {
+                            self.constants.insert(var.id, expr);
+                            None
+                        }
                     }
                 } else {
                     Some(TypedStatement::Definition(
@@ -294,21 +298,24 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 };
 
                                 match r {
-                                    Some(expr) => {
-                                        self.constants.insert(
-                                            TypedAssignee::Identifier(variables[0].clone()),
-                                            expr.clone(),
-                                        );
-                                        match self.verbose {
-                                            true => Some(TypedStatement::MultipleDefinition(
+                                    Some(expr) => match self.verbose {
+                                        true => {
+                                            self.constants
+                                                .insert(variables[0].id.clone(), expr.clone());
+                                            Some(TypedStatement::MultipleDefinition(
                                                 variables,
                                                 TypedExpressionList::FunctionCall(
                                                     key, arguments, types,
                                                 ),
-                                            )),
-                                            false => None,
+                                            ))
                                         }
-                                    }
+                                        false => {
+                                            let mut variables = variables;
+                                            self.constants
+                                                .insert(variables.pop().unwrap().id, expr);
+                                            None
+                                        }
+                                    },
                                     None => {
                                         let l = TypedExpressionList::FunctionCall(
                                             key, arguments, types,
@@ -342,20 +349,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         match e {
-            UExpressionInner::Identifier(id) => {
-                match self
-                    .constants
-                    .get(&TypedAssignee::Identifier(Variable::uint(
-                        id.clone(),
-                        bitwidth,
-                    ))) {
-                    Some(e) => match e {
-                        TypedExpression::Uint(e) => e.as_inner().clone(),
-                        _ => unreachable!("constant stored for a uint should be a uint"),
-                    },
-                    None => UExpressionInner::Identifier(id),
-                }
-            }
+            UExpressionInner::Identifier(id) => match self.constants.get(&id) {
+                Some(e) => match e {
+                    TypedExpression::Uint(e) => e.as_inner().clone(),
+                    _ => unreachable!("constant stored for a uint should be a uint"),
+                },
+                None => UExpressionInner::Identifier(id),
+            },
             UExpressionInner::Add(box e1, box e2) => match (
                 self.fold_uint_expression(e1).into_inner(),
                 self.fold_uint_expression(e2).into_inner(),
@@ -567,17 +567,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         }
                     }
                     (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
-                        match self.constants.get(&TypedAssignee::Select(
-                            box TypedAssignee::Identifier(Variable::array(
-                                id.clone(),
-                                inner_type.clone(),
-                                size,
-                            )),
-                            box FieldElementExpression::Number(n.clone()).into(),
-                        )) {
+                        match self.constants.get(&id) {
                             Some(e) => match e {
-                                TypedExpression::Uint(e) => e.clone().into_inner(),
-                                _ => unreachable!(""),
+                                TypedExpression::Array(e) => match e.as_inner() {
+                                    ArrayExpressionInner::Value(v) => UExpression::try_from(
+                                        v[n.to_dec_string().parse::<usize>().unwrap()].clone(),
+                                    )
+                                    .unwrap()
+                                    .into_inner(),
+                                    _ => unreachable!(),
+                                },
+                                _ => unreachable!(),
                             },
                             None => UExpressionInner::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
@@ -608,21 +608,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
         match e {
-            FieldElementExpression::Identifier(id) => {
-                match self
-                    .constants
-                    .get(&TypedAssignee::Identifier(Variable::field_element(
-                        id.clone(),
-                    ))) {
-                    Some(e) => match e {
-                        TypedExpression::FieldElement(e) => e.clone(),
-                        _ => unreachable!(
-                            "constant stored for a field element should be a field element"
-                        ),
-                    },
-                    None => FieldElementExpression::Identifier(id),
-                }
-            }
+            FieldElementExpression::Identifier(id) => match self.constants.get(&id) {
+                Some(e) => match e {
+                    TypedExpression::FieldElement(e) => e.clone(),
+                    _ => unreachable!(
+                        "constant stored for a field element should be a field element"
+                    ),
+                },
+                None => FieldElementExpression::Identifier(id),
+            },
             FieldElementExpression::Add(box e1, box e2) => match (
                 self.fold_field_expression(e1),
                 self.fold_field_expression(e2),
@@ -707,17 +701,18 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         }
                     }
                     (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
-                        match self.constants.get(&TypedAssignee::Select(
-                            box TypedAssignee::Identifier(Variable::array(
-                                id.clone(),
-                                inner_type.clone(),
-                                size,
-                            )),
-                            box FieldElementExpression::Number(n.clone()).into(),
-                        )) {
+                        match self.constants.get(&id) {
                             Some(e) => match e {
-                                TypedExpression::FieldElement(e) => e.clone(),
-                                _ => unreachable!("??"),
+                                TypedExpression::Array(e) => match e.as_inner() {
+                                    ArrayExpressionInner::Value(v) => {
+                                        FieldElementExpression::try_from(
+                                            v[n.to_dec_string().parse::<usize>().unwrap()].clone(),
+                                        )
+                                        .unwrap()
+                                    }
+                                    _ => unreachable!(),
+                                },
+                                _ => unreachable!(),
                             },
                             None => FieldElementExpression::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
@@ -772,21 +767,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
-            ArrayExpressionInner::Identifier(id) => {
-                match self
-                    .constants
-                    .get(&TypedAssignee::Identifier(Variable::array(
-                        id.clone(),
-                        ty.clone(),
-                        size,
-                    ))) {
-                    Some(e) => match e {
-                        TypedExpression::Array(e) => e.as_inner().clone(),
-                        _ => panic!("constant stored for an array should be an array"),
-                    },
-                    None => ArrayExpressionInner::Identifier(id),
-                }
-            }
+            ArrayExpressionInner::Identifier(id) => match self.constants.get(&id) {
+                Some(e) => match e {
+                    TypedExpression::Array(e) => e.as_inner().clone(),
+                    _ => panic!("constant stored for an array should be an array"),
+                },
+                None => ArrayExpressionInner::Identifier(id),
+            },
             ArrayExpressionInner::Select(box array, box index) => {
                 let array = self.fold_array_expression(array);
                 let index = self.fold_field_expression(index);
@@ -809,17 +796,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         }
                     }
                     (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
-                        match self.constants.get(&TypedAssignee::Select(
-                            box TypedAssignee::Identifier(Variable::array(
-                                id.clone(),
-                                inner_type.clone(),
-                                size,
-                            )),
-                            box FieldElementExpression::Number(n.clone()).into(),
-                        )) {
+                        match self.constants.get(&id) {
                             Some(e) => match e {
-                                TypedExpression::Array(e) => e.clone().into_inner(),
-                                _ => unreachable!("should be an array"),
+                                TypedExpression::Array(e) => match e.as_inner() {
+                                    ArrayExpressionInner::Value(v) => ArrayExpression::try_from(
+                                        v[n.to_dec_string().parse::<usize>().unwrap()].clone(),
+                                    )
+                                    .unwrap()
+                                    .into_inner(),
+                                    _ => unreachable!(),
+                                },
+                                _ => unreachable!(),
                             },
                             None => ArrayExpressionInner::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
@@ -885,20 +872,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
-            StructExpressionInner::Identifier(id) => {
-                match self
-                    .constants
-                    .get(&TypedAssignee::Identifier(Variable::struc(
-                        id.clone(),
-                        ty.clone(),
-                    ))) {
-                    Some(e) => match e {
-                        TypedExpression::Struct(e) => e.as_inner().clone(),
-                        _ => panic!("constant stored for an array should be an array"),
-                    },
-                    None => StructExpressionInner::Identifier(id),
-                }
-            }
+            StructExpressionInner::Identifier(id) => match self.constants.get(&id) {
+                Some(e) => match e {
+                    TypedExpression::Struct(e) => e.as_inner().clone(),
+                    _ => panic!("constant stored for an array should be an array"),
+                },
+                None => StructExpressionInner::Identifier(id),
+            },
             StructExpressionInner::Select(box array, box index) => {
                 let array = self.fold_array_expression(array);
                 let index = self.fold_field_expression(index);
@@ -921,17 +901,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         }
                     }
                     (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
-                        match self.constants.get(&TypedAssignee::Select(
-                            box TypedAssignee::Identifier(Variable::array(
-                                id.clone(),
-                                inner_type.clone(),
-                                size,
-                            )),
-                            box FieldElementExpression::Number(n.clone()).into(),
-                        )) {
+                        match self.constants.get(&id) {
                             Some(e) => match e {
-                                TypedExpression::Struct(e) => e.clone().into_inner(),
-                                _ => unreachable!("should be a struct"),
+                                TypedExpression::Array(e) => match e.as_inner() {
+                                    ArrayExpressionInner::Value(v) => StructExpression::try_from(
+                                        v[n.to_dec_string().parse::<usize>().unwrap()].clone(),
+                                    )
+                                    .unwrap()
+                                    .into_inner(),
+                                    _ => unreachable!(),
+                                },
+                                _ => unreachable!(),
                             },
                             None => StructExpressionInner::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
@@ -1002,10 +982,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         // These kind of reduction rules are easier to apply later in the process, when we have canonical representations
         // of expressions, ie `a + a` would always be written `2 * a`
         match e {
-            BooleanExpression::Identifier(id) => match self
-                .constants
-                .get(&TypedAssignee::Identifier(Variable::boolean(id.clone())))
-            {
+            BooleanExpression::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
                     TypedExpression::Boolean(e) => e.clone(),
                     _ => panic!("constant stored for a boolean should be a boolean"),
@@ -1152,17 +1129,16 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         }
                     }
                     (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
-                        match self.constants.get(&TypedAssignee::Select(
-                            box TypedAssignee::Identifier(Variable::array(
-                                id.clone(),
-                                inner_type.clone(),
-                                size,
-                            )),
-                            box FieldElementExpression::Number(n.clone()).into(),
-                        )) {
+                        match self.constants.get(&id) {
                             Some(e) => match e {
-                                TypedExpression::Boolean(e) => e.clone(),
-                                _ => unreachable!("Should be a boolean"),
+                                TypedExpression::Array(e) => match e.as_inner() {
+                                    ArrayExpressionInner::Value(v) => BooleanExpression::try_from(
+                                        v[n.to_dec_string().parse::<usize>().unwrap()].clone(),
+                                    )
+                                    .unwrap(),
+                                    _ => unreachable!(),
+                                },
+                                _ => unreachable!(),
                             },
                             None => BooleanExpression::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
