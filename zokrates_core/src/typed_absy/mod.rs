@@ -634,6 +634,12 @@ pub enum FieldElementExpression<'ast, T> {
     ),
 }
 
+impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
+    fn from(n: T) -> Self {
+        FieldElementExpression::Number(n)
+    }
+}
+
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum BooleanExpression<'ast, T> {
@@ -741,6 +747,10 @@ impl<'ast, T> ArrayExpression<'ast, T> {
 
     pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {
         &self.inner
+    }
+
+    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
+        &mut self.inner
     }
 
     pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
