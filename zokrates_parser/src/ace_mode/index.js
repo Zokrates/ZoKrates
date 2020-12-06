@@ -37,7 +37,7 @@ ace.define("ace/mode/zokrates_highlight_rules",["require","exports","module","ac
     var ZoKratesHighlightRules = function () {
 
         var keywords = (
-            "assert|endfor|as|return|byte|field|bool|if|then|fi|do|else|export|false|def|for|import|from|uint|in|public|private|struct|true"
+            "assert|as|bool|byte|def|do|else|endfor|export|false|field|for|if|then|fi|import|from|in|private|public|return|struct|true|u8|u16|u32"
         );
 
         var keywordMapper = this.createKeywordMapper({
@@ -68,7 +68,7 @@ ace.define("ace/mode/zokrates_highlight_rules",["require","exports","module","ac
                     regex: "[a-zA-Z_$][a-zA-Z0-9_$]*\\b"
                 }, {
                     token: "keyword.operator",
-                    regex: "\\+|\\-|\\*|\\*\\*|\\/|\\|\\||&&|\\^|!|<|>|<=|=>|==|!=|="
+                    regex: "\\+|\\-|\\*\\*?|\\/|\\|\\|?|&&?|\\^|!|<<?|>>?|<=|=>|==|!=|="
                 }, {
                     token: "punctuation",
                     regex: ",|:|;"

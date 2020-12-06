@@ -1610,20 +1610,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                 );
 
-                let field = bits.iter().enumerate().fold(
-                    FlatExpression::Number(T::from(0)),
-                    |acc, (index, bit)| {
-                        FlatExpression::Add(
-                            box acc,
-                            box FlatExpression::Mult(
-                                box FlatExpression::Number(
-                                    T::from(2).pow(target_bitwidth.to_usize() - index - 1),
+                let field = if actual_bitwidth > target_bitwidth.to_usize() {
+                    bits.iter().enumerate().fold(
+                        FlatExpression::Number(T::from(0)),
+                        |acc, (index, bit)| {
+                            FlatExpression::Add(
+                                box acc,
+                                box FlatExpression::Mult(
+                                    box FlatExpression::Number(
+                                        T::from(2).pow(target_bitwidth.to_usize() - index - 1),
+                                    ),
+                                    box bit.clone().into(),
                                 ),
-                                box bit.clone().into(),
-                            ),
-                        )
-                    },
-                );
+                            )
+                        },
+                    )
+                } else {
+                    res.get_field_unchecked()
+                };
 
                 FlatUExpression::with_bits(bits).field(field)
             }
@@ -2115,15 +2119,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// * `prog` - `ZirProgram` that will be flattened.
     fn flatten_program(&mut self, prog: ZirProgram<'ast, T>) -> FlatProg<T> {
-        let main_module = prog.modules.get(&prog.main).unwrap();
+        let mut prog = prog;
 
-        let main = main_module
+        let mut main_module = prog.modules.remove(&prog.main).unwrap();
+
+        let main_key = main_module
             .functions
-            .iter()
-            .find(|(k, _)| k.id == "main")
+            .keys()
+            .find(|k| k.id == "main")
             .unwrap()
-            .1
             .clone();
+
+        let main = main_module.functions.remove(&main_key).unwrap();
 
         let symbols = &main_module.functions;
 
