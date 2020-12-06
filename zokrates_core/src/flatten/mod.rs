@@ -1610,20 +1610,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                 );
 
-                let field = bits.iter().enumerate().fold(
-                    FlatExpression::Number(T::from(0)),
-                    |acc, (index, bit)| {
-                        FlatExpression::Add(
-                            box acc,
-                            box FlatExpression::Mult(
-                                box FlatExpression::Number(
-                                    T::from(2).pow(target_bitwidth.to_usize() - index - 1),
+                let field = if actual_bitwidth > target_bitwidth.to_usize() {
+                    bits.iter().enumerate().fold(
+                        FlatExpression::Number(T::from(0)),
+                        |acc, (index, bit)| {
+                            FlatExpression::Add(
+                                box acc,
+                                box FlatExpression::Mult(
+                                    box FlatExpression::Number(
+                                        T::from(2).pow(target_bitwidth.to_usize() - index - 1),
+                                    ),
+                                    box bit.clone().into(),
                                 ),
-                                box bit.clone().into(),
-                            ),
-                        )
-                    },
-                );
+                            )
+                        },
+                    )
+                } else {
+                    res.get_field_unchecked()
+                };
 
                 FlatUExpression::with_bits(bits).field(field)
             }
