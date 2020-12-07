@@ -13,11 +13,11 @@
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
-pub struct VariableIndexRemover<'ast, T: Field> {
+pub struct VariableReadRemover<'ast, T: Field> {
     statements: Vec<TypedStatement<'ast, T>>,
 }
 
-impl<'ast, T: Field> VariableIndexRemover<'ast, T> {
+impl<'ast, T: Field> VariableReadRemover<'ast, T> {
     fn new() -> Self {
         Self { statements: vec![] }
     }
@@ -76,7 +76,7 @@ impl<'ast, T: Field> VariableIndexRemover<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for VariableIndexRemover<'ast, T> {
+impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
@@ -167,7 +167,7 @@ mod tests {
         );
 
         assert_eq!(
-            VariableIndexRemover::new().fold_statement(access),
+            VariableReadRemover::new().fold_statement(access),
             vec![
                 TypedStatement::Assertion(
                     BooleanExpression::Or(

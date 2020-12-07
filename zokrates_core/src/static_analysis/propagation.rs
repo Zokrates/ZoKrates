@@ -12,7 +12,6 @@
 
 use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use typed_absy::types::Type;
@@ -79,7 +78,29 @@ impl<'ast, T: Field> Propagator<'ast, T> {
                     e => e,
                 }
             }
-            TypedAssignee::Member(..) => unimplemented!(),
+            TypedAssignee::Member(box assignee, m) => match self.get_constant_entry(&assignee) {
+                Ok((v, c)) => {
+                    let ty = assignee.get_type();
+
+                    let index = match ty {
+                        Type::Struct(struct_ty) => struct_ty
+                            .members
+                            .iter()
+                            .position(|member| *m == member.id)
+                            .unwrap(),
+                        _ => unreachable!(),
+                    };
+
+                    match c {
+                        TypedExpression::Struct(a) => match a.as_inner_mut() {
+                            StructExpressionInner::Value(value) => Ok((v, &mut value[index])),
+                            _ => unreachable!(),
+                        },
+                        _ => unreachable!(),
+                    }
+                }
+                e => e,
+            },
         }
     }
 }

@@ -773,6 +773,10 @@ impl<'ast, T> StructExpression<'ast, T> {
         &self.inner
     }
 
+    pub fn as_inner_mut(&mut self) -> &mut StructExpressionInner<'ast, T> {
+        &mut self.inner
+    }
+
     pub fn into_inner(self) -> StructExpressionInner<'ast, T> {
         self.inner
     }

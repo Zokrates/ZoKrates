@@ -3835,8 +3835,8 @@ mod tests {
             TypedStatement::Declaration(typed_absy::Variable::field_element("b")),
             TypedStatement::MultipleDefinition(
                 vec![
-                    typed_absy::Variable::field_element("a"),
-                    typed_absy::Variable::field_element("b"),
+                    typed_absy::Variable::field_element("a").into(),
+                    typed_absy::Variable::field_element("b").into(),
                 ],
                 TypedExpressionList::FunctionCall(
                     FunctionKey::with_id("foo").signature(

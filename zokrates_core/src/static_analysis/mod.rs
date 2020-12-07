@@ -14,7 +14,8 @@ mod return_binder;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod unroll;
-mod variable_access_remover;
+mod variable_read_remover;
+mod variable_write_remover;
 
 use self::flatten_complex_types::Flattener;
 use self::inline::Inliner;
@@ -24,7 +25,8 @@ use self::redefinition::RedefinitionOptimizer;
 use self::return_binder::ReturnBinder;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
-use self::variable_access_remover::VariableAccessRemover;
+use self::variable_read_remover::VariableReadRemover;
+use self::variable_write_remover::VariableWriteRemover;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::typed_absy::TypedProgram;
@@ -54,8 +56,13 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = RedefinitionOptimizer::optimize(r);
         println!("variable access");
         // remove variable access to complex types
-        let r = VariableAccessRemover::apply(r);
-        println!("flattenerr");
+        let r = VariableReadRemover::apply(r);
+        println!("{}", r);
+        println!("variable index");
+        // remove assignment to variable index
+        let r = VariableWriteRemover::apply(r);
+        println!("{}", r);
+        println!("flatten complex types");
         // convert to zir, removing complex types
         let zir = Flattener::flatten(r);
         println!("uint opt");
