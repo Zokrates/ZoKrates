@@ -2,7 +2,7 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use std::collections::HashMap;
 use std::fmt;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq)]
 pub struct FlatParameter {
     pub id: FlatVariable,
     pub private: bool,

@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Copy)]
 pub struct Position {
     pub line: usize,
     pub col: usize,

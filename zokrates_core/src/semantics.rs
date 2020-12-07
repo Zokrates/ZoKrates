@@ -18,8 +18,8 @@ use crate::parser::Position;
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 use crate::typed_absy::types::{FunctionKey, Signature, StructLocation, Type};
 
+use crate::typed_absy::types::{ArrayType, StructMember};
 use std::hash::{Hash, Hasher};
-use typed_absy::types::{ArrayType, StructMember};
 
 #[derive(PartialEq, Debug)]
 pub struct ErrorInner {
@@ -2365,9 +2365,9 @@ impl<'ast> Checker<'ast> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use absy;
+    use crate::absy;
+    use crate::typed_absy;
     use num_bigint::BigUint;
-    use typed_absy;
     use zokrates_field::Bn128Field;
 
     const MODULE_ID: &str = "";

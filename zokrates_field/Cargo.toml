@@ -4,23 +4,30 @@ version = "0.3.7"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@gmail.com>"]
 edition = "2018"
 
+[features]
+default = ["ark", "bellman"]
+ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761"]
+bellman = ["bellman_ce"]
+
 [dependencies]
 serde = "1.0"
 serde_derive = "1.0"
 lazy_static = "1.4"
 bincode = "0.8.0"
 serde_json = "1.0"
-bellman_ce = { version = "^0.3", default-features = false }
 sha2 = "0.8.0"
 num-traits = { version = "0.2", default-features = false }
 num-integer = { version = "0.1", default-features = false }
 
-ark-ff = { git = "https://github.com/arkworks-rs/algebra", default-features = false }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra", default-features = false }
+# bellman
+bellman_ce = { version = "^0.3", default-features = false, optional = true }
 
-ark-bn254 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"], default-features = false }
-ark-bls12-377 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"], default-features = false }
-ark-bw6-761 = { git = "https://github.com/arkworks-rs/curves", default-features = false }
+# ark
+ark-ff = { git = "https://github.com/arkworks-rs/algebra", default-features = false, optional = true }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra", default-features = false, optional = true }
+ark-bn254 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"], default-features = false, optional = true }
+ark-bls12-377 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"], default-features = false, optional = true }
+ark-bw6-761 = { git = "https://github.com/arkworks-rs/curves", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.4"

@@ -15,7 +15,7 @@ pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
 use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
-use embed::FlatEmbed;
+use crate::embed::FlatEmbed;
 use std::path::PathBuf;
 
 use crate::imports::ImportNode;

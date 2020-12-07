@@ -1,4 +1,4 @@
-use proof_system::Scheme;
+use crate::proof_system::Scheme;
 use zokrates_field::{Bn128Field, Field};
 
 pub trait SolidityCompatibleField: Field {}

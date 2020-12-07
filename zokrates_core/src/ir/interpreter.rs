@@ -1,7 +1,8 @@
 use crate::flat_absy::flat_variable::FlatVariable;
+use crate::ir::Directive;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
-use ir::Directive;
-use solvers::Solver;
+use crate::solvers::Solver;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_field::Field;

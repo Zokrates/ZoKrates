@@ -2,8 +2,8 @@ mod ffi;
 pub mod gm17;
 pub mod pghr13;
 
-use flat_absy::FlatVariable;
-use ir::{self, Statement};
+use crate::flat_absy::FlatVariable;
+use crate::ir::{self, Statement};
 use std::cmp::max;
 use std::collections::HashMap;
 use zokrates_field::Field;
@@ -305,7 +305,7 @@ pub fn r1cs_program<T: Field>(
 }
 
 pub mod serialization {
-    use proof_system::{G1Affine, G2Affine};
+    use crate::proof_system::{G1Affine, G2Affine};
     use std::io::Read;
     use std::io::Write;
 

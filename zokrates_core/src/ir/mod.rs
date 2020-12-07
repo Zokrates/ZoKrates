@@ -1,6 +1,7 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
 use crate::solvers::Solver;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use zokrates_field::Field;
 

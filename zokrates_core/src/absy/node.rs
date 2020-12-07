@@ -2,7 +2,7 @@ use crate::parser::Position;
 use std::fmt;
 use zokrates_pest_ast::Span;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Node<T> {
     pub start: Position,
     pub end: Position,
@@ -72,9 +72,9 @@ impl<V: NodeValue> From<V> for Node<V> {
     }
 }
 
+use crate::absy::types::UnresolvedType;
 use crate::absy::*;
 use crate::imports::*;
-use absy::types::UnresolvedType;
 
 impl<'ast> NodeValue for Expression<'ast> {}
 impl<'ast> NodeValue for ExpressionList<'ast> {}

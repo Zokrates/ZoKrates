@@ -1,7 +1,7 @@
+use crate::typed_absy;
+use crate::typed_absy::types::{StructType, UBitwidth};
+use crate::zir;
 use std::marker::PhantomData;
-use typed_absy;
-use typed_absy::types::{StructType, UBitwidth};
-use zir;
 use zokrates_field::Field;
 
 pub struct Flattener<T: Field> {
@@ -318,7 +318,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             assert_eq!(consequence.len(), alternative.len());
 
-            use zir::IfElse;
+            use crate::zir::IfElse;
 
             consequence
                 .into_iter()
@@ -406,7 +406,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
 
             assert_eq!(consequence.len(), alternative.len());
 
-            use zir::IfElse;
+            use crate::zir::IfElse;
 
             consequence
                 .into_iter()

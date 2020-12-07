@@ -1,6 +1,6 @@
+use crate::typed_absy::types::FunctionKeyHash;
+use crate::typed_absy::TypedModuleId;
 use std::fmt;
-use typed_absy::types::FunctionKeyHash;
-use typed_absy::TypedModuleId;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub enum CoreIdentifier<'ast> {

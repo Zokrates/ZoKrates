@@ -30,7 +30,7 @@ use self::variable_write_remover::VariableWriteRemover;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::typed_absy::TypedProgram;
-use zir::ZirProgram;
+use crate::zir::ZirProgram;
 use zokrates_field::Field;
 
 pub trait Analyse {

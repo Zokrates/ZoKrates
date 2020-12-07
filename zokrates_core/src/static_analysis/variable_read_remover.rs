@@ -10,7 +10,7 @@
 //! if(index == 0, a[0], if(index == 1, a[1], ...))
 //! ```
 
-use typed_absy::{folder::*, *};
+use crate::typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
 pub struct VariableReadRemover<'ast, T: Field> {

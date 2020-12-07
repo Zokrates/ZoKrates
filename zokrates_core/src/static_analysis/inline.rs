@@ -16,9 +16,9 @@
 
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
+use crate::typed_absy::types::{FunctionKey, FunctionKeyHash, Type, UBitwidth};
+use crate::typed_absy::{folder::*, *};
 use std::collections::HashMap;
-use typed_absy::types::{FunctionKey, FunctionKeyHash, Type, UBitwidth};
-use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -603,8 +603,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::typed_absy::types::{FunctionKey, Signature, Type};
     use std::path::PathBuf;
-    use typed_absy::types::{FunctionKey, Signature, Type};
     use zokrates_field::Bn128Field;
 
     #[test]

@@ -1,7 +1,7 @@
+use crate::zir::types::MemberId;
 use std::fmt;
-use zir::types::MemberId;
 
-use typed_absy::Identifier as CoreIdentifier;
+use crate::typed_absy::Identifier as CoreIdentifier;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub enum Identifier<'ast> {
