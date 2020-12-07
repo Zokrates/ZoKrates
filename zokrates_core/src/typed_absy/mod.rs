@@ -18,18 +18,18 @@ pub use self::identifier::CoreIdentifier;
 pub use self::parameter::Parameter;
 pub use self::types::{Signature, StructType, Type, UBitwidth};
 pub use self::variable::Variable;
+pub use crate::typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 use std::path::PathBuf;
-pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
+use crate::embed::FlatEmbed;
 use crate::typed_absy::types::{FunctionKey, MemberId};
-use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
-use typed_absy::abi::{Abi, AbiInput};
+use crate::typed_absy::abi::{Abi, AbiInput};
 
 pub use self::identifier::Identifier;
 

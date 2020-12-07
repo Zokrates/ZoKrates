@@ -1,9 +1,10 @@
-use proof_system::scheme::Scheme;
-use proof_system::solidity::{
+use crate::proof_system::scheme::Scheme;
+use crate::proof_system::solidity::{
     SolidityAbi, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
+use crate::proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
 pub struct G16;

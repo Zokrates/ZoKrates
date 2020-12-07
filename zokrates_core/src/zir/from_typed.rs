@@ -1,5 +1,5 @@
-use typed_absy;
-use zir;
+use crate::typed_absy;
+use crate::zir;
 
 impl<'ast> From<typed_absy::types::FunctionKey<'ast>> for zir::types::FunctionKey<'ast> {
     fn from(k: typed_absy::types::FunctionKey<'ast>) -> zir::types::FunctionKey<'ast> {

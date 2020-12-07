@@ -205,7 +205,7 @@ mod parse {
     use lazy_static::lazy_static;
 
     use super::*;
-    use proof_system::{Fr, G1Affine, G2Affine};
+    use crate::proof_system::{Fr, G1Affine, G2Affine};
     use regex::Regex;
 
     lazy_static! {
@@ -260,8 +260,8 @@ mod parse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ir::Interpreter;
     use crate::ir::{Function, LinComb};
-    use ir::Interpreter;
     use zokrates_field::Bn128Field;
 
     mod prove {

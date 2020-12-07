@@ -214,7 +214,8 @@ mod integration {
         #[cfg(feature = "libsnark")]
         let backends = map! {
             "bellman" => ["g16"],
-            "libsnark" => ["gm17", "pghr13"]
+            "libsnark" => ["pghr13"],
+            "ark" => ["gm17"]
         };
 
         #[cfg(not(feature = "libsnark"))]

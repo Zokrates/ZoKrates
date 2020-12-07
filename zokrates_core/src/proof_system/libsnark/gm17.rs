@@ -1,11 +1,11 @@
-use ir::{Prog, Witness};
-use proof_system::gm17::{ProofPoints, VerificationKey, GM17};
-use proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
-use proof_system::libsnark::{
+use crate::ir::{Prog, Witness};
+use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
+use crate::proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
+use crate::proof_system::libsnark::{
     prepare_generate_proof, prepare_public_inputs, prepare_setup, serialization::*, Libsnark,
 };
-use proof_system::Scheme;
-use proof_system::{Backend, G1Affine, G2Affine, Proof, SetupKeypair};
+use crate::proof_system::Scheme;
+use crate::proof_system::{Backend, G1Affine, G2Affine, Proof, SetupKeypair};
 use std::io::{BufReader, BufWriter, Write};
 use zokrates_field::{Bn128Field, Field};
 

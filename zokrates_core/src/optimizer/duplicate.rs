@@ -48,7 +48,7 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flat_absy::FlatVariable;
+    use crate::flat_absy::FlatVariable;
     use zokrates_field::Bn128Field;
 
     #[test]

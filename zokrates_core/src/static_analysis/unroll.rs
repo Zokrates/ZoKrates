@@ -5,11 +5,11 @@
 //! @date 2018
 
 use crate::typed_absy::folder::*;
+use crate::typed_absy::identifier::CoreIdentifier;
 use crate::typed_absy::types::{MemberId, Type};
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use typed_absy::identifier::CoreIdentifier;
 use zokrates_field::Field;
 
 pub enum Output<'ast, T: Field> {
