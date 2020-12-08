@@ -149,29 +149,20 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    println!("check");
-
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
-    println!("flatten");
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
-
-    println!("analyse flat");
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
 
-    println!("convert to ir");
-
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
 
-    println!("optimize");
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    println!("analyse ir");
     // analyse (check for unused constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
 
