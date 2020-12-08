@@ -32,26 +32,26 @@ pub struct Identifier<'ast> {
 
 impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        //if self.stack.len() == 0 && self.version == 0 {
-        write!(f, "{}", self.id)
-        // } else {
-        //     write!(
-        //         f,
-        //         "{}_{}_{}",
-        //         self.stack
-        //             .iter()
-        //             .map(|(name, key_hash, count)| format!(
-        //                 "{}_{}_{}",
-        //                 name.display(),
-        //                 key_hash,
-        //                 count
-        //             ))
-        //             .collect::<Vec<_>>()
-        //             .join("_"),
-        //         self.id,
-        //         self.version
-        //     )
-        // }
+        if self.stack.len() == 0 && self.version == 0 {
+            write!(f, "{}", self.id)
+        } else {
+            write!(
+                f,
+                "{}_{}_{}",
+                self.stack
+                    .iter()
+                    .map(|(name, key_hash, count)| format!(
+                        "{}_{}_{}",
+                        name.display(),
+                        key_hash,
+                        count
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("_"),
+                self.id,
+                self.version
+            )
+        }
     }
 }
 

@@ -6,10 +6,8 @@
 
 use crate::typed_absy::folder::*;
 use crate::typed_absy::identifier::CoreIdentifier;
-use crate::typed_absy::types::{MemberId, Type};
 use crate::typed_absy::*;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use zokrates_field::Field;
 
 pub enum Output<'ast, T: Field> {
@@ -163,246 +161,6 @@ mod tests {
     use super::*;
     use zokrates_field::Bn128Field;
 
-    // #[test]
-    // fn ssa_array() {
-    //     let a0 = ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 3);
-
-    //     let e = FieldElementExpression::Number(Bn128Field::from(42)).into();
-
-    //     let index = FieldElementExpression::Number(Bn128Field::from(1));
-
-    //     let a1 = Unroller::choose_many(
-    //         a0.clone().into(),
-    //         vec![Access::Select(index)],
-    //         e,
-    //         &mut HashSet::new(),
-    //     );
-
-    //     // a[1] = 42
-    //     // -> a = [0 == 1 ? 42 : a[0], 1 == 1 ? 42 : a[1], 2 == 1 ? 42 : a[2]]
-
-    //     assert_eq!(
-    //         a1,
-    //         ArrayExpressionInner::Value(vec![
-    //             FieldElementExpression::if_else(
-    //                 BooleanExpression::FieldEq(
-    //                     box FieldElementExpression::Number(Bn128Field::from(0)),
-    //                     box FieldElementExpression::Number(Bn128Field::from(1))
-    //                 ),
-    //                 FieldElementExpression::Number(Bn128Field::from(42)),
-    //                 FieldElementExpression::select(
-    //                     a0.clone(),
-    //                     FieldElementExpression::Number(Bn128Field::from(0))
-    //                 )
-    //             )
-    //             .into(),
-    //             FieldElementExpression::if_else(
-    //                 BooleanExpression::FieldEq(
-    //                     box FieldElementExpression::Number(Bn128Field::from(1)),
-    //                     box FieldElementExpression::Number(Bn128Field::from(1))
-    //                 ),
-    //                 FieldElementExpression::Number(Bn128Field::from(42)),
-    //                 FieldElementExpression::select(
-    //                     a0.clone(),
-    //                     FieldElementExpression::Number(Bn128Field::from(1))
-    //                 )
-    //             )
-    //             .into(),
-    //             FieldElementExpression::if_else(
-    //                 BooleanExpression::FieldEq(
-    //                     box FieldElementExpression::Number(Bn128Field::from(2)),
-    //                     box FieldElementExpression::Number(Bn128Field::from(1))
-    //                 ),
-    //                 FieldElementExpression::Number(Bn128Field::from(42)),
-    //                 FieldElementExpression::select(
-    //                     a0.clone(),
-    //                     FieldElementExpression::Number(Bn128Field::from(2))
-    //                 )
-    //             )
-    //             .into()
-    //         ])
-    //         .annotate(Type::FieldElement, 3)
-    //         .into()
-    //     );
-
-    //     let a0 = ArrayExpressionInner::Identifier("a".into())
-    //         .annotate(Type::array(Type::FieldElement, 3), 3);
-
-    //     let e = ArrayExpressionInner::Identifier("b".into()).annotate(Type::FieldElement, 3);
-
-    //     let index = FieldElementExpression::Number(Bn128Field::from(1));
-
-    //     let a1 = Unroller::choose_many(
-    //         a0.clone().into(),
-    //         vec![Access::Select(index)],
-    //         e.clone().into(),
-    //         &mut HashSet::new(),
-    //     );
-
-    //     // a[0] = b
-    //     // -> a = [0 == 1 ? b : a[0], 1 == 1 ? b : a[1], 2 == 1 ? b : a[2]]
-
-    //     assert_eq!(
-    //         a1,
-    //         ArrayExpressionInner::Value(vec![
-    //             ArrayExpression::if_else(
-    //                 BooleanExpression::FieldEq(
-    //                     box FieldElementExpression::Number(Bn128Field::from(0)),
-    //                     box FieldElementExpression::Number(Bn128Field::from(1))
-    //                 ),
-    //                 e.clone(),
-    //                 ArrayExpression::select(
-    //                     a0.clone(),
-    //                     FieldElementExpression::Number(Bn128Field::from(0))
-    //                 )
-    //             )
-    //             .into(),
-    //             ArrayExpression::if_else(
-    //                 BooleanExpression::FieldEq(
-    //                     box FieldElementExpression::Number(Bn128Field::from(1)),
-    //                     box FieldElementExpression::Number(Bn128Field::from(1))
-    //                 ),
-    //                 e.clone(),
-    //                 ArrayExpression::select(
-    //                     a0.clone(),
-    //                     FieldElementExpression::Number(Bn128Field::from(1))
-    //                 )
-    //             )
-    //             .into(),
-    //             ArrayExpression::if_else(
-    //                 BooleanExpression::FieldEq(
-    //                     box FieldElementExpression::Number(Bn128Field::from(2)),
-    //                     box FieldElementExpression::Number(Bn128Field::from(1))
-    //                 ),
-    //                 e.clone(),
-    //                 ArrayExpression::select(
-    //                     a0.clone(),
-    //                     FieldElementExpression::Number(Bn128Field::from(2))
-    //                 )
-    //             )
-    //             .into()
-    //         ])
-    //         .annotate(Type::array(Type::FieldElement, 3), 3)
-    //         .into()
-    //     );
-
-    //     let a0 = ArrayExpressionInner::Identifier("a".into())
-    //         .annotate(Type::array(Type::FieldElement, 2), 2);
-
-    //     let e = FieldElementExpression::Number(Bn128Field::from(42));
-
-    //     let indices = vec![
-    //         Access::Select(FieldElementExpression::Number(Bn128Field::from(0))),
-    //         Access::Select(FieldElementExpression::Number(Bn128Field::from(0))),
-    //     ];
-
-    //     let a1 = Unroller::choose_many(
-    //         a0.clone().into(),
-    //         indices,
-    //         e.clone().into(),
-    //         &mut HashSet::new(),
-    //     );
-
-    //     // a[0][0] = 42
-    //     // -> a = [0 == 0 ? [0 == 0 ? 42 : a[0][0], 1 == 0 ? 42 : a[0][1]] : a[0], 1 == 0 ? [0 == 0 ? 42 : a[1][0], 1 == 0 ? 42 : a[1][1]] : a[1]]
-
-    //     assert_eq!(
-    //         a1,
-    //         ArrayExpressionInner::Value(vec![
-    //             ArrayExpression::if_else(
-    //                 BooleanExpression::FieldEq(
-    //                     box FieldElementExpression::Number(Bn128Field::from(0)),
-    //                     box FieldElementExpression::Number(Bn128Field::from(0))
-    //                 ),
-    //                 ArrayExpressionInner::Value(vec![
-    //                     FieldElementExpression::if_else(
-    //                         BooleanExpression::FieldEq(
-    //                             box FieldElementExpression::Number(Bn128Field::from(0)),
-    //                             box FieldElementExpression::Number(Bn128Field::from(0))
-    //                         ),
-    //                         e.clone(),
-    //                         FieldElementExpression::select(
-    //                             ArrayExpression::select(
-    //                                 a0.clone(),
-    //                                 FieldElementExpression::Number(Bn128Field::from(0))
-    //                             ),
-    //                             FieldElementExpression::Number(Bn128Field::from(0))
-    //                         )
-    //                     )
-    //                     .into(),
-    //                     FieldElementExpression::if_else(
-    //                         BooleanExpression::FieldEq(
-    //                             box FieldElementExpression::Number(Bn128Field::from(1)),
-    //                             box FieldElementExpression::Number(Bn128Field::from(0))
-    //                         ),
-    //                         e.clone(),
-    //                         FieldElementExpression::select(
-    //                             ArrayExpression::select(
-    //                                 a0.clone(),
-    //                                 FieldElementExpression::Number(Bn128Field::from(0))
-    //                             ),
-    //                             FieldElementExpression::Number(Bn128Field::from(1))
-    //                         )
-    //                     )
-    //                     .into()
-    //                 ])
-    //                 .annotate(Type::FieldElement, 2),
-    //                 ArrayExpression::select(
-    //                     a0.clone(),
-    //                     FieldElementExpression::Number(Bn128Field::from(0))
-    //                 )
-    //             )
-    //             .into(),
-    //             ArrayExpression::if_else(
-    //                 BooleanExpression::FieldEq(
-    //                     box FieldElementExpression::Number(Bn128Field::from(1)),
-    //                     box FieldElementExpression::Number(Bn128Field::from(0))
-    //                 ),
-    //                 ArrayExpressionInner::Value(vec![
-    //                     FieldElementExpression::if_else(
-    //                         BooleanExpression::FieldEq(
-    //                             box FieldElementExpression::Number(Bn128Field::from(0)),
-    //                             box FieldElementExpression::Number(Bn128Field::from(0))
-    //                         ),
-    //                         e.clone(),
-    //                         FieldElementExpression::select(
-    //                             ArrayExpression::select(
-    //                                 a0.clone(),
-    //                                 FieldElementExpression::Number(Bn128Field::from(1))
-    //                             ),
-    //                             FieldElementExpression::Number(Bn128Field::from(0))
-    //                         )
-    //                     )
-    //                     .into(),
-    //                     FieldElementExpression::if_else(
-    //                         BooleanExpression::FieldEq(
-    //                             box FieldElementExpression::Number(Bn128Field::from(1)),
-    //                             box FieldElementExpression::Number(Bn128Field::from(0))
-    //                         ),
-    //                         e.clone(),
-    //                         FieldElementExpression::select(
-    //                             ArrayExpression::select(
-    //                                 a0.clone(),
-    //                                 FieldElementExpression::Number(Bn128Field::from(1))
-    //                             ),
-    //                             FieldElementExpression::Number(Bn128Field::from(1))
-    //                         )
-    //                     )
-    //                     .into()
-    //                 ])
-    //                 .annotate(Type::FieldElement, 2),
-    //                 ArrayExpression::select(
-    //                     a0.clone(),
-    //                     FieldElementExpression::Number(Bn128Field::from(1))
-    //                 )
-    //             )
-    //             .into(),
-    //         ])
-    //         .annotate(Type::array(Type::FieldElement, 2), 2)
-    //         .into()
-    //     );
-    // }
-
     #[cfg(test)]
     mod statement {
         use super::*;
@@ -482,16 +240,44 @@ mod tests {
         fn idempotence() {
             // an already unrolled program should not be modified by unrolling again
 
+            // b = [5]
+            // b[0] = 1
             // a = 5
             // a_1 = 6
             // a_2 = 7
 
             // should be turned into
+            // b = [5]
+            // b[0] = 1
             // a = 5
             // a_1 = 6
             // a_2 = 7
 
             let mut u = Unroller::new();
+
+            let s = TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::array(
+                    Identifier::from("b").version(0),
+                    Type::FieldElement,
+                    1,
+                )),
+                ArrayExpressionInner::Value(vec![FieldElementExpression::from(Bn128Field::from(
+                    5,
+                ))
+                .into()])
+                .annotate(Type::FieldElement, 1)
+                .into(),
+            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
+
+            let s = TypedStatement::Definition(
+                TypedAssignee::Select(
+                    box Variable::field_element(Identifier::from("b").version(0)).into(),
+                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                ),
+                FieldElementExpression::Number(Bn128Field::from(1)).into(),
+            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(
@@ -696,7 +482,7 @@ mod tests {
 
             // should be turned into
             // a_0 = [1, 1]
-            // a_1 = [if 0 == 1 then 2 else a_0[0], if 1 == 1 then 2 else a_0[1]]
+            // a_0[1] = 2
 
             let mut u = Unroller::new();
 
@@ -738,58 +524,7 @@ mod tests {
                 FieldElementExpression::Number(Bn128Field::from(2)).into(),
             );
 
-            assert_eq!(
-                u.fold_statement(s),
-                vec![
-                    TypedStatement::Assertion(
-                        BooleanExpression::Lt(
-                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                            box FieldElementExpression::Number(Bn128Field::from(2))
-                        )
-                        .into(),
-                    ),
-                    TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_array(
-                            Identifier::from("a").version(1),
-                            2
-                        )),
-                        ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::FieldEq(
-                                    box FieldElementExpression::Number(Bn128Field::from(0)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                box FieldElementExpression::Number(Bn128Field::from(2)),
-                                box FieldElementExpression::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        Identifier::from("a").version(0)
-                                    )
-                                    .annotate(Type::FieldElement, 2),
-                                    box FieldElementExpression::Number(Bn128Field::from(0))
-                                ),
-                            )
-                            .into(),
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::FieldEq(
-                                    box FieldElementExpression::Number(Bn128Field::from(1)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                box FieldElementExpression::Number(Bn128Field::from(2)),
-                                box FieldElementExpression::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        Identifier::from("a").version(0)
-                                    )
-                                    .annotate(Type::FieldElement, 2),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                            )
-                            .into(),
-                        ])
-                        .annotate(Type::FieldElement, 2)
-                        .into()
-                    )
-                ]
-            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
         }
 
         #[test]
@@ -799,7 +534,7 @@ mod tests {
 
             // should be turned into
             // a_0 = [[0, 1], [2, 3]]
-            // a_1 = [if 0 == 1 then [4, 5] else a_0[0], if 1 == 1 then [4, 5] else a_0[1]]
+            // a_0 = [4, 5]
 
             let mut u = Unroller::new();
 
@@ -875,72 +610,7 @@ mod tests {
                 .into(),
             );
 
-            assert_eq!(
-                u.fold_statement(s),
-                vec![
-                    TypedStatement::Assertion(
-                        BooleanExpression::Lt(
-                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                            box FieldElementExpression::Number(Bn128Field::from(2))
-                        )
-                        .into(),
-                    ),
-                    TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::with_id_and_type(
-                            Identifier::from("a").version(1),
-                            array_of_array_ty.clone()
-                        )),
-                        ArrayExpressionInner::Value(vec![
-                            ArrayExpressionInner::IfElse(
-                                box BooleanExpression::FieldEq(
-                                    box FieldElementExpression::Number(Bn128Field::from(0)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                box ArrayExpressionInner::Value(vec![
-                                    FieldElementExpression::Number(Bn128Field::from(4)).into(),
-                                    FieldElementExpression::Number(Bn128Field::from(5)).into(),
-                                ])
-                                .annotate(Type::FieldElement, 2)
-                                .into(),
-                                box ArrayExpressionInner::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        Identifier::from("a").version(0)
-                                    )
-                                    .annotate(Type::array(Type::FieldElement, 2), 2),
-                                    box FieldElementExpression::Number(Bn128Field::from(0))
-                                )
-                                .annotate(Type::FieldElement, 2),
-                            )
-                            .annotate(Type::FieldElement, 2)
-                            .into(),
-                            ArrayExpressionInner::IfElse(
-                                box BooleanExpression::FieldEq(
-                                    box FieldElementExpression::Number(Bn128Field::from(1)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                box ArrayExpressionInner::Value(vec![
-                                    FieldElementExpression::Number(Bn128Field::from(4)).into(),
-                                    FieldElementExpression::Number(Bn128Field::from(5)).into(),
-                                ])
-                                .annotate(Type::FieldElement, 2)
-                                .into(),
-                                box ArrayExpressionInner::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        Identifier::from("a").version(0)
-                                    )
-                                    .annotate(Type::array(Type::FieldElement, 2), 2),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                )
-                                .annotate(Type::FieldElement, 2),
-                            )
-                            .annotate(Type::FieldElement, 2)
-                            .into(),
-                        ])
-                        .annotate(Type::array(Type::FieldElement, 2), 2)
-                        .into()
-                    )
-                ]
-            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
         }
     }
 }

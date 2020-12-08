@@ -3604,14 +3604,14 @@ mod tests {
     }
 
     #[test]
-    fn assign_to_non_variable() {
+    fn assign_to_select() {
         // def foo() -> field:
         //  return 1
         // def main():
         //  field[1] a = [0]
         //  a[0] = foo()
         //  return
-        // should fail
+        // should succeed
 
         let foo_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
@@ -3698,16 +3698,7 @@ mod tests {
             State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-        assert_eq!(
-            checker.check_module(&"main".into(), &mut state),
-            Err(vec![Error {
-                inner: ErrorInner {
-                    pos: Some((Position::mock(), Position::mock())),
-                    message: "Only assignment to identifiers is supported, found a[0]".into()
-                },
-                module_id: "main".into()
-            }])
-        );
+        assert!(checker.check_module(&"main".into(), &mut state).is_ok());
     }
 
     #[test]

@@ -116,7 +116,31 @@ impl<'ast, T: Field> Flattener<T> {
                     i => unimplemented!("index {} not allowed, should be a constant", i),
                 }
             }
-            _ => unimplemented!(),
+            typed_absy::TypedAssignee::Member(box a, m) => {
+                use typed_absy::Typed;
+
+                let (offset, size) = match a.get_type() {
+                    typed_absy::Type::Struct(struct_type) => {
+                        struct_type
+                            .members
+                            .iter()
+                            .fold((0, None), |(offset, size), member| match size {
+                                Some(_) => (offset, size),
+                                None => match m == member.id {
+                                    true => (offset, Some(member.ty.get_primitive_count())),
+                                    false => (offset + member.ty.get_primitive_count(), None),
+                                },
+                            })
+                    }
+                    _ => unreachable!(),
+                };
+
+                let size = size.unwrap();
+
+                let a = self.fold_assignee(a);
+
+                a[offset..offset + size].to_vec()
+            }
         }
     }
 

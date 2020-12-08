@@ -7,21 +7,14 @@
 use crate::typed_absy::folder::*;
 use crate::typed_absy::types::{MemberId, Type};
 use crate::typed_absy::*;
-use std::collections::HashMap;
 use std::collections::HashSet;
-use typed_absy::identifier::CoreIdentifier;
 use zokrates_field::Field;
 
-pub struct VariableWriteRemover<'ast> {
-    // version index for any variable name
-    substitution: HashMap<CoreIdentifier<'ast>, usize>,
-}
+pub struct VariableWriteRemover;
 
-impl<'ast> VariableWriteRemover<'ast> {
+impl<'ast> VariableWriteRemover {
     fn new() -> Self {
-        VariableWriteRemover {
-            substitution: HashMap::new(),
-        }
+        VariableWriteRemover
     }
 
     pub fn apply<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
@@ -344,58 +337,75 @@ fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable, Vec<Access<'a
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover<'ast> {
+fn is_constant<'ast, T>(assignee: &TypedAssignee<'ast, T>) -> bool {
+    match assignee {
+        TypedAssignee::Identifier(_) => true,
+        TypedAssignee::Select(box assignee, box index) => match index {
+            FieldElementExpression::Number(_) => is_constant(assignee),
+            _ => false,
+        },
+        TypedAssignee::Member(box assignee, _) => is_constant(assignee),
+    }
+}
+
+impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
             TypedStatement::Definition(assignee, expr) => {
-                let expr = self.fold_expression(expr);
+                if is_constant(&assignee) {
+                    vec![TypedStatement::Definition(assignee, expr)]
+                } else {
+                    // Note: here we redefine the whole object, ideally we would only redefine some of it
+                    // Example: `a[0][i] = 42` we redefine `a` but we could redefine just `a[0]`
+                    let expr = self.fold_expression(expr);
 
-                let (variable, indices) = linear(assignee);
+                    let (variable, indices) = linear(assignee);
 
-                let base = match variable.get_type() {
-                    Type::FieldElement => {
-                        FieldElementExpression::Identifier(variable.id.clone().into()).into()
-                    }
-                    Type::Boolean => {
-                        BooleanExpression::Identifier(variable.id.clone().into()).into()
-                    }
-                    Type::Uint(bitwidth) => {
-                        UExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(bitwidth)
-                            .into()
-                    }
-                    Type::Array(array_type) => {
-                        ArrayExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(*array_type.ty, array_type.size)
-                            .into()
-                    }
-                    Type::Struct(members) => {
-                        StructExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(members)
-                            .into()
-                    }
-                };
+                    let base = match variable.get_type() {
+                        Type::FieldElement => {
+                            FieldElementExpression::Identifier(variable.id.clone().into()).into()
+                        }
+                        Type::Boolean => {
+                            BooleanExpression::Identifier(variable.id.clone().into()).into()
+                        }
+                        Type::Uint(bitwidth) => {
+                            UExpressionInner::Identifier(variable.id.clone().into())
+                                .annotate(bitwidth)
+                                .into()
+                        }
+                        Type::Array(array_type) => {
+                            ArrayExpressionInner::Identifier(variable.id.clone().into())
+                                .annotate(*array_type.ty, array_type.size)
+                                .into()
+                        }
+                        Type::Struct(members) => {
+                            StructExpressionInner::Identifier(variable.id.clone().into())
+                                .annotate(members)
+                                .into()
+                        }
+                    };
 
-                let base = self.fold_expression(base);
+                    let base = self.fold_expression(base);
 
-                let indices = indices
-                    .into_iter()
-                    .map(|a| match a {
-                        Access::Select(i) => Access::Select(self.fold_field_expression(i)),
-                        a => a,
-                    })
-                    .collect();
+                    let indices = indices
+                        .into_iter()
+                        .map(|a| match a {
+                            Access::Select(i) => Access::Select(self.fold_field_expression(i)),
+                            a => a,
+                        })
+                        .collect();
 
-                let mut range_checks = HashSet::new();
-                let e = Self::choose_many(base, indices, expr, &mut range_checks);
+                    let mut range_checks = HashSet::new();
+                    let e = Self::choose_many(base, indices, expr, &mut range_checks);
 
-                range_checks
-                    .into_iter()
-                    .chain(std::iter::once(TypedStatement::Definition(
-                        TypedAssignee::Identifier(variable),
-                        e,
-                    )))
-                    .collect()
+                    range_checks
+                        .into_iter()
+                        .chain(std::iter::once(TypedStatement::Definition(
+                            TypedAssignee::Identifier(variable),
+                            e,
+                        )))
+                        .collect()
+                }
             }
             s => fold_statement(self, s),
         }

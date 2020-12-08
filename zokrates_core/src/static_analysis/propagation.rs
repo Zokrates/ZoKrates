@@ -164,7 +164,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             }
                         },
                         assignee => match self.get_constant_entry(&assignee) {
-                            Ok((v, c)) => match verbose {
+                            Ok((_, c)) => match verbose {
                                 true => {
                                     *c = expr.clone();
                                     vec![TypedStatement::Definition(assignee, expr)]
@@ -197,9 +197,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         None => vec![TypedStatement::Definition(assignee, expr)],
                     }
                 }
-            }
-            TypedStatement::Definition(TypedAssignee::Member(..), _) => {
-                unreachable!("struct update should have been replaced with full struct redef")
             }
             // propagate the boolean
             TypedStatement::Assertion(e) => {
@@ -410,7 +407,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                                 }
                                             },
                                             assignee => match self.get_constant_entry(&assignee) {
-                                                Ok((v, c)) => match verbose {
+                                                Ok((_, c)) => match verbose {
                                                     true => {
                                                         *c = expr.clone();
                                                         vec![TypedStatement::Definition(

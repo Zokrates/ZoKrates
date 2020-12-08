@@ -2629,16 +2629,4 @@ mod tests {
             ]
         );
     }
-
-    #[test]
-    #[should_panic]
-    fn next_variable() {
-        let mut flattener: Flattener<Bn128Field> = Flattener::new();
-        assert_eq!(
-            FlatVariable::new(0),
-            flattener.use_variable(&Variable::field_element("a"))
-        );
-        // using the same variable a second time should panic
-        flattener.use_variable(&Variable::field_element("a"));
-    }
 }
