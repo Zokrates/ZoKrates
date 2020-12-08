@@ -190,11 +190,8 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
 
-    println!("parse {}", location.display());
-
     let compiled = compile_program::<T, E>(source, location.clone(), resolver, &arena)?;
 
-    println!("check semantics {}", location.display());
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
         CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
@@ -202,7 +199,6 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
 
     let abi = typed_ast.abi();
 
-    println!("analyse typed");
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
