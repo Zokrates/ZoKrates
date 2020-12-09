@@ -16,9 +16,9 @@
 
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
+use crate::typed_absy::types::{FunctionKey, FunctionKeyHash, Type, UBitwidth};
+use crate::typed_absy::{folder::*, *};
 use std::collections::HashMap;
-use typed_absy::types::{FunctionKey, Type, UBitwidth};
-use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -51,7 +51,7 @@ pub struct Inliner<'ast, T: Field> {
     /// a buffer of statements to be added to the inlined statements
     statement_buffer: Vec<TypedStatement<'ast, T>>,
     /// the current call stack
-    stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
+    stack: Vec<(TypedModuleId, FunctionKeyHash, usize)>,
     /// the call count for each function
     call_count: HashMap<(TypedModuleId, FunctionKey<'ast>), usize>,
     /// the cache for memoization: for each function body, tracks function calls
@@ -183,7 +183,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     .and_modify(|i| *i += 1)
                     .or_insert(1);
                 // push this call to the stack
-                self.stack.push((module_id, key.clone(), *count));
+                self.stack.push((module_id, key.hash(), *count));
                 // add definitions for the inputs
                 let inputs_bindings: Vec<_> = function
                     .arguments
@@ -344,7 +344,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
                             id: CoreIdentifier::Call(
-                                key.clone(),
+                                key.hash(),
                                 *self
                                     .call_count
                                     .entry((self.module_id().clone(), embed_key.clone()))
@@ -398,7 +398,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
                             id: CoreIdentifier::Call(
-                                key.clone(),
+                                key.hash(),
                                 *self
                                     .call_count
                                     .entry((self.module_id().clone(), embed_key.clone()))
@@ -454,7 +454,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
                             id: CoreIdentifier::Call(
-                                key.clone(),
+                                key.hash(),
                                 *self
                                     .call_count
                                     .entry((self.module_id().clone(), embed_key.clone()))
@@ -511,7 +511,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
                             id: CoreIdentifier::Call(
-                                key.clone(),
+                                key.hash(),
                                 *self
                                     .call_count
                                     .entry((self.module_id().clone(), embed_key.clone()))
@@ -565,7 +565,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
                             id: CoreIdentifier::Call(
-                                key.clone(),
+                                key.hash(),
                                 *self
                                     .call_count
                                     .entry((self.module_id().clone(), embed_key.clone()))
@@ -605,8 +605,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::typed_absy::types::{FunctionKey, Signature, Type};
     use std::path::PathBuf;
-    use typed_absy::types::{FunctionKey, Signature, Type};
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -810,11 +810,13 @@ mod tests {
 
         let stack = vec![(
             "foo".into(),
-            FunctionKey::with_id("foo").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
-            ),
+            FunctionKey::with_id("foo")
+                .signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                )
+                .hash(),
             1,
         )];
 
@@ -973,7 +975,9 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "foo".into(),
-                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                FunctionKey::with_id("foo")
+                                    .signature(signature.clone())
+                                    .hash(),
                                 1
                             )])
                         )),
@@ -985,14 +989,14 @@ mod tests {
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    FunctionKey::with_id("foo").signature(signature.clone()).hash(),
                                     1
                                 )]
                             )),
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    FunctionKey::with_id("foo").signature(signature.clone()).hash(),
                                     1
                                 )]
                             ))
@@ -1144,7 +1148,9 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "foo".into(),
-                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                FunctionKey::with_id("foo")
+                                    .signature(signature.clone())
+                                    .hash(),
                                 1
                             )])
                         )),
@@ -1154,7 +1160,9 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(vec![(
                                 "main".into(),
-                                FunctionKey::with_id("bar").signature(signature.clone()),
+                                FunctionKey::with_id("bar")
+                                    .signature(signature.clone())
+                                    .hash(),
                                 1
                             )])
                         )),
@@ -1165,19 +1173,23 @@ mod tests {
                             Identifier::from("a").stack(vec![
                                 (
                                     "main".into(),
-                                    FunctionKey::with_id("bar").signature(signature.clone()),
+                                    FunctionKey::with_id("bar")
+                                        .signature(signature.clone())
+                                        .hash(),
                                     1
                                 ),
                                 (
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    FunctionKey::with_id("foo")
+                                        .signature(signature.clone())
+                                        .hash(),
                                     2
                                 )
                             ])
                         )),
                         FieldElementExpression::Identifier(Identifier::from("a").stack(vec![(
                             "main".into(),
-                            FunctionKey::with_id("bar").signature(signature.clone()),
+                            FunctionKey::with_id("bar").signature(signature.clone()).hash(),
                             1
                         )]))
                         .into()
@@ -1188,7 +1200,7 @@ mod tests {
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
                                     "foo".into(),
-                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    FunctionKey::with_id("foo").signature(signature.clone()).hash(),
                                     1
                                 )]
                             )),
@@ -1196,12 +1208,16 @@ mod tests {
                                 vec![
                                     (
                                         "main".into(),
-                                        FunctionKey::with_id("bar").signature(signature.clone()),
+                                        FunctionKey::with_id("bar")
+                                            .signature(signature.clone())
+                                            .hash(),
                                         1
                                     ),
                                     (
                                         "foo".into(),
-                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        FunctionKey::with_id("foo")
+                                            .signature(signature.clone())
+                                            .hash(),
                                         2
                                     )
                                 ]
@@ -1526,20 +1542,24 @@ mod tests {
 
         let stack0 = vec![(
             "id".into(),
-            FunctionKey::with_id("main").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
-            ),
+            FunctionKey::with_id("main")
+                .signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                )
+                .hash(),
             1,
         )];
         let stack1 = vec![(
             "id".into(),
-            FunctionKey::with_id("main").signature(
-                Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
-            ),
+            FunctionKey::with_id("main")
+                .signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                )
+                .hash(),
             2,
         )];
 

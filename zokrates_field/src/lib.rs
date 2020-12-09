@@ -3,14 +3,15 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
-extern crate ark_bls12_377;
-extern crate ark_ec;
-extern crate ark_ff;
+
 extern crate num_bigint;
 
+#[cfg(feature = "ark")]
 use ark_ec::PairingEngine;
-use bellman_ce::pairing::ff::ScalarEngine;
-use bellman_ce::pairing::Engine;
+
+#[cfg(feature = "bellman")]
+use bellman_ce::pairing::{ff::ScalarEngine, Engine};
+
 use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
@@ -24,6 +25,7 @@ pub trait Pow<RHS> {
     fn pow(self, _: RHS) -> Self::Output;
 }
 
+#[cfg(feature = "bellman")]
 pub trait BellmanFieldExtensions {
     /// An associated type to be able to operate with Bellman ff traits
     type BellmanEngine: Engine;
@@ -33,6 +35,7 @@ pub trait BellmanFieldExtensions {
     fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
 }
 
+#[cfg(feature = "ark")]
 pub trait ArkFieldExtensions {
     /// An associated type to be able to operate with ark ff traits
     type ArkEngine: PairingEngine;
@@ -520,6 +523,7 @@ mod prime_field {
         };
     }
 
+    #[cfg(feature = "bellman")]
     macro_rules! bellman_extensions {
         ($bellman_type:ty, $fq2_type:ident) => {
             use crate::BellmanFieldExtensions;
@@ -554,6 +558,7 @@ mod prime_field {
         };
     }
 
+    #[cfg(feature = "ark")]
     macro_rules! ark_extensions {
         ($ark_type:ty) => {
             use crate::ArkFieldExtensions;

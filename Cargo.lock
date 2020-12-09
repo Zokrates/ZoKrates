@@ -1578,6 +1578,9 @@ name = "serde"
 version = "1.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b88fa983de7720629c9387e9f517353ed404164b1e482c970a90c1a4aaf7dc1a"
+dependencies = [
+ "serde_derive",
+]
 
 [[package]]
 name = "serde_derive"
@@ -2042,6 +2045,7 @@ version = "0.6.2"
 dependencies = [
  "assert_cli",
  "bincode",
+ "cfg-if 0.1.10",
  "clap",
  "dirs",
  "fs_extra",
@@ -2090,7 +2094,6 @@ dependencies = [
  "reduce",
  "regex",
  "serde",
- "serde_derive",
  "serde_json",
  "typed-arena",
  "wasm-bindgen-test",

@@ -3,21 +3,21 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use absy::{Module, ModuleId, Program};
-use flatten::Flattener;
-use imports::{self, Importer};
-use ir;
-use macros;
+use crate::absy::{Module, ModuleId, Program};
+use crate::flatten::Flattener;
+use crate::imports::{self, Importer};
+use crate::ir;
+use crate::macros;
+use crate::semantics::{self, Checker};
+use crate::static_analysis::Analyse;
+use crate::typed_absy::abi::Abi;
+use crate::zir::ZirProgram;
 use macros::process_macros;
-use semantics::{self, Checker};
-use static_analysis::Analyse;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::path::PathBuf;
-use typed_absy::abi::Abi;
 use typed_arena::Arena;
-use zir::ZirProgram;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
@@ -287,8 +287,8 @@ mod test {
 
     mod abi {
         use super::*;
-        use typed_absy::abi::*;
-        use typed_absy::types::*;
+        use crate::typed_absy::abi::*;
+        use crate::typed_absy::types::*;
 
         #[test]
         fn use_struct_declaration_types() {

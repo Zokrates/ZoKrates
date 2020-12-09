@@ -1,12 +1,12 @@
+use crate::typed_absy::types::FunctionKeyHash;
+use crate::typed_absy::TypedModuleId;
 use std::fmt;
-use typed_absy::types::FunctionKey;
-use typed_absy::TypedModuleId;
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub enum CoreIdentifier<'ast> {
     Source(&'ast str),
     Internal(&'static str, usize),
-    Call(FunctionKey<'ast>, usize),
+    Call(FunctionKeyHash, usize),
 }
 
 impl<'ast> fmt::Display for CoreIdentifier<'ast> {
@@ -14,7 +14,7 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
         match self {
             CoreIdentifier::Source(s) => write!(f, "{}", s),
             CoreIdentifier::Internal(s, i) => write!(f, "#INTERNAL#_{}_{}", s, i),
-            CoreIdentifier::Call(k, i) => write!(f, "{}_{}", k.to_slug(), i),
+            CoreIdentifier::Call(k, i) => write!(f, "{:x}_{}", k, i),
         }
     }
 }
@@ -27,7 +27,7 @@ pub struct Identifier<'ast> {
     /// the version of the variable, used after SSA transformation
     pub version: usize,
     /// the call stack of the variable, used when inlining
-    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
+    pub stack: Vec<(TypedModuleId, FunctionKeyHash, usize)>,
 }
 
 impl<'ast> fmt::Display for Identifier<'ast> {
@@ -40,10 +40,10 @@ impl<'ast> fmt::Display for Identifier<'ast> {
                 "{}_{}_{}",
                 self.stack
                     .iter()
-                    .map(|(name, sig, count)| format!(
+                    .map(|(name, key_hash, count)| format!(
                         "{}_{}_{}",
                         name.display(),
-                        sig.to_slug(),
+                        key_hash,
                         count
                     ))
                     .collect::<Vec<_>>()
@@ -78,7 +78,7 @@ impl<'ast> Identifier<'ast> {
         self
     }
 
-    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
+    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKeyHash, usize)>) -> Self {
         self.stack = stack;
         self
     }
