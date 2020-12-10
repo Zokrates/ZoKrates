@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: zokrates/env:latest
+      - image: zokrates/env:staging
     steps:
       - checkout
       - run:
@@ -27,7 +27,7 @@ jobs:
           key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
   test:
     docker:
-      - image: zokrates/env:latest
+      - image: zokrates/env:staging
     steps:
       - checkout
       - run:
@@ -53,7 +53,7 @@ jobs:
       #     command: ./scripts/cov.sh
   cpp_format:
     docker:
-      - image: zokrates/env:latest
+      - image: zokrates/env:staging
     steps:
       - checkout
       - run:
@@ -61,7 +61,7 @@ jobs:
           command: run-clang-format.py -r $(pwd)/zokrates_core/lib
   wasm_test:
     docker:
-      - image: zokrates/env:latest
+      - image: zokrates/env:staging
     steps:
       - checkout
       - run:
@@ -78,9 +78,8 @@ jobs:
           command: GECKODRIVER=geckodriver cd zokrates_core && wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
   integration_test:
     docker:
-      - image: zokrates/env:latest
+      - image: zokrates/env:staging
       - image: trufflesuite/ganache-cli:next
-        port: 8545:8545
     steps:
       - checkout
       - run:
@@ -107,7 +106,7 @@ jobs:
           command: ./scripts/release.sh
   zokrates_js_build:
     docker:
-      - image: zokrates/env:latest
+      - image: zokrates/env:staging
     steps:
       - checkout
       - run:
@@ -115,7 +114,7 @@ jobs:
           command: cd zokrates_js && npm run build:dev
   zokrates_js_test:
     docker:
-      - image: zokrates/env:latest
+      - image: zokrates/env:staging
     steps:
       - checkout
       - run:
