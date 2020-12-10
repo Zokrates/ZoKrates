@@ -19,7 +19,7 @@ use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
-use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
+use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileConfig, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 
 use zokrates_core::proof_system::{
@@ -181,7 +181,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
 
     let signature = match is_abi {
         true => {
-            let path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+            let path = Path::new(sub_matches.value_of("abi-spec").unwrap());
             let file = File::open(&path)
                 .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
             let mut reader = BufReader::new(file);
@@ -280,7 +280,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
 
-    let abi_spec_path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+    let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
 
     let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
@@ -304,8 +304,13 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let resolver =
         FileSystemResolver::with_stdlib_root(sub_matches.value_of("stdlib-path").unwrap());
-    let artifacts: CompilationArtifacts<T> =
-        compile(source, path, Some(&resolver)).map_err(|e| {
+
+    let config = CompileConfig {
+        allow_unconstrained_variables: sub_matches.is_present("allow-unconstrained-variables"),
+    };
+
+    let artifacts: CompilationArtifacts<T> = compile(source, path, Some(&resolver), &config)
+        .map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
                 e.0.iter()
@@ -476,9 +481,9 @@ fn cli() -> Result<(), String> {
             .required(false)
             .env("ZOKRATES_STDLIB")
             .default_value(default_stdlib_path.to_str().unwrap_or(""))
-        ).arg(Arg::with_name("abi_spec")
+        ).arg(Arg::with_name("abi-spec")
             .short("s")
-            .long("abi_spec")
+            .long("abi-spec")
             .help("Path of the ABI specification")
             .value_name("FILE")
             .takes_value(true)
@@ -503,6 +508,10 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("light")
             .long("light")
             .help("Skip logs and human readable output")
+            .required(false)
+        ).arg(Arg::with_name("allow-unconstrained-variables")
+            .long("allow-unconstrained-variables")
+            .help("Allow unconstrained variables by inserting dummy constraints")
             .required(false)
         )
      )
@@ -636,9 +645,9 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        ).arg(Arg::with_name("abi_spec")
+        ).arg(Arg::with_name("abi-spec")
             .short("s")
-            .long("abi_spec")
+            .long("abi-spec")
             .help("Path of the ABI specification")
             .value_name("FILE")
             .takes_value(true)
@@ -1098,7 +1107,8 @@ mod tests {
 
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
-            let res = compile::<Bn128Field, _>(source, path, Some(&resolver));
+            let res =
+                compile::<Bn128Field, _>(source, path, Some(&resolver), &CompileConfig::default());
 
             assert_eq!(res.is_err(), should_error);
         }
@@ -1124,7 +1134,7 @@ mod tests {
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
             let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
 
             let interpreter = ir::Interpreter::default();
 
@@ -1154,7 +1164,7 @@ mod tests {
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
             let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
 
             let interpreter = ir::Interpreter::default();
 

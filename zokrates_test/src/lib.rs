@@ -86,7 +86,7 @@ fn compare<T: Field>(result: ir::ExecutionResult<T>, expected: TestResult) -> Re
 }
 
 use std::io::{BufReader, Read};
-use zokrates_core::compile::compile;
+use zokrates_core::compile::{compile, CompileConfig};
 use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn test_inner(test_path: &str) {
@@ -110,7 +110,13 @@ fn compile_and_run<T: Field>(t: Tests) {
 
     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
-    let artifacts = compile::<T, _>(code, t.entry_point.clone(), Some(&resolver)).unwrap();
+    let artifacts = compile::<T, _>(
+        code,
+        t.entry_point.clone(),
+        Some(&resolver),
+        &CompileConfig::default(),
+    )
+    .unwrap();
 
     let bin = artifacts.prog();
 

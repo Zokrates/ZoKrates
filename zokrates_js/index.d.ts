@@ -10,9 +10,14 @@ declare module 'zokrates-js' {
   export type SolidityAbi = "v1" | "v2";
   export type ResolveCallback = (location: string, path: string) => ResolverResult;
 
+   export interface CompileConfig {
+      allow_unconstrained_variables?: boolean
+   }
+
   export interface CompileOptions {
     location?: string,
     resolveCallback?: ResolveCallback,
+    config?: CompileConfig
   }
 
   export interface VerificationKey {
