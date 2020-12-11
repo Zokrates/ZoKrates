@@ -189,7 +189,6 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
-
     let compiled = compile_program::<T, E>(source, location.clone(), resolver, &arena)?;
 
     // check semantics
