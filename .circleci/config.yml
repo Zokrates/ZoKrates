@@ -9,9 +9,9 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-#      - run:
-#          name: Calculate dependencies
-#          command: cargo generate-lockfile
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -33,9 +33,9 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-#      - run:
-#          name: Calculate dependencies
-#          command: cargo generate-lockfile
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -67,9 +67,9 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-#      - run:
-#          name: Calculate dependencies
-#          command: cargo generate-lockfile
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -85,9 +85,9 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-#      - run:
-#          name: Calculate dependencies
-#          command: cargo generate-lockfile
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
