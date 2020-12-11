@@ -113,7 +113,7 @@ impl<'ast, T: Field> Flattener<T> {
                         let index = n.to_dec_string().parse::<usize>().unwrap();
                         a[index * count..(index + 1) * count].to_vec()
                     }
-                    i => unimplemented!("index {} not allowed, should be a constant", i),
+                    i => unreachable!("index {} not allowed, should be a constant", i),
                 }
             }
             typed_absy::TypedAssignee::Member(box a, m) => {

@@ -41,20 +41,28 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> ZirProgram<'ast, T> {
         // propagated unrolling
         let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
+
         // return binding
         let r = ReturnBinder::bind(r);
+
         // inline
         let r = Inliner::inline(r);
+
         // propagate
         let r = Propagator::propagate(r);
+
         // optimize redefinitions
         let r = RedefinitionOptimizer::optimize(r);
+
         // remove assignment to variable index
         let r = VariableWriteRemover::apply(r);
+
         // remove variable access to complex types
         let r = VariableReadRemover::apply(r);
+
         // convert to zir, removing complex types
         let zir = Flattener::flatten(r);
+
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);
 

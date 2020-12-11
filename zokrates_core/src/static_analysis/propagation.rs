@@ -49,7 +49,9 @@ impl<'ast, T: Field> Propagator<'ast, T> {
         Propagator::verbose().fold_program(p)
     }
 
-    fn get_constant_entry<'a>(
+    // get a mutable reference to the constant corresponding to a given assignee if any, otherwise
+    // return the identifier at the root of this assignee
+    fn try_get_constant_mut<'a>(
         &mut self,
         assignee: &'a TypedAssignee<'ast, T>,
     ) -> Result<(&'a Variable<'ast>, &mut TypedExpression<'ast, T>), &'a Variable<'ast>> {
@@ -60,7 +62,7 @@ impl<'ast, T: Field> Propagator<'ast, T> {
                 .map(|c| Ok((var, c)))
                 .unwrap_or(Err(var)),
             TypedAssignee::Select(box assignee, box index) => {
-                match self.get_constant_entry(&assignee) {
+                match self.try_get_constant_mut(&assignee) {
                     Ok((v, c)) => match index {
                         FieldElementExpression::Number(n) => {
                             let n = n.to_dec_string().parse::<usize>().unwrap();
@@ -78,7 +80,7 @@ impl<'ast, T: Field> Propagator<'ast, T> {
                     e => e,
                 }
             }
-            TypedAssignee::Member(box assignee, m) => match self.get_constant_entry(&assignee) {
+            TypedAssignee::Member(box assignee, m) => match self.try_get_constant_mut(&assignee) {
                 Ok((v, c)) => {
                     let ty = assignee.get_type();
 
@@ -151,19 +153,22 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     match assignee {
                         TypedAssignee::Identifier(var) => match verbose {
                             true => {
-                                self.constants.insert(var.id.clone(), expr.clone());
+                                assert!(self
+                                    .constants
+                                    .insert(var.id.clone(), expr.clone())
+                                    .is_none());
                                 vec![TypedStatement::Definition(
                                     TypedAssignee::Identifier(var),
                                     expr,
                                 )]
                             }
                             false => {
-                                self.constants.insert(var.id, expr);
+                                assert!(self.constants.insert(var.id, expr).is_none());
 
                                 vec![]
                             }
                         },
-                        assignee => match self.get_constant_entry(&assignee) {
+                        assignee => match self.try_get_constant_mut(&assignee) {
                             Ok((_, c)) => match verbose {
                                 true => {
                                     *c = expr.clone();
@@ -175,6 +180,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 }
                             },
                             Err(v) => match self.constants.remove(&v.id) {
+                                // invalidate the cache for this identifier, and define the latest
+                                // version of the constant in the program, if any
                                 Some(c) => vec![
                                     TypedStatement::Definition(v.clone().into(), c),
                                     TypedStatement::Definition(assignee, expr),
@@ -184,8 +191,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         },
                     }
                 } else {
+                    // the expression being assigned is not constant, invalidate the cache
                     let v = self
-                        .get_constant_entry(&assignee)
+                        .try_get_constant_mut(&assignee)
                         .map(|(v, _)| v)
                         .unwrap_or_else(|v| v);
 
@@ -385,6 +393,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 };
 
                                 match r {
+                                    // if the function call returns a constant
                                     Some(expr) => {
                                         let verbose = self.verbose;
 
@@ -406,41 +415,47 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                                     vec![]
                                                 }
                                             },
-                                            assignee => match self.get_constant_entry(&assignee) {
-                                                Ok((_, c)) => match verbose {
-                                                    true => {
-                                                        *c = expr.clone();
-                                                        vec![TypedStatement::Definition(
+                                            assignee => {
+                                                match self.try_get_constant_mut(&assignee) {
+                                                    Ok((_, c)) => match verbose {
+                                                        true => {
+                                                            *c = expr.clone();
+                                                            vec![TypedStatement::Definition(
+                                                                assignee, expr,
+                                                            )]
+                                                        }
+                                                        false => {
+                                                            *c = expr;
+                                                            vec![]
+                                                        }
+                                                    },
+                                                    Err(v) => match self.constants.remove(&v.id) {
+                                                        Some(c) => vec![
+                                                            TypedStatement::Definition(
+                                                                v.clone().into(),
+                                                                c,
+                                                            ),
+                                                            TypedStatement::Definition(
+                                                                assignee, expr,
+                                                            ),
+                                                        ],
+                                                        None => vec![TypedStatement::Definition(
                                                             assignee, expr,
-                                                        )]
-                                                    }
-                                                    false => {
-                                                        *c = expr;
-                                                        vec![]
-                                                    }
-                                                },
-                                                Err(v) => match self.constants.remove(&v.id) {
-                                                    Some(c) => vec![
-                                                        TypedStatement::Definition(
-                                                            v.clone().into(),
-                                                            c,
-                                                        ),
-                                                        TypedStatement::Definition(assignee, expr),
-                                                    ],
-                                                    None => vec![TypedStatement::Definition(
-                                                        assignee, expr,
-                                                    )],
-                                                },
-                                            },
+                                                        )],
+                                                    },
+                                                }
+                                            }
                                         }
                                     }
                                     None => {
+                                        // if the function call does not return a constant, invalidate the cache
+                                        // this happpens because we only propagate certain calls here
                                         let mut assignees = assignees;
 
                                         let assignee = assignees.pop().unwrap();
 
                                         let v = self
-                                            .get_constant_entry(&assignee)
+                                            .try_get_constant_mut(&assignee)
                                             .map(|(v, _)| v)
                                             .unwrap_or_else(|v| v);
 
@@ -465,11 +480,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 }
                             }
                             false => {
+                                // if the function arguments are not constant, invalidate the cache
+                                // for the return assignees
+
                                 let invalidations = assignees
                                     .iter()
                                     .flat_map(|assignee| {
                                         let v = self
-                                            .get_constant_entry(&assignee)
+                                            .try_get_constant_mut(&assignee)
                                             .map(|(v, _)| v)
                                             .unwrap_or_else(|v| v);
                                         match self.constants.remove(&v.id) {
