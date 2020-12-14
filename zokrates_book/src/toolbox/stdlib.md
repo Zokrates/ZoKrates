@@ -1,6 +1,6 @@
 ## Standard library
 
-ZoKrates comes with a number of reusable components in the form of a Standard Library. In order to import it as described in the [imports](./imports.html) section, the `$ZOKRATES_HOME` environment variable must be set to the `stdlib` folder.
+ZoKrates comes with a number of reusable components in the form of a Standard Library. In order to import it as described in the [imports](./imports.html) section, the `$ZOKRATES_STDLIB` environment variable must be set to the `stdlib` folder.
 
 The full ZoKrates Standard Library can be found [here](https://github.com/Zokrates/ZoKrates/tree/latest/zokrates_stdlib/stdlib).
 
