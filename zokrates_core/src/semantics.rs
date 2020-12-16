@@ -1342,22 +1342,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
                         }
 
-                        // constrain assignees to being identifiers
-                        let (variables, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| match a.unwrap() {
-                            TypedAssignee::Identifier(v) => Ok(v),
-                            a => Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!("Only assignment to identifiers is supported, found {}", a)
-                            })
-                        }).partition(|r| r.is_ok());
+                        let assignees: Vec<_> = assignees.into_iter().map(|a| a.unwrap()).collect();
 
-                        if errors.len() > 0 {
-                            return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
-                        }
-
-                        let variables: Vec<_> = variables.into_iter().map(|v| v.unwrap()).collect();
-
-                        let vars_types = variables.iter().map(|a| Some(a.get_type().clone())).collect();
+                        let assignee_types = assignees.iter().map(|a| Some(a.get_type().clone())).collect();
 
                         // find argument types
                         let mut arguments_checked = vec![];
@@ -1369,7 +1356,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let arguments_types =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
-                        let query = FunctionQuery::new(&fun_id, &arguments_types, &vars_types);
+                        let query = FunctionQuery::new(&fun_id, &arguments_types, &assignee_types);
 
                         let functions = self.find_functions(&query);
 
@@ -1385,9 +1372,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     message: format!("Expected function call argument to be of type {}, found {} of type {}", e.1, e.0, e.0.get_type())
                                 }])?;
 
-                                let call = TypedExpressionList::FunctionCall(f.clone().into(), arguments_checked, variables.iter().map(|v| v.get_type()).collect());
+                                let call = TypedExpressionList::FunctionCall(f.clone().into(), arguments_checked, assignees.iter().map(|a| a.get_type()).collect());
 
-                                Ok(TypedStatement::MultipleDefinition(variables, call))
+                                Ok(TypedStatement::MultipleDefinition(assignees, call))
                     		},
                     		0 => Err(ErrorInner {                         pos: Some(pos),
  message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
@@ -4687,14 +4674,14 @@ mod tests {
     }
 
     #[test]
-    fn assign_to_non_variable() {
+    fn assign_to_select() {
         // def foo() -> field:
         //  return 1
         // def main():
         //  field[1] a = [0]
         //  a[0] = foo()
         //  return
-        // should fail
+        // should succeed
 
         let foo_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
@@ -4787,16 +4774,7 @@ mod tests {
             State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
-        assert_eq!(
-            checker.check_module(&"main".into(), &mut state),
-            Err(vec![Error {
-                inner: ErrorInner {
-                    pos: Some((Position::mock(), Position::mock())),
-                    message: "Only assignment to identifiers is supported, found a[0]".into()
-                },
-                module_id: "main".into()
-            }])
-        );
+        assert!(checker.check_module(&"main".into(), &mut state).is_ok());
     }
 
     #[test]
@@ -4926,8 +4904,8 @@ mod tests {
             TypedStatement::Declaration(typed_absy::Variable::field_element("b")),
             TypedStatement::MultipleDefinition(
                 vec![
-                    typed_absy::Variable::field_element("a"),
-                    typed_absy::Variable::field_element("b"),
+                    typed_absy::Variable::field_element("a").into(),
+                    typed_absy::Variable::field_element("b").into(),
                 ],
                 TypedExpressionList::FunctionCall(
                     DeclarationFunctionKey::with_location(MODULE_ID, "foo").signature(
@@ -6240,7 +6218,7 @@ mod tests {
                         box TypedAssignee::Identifier(typed_absy::Variable::array(
                             "a",
                             Type::array(Type::FieldElement, UExpression::from(33u32)),
-                            42u32.into(),
+                            42u32,
                         )),
                         box 1u32.into()
                     ),

@@ -69,7 +69,7 @@ impl<'ast, S: Clone> GVariable<'ast, S> {
         Self::array(id, GType::FieldElement, size)
     }
 
-    pub fn array<I: Into<Identifier<'ast>>>(id: I, ty: GType<S>, size: S) -> Self {
+    pub fn array<I: Into<Identifier<'ast>>, U: Into<S>>(id: I, ty: GType<S>, size: U) -> Self {
         Self::with_id_and_type(id, GType::array(ty, size))
     }
 

@@ -108,7 +108,45 @@ impl<'ast, T: Field> Flattener<T> {
     ) -> Vec<zir::ZirAssignee<'ast>> {
         match a {
             typed_absy::TypedAssignee::Identifier(v) => self.fold_variable(v),
-            _ => unreachable!(),
+            typed_absy::TypedAssignee::Select(box a, box i) => {
+                use typed_absy::Typed;
+                let count = match typed_absy::ConcreteType::try_from(a.get_type()).unwrap() {
+                    typed_absy::ConcreteType::Array(array_ty) => array_ty.ty.get_primitive_count(),
+                    _ => unreachable!(),
+                };
+                let a = self.fold_assignee(a);
+
+                match i.as_inner() {
+                    typed_absy::UExpressionInner::Value(index) => {
+                        a[*index as usize * count..(*index as usize + 1) * count].to_vec()
+                    }
+                    i => unreachable!("index {:?} not allowed, should be a constant", i),
+                }
+            }
+            typed_absy::TypedAssignee::Member(box a, m) => {
+                use typed_absy::Typed;
+
+                let (offset, size) = match typed_absy::ConcreteType::try_from(a.get_type()).unwrap()
+                {
+                    typed_absy::ConcreteType::Struct(struct_type) => struct_type
+                        .members
+                        .iter()
+                        .fold((0, None), |(offset, size), member| match size {
+                            Some(_) => (offset, size),
+                            None => match m == member.id {
+                                true => (offset, Some(member.ty.get_primitive_count())),
+                                false => (offset + member.ty.get_primitive_count(), None),
+                            },
+                        }),
+                    _ => unreachable!(),
+                };
+
+                let size = size.unwrap();
+
+                let a = self.fold_assignee(a);
+
+                a[offset..offset + size].to_vec()
+            }
         }
     }
 
@@ -273,7 +311,7 @@ pub fn fold_statement<'ast, T: Field>(
             vec![zir::ZirStatement::MultipleDefinition(
                 variables
                     .into_iter()
-                    .flat_map(|v| f.fold_variable(v))
+                    .flat_map(|v| f.fold_assignee(v))
                     .collect(),
                 f.fold_expression_list(elist),
             )]

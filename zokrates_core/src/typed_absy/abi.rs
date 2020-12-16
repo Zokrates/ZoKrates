@@ -37,7 +37,6 @@ mod tests {
         TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
     };
     use std::collections::HashMap;
-    use std::collections::HashMap;
     use zokrates_field::Bn128Field;
 
     #[test]

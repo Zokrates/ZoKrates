@@ -13,11 +13,11 @@
 use crate::typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
-pub struct VariableAccessRemover<'ast, T: Field> {
+pub struct VariableReadRemover<'ast, T: Field> {
     statements: Vec<TypedStatement<'ast, T>>,
 }
 
-impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
+impl<'ast, T: Field> VariableReadRemover<'ast, T> {
     fn new() -> Self {
         Self { statements: vec![] }
     }
@@ -86,7 +86,7 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
+impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
@@ -177,7 +177,7 @@ mod tests {
         );
 
         assert_eq!(
-            VariableAccessRemover::new().fold_statement(access),
+            VariableReadRemover::new().fold_statement(access),
             vec![
                 TypedStatement::Assertion(
                     BooleanExpression::Or(

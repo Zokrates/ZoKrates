@@ -380,7 +380,7 @@ pub enum TypedStatement<'ast, T> {
         UExpression<'ast, T>,
         Vec<TypedStatement<'ast, T>>,
     ),
-    MultipleDefinition(Vec<Variable<'ast, T>>, TypedExpressionList<'ast, T>),
+    MultipleDefinition(Vec<TypedAssignee<'ast, T>>, TypedExpressionList<'ast, T>),
     // Aux
     PushCallLog(
         DeclarationFunctionKey<'ast>,
@@ -719,12 +719,6 @@ pub enum FieldElementExpression<'ast, T> {
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
-impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
-    fn from(n: T) -> Self {
-        FieldElementExpression::Number(n)
-    }
-}
-
 impl<'ast, T> FieldElementExpression<'ast, T> {
     pub fn add(self, other: Self) -> Self {
         FieldElementExpression::Add(box self, box other)
@@ -744,6 +738,12 @@ impl<'ast, T> FieldElementExpression<'ast, T> {
 
     pub fn pow(self, other: UExpression<'ast, T>) -> Self {
         FieldElementExpression::Pow(box self, box other)
+    }
+}
+
+impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
+    fn from(n: T) -> Self {
+        FieldElementExpression::Number(n)
     }
 }
 
@@ -864,6 +864,10 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
         &self.inner
     }
 
+    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
+        &mut self.inner
+    }
+
     pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
         self.inner
     }
@@ -907,6 +911,10 @@ impl<'ast, T> StructExpression<'ast, T> {
 
     pub fn as_inner(&self) -> &StructExpressionInner<'ast, T> {
         &self.inner
+    }
+
+    pub fn as_inner_mut(&mut self) -> &mut StructExpressionInner<'ast, T> {
+        &mut self.inner
     }
 
     pub fn into_inner(self) -> StructExpressionInner<'ast, T> {

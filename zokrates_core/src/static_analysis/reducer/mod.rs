@@ -313,7 +313,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                 );
                 let var = Variable::with_id_and_type(identifier, output_types[0].clone());
 
-                let v = vec![var.clone()];
+                let v = vec![var.clone().into()];
 
                 self.statement_buffer
                     .push(TypedStatement::MultipleDefinition(
@@ -603,6 +603,8 @@ fn reduce_function<'ast, T: Field>(
 
             let mut call_cache = CallCache::new();
 
+            let mut constants: HashMap<Identifier<'ast>, TypedExpression<'ast, T>> = HashMap::new();
+
             let mut hash = None;
 
             loop {
@@ -625,22 +627,24 @@ fn reduce_function<'ast, T: Field>(
 
                 assert!(reducer.for_loop_versions.is_empty());
 
+                let new_f = TypedFunction { statements, ..f };
+
                 match reducer.complete {
                     true => {
-                        let f = TypedFunction { statements, ..f };
-
                         substitutions = substitutions.canonicalize();
 
-                        break Ok(Sub::new(&substitutions).fold_function(f));
+                        let new_f = Sub::new(&substitutions).fold_function(new_f);
+
+                        let new_f = Propagator::with_constants(&mut constants).fold_function(new_f);
+
+                        break Ok(new_f);
                     }
                     false => {
-                        let new_f = TypedFunction { statements, ..f };
-
                         for_loop_versions = reducer.for_loop_versions_after;
 
                         let new_f = Sub::new(&substitutions).fold_function(new_f);
 
-                        f = Propagator::verbose().fold_function(new_f);
+                        f = Propagator::with_constants(&mut constants).fold_function(new_f);
 
                         let new_hash = Some(compute_hash(&f));
 
@@ -671,8 +675,8 @@ mod tests {
     use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
         ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
-        FieldElementExpression, Identifier, Type, TypedExpression, TypedExpressionList, UBitwidth,
-        UExpression, UExpressionInner, Variable,
+        FieldElementExpression, Identifier, Select, Type, TypedExpression, TypedExpressionList,
+        UBitwidth, UExpression, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
 
@@ -690,15 +694,12 @@ mod tests {
 
         // expected:
         // def main(field a_0) -> field:
-        //      u32 n_0 = 42
-        //      n_1 = n_0
         //      a_1 = a_0
         //      # PUSH CALL to foo
         //          a_3 := a_1 // input binding
         //          #RETURN_AT_INDEX_0_0 := a_3
         //      # POP CALL
         //      a_2 = #RETURN_AT_INDEX_0_0
-        //      n_2 = n_1
         //      return a_2
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
@@ -793,16 +794,6 @@ mod tests {
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
-                    Variable::uint("n", UBitwidth::B32).into(),
-                    TypedExpression::Uint(42u32.into()),
-                ),
-                TypedStatement::Definition(
-                    Variable::uint(Identifier::from("n").version(1), UBitwidth::B32).into(),
-                    UExpressionInner::Identifier("n".into())
-                        .annotate(UBitwidth::B32)
-                        .into(),
-                ),
-                TypedStatement::Definition(
                     Variable::field_element(Identifier::from("a").version(1)).into(),
                     FieldElementExpression::Identifier("a".into()).into(),
                 ),
@@ -830,12 +821,6 @@ mod tests {
                         Identifier::from(CoreIdentifier::Call(0)).version(0),
                     )
                     .into(),
-                ),
-                TypedStatement::Definition(
-                    Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
-                    UExpressionInner::Identifier(Identifier::from("n").version(1))
-                        .annotate(UBitwidth::B32)
-                        .into(),
                 ),
                 TypedStatement::Return(vec![FieldElementExpression::Identifier(
                     Identifier::from("a").version(2),
@@ -879,24 +864,20 @@ mod tests {
         // def main(field a) -> field:
         //      u32 n = 42
         //      n = n
-        //      field[1] b = [42]
+        //      field[1] b = [a]
         //      b = foo(b)
         //      n = n
-        //      return a
+        //      return a + b[0]
 
         // expected:
         // def main(field a_0) -> field:
-        //      u32 n_0 = 42
-        //      n_1 = n_0
         //      field[1] b_0 = [42]
         //      # PUSH CALL to foo::<1>
         //          a_0 = b_0
-        //          K = 1
         //          #RETURN_AT_INDEX_0_0 := a_0
         //      # POP CALL
         //      b_1 = #RETURN_AT_INDEX_0_0
-        //      n_2 = n_1
-        //      return a_2
+        //      return a_2 + b_1[0]
 
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array(
@@ -910,12 +891,9 @@ mod tests {
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             generics: vec!["K".into()],
-            arguments: vec![DeclarationVariable::array(
-                "a",
-                DeclarationType::FieldElement,
-                "K".into(),
-            )
-            .into()],
+            arguments: vec![
+                DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
+            ],
             statements: vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
@@ -939,15 +917,16 @@ mod tests {
                         .into(),
                 ),
                 TypedStatement::Definition(
-                    Variable::array("b", Type::FieldElement, 1u32.into()).into(),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(1.into()).into()
-                    ])
+                    Variable::array("b", Type::FieldElement, 1u32).into(),
+                    ArrayExpressionInner::Value(vec![FieldElementExpression::Identifier(
+                        "a".into(),
+                    )
+                    .into()])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
                 TypedStatement::MultipleDefinition(
-                    vec![Variable::array("b", Type::FieldElement, 1u32.into()).into()],
+                    vec![Variable::array("b", Type::FieldElement, 1u32).into()],
                     TypedExpressionList::FunctionCall(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
@@ -963,7 +942,16 @@ mod tests {
                         .annotate(UBitwidth::B32)
                         .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
+                TypedStatement::Return(vec![FieldElementExpression::add(
+                    FieldElementExpression::Identifier("a".into()),
+                    FieldElementExpression::select(
+                        ArrayExpressionInner::Identifier("b".into())
+                            .annotate(Type::FieldElement, 1u32)
+                            .into(),
+                        0u32,
+                    ),
+                )
+                .into()]),
             ],
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
@@ -1005,20 +993,11 @@ mod tests {
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
-                    Variable::uint("n", UBitwidth::B32).into(),
-                    TypedExpression::Uint(42u32.into()),
-                ),
-                TypedStatement::Definition(
-                    Variable::uint(Identifier::from("n").version(1), UBitwidth::B32).into(),
-                    UExpressionInner::Identifier("n".into())
-                        .annotate(UBitwidth::B32)
-                        .into(),
-                ),
-                TypedStatement::Definition(
-                    Variable::array("b", Type::FieldElement, 1u32.into()).into(),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(1.into()).into()
-                    ])
+                    Variable::array("b", Type::FieldElement, 1u32).into(),
+                    ArrayExpressionInner::Value(vec![FieldElementExpression::Identifier(
+                        "a".into(),
+                    )
+                    .into()])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -1028,25 +1007,17 @@ mod tests {
                     GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
                 ),
                 TypedStatement::Definition(
-                    Variable::array(
-                        Identifier::from("a").version(1),
-                        Type::FieldElement,
-                        1u32.into(),
-                    )
-                    .into(),
+                    Variable::array(Identifier::from("a").version(1), Type::FieldElement, 1u32)
+                        .into(),
                     ArrayExpressionInner::Identifier("b".into())
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 ),
                 TypedStatement::Definition(
-                    Variable::uint("K", UBitwidth::B32).into(),
-                    TypedExpression::Uint(1u32.into()),
-                ),
-                TypedStatement::Definition(
                     Variable::array(
                         Identifier::from(CoreIdentifier::Call(0)).version(0),
                         Type::FieldElement,
-                        1u32.into(),
+                        1u32,
                     )
                     .into(),
                     ArrayExpressionInner::Identifier(Identifier::from("a").version(1))
@@ -1055,25 +1026,24 @@ mod tests {
                 ),
                 TypedStatement::PopCallLog,
                 TypedStatement::Definition(
-                    Variable::array(
-                        Identifier::from("b").version(1),
-                        Type::FieldElement,
-                        1u32.into(),
-                    )
-                    .into(),
+                    Variable::array(Identifier::from("b").version(1), Type::FieldElement, 1u32)
+                        .into(),
                     ArrayExpressionInner::Identifier(
                         Identifier::from(CoreIdentifier::Call(0)).version(0),
                     )
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::Definition(
-                    Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
-                    UExpressionInner::Identifier(Identifier::from("n").version(1))
-                        .annotate(UBitwidth::B32)
-                        .into(),
-                ),
-                TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
+                TypedStatement::Return(vec![FieldElementExpression::add(
+                    FieldElementExpression::Identifier("a".into()),
+                    FieldElementExpression::select(
+                        ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
+                            .annotate(Type::FieldElement, 1u32)
+                            .into(),
+                        0u32,
+                    ),
+                )
+                .into()]),
             ],
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
@@ -1112,24 +1082,20 @@ mod tests {
         // def main(field a) -> field:
         //      u32 n = 2
         //      n = n
-        //      field[n - 1] b = [42]
+        //      field[n - 1] b = [a]
         //      b = foo(b)
         //      n = n
-        //      return a
+        //      return a + b[0]
 
         // expected:
         // def main(field a_0) -> field:
-        //      u32 n_0 = 2
-        //      n_1 = 2
         //      field[1] b_0 = [42]
         //      # PUSH CALL to foo::<1>
-        //          a_3 = b_0
-        //          K = 1
-        //          #RETURN_AT_INDEX_0_0 = a_3
+        //          a_0 = b_0
+        //          #RETURN_AT_INDEX_0_0 := a_0
         //      # POP CALL
         //      b_1 = #RETURN_AT_INDEX_0_0
-        //      n_2 = 2
-        //      return a_2
+        //      return a_2 + b_1[0]
 
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array(
@@ -1143,12 +1109,9 @@ mod tests {
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             generics: vec!["K".into()],
-            arguments: vec![DeclarationVariable::array(
-                "a",
-                DeclarationType::FieldElement,
-                "K".into(),
-            )
-            .into()],
+            arguments: vec![
+                DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
+            ],
             statements: vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
@@ -1182,46 +1145,22 @@ mod tests {
                         .annotate(UBitwidth::B32),
                     )
                     .into(),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(1.into()).into()
-                    ])
+                    ArrayExpressionInner::Value(vec![FieldElementExpression::Identifier(
+                        "a".into(),
+                    )
+                    .into()])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
                 TypedStatement::MultipleDefinition(
-                    vec![Variable::array(
-                        "b",
-                        Type::FieldElement,
-                        UExpressionInner::Sub(
-                            box UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
-                            box 1u32.into(),
-                        )
-                        .annotate(UBitwidth::B32),
-                    )
-                    .into()],
+                    vec![Variable::array("b", Type::FieldElement, 1u32).into()],
                     TypedExpressionList::FunctionCall(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![ArrayExpressionInner::Identifier("b".into())
-                            .annotate(
-                                Type::FieldElement,
-                                UExpressionInner::Sub(
-                                    box UExpressionInner::Identifier("n".into())
-                                        .annotate(UBitwidth::B32),
-                                    box 1u32.into(),
-                                )
-                                .annotate(UBitwidth::B32),
-                            )
+                            .annotate(Type::FieldElement, 1u32)
                             .into()],
-                        vec![Type::array(
-                            Type::FieldElement,
-                            UExpressionInner::Sub(
-                                box UExpressionInner::Identifier("n".into())
-                                    .annotate(UBitwidth::B32),
-                                box 1u32.into(),
-                            )
-                            .annotate(UBitwidth::B32),
-                        )],
+                        vec![Type::array(Type::FieldElement, 1u32)],
                     ),
                 ),
                 TypedStatement::Definition(
@@ -1230,7 +1169,16 @@ mod tests {
                         .annotate(UBitwidth::B32)
                         .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
+                TypedStatement::Return(vec![FieldElementExpression::add(
+                    FieldElementExpression::Identifier("a".into()),
+                    FieldElementExpression::select(
+                        ArrayExpressionInner::Identifier("b".into())
+                            .annotate(Type::FieldElement, 1u32)
+                            .into(),
+                        0u32,
+                    ),
+                )
+                .into()]),
             ],
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
@@ -1272,18 +1220,11 @@ mod tests {
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
-                    Variable::uint("n", UBitwidth::B32).into(),
-                    TypedExpression::Uint(2u32.into()),
-                ),
-                TypedStatement::Definition(
-                    Variable::uint(Identifier::from("n").version(1), UBitwidth::B32).into(),
-                    TypedExpression::Uint(2u32.into()),
-                ),
-                TypedStatement::Definition(
-                    Variable::array("b", Type::FieldElement, 1u32.into()).into(),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(1.into()).into()
-                    ])
+                    Variable::array("b", Type::FieldElement, 1u32).into(),
+                    ArrayExpressionInner::Value(vec![FieldElementExpression::Identifier(
+                        "a".into(),
+                    )
+                    .into()])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -1293,27 +1234,17 @@ mod tests {
                     GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
                 ),
                 TypedStatement::Definition(
-                    Variable::array(
-                        Identifier::from("a").version(1),
-                        Type::FieldElement,
-                        1u32.into(),
-                    )
-                    .into(),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(1.into()).into()
-                    ])
-                    .annotate(Type::FieldElement, 1u32)
-                    .into(),
-                ),
-                TypedStatement::Definition(
-                    Variable::uint("K", UBitwidth::B32).into(),
-                    UExpression::from(1u32).into(),
+                    Variable::array(Identifier::from("a").version(1), Type::FieldElement, 1u32)
+                        .into(),
+                    ArrayExpressionInner::Identifier("b".into())
+                        .annotate(Type::FieldElement, 1u32)
+                        .into(),
                 ),
                 TypedStatement::Definition(
                     Variable::array(
                         Identifier::from(CoreIdentifier::Call(0)).version(0),
                         Type::FieldElement,
-                        1u32.into(),
+                        1u32,
                     )
                     .into(),
                     ArrayExpressionInner::Identifier(Identifier::from("a").version(1))
@@ -1322,23 +1253,24 @@ mod tests {
                 ),
                 TypedStatement::PopCallLog,
                 TypedStatement::Definition(
-                    Variable::array(
-                        Identifier::from("b").version(1),
-                        Type::FieldElement,
-                        1u32.into(),
-                    )
-                    .into(),
+                    Variable::array(Identifier::from("b").version(1), Type::FieldElement, 1u32)
+                        .into(),
                     ArrayExpressionInner::Identifier(
                         Identifier::from(CoreIdentifier::Call(0)).version(0),
                     )
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::Definition(
-                    Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
-                    TypedExpression::Uint(2u32.into()),
-                ),
-                TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
+                TypedStatement::Return(vec![FieldElementExpression::add(
+                    FieldElementExpression::Identifier("a".into()),
+                    FieldElementExpression::select(
+                        ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
+                            .annotate(Type::FieldElement, 1u32)
+                            .into(),
+                        0u32,
+                    ),
+                )
+                .into()]),
             ],
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
@@ -1609,12 +1541,9 @@ mod tests {
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             generics: vec!["K".into()],
-            arguments: vec![DeclarationVariable::array(
-                "a",
-                DeclarationType::FieldElement,
-                "K".into(),
-            )
-            .into()],
+            arguments: vec![
+                DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
+            ],
             statements: vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
@@ -1628,7 +1557,7 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 TypedStatement::MultipleDefinition(
-                    vec![Variable::array("b", Type::FieldElement, 1u32.into()).into()],
+                    vec![Variable::array("b", Type::FieldElement, 1u32).into()],
                     TypedExpressionList::FunctionCall(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),

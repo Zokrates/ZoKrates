@@ -222,7 +222,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
         TypedStatement::MultipleDefinition(variables, elist) => TypedStatement::MultipleDefinition(
             variables
                 .into_iter()
-                .map(|v| f.fold_variable(v))
+                .map(|v| f.fold_assignee(v))
                 .collect::<Result<_, _>>()?,
             f.fold_expression_list(elist)?,
         ),
