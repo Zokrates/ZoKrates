@@ -1,6 +1,5 @@
-use core::convert::TryFrom;
-
 use crate::constants::*;
+use core::convert::TryFrom;
 
 #[derive(Debug)]
 pub enum CurveParameter {

@@ -25,86 +25,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-bls12-377"
-version = "0.1.0"
-source = "git+https://github.com/arkworks-rs/curves#23e87bf224c23be5c5bccc6084aae31fff8bb83f"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-std",
-]
-
-[[package]]
-name = "ark-bn254"
-version = "0.1.0"
-source = "git+https://github.com/arkworks-rs/curves#23e87bf224c23be5c5bccc6084aae31fff8bb83f"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-std",
-]
-
-[[package]]
-name = "ark-bw6-761"
-version = "0.1.0"
-source = "git+https://github.com/arkworks-rs/curves#23e87bf224c23be5c5bccc6084aae31fff8bb83f"
-dependencies = [
- "ark-bls12-377",
- "ark-ec",
- "ark-ff",
- "ark-std",
-]
-
-[[package]]
-name = "ark-ec"
-version = "0.1.0"
-source = "git+https://github.com/arkworks-rs/algebra#9bc541722707e1ac495e82fbf86446bbfde38a82"
-dependencies = [
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "derivative",
- "num-traits 0.2.12",
- "rand 0.7.3",
-]
-
-[[package]]
-name = "ark-ff"
-version = "0.1.0"
-source = "git+https://github.com/arkworks-rs/algebra#9bc541722707e1ac495e82fbf86446bbfde38a82"
-dependencies = [
- "ark-ff-asm",
- "ark-serialize",
- "ark-std",
- "derivative",
- "num-traits 0.2.12",
- "rand 0.7.3",
- "rustc_version",
-]
-
-[[package]]
-name = "ark-ff-asm"
-version = "0.1.0"
-source = "git+https://github.com/arkworks-rs/algebra#9bc541722707e1ac495e82fbf86446bbfde38a82"
-dependencies = [
- "quote 1.0.7",
- "syn 1.0.34",
-]
-
-[[package]]
-name = "ark-serialize"
-version = "0.1.0"
-source = "git+https://github.com/arkworks-rs/algebra#9bc541722707e1ac495e82fbf86446bbfde38a82"
-dependencies = [
- "ark-std",
-]
-
-[[package]]
-name = "ark-std"
-version = "0.1.0"
-source = "git+https://github.com/arkworks-rs/utils#f6974ac72f59339b7ab798a728a84c5a7b8bac45"
-
-[[package]]
 name = "autocfg"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -254,17 +174,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b2466559f260f48ad25fe6317b3c8dac77b5bdb5763ac7d9d6103530663bc90"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "derivative"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb582b60359da160a9477ee80f15c8d784c477e69c217ef2cdd4169c24ea380f"
-dependencies = [
- "proc-macro2 1.0.18",
- "quote 1.0.7",
- "syn 1.0.34",
 ]
 
 [[package]]
@@ -897,37 +806,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c691c0e608126e00913e33f0ccf3727d5fc84573623b8d65b2df340b5201783"
 
 [[package]]
-name = "rustc_version"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65c94201b44764d6d1f7e37c15a8289ed55e546c1762c7f1d57f616966e0c181"
-dependencies = [
- "semver",
-]
-
-[[package]]
 name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
-
-[[package]]
-name = "semver"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
-dependencies = [
- "semver-parser",
-]
-
-[[package]]
-name = "semver-parser"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42ef146c2ad5e5f4b037cd6ce2ebb775401729b19a82040c1beac9d36c7d1428"
-dependencies = [
- "pest",
-]
 
 [[package]]
 name = "serde"
@@ -1229,11 +1111,6 @@ dependencies = [
 name = "zokrates_field"
 version = "0.3.7"
 dependencies = [
- "ark-bls12-377",
- "ark-bn254",
- "ark-bw6-761",
- "ark-ec",
- "ark-ff",
  "bellman_ce",
  "bincode 0.8.0",
  "lazy_static",

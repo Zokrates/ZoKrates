@@ -2050,6 +2050,8 @@ dependencies = [
  "dirs",
  "fs_extra",
  "glob 0.2.11",
+ "lazy_static",
+ "log",
  "regex",
  "serde_json",
  "tempdir",
