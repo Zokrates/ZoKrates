@@ -4,7 +4,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use zokrates_core::compile::{check, CompileError};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
@@ -76,8 +76,15 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     };
 
     let stdlib_path = sub_matches.value_of("stdlib-path").unwrap();
-    let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
+    match Path::new(stdlib_path).exists() {
+        true => Ok(()),
+        _ => Err(format!(
+            "Invalid standard library source path: {}",
+            stdlib_path
+        )),
+    }?;
 
+    let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
     let _ = check::<T, _>(source, path, Some(&resolver)).map_err(|e| {
         format!(
             "Check failed:\n\n{}",

@@ -97,8 +97,15 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     };
 
     let stdlib_path = sub_matches.value_of("stdlib-path").unwrap();
-    let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
+    match Path::new(stdlib_path).exists() {
+        true => Ok(()),
+        _ => Err(format!(
+            "Invalid standard library source path: {}",
+            stdlib_path
+        )),
+    }?;
 
+    let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
     let artifacts: CompilationArtifacts<T> =
         compile(source, path, Some(&resolver)).map_err(|e| {
             format!(
