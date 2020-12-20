@@ -62,10 +62,7 @@ fn is_constant<'ast, T: Field>(e: &TypedExpression<'ast, T>) -> bool {
             StructExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
             _ => false,
         },
-        TypedExpression::Uint(a) => match a.as_inner() {
-            UExpressionInner::Value(..) => true,
-            _ => false,
-        },
+        TypedExpression::Uint(a) => matches!(a.as_inner(), UExpressionInner::Value(..)),
         _ => false,
     }
 }
@@ -200,7 +197,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                                     for i in (0..bitwidth as u32).rev() {
                                         if 2u128.pow(i) <= num {
-                                            num = num - 2u128.pow(i);
+                                            num -= 2u128.pow(i);
                                             res.push(true);
                                         } else {
                                             res.push(false);
@@ -573,7 +570,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 inner_type.clone(),
                                 size,
                             )),
-                            box FieldElementExpression::Number(n.clone()).into(),
+                            box FieldElementExpression::Number(n.clone()),
                         )) {
                             Some(e) => match e {
                                 TypedExpression::Uint(e) => e.clone().into_inner(),
@@ -713,7 +710,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 inner_type.clone(),
                                 size,
                             )),
-                            box FieldElementExpression::Number(n.clone()).into(),
+                            box FieldElementExpression::Number(n.clone()),
                         )) {
                             Some(e) => match e {
                                 TypedExpression::FieldElement(e) => e.clone(),
@@ -769,9 +766,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         &mut self,
         ty: &Type,
         size: usize,
-        e: ArrayExpressionInner<'ast, T>,
+        array: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
-        match e {
+        match array {
             ArrayExpressionInner::Identifier(id) => {
                 match self
                     .constants
@@ -815,7 +812,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 inner_type.clone(),
                                 size,
                             )),
-                            box FieldElementExpression::Number(n.clone()).into(),
+                            box FieldElementExpression::Number(n.clone()),
                         )) {
                             Some(e) => match e {
                                 TypedExpression::Array(e) => e.clone().into_inner(),
@@ -839,20 +836,20 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     c => ArrayExpressionInner::IfElse(box c, box consequence, box alternative),
                 }
             }
-            ArrayExpressionInner::Member(box s, m) => {
-                let s = self.fold_struct_expression(s);
+            ArrayExpressionInner::Member(box struc, id) => {
+                let struc = self.fold_struct_expression(struc);
 
-                let members = match s.get_type() {
+                let members = match struc.get_type() {
                     Type::Struct(members) => members,
                     _ => unreachable!("should be a struct"),
                 };
 
-                match s.into_inner() {
+                match struc.into_inner() {
                     StructExpressionInner::Value(v) => {
                         match members
                             .iter()
                             .zip(v)
-                            .find(|(member, _)| member.id == m)
+                            .find(|(member, _)| member.id == id)
                             .unwrap()
                             .1
                         {
@@ -860,7 +857,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             _ => unreachable!("should be an array"),
                         }
                     }
-                    inner => ArrayExpressionInner::Member(box inner.annotate(members), m),
+                    inner => ArrayExpressionInner::Member(box inner.annotate(members), id),
                 }
             }
             ArrayExpressionInner::FunctionCall(key, inputs) => {
@@ -927,7 +924,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 inner_type.clone(),
                                 size,
                             )),
-                            box FieldElementExpression::Number(n.clone()).into(),
+                            box FieldElementExpression::Number(n.clone()),
                         )) {
                             Some(e) => match e {
                                 TypedExpression::Struct(e) => e.clone().into_inner(),
@@ -1158,7 +1155,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 inner_type.clone(),
                                 size,
                             )),
-                            box FieldElementExpression::Number(n.clone()).into(),
+                            box FieldElementExpression::Number(n.clone()),
                         )) {
                             Some(e) => match e {
                                 TypedExpression::Boolean(e) => e.clone(),

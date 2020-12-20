@@ -319,9 +319,9 @@ impl<'ast> fmt::Display for Statement<'ast> {
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Assertion(ref e) => write!(f, "assert({})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{}\n", l)?;
+                    writeln!(f, "\t\t{}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -348,9 +348,9 @@ impl<'ast> fmt::Debug for Statement<'ast> {
             }
             Statement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
+                writeln!(f, "for {:?} in {:?}..{:?} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{:?}\n", l)?;
+                    writeln!(f, "\t\t{:?}", l)?;
                 }
                 write!(f, "\tendfor")
             }

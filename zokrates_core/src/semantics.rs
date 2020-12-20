@@ -118,7 +118,7 @@ impl fmt::Display for ErrorInner {
         let location = self
             .pos
             .map(|p| format!("{}", p.0))
-            .unwrap_or("?".to_string());
+            .unwrap_or_else(|| "?".to_string());
         write!(f, "{}\n\t{}", location, self.message)
     }
 }
@@ -150,7 +150,7 @@ impl<'ast> fmt::Display for FunctionQuery<'ast> {
                 " -> {}",
                 match &self.outputs[0] {
                     Some(t) => format!("{}", t),
-                    None => format!("_"),
+                    None => "_".into(),
                 }
             ),
             _ => {
@@ -172,15 +172,11 @@ impl<'ast> fmt::Display for FunctionQuery<'ast> {
 
 impl<'ast> FunctionQuery<'ast> {
     /// Create a new query.
-    fn new(
-        id: Identifier<'ast>,
-        inputs: &Vec<Type>,
-        outputs: &Vec<Option<Type>>,
-    ) -> FunctionQuery<'ast> {
+    fn new(id: Identifier<'ast>, inputs: &[Type], outputs: &[Option<Type>]) -> FunctionQuery<'ast> {
         FunctionQuery {
             id,
-            inputs: inputs.clone(),
-            outputs: outputs.clone(),
+            inputs: inputs.to_owned(),
+            outputs: outputs.to_owned(),
         }
     }
 
@@ -261,7 +257,7 @@ impl<'ast> Checker<'ast> {
             Err(e) => errors.extend(e),
         };
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -315,7 +311,7 @@ impl<'ast> Checker<'ast> {
             }
         }
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -393,12 +389,10 @@ impl<'ast> Checker<'ast> {
                     };
 
                     self.functions.insert(
-                        FunctionKey::with_id(declaration.id.clone())
-                            .signature(funct.signature.clone()),
+                        FunctionKey::with_id(declaration.id).signature(funct.signature.clone()),
                     );
                     functions.insert(
-                        FunctionKey::with_id(declaration.id.clone())
-                            .signature(funct.signature.clone()),
+                        FunctionKey::with_id(declaration.id).signature(funct.signature.clone()),
                         TypedFunctionSymbol::Here(funct),
                     );
                 }
@@ -421,8 +415,8 @@ impl<'ast> Checker<'ast> {
                             .iter()
                             .filter(|(k, _)| k.id == import.symbol_id)
                             .map(|(_, v)| FunctionKey {
-                                id: import.symbol_id.clone(),
-                                signature: v.signature(&state.typed_modules).clone(),
+                                id: import.symbol_id,
+                                signature: v.signature(&state.typed_modules),
                             })
                             .collect();
 
@@ -468,7 +462,7 @@ impl<'ast> Checker<'ast> {
                                     .types
                                     .entry(module_id.clone())
                                     .or_default()
-                                    .insert(declaration.id.to_string(), t.clone());
+                                    .insert(declaration.id.to_string(), t);
                             }
                             (0, None) => {
                                 errors.push(ErrorInner {
@@ -530,20 +524,17 @@ impl<'ast> Checker<'ast> {
                     true => {}
                 };
 
-                self.functions.insert(
-                    FunctionKey::with_id(declaration.id.clone())
-                        .signature(funct.signature().clone()),
-                );
+                self.functions
+                    .insert(FunctionKey::with_id(declaration.id).signature(funct.signature()));
                 functions.insert(
-                    FunctionKey::with_id(declaration.id.clone())
-                        .signature(funct.signature().clone()),
+                    FunctionKey::with_id(declaration.id).signature(funct.signature()),
                     TypedFunctionSymbol::Flat(funct),
                 );
             }
         };
 
         // return if any errors occured
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -595,20 +586,17 @@ impl<'ast> Checker<'ast> {
         };
 
         // return if any errors occured
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
         // insert into typed_modules if we checked anything
-        match to_insert {
-            Some(typed_module) => {
-                // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
-                assert!(state
-                    .typed_modules
-                    .insert(module_id.clone(), typed_module)
-                    .is_none());
-            }
-            None => {}
+        if let Some(typed_module) = to_insert {
+            // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
+            assert!(state
+                .typed_modules
+                .insert(module_id.clone(), typed_module)
+                .is_none());
         };
 
         Ok(())
@@ -624,7 +612,7 @@ impl<'ast> Checker<'ast> {
             1 => Ok(()),
             0 => Err(ErrorInner {
                 pos: None,
-                message: format!("No main function found"),
+                message: "No main function found".into(),
             }),
             n => Err(ErrorInner {
                 pos: None,
@@ -717,7 +705,7 @@ impl<'ast> Checker<'ast> {
             }
         };
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -776,7 +764,7 @@ impl<'ast> Checker<'ast> {
             }
         }
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -862,10 +850,9 @@ impl<'ast> Checker<'ast> {
             Statement::Definition(assignee, expr) => {
                 // we create multidef when rhs is a function call to benefit from inference
                 // check rhs is not a function call here
-                match expr.value {
-					Expression::FunctionCall(..) => panic!("Parser should not generate Definition where the right hand side is a FunctionCall"),
-					_ => {}
-				}
+                if let Expression::FunctionCall(..) = expr.value {
+                    panic!("Parser should not generate Definition where the right hand side is a FunctionCall")
+                }
 
                 // check the expression to be assigned
                 let checked_expr = self
@@ -969,7 +956,7 @@ impl<'ast> Checker<'ast> {
                         // check lhs assignees are defined
                         let (assignees, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| self.check_assignee::<T>(a, module_id, types)).partition(|r| r.is_ok());
 
-                        if errors.len() > 0 {
+                        if !errors.is_empty() {
                             return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
                         }
 
@@ -982,13 +969,13 @@ impl<'ast> Checker<'ast> {
                             })
                         }).partition(|r| r.is_ok());
 
-                        if errors.len() > 0 {
+                        if !errors.is_empty() {
                             return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
                         }
 
                         let variables: Vec<_> = variables.into_iter().map(|v| v.unwrap()).collect();
 
-                        let vars_types = variables.iter().map(|a| Some(a.get_type().clone())).collect();
+                        let vars_types: Vec<_> = variables.iter().map(|a| Some(a.get_type())).collect();
 
                         // find argument types
                         let mut arguments_checked = vec![];
@@ -997,7 +984,7 @@ impl<'ast> Checker<'ast> {
                             arguments_checked.push(arg_checked);
                         }
 
-                        let arguments_types =
+                        let arguments_types: Vec<_> =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
                         let query = FunctionQuery::new(&fun_id, &arguments_types, &vars_types);
@@ -1237,7 +1224,7 @@ impl<'ast> Checker<'ast> {
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::add(e1, e2).into())
+                            Ok((e1 + e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1271,7 +1258,7 @@ impl<'ast> Checker<'ast> {
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::sub(e1, e2).into())
+                            Ok((e1 - e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1305,7 +1292,7 @@ impl<'ast> Checker<'ast> {
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::mult(e1, e2).into())
+                            Ok((e1 * e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1339,7 +1326,7 @@ impl<'ast> Checker<'ast> {
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::div(e1, e2).into())
+                            Ok((e1 / e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1370,7 +1357,7 @@ impl<'ast> Checker<'ast> {
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::rem(e1, e2).into())
+                            Ok((e1 % e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1489,7 +1476,7 @@ impl<'ast> Checker<'ast> {
 
                 // outside of multidef, function calls must have a single return value
                 // we use type inference to determine the type of the return, so we don't specify it
-                let query = FunctionQuery::new(&fun_id, &arguments_types, &vec![None]);
+                let query = FunctionQuery::new(&fun_id, &arguments_types, &[None]);
 
                 let f = self.find_function(&query);
 
@@ -1501,7 +1488,7 @@ impl<'ast> Checker<'ast> {
                             1 => match &f.signature.outputs[0] {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     FunctionKey {
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: f.signature.clone(),
                                     },
                                     arguments_checked,
@@ -1509,7 +1496,7 @@ impl<'ast> Checker<'ast> {
                                 .into()),
                                 Type::Boolean => Ok(BooleanExpression::FunctionCall(
                                     FunctionKey {
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: f.signature.clone(),
                                     },
                                     arguments_checked,
@@ -1517,7 +1504,7 @@ impl<'ast> Checker<'ast> {
                                 .into()),
                                 Type::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
                                     FunctionKey {
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: f.signature.clone(),
                                     },
                                     arguments_checked,
@@ -1526,7 +1513,7 @@ impl<'ast> Checker<'ast> {
                                 .into()),
                                 Type::Struct(members) => Ok(StructExpressionInner::FunctionCall(
                                     FunctionKey {
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: f.signature.clone(),
                                     },
                                     arguments_checked,
@@ -1535,12 +1522,12 @@ impl<'ast> Checker<'ast> {
                                 .into()),
                                 Type::Array(array_type) => Ok(ArrayExpressionInner::FunctionCall(
                                     FunctionKey {
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: f.signature.clone(),
                                     },
                                     arguments_checked,
                                 )
-                                .annotate(*array_type.ty.clone(), array_type.size.clone())
+                                .annotate(*array_type.ty.clone(), array_type.size)
                                 .into()),
                             },
                             n => Err(ErrorInner {
@@ -1723,16 +1710,17 @@ impl<'ast> Checker<'ast> {
                                 .value
                                 .from
                                 .map(|e| self.check_expression(e, module_id, &types))
-                                .unwrap_or(Ok(FieldElementExpression::Number(T::from(0)).into()))?;
+                                .unwrap_or_else(|| {
+                                    Ok(FieldElementExpression::Number(T::from(0)).into())
+                                })?;
 
                             let to = r
                                 .value
                                 .to
                                 .map(|e| self.check_expression(e, module_id, &types))
-                                .unwrap_or(Ok(FieldElementExpression::Number(T::from(
-                                    array_size,
-                                ))
-                                .into()))?;
+                                .unwrap_or_else(|| {
+                                    Ok(FieldElementExpression::Number(T::from(array_size)).into())
+                                })?;
 
                             // check the bounds are field constants
                             // Note: it would be nice to allow any field expression, and check it's a constant after constant propagation,
@@ -1910,7 +1898,7 @@ impl<'ast> Checker<'ast> {
                 }
 
                 // we infer the type to be the type of the first element
-                let inferred_type = expressions_checked.get(0).unwrap().get_type().clone();
+                let inferred_type = expressions_checked.get(0).unwrap().get_type();
 
                 match inferred_type {
                     Type::FieldElement => {
@@ -2113,7 +2101,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
                         message: format!(
                             "Inline struct {} does not match {}",
-                            Expression::InlineStruct(id.clone(), inline_members),
+                            Expression::InlineStruct(id, inline_members),
                             Type::Struct(struct_type)
                         ),
                     });
@@ -2140,15 +2128,11 @@ impl<'ast> Checker<'ast> {
                                     pos: Some(pos),
                                     message: format!(
                                         "Member {} of struct {} has type {}, found {} of type {}",
-                                        member.id,
-                                        id.clone(),
-                                        member.ty,
-                                        expression_checked,
-                                        checked_type,
+                                        member.id, id, member.ty, expression_checked, checked_type,
                                     ),
                                 });
                             } else {
-                                result.push(expression_checked.into());
+                                result.push(expression_checked);
                             }
                         }
                         None => {
@@ -2158,7 +2142,7 @@ impl<'ast> Checker<'ast> {
                                     "Member {} of struct {} not found in value {}",
                                     member.id,
                                     Type::Struct(struct_type.clone()),
-                                    Expression::InlineStruct(id.clone(), inline_members),
+                                    Expression::InlineStruct(id, inline_members),
                                 ),
                             })
                         }
@@ -2331,7 +2315,7 @@ impl<'ast> Checker<'ast> {
                 let e_checked = self.check_expression(e, module_id, &types)?;
                 match e_checked {
                     TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
-                    TypedExpression::Uint(e) => Ok(UExpression::not(e).into()),
+                    TypedExpression::Uint(e) => Ok((!e).into()),
                     e => Err(ErrorInner {
                         pos: Some(pos),
 

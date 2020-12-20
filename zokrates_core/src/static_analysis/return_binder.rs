@@ -6,7 +6,7 @@ use zokrates_field::Field;
 pub struct ReturnBinder;
 
 impl ReturnBinder {
-    pub fn bind<'ast, T: Field>(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+    pub fn bind<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
         ReturnBinder {}.fold_program(p)
     }
 }

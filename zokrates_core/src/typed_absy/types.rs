@@ -1,5 +1,6 @@
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 pub type Identifier<'ast> = &'ast str;
@@ -28,7 +29,7 @@ pub struct StructLocation {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct StructType {
     #[serde(flatten)]
     pub canonical_location: StructLocation,
@@ -40,6 +41,13 @@ pub struct StructType {
 impl PartialEq for StructType {
     fn eq(&self, other: &Self) -> bool {
         self.canonical_location.eq(&other.canonical_location) && self.members.eq(&other.members)
+    }
+}
+
+impl Hash for StructType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.canonical_location.hash(state);
+        self.members.hash(state);
     }
 }
 
@@ -339,10 +347,8 @@ impl<'ast> FunctionKey<'ast> {
     }
 
     pub fn hash(&self) -> FunctionKeyHash {
-        use std::hash::Hasher;
-
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        <Self as std::hash::Hash>::hash(self, &mut hasher);
+        <Self as Hash>::hash(self, &mut hasher);
         hasher.finish()
     }
 
@@ -370,7 +376,7 @@ pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
+    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd, Default)]
     pub struct Signature {
         pub inputs: Vec<Type>,
         pub outputs: Vec<Type>,
@@ -430,12 +436,10 @@ pub mod signature {
                     let len = res.len();
                     if len == 0 {
                         res.push((1, t))
+                    } else if res[len - 1].1 == t {
+                        res[len - 1].0 += 1;
                     } else {
-                        if res[len - 1].1 == t {
-                            res[len - 1].0 += 1;
-                        } else {
-                            res.push((1, t))
-                        }
+                        res.push((1, t))
                     }
                 }
                 res.into_iter()
@@ -458,10 +462,7 @@ pub mod signature {
         }
 
         pub fn new() -> Signature {
-            Signature {
-                inputs: vec![],
-                outputs: vec![],
-            }
+            Signature::default()
         }
 
         pub fn inputs(mut self, inputs: Vec<Type>) -> Self {

@@ -3,9 +3,9 @@
 //! For example:
 //! ```zokrates
 //! for field i in 0..5 do
-//! 	for field j in i..5 do
-//! 		//
-//! 	endfor
+//!     for field j in i..5 do
+//!         //
+//!     endfor
 //! endfor
 //! ```
 //!

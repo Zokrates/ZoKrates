@@ -96,7 +96,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
             writeln!(f, "{}", "-".repeat(100))?;
             writeln!(f, "{}", module)?;
             writeln!(f, "{}", "-".repeat(100))?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         write!(f, "")
     }
@@ -137,8 +137,7 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
                 .functions
                 .get(key)
                 .unwrap()
-                .signature(&modules)
-                .clone(),
+                .signature(&modules),
             TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature(),
         }
     }
@@ -210,23 +209,21 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
             match self.signature.outputs.len() {
                 0 => "".into(),
                 1 => format!(" -> {}", self.signature.outputs[0]),
-                _ => format!(
-                    "{}",
-                    self.signature
-                        .outputs
-                        .iter()
-                        .map(|x| format!("{}", x))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
+                _ => self
+                    .signature
+                    .outputs
+                    .iter()
+                    .map(|x| format!("{}", x))
+                    .collect::<Vec<_>>()
+                    .join(", "),
             }
         )?;
 
-        writeln!(f, "")?;
+        writeln!(f)?;
 
         for s in &self.statements {
             s.fmt_indented(f, 1)?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
 
         Ok(())
@@ -341,9 +338,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             }
             TypedStatement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
+                writeln!(f, "for {:?} in {:?}..{:?} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{:?}\n", l)?;
+                    writeln!(f, "\t\t{:?}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -362,7 +359,7 @@ impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
                 writeln!(f, "for {} in {}..{} do", variable, from, to)?;
                 for s in statements {
                     s.fmt_indented(f, depth + 1)?;
-                    writeln!(f, "")?;
+                    writeln!(f)?;
                 }
                 writeln!(f, "{}endfor", "\t".repeat(depth))
             }
@@ -388,9 +385,9 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{}\n", l)?;
+                    writeln!(f, "\t\t{}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -1243,7 +1240,7 @@ impl<'ast, T> Select<'ast, T> for UExpression<'ast, T> {
 impl<'ast, T> Select<'ast, T> for ArrayExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
-            Type::Array(array_type) => (array_type.ty.clone(), array_type.size.clone()),
+            Type::Array(array_type) => (array_type.ty.clone(), array_type.size),
             _ => unreachable!(),
         };
 

@@ -94,19 +94,13 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 };
 
                 // insert into the ignored set
-                match to_ignore {
-                    Some(v) => {
-                        self.ignore.insert(v);
-                    }
-                    None => {}
+                if let Some(v) = to_ignore {
+                    self.ignore.insert(v);
                 }
 
                 // insert into the substitution map
-                match to_insert {
-                    Some((k, v)) => {
-                        self.substitution.insert(k, v.into_canonical());
-                    }
-                    None => {}
+                if let Some((k, v)) = to_insert {
+                    self.substitution.insert(k, v.into_canonical());
                 };
 
                 // decide whether the constraint should be kept
@@ -136,7 +130,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                                     v if v == FlatVariable::one() => Ok(coefficient),
                                     _ => Err(LinComb::summand(coefficient, variable).into()),
                                 })
-                                .unwrap_or(Err(l.into())),
+                                .unwrap_or_else(|| Err(l.into())),
                         },
                         None => Err(q),
                     })
@@ -184,8 +178,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
         match lc
             .0
             .iter()
-            .find(|(variable, _)| self.substitution.get(&variable).is_some())
-            .is_some()
+            .any(|(variable, _)| self.substitution.get(&variable).is_some())
         {
             true =>
             // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
@@ -195,7 +188,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         self.substitution
                             .get(&variable)
                             .map(|l| LinComb::from(l.clone()) * &coefficient)
-                            .unwrap_or(LinComb::summand(coefficient, variable))
+                            .unwrap_or_else(|| LinComb::summand(coefficient, variable))
                     })
                     .fold(LinComb::zero(), |acc, x| acc + x)
             }

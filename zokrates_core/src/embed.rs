@@ -79,7 +79,7 @@ fn use_variable(
 ) -> FlatVariable {
     let var = FlatVariable::new(*index);
     layout.insert(name, var);
-    *index = *index + 1;
+    *index += 1;
     var
 }
 
@@ -110,7 +110,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
 
     let directive_inputs = vec![FlatExpression::Identifier(use_variable(
         &mut layout,
-        format!("i0"),
+        "i0".into(),
         &mut counter,
     ))];
 
@@ -123,7 +123,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
     let outputs = directive_outputs
         .iter()
         .enumerate()
-        .map(|(_, o)| FlatExpression::Identifier(o.clone()))
+        .map(|(_, o)| FlatExpression::Identifier(*o))
         .collect::<Vec<_>>();
 
     // o253, o252, ... o{253 - (bit_width - 1)} are bits
@@ -163,7 +163,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
         FlatStatement::Directive(FlatDirective {
             inputs: directive_inputs,
             outputs: directive_outputs,
-            solver: solver,
+            solver,
         }),
     );
 

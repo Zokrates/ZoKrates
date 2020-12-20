@@ -121,8 +121,8 @@ impl<'ast, T: Field> Flattener<T> {
             }
             typed_absy::TypedExpression::Boolean(e) => vec![self.fold_boolean_expression(e).into()],
             typed_absy::TypedExpression::Uint(e) => vec![self.fold_uint_expression(e).into()],
-            typed_absy::TypedExpression::Array(e) => self.fold_array_expression(e).into(),
-            typed_absy::TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
+            typed_absy::TypedExpression::Array(e) => self.fold_array_expression(e),
+            typed_absy::TypedExpression::Struct(e) => self.fold_struct_expression(e),
         }
     }
 
@@ -244,9 +244,7 @@ pub fn fold_statement<'ast, T: Field>(
         }
         typed_absy::TypedStatement::Declaration(v) => {
             let v = f.fold_variable(v);
-            v.into_iter()
-                .map(|v| zir::ZirStatement::Declaration(v))
-                .collect()
+            v.into_iter().map(zir::ZirStatement::Declaration).collect()
         }
         typed_absy::TypedStatement::Assertion(e) => {
             let e = f.fold_boolean_expression(e);
@@ -267,14 +265,14 @@ pub fn fold_statement<'ast, T: Field>(
 
 pub fn fold_array_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
-    t: &typed_absy::Type,
+    ty: &typed_absy::Type,
     size: usize,
-    e: typed_absy::ArrayExpressionInner<'ast, T>,
+    array: typed_absy::ArrayExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    match e {
+    match array {
         typed_absy::ArrayExpressionInner::Identifier(id) => {
             let variables =
-                flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::array(t.clone(), size));
+                flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::array(ty.clone(), size));
             variables
                 .into_iter()
                 .map(|v| match v._type {
@@ -333,7 +331,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 .sum();
 
             // we also need the size of this member
-            let size = t.get_primitive_count() * size;
+            let size = ty.get_primitive_count() * size;
 
             s[offset..offset + size].to_vec()
         }
@@ -343,7 +341,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             match index {
                 zir::FieldElementExpression::Number(i) => {
-                    let size = t.get_primitive_count() * size;
+                    let size = ty.get_primitive_count() * size;
                     let start = i.to_dec_string().parse::<usize>().unwrap() * size;
                     let end = start + size;
                     array[start..end].to_vec()
@@ -356,13 +354,13 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
 pub fn fold_struct_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
-    t: &StructType,
-    e: typed_absy::StructExpressionInner<'ast, T>,
+    ty: &StructType,
+    struc: typed_absy::StructExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    match e {
+    match struc {
         typed_absy::StructExpressionInner::Identifier(id) => {
             let variables =
-                flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::struc(t.clone()));
+                flatten_identifier_rec(f.fold_name(id), &typed_absy::Type::struc(ty.clone()));
             variables
                 .into_iter()
                 .map(|v| match v._type {
@@ -421,7 +419,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 .sum();
 
             // we also need the size of this member
-            let size = t
+            let size = ty
                 .iter()
                 .find(|member| member.id == id)
                 .unwrap()
@@ -436,10 +434,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
 
             match index {
                 zir::FieldElementExpression::Number(i) => {
-                    let size = t
-                        .iter()
-                        .map(|m| m.ty.get_primitive_count())
-                        .fold(0, |acc, current| acc + current);
+                    let size: usize = ty.iter().map(|m| m.ty.get_primitive_count()).sum();
                     let start = i.to_dec_string().parse::<usize>().unwrap() * size;
                     let end = start + size;
                     array[start..end].to_vec()

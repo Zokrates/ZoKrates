@@ -49,7 +49,7 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
                     }
                     Entry::Occupied(e) => {
                         self.substitution
-                            .extend(d.outputs.into_iter().zip(e.get().into_iter().cloned()));
+                            .extend(d.outputs.into_iter().zip(e.get().iter().cloned()));
                         vec![]
                     }
                 }

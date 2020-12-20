@@ -237,7 +237,7 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
 
     let module_without_imports: Module = Module::from(ast);
 
-    Importer::new().apply_imports::<T, E>(
+    Importer::apply_imports::<T, E>(
         module_without_imports,
         location.clone(),
         resolver,

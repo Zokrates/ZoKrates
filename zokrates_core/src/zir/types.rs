@@ -189,12 +189,10 @@ pub mod signature {
                     let len = res.len();
                     if len == 0 {
                         res.push((1, t))
+                    } else if res[len - 1].1 == t {
+                        res[len - 1].0 += 1;
                     } else {
-                        if res[len - 1].1 == t {
-                            res[len - 1].0 += 1;
-                        } else {
-                            res.push((1, t))
-                        }
+                        res.push((1, t))
                     }
                 }
                 res.into_iter()

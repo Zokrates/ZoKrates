@@ -135,11 +135,15 @@ impl Interpreter {
         }
     }
 
-    pub fn execute_solver<T: Field>(&self, s: &Solver, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-        let (expected_input_count, expected_output_count) = s.get_signature();
+    pub fn execute_solver<T: Field>(
+        &self,
+        solver: &Solver,
+        inputs: &Vec<T>,
+    ) -> Result<Vec<T>, String> {
+        let (expected_input_count, expected_output_count) = solver.get_signature();
         assert!(inputs.len() == expected_input_count);
 
-        let res = match s {
+        let res = match solver {
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
                 false => vec![

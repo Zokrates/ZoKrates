@@ -58,7 +58,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
             writeln!(f, "{}", "-".repeat(100))?;
             writeln!(f, "{}", module)?;
             writeln!(f, "{}", "-".repeat(100))?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         write!(f, "")
     }
