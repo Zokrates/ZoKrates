@@ -34,7 +34,7 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
         match i {
             FieldElementExpression::Number(i) => U::select(a, FieldElementExpression::Number(i)),
             i => {
-                let size = match a.get_type().clone() {
+                let size = match a.get_type() {
                     Type::Array(array_ty) => array_ty.size,
                     _ => unreachable!(),
                 };
@@ -44,15 +44,14 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
                         .map(|index| {
                             BooleanExpression::FieldEq(
                                 box i.clone(),
-                                box FieldElementExpression::Number(index.into()).into(),
+                                box FieldElementExpression::Number(index.into()),
                             )
                         })
                         .fold(None, |acc, e| match acc {
                             Some(acc) => Some(BooleanExpression::Or(box acc, box e)),
                             None => Some(e),
                         })
-                        .unwrap()
-                        .into(),
+                        .unwrap(),
                 ));
 
                 (0..size)
@@ -169,19 +168,16 @@ mod tests {
         assert_eq!(
             VariableAccessRemover::new().fold_statement(access),
             vec![
-                TypedStatement::Assertion(
-                    BooleanExpression::Or(
-                        box BooleanExpression::FieldEq(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Number(0.into())
-                        ),
-                        box BooleanExpression::FieldEq(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Number(1.into())
-                        )
+                TypedStatement::Assertion(BooleanExpression::Or(
+                    box BooleanExpression::FieldEq(
+                        box FieldElementExpression::Identifier("i".into()),
+                        box FieldElementExpression::Number(0.into())
+                    ),
+                    box BooleanExpression::FieldEq(
+                        box FieldElementExpression::Identifier("i".into()),
+                        box FieldElementExpression::Number(1.into())
                     )
-                    .into(),
-                ),
+                ),),
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::if_else(

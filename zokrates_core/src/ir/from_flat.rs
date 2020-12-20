@@ -125,7 +125,7 @@ impl<T: Field> From<FlatDirective<T>> for Directive<T> {
             inputs: ds
                 .inputs
                 .into_iter()
-                .map(|i| QuadComb::from_flat_expression(i))
+                .map(QuadComb::from_flat_expression)
                 .collect(),
             solver: ds.solver,
             outputs: ds.outputs,

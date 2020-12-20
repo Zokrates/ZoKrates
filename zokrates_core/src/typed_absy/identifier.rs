@@ -32,7 +32,7 @@ pub struct Identifier<'ast> {
 
 impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.stack.len() == 0 && self.version == 0 {
+        if self.stack.is_empty() && self.version == 0 {
             write!(f, "{}", self.id)
         } else {
             write!(

@@ -84,13 +84,10 @@ impl<'ast> Unroller<'ast> {
 
                     match head {
                         Access::Select(head) => {
-                            statements.insert(TypedStatement::Assertion(
-                                BooleanExpression::Lt(
-                                    box head.clone(),
-                                    box FieldElementExpression::Number(T::from(size)),
-                                )
-                                .into(),
-                            ));
+                            statements.insert(TypedStatement::Assertion(BooleanExpression::Lt(
+                                box head.clone(),
+                                box FieldElementExpression::Number(T::from(size)),
+                            )));
 
                             ArrayExpressionInner::Value(
                                 (0..size)
@@ -241,7 +238,7 @@ impl<'ast> Unroller<'ast> {
                 }
                 TypedExpression::Struct(base) => {
                     let members = match base.get_type() {
-                        Type::Struct(members) => members.clone(),
+                        Type::Struct(members) => members,
                         _ => unreachable!(),
                     };
 
@@ -267,11 +264,8 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            FieldElementExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            FieldElementExpression::member(base.clone(), member.id)
+                                                .into()
                                         }
                                     }
                                     Type::Uint(..) => {
@@ -284,8 +278,7 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            UExpression::member(base.clone(), member.id.clone())
-                                                .into()
+                                            UExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                     Type::Boolean => {
@@ -301,11 +294,8 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            BooleanExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            BooleanExpression::member(base.clone(), member.id)
+                                                .into()
                                         }
                                     }
                                     Type::Array(..) => {
@@ -318,8 +308,7 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            ArrayExpression::member(base.clone(), member.id.clone())
-                                                .into()
+                                            ArrayExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                     Type::Struct(..) => {
@@ -335,11 +324,7 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            StructExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            StructExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                 })
@@ -391,26 +376,20 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 
                 let base = match variable.get_type() {
                     Type::FieldElement => {
-                        FieldElementExpression::Identifier(variable.id.clone().into()).into()
+                        FieldElementExpression::Identifier(variable.id.clone()).into()
                     }
-                    Type::Boolean => {
-                        BooleanExpression::Identifier(variable.id.clone().into()).into()
-                    }
-                    Type::Uint(bitwidth) => {
-                        UExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(bitwidth)
-                            .into()
-                    }
+                    Type::Boolean => BooleanExpression::Identifier(variable.id.clone()).into(),
+                    Type::Uint(bitwidth) => UExpressionInner::Identifier(variable.id.clone())
+                        .annotate(bitwidth)
+                        .into(),
                     Type::Array(array_type) => {
-                        ArrayExpressionInner::Identifier(variable.id.clone().into())
+                        ArrayExpressionInner::Identifier(variable.id.clone())
                             .annotate(*array_type.ty, array_type.size)
                             .into()
                     }
-                    Type::Struct(members) => {
-                        StructExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(members)
-                            .into()
-                    }
+                    Type::Struct(members) => StructExpressionInner::Identifier(variable.id.clone())
+                        .annotate(members)
+                        .into(),
                 };
 
                 let base = self.fold_expression(base);
@@ -470,9 +449,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                                     stats.clone(),
                                 ]
                                 .into_iter()
-                                .flat_map(|x| x)
+                                .flatten()
                             })
-                            .flat_map(|x| x)
+                            .flatten()
                             .flat_map(|x| self.fold_statement(x))
                             .collect();
 
@@ -499,7 +478,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
         Identifier {
-            version: self.substitution.get(&n.id).unwrap_or(&0).clone(),
+            version: *self.substitution.get(&n.id).unwrap_or(&0),
             ..n
         }
     }
@@ -1088,13 +1067,10 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![
-                    TypedStatement::Assertion(
-                        BooleanExpression::Lt(
-                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                            box FieldElementExpression::Number(Bn128Field::from(2))
-                        )
-                        .into(),
-                    ),
+                    TypedStatement::Assertion(BooleanExpression::Lt(
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                        box FieldElementExpression::Number(Bn128Field::from(2))
+                    ),),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_array(
                             Identifier::from("a").version(1),
@@ -1225,17 +1201,14 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![
-                    TypedStatement::Assertion(
-                        BooleanExpression::Lt(
-                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                            box FieldElementExpression::Number(Bn128Field::from(2))
-                        )
-                        .into(),
-                    ),
+                    TypedStatement::Assertion(BooleanExpression::Lt(
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                        box FieldElementExpression::Number(Bn128Field::from(2))
+                    ),),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::with_id_and_type(
                             Identifier::from("a").version(1),
-                            array_of_array_ty.clone()
+                            array_of_array_ty
                         )),
                         ArrayExpressionInner::Value(vec![
                             ArrayExpressionInner::IfElse(
@@ -1247,8 +1220,7 @@ mod tests {
                                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
                                     FieldElementExpression::Number(Bn128Field::from(5)).into(),
                                 ])
-                                .annotate(Type::FieldElement, 2)
-                                .into(),
+                                .annotate(Type::FieldElement, 2),
                                 box ArrayExpressionInner::Select(
                                     box ArrayExpressionInner::Identifier(
                                         Identifier::from("a").version(0)
@@ -1269,8 +1241,7 @@ mod tests {
                                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
                                     FieldElementExpression::Number(Bn128Field::from(5)).into(),
                                 ])
-                                .annotate(Type::FieldElement, 2)
-                                .into(),
+                                .annotate(Type::FieldElement, 2),
                                 box ArrayExpressionInner::Select(
                                     box ArrayExpressionInner::Identifier(
                                         Identifier::from("a").version(0)

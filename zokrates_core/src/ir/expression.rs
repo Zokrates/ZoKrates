@@ -113,7 +113,7 @@ impl<T> LinComb<T> {
     }
 
     pub fn is_zero(&self) -> bool {
-        self.0.len() == 0
+        self.0.is_empty()
     }
 }
 
@@ -141,7 +141,7 @@ impl<T: Field> LinComb<T> {
                     // collect to a Result to short circuit when we hit an error
                     .collect::<Result<_, _>>()
                     // we didn't hit an error, do final processing. It's fine to clone here.
-                    .map(|v: Vec<_>| (first.clone(), v.iter().fold(T::zero(), |acc, e| acc + *e)))
+                    .map(|v: Vec<_>| (*first, v.iter().fold(T::zero(), |acc, e| acc + *e)))
                     .ok()
             }
         }
@@ -287,7 +287,7 @@ mod tests {
         fn add() {
             let a: LinComb<Bn128Field> = FlatVariable::new(42).into();
             let b: LinComb<Bn128Field> = FlatVariable::new(42).into();
-            let c = a + b.clone();
+            let c = a + b;
 
             let expected_vec = vec![
                 (FlatVariable::new(42), Bn128Field::from(1)),
@@ -300,7 +300,7 @@ mod tests {
         fn sub() {
             let a: LinComb<Bn128Field> = FlatVariable::new(42).into();
             let b: LinComb<Bn128Field> = FlatVariable::new(42).into();
-            let c = a - b.clone();
+            let c = a - b;
 
             let expected_vec = vec![
                 (FlatVariable::new(42), Bn128Field::from(1)),

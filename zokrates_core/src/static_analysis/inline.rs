@@ -240,7 +240,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         res.map(|exprs| {
             self.call_cache_mut()
                 .entry(key.clone())
-                .or_insert_with(|| HashMap::new())
+                .or_insert_with(HashMap::new)
                 .insert(expressions, exprs.clone());
             exprs
         })
@@ -269,7 +269,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
     > {
         self.call_cache
             .entry(self.location.clone())
-            .or_insert_with(|| HashMap::new())
+            .or_insert_with(HashMap::new)
     }
 
     fn call_cache_mut(
@@ -366,7 +366,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                         self.call_cache_mut()
                             .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
+                            .or_insert_with(HashMap::new)
                             .insert(
                                 expressions,
                                 vec![FieldElementExpression::Identifier(id.clone()).into()],
@@ -420,7 +420,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                         self.call_cache_mut()
                             .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
+                            .or_insert_with(HashMap::new)
                             .insert(
                                 expressions,
                                 vec![BooleanExpression::Identifier(id.clone()).into()],
@@ -478,7 +478,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                         self.call_cache_mut()
                             .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
+                            .or_insert_with(HashMap::new)
                             .insert(
                                 expressions,
                                 vec![out.clone().annotate(ty.clone(), size).into()],
@@ -535,7 +535,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                         self.call_cache_mut()
                             .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
+                            .or_insert_with(HashMap::new)
                             .insert(expressions, vec![out.clone().annotate(ty.clone()).into()]);
 
                         out
@@ -589,7 +589,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                         self.call_cache_mut()
                             .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
+                            .or_insert_with(HashMap::new)
                             .insert(expressions, vec![out.clone().annotate(size).into()]);
 
                         out
@@ -850,7 +850,7 @@ mod tests {
                                 Identifier::from("a").stack(stack.clone())
                             ),
                             box FieldElementExpression::Identifier(
-                                Identifier::from("a").stack(stack.clone())
+                                Identifier::from("a").stack(stack)
                             )
                         )
                     )
@@ -1007,7 +1007,7 @@ mod tests {
                         FieldElementExpression::Identifier("b".into()).into(),
                     ])
                 ],
-                signature: signature.clone(),
+                signature: signature,
             })
         );
     }
@@ -1229,7 +1229,7 @@ mod tests {
                         FieldElementExpression::Identifier("b".into()).into(),
                     ])
                 ],
-                signature: signature.clone(),
+                signature: signature,
             })
         );
     }
@@ -1591,13 +1591,11 @@ mod tests {
                         TypedAssignee::Identifier(Variable::field_element(
                             Identifier::from("a").stack(stack1.clone())
                         )),
-                        FieldElementExpression::Identifier(
-                            Identifier::from("a").stack(stack0.clone())
-                        )
-                        .into()
+                        FieldElementExpression::Identifier(Identifier::from("a").stack(stack0))
+                            .into()
                     ),
                     TypedStatement::Return(vec![FieldElementExpression::Identifier(
-                        Identifier::from("a").stack(stack1.clone())
+                        Identifier::from("a").stack(stack1)
                     )
                     .into(),])
                 ],

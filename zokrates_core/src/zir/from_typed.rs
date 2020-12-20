@@ -12,8 +12,8 @@ impl<'ast> From<typed_absy::types::FunctionKey<'ast>> for zir::types::FunctionKe
 impl From<typed_absy::types::Signature> for zir::types::Signature {
     fn from(s: typed_absy::types::Signature) -> zir::types::Signature {
         zir::types::Signature {
-            inputs: s.inputs.into_iter().flat_map(|t| from_type(t)).collect(),
-            outputs: s.outputs.into_iter().flat_map(|t| from_type(t)).collect(),
+            inputs: s.inputs.into_iter().flat_map(from_type).collect(),
+            outputs: s.outputs.into_iter().flat_map(from_type).collect(),
         }
     }
 }

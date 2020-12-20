@@ -2379,9 +2379,7 @@ mod tests {
             let types = HashMap::new();
             let module_id = "".into();
 
-            let expr =
-                Expression::FieldConstant(BigUint::from(Bn128Field::max_value().to_biguint()))
-                    .mock();
+            let expr = Expression::FieldConstant(Bn128Field::max_value().to_biguint()).mock();
             assert!(Checker::new()
                 .check_expression::<Bn128Field>(expr, &module_id, &types)
                 .is_ok());
@@ -2393,7 +2391,7 @@ mod tests {
             let module_id = "".into();
 
             let value = Bn128Field::max_value().to_biguint().add(1u32);
-            let expr = Expression::FieldConstant(BigUint::from(value)).mock();
+            let expr = Expression::FieldConstant(value).mock();
 
             assert!(Checker::new()
                 .check_expression::<Bn128Field>(expr, &module_id, &types)
@@ -2515,7 +2513,7 @@ mod tests {
         fn struct1() -> StructDefinitionNode<'static> {
             StructDefinition {
                 fields: vec![StructDefinitionField {
-                    id: "foo".into(),
+                    id: "foo",
                     ty: UnresolvedType::FieldElement.mock(),
                 }
                 .mock()],
@@ -2620,7 +2618,7 @@ mod tests {
             };
 
             let mut state = State::<Bn128Field>::new(
-                vec![(PathBuf::from(MODULE_ID).into(), module)]
+                vec![(PathBuf::from(MODULE_ID), module)]
                     .into_iter()
                     .collect(),
             );
@@ -2628,7 +2626,7 @@ mod tests {
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID), &mut state)
                     .unwrap_err()[0]
                     .inner
                     .message,
@@ -3638,7 +3636,7 @@ mod tests {
             )
             .mock(),
             Statement::Definition(
-                Assignee::Identifier("a".into()).mock(),
+                Assignee::Identifier("a").mock(),
                 Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(
                     Expression::FieldConstant(BigUint::from(0u32)).mock(),
                 )])
@@ -4445,7 +4443,7 @@ mod tests {
                 assert_eq!(
                     checker.check_type(
                         UnresolvedType::User("Foo".into()).mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types
                     ),
                     Ok(Type::Struct(StructType::new(
@@ -4459,7 +4457,7 @@ mod tests {
                     checker
                         .check_type(
                             UnresolvedType::User("Bar".into()).mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -4491,7 +4489,7 @@ mod tests {
                             private: true,
                         }
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types,
                     ),
                     Ok(Parameter {
@@ -4519,7 +4517,7 @@ mod tests {
                                 private: true,
                             }
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types,
                         )
                         .unwrap_err()[0]
@@ -4549,7 +4547,7 @@ mod tests {
                                 .mock()
                         )
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types,
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
@@ -4574,7 +4572,7 @@ mod tests {
                                 private: true,
                             }
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types,
                         )
                         .unwrap_err()[0]
@@ -4617,7 +4615,7 @@ mod tests {
                             "foo".into()
                         )
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types
                     ),
                     Ok(FieldElementExpression::Member(
@@ -4666,7 +4664,7 @@ mod tests {
                                 "bar".into()
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -4703,7 +4701,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -4747,7 +4745,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -4801,7 +4799,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -4853,7 +4851,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -4900,7 +4898,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         ).unwrap_err()
                         .message,
@@ -4924,7 +4922,7 @@ mod tests {
                                 ]
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -5001,7 +4999,7 @@ mod tests {
                 checker.check_assignee::<Bn128Field>(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array("a", 33)),
-                    box FieldElementExpression::Number(Bn128Field::from(2u32)).into()
+                    box FieldElementExpression::Number(Bn128Field::from(2u32))
                 ))
             );
         }
@@ -5056,9 +5054,9 @@ mod tests {
                             Type::array(Type::FieldElement, 33),
                             42
                         )),
-                        box FieldElementExpression::Number(Bn128Field::from(1u32)).into()
+                        box FieldElementExpression::Number(Bn128Field::from(1u32))
                     ),
-                    box FieldElementExpression::Number(Bn128Field::from(2u32)).into()
+                    box FieldElementExpression::Number(Bn128Field::from(2u32))
                 ))
             );
         }
