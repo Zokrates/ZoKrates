@@ -676,7 +676,7 @@ mod tests {
     use crate::typed_absy::{
         ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
         FieldElementExpression, Identifier, Select, Type, TypedExpression, TypedExpressionList,
-        UBitwidth, UExpression, UExpressionInner, Variable,
+        UBitwidth, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
 
