@@ -424,18 +424,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     };
 
                     self.functions.insert(
-                        DeclarationFunctionKey::with_location(
-                            module_id.clone(),
-                            declaration.id.clone(),
-                        )
-                        .signature(funct.signature.clone()),
+                        DeclarationFunctionKey::with_location(module_id.clone(), declaration.id)
+                            .signature(funct.signature.clone()),
                     );
                     functions.insert(
-                        DeclarationFunctionKey::with_location(
-                            module_id.clone(),
-                            declaration.id.clone(),
-                        )
-                        .signature(funct.signature.clone()),
+                        DeclarationFunctionKey::with_location(module_id.clone(), declaration.id)
+                            .signature(funct.signature.clone()),
                         TypedFunctionSymbol::Here(funct),
                     );
                 }
@@ -571,18 +565,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 };
 
                 self.functions.insert(
-                    DeclarationFunctionKey::with_location(
-                        module_id.clone(),
-                        declaration.id.clone(),
-                    )
-                    .signature(funct.signature().clone().try_into().unwrap()),
+                    DeclarationFunctionKey::with_location(module_id.clone(), declaration.id)
+                        .signature(funct.signature().clone().try_into().unwrap()),
                 );
                 functions.insert(
-                    DeclarationFunctionKey::with_location(
-                        module_id.clone(),
-                        declaration.id.clone(),
-                    )
-                    .signature(funct.signature().clone().try_into().unwrap()),
+                    DeclarationFunctionKey::with_location(module_id.clone(), declaration.id)
+                        .signature(funct.signature().clone().try_into().unwrap()),
                     TypedFunctionSymbol::Flat(funct),
                 );
             }
@@ -1977,7 +1965,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,
@@ -1986,7 +1974,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Boolean => Ok(BooleanExpression::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,
@@ -1995,7 +1983,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,
@@ -2005,7 +1993,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Struct(members) => Ok(StructExpressionInner::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,
@@ -2015,7 +2003,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::Array(array_type) => Ok(ArrayExpressionInner::FunctionCall(
                                     DeclarationFunctionKey {
                                         module: module_id.clone(),
-                                        id: f.id.clone(),
+                                        id: f.id,
                                         signature: signature.clone(),
                                     },
                                     arguments_checked,

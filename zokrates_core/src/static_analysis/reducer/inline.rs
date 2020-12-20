@@ -112,7 +112,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
                 decl_key.clone(),
                 ConcreteFunctionKey {
                     module: decl_key.module.clone(),
-                    id: decl_key.id.clone(),
+                    id: decl_key.id,
                     signature: inferred_signature.clone(),
                 },
             )
@@ -120,7 +120,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
 
     let concrete_key = ConcreteFunctionKey {
         module: decl_key.module.clone(),
-        id: decl_key.id.clone(),
+        id: decl_key.id,
         signature: inferred_signature.clone(),
     };
 
