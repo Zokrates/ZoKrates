@@ -9,10 +9,9 @@ RUN cd src; ./build_release.sh
 FROM ubuntu:18.04
 ENV ZOKRATES_HOME=/home/zokrates/.zokrates
 
-COPY --from=build /build/src/scripts/install_libsnark_prerequisites.sh /tmp/
-
-RUN /tmp/install_libsnark_prerequisites.sh \
-&& useradd -u 1000 -m zokrates
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgmp3-dev \
+    && useradd -u 1000 -m zokrates
 
 USER zokrates
 WORKDIR /home/zokrates
