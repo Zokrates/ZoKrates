@@ -40,7 +40,7 @@ impl Interpreter {
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
         for (arg, value) in main.arguments.iter().zip(inputs.iter()) {
-            witness.insert(arg.clone(), value.clone().into());
+            witness.insert(*arg, value.clone());
         }
 
         for statement in main.statements.iter() {
@@ -48,7 +48,7 @@ impl Interpreter {
                 Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
                     true => {
                         let val = quad.evaluate(&witness).unwrap();
-                        witness.insert(lin.0.iter().next().unwrap().0.clone(), val);
+                        witness.insert(lin.0.get(0).unwrap().0, val);
                     }
                     false => {
                         let lhs_value = quad.evaluate(&witness).unwrap();
@@ -79,7 +79,7 @@ impl Interpreter {
                             match self.execute_solver(&d.solver, &inputs) {
                                 Ok(res) => {
                                     for (i, o) in d.outputs.iter().enumerate() {
-                                        witness.insert(o.clone(), res[i].clone());
+                                        witness.insert(*o, res[i].clone());
                                     }
                                     continue;
                                 }
@@ -107,12 +107,12 @@ impl Interpreter {
             value.to_biguint()
         };
 
-        let mut num = input.clone();
+        let mut num = input;
         let mut res = vec![];
         let bits = T::get_required_bits();
         for i in (0..bits).rev() {
             if T::from(2).to_biguint().pow(i as usize) <= num {
-                num = num - T::from(2).to_biguint().pow(i as usize);
+                num -= T::from(2).to_biguint().pow(i as usize);
                 res.push(T::one());
             } else {
                 res.push(T::zero());
@@ -120,7 +120,7 @@ impl Interpreter {
         }
         assert_eq!(num, T::zero().to_biguint());
         for (i, o) in d.outputs.iter().enumerate() {
-            witness.insert(o.clone(), res[i].clone());
+            witness.insert(*o, res[i].clone());
         }
     }
 
@@ -135,11 +135,15 @@ impl Interpreter {
         }
     }
 
-    pub fn execute_solver<T: Field>(&self, s: &Solver, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-        let (expected_input_count, expected_output_count) = s.get_signature();
+    pub fn execute_solver<T: Field>(
+        &self,
+        solver: &Solver,
+        inputs: &Vec<T>,
+    ) -> Result<Vec<T>, String> {
+        let (expected_input_count, expected_output_count) = solver.get_signature();
         assert!(inputs.len() == expected_input_count);
 
-        let res = match s {
+        let res = match solver {
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
                 false => vec![
@@ -220,8 +224,8 @@ impl<T: Field> LinComb<T> {
 
     fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
         self.0.iter().count() == 1
-            && self.0.iter().next().unwrap().1 == T::from(1)
-            && !witness.contains_key(&self.0.iter().next().unwrap().0)
+            && self.0.get(0).unwrap().1 == T::from(1)
+            && !witness.contains_key(&self.0.get(0).unwrap().0)
     }
 }
 

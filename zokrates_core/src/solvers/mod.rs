@@ -42,7 +42,7 @@ impl Solver {
 }
 
 pub trait Executable<T: Field>: Signed {
-    fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String>;
+    fn execute(&self, inputs: &[T]) -> Result<Vec<T>, String>;
 }
 
 pub trait Signed {

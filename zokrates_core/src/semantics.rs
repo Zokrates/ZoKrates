@@ -127,7 +127,7 @@ impl fmt::Display for ErrorInner {
         let location = self
             .pos
             .map(|p| format!("{}", p.0))
-            .unwrap_or("?".to_string());
+            .unwrap_or_else(|| "?".to_string());
         write!(f, "{}\n\t{}", location, self.message)
     }
 }
@@ -159,7 +159,7 @@ impl<'ast, T: fmt::Display> fmt::Display for FunctionQuery<'ast, T> {
                 " -> {}",
                 match &self.outputs[0] {
                     Some(t) => format!("{}", t),
-                    None => format!("_"),
+                    None => "_".into(),
                 }
             ),
             _ => {
@@ -183,13 +183,13 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
     /// Create a new query.
     fn new(
         id: Identifier<'ast>,
-        inputs: &Vec<Type<'ast, T>>,
-        outputs: &Vec<Option<Type<'ast, T>>>,
+        inputs: &[Type<'ast, T>],
+        outputs: &[Option<Type<'ast, T>>],
     ) -> Self {
         FunctionQuery {
             id,
-            inputs: inputs.clone(),
-            outputs: outputs.clone(),
+            inputs: inputs.to_owned(),
+            outputs: outputs.to_owned(),
         }
     }
 
@@ -289,7 +289,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Err(e) => errors.extend(e),
         };
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -343,7 +343,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
         }
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -506,7 +506,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .types
                                     .entry(module_id.clone())
                                     .or_default()
-                                    .insert(declaration.id.to_string(), t.clone());
+                                    .insert(declaration.id.to_string(), t);
                             }
                             (0, None) => {
                                 errors.push(ErrorInner {
@@ -589,7 +589,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         };
 
         // return if any errors occured
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -635,15 +635,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
         };
 
         // insert into typed_modules if we checked anything
-        match to_insert {
-            Some(typed_module) => {
-                // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
-                assert!(state
-                    .typed_modules
-                    .insert(module_id.clone(), typed_module)
-                    .is_none());
-            }
-            None => {}
+        if let Some(typed_module) = to_insert {
+            // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
+            assert!(state
+                .typed_modules
+                .insert(module_id.clone(), typed_module)
+                .is_none());
         };
 
         Ok(())
@@ -659,7 +656,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             1 => Ok(()),
             0 => Err(ErrorInner {
                 pos: None,
-                message: format!("No main function found"),
+                message: "No main function found".into(),
             }),
             n => Err(ErrorInner {
                 pos: None,
@@ -857,7 +854,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
         }
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(errors);
         }
 
@@ -1254,10 +1251,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::Definition(assignee, expr) => {
                 // we create multidef when rhs is a function call to benefit from inference
                 // check rhs is not a function call here
-                match expr.value {
-					Expression::FunctionCall(..) => panic!("Parser should not generate Definition where the right hand side is a FunctionCall"),
-					_ => {}
-				}
+                if let Expression::FunctionCall(..) = expr.value {
+                    panic!("Parser should not generate Definition where the right hand side is a FunctionCall")
+                }
 
                 // check the expression to be assigned
                 let checked_expr = self
@@ -1338,13 +1334,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         // check lhs assignees are defined
                         let (assignees, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| self.check_assignee(a, module_id, types)).partition(|r| r.is_ok());
 
-                        if errors.len() > 0 {
+                        if !errors.is_empty() {
                             return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
                         }
 
                         let assignees: Vec<_> = assignees.into_iter().map(|a| a.unwrap()).collect();
 
-                        let assignee_types = assignees.iter().map(|a| Some(a.get_type().clone())).collect();
+                        let assignee_types: Vec<_> = assignees.iter().map(|a| Some(a.get_type().clone())).collect();
 
                         // find argument types
                         let mut arguments_checked = vec![];
@@ -1353,7 +1349,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             arguments_checked.push(arg_checked);
                         }
 
-                        let arguments_types =
+                        let arguments_types: Vec<_> =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
                         let query = FunctionQuery::new(&fun_id, &arguments_types, &assignee_types);
@@ -1642,7 +1638,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::add(e1, e2).into())
+                            Ok((e1 + e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1684,7 +1680,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (Int(e1), Int(e2)) => Ok(IntExpression::Sub(box e1, box e2).into()),
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::sub(e1, e2).into())
+                            Ok((e1 - e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1732,7 +1728,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::mult(e1, e2).into())
+                            Ok((e1 * e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1787,7 +1783,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::div(e1, e2).into())
+                            Ok((e1 / e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1818,7 +1814,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::rem(e1, e2).into())
+                            Ok((e1 % e2).into())
                         } else {
                             Err(ErrorInner {
                                 pos: Some(pos),
@@ -1954,7 +1950,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 // outside of multidef, function calls must have a single return value
                 // we use type inference to determine the type of the return, so we don't specify it
-                let query = FunctionQuery::new(&fun_id, &arguments_types, &vec![None]);
+                let query = FunctionQuery::new(&fun_id, &arguments_types, &[None]);
 
                 let functions = self.find_functions(&query);
 
@@ -3167,7 +3163,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e_checked {
                     TypedExpression::Int(e) => Ok(IntExpression::Not(box e).into()),
                     TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
-                    TypedExpression::Uint(e) => Ok(UExpression::not(e).into()),
+                    TypedExpression::Uint(e) => Ok((!e).into()),
                     e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Cannot negate {}", e.get_type()),
@@ -3243,7 +3239,7 @@ mod tests {
             let module_id = "".into();
 
             let value = Bn128Field::max_value().to_biguint().add(1u32);
-            let expr = Expression::FieldConstant(BigUint::from(value)).mock();
+            let expr = Expression::FieldConstant(value).mock();
 
             assert!(Checker::<Bn128Field>::new()
                 .check_expression(expr, &module_id, &types)
@@ -3367,7 +3363,7 @@ mod tests {
         fn struct1() -> StructDefinitionNode<'static> {
             StructDefinition {
                 fields: vec![StructDefinitionField {
-                    id: "foo".into(),
+                    id: "foo",
                     ty: UnresolvedType::FieldElement.mock(),
                 }
                 .mock()],
@@ -3564,7 +3560,7 @@ mod tests {
             let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID), &mut state)
                     .unwrap_err()[0]
                     .inner
                     .message,
@@ -4716,7 +4712,7 @@ mod tests {
             )
             .mock(),
             Statement::Definition(
-                Assignee::Identifier("a".into()).mock(),
+                Assignee::Identifier("a").mock(),
                 Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(
                     Expression::IntConstant(0usize.into()).mock(),
                 )])
@@ -5511,7 +5507,7 @@ mod tests {
                 assert_eq!(
                     checker.check_type(
                         UnresolvedType::User("Foo".into()).mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types
                     ),
                     Ok(Type::Struct(StructType::new(
@@ -5525,7 +5521,7 @@ mod tests {
                     checker
                         .check_type(
                             UnresolvedType::User("Bar".into()).mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -5557,7 +5553,7 @@ mod tests {
                             private: true,
                         }
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types,
                         &mut vec![]
                     ),
@@ -5589,7 +5585,7 @@ mod tests {
                                 private: true,
                             }
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types,
                             &mut vec![]
                         )
@@ -5620,7 +5616,7 @@ mod tests {
                                 .mock()
                         )
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types,
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
@@ -5645,7 +5641,7 @@ mod tests {
                                 private: true,
                             }
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types,
                             &mut vec![]
                         )
@@ -5686,7 +5682,7 @@ mod tests {
                             "foo".into()
                         )
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types
                     ),
                     Ok(FieldElementExpression::Member(
@@ -5732,7 +5728,7 @@ mod tests {
                                 "bar".into()
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -5766,7 +5762,7 @@ mod tests {
                                 vec![("foo", Expression::IntConstant(42usize.into()).mock())]
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -5807,7 +5803,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -5858,7 +5854,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &PathBuf::from(MODULE_ID).into(),
+                        &PathBuf::from(MODULE_ID),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -5907,7 +5903,7 @@ mod tests {
                                 vec![("foo", Expression::IntConstant(42usize.into()).mock())]
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()
@@ -5954,7 +5950,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         ).unwrap_err()
                         .message,
@@ -5972,7 +5968,7 @@ mod tests {
                                 ]
                             )
                             .mock(),
-                            &PathBuf::from(MODULE_ID).into(),
+                            &PathBuf::from(MODULE_ID),
                             &state.types
                         )
                         .unwrap_err()

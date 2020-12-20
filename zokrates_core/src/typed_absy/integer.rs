@@ -299,18 +299,15 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                     Err(Value(i))
                 }
             }
-            Add(box e1, box e2) => Ok(UExpression::add(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Sub(box e1, box e2) => Ok(UExpression::sub(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
-            Mult(box e1, box e2) => Ok(UExpression::mult(
-                Self::try_from_int(e1, bitwidth)?,
-                Self::try_from_int(e2, bitwidth)?,
-            )),
+            Add(box e1, box e2) => {
+                Ok(Self::try_from_int(e1, bitwidth)? + Self::try_from_int(e2, bitwidth)?)
+            }
+            Sub(box e1, box e2) => {
+                Ok(Self::try_from_int(e1, bitwidth)? - Self::try_from_int(e2, bitwidth)?)
+            }
+            Mult(box e1, box e2) => {
+                Ok(Self::try_from_int(e1, bitwidth)? * Self::try_from_int(e2, bitwidth)?)
+            }
             And(box e1, box e2) => Ok(UExpression::and(
                 Self::try_from_int(e1, bitwidth)?,
                 Self::try_from_int(e2, bitwidth)?,
@@ -319,7 +316,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 Self::try_from_int(e1, bitwidth)?,
                 Self::try_from_int(e2, bitwidth)?,
             )),
-            Not(box e) => Ok(UExpression::not(Self::try_from_int(e, bitwidth)?)),
+            Not(box e) => Ok(!Self::try_from_int(e, bitwidth)?),
             Xor(box e1, box e2) => Ok(UExpression::xor(
                 Self::try_from_int(e1, bitwidth)?,
                 Self::try_from_int(e2, bitwidth)?,
@@ -551,15 +548,15 @@ mod tests {
 
         let expected = vec![
             t.clone(),
-            UExpression::add(t.clone(), t.clone()),
+            t.clone() + t.clone(),
             UExpression::xor(t.clone(), t.clone()),
             UExpression::or(t.clone(), t.clone()),
             UExpression::and(t.clone(), t.clone()),
-            UExpression::sub(t.clone(), t.clone()),
-            UExpression::mult(t.clone(), t.clone()),
+            t.clone() - t.clone(),
+            t.clone() * t.clone(),
             UExpression::left_shift(t.clone(), s.clone()),
             UExpression::right_shift(t.clone(), s.clone()),
-            UExpression::not(t.clone()),
+            !t.clone(),
             UExpression::if_else(c.clone(), t.clone(), t.clone()),
             UExpression::select(t_a.clone(), i.clone()),
         ];

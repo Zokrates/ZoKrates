@@ -120,7 +120,7 @@ mod tests {
             main: Function {
                 id: "main".to_string(),
                 statements: vec![
-                    constraint.clone(),
+                    constraint,
                     Statement::Constraint(
                         QuadComb::from_linear_combinations(
                             LinComb::summand(3, FlatVariable::new(42)),

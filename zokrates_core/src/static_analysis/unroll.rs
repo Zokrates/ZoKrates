@@ -121,9 +121,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                                     stats.clone(),
                                 ]
                                 .into_iter()
-                                .flat_map(|x| x)
+                                .flatten()
                             })
-                            .flat_map(|x| x)
+                            .flatten()
                             .flat_map(|x| self.fold_statement(x))
                             .collect();
 
@@ -150,7 +150,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
         Identifier {
-            version: self.substitution.get(&n.id).unwrap_or(&0).clone(),
+            version: *self.substitution.get(&n.id).unwrap_or(&0),
             ..n
         }
     }

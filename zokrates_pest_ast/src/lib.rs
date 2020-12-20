@@ -852,7 +852,7 @@ impl fmt::Display for Error {
 }
 
 pub fn generate_ast(input: &str) -> Result<ast::File, Error> {
-    let parse_tree = parse(input).map_err(|e| Error(e))?;
+    let parse_tree = parse(input).map_err(Error)?;
     Ok(Prog::from(parse_tree).0)
 }
 

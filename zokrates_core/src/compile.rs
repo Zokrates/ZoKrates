@@ -198,12 +198,11 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
-    let compiled = compile_program::<T, E>(source, location.clone(), resolver, &arena)?;
+    let compiled = compile_program::<T, E>(source, location, resolver, &arena)?;
 
     // check semantics
-    let typed_ast = Checker::check(compiled).map_err(|errors| {
-        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
-    })?;
+    let typed_ast = Checker::check(compiled)
+        .map_err(|errors| CompileErrors(errors.into_iter().map(CompileError::from).collect()))?;
 
     let main_module = typed_ast.main.clone();
 
@@ -246,7 +245,7 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
 
     let module_without_imports: Module = Module::from(ast);
 
-    Importer::new().apply_imports::<T, E>(
+    Importer::apply_imports::<T, E>(
         module_without_imports,
         location.clone(),
         resolver,

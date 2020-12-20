@@ -123,7 +123,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
             writeln!(f, "{}", "-".repeat(100))?;
             writeln!(f, "{}", module)?;
             writeln!(f, "{}", "-".repeat(100))?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         write!(f, "")
     }
@@ -265,7 +265,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
             }
         )?;
 
-        writeln!(f, "")?;
+        writeln!(f)?;
 
         let mut tab = 0;
 
@@ -406,9 +406,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             }
             TypedStatement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
+                writeln!(f, "for {:?} in {:?}..{:?} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{:?}\n", l)?;
+                    writeln!(f, "\t\t{:?}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -431,7 +431,7 @@ impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
                 writeln!(f, "for {} in {}..{} do", variable, from, to)?;
                 for s in statements {
                     s.fmt_indented(f, depth + 1)?;
-                    writeln!(f, "")?;
+                    writeln!(f)?;
                 }
                 write!(f, "{}endfor", "\t".repeat(depth))
             }
@@ -457,9 +457,9 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{}\n", l)?;
+                    writeln!(f, "\t\t{}", l)?;
                 }
                 write!(f, "\tendfor")
             }

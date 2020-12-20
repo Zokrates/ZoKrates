@@ -13,8 +13,8 @@ impl<'ast> From<typed_absy::types::ConcreteFunctionKey<'ast>> for zir::types::Fu
 impl From<typed_absy::types::ConcreteSignature> for zir::types::Signature {
     fn from(s: typed_absy::types::ConcreteSignature) -> zir::types::Signature {
         zir::types::Signature {
-            inputs: s.inputs.into_iter().flat_map(|t| from_type(t)).collect(),
-            outputs: s.outputs.into_iter().flat_map(|t| from_type(t)).collect(),
+            inputs: s.inputs.into_iter().flat_map(from_type).collect(),
+            outputs: s.outputs.into_iter().flat_map(from_type).collect(),
         }
     }
 }

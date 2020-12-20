@@ -58,28 +58,25 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
             .map(|(k, v)| {
                 (
                     v.into_ark(),
-                    symbols
-                        .entry(k)
-                        .or_insert_with(|| {
-                            match k.is_output() {
-                                true => cs.new_input_variable(|| {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_ark())
-                                }),
-                                false => cs.new_witness_variable(|| {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_ark())
-                                }),
-                            }
-                            .unwrap()
-                        })
-                        .clone(),
+                    *symbols.entry(k).or_insert_with(|| {
+                        match k.is_output() {
+                            true => cs.new_input_variable(|| {
+                                Ok(witness
+                                    .0
+                                    .remove(&k)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into_ark())
+                            }),
+                            false => cs.new_witness_variable(|| {
+                                Ok(witness
+                                    .0
+                                    .remove(&k)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into_ark())
+                            }),
+                        }
+                        .unwrap()
+                    }),
                 )
             })
             .fold(LinearCombination::zero(), |acc, e| acc + e);
@@ -127,7 +124,7 @@ impl<T: Field + ArkFieldExtensions> Prog<T> {
                                 }),
                             }
                             .unwrap();
-                            (var.clone(), wire)
+                            (*var, wire)
                         }),
                 );
 

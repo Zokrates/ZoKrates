@@ -84,7 +84,7 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
         .write(proof.as_bytes())
         .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
 
-    println!("Proof:\n{}", format!("{}", proof));
+    println!("Proof:\n{}", proof);
 
     Ok(())
 }
@@ -211,7 +211,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                         .collect::<Result<Vec<_>, _>>()
                 })
                 .unwrap_or(Ok(vec![]))
-                .map(|v| Inputs::Raw(v))
+                .map(Inputs::Raw)
         }
         // take stdin arguments
         true => {
@@ -224,7 +224,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                         use zokrates_abi::parse_strict;
 
                         parse_strict(&input, signature.inputs)
-                            .map(|parsed| Inputs::Abi(parsed))
+                            .map(Inputs::Abi)
                             .map_err(|why| why.to_string())
                     }
                     Err(_) => Err(String::from("???")),
@@ -235,10 +235,10 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                         Ok(_) => {
                             input.retain(|x| x != '\n');
                             input
-                                .split(" ")
+                                .split(' ')
                                 .map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
                                 .collect::<Result<Vec<_>, _>>()
-                                .map(|v| Inputs::Raw(v))
+                                .map(Inputs::Raw)
                         }
                         Err(_) => Err(String::from("???")),
                     },
@@ -460,7 +460,7 @@ fn cli() -> Result<(), String> {
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
     .version(env!("CARGO_PKG_VERSION"))
-    .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml")
+    .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml, Darko Macesic")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
         .about("Compiles into flattened conditions. Produces two files: human-readable '.ztf' file for debugging and binary file")
@@ -614,7 +614,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use to export the verifier")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .possible_values(SCHEMES)
@@ -726,7 +725,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use to generate the proof")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .possible_values(SCHEMES)
@@ -783,7 +781,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)

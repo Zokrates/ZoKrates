@@ -154,7 +154,7 @@ fn compile_and_run<T: Field>(t: Tests) {
                     s,
                     input
                         .iter()
-                        .map(|i| format!("{}", i))
+                        .map(|i| i.to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                 );

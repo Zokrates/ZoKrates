@@ -56,8 +56,7 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
                             Some(acc) => Some(BooleanExpression::Or(box acc, box e)),
                             None => Some(e),
                         })
-                        .unwrap()
-                        .into(),
+                        .unwrap(),
                 ));
 
                 (0..size)
@@ -179,19 +178,16 @@ mod tests {
         assert_eq!(
             VariableReadRemover::new().fold_statement(access),
             vec![
-                TypedStatement::Assertion(
-                    BooleanExpression::Or(
-                        box BooleanExpression::UintEq(
-                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
-                            box UExpressionInner::Value(0).annotate(UBitwidth::B32)
-                        ),
-                        box BooleanExpression::UintEq(
-                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
-                            box UExpressionInner::Value(1).annotate(UBitwidth::B32)
-                        )
+                TypedStatement::Assertion(BooleanExpression::Or(
+                    box BooleanExpression::UintEq(
+                        box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                        box UExpressionInner::Value(0).annotate(UBitwidth::B32)
+                    ),
+                    box BooleanExpression::UintEq(
+                        box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                        box UExpressionInner::Value(1).annotate(UBitwidth::B32)
                     )
-                    .into(),
-                ),
+                )),
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::if_else(

@@ -41,7 +41,7 @@ impl FlatParameter {
         substitution: &HashMap<FlatVariable, FlatVariable>,
     ) -> FlatParameter {
         FlatParameter {
-            id: substitution.get(&self.id).unwrap().clone(),
+            id: *substitution.get(&self.id).unwrap(),
             private: self.private,
         }
     }

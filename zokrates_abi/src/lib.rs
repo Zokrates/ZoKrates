@@ -248,9 +248,9 @@ impl<T: Field> TryFrom<serde_json::Value> for Values<T> {
         match v {
             serde_json::Value::Array(a) => a
                 .into_iter()
-                .map(|v| Value::try_from(v))
+                .map(Value::try_from)
                 .collect::<Result<_, _>>()
-                .map(|v| Values(v)),
+                .map(Values),
             v => Err(format!("Expected an array of values, found `{}`", v)),
         }
     }
@@ -260,20 +260,22 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
     type Error = String;
     fn try_from(v: serde_json::Value) -> Result<Value<T>, Self::Error> {
         match v {
-            serde_json::Value::String(s) => T::try_from_dec_str(&s)
-                .map(|v| Value::Field(v))
-                .or_else(|_| match s.len() {
-                    4 => u8::from_str_radix(&s[2..], 16)
-                        .map(|v| Value::U8(v))
-                        .map_err(|_| format!("Expected u8 value, found {}", s)),
-                    6 => u16::from_str_radix(&s[2..], 16)
-                        .map(|v| Value::U16(v))
-                        .map_err(|_| format!("Expected u16 value, found {}", s)),
-                    10 => u32::from_str_radix(&s[2..], 16)
-                        .map(|v| Value::U32(v))
-                        .map_err(|_| format!("Expected u32 value, found {}", s)),
-                    _ => Err(format!("Cannot parse {} to any type", s)),
-                }),
+            serde_json::Value::String(s) => {
+                T::try_from_dec_str(&s)
+                    .map(Value::Field)
+                    .or_else(|_| match s.len() {
+                        4 => u8::from_str_radix(&s[2..], 16)
+                            .map(Value::U8)
+                            .map_err(|_| format!("Expected u8 value, found {}", s)),
+                        6 => u16::from_str_radix(&s[2..], 16)
+                            .map(Value::U16)
+                            .map_err(|_| format!("Expected u16 value, found {}", s)),
+                        10 => u32::from_str_radix(&s[2..], 16)
+                            .map(Value::U32)
+                            .map_err(|_| format!("Expected u32 value, found {}", s)),
+                        _ => Err(format!("Cannot parse {} to any type", s)),
+                    })
+            }
             serde_json::Value::Bool(b) => Ok(Value::Boolean(b)),
             serde_json::Value::Number(n) => Err(format!(
                 "Value `{}` isn't allowed, did you mean `\"{}\"`?",
@@ -281,14 +283,14 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
             )),
             serde_json::Value::Array(a) => a
                 .into_iter()
-                .map(|v| Value::try_from(v))
+                .map(Value::try_from)
                 .collect::<Result<_, _>>()
-                .map(|v| Value::Array(v)),
+                .map(Value::Array),
             serde_json::Value::Object(o) => o
                 .into_iter()
                 .map(|(k, v)| Value::try_from(v).map(|v| (k, v)))
                 .collect::<Result<Map<_, _>, _>>()
-                .map(|v| Value::Struct(v)),
+                .map(Value::Struct),
             v => Err(format!("Value `{}` isn't allowed", v)),
         }
     }
@@ -321,7 +323,7 @@ impl<T: Field> Into<serde_json::Value> for CheckedValues<T> {
 fn parse<T: Field>(s: &str) -> Result<Values<T>, Error> {
     let json_values: serde_json::Value =
         serde_json::from_str(s).map_err(|e| Error::Json(e.to_string()))?;
-    Values::try_from(json_values).map_err(|e| Error::Conversion(e))
+    Values::try_from(json_values).map_err(Error::Conversion)
 }
 
 pub fn parse_strict<T: Field>(
@@ -342,7 +344,7 @@ pub fn parse_strict<T: Field>(
         .zip(types.into_iter())
         .map(|(v, ty)| v.check(ty))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| Error::Type(e))?;
+        .map_err(Error::Type)?;
     Ok(CheckedValues(checked))
 }
 

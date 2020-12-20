@@ -51,34 +51,31 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .map(|(k, v)| {
             (
                 v.into_bellman(),
-                symbols
-                    .entry(k)
-                    .or_insert_with(|| {
-                        match k.is_output() {
-                            true => cs.alloc_input(
-                                || format!("{}", k),
-                                || {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_bellman())
-                                },
-                            ),
-                            false => cs.alloc(
-                                || format!("{}", k),
-                                || {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_bellman())
-                                },
-                            ),
-                        }
-                        .unwrap()
-                    })
-                    .clone(),
+                *symbols.entry(k).or_insert_with(|| {
+                    match k.is_output() {
+                        true => cs.alloc_input(
+                            || format!("{}", k),
+                            || {
+                                Ok(witness
+                                    .0
+                                    .remove(&k)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into_bellman())
+                            },
+                        ),
+                        false => cs.alloc(
+                            || format!("{}", k),
+                            || {
+                                Ok(witness
+                                    .0
+                                    .remove(&k)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into_bellman())
+                            },
+                        ),
+                    }
+                    .unwrap()
+                }),
             )
         })
         .fold(LinearCombination::zero(), |acc, e| acc + e)
@@ -127,7 +124,7 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
                         ),
                     }
                     .unwrap();
-                    (var.clone(), wire)
+                    (*var, wire)
                 }),
         );
 

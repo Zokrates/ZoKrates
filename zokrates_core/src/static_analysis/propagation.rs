@@ -104,10 +104,7 @@ fn is_constant<'ast, T: Field>(e: &TypedExpression<'ast, T>) -> bool {
             StructExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
             _ => false,
         },
-        TypedExpression::Uint(a) => match a.as_inner() {
-            UExpressionInner::Value(..) => true,
-            _ => false,
-        },
+        TypedExpression::Uint(a) => matches!(a.as_inner(), UExpressionInner::Value(..)),
         _ => false,
     }
 }
@@ -302,7 +299,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
 
                                     for i in (0..bitwidth as u32).rev() {
                                         if 2u128.pow(i) <= num {
-                                            num = num - 2u128.pow(i);
+                                            num -= 2u128.pow(i);
                                             res.push(true);
                                         } else {
                                             res.push(false);
@@ -1010,20 +1007,20 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
                     c => ArrayExpressionInner::IfElse(box c, box consequence, box alternative),
                 }
             }
-            ArrayExpressionInner::Member(box s, m) => {
-                let s = self.fold_struct_expression(s);
+            ArrayExpressionInner::Member(box struc, id) => {
+                let struc = self.fold_struct_expression(struc);
 
-                let members = match s.get_type() {
+                let members = match struc.get_type() {
                     Type::Struct(members) => members,
                     _ => unreachable!("should be a struct"),
                 };
 
-                match s.into_inner() {
+                match struc.into_inner() {
                     StructExpressionInner::Value(v) => {
                         match members
                             .iter()
                             .zip(v)
-                            .find(|(member, _)| member.id == m)
+                            .find(|(member, _)| member.id == id)
                             .unwrap()
                             .1
                         {
@@ -1031,7 +1028,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
                             _ => unreachable!("should be an array"),
                         }
                     }
-                    inner => ArrayExpressionInner::Member(box inner.annotate(members), m),
+                    inner => ArrayExpressionInner::Member(box inner.annotate(members), id),
                 }
             }
             e => fold_array_expression_inner(self, ty, size, e),

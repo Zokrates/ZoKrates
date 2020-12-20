@@ -249,7 +249,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             statement_buffer: vec![],
             for_loop_versions_after: vec![],
             for_loop_versions,
-            cache: cache,
+            cache,
             substitutions,
             program,
             versions,

@@ -9,14 +9,14 @@ impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
         absy::Module::with_symbols(
             prog.structs
                 .into_iter()
-                .map(|t| absy::SymbolDeclarationNode::from(t))
+                .map(absy::SymbolDeclarationNode::from)
                 .chain(
                     prog.functions
                         .into_iter()
-                        .map(|f| absy::SymbolDeclarationNode::from(f)),
+                        .map(absy::SymbolDeclarationNode::from),
                 ),
         )
-        .imports(prog.imports.into_iter().map(|i| absy::ImportNode::from(i)))
+        .imports(prog.imports.into_iter().map(absy::ImportNode::from))
     }
 }
 
@@ -57,7 +57,7 @@ impl<'ast> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'a
             fields: definition
                 .fields
                 .into_iter()
-                .map(|f| absy::StructDefinitionFieldNode::from(f))
+                .map(absy::StructDefinitionFieldNode::from)
                 .collect(),
         }
         .span(span.clone());
@@ -104,7 +104,7 @@ impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
                     .returns
                     .clone()
                     .into_iter()
-                    .map(|r| absy::UnresolvedTypeNode::from(r))
+                    .map(absy::UnresolvedTypeNode::from)
                     .collect(),
             );
 
@@ -119,12 +119,12 @@ impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
             arguments: function
                 .parameters
                 .into_iter()
-                .map(|a| absy::ParameterNode::from(a))
+                .map(absy::ParameterNode::from)
                 .collect(),
             statements: function
                 .statements
                 .into_iter()
-                .flat_map(|s| statements_from_statement(s))
+                .flat_map(statements_from_statement)
                 .collect(),
             signature,
         }
@@ -261,7 +261,7 @@ impl<'ast> From<pest::ReturnStatement<'ast>> for absy::StatementNode<'ast> {
                 expressions: statement
                     .expressions
                     .into_iter()
-                    .map(|e| absy::ExpressionNode::from(e))
+                    .map(absy::ExpressionNode::from)
                     .collect(),
             }
             .span(statement.span.clone()),
@@ -289,7 +289,7 @@ impl<'ast> From<pest::IterationStatement<'ast>> for absy::StatementNode<'ast> {
         let statements: Vec<absy::StatementNode<'ast>> = statement
             .statements
             .into_iter()
-            .flat_map(|s| statements_from_statement(s))
+            .flat_map(statements_from_statement)
             .collect();
 
         let var = absy::Variable::new(index, ty).span(statement.index.span);
@@ -472,7 +472,7 @@ impl<'ast> From<pest::InlineArrayExpression<'ast>> for absy::ExpressionNode<'ast
             array
                 .expressions
                 .into_iter()
-                .map(|e| absy::SpreadOrExpression::from(e))
+                .map(absy::SpreadOrExpression::from)
                 .collect(),
         )
         .span(array.span)
@@ -538,7 +538,7 @@ impl<'ast> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<'ast> {
                     &id_str,
                     a.expressions
                         .into_iter()
-                        .map(|e| absy::ExpressionNode::from(e))
+                        .map(absy::ExpressionNode::from)
                         .collect(),
                 ),
                 e => unimplemented!("only identifiers are callable, found \"{}\"", e),
@@ -933,7 +933,7 @@ mod tests {
             // we basically accept `()?[]*` : an optional call at first, then only array accesses
 
             let vectors = vec![
-                ("a", absy::Expression::Identifier("a").into()),
+                ("a", absy::Expression::Identifier("a")),
                 (
                     "a[3]",
                     absy::Expression::Select(
