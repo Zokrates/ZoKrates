@@ -863,11 +863,10 @@ mod tests {
                         UExpressionInner::Identifier("n".into())
                             .annotate(UBitwidth::B32)
                             .into(),
-                        UExpression::mult(
-                            UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
-                            UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
-                        )
-                        .into(),
+                        UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32)
+                            * UExpressionInner::Identifier("n".into())
+                                .annotate(UBitwidth::B32)
+                                .into(),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
                             FieldElementExpression::Identifier("a".into()).into(),
@@ -882,11 +881,10 @@ mod tests {
                         UExpressionInner::Identifier("n".into())
                             .annotate(UBitwidth::B32)
                             .into(),
-                        UExpression::mult(
-                            UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
-                            UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
-                        )
-                        .into(),
+                        UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32)
+                            * UExpressionInner::Identifier("n".into())
+                                .annotate(UBitwidth::B32)
+                                .into(),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
                             FieldElementExpression::Identifier("a".into()).into(),
@@ -940,13 +938,11 @@ mod tests {
                         UExpressionInner::Identifier(Identifier::from("n").version(1))
                             .annotate(UBitwidth::B32)
                             .into(),
-                        UExpression::mult(
-                            UExpressionInner::Identifier(Identifier::from("n").version(1))
-                                .annotate(UBitwidth::B32),
-                            UExpressionInner::Identifier(Identifier::from("n").version(1))
-                                .annotate(UBitwidth::B32),
-                        )
-                        .into(),
+                        UExpressionInner::Identifier(Identifier::from("n").version(1))
+                            .annotate(UBitwidth::B32)
+                            * UExpressionInner::Identifier(Identifier::from("n").version(1))
+                                .annotate(UBitwidth::B32)
+                                .into(),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
                             FieldElementExpression::Identifier("a".into()).into(),
@@ -961,13 +957,11 @@ mod tests {
                         UExpressionInner::Identifier(Identifier::from("n").version(3))
                             .annotate(UBitwidth::B32)
                             .into(),
-                        UExpression::mult(
-                            UExpressionInner::Identifier(Identifier::from("n").version(3))
-                                .annotate(UBitwidth::B32),
-                            UExpressionInner::Identifier(Identifier::from("n").version(3))
-                                .annotate(UBitwidth::B32),
-                        )
-                        .into(),
+                        UExpressionInner::Identifier(Identifier::from("n").version(3))
+                            .annotate(UBitwidth::B32)
+                            * UExpressionInner::Identifier(Identifier::from("n").version(3))
+                                .annotate(UBitwidth::B32)
+                                .into(),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
                             FieldElementExpression::Identifier("a".into()).into(),
