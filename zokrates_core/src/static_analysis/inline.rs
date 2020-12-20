@@ -33,13 +33,15 @@ impl<'ast> Location<'ast> {
     }
 }
 
-type CallCache<'ast, T> = HashMap<
-    Location<'ast>,
-    HashMap<
-        FunctionKey<'ast>,
-        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
-    >,
+type CallCache<'ast, T> = HashMap<Location<'ast>, ModuleCallCache<'ast, T>>;
+
+type ModuleCallCache<'ast, T> = HashMap<
+    FunctionKey<'ast>,
+    HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
 >;
+
+type InlineResult<'ast, T> =
+    Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>;
 
 /// An inliner
 #[derive(Debug)]
@@ -160,11 +162,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         &mut self,
         key: &FunctionKey<'ast>,
         expressions: Vec<TypedExpression<'ast, T>>,
-    ) -> Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>
-    {
-        match self.call_cache().get(key).map(|m| m.get(&expressions)) {
-            Some(Some(exprs)) => return Ok(exprs.clone()),
-            _ => {}
+    ) -> InlineResult<'ast, T> {
+        if let Some(Some(exprs)) = self.call_cache().get(key).map(|m| m.get(&expressions)) {
+            return Ok(exprs.clone());
         };
 
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
@@ -204,10 +204,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     .statements
                     .into_iter()
                     .flat_map(|s| self.fold_statement(s))
-                    .partition(|s| match s {
-                        TypedStatement::Return(..) => false,
-                        _ => true,
-                    });
+                    .partition(|s| matches!(s, TypedStatement::Return(..)));
 
                 // add all statements to the buffer
                 self.statement_buffer.extend(statements);
@@ -261,23 +258,13 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         self.modules.get(self.module_id()).unwrap()
     }
 
-    fn call_cache(
-        &mut self,
-    ) -> &HashMap<
-        FunctionKey<'ast>,
-        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
-    > {
+    fn call_cache(&mut self) -> &ModuleCallCache<'ast, T> {
         self.call_cache
             .entry(self.location.clone())
             .or_insert_with(HashMap::new)
     }
 
-    fn call_cache_mut(
-        &mut self,
-    ) -> &mut HashMap<
-        FunctionKey<'ast>,
-        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
-    > {
+    fn call_cache_mut(&mut self) -> &mut ModuleCallCache<'ast, T> {
         self.call_cache.get_mut(&self.location).unwrap()
     }
 

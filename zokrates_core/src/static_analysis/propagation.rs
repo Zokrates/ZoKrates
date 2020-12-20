@@ -50,7 +50,7 @@ impl<'ast, T: Field> Propagator<'ast, T> {
     }
 }
 
-fn is_constant<'ast, T: Field>(e: &TypedExpression<'ast, T>) -> bool {
+fn is_constant<T: Field>(e: &TypedExpression<T>) -> bool {
     match e {
         TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
         TypedExpression::Boolean(BooleanExpression::Value(..)) => true,

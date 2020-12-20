@@ -172,7 +172,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     })
 }
 
-pub fn check<'ast, T: Field, E: Into<imports::Error>>(
+pub fn check<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,

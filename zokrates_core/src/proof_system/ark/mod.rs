@@ -49,39 +49,33 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
     cs: &mut ConstraintSystem<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
     symbols: &mut BTreeMap<FlatVariable, Variable>,
     witness: &mut Witness<T>,
-) -> Result<
-    LinearCombination<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
-    SynthesisError,
-> {
-    let lc =
-        l.0.into_iter()
-            .map(|(k, v)| {
-                (
-                    v.into_ark(),
-                    *symbols.entry(k).or_insert_with(|| {
-                        match k.is_output() {
-                            true => cs.new_input_variable(|| {
-                                Ok(witness
-                                    .0
-                                    .remove(&k)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into_ark())
-                            }),
-                            false => cs.new_witness_variable(|| {
-                                Ok(witness
-                                    .0
-                                    .remove(&k)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into_ark())
-                            }),
-                        }
-                        .unwrap()
-                    }),
-                )
-            })
-            .fold(LinearCombination::zero(), |acc, e| acc + e);
-
-    Ok(lc)
+) -> LinearCombination<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr> {
+    l.0.into_iter()
+        .map(|(k, v)| {
+            (
+                v.into_ark(),
+                *symbols.entry(k).or_insert_with(|| {
+                    match k.is_output() {
+                        true => cs.new_input_variable(|| {
+                            Ok(witness
+                                .0
+                                .remove(&k)
+                                .ok_or(SynthesisError::AssignmentMissing)?
+                                .into_ark())
+                        }),
+                        false => cs.new_witness_variable(|| {
+                            Ok(witness
+                                .0
+                                .remove(&k)
+                                .ok_or(SynthesisError::AssignmentMissing)?
+                                .into_ark())
+                        }),
+                    }
+                    .unwrap()
+                }),
+            )
+        })
+        .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
 impl<T: Field + ArkFieldExtensions> Prog<T> {
@@ -93,7 +87,7 @@ impl<T: Field + ArkFieldExtensions> Prog<T> {
         // mapping from IR variables
         let mut symbols = BTreeMap::new();
 
-        let mut witness = witness.unwrap_or(Witness::empty());
+        let mut witness = witness.unwrap_or_else(Witness::empty);
 
         assert!(symbols.insert(FlatVariable::one(), ConstraintSystem::<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>::one()).is_none());
 
@@ -131,30 +125,27 @@ impl<T: Field + ArkFieldExtensions> Prog<T> {
                 let main = self.main;
 
                 for statement in main.statements {
-                    match statement {
-                        Statement::Constraint(quad, lin) => {
-                            let a = ark_combination(
-                                quad.left.clone().into_canonical(),
-                                &mut cs,
-                                &mut symbols,
-                                &mut witness,
-                            )?;
-                            let b = ark_combination(
-                                quad.right.clone().into_canonical(),
-                                &mut cs,
-                                &mut symbols,
-                                &mut witness,
-                            )?;
-                            let c = ark_combination(
-                                lin.into_canonical(),
-                                &mut cs,
-                                &mut symbols,
-                                &mut witness,
-                            )?;
+                    if let Statement::Constraint(quad, lin) = statement {
+                        let a = ark_combination(
+                            quad.left.clone().into_canonical(),
+                            &mut cs,
+                            &mut symbols,
+                            &mut witness,
+                        );
+                        let b = ark_combination(
+                            quad.right.clone().into_canonical(),
+                            &mut cs,
+                            &mut symbols,
+                            &mut witness,
+                        );
+                        let c = ark_combination(
+                            lin.into_canonical(),
+                            &mut cs,
+                            &mut symbols,
+                            &mut witness,
+                        );
 
-                            cs.enforce_constraint(a, b, c)?;
-                        }
-                        _ => {}
+                        cs.enforce_constraint(a, b, c)?;
                     }
                 }
 

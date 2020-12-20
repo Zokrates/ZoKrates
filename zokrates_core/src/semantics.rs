@@ -665,31 +665,28 @@ impl<'ast> Checker<'ast> {
 
                     match self.check_statement(stat, module_id, types) {
                         Ok(statement) => {
-                            match &statement {
-                                TypedStatement::Return(e) => {
-                                    match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
-                                        == s.outputs
-                                    {
-                                        true => {}
-                                        false => errors.push(ErrorInner {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Expected ({}) in return statement, found ({})",
-                                                s.outputs
-                                                    .iter()
-                                                    .map(|t| t.to_string())
-                                                    .collect::<Vec<_>>()
-                                                    .join(", "),
-                                                e.iter()
-                                                    .map(|e| e.get_type())
-                                                    .map(|t| t.to_string())
-                                                    .collect::<Vec<_>>()
-                                                    .join(", ")
-                                            ),
-                                        }),
-                                    }
+                            if let TypedStatement::Return(e) = &statement {
+                                match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
+                                    == s.outputs
+                                {
+                                    true => {}
+                                    false => errors.push(ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Expected ({}) in return statement, found ({})",
+                                            s.outputs
+                                                .iter()
+                                                .map(|t| t.to_string())
+                                                .collect::<Vec<_>>()
+                                                .join(", "),
+                                            e.iter()
+                                                .map(|e| e.get_type())
+                                                .map(|t| t.to_string())
+                                                .collect::<Vec<_>>()
+                                                .join(", ")
+                                        ),
+                                    }),
                                 }
-                                _ => {}
                             };
                             statements_checked.push(statement);
                         }
@@ -2096,7 +2093,7 @@ impl<'ast> Checker<'ast> {
 
                 // check that we provided the required number of values
 
-                if struct_type.len() != inline_members.len() {
+                if struct_type.members_count() != inline_members.len() {
                     return Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(

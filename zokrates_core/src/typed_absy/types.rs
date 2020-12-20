@@ -62,7 +62,7 @@ impl StructType {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn members_count(&self) -> usize {
         self.members.len()
     }
 
@@ -198,28 +198,30 @@ impl<'de> serde::Deserialize<'de> for Type {
             "field" => strict_type(mapping, Type::FieldElement),
             "bool" => strict_type(mapping, Type::Boolean),
             "array" => {
-                let components = mapping.components.ok_or(D::Error::custom(format_args!(
-                    "missing `components` field for type `{}'",
-                    mapping.ty
-                )))?;
+                let ty = mapping.ty;
+
+                let components = mapping.components.ok_or_else(|| {
+                    D::Error::custom(format_args!("missing `components` field for type `{}'", ty))
+                })?;
                 match components {
                     Components::Array(array_type) => Ok(Type::Array(array_type)),
                     _ => Err(D::Error::custom(format!(
                         "invalid `components` variant for type `{}`",
-                        mapping.ty
+                        ty
                     ))),
                 }
             }
             "struct" => {
-                let components = mapping.components.ok_or(D::Error::custom(format_args!(
-                    "missing `components` field for type `{}'",
-                    mapping.ty
-                )))?;
+                let ty = mapping.ty;
+
+                let components = mapping.components.ok_or_else(|| {
+                    D::Error::custom(format_args!("missing `components` field for type `{}'", ty))
+                })?;
                 match components {
                     Components::Struct(struct_type) => Ok(Type::Struct(struct_type)),
                     _ => Err(D::Error::custom(format!(
                         "invalid `components` variant for type `{}`",
-                        mapping.ty
+                        ty
                     ))),
                 }
             }

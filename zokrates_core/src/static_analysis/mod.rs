@@ -59,9 +59,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let zir = Flattener::flatten(r);
 
         // optimize uint expressions
-        let zir = UintOptimizer::optimize(zir);
-
-        zir
+        UintOptimizer::optimize(zir)
     }
 }
 
@@ -73,7 +71,6 @@ impl<T: Field> Analyse for FlatProg<T> {
 
 impl<T: Field> Analyse for Prog<T> {
     fn analyse(self) -> Self {
-        let r = UnconstrainedVariableDetector::detect(self);
-        r
+        UnconstrainedVariableDetector::detect(self)
     }
 }

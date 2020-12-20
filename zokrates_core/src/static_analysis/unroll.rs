@@ -435,7 +435,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                             current = T::one() + &current;
                         }
 
-                        let res = values
+                        values
                             .into_iter()
                             .map(|index| {
                                 vec![
@@ -453,9 +453,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                             })
                             .flatten()
                             .flat_map(|x| self.fold_statement(x))
-                            .collect();
-
-                        res
+                            .collect()
                     }
                     (from, to) => {
                         self.complete = false;

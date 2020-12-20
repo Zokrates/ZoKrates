@@ -362,6 +362,7 @@ mod ast {
     #[pest_ast(rule(Rule::vis_private))]
     pub struct PrivateVisibility {}
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::statement))]
     pub enum Statement<'ast> {
@@ -558,6 +559,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::access))]
     pub enum Access<'ast> {

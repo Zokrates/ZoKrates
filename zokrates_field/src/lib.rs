@@ -16,6 +16,7 @@ use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::{From, TryFrom};
+use std::fmt;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
@@ -42,6 +43,14 @@ pub trait ArkFieldExtensions {
 
     fn from_ark(e: <Self::ArkEngine as ark_ec::PairingEngine>::Fr) -> Self;
     fn into_ark(self) -> <Self::ArkEngine as ark_ec::PairingEngine>::Fr;
+}
+
+pub struct FieldParseError;
+
+impl fmt::Debug for FieldParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Failed to parse to field element")
+    }
 }
 
 pub trait Field:
@@ -94,8 +103,8 @@ pub trait Field:
     /// Returns the number of bits required to represent any element of this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
-    fn try_from_dec_str(s: &str) -> Result<Self, ()>;
-    fn try_from_str(s: &str, radix: u32) -> Result<Self, ()>;
+    fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError>;
+    fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError>;
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
@@ -130,7 +139,7 @@ pub trait Field:
 mod prime_field {
     macro_rules! prime_field {
         ($modulus:expr, $name:expr) => {
-            use crate::{Field, Pow};
+            use crate::{Field, FieldParseError, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
             use num_integer::Integer;
@@ -208,11 +217,11 @@ mod prime_field {
                 fn get_required_bits() -> usize {
                     (*P).bits()
                 }
-                fn try_from_dec_str(s: &str) -> Result<Self, ()> {
+                fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError> {
                     Self::try_from_str(s, 10)
                 }
-                fn try_from_str(s: &str, radix: u32) -> Result<Self, ()> {
-                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(())?;
+                fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError> {
+                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(FieldParseError)?;
                     Ok(FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,
                     })

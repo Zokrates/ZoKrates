@@ -155,10 +155,7 @@ impl<T: Field> Prog<T> {
         self.main
             .statements
             .iter()
-            .filter(|s| match s {
-                Statement::Constraint(..) => true,
-                _ => false,
-            })
+            .filter(|s| matches!(s, Statement::Constraint(..)))
             .count()
     }
 

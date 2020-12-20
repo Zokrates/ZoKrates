@@ -139,7 +139,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 match inputs.iter().all(|r| r.is_ok()) {
                     true => {
                         // unwrap inputs to their constant value
-                        let inputs = inputs.into_iter().map(|i| i.unwrap()).collect();
+                        let inputs = inputs.into_iter().map(|i| i.unwrap()).collect::<Vec<_>>();
                         // run the interpereter
                         let outputs = Interpreter::default()
                             .execute_solver(&d.solver, &inputs)
