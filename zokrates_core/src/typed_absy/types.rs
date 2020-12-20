@@ -194,6 +194,32 @@ impl<'ast, T: PartialEq> PartialEq<DeclarationArrayType<'ast>> for ArrayType<'as
     }
 }
 
+impl<S: fmt::Display> fmt::Display for GArrayType<S> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt_aux<'a, S: fmt::Display>(
+            f: &mut fmt::Formatter,
+            t: &'a GArrayType<S>,
+            mut acc: Vec<&'a S>,
+        ) -> fmt::Result {
+            acc.push(&t.size);
+            match &*t.ty {
+                GType::Array(array_type) => fmt_aux(f, &array_type, acc),
+                t => {
+                    write!(f, "{}", t)?;
+                    for i in acc {
+                        write!(f, "[{}]", i)?;
+                    }
+                    write!(f, "")
+                }
+            }
+        }
+
+        let acc = vec![];
+
+        fmt_aux(f, &self, acc)
+    }
+}
+
 impl<'ast, T: PartialEq> ArrayType<'ast, T> {
     // array type equality with non-strict size checks
     // sizes always match unless they are different constants
@@ -588,7 +614,7 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::Boolean => write!(f, "bool"),
             GType::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             GType::Int => write!(f, "{{integer}}"),
-            GType::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
+            GType::Array(ref array_type) => write!(f, "{}", array_type),
             GType::Struct(ref struct_type) => write!(f, "{}", struct_type.name(),),
         }
     }
@@ -1187,5 +1213,15 @@ mod tests {
     fn array() {
         let t = ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 42usize));
         assert_eq!(t.get_primitive_count(), 42);
+    }
+
+    #[test]
+    fn array_display() {
+        // field[1][2]
+        let t = ConcreteType::Array(ConcreteArrayType::new(
+            ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2usize)),
+            1usize,
+        ));
+        assert_eq!(format!("{}", t), "field[1][2]");
     }
 }

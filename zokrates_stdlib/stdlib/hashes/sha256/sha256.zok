@@ -1,0 +1,15 @@
+import "./IVconstants" as IVconstants
+import "./shaRound" as shaRound
+
+// A function that takes K u32[8] arrays as inputs, concatenates them,
+// and returns their sha256 compression as a u32[8].
+// Note: no padding is applied
+
+def main<K>(u32[K][16] a) -> u32[8]:
+	u32[8] current = IVconstants()
+
+	for u32 i in 0..K do
+		current = shaRound(a[i], current)
+	endfor
+
+	return current

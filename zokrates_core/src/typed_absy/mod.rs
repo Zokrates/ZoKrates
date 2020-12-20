@@ -226,19 +226,17 @@ pub struct TypedFunction<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            if self.generics.len() > 0 {
+        if self.generics.len() > 0 {
+            write!(
+                f,
+                "<{}>",
                 self.generics
                     .iter()
                     .map(|g| g.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
-            } else {
-                "".to_string()
-            }
-        )?;
+            )?;
+        }
         write!(
             f,
             "({})",

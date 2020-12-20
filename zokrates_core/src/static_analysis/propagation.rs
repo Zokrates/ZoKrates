@@ -238,6 +238,8 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
                             .map(|a| self.fold_expression(a))
                             .collect();
 
+                        let types = types.into_iter().map(|t| self.fold_type(t)).collect();
+
                         fn process_u_from_bits<'ast, T: Field>(
                             variables: Vec<TypedAssignee<'ast, T>>,
                             arguments: Vec<TypedExpression<'ast, T>>,

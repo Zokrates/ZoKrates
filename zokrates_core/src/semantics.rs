@@ -1968,8 +1968,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let signature = f.signature;
 
                         let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t.into())).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
-                            pos: Some(pos),
-                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
+                           pos: Some(pos),
+                           message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
 
                         let output_types = signature.get_output_types(arguments_checked.iter().map(|a| a.get_type()).collect());
