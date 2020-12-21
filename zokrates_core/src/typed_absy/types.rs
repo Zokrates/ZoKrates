@@ -358,7 +358,7 @@ impl<S> GStructType<S> {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn members_count(&self) -> usize {
         self.members.len()
     }
 

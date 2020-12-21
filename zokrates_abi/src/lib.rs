@@ -116,15 +116,16 @@ impl<T: Field> Value<T> {
                     Ok(CheckedValue::Array(a))
                 }
             }
-            (Value::Struct(mut s), ConcreteType::Struct(members)) => {
-                if s.len() != members.len() {
+            (Value::Struct(mut s), ConcreteType::Struct(struc)) => {
+                if s.len() != struc.members_count() {
                     Err(format!(
                         "Expected {} member(s), found {}",
-                        members.len(),
+                        struc.members_count(),
                         s.len()
                     ))
                 } else {
-                    let s = members
+                    let s = struc
+                        .members
                         .into_iter()
                         .map(|member| {
                             s.remove(&member.id)

@@ -299,7 +299,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         format!(
             "{}:{}",
             file.strip_prefix(std::env::current_dir().unwrap())
-                .unwrap_or(file.as_path())
+                .unwrap_or_else(|_| file.as_path())
                 .display(),
             e.value()
         )
@@ -347,7 +347,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             .map_err(|why| format!("Couldn't create {}: {}", hr_output_path.display(), why))?;
 
         let mut hrofb = BufWriter::new(hr_output_file);
-        write!(&mut hrofb, "{}\n", program_flattened)
+        writeln!(&mut hrofb, "{}", program_flattened)
             .map_err(|_| "Unable to write data to file.".to_string())?;
         hrofb
             .flush()
@@ -385,7 +385,7 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         format!(
             "{}:{}",
             file.strip_prefix(std::env::current_dir().unwrap())
-                .unwrap_or(file.as_path())
+                .unwrap_or_else(|_| file.as_path())
                 .display(),
             e.value()
         )
@@ -448,9 +448,11 @@ fn cli() -> Result<(), String> {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
-    let default_curve = env::var("ZOKRATES_CURVE").unwrap_or(constants::BN128.into());
-    let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(constants::BELLMAN.into());
-    let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(constants::G16.into());
+    let default_curve = env::var("ZOKRATES_CURVE").unwrap_or_else(|_| constants::BN128.into());
+    let default_backend =
+        env::var("ZOKRATES_BACKEND").unwrap_or_else(|_| constants::BELLMAN.into());
+    let default_scheme =
+        env::var("ZOKRATES_PROVING_SCHEME").unwrap_or_else(|_| constants::G16.into());
     let default_solidity_abi = "v1";
     let default_stdlib_path = dirs::home_dir()
         .map(|p| p.join(".zokrates/stdlib"))

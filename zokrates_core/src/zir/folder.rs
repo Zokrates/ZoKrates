@@ -111,7 +111,6 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
             .into_iter()
             .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
             .collect(),
-        ..p
     }
 }
 

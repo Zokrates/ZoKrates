@@ -29,13 +29,13 @@ impl<T: Field> QuadComb<T> {
 
         match self.left.try_summand() {
             Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.right.clone() * &coefficient);
+                return Some(self.right.clone() * coefficient);
             }
             _ => {}
         }
         match self.right.try_summand() {
             Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.left.clone() * &coefficient);
+                return Some(self.left.clone() * coefficient);
             }
             _ => {}
         }
@@ -263,6 +263,7 @@ impl<T: Field> Mul<&T> for LinComb<T> {
 impl<T: Field> Div<&T> for LinComb<T> {
     type Output = LinComb<T>;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, scalar: &T) -> LinComb<T> {
         self * &scalar.inverse_mul().unwrap()
     }

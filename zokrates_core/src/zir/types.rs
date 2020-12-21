@@ -140,7 +140,7 @@ pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
+    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd, Default)]
     pub struct Signature {
         pub inputs: Vec<Type>,
         pub outputs: Vec<Type>,
@@ -226,10 +226,7 @@ pub mod signature {
         }
 
         pub fn new() -> Signature {
-            Signature {
-                inputs: vec![],
-                outputs: vec![],
-            }
+            Signature::default()
         }
 
         pub fn inputs(mut self, inputs: Vec<Type>) -> Self {

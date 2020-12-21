@@ -249,12 +249,18 @@ impl<T: Field> FlatExpression<T> {
             FlatExpression::Add(ref x, ref y) | FlatExpression::Sub(ref x, ref y) => {
                 x.is_linear() && y.is_linear()
             }
-            FlatExpression::Mult(ref x, ref y) => match (x.clone(), y.clone()) {
+            FlatExpression::Mult(ref x, ref y) => matches!(
+                (x.clone(), y.clone()),
                 (box FlatExpression::Number(_), box FlatExpression::Number(_))
-                | (box FlatExpression::Number(_), box FlatExpression::Identifier(_))
-                | (box FlatExpression::Identifier(_), box FlatExpression::Number(_)) => true,
-                _ => false,
-            },
+                    | (
+                        box FlatExpression::Number(_),
+                        box FlatExpression::Identifier(_)
+                    )
+                    | (
+                        box FlatExpression::Identifier(_),
+                        box FlatExpression::Number(_)
+                    )
+            ),
         }
     }
 }

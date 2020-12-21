@@ -70,7 +70,6 @@ impl<T: Field> Analyse for FlatProg<T> {
 
 impl<T: Field> Analyse for Prog<T> {
     fn analyse(self) -> Self {
-        let r = UnconstrainedVariableDetector::detect(self);
-        r
+        UnconstrainedVariableDetector::detect(self)
     }
 }

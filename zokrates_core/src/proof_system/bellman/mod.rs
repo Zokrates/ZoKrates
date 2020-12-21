@@ -90,7 +90,7 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
         // mapping from IR variables
         let mut symbols = BTreeMap::new();
 
-        let mut witness = witness.unwrap_or(Witness::empty());
+        let mut witness = witness.unwrap_or_else(Witness::empty);
 
         assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
 
@@ -131,26 +131,22 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
         let main = self.main;
 
         for statement in main.statements {
-            match statement {
-                Statement::Constraint(quad, lin) => {
-                    let a = &bellman_combination(
-                        quad.left.into_canonical(),
-                        cs,
-                        &mut symbols,
-                        &mut witness,
-                    );
-                    let b = &bellman_combination(
-                        quad.right.into_canonical(),
-                        cs,
-                        &mut symbols,
-                        &mut witness,
-                    );
-                    let c =
-                        &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
+            if let Statement::Constraint(quad, lin) = statement {
+                let a = &bellman_combination(
+                    quad.left.into_canonical(),
+                    cs,
+                    &mut symbols,
+                    &mut witness,
+                );
+                let b = &bellman_combination(
+                    quad.right.into_canonical(),
+                    cs,
+                    &mut symbols,
+                    &mut witness,
+                );
+                let c = &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
 
-                    cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
-                }
-                _ => {}
+                cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
             }
         }
 

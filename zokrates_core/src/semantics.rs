@@ -2840,7 +2840,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 // check that we provided the required number of values
 
-                if struct_type.len() != inline_members.len() {
+                if struct_type.members_count() != inline_members.len() {
                     return Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(

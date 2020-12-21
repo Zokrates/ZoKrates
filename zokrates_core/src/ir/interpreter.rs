@@ -34,7 +34,7 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &Vec<T>) -> ExecutionResult<T> {
+    pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &[T]) -> ExecutionResult<T> {
         let main = &program.main;
         self.check_inputs(&program, &inputs)?;
         let mut witness = BTreeMap::new();
@@ -124,7 +124,7 @@ impl Interpreter {
         }
     }
 
-    fn check_inputs<T: Field, U>(&self, program: &Prog<T>, inputs: &Vec<U>) -> Result<(), Error> {
+    fn check_inputs<T: Field, U>(&self, program: &Prog<T>, inputs: &[U]) -> Result<(), Error> {
         if program.main.arguments.len() == inputs.len() {
             Ok(())
         } else {
@@ -148,7 +148,7 @@ impl Interpreter {
                 true => vec![T::zero(), T::one()],
                 false => vec![
                     T::one(),
-                    T::one().checked_div(&inputs[0]).unwrap_or(T::one()),
+                    T::one().checked_div(&inputs[0]).unwrap_or_else(T::one),
                 ],
             },
             Solver::Bits(bit_width) => {
@@ -201,7 +201,7 @@ impl Interpreter {
                 let n = inputs[0].clone().to_biguint();
                 let d = inputs[1].clone().to_biguint();
 
-                let q = n.checked_div(&d).unwrap_or(0u32.into());
+                let q = n.checked_div(&d).unwrap_or_else(|| 0u32.into());
                 let r = n - d * &q;
                 vec![T::try_from(q).unwrap(), T::try_from(r).unwrap()]
             }
@@ -213,11 +213,19 @@ impl Interpreter {
     }
 }
 
+#[derive(Debug)]
+pub struct EvaluationError;
+
 impl<T: Field> LinComb<T> {
-    fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, ()> {
+    fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, EvaluationError> {
         self.0
             .iter()
-            .map(|(var, mult)| witness.get(var).map(|v| v.clone() * mult).ok_or(())) // get each term
+            .map(|(var, mult)| {
+                witness
+                    .get(var)
+                    .map(|v| v.clone() * mult)
+                    .ok_or(EvaluationError)
+            }) // get each term
             .collect::<Result<Vec<_>, _>>() // fail if any term isn't found
             .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
     }
@@ -230,7 +238,7 @@ impl<T: Field> LinComb<T> {
 }
 
 impl<T: Field> QuadComb<T> {
-    pub fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, ()> {
+    pub fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, EvaluationError> {
         let left = self.left.evaluate(&witness)?;
         let right = self.right.evaluate(&witness)?;
         Ok(left * right)
@@ -291,7 +299,10 @@ mod tests {
             let r = interpreter
                 .execute_solver(
                     &cond_eq,
-                    &inputs.iter().map(|&i| Bn128Field::from(i)).collect(),
+                    &inputs
+                        .iter()
+                        .map(|&i| Bn128Field::from(i))
+                        .collect::<Vec<_>>(),
                 )
                 .unwrap();
             let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
@@ -306,7 +317,10 @@ mod tests {
             let r = interpreter
                 .execute_solver(
                     &cond_eq,
-                    &inputs.iter().map(|&i| Bn128Field::from(i)).collect(),
+                    &inputs
+                        .iter()
+                        .map(|&i| Bn128Field::from(i))
+                        .collect::<Vec<_>>(),
                 )
                 .unwrap();
             let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();

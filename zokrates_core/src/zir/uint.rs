@@ -105,10 +105,7 @@ impl ShouldReduce {
     }
 
     pub fn is_unknown(&self) -> bool {
-        match self {
-            ShouldReduce::Unknown => true,
-            _ => false,
-        }
+        *self == ShouldReduce::Unknown
     }
 
     // we can always enable a reduction

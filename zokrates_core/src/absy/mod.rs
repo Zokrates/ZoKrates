@@ -458,11 +458,11 @@ impl<'ast> fmt::Display for Range<'ast> {
             self.from
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or("".to_string()),
+                .unwrap_or_else(|| "".to_string()),
             self.to
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or("".to_string())
+                .unwrap_or_else(|| "".to_string())
         )
     }
 }
@@ -651,20 +651,12 @@ impl<'ast> fmt::Debug for Expression<'ast> {
 }
 
 /// A list of expressions, used in return statements
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Default)]
 pub struct ExpressionList<'ast> {
     pub expressions: Vec<ExpressionNode<'ast>>,
 }
 
 pub type ExpressionListNode<'ast> = Node<ExpressionList<'ast>>;
-
-impl<'ast> ExpressionList<'ast> {
-    pub fn new() -> ExpressionList<'ast> {
-        ExpressionList {
-            expressions: vec![],
-        }
-    }
-}
 
 impl<'ast> fmt::Display for ExpressionList<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
