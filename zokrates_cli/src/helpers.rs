@@ -1,5 +1,5 @@
 use crate::constants::*;
-use core::convert::TryFrom;
+use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub enum CurveParameter {
