@@ -43,6 +43,12 @@ jobs:
           name: Check format
           command: cargo fmt --all -- --check
       - run:
+          name: Install clippy
+          command: rustup component add clippy
+      - run:
+          name: Run clippy
+          command: cargo clippy
+      - run:
           name: Build
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - run:
