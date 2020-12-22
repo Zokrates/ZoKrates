@@ -2,10 +2,11 @@ use crate::flat_absy::FlatVariable;
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::Field;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuadComb<T> {
     pub left: LinComb<T>,
     pub right: LinComb<T>,
@@ -14,6 +15,13 @@ pub struct QuadComb<T> {
 impl<T: Field> PartialEq for QuadComb<T> {
     fn eq(&self, other: &Self) -> bool {
         self.left.eq(&other.left) && self.right.eq(&other.right)
+    }
+}
+
+impl<T: Field> Hash for QuadComb<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.left.hash(state);
+        self.right.hash(state);
     }
 }
 
@@ -66,12 +74,18 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
-#[derive(Clone, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
 
 impl<T: Field> PartialEq for LinComb<T> {
     fn eq(&self, other: &Self) -> bool {
         self.clone().into_canonical() == other.clone().into_canonical()
+    }
+}
+
+impl<T: Field> Hash for LinComb<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.clone().into_canonical().hash(state);
     }
 }
 

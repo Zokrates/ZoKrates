@@ -44,7 +44,7 @@ mod signature {
 
     use crate::absy::UnresolvedTypeNode;
 
-    #[derive(Clone, PartialEq)]
+    #[derive(Clone, PartialEq, Default)]
     pub struct UnresolvedSignature<'ast> {
         pub inputs: Vec<UnresolvedTypeNode<'ast>>,
         pub outputs: Vec<UnresolvedTypeNode<'ast>>,
@@ -82,10 +82,7 @@ mod signature {
 
     impl<'ast> UnresolvedSignature<'ast> {
         pub fn new() -> UnresolvedSignature<'ast> {
-            UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![],
-            }
+            UnresolvedSignature::default()
         }
 
         pub fn inputs(mut self, inputs: Vec<UnresolvedTypeNode<'ast>>) -> Self {

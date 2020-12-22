@@ -98,7 +98,7 @@ pub fn test_inner(test_path: &str) {
     let t = Tests {
         entry_point: Some(
             t.entry_point
-                .unwrap_or(PathBuf::from(String::from(test_path)).with_extension("zok")),
+                .unwrap_or_else(|| PathBuf::from(String::from(test_path)).with_extension("zok")),
         ),
         ..t
     };

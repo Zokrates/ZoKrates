@@ -3,6 +3,7 @@ use crate::flat_absy::FlatVariable;
 use crate::solvers::Solver;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use zokrates_field::Field;
 
 mod expression;
@@ -19,7 +20,7 @@ pub use self::serialize::ProgEnum;
 pub use self::interpreter::{Error, ExecutionResult, Interpreter};
 pub use self::witness::Witness;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>),
     Directive(Directive<T>),
@@ -37,6 +38,20 @@ impl<T: Field> PartialEq for Statement<T> {
     }
 }
 
+impl<T: Field> Hash for Statement<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Statement::Constraint(q, l) => {
+                q.hash(state);
+                l.hash(state);
+            }
+            Statement::Directive(d) => {
+                d.hash(state);
+            }
+        }
+    }
+}
+
 impl<T: Field> Eq for Statement<T> {}
 
 impl<T: Field> Statement<T> {
@@ -49,11 +64,19 @@ impl<T: Field> Statement<T> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Directive<T> {
     pub inputs: Vec<QuadComb<T>>,
     pub outputs: Vec<FlatVariable>,
     pub solver: Solver,
+}
+
+impl<T: Field> Hash for Directive<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.inputs.hash(state);
+        self.outputs.hash(state);
+        self.solver.hash(state);
+    }
 }
 
 impl<T: Field> PartialEq for Directive<T> {

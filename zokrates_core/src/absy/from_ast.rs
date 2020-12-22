@@ -30,17 +30,16 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
                     .alias(import.alias.map(|a| a.span.as_str()))
                     .span(import.span)
             }
-            pest::ImportDirective::From(import) => imports::Import::new(
-                Some(import.symbol.span.as_str()),
-                std::path::Path::new(import.source.span.as_str()),
-            )
-            .alias(
-                import
-                    .alias
-                    .map(|a| a.span.as_str())
-                    .or(Some(import.symbol.span.as_str())),
-            )
-            .span(import.span),
+            pest::ImportDirective::From(import) => {
+                let symbol_str = import.symbol.span.as_str();
+
+                imports::Import::new(
+                    Some(import.symbol.span.as_str()),
+                    std::path::Path::new(import.source.span.as_str()),
+                )
+                .alias(import.alias.map(|a| a.span.as_str()).or(Some(symbol_str)))
+                .span(import.span)
+            }
         }
     }
 }
@@ -114,7 +113,7 @@ impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
             generics: function
                 .generics
                 .into_iter()
-                .map(|g| absy::ConstantGenericNode::from(g))
+                .map(absy::ConstantGenericNode::from)
                 .collect(),
             arguments: function
                 .parameters
@@ -144,7 +143,7 @@ impl<'ast> From<pest::IdentifierExpression<'ast>> for absy::ConstantGenericNode<
 
         let name = g.span.as_str();
 
-        absy::Identifier::from(name).span(g.span)
+        name.span(g.span)
     }
 }
 
@@ -683,7 +682,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
 
                 t.dimensions
                     .into_iter()
-                    .map(|s| absy::ExpressionNode::from(s))
+                    .map(absy::ExpressionNode::from)
                     .rev()
                     .fold(None, |acc, s| match acc {
                         None => Some(UnresolvedType::array(inner_type.clone(), s)),

@@ -108,15 +108,14 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
             ArrayExpressionInner::Select(box a, box i) => {
                 self.select::<ArrayExpression<'ast, T>>(a, i).into_inner()
             }
-            e => fold_array_expression_inner(self, ty, size, e),
+            e => fold_array_expression_inner(self, ty, e),
         }
     }
 

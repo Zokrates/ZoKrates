@@ -204,6 +204,8 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     let typed_ast = Checker::check(compiled)
         .map_err(|errors| CompileErrors(errors.into_iter().map(CompileError::from).collect()))?;
 
+    println!("{}", typed_ast);
+
     let main_module = typed_ast.main.clone();
 
     // analyse (unroll and constant propagation)

@@ -7,7 +7,10 @@ use crate::typed_absy::{
 use num_bigint::BigUint;
 use std::convert::TryFrom;
 use std::fmt;
+use std::ops::{Add, Div, Mul, Not, Sub};
 use zokrates_field::Field;
+
+type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
 
 impl<'ast, T: Field> TypedExpression<'ast, T> {
     // return two TypedExpression, replacing IntExpression by FieldElement or Uint to try to align the two types if possible.
@@ -15,10 +18,7 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
     pub fn align_without_integers(
         lhs: Self,
         rhs: Self,
-    ) -> Result<
-        (TypedExpression<'ast, T>, TypedExpression<'ast, T>),
-        (TypedExpression<'ast, T>, TypedExpression<'ast, T>),
-    > {
+    ) -> Result<TypedExpressionPair<'ast, T>, TypedExpressionPair<'ast, T>> {
         use self::TypedExpression::*;
 
         match (lhs, rhs) {
@@ -58,9 +58,9 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
             }
             (Struct(lhs), Struct(rhs)) => {
                 if lhs.get_type() == rhs.get_type() {
-                    Ok((Struct(lhs).into(), Struct(rhs).into()))
+                    Ok((Struct(lhs), Struct(rhs)))
                 } else {
-                    Err((Struct(lhs).into(), Struct(rhs).into()))
+                    Err((Struct(lhs), Struct(rhs)))
                 }
             }
             (Uint(lhs), Uint(rhs)) => Ok((lhs.into(), rhs.into())),
@@ -120,23 +120,47 @@ pub enum IntExpression<'ast, T> {
     ),
 }
 
-impl<'ast, T> IntExpression<'ast, T> {
-    pub fn add(self, other: Self) -> Self {
+impl<'ast, T> Add for IntExpression<'ast, T> {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
         IntExpression::Add(box self, box other)
     }
+}
 
-    pub fn sub(self, other: Self) -> Self {
+impl<'ast, T> Sub for IntExpression<'ast, T> {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
         IntExpression::Sub(box self, box other)
     }
+}
 
-    pub fn mult(self, other: Self) -> Self {
+impl<'ast, T> Mul for IntExpression<'ast, T> {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
         IntExpression::Mult(box self, box other)
     }
+}
 
-    pub fn div(self, other: Self) -> Self {
+impl<'ast, T> Div for IntExpression<'ast, T> {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self {
         IntExpression::Div(box self, box other)
     }
+}
 
+impl<'ast, T> Not for IntExpression<'ast, T> {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        IntExpression::Not(box self)
+    }
+}
+
+impl<'ast, T> IntExpression<'ast, T> {
     pub fn pow(self, other: Self) -> Self {
         IntExpression::Pow(box self, box other)
     }
@@ -159,10 +183,6 @@ impl<'ast, T> IntExpression<'ast, T> {
 
     pub fn right_shift(self, by: FieldElementExpression<'ast, T>) -> Self {
         IntExpression::RightShift(box self, box by)
-    }
-
-    pub fn not(self) -> Self {
-        IntExpression::Not(box self)
     }
 }
 
@@ -244,7 +264,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
             IntExpression::Select(box array, box index) => match array.as_inner() {
                 ArrayExpressionInner::Value(values) => {
                     let values = values
-                        .into_iter()
+                        .iter()
                         .map(|v| {
                             FieldElementExpression::try_from_int(
                                 IntExpression::try_from(v.clone()).unwrap(),
@@ -254,7 +274,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                         .collect::<Result<Vec<_>, _>>()?;
                     Ok(FieldElementExpression::select(
                         ArrayExpressionInner::Value(values)
-                            .annotate(Type::FieldElement, array.size),
+                            .annotate(Type::FieldElement, array.size()),
                         index,
                     ))
                 }
@@ -308,6 +328,9 @@ impl<'ast, T: Field> UExpression<'ast, T> {
             Mult(box e1, box e2) => {
                 Ok(Self::try_from_int(e1, bitwidth)? * Self::try_from_int(e2, bitwidth)?)
             }
+            Div(box e1, box e2) => {
+                Ok(Self::try_from_int(e1, bitwidth)? / Self::try_from_int(e2, bitwidth)?)
+            }
             And(box e1, box e2) => Ok(UExpression::and(
                 Self::try_from_int(e1, bitwidth)?,
                 Self::try_from_int(e2, bitwidth)?,
@@ -337,7 +360,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
             Select(box array, box index) => match array.as_inner() {
                 ArrayExpressionInner::Value(values) => {
                     let values = values
-                        .into_iter()
+                        .iter()
                         .map(|v| {
                             UExpression::try_from_int(
                                 IntExpression::try_from(v.clone()).unwrap(),
@@ -348,7 +371,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                         .collect::<Result<Vec<_>, _>>()?;
                     Ok(UExpression::select(
                         ArrayExpressionInner::Value(values)
-                            .annotate(Type::Uint(bitwidth), array.size),
+                            .annotate(Type::Uint(bitwidth), array.size()),
                         index,
                     ))
                 }
@@ -473,22 +496,22 @@ mod tests {
 
         let expressions = vec![
             n.clone(),
-            IntExpression::add(n.clone(), n.clone()),
-            IntExpression::sub(n.clone(), n.clone()),
-            IntExpression::mult(n.clone(), n.clone()),
+            n.clone() + n.clone(),
+            n.clone() - n.clone(),
+            n.clone() * n.clone(),
             IntExpression::pow(n.clone(), n.clone()),
-            IntExpression::div(n.clone(), n.clone()),
+            n.clone() / n.clone(),
             IntExpression::if_else(c.clone(), n.clone(), n.clone()),
             IntExpression::select(n_a.clone(), i.clone()),
         ];
 
         let expected = vec![
             t.clone(),
-            FieldElementExpression::add(t.clone(), t.clone()),
-            FieldElementExpression::sub(t.clone(), t.clone()),
-            FieldElementExpression::mult(t.clone(), t.clone()),
+            t.clone() + t.clone(),
+            t.clone() - t.clone(),
+            t.clone() * t.clone(),
             FieldElementExpression::pow(t.clone(), i.clone()),
-            FieldElementExpression::div(t.clone(), t.clone()),
+            t.clone() / t.clone(),
             FieldElementExpression::if_else(c.clone(), t.clone(), t.clone()),
             FieldElementExpression::select(t_a.clone(), i.clone()),
         ];
@@ -533,15 +556,16 @@ mod tests {
 
         let expressions = vec![
             n.clone(),
-            IntExpression::add(n.clone(), n.clone()),
+            n.clone() + n.clone(),
             IntExpression::xor(n.clone(), n.clone()),
             IntExpression::or(n.clone(), n.clone()),
             IntExpression::and(n.clone(), n.clone()),
-            IntExpression::sub(n.clone(), n.clone()),
-            IntExpression::mult(n.clone(), n.clone()),
+            n.clone() - n.clone(),
+            n.clone() * n.clone(),
+            n.clone() / n.clone(),
             IntExpression::left_shift(n.clone(), s.clone()),
             IntExpression::right_shift(n.clone(), s.clone()),
-            IntExpression::not(n.clone()),
+            !n.clone(),
             IntExpression::if_else(c.clone(), n.clone(), n.clone()),
             IntExpression::select(n_a.clone(), i.clone()),
         ];
@@ -554,6 +578,7 @@ mod tests {
             UExpression::and(t.clone(), t.clone()),
             t.clone() - t.clone(),
             t.clone() * t.clone(),
+            t.clone() / t.clone(),
             UExpression::left_shift(t.clone(), s.clone()),
             UExpression::right_shift(t.clone(), s.clone()),
             !t.clone(),
@@ -572,7 +597,6 @@ mod tests {
         let should_error = vec![
             BigUint::parse_bytes(b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999", 10).unwrap().into(),
             IntExpression::pow(n.clone(), n.clone()),
-            IntExpression::div(n.clone(), n.clone()),
         ];
 
         for e in should_error

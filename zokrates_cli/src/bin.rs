@@ -210,7 +210,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                     a.map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
                         .collect::<Result<Vec<_>, _>>()
                 })
-                .unwrap_or(Ok(vec![]))
+                .unwrap_or_else(|| Ok(vec![]))
                 .map(Inputs::Raw)
         }
         // take stdin arguments
@@ -1131,7 +1131,7 @@ mod tests {
             let interpreter = ir::Interpreter::default();
 
             let _ = interpreter
-                .execute(&artifacts.prog(), &vec![Bn128Field::from(0)])
+                .execute(&artifacts.prog(), &[Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -1160,7 +1160,7 @@ mod tests {
 
             let interpreter = ir::Interpreter::default();
 
-            let res = interpreter.execute(&artifacts.prog(), &vec![Bn128Field::from(0)]);
+            let res = interpreter.execute(&artifacts.prog(), &[Bn128Field::from(0)]);
 
             assert!(res.is_err());
         }

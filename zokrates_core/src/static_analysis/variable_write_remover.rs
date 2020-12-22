@@ -48,7 +48,7 @@ impl<'ast> VariableWriteRemover {
                     match head {
                         Access::Select(head) => {
                             statements.insert(TypedStatement::Assertion(
-                                BooleanExpression::UintLt(box head.clone(), box size.into()).into(),
+                                BooleanExpression::UintLt(box head.clone(), box size.into()),
                             ));
 
                             ArrayExpressionInner::Value(
@@ -194,11 +194,8 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            FieldElementExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            FieldElementExpression::member(base.clone(), member.id)
+                                                .into()
                                         }
                                     }
                                     Type::Uint(..) => {
@@ -211,8 +208,7 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            UExpression::member(base.clone(), member.id.clone())
-                                                .into()
+                                            UExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                     Type::Boolean => {
@@ -228,11 +224,8 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            BooleanExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            BooleanExpression::member(base.clone(), member.id)
+                                                .into()
                                         }
                                     }
                                     Type::Array(..) => {
@@ -245,8 +238,7 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            ArrayExpression::member(base.clone(), member.id.clone())
-                                                .into()
+                                            ArrayExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                     Type::Struct(..) => {
@@ -262,11 +254,7 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            StructExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            StructExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                 })
@@ -290,7 +278,7 @@ enum Access<'ast, T: Field> {
 }
 /// Turn an assignee into its representation as a base variable and a list accesses
 /// a[2][3][4] -> (a, [2, 3, 4])
-fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable<'ast, T>, Vec<Access<'ast, T>>) {
+fn linear<T: Field>(a: TypedAssignee<T>) -> (Variable<T>, Vec<Access<T>>) {
     match a {
         TypedAssignee::Identifier(v) => (v, vec![]),
         TypedAssignee::Select(box array, box index) => {
@@ -306,7 +294,7 @@ fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable<'ast, T>, Vec<
     }
 }
 
-fn is_constant<'ast, T>(assignee: &TypedAssignee<'ast, T>) -> bool {
+fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
     match assignee {
         TypedAssignee::Identifier(_) => true,
         TypedAssignee::Select(box assignee, box index) => match index.as_inner() {
@@ -333,23 +321,19 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                     let base = match variable.get_type() {
                         Type::Int => unreachable!(),
                         Type::FieldElement => {
-                            FieldElementExpression::Identifier(variable.id.clone().into()).into()
+                            FieldElementExpression::Identifier(variable.id.clone()).into()
                         }
-                        Type::Boolean => {
-                            BooleanExpression::Identifier(variable.id.clone().into()).into()
-                        }
-                        Type::Uint(bitwidth) => {
-                            UExpressionInner::Identifier(variable.id.clone().into())
-                                .annotate(bitwidth)
-                                .into()
-                        }
+                        Type::Boolean => BooleanExpression::Identifier(variable.id.clone()).into(),
+                        Type::Uint(bitwidth) => UExpressionInner::Identifier(variable.id.clone())
+                            .annotate(bitwidth)
+                            .into(),
                         Type::Array(array_type) => {
-                            ArrayExpressionInner::Identifier(variable.id.clone().into())
+                            ArrayExpressionInner::Identifier(variable.id.clone())
                                 .annotate(*array_type.ty, array_type.size)
                                 .into()
                         }
                         Type::Struct(members) => {
-                            StructExpressionInner::Identifier(variable.id.clone().into())
+                            StructExpressionInner::Identifier(variable.id.clone())
                                 .annotate(members)
                                 .into()
                         }

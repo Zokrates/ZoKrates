@@ -148,7 +148,6 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
                     )
                 })
                 .collect(),
-            ..m
         }
     }
 
@@ -465,30 +464,25 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
                                 // if the function arguments are not constant, invalidate the cache
                                 // for the return assignees
 
-                                let invalidations = assignees
-                                    .iter()
-                                    .flat_map(|assignee| {
-                                        let v = self
-                                            .try_get_constant_mut(&assignee)
-                                            .map(|(v, _)| v)
-                                            .unwrap_or_else(|v| v);
-                                        match self.constants.remove(&v.id) {
-                                            Some(c) => vec![TypedStatement::Definition(
-                                                v.clone().into(),
-                                                c,
-                                            )],
-                                            None => vec![],
-                                        }
-                                    })
-                                    .collect::<Vec<_>>();
+                                let def = TypedStatement::MultipleDefinition(
+                                    assignees.clone(),
+                                    TypedExpressionList::FunctionCall(key, arguments, types),
+                                );
 
-                                let l = TypedExpressionList::FunctionCall(key, arguments, types);
-                                invalidations
-                                    .into_iter()
-                                    .chain(std::iter::once(TypedStatement::MultipleDefinition(
-                                        assignees, l,
-                                    )))
-                                    .collect()
+                                let invalidations = assignees.iter().flat_map(|assignee| {
+                                    let v = self
+                                        .try_get_constant_mut(&assignee)
+                                        .map(|(v, _)| v)
+                                        .unwrap_or_else(|v| v);
+                                    match self.constants.remove(&v.id) {
+                                        Some(c) => {
+                                            vec![TypedStatement::Definition(v.clone().into(), c)]
+                                        }
+                                        None => vec![],
+                                    }
+                                });
+
+                                invalidations.chain(std::iter::once(def)).collect()
                             }
                         }
                     }
@@ -929,8 +923,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
@@ -942,8 +935,6 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
                 None => ArrayExpressionInner::Identifier(id),
             },
             ArrayExpressionInner::Select(box array, box index) => {
-                let outer_size = size;
-
                 let array = self.fold_array_expression(array);
                 let index = self.fold_uint_expression(index);
 
@@ -993,7 +984,6 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
                     _ => fold_array_expression_inner(
                         self,
                         ty,
-                        outer_size,
                         ArrayExpressionInner::Select(box array, box index),
                     ),
                 }
@@ -1031,7 +1021,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for Propagator<'ast, 'a, T> {
                     inner => ArrayExpressionInner::Member(box inner.annotate(members), id),
                 }
             }
-            e => fold_array_expression_inner(self, ty, size, e),
+            e => fold_array_expression_inner(self, ty, e),
         }
     }
 

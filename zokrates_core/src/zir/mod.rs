@@ -88,8 +88,7 @@ impl<'ast, T> ZirFunctionSymbol<'ast, T> {
                 .functions
                 .get(key)
                 .unwrap()
-                .signature(&modules)
-                .clone(),
+                .signature(&modules),
             ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature().try_into().unwrap(),
         }
     }

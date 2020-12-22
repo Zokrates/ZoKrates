@@ -74,7 +74,7 @@ mod tests {
             modules,
         };
 
-        let abi: Abi = typed_ast.abi().unwrap();
+        let abi: Abi = typed_ast.abi();
         let expected_abi = Abi {
             inputs: vec![
                 AbiInput {

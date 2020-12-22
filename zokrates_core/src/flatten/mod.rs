@@ -1,3 +1,5 @@
+#![allow(clippy::needless_collect)]
+
 //! Module containing the `Flattener` to process a program that is R1CS-able.
 //!
 //! @file flatten.rs
@@ -718,12 +720,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )));
 
                 // bitness checks
-                for i in 0..bit_width {
+                for bit in sub_bits_be.iter().take(bit_width) {
                     statements_flattened.push(FlatStatement::Condition(
-                        FlatExpression::Identifier(sub_bits_be[i]),
+                        FlatExpression::Identifier(*bit),
                         FlatExpression::Mult(
-                            box FlatExpression::Identifier(sub_bits_be[i]),
-                            box FlatExpression::Identifier(sub_bits_be[i]),
+                            box FlatExpression::Identifier(*bit),
+                            box FlatExpression::Identifier(*bit),
                         ),
                     ));
                 }
@@ -738,11 +740,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // sum(sym_b{i} * 2**i)
                 let mut expr = FlatExpression::Number(T::from(0));
 
-                for i in 0..bit_width {
+                for (i, bit) in sub_bits_be.iter().enumerate().take(bit_width) {
                     expr = FlatExpression::Add(
                         box expr,
                         box FlatExpression::Mult(
-                            box FlatExpression::Identifier(sub_bits_be[i]),
+                            box FlatExpression::Identifier(*bit),
                             box FlatExpression::Number(T::from(2).pow(bit_width - i - 1)),
                         ),
                     );
@@ -931,6 +933,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
+                // Clippy doesn't like the fact that we're collecting here, however not doing so leads to a borrow issue
+                // of `self` in the for-loop just after. This is why the `needless_collect` lint is disabled for this file
+                // (it does not work for this single line)
                 let params_flattened = param_expressions
                     .into_iter()
                     .map(|param_expr| {
@@ -940,6 +945,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .map(|x| x.get_field_unchecked())
                     .collect::<Vec<_>>();
 
+                #[allow(clippy::needless_collect)]
                 for (concrete_argument, formal_argument) in
                     params_flattened.into_iter().zip(funct.arguments)
                 {
@@ -1739,7 +1745,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // constants do not require directives
         if let Some(FlatExpression::Number(ref x)) = e.field {
             let bits: Vec<_> = ir::Interpreter::default()
-                .execute_solver(&Solver::bits(to), &vec![x.clone()])
+                .execute_solver(&Solver::bits(to), &[x.clone()])
                 .unwrap()
                 .into_iter()
                 .map(FlatExpression::Number)
@@ -1823,7 +1829,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         match expr {
             FieldElementExpression::Number(x) => FlatExpression::Number(x), // force to be a field element
             FieldElementExpression::Identifier(x) => {
-                FlatExpression::Identifier(self.layout.get(&x).expect(&format!("{}", x)).clone())
+                FlatExpression::Identifier(*self.layout.get(&x).unwrap_or_else(|| panic!("{}", x)))
             }
             FieldElementExpression::Add(box left, box right) => {
                 let left_flattened =
@@ -2222,7 +2228,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     fn use_variable(&mut self, variable: &Variable<'ast>) -> FlatVariable {
         let var = self.issue_new_variable();
 
-        self.layout.insert(variable.id.clone(), var.clone());
+        self.layout.insert(variable.id.clone(), var);
         var
     }
 
@@ -2291,7 +2297,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let f = symbols
             .iter()
             .find(|(k, _)| key.id == k.id && key.signature == k.signature)
-            .expect(&format!("{}", key.id))
+            .unwrap_or_else(|| panic!("{}", key.id))
             .1;
         let res = match f {
             ZirFunctionSymbol::Flat(flat_function) => flat_function,

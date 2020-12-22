@@ -449,7 +449,7 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![ConcreteType::array(ConcreteType::Boolean, 2usize)]
+                    vec![ConcreteType::array((ConcreteType::Boolean, 2usize))]
                 )
                 .unwrap(),
                 CheckedValues(vec![CheckedValue::Array(vec![

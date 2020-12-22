@@ -43,6 +43,7 @@ use zokrates_field::Field;
 
 pub use self::folder::Folder;
 use crate::typed_absy::abi::{Abi, AbiInput};
+use std::ops::{Add, Div, Mul, Sub};
 
 pub use self::identifier::Identifier;
 
@@ -73,7 +74,7 @@ impl<'ast, T> TypedProgram<'ast, T> {
 }
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
-    pub fn abi(&self) -> Result<Abi, ()> {
+    pub fn abi(&self) -> Abi {
         let main = self.modules[&self.main]
             .functions
             .iter()
@@ -85,25 +86,27 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
             _ => unreachable!(),
         };
 
-        Ok(Abi {
+        Abi {
             inputs: main
                 .arguments
                 .iter()
                 .map(|p| {
-                    types::ConcreteType::try_from(p.id._type.clone()).map(|ty| AbiInput {
-                        public: !p.private,
-                        name: p.id.id.to_string(),
-                        ty,
-                    })
+                    types::ConcreteType::try_from(p.id._type.clone())
+                        .map(|ty| AbiInput {
+                            public: !p.private,
+                            name: p.id.id.to_string(),
+                            ty,
+                        })
+                        .unwrap()
                 })
-                .collect::<Result<_, ()>>()?,
+                .collect(),
             outputs: main
                 .signature
                 .outputs
                 .iter()
-                .map(|ty| types::ConcreteType::try_from(ty.clone()))
-                .collect::<Result<_, ()>>()?,
-        })
+                .map(|ty| types::ConcreteType::try_from(ty.clone()).unwrap())
+                .collect(),
+        }
     }
 }
 
@@ -167,8 +170,7 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
                 .functions
                 .get(key)
                 .unwrap()
-                .signature(&modules)
-                .clone(),
+                .signature(&modules),
             TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature().try_into().unwrap(),
         }
     }
@@ -226,7 +228,7 @@ pub struct TypedFunction<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.generics.len() > 0 {
+        if !self.generics.is_empty() {
             write!(
                 f,
                 "<{}>",
@@ -270,17 +272,15 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
         let mut tab = 0;
 
         for s in &self.statements {
-            match s {
-                TypedStatement::PopCallLog => tab -= 1,
-                _ => {}
+            if let TypedStatement::PopCallLog = s {
+                tab -= 1;
             };
 
             s.fmt_indented(f, 1 + tab)?;
-            writeln!(f, "")?;
+            writeln!(f)?;
 
-            match s {
-                TypedStatement::PushCallLog(..) => tab += 1,
-                _ => {}
+            if let TypedStatement::PushCallLog(..) = s {
+                tab += 1;
             };
         }
 
@@ -366,6 +366,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
 }
 
 /// A statement in a `TypedFunction`
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
@@ -489,6 +490,7 @@ pub trait Typed<'ast, T> {
 }
 
 /// A typed expression
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
@@ -633,7 +635,7 @@ impl<'ast, T: Clone> Typed<'ast, T> for TypedExpression<'ast, T> {
 
 impl<'ast, T: Clone> Typed<'ast, T> for ArrayExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
-        Type::array(self.ty.clone(), self.size.clone())
+        Type::array(*self.ty.clone())
     }
 }
 
@@ -716,24 +718,39 @@ pub enum FieldElementExpression<'ast, T> {
     Member(Box<StructExpression<'ast, T>>, MemberId),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
+impl<'ast, T> Add for FieldElementExpression<'ast, T> {
+    type Output = Self;
 
-impl<'ast, T> FieldElementExpression<'ast, T> {
-    pub fn add(self, other: Self) -> Self {
+    fn add(self, other: Self) -> Self {
         FieldElementExpression::Add(box self, box other)
     }
+}
 
-    pub fn sub(self, other: Self) -> Self {
+impl<'ast, T> Sub for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
         FieldElementExpression::Sub(box self, box other)
     }
+}
 
-    pub fn mult(self, other: Self) -> Self {
+impl<'ast, T> Mul for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
         FieldElementExpression::Mult(box self, box other)
     }
+}
 
-    pub fn div(self, other: Self) -> Self {
+impl<'ast, T> Div for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self {
         FieldElementExpression::Div(box self, box other)
     }
+}
 
+impl<'ast, T> FieldElementExpression<'ast, T> {
     pub fn pow(self, other: UExpression<'ast, T>) -> Self {
         FieldElementExpression::Pow(box self, box other)
     }
@@ -816,8 +833,7 @@ impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
 /// type checking
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct ArrayExpression<'ast, T> {
-    size: UExpression<'ast, T>,
-    ty: Type<'ast, T>,
+    ty: Box<ArrayType<'ast, T>>,
     inner: ArrayExpressionInner<'ast, T>,
 }
 
@@ -842,8 +858,7 @@ impl<'ast, T> ArrayExpressionInner<'ast, T> {
         size: S,
     ) -> ArrayExpression<'ast, T> {
         ArrayExpression {
-            size: size.into(),
-            ty,
+            ty: box (ty, size.into()).into(),
             inner: self,
         }
     }
@@ -851,11 +866,11 @@ impl<'ast, T> ArrayExpressionInner<'ast, T> {
 
 impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     pub fn inner_type(&self) -> &Type<'ast, T> {
-        &self.ty
+        &self.ty.ty
     }
 
     pub fn size(&self) -> UExpression<'ast, T> {
-        self.size.clone()
+        self.ty.size.clone()
     }
 
     pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {

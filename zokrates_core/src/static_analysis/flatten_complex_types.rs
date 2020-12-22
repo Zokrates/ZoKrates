@@ -167,8 +167,8 @@ impl<'ast, T: Field> Flattener<T> {
             }
             typed_absy::TypedExpression::Boolean(e) => vec![self.fold_boolean_expression(e).into()],
             typed_absy::TypedExpression::Uint(e) => vec![self.fold_uint_expression(e).into()],
-            typed_absy::TypedExpression::Array(e) => self.fold_array_expression(e).into(),
-            typed_absy::TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
+            typed_absy::TypedExpression::Array(e) => self.fold_array_expression(e),
+            typed_absy::TypedExpression::Struct(e) => self.fold_struct_expression(e),
             typed_absy::TypedExpression::Int(_) => unreachable!(),
         }
     }
@@ -329,7 +329,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
         typed_absy::ArrayExpressionInner::Identifier(id) => {
             let variables = flatten_identifier_rec(
                 f.fold_name(id),
-                &typed_absy::types::ConcreteType::array(ty.clone(), size),
+                &typed_absy::types::ConcreteType::array((ty.clone(), size)),
             );
             variables
                 .into_iter()
@@ -403,10 +403,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             match index.into_inner() {
                 zir::UExpressionInner::Value(i) => {
-                    let size = typed_absy::types::ConcreteType::try_from(ty.clone())
-                        .unwrap()
-                        .get_primitive_count()
-                        * size;
+                    let size = ty.clone().get_primitive_count() * size;
                     let start = i as usize * size;
                     let end = start + size;
                     array[start..end].to_vec()
@@ -490,15 +487,13 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 .sum();
 
             // we also need the size of this member
-            let size = typed_absy::types::ConcreteType::try_from(
-                *ty.iter()
-                    .find(|member| member.id == id)
-                    .cloned()
-                    .unwrap()
-                    .ty,
-            )
-            .unwrap()
-            .get_primitive_count();
+            let size = ty
+                .iter()
+                .find(|member| member.id == id)
+                .cloned()
+                .unwrap()
+                .ty
+                .get_primitive_count();
 
             s[offset..offset + size].to_vec()
         }
@@ -508,10 +503,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
 
             match index.into_inner() {
                 zir::UExpressionInner::Value(i) => {
-                    let size = ty
-                        .iter()
-                        .map(|m| m.ty.get_primitive_count())
-                        .fold(0, |acc, current| acc + current);
+                    let size: usize = ty.iter().map(|m| m.ty.get_primitive_count()).sum();
                     let start = i as usize * size;
                     let end = start + size;
                     array[start..end].to_vec()

@@ -70,6 +70,11 @@ fn get_canonical_function<'ast, T: Field>(
     }
 }
 
+type InlineResult<'ast, T> = Result<
+    Output<(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>), Vec<Versions<'ast>>>,
+    InlineError<'ast, T>,
+>;
+
 pub fn inline_call<'a, 'ast, T: Field>(
     k: DeclarationFunctionKey<'ast>,
     arguments: Vec<TypedExpression<'ast, T>>,
@@ -77,10 +82,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     program: &TypedProgram<'ast, T>,
     cache: &mut CallCache<'ast, T>,
     versions: &'a mut Versions<'ast>,
-) -> Result<
-    Output<(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>), Vec<Versions<'ast>>>,
-    InlineError<'ast, T>,
-> {
+) -> InlineResult<'ast, T> {
     use std::convert::TryFrom;
 
     use crate::typed_absy::Typed;
@@ -94,7 +96,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     // we try to get concrete values for the whole signature. if this fails we should propagate again
     let inferred_signature = match ConcreteSignature::try_from(inferred_signature) {
         Ok(s) => s,
-        Err(()) => {
+        Err(_) => {
             return Err(InlineError::NonConstant(k, arguments, output_types));
         }
     };
@@ -124,11 +126,8 @@ pub fn inline_call<'a, 'ast, T: Field>(
         signature: inferred_signature.clone(),
     };
 
-    match cache.get(&(concrete_key.clone(), arguments.clone())) {
-        Some(v) => {
-            return Ok(Output::Complete((vec![], v.clone())));
-        }
-        None => {}
+    if let Some(v) = cache.get(&(concrete_key.clone(), arguments.clone())) {
+        return Ok(Output::Complete((vec![], v.clone())));
     };
 
     let (ssa_f, incomplete_data) = match ShallowTransformer::transform(f, &assignment, versions) {
@@ -147,15 +146,14 @@ pub fn inline_call<'a, 'ast, T: Field>(
         .map(|(v, a)| TypedStatement::Definition(TypedAssignee::Identifier(v.into()), a))
         .collect();
 
-    let (statements, returns): (Vec<_>, Vec<_>) =
-        ssa_f.statements.into_iter().partition(|s| match s {
-            TypedStatement::Return(..) => false,
-            _ => true,
-        });
+    let (statements, mut returns): (Vec<_>, Vec<_>) = ssa_f
+        .statements
+        .into_iter()
+        .partition(|s| !matches!(s, TypedStatement::Return(..)));
 
     assert_eq!(returns.len(), 1);
 
-    let returns = match returns[0].clone() {
+    let returns = match returns.pop().unwrap() {
         TypedStatement::Return(e) => e,
         _ => unreachable!(),
     };

@@ -365,7 +365,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             .chain(
                                 v.into_iter()
                                     .zip(expressions)
-                                    .map(|(v, e)| TypedStatement::Definition(v.into(), e)),
+                                    .map(|(v, e)| TypedStatement::Definition(v, e)),
                             )
                             .collect())
                     }
@@ -380,7 +380,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             .chain(
                                 v.into_iter()
                                     .zip(expressions)
-                                    .map(|(v, e)| TypedStatement::Definition(v.into(), e)),
+                                    .map(|(v, e)| TypedStatement::Definition(v, e)),
                             )
                             .collect())
                     }
@@ -415,7 +415,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         let mut out_statements = vec![];
 
                         // get a fresh set of versions for all variables to use as a starting point inside the loop
-                        self.versions.values_mut().for_each(|v| *v = *v + 1);
+                        self.versions.values_mut().for_each(|v| *v += 1);
 
                         // add this set of versions to the substitution, pointing to the versions before the loop
                         register(&mut self.substitutions, &self.versions, &versions_before);
@@ -536,9 +536,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     }
 }
 
-pub fn reduce_program<'ast, T: Field>(
-    p: TypedProgram<'ast, T>,
-) -> Result<TypedProgram<'ast, T>, Error> {
+pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
     let mut p = p;
 
     let main_module = p.modules.get(&p.main).unwrap().clone();
@@ -547,8 +545,7 @@ pub fn reduce_program<'ast, T: Field>(
         .functions
         .iter()
         .find(|(k, _)| k.id == "main")
-        .unwrap()
-        .clone();
+        .unwrap();
 
     let main_function = match main_function {
         TypedFunctionSymbol::Here(f) => f.clone(),
@@ -660,7 +657,7 @@ fn reduce_function<'ast, T: Field>(
     }
 }
 
-fn compute_hash<'ast, T: Field>(f: &TypedFunction<'ast, T>) -> u64 {
+fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     let mut s = DefaultHasher::new();
@@ -880,14 +877,14 @@ mod tests {
         //      return a_2 + b_1[0]
 
         let foo_signature = DeclarationSignature::new()
-            .inputs(vec![DeclarationType::array(
+            .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
-            )])
-            .outputs(vec![DeclarationType::array(
+            ))])
+            .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
-            )]);
+            ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             generics: vec!["K".into()],
@@ -933,7 +930,7 @@ mod tests {
                         vec![ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into()],
-                        vec![Type::array(Type::FieldElement, 1u32)],
+                        vec![Type::array((Type::FieldElement, 1u32))],
                     ),
                 ),
                 TypedStatement::Definition(
@@ -942,15 +939,13 @@ mod tests {
                         .annotate(UBitwidth::B32)
                         .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::add(
-                    FieldElementExpression::Identifier("a".into()),
-                    FieldElementExpression::select(
+                TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
+                    + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
                         0u32,
-                    ),
-                )
+                    ))
                 .into()]),
             ],
             signature: DeclarationSignature::new()
@@ -1034,15 +1029,13 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::add(
-                    FieldElementExpression::Identifier("a".into()),
-                    FieldElementExpression::select(
+                TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
+                    + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
                         0u32,
-                    ),
-                )
+                    ))
                 .into()]),
             ],
             signature: DeclarationSignature::new()
@@ -1098,14 +1091,14 @@ mod tests {
         //      return a_2 + b_1[0]
 
         let foo_signature = DeclarationSignature::new()
-            .inputs(vec![DeclarationType::array(
+            .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
-            )])
-            .outputs(vec![DeclarationType::array(
+            ))])
+            .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
-            )]);
+            ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             generics: vec!["K".into()],
@@ -1160,7 +1153,7 @@ mod tests {
                         vec![ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into()],
-                        vec![Type::array(Type::FieldElement, 1u32)],
+                        vec![Type::array((Type::FieldElement, 1u32))],
                     ),
                 ),
                 TypedStatement::Definition(
@@ -1169,15 +1162,13 @@ mod tests {
                         .annotate(UBitwidth::B32)
                         .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::add(
-                    FieldElementExpression::Identifier("a".into()),
-                    FieldElementExpression::select(
+                TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
+                    + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
                         0u32,
-                    ),
-                )
+                    ))
                 .into()]),
             ],
             signature: DeclarationSignature::new()
@@ -1261,15 +1252,13 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::add(
-                    FieldElementExpression::Identifier("a".into()),
-                    FieldElementExpression::select(
+                TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
+                    + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
                         0u32,
-                    ),
-                )
+                    ))
                 .into()]),
             ],
             signature: DeclarationSignature::new()
@@ -1530,14 +1519,14 @@ mod tests {
         use crate::typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
 
         let foo_signature = DeclarationSignature::new()
-            .inputs(vec![DeclarationType::array(
+            .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
-            )])
-            .outputs(vec![DeclarationType::array(
+            ))])
+            .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
-            )]);
+            ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             generics: vec!["K".into()],
@@ -1564,7 +1553,7 @@ mod tests {
                         vec![ArrayExpressionInner::Value(vec![])
                             .annotate(Type::FieldElement, 0u32)
                             .into()],
-                        vec![Type::array(Type::FieldElement, 1u32)],
+                        vec![Type::array((Type::FieldElement, 1u32))],
                     ),
                 ),
                 TypedStatement::Return(vec![]),
@@ -1609,14 +1598,14 @@ mod tests {
                 ConcreteFunctionKey::with_location("main", "foo")
                     .signature(
                         ConcreteSignature::new()
-                            .inputs(vec![ConcreteType::array(
+                            .inputs(vec![ConcreteType::array((
                                 ConcreteType::FieldElement,
                                 0usize
-                            )])
-                            .outputs(vec![ConcreteType::array(
+                            ))])
+                            .outputs(vec![ConcreteType::array((
                                 ConcreteType::FieldElement,
                                 1usize
-                            )])
+                            ))])
                     )
                     .to_string()
             ))

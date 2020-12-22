@@ -1,5 +1,5 @@
-use crate::typed_absy::types::GType;
 use crate::typed_absy::types::{Constant, GStructType, UBitwidth};
+use crate::typed_absy::types::{GType, SpecializationError};
 use crate::typed_absy::Identifier;
 use crate::typed_absy::UExpression;
 use crate::typed_absy::{TryFrom, TryInto};
@@ -16,7 +16,7 @@ pub type ConcreteVariable<'ast> = GVariable<'ast, usize>;
 pub type Variable<'ast, T> = GVariable<'ast, UExpression<'ast, T>>;
 
 impl<'ast, T> TryFrom<Variable<'ast, T>> for ConcreteVariable<'ast> {
-    type Error = ();
+    type Error = SpecializationError;
 
     fn try_from(v: Variable<'ast, T>) -> Result<Self, Self::Error> {
         let _type = v._type.try_into()?;
@@ -26,7 +26,7 @@ impl<'ast, T> TryFrom<Variable<'ast, T>> for ConcreteVariable<'ast> {
 }
 
 impl<'ast> TryFrom<DeclarationVariable<'ast>> for ConcreteVariable<'ast> {
-    type Error = ();
+    type Error = SpecializationError;
 
     fn try_from(v: DeclarationVariable<'ast>) -> Result<Self, Self::Error> {
         let _type = v._type.try_into()?;
@@ -70,7 +70,7 @@ impl<'ast, S: Clone> GVariable<'ast, S> {
     }
 
     pub fn array<I: Into<Identifier<'ast>>, U: Into<S>>(id: I, ty: GType<S>, size: U) -> Self {
-        Self::with_id_and_type(id, GType::array(ty, size))
+        Self::with_id_and_type(id, GType::array((ty, size.into())))
     }
 
     pub fn struc<I: Into<Identifier<'ast>>>(id: I, ty: GStructType<S>) -> Self {

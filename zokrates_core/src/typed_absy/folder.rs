@@ -56,22 +56,30 @@ pub trait Folder<'ast, T: Field>: Sized {
         use self::GType::*;
 
         match t {
-            Array(array_type) => Array(ArrayType {
-                ty: box self.fold_type(*array_type.ty),
-                size: self.fold_uint_expression(array_type.size),
-            }),
-            Struct(struct_type) => Struct(StructType {
-                members: struct_type
-                    .members
-                    .into_iter()
-                    .map(|m| StructMember {
-                        ty: box self.fold_type(*m.ty),
-                        ..m
-                    })
-                    .collect(),
-                ..struct_type
-            }),
+            Array(array_type) => Array(self.fold_array_type(array_type)),
+            Struct(struct_type) => Struct(self.fold_struct_type(struct_type)),
             t => t,
+        }
+    }
+
+    fn fold_array_type(&mut self, t: ArrayType<'ast, T>) -> ArrayType<'ast, T> {
+        ArrayType {
+            ty: box self.fold_type(*t.ty),
+            size: self.fold_uint_expression(t.size),
+        }
+    }
+
+    fn fold_struct_type(&mut self, t: StructType<'ast, T>) -> StructType<'ast, T> {
+        StructType {
+            members: t
+                .members
+                .into_iter()
+                .map(|m| StructMember {
+                    ty: box self.fold_type(*m.ty),
+                    ..m
+                })
+                .collect(),
+            ..t
         }
     }
 
@@ -146,11 +154,10 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
-        fold_array_expression_inner(self, ty, size, e)
+        fold_array_expression_inner(self, ty, e)
     }
     fn fold_struct_expression_inner(
         &mut self,
@@ -210,8 +217,7 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    _: &Type<'ast, T>,
-    _: UExpression<'ast, T>,
+    _: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> ArrayExpressionInner<'ast, T> {
     match e {
@@ -574,12 +580,11 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: ArrayExpression<'ast, T>,
 ) -> ArrayExpression<'ast, T> {
-    let size = f.fold_uint_expression(e.size);
+    let ty = f.fold_array_type(*e.ty);
 
     ArrayExpression {
-        inner: f.fold_array_expression_inner(&e.ty, size.clone(), e.inner),
-        size,
-        ..e
+        inner: f.fold_array_expression_inner(&ty, e.inner),
+        ty: box ty,
     }
 }
 

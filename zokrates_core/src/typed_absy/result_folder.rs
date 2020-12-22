@@ -56,23 +56,38 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         use self::GType::*;
 
         match t {
-            Array(array_type) => Ok(Array(ArrayType {
-                ty: box self.fold_type(*array_type.ty)?,
-                size: self.fold_uint_expression(array_type.size)?,
-            })),
-            Struct(struct_type) => Ok(Struct(StructType {
-                members: struct_type
-                    .members
-                    .into_iter()
-                    .map(|m| {
-                        self.fold_type(*m.ty.clone())
-                            .map(|ty| StructMember { ty: box ty, ..m })
-                    })
-                    .collect::<Result<_, _>>()?,
-                ..struct_type
-            })),
+            Array(array_type) => Ok(Array(self.fold_array_type(array_type)?)),
+            Struct(struct_type) => Ok(Struct(self.fold_struct_type(struct_type)?)),
             t => Ok(t),
         }
+    }
+
+    fn fold_array_type(
+        &mut self,
+        t: ArrayType<'ast, T>,
+    ) -> Result<ArrayType<'ast, T>, Self::Error> {
+        Ok(ArrayType {
+            ty: box self.fold_type(*t.ty)?,
+            size: self.fold_uint_expression(t.size)?,
+        })
+    }
+
+    fn fold_struct_type(
+        &mut self,
+        t: StructType<'ast, T>,
+    ) -> Result<StructType<'ast, T>, Self::Error> {
+        Ok(StructType {
+            members: t
+                .members
+                .into_iter()
+                .map(|m| {
+                    let id = m.id;
+                    self.fold_type(*m.ty)
+                        .map(|ty| StructMember { ty: box ty, id })
+                })
+                .collect::<Result<_, _>>()?,
+            ..t
+        })
     }
 
     fn fold_declaration_type(
@@ -176,11 +191,10 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
-        fold_array_expression_inner(self, ty, size, e)
+        fold_array_expression_inner(self, ty, e)
     }
     fn fold_struct_expression_inner(
         &mut self,
@@ -233,8 +247,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    _: &Type<'ast, T>,
-    _: UExpression<'ast, T>,
+    _: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> Result<ArrayExpressionInner<'ast, T>, F::Error> {
     let e = match e {
@@ -628,12 +641,11 @@ pub fn fold_array_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: ArrayExpression<'ast, T>,
 ) -> Result<ArrayExpression<'ast, T>, F::Error> {
-    let size = f.fold_uint_expression(e.size)?;
+    let ty = f.fold_array_type(*e.ty)?;
 
     Ok(ArrayExpression {
-        inner: f.fold_array_expression_inner(&e.ty, size.clone(), e.inner)?,
-        size,
-        ..e
+        inner: f.fold_array_expression_inner(&ty, e.inner)?,
+        ty: box ty,
     })
 }
 

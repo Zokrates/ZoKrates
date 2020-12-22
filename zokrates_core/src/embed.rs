@@ -30,25 +30,28 @@ impl FlatEmbed {
                 .outputs(vec![ConcreteType::FieldElement]),
             FlatEmbed::Unpack(bitwidth) => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::FieldElement])
-                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, *bitwidth)]),
+                .outputs(vec![ConcreteType::array((
+                    ConcreteType::Boolean,
+                    *bitwidth,
+                ))]),
             FlatEmbed::U8ToBits => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::uint(8)])
-                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 8usize)]),
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 8usize))]),
             FlatEmbed::U16ToBits => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::uint(16)])
-                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 16usize)]),
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 16usize))]),
             FlatEmbed::U32ToBits => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::uint(32)])
-                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 32usize)]),
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 32usize))]),
             FlatEmbed::U8FromBits => ConcreteSignature::new()
                 .outputs(vec![ConcreteType::uint(8)])
-                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 8usize)]),
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 8usize))]),
             FlatEmbed::U16FromBits => ConcreteSignature::new()
                 .outputs(vec![ConcreteType::uint(16)])
-                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 16usize)]),
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 16usize))]),
             FlatEmbed::U32FromBits => ConcreteSignature::new()
                 .outputs(vec![ConcreteType::uint(32)])
-                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 32usize)]),
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 32usize))]),
         }
     }
 

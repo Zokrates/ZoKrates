@@ -138,7 +138,7 @@ impl Interpreter {
     pub fn execute_solver<T: Field>(
         &self,
         solver: &Solver,
-        inputs: &Vec<T>,
+        inputs: &[T],
     ) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = solver.get_signature();
         assert!(inputs.len() == expected_input_count);
@@ -194,7 +194,7 @@ impl Interpreter {
             Solver::Div => vec![inputs[0]
                 .clone()
                 .checked_div(&inputs[1])
-                .unwrap_or(T::one())],
+                .unwrap_or_else(T::one)],
             Solver::EuclideanDiv => {
                 use num::CheckedDiv;
 

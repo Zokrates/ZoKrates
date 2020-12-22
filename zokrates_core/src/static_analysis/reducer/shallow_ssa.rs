@@ -56,7 +56,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
     // increase all versions by 2 and return the old versions
     fn create_version_gap(&mut self) -> Versions<'ast> {
         let ret = self.versions.clone();
-        self.versions.values_mut().for_each(|v| *v = *v + 2);
+        self.versions.values_mut().for_each(|v| *v += 2);
         ret
     }
 
@@ -112,7 +112,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
             .map(|(g, v)| {
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::with_id_and_type(
-                        g.clone(),
+                        *g,
                         Type::Uint(UBitwidth::B32),
                     )),
                     UExpression::from(*v as u32).into(),
@@ -174,7 +174,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
         let res = Identifier {
-            version: self.versions.get(&(n.id.clone())).unwrap_or(&0).clone(),
+            version: *self.versions.get(&(n.id)).unwrap_or(&0),
             ..n
         };
         res
@@ -184,14 +184,11 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
-        match e {
-            FieldElementExpression::FunctionCall(ref k, _) => {
-                if !k.id.starts_with("_") {
-                    self.blocked = true;
-                }
+        if let FieldElementExpression::FunctionCall(ref k, _) = e {
+            if !k.id.starts_with('_') {
+                self.blocked = true;
             }
-            _ => {}
-        };
+        }
 
         fold_field_expression(self, e)
     }
@@ -200,13 +197,10 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
-        match e {
-            BooleanExpression::FunctionCall(ref k, _) => {
-                if !k.id.starts_with("_") {
-                    self.blocked = true;
-                }
+        if let BooleanExpression::FunctionCall(ref k, _) = e {
+            if !k.id.starts_with('_') {
+                self.blocked = true;
             }
-            _ => {}
         };
 
         fold_boolean_expression(self, e)
@@ -217,13 +211,10 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         b: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
-        match e {
-            UExpressionInner::FunctionCall(ref k, _) => {
-                if !k.id.starts_with("_") {
-                    self.blocked = true;
-                }
+        if let UExpressionInner::FunctionCall(ref k, _) = e {
+            if !k.id.starts_with('_') {
+                self.blocked = true;
             }
-            _ => {}
         };
 
         fold_uint_expression_inner(self, b, e)
@@ -231,20 +222,16 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type<'ast, T>,
-        size: UExpression<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
-        match e {
-            ArrayExpressionInner::FunctionCall(ref k, _) => {
-                if !k.id.starts_with("_") {
-                    self.blocked = true;
-                }
+        if let ArrayExpressionInner::FunctionCall(ref k, _) = e {
+            if !k.id.starts_with('_') {
+                self.blocked = true;
             }
-            _ => {}
         };
 
-        fold_array_expression_inner(self, ty, size, e)
+        fold_array_expression_inner(self, ty, e)
     }
 
     fn fold_struct_expression_inner(
@@ -252,13 +239,10 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
-        match e {
-            StructExpressionInner::FunctionCall(ref k, _) => {
-                if !k.id.starts_with("_") {
-                    self.blocked = true;
-                }
+        if let StructExpressionInner::FunctionCall(ref k, _) = e {
+            if !k.id.starts_with('_') {
+                self.blocked = true;
             }
-            _ => {}
         };
 
         fold_struct_expression_inner(self, ty, e)
@@ -270,7 +254,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     ) -> TypedExpressionList<'ast, T> {
         match e {
             TypedExpressionList::FunctionCall(ref k, _, _) => {
-                if !k.id.starts_with("_") {
+                if !k.id.starts_with('_') {
                     self.blocked = true;
                 }
             }
@@ -726,7 +710,7 @@ mod tests {
 
             let mut u = ShallowTransformer::with_versions(&mut versions);
 
-            let array_of_array_ty = Type::array(Type::array(Type::FieldElement, 2u32), 2u32);
+            let array_of_array_ty = Type::array((Type::array((Type::FieldElement, 2u32)), 2u32));
 
             let s: TypedStatement<Bn128Field> = TypedStatement::Declaration(
                 Variable::with_id_and_type("a", array_of_array_ty.clone()),
@@ -752,7 +736,7 @@ mod tests {
                     .annotate(Type::FieldElement, 2u32)
                     .into(),
                 ])
-                .annotate(Type::array(Type::FieldElement, 2u32), 2u32)
+                .annotate(Type::array((Type::FieldElement, 2u32)), 2u32)
                 .into(),
             );
 
@@ -777,7 +761,7 @@ mod tests {
                         .annotate(Type::FieldElement, 2u32)
                         .into(),
                     ])
-                    .annotate(Type::array(Type::FieldElement, 2u32), 2u32)
+                    .annotate(Type::array((Type::FieldElement, 2u32)), 2u32)
                     .into(),
                 )]
             );
@@ -1065,13 +1049,11 @@ mod tests {
                     ),
                     TypedStatement::Definition(
                         Variable::field_element("a").into(),
-                        FieldElementExpression::mult(
-                            FieldElementExpression::Identifier("a".into()),
-                            FieldElementExpression::FunctionCall(
+                        (FieldElementExpression::Identifier("a".into())
+                            * FieldElementExpression::FunctionCall(
                                 DeclarationFunctionKey::with_location("main", "foo"),
                                 vec![FieldElementExpression::Identifier("a".into()).into()],
-                            ),
-                        )
+                            ))
                         .into(),
                     ),
                     TypedStatement::Return(vec![
@@ -1132,16 +1114,14 @@ mod tests {
                     ),
                     TypedStatement::Definition(
                         Variable::field_element(Identifier::from("a").version(3)).into(),
-                        FieldElementExpression::mult(
-                            FieldElementExpression::Identifier(Identifier::from("a").version(2)),
-                            FieldElementExpression::FunctionCall(
+                        (FieldElementExpression::Identifier(Identifier::from("a").version(2))
+                            * FieldElementExpression::FunctionCall(
                                 DeclarationFunctionKey::with_location("main", "foo"),
                                 vec![FieldElementExpression::Identifier(
                                     Identifier::from("a").version(2),
                                 )
                                 .into()],
-                            ),
-                        )
+                            ))
                         .into(),
                     ),
                     TypedStatement::Return(vec![FieldElementExpression::Identifier(

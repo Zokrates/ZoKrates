@@ -38,7 +38,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         let r = reduce_program(self)?;
 
-        let abi = r.abi().unwrap();
+        let abi = r.abi();
 
         // propagate
         let r = Propagator::propagate(r);
