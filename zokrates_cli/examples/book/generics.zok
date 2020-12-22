@@ -1,0 +1,9 @@
+def sum<N>(field[N] a) -> field:
+	field res = 0
+	for u32 i in 0..N do
+		res = res + a[i]
+	endfor
+	return res
+
+def main(field[3] a) -> field:
+	return sum(a)
