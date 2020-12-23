@@ -259,6 +259,12 @@ pub enum TypedAssignee<'ast, T> {
     Member(Box<TypedAssignee<'ast, T>>, MemberId),
 }
 
+impl<'ast, T> From<Variable<'ast>> for TypedAssignee<'ast, T> {
+    fn from(v: Variable<'ast>) -> Self {
+        TypedAssignee::Identifier(v)
+    }
+}
+
 impl<'ast, T> Typed for TypedAssignee<'ast, T> {
     fn get_type(&self) -> Type {
         match *self {
@@ -319,7 +325,7 @@ pub enum TypedStatement<'ast, T> {
         FieldElementExpression<'ast, T>,
         Vec<TypedStatement<'ast, T>>,
     ),
-    MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
+    MultipleDefinition(Vec<TypedAssignee<'ast, T>>, TypedExpressionList<'ast, T>),
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
@@ -628,6 +634,12 @@ pub enum FieldElementExpression<'ast, T> {
     ),
 }
 
+impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
+    fn from(n: T) -> Self {
+        FieldElementExpression::Number(n)
+    }
+}
+
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum BooleanExpression<'ast, T> {
@@ -737,6 +749,10 @@ impl<'ast, T> ArrayExpression<'ast, T> {
         &self.inner
     }
 
+    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
+        &mut self.inner
+    }
+
     pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
         self.inner
     }
@@ -755,6 +771,10 @@ impl<'ast, T> StructExpression<'ast, T> {
 
     pub fn as_inner(&self) -> &StructExpressionInner<'ast, T> {
         &self.inner
+    }
+
+    pub fn as_inner_mut(&mut self) -> &mut StructExpressionInner<'ast, T> {
+        &mut self.inner
     }
 
     pub fn into_inner(self) -> StructExpressionInner<'ast, T> {

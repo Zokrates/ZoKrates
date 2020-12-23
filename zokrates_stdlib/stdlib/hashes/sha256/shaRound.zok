@@ -85,8 +85,7 @@ def main(u32[16] input, u32[8] current) -> u32[8]:
 	u32[64] w = [...input, ...[0x00000000; 48]]
 
 	for field i in 16..64 do
-        u32 r = extend(w, i)
-        w[i] = r
+        w[i] = extend(w, i)
 	endfor
 
 	u32 a = h0

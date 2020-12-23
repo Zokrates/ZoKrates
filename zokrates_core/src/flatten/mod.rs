@@ -2144,17 +2144,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Checks if the given name is a not used variable and returns a fresh variable.
+    /// Returns a fresh FlatVariable for a given Variable
     /// # Arguments
     ///
     /// * `variable` - a variable in the program being flattened
     fn use_variable(&mut self, variable: &Variable<'ast>) -> FlatVariable {
         let var = self.issue_new_variable();
 
-        assert!(self
-            .layout
-            .insert(variable.id.clone(), var.clone())
-            .is_none());
+        self.layout.insert(variable.id.clone(), var.clone());
         var
     }
 
@@ -2631,17 +2628,5 @@ mod tests {
                 ),
             ]
         );
-    }
-
-    #[test]
-    #[should_panic]
-    fn next_variable() {
-        let mut flattener: Flattener<Bn128Field> = Flattener::new();
-        assert_eq!(
-            FlatVariable::new(0),
-            flattener.use_variable(&Variable::field_element("a"))
-        );
-        // using the same variable a second time should panic
-        flattener.use_variable(&Variable::field_element("a"));
     }
 }
