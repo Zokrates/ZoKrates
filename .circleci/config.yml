@@ -43,9 +43,6 @@ jobs:
           name: Check format
           command: cargo fmt --all -- --check
       - run:
-          name: Install clippy
-          command: rustup component add clippy
-      - run:
           name: Run clippy
           command: cargo clippy
       - run:
