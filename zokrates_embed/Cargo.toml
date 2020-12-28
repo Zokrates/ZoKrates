@@ -1,0 +1,14 @@
+[package]
+name = "zokrates_embed"
+version = "0.1.1"
+authors = ["schaeff <thibaut@schaeff.fr>"]
+edition = "2018"
+
+[features]
+default = []
+wasm = ["bellman_ce/wasm", "sapling-crypto_ce/wasm"]
+multicore = ["bellman_ce/multicore", "sapling-crypto_ce/multicore"]
+
+[dependencies]
+bellman_ce = { version = "^0.3", default-features = false }
+sapling-crypto_ce = { version = "^0.1", default-features = false }
