@@ -11,7 +11,7 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use solvers::Solver;
+use crate::solvers::Solver;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
@@ -155,22 +155,12 @@ impl<T: Field> FlatStatement<T> {
     }
 }
 
-#[derive(Clone, Hash, Debug)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub struct FlatDirective<T: Field> {
     pub inputs: Vec<FlatExpression<T>>,
     pub outputs: Vec<FlatVariable>,
     pub solver: Solver,
 }
-
-impl<T: Field> PartialEq for FlatDirective<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.inputs.eq(&other.inputs)
-            && self.outputs.eq(&other.outputs)
-            && self.solver.eq(&other.solver)
-    }
-}
-
-impl<T: Field> Eq for FlatDirective<T> {}
 
 impl<T: Field> FlatDirective<T> {
     pub fn new<E: Into<FlatExpression<T>>>(
@@ -209,7 +199,7 @@ impl<T: Field> fmt::Display for FlatDirective<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum FlatExpression<T> {
     Number(T),
     Identifier(FlatVariable),
@@ -249,12 +239,18 @@ impl<T: Field> FlatExpression<T> {
             FlatExpression::Add(ref x, ref y) | FlatExpression::Sub(ref x, ref y) => {
                 x.is_linear() && y.is_linear()
             }
-            FlatExpression::Mult(ref x, ref y) => match (x.clone(), y.clone()) {
+            FlatExpression::Mult(ref x, ref y) => matches!(
+                (x.clone(), y.clone()),
                 (box FlatExpression::Number(_), box FlatExpression::Number(_))
-                | (box FlatExpression::Number(_), box FlatExpression::Identifier(_))
-                | (box FlatExpression::Identifier(_), box FlatExpression::Number(_)) => true,
-                _ => false,
-            },
+                    | (
+                        box FlatExpression::Number(_),
+                        box FlatExpression::Identifier(_)
+                    )
+                    | (
+                        box FlatExpression::Identifier(_),
+                        box FlatExpression::Number(_)
+                    )
+            ),
         }
     }
 }

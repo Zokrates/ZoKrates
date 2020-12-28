@@ -1,10 +1,12 @@
 use crate::flat_absy::FlatVariable;
+use serde::{Deserialize, Serialize};
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::Field;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuadComb<T> {
     pub left: LinComb<T>,
     pub right: LinComb<T>,
@@ -13,6 +15,13 @@ pub struct QuadComb<T> {
 impl<T: Field> PartialEq for QuadComb<T> {
     fn eq(&self, other: &Self) -> bool {
         self.left.eq(&other.left) && self.right.eq(&other.right)
+    }
+}
+
+impl<T: Field> Hash for QuadComb<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.left.hash(state);
+        self.right.hash(state);
     }
 }
 
@@ -28,13 +37,13 @@ impl<T: Field> QuadComb<T> {
 
         match self.left.try_summand() {
             Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.right.clone() * &coefficient);
+                return Some(self.right.clone() * coefficient);
             }
             _ => {}
         }
         match self.right.try_summand() {
             Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.left.clone() * &coefficient);
+                return Some(self.left.clone() * coefficient);
             }
             _ => {}
         }
@@ -65,12 +74,18 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
-#[derive(Clone, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
 
 impl<T: Field> PartialEq for LinComb<T> {
     fn eq(&self, other: &Self) -> bool {
         self.clone().into_canonical() == other.clone().into_canonical()
+    }
+}
+
+impl<T: Field> Hash for LinComb<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.clone().into_canonical().hash(state);
     }
 }
 
@@ -112,7 +127,7 @@ impl<T> LinComb<T> {
     }
 
     pub fn is_zero(&self) -> bool {
-        self.0.len() == 0
+        self.0.is_empty()
     }
 }
 
@@ -140,7 +155,7 @@ impl<T: Field> LinComb<T> {
                     // collect to a Result to short circuit when we hit an error
                     .collect::<Result<_, _>>()
                     // we didn't hit an error, do final processing. It's fine to clone here.
-                    .map(|v: Vec<_>| (first.clone(), v.iter().fold(T::zero(), |acc, e| acc + *e)))
+                    .map(|v: Vec<_>| (*first, v.iter().fold(T::zero(), |acc, e| acc + *e)))
                     .ok()
             }
         }
@@ -262,8 +277,9 @@ impl<T: Field> Mul<&T> for LinComb<T> {
 impl<T: Field> Div<&T> for LinComb<T> {
     type Output = LinComb<T>;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, scalar: &T) -> LinComb<T> {
-        self * &scalar.inverse_mul()
+        self * &scalar.inverse_mul().unwrap()
     }
 }
 
@@ -286,7 +302,7 @@ mod tests {
         fn add() {
             let a: LinComb<Bn128Field> = FlatVariable::new(42).into();
             let b: LinComb<Bn128Field> = FlatVariable::new(42).into();
-            let c = a + b.clone();
+            let c = a + b;
 
             let expected_vec = vec![
                 (FlatVariable::new(42), Bn128Field::from(1)),
@@ -299,7 +315,7 @@ mod tests {
         fn sub() {
             let a: LinComb<Bn128Field> = FlatVariable::new(42).into();
             let b: LinComb<Bn128Field> = FlatVariable::new(42).into();
-            let c = a - b.clone();
+            let c = a - b;
 
             let expected_vec = vec![
                 (FlatVariable::new(42), Bn128Field::from(1)),
@@ -358,7 +374,7 @@ mod tests {
         }
     }
 
-    mod try {
+    mod try_summand {
         use super::*;
 
         #[test]

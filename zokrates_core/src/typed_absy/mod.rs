@@ -23,25 +23,27 @@ pub use self::types::{
     DeclarationSignature, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
     Signature, StructType, Type, UBitwidth,
 };
-use typed_absy::types::GenericsAssignment;
+use crate::typed_absy::types::ConcreteGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
 use std::path::PathBuf;
 
-pub use typed_absy::integer::IntExpression;
-pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
+pub use crate::typed_absy::integer::IntExpression;
+pub use crate::typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
-use embed::FlatEmbed;
+use crate::embed::FlatEmbed;
+
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
-pub use typed_absy::types::{ArrayType, FunctionKey, MemberId};
+pub use crate::typed_absy::types::{ArrayType, FunctionKey, MemberId};
 
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
-use typed_absy::abi::{Abi, AbiInput};
+use crate::typed_absy::abi::{Abi, AbiInput};
+use std::ops::{Add, Div, Mul, Sub};
 
 pub use self::identifier::Identifier;
 
@@ -72,11 +74,7 @@ impl<'ast, T> TypedProgram<'ast, T> {
 }
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
-    pub fn abi(&self) -> Result<Abi, ()> {
-        println!("{}", self);
-
-        println!("{}", self.main.display());
-
+    pub fn abi(&self) -> Abi {
         let main = self.modules[&self.main]
             .functions
             .iter()
@@ -88,25 +86,27 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
             _ => unreachable!(),
         };
 
-        Ok(Abi {
+        Abi {
             inputs: main
                 .arguments
                 .iter()
                 .map(|p| {
-                    types::ConcreteType::try_from(p.id._type.clone()).map(|ty| AbiInput {
-                        public: !p.private,
-                        name: p.id.id.to_string(),
-                        ty,
-                    })
+                    types::ConcreteType::try_from(p.id._type.clone())
+                        .map(|ty| AbiInput {
+                            public: !p.private,
+                            name: p.id.id.to_string(),
+                            ty,
+                        })
+                        .unwrap()
                 })
-                .collect::<Result<_, ()>>()?,
+                .collect(),
             outputs: main
                 .signature
                 .outputs
                 .iter()
-                .map(|ty| types::ConcreteType::try_from(ty.clone()))
-                .collect::<Result<_, ()>>()?,
-        })
+                .map(|ty| types::ConcreteType::try_from(ty.clone()).unwrap())
+                .collect(),
+        }
     }
 }
 
@@ -126,7 +126,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
             writeln!(f, "{}", "-".repeat(100))?;
             writeln!(f, "{}", module)?;
             writeln!(f, "{}", "-".repeat(100))?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         write!(f, "")
     }
@@ -170,8 +170,7 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
                 .functions
                 .get(key)
                 .unwrap()
-                .signature(&modules)
-                .clone(),
+                .signature(&modules),
             TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature().try_into().unwrap(),
         }
     }
@@ -215,7 +214,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedModule<'ast, T> {
 }
 
 /// A typed function
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct TypedFunction<'ast, T> {
     // generic parameters to the function
     pub generics: Vec<GenericIdentifier<'ast>>,
@@ -229,19 +228,17 @@ pub struct TypedFunction<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            if self.generics.len() > 0 {
+        if !self.generics.is_empty() {
+            write!(
+                f,
+                "<{}>",
                 self.generics
                     .iter()
                     .map(|g| g.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
-            } else {
-                "".to_string()
-            }
-        )?;
+            )?;
+        }
         write!(
             f,
             "({})",
@@ -270,22 +267,20 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
             }
         )?;
 
-        writeln!(f, "")?;
+        writeln!(f)?;
 
         let mut tab = 0;
 
         for s in &self.statements {
-            match s {
-                TypedStatement::PopCallLog => tab -= 1,
-                _ => {}
+            if let TypedStatement::PopCallLog = s {
+                tab -= 1;
             };
 
             s.fmt_indented(f, 1 + tab)?;
-            writeln!(f, "")?;
+            writeln!(f)?;
 
-            match s {
-                TypedStatement::PushCallLog(..) => tab += 1,
-                _ => {}
+            if let TypedStatement::PushCallLog(..) = s {
+                tab += 1;
             };
         }
 
@@ -315,6 +310,76 @@ pub enum TypedAssignee<'ast, T> {
     Identifier(Variable<'ast, T>),
     Select(Box<TypedAssignee<'ast, T>>, Box<UExpression<'ast, T>>),
     Member(Box<TypedAssignee<'ast, T>>, MemberId),
+}
+
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+pub struct TypedSpread<'ast, T> {
+    pub array: ArrayExpression<'ast, T>,
+}
+
+impl<'ast, T> From<ArrayExpression<'ast, T>> for TypedSpread<'ast, T> {
+    fn from(array: ArrayExpression<'ast, T>) -> TypedSpread<'ast, T> {
+        TypedSpread { array }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedSpread<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "...{}", self.array)
+    }
+}
+
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+pub enum TypedExpressionOrSpread<'ast, T> {
+    Expression(TypedExpression<'ast, T>),
+    Spread(TypedSpread<'ast, T>),
+}
+
+impl<'ast, T: Clone> TypedExpressionOrSpread<'ast, T> {
+    pub fn size(&self) -> UExpression<'ast, T> {
+        match self {
+            TypedExpressionOrSpread::Expression(..) => 1u32.into(),
+            TypedExpressionOrSpread::Spread(s) => s.array.size(),
+        }
+    }
+}
+
+impl<'ast, T> TryFrom<TypedExpressionOrSpread<'ast, T>> for TypedExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(
+        e: TypedExpressionOrSpread<'ast, T>,
+    ) -> Result<TypedExpression<'ast, T>, Self::Error> {
+        if let TypedExpressionOrSpread::Expression(e) = e {
+            Ok(e)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'ast, T, U: Into<TypedExpression<'ast, T>>> From<U> for TypedExpressionOrSpread<'ast, T> {
+    fn from(e: U) -> Self {
+        TypedExpressionOrSpread::Expression(e.into())
+    }
+}
+
+impl<'ast, T: Clone> Typed<'ast, T> for TypedExpressionOrSpread<'ast, T> {
+    fn get_type(&self) -> Type<'ast, T> {
+        match self {
+            TypedExpressionOrSpread::Expression(e) => e.get_type(),
+            TypedExpressionOrSpread::Spread(s) => s.array.inner_type().clone(),
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionOrSpread<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TypedExpressionOrSpread::Expression(e) => write!(f, "{}", e),
+            TypedExpressionOrSpread::Spread(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 impl<'ast, T> From<Variable<'ast, T>> for TypedAssignee<'ast, T> {
@@ -371,6 +436,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
 }
 
 /// A statement in a `TypedFunction`
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
@@ -383,9 +449,12 @@ pub enum TypedStatement<'ast, T> {
         UExpression<'ast, T>,
         Vec<TypedStatement<'ast, T>>,
     ),
-    MultipleDefinition(Vec<Variable<'ast, T>>, TypedExpressionList<'ast, T>),
+    MultipleDefinition(Vec<TypedAssignee<'ast, T>>, TypedExpressionList<'ast, T>),
     // Aux
-    PushCallLog(DeclarationFunctionKey<'ast>, GenericsAssignment<'ast>),
+    PushCallLog(
+        DeclarationFunctionKey<'ast>,
+        ConcreteGenericsAssignment<'ast>,
+    ),
     PopCallLog,
 }
 
@@ -408,9 +477,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             }
             TypedStatement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
+                writeln!(f, "for {:?} in {:?}..{:?} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{:?}\n", l)?;
+                    writeln!(f, "\t\t{:?}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -433,7 +502,7 @@ impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
                 writeln!(f, "for {} in {}..{} do", variable, from, to)?;
                 for s in statements {
                     s.fmt_indented(f, depth + 1)?;
-                    writeln!(f, "")?;
+                    writeln!(f)?;
                 }
                 write!(f, "{}endfor", "\t".repeat(depth))
             }
@@ -459,9 +528,9 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{}\n", l)?;
+                    writeln!(f, "\t\t{}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -491,6 +560,7 @@ pub trait Typed<'ast, T> {
 }
 
 /// A typed expression
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
@@ -635,7 +705,7 @@ impl<'ast, T: Clone> Typed<'ast, T> for TypedExpression<'ast, T> {
 
 impl<'ast, T: Clone> Typed<'ast, T> for ArrayExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
-        Type::array(self.ty.clone(), self.size.clone())
+        Type::array(*self.ty.clone())
     }
 }
 
@@ -718,32 +788,47 @@ pub enum FieldElementExpression<'ast, T> {
     Member(Box<StructExpression<'ast, T>>, MemberId),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
+impl<'ast, T> Add for FieldElementExpression<'ast, T> {
+    type Output = Self;
 
-impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
-    fn from(n: T) -> Self {
-        FieldElementExpression::Number(n)
+    fn add(self, other: Self) -> Self {
+        FieldElementExpression::Add(box self, box other)
+    }
+}
+
+impl<'ast, T> Sub for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        FieldElementExpression::Sub(box self, box other)
+    }
+}
+
+impl<'ast, T> Mul for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        FieldElementExpression::Mult(box self, box other)
+    }
+}
+
+impl<'ast, T> Div for FieldElementExpression<'ast, T> {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self {
+        FieldElementExpression::Div(box self, box other)
     }
 }
 
 impl<'ast, T> FieldElementExpression<'ast, T> {
-    pub fn add(self, other: Self) -> Self {
-        FieldElementExpression::Add(box self, box other)
-    }
-
-    pub fn sub(self, other: Self) -> Self {
-        FieldElementExpression::Sub(box self, box other)
-    }
-
-    pub fn mult(self, other: Self) -> Self {
-        FieldElementExpression::Mult(box self, box other)
-    }
-
-    pub fn div(self, other: Self) -> Self {
-        FieldElementExpression::Div(box self, box other)
-    }
-
     pub fn pow(self, other: UExpression<'ast, T>) -> Self {
         FieldElementExpression::Pow(box self, box other)
+    }
+}
+
+impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
+    fn from(n: T) -> Self {
+        FieldElementExpression::Number(n)
     }
 }
 
@@ -818,15 +903,92 @@ impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
 /// type checking
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct ArrayExpression<'ast, T> {
-    size: UExpression<'ast, T>,
-    ty: Type<'ast, T>,
+    ty: Box<ArrayType<'ast, T>>,
     inner: ArrayExpressionInner<'ast, T>,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct ArrayValue<'ast, T>(pub Vec<TypedExpressionOrSpread<'ast, T>>);
+
+impl<'ast, T> From<Vec<TypedExpressionOrSpread<'ast, T>>> for ArrayValue<'ast, T> {
+    fn from(array: Vec<TypedExpressionOrSpread<'ast, T>>) -> Self {
+        Self(array)
+    }
+}
+
+impl<'ast, T> IntoIterator for ArrayValue<'ast, T> {
+    type Item = TypedExpressionOrSpread<'ast, T>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'ast, T: Clone> ArrayValue<'ast, T> {
+    fn expression_at_aux<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
+        v: TypedExpressionOrSpread<'ast, T>,
+    ) -> Vec<Option<TypedExpression<'ast, T>>> {
+        match v {
+            TypedExpressionOrSpread::Expression(e) => vec![Some(e.clone())],
+            TypedExpressionOrSpread::Spread(s) => match s.array.size().into_inner() {
+                UExpressionInner::Value(size) => {
+                    let array_ty = s.array.get_array_type().clone();
+
+                    match s.array.into_inner() {
+                        ArrayExpressionInner::Value(v) => v
+                            .into_iter()
+                            .flat_map(Self::expression_at_aux::<U>)
+                            .collect(),
+                        a => (0..size)
+                            .map(|i| {
+                                Some(
+                                    U::select(
+                                        a.clone()
+                                            .annotate(*array_ty.ty.clone(), array_ty.size.clone()),
+                                        i as u32,
+                                    )
+                                    .into(),
+                                )
+                            })
+                            .collect(),
+                    }
+                }
+                _ => vec![None],
+            },
+        }
+    }
+
+    pub fn expression_at<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
+        &self,
+        index: usize,
+    ) -> Option<TypedExpression<'ast, T>> {
+        self.0
+            .iter()
+            .map(|v| Self::expression_at_aux::<U>(v.clone()))
+            .flatten()
+            .take_while(|e| e.is_some())
+            .map(|e| e.unwrap())
+            .nth(index)
+    }
+}
+
+impl<'ast, T> ArrayValue<'ast, T> {
+    fn iter(&self) -> std::slice::Iter<TypedExpressionOrSpread<'ast, T>> {
+        self.0.iter()
+    }
+}
+
+impl<'ast, T> std::iter::FromIterator<TypedExpressionOrSpread<'ast, T>> for ArrayValue<'ast, T> {
+    fn from_iter<I: IntoIterator<Item = TypedExpressionOrSpread<'ast, T>>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum ArrayExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
-    Value(Vec<TypedExpression<'ast, T>>),
+    Value(ArrayValue<'ast, T>),
     FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
@@ -849,8 +1011,7 @@ impl<'ast, T> ArrayExpressionInner<'ast, T> {
         size: S,
     ) -> ArrayExpression<'ast, T> {
         ArrayExpression {
-            size: size.into(),
-            ty,
+            ty: box (ty, size.into()).into(),
             inner: self,
         }
     }
@@ -858,15 +1019,19 @@ impl<'ast, T> ArrayExpressionInner<'ast, T> {
 
 impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     pub fn inner_type(&self) -> &Type<'ast, T> {
-        &self.ty
+        &self.ty.ty
     }
 
     pub fn size(&self) -> UExpression<'ast, T> {
-        self.size.clone()
+        self.ty.size.clone()
     }
 
     pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {
         &self.inner
+    }
+
+    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
+        &mut self.inner
     }
 
     pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
@@ -912,6 +1077,10 @@ impl<'ast, T> StructExpression<'ast, T> {
 
     pub fn as_inner(&self) -> &StructExpressionInner<'ast, T> {
         &self.inner
+    }
+
+    pub fn as_inner_mut(&mut self) -> &mut StructExpressionInner<'ast, T> {
+        &mut self.inner
     }
 
     pub fn into_inner(self) -> StructExpressionInner<'ast, T> {
@@ -1040,6 +1209,46 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             }
             FieldElementExpression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             FieldElementExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.inner {
+            UExpressionInner::Value(ref v) => write!(f, "{}", v),
+            UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
+            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            UExpressionInner::FloorSub(ref lhs, ref rhs) => {
+                write!(f, "(FLOOR_SUB({}, {}))", lhs, rhs)
+            }
+            UExpressionInner::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
+            UExpressionInner::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
+            UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
+            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
+            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
+            UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            UExpressionInner::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
+            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "if {} then {} else {} fi",
+                condition, consequent, alternative
+            ),
+            UExpressionInner::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
         }
     }
 }
@@ -1533,64 +1742,71 @@ pub trait FunctionCall<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self;
 }
 
-impl<'ast, T> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
+        assert_eq!(output_type, Type::FieldElement);
         FieldElementExpression::FunctionCall(key, arguments)
     }
 }
 
-impl<'ast, T> FunctionCall<'ast, T> for BooleanExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for BooleanExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
+        assert_eq!(output_type, Type::Boolean);
         BooleanExpression::FunctionCall(key, arguments)
     }
 }
 
-impl<'ast, T: Clone> FunctionCall<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for UExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
-        let bitwidth = match &key.signature.outputs[0] {
-            DeclarationType::Uint(bitwidth) => bitwidth.clone(),
+        let bitwidth = match output_type {
+            Type::Uint(bitwidth) => bitwidth,
             _ => unreachable!(),
         };
         UExpressionInner::FunctionCall(key, arguments).annotate(bitwidth)
     }
 }
 
-impl<'ast, T: Clone> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
-        let array_ty = match &key.signature.outputs[0] {
-            DeclarationType::Array(array_ty) => array_ty.clone(),
+        let array_ty = match output_type {
+            Type::Array(array_ty) => array_ty,
             _ => unreachable!(),
         };
-        ArrayExpressionInner::FunctionCall(key, arguments)
-            .annotate(Type::<T>::from(*array_ty.ty), array_ty.size)
+        ArrayExpressionInner::FunctionCall(key, arguments).annotate(*array_ty.ty, array_ty.size)
     }
 }
 
-impl<'ast, T: Clone> FunctionCall<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
         arguments: Vec<TypedExpression<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Self {
-        let struct_ty = match &key.signature.outputs[0] {
-            DeclarationType::Struct(struct_ty) => struct_ty.clone(),
+        let struct_ty = match output_type {
+            Type::Struct(struct_ty) => struct_ty,
             _ => unreachable!(),
         };
 
-        StructExpressionInner::FunctionCall(key, arguments).annotate(StructType::from(struct_ty))
+        StructExpressionInner::FunctionCall(key, arguments).annotate(struct_ty)
     }
 }

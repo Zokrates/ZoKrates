@@ -43,6 +43,9 @@ jobs:
           name: Check format
           command: cargo fmt --all -- --check
       - run:
+          name: Run clippy
+          command: cargo clippy
+      - run:
           name: Build
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - run:
@@ -75,12 +78,11 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Test on firefox
-          command: GECKODRIVER=geckodriver cd zokrates_core && wasm-pack test --firefox --headless -- --features wasm
+          command: cd zokrates_core && wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
   integration_test:
     docker:
       - image: zokrates/env:latest
       - image: trufflesuite/ganache-cli:next
-        port: 8545:8545
     steps:
       - checkout
       - run:

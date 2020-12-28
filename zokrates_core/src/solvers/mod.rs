@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use zokrates_field::Field;
 
@@ -10,6 +11,7 @@ pub enum Solver {
     Or,
     ShaAndXorAndXorAnd,
     ShaCh,
+    EuclideanDiv,
 }
 
 impl fmt::Display for Solver {
@@ -28,6 +30,7 @@ impl Solver {
             Solver::Or => (2, 1),
             Solver::ShaAndXorAndXorAnd => (3, 1),
             Solver::ShaCh => (3, 1),
+            Solver::EuclideanDiv => (2, 2),
         }
     }
 }
@@ -39,7 +42,7 @@ impl Solver {
 }
 
 pub trait Executable<T: Field>: Signed {
-    fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String>;
+    fn execute(&self, inputs: &[T]) -> Result<Vec<T>, String>;
 }
 
 pub trait Signed {

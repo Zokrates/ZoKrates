@@ -1,6 +1,6 @@
+use crate::zir::folder::*;
 use crate::zir::*;
 use std::collections::HashMap;
-use zir::folder::*;
 use zokrates_field::Field;
 
 #[derive(Default)]
@@ -24,7 +24,7 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
     }
 }
 
-fn force_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+fn force_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
     let metadata = e.metadata.unwrap();
 
     let should_reduce = metadata.should_reduce.make_true();
@@ -38,7 +38,7 @@ fn force_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T>
     }
 }
 
-fn force_no_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+fn force_no_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
     let metadata = e.metadata.unwrap();
 
     let should_reduce = metadata.should_reduce.make_false();
@@ -130,7 +130,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 self.ids
                     .get(&Variable::uint(id.clone(), range))
                     .cloned()
-                    .expect(&format!("identifier should have been defined: {}", id)),
+                    .unwrap_or_else(|| panic!("identifier should have been defined: {}", id)),
             ),
             Add(box left, box right) => {
                 // reduce the two terms
@@ -145,7 +145,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .map(|max| (false, false, max))
                     .unwrap_or_else(|| {
                         range_max
-                            .clone()
                             .checked_add(&right_max)
                             .map(|max| (true, false, max))
                             .unwrap_or_else(|| {
@@ -203,7 +202,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         // if and only if `right_bitwidth` is `T::get_required_bits() - 1`, then `offset` is out of the interval
                         // [0, 2**(max_bitwidth)[, therefore we need to reduce `right`
                         left_max
-                            .checked_add(&target_offset.clone())
+                            .checked_add(&target_offset)
                             .map(|max| (false, true, max))
                             .unwrap_or_else(|| (true, true, range_max.clone() + target_offset))
                     } else {
@@ -270,7 +269,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .map(|max| (false, false, max))
                     .unwrap_or_else(|| {
                         range_max
-                            .clone()
                             .checked_mul(&right_max)
                             .map(|max| (true, false, max))
                             .unwrap_or_else(|| {
@@ -293,6 +291,20 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 };
 
                 UExpression::mult(left, right).with_max(max)
+            }
+            Div(box left, box right) => {
+                // reduce the two terms
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                UExpression::div(force_reduce(left), force_reduce(right)).with_max(range_max)
+            }
+            Rem(box left, box right) => {
+                // reduce the two terms
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                UExpression::rem(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
             Not(box e) => {
                 let e = self.fold_uint_expression(e);
@@ -490,8 +502,7 @@ mod tests {
     use super::*;
     use zokrates_field::Bn128Field;
 
-    extern crate pretty_assertions;
-    use self::pretty_assertions::assert_eq;
+    use pretty_assertions::assert_eq;
 
     macro_rules! uint_test {
         ( $left_max:expr, $left_reduce:expr, $right_max:expr, $right_reduce:expr, $method:ident, $res_max:expr  ) => {{

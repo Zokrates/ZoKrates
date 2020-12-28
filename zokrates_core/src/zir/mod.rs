@@ -9,14 +9,14 @@ mod variable;
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
+pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 use std::path::PathBuf;
-pub use zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
-use embed::FlatEmbed;
+use crate::embed::FlatEmbed;
+use crate::zir::types::{FunctionKey, Signature};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use zir::types::{FunctionKey, Signature};
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
@@ -58,7 +58,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
             writeln!(f, "{}", "-".repeat(100))?;
             writeln!(f, "{}", module)?;
             writeln!(f, "{}", "-".repeat(100))?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         write!(f, "")
     }
@@ -88,8 +88,7 @@ impl<'ast, T> ZirFunctionSymbol<'ast, T> {
                 .functions
                 .get(key)
                 .unwrap()
-                .signature(&modules)
-                .clone(),
+                .signature(&modules),
             ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature().try_into().unwrap(),
         }
     }
@@ -192,7 +191,7 @@ pub enum ZirStatement<'ast, T> {
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
     Declaration(Variable<'ast>),
     Assertion(BooleanExpression<'ast, T>),
-    MultipleDefinition(Vec<Variable<'ast>>, ZirExpressionList<'ast, T>),
+    MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {
@@ -491,6 +490,8 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            UExpressionInner::Div(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            UExpressionInner::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
             UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
             UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),

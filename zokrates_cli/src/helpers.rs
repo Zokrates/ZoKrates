@@ -1,6 +1,5 @@
-use core::convert::TryFrom;
-
 use crate::constants::*;
+use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub enum CurveParameter {
@@ -11,8 +10,10 @@ pub enum CurveParameter {
 }
 
 pub enum BackendParameter {
+    #[cfg(feature = "bellman")]
     Bellman,
-    Zexe,
+    #[cfg(feature = "ark")]
+    Ark,
     #[cfg(feature = "libsnark")]
     Libsnark,
 }
@@ -20,7 +21,6 @@ pub enum BackendParameter {
 pub enum SchemeParameter {
     G16,
     GM17,
-    #[cfg(feature = "libsnark")]
     PGHR13,
 }
 
@@ -43,8 +43,10 @@ impl TryFrom<&str> for BackendParameter {
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
+            #[cfg(feature = "bellman")]
             BELLMAN => Ok(BackendParameter::Bellman),
-            ZEXE => Ok(BackendParameter::Zexe),
+            #[cfg(feature = "ark")]
+            ARK => Ok(BackendParameter::Ark),
             #[cfg(feature = "libsnark")]
             LIBSNARK => Ok(BackendParameter::Libsnark),
             _ => Err(format!("Unknown backend {}", s)),
@@ -59,7 +61,6 @@ impl TryFrom<&str> for SchemeParameter {
         match s {
             G16 => Ok(SchemeParameter::G16),
             GM17 => Ok(SchemeParameter::GM17),
-            #[cfg(feature = "libsnark")]
             PGHR13 => Ok(SchemeParameter::PGHR13),
             _ => Err(format!("Unknown proving scheme {}", s)),
         }
@@ -81,11 +82,16 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
         let proving_scheme = SchemeParameter::try_from(s.2)?;
 
         match (&backend, &curve, &proving_scheme) {
+            #[cfg(feature = "bellman")]
             (BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => Ok(()),
+            #[cfg(feature = "bellman")]
             (BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => Ok(()),
-            (BackendParameter::Zexe, CurveParameter::Bls12_377, SchemeParameter::GM17) => Ok(()),
-            (BackendParameter::Zexe, CurveParameter::Bw6_761, SchemeParameter::GM17) => Ok(()),
-            (BackendParameter::Zexe, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
+            #[cfg(feature = "ark")]
+            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => Ok(()),
+            #[cfg(feature = "ark")]
+            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => Ok(()),
+            #[cfg(feature = "ark")]
+            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
             #[cfg(feature = "libsnark")]
             (BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
             #[cfg(feature = "libsnark")]
@@ -94,6 +100,6 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
                 "Unsupported combination of parameters (backend: {}, curve: {}, proving scheme: {})",
                 s.0, s.1, s.2
             )),
-        }.map(|_| Parameters(backend, curve, proving_scheme))
+        }.map(|_: ()| Parameters(backend, curve, proving_scheme))
     }
 }

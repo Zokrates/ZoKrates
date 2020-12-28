@@ -318,12 +318,14 @@ main() {
 
     rm -rf $td
 
-    cat <<'EOF'
+    abspath=$(cd "$(dirname "$dest")" && pwd)/$(basename "$dest")
+
+    cat <<EOF
 
 ZoKrates was installed successfully!
 If this is the first time you're installing ZoKrates run the following:
-export PATH=$PATH:$HOME/.zokrates/bin
+export PATH=\$PATH:$abspath/bin
 EOF
 }
 
-main
+main "$@" || exit 1

@@ -1,6 +1,6 @@
-use zir::identifier::Identifier;
-use zir::types::UBitwidth;
-use zir::{BooleanExpression, FieldElementExpression};
+use crate::zir::identifier::Identifier;
+use crate::zir::types::UBitwidth;
+use crate::zir::{BooleanExpression, FieldElementExpression};
 use zokrates_field::Field;
 
 impl<'ast, T: Field> UExpression<'ast, T> {
@@ -20,6 +20,18 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Mult(box self, box other).annotate(bitwidth)
+    }
+
+    pub fn div(self, other: Self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(bitwidth, other.bitwidth);
+        UExpressionInner::Div(box self, box other).annotate(bitwidth)
+    }
+
+    pub fn rem(self, other: Self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(bitwidth, other.bitwidth);
+        UExpressionInner::Rem(box self, box other).annotate(bitwidth)
     }
 
     pub fn xor(self, other: Self) -> UExpression<'ast, T> {
@@ -93,10 +105,7 @@ impl ShouldReduce {
     }
 
     pub fn is_unknown(&self) -> bool {
-        match self {
-            ShouldReduce::Unknown => true,
-            _ => false,
-        }
+        *self == ShouldReduce::Unknown
     }
 
     // we can always enable a reduction
@@ -154,6 +163,8 @@ pub enum UExpressionInner<'ast, T> {
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Div(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Rem(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Xor(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),

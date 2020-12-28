@@ -7,13 +7,10 @@ def main(u32[4] a, u16[4] b, u8[4] c) -> (field[4], field[4], field[4]):
 	field[4] e = [0; 4]
 	field[4] f = [0; 4]
 
-	for field i in 0..4 do
-		field g = u32_to_field(a[i])
-		d[i] = g
-		field h = u16_to_field(b[i])
-		e[i] = h
-		field j = u8_to_field(c[i])
-		f[i] = j
+	for u32 i in 0..4 do
+		d[i] = u32_to_field(a[i])
+		e[i] = u16_to_field(b[i])
+		f[i] = u8_to_field(c[i])
 	endfor
 
 	return d, e, f

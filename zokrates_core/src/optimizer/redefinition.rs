@@ -94,19 +94,13 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 };
 
                 // insert into the ignored set
-                match to_ignore {
-                    Some(v) => {
-                        self.ignore.insert(v);
-                    }
-                    None => {}
+                if let Some(v) = to_ignore {
+                    self.ignore.insert(v);
                 }
 
                 // insert into the substitution map
-                match to_insert {
-                    Some((k, v)) => {
-                        self.substitution.insert(k, v.into_canonical());
-                    }
-                    None => {}
+                if let Some((k, v)) = to_insert {
+                    self.substitution.insert(k, v.into_canonical());
                 };
 
                 // decide whether the constraint should be kept
@@ -136,7 +130,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                                     v if v == FlatVariable::one() => Ok(coefficient),
                                     _ => Err(LinComb::summand(coefficient, variable).into()),
                                 })
-                                .unwrap_or(Err(l.into())),
+                                .unwrap_or_else(|| Err(l.into())),
                         },
                         None => Err(q),
                     })
@@ -145,7 +139,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 match inputs.iter().all(|r| r.is_ok()) {
                     true => {
                         // unwrap inputs to their constant value
-                        let inputs = inputs.into_iter().map(|i| i.unwrap()).collect();
+                        let inputs = inputs.into_iter().map(|i| i.unwrap()).collect::<Vec<_>>();
                         // run the interpereter
                         let outputs = Interpreter::default()
                             .execute_solver(&d.solver, &inputs)
@@ -184,8 +178,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
         match lc
             .0
             .iter()
-            .find(|(variable, _)| self.substitution.get(&variable).is_some())
-            .is_some()
+            .any(|(variable, _)| self.substitution.get(&variable).is_some())
         {
             true =>
             // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
@@ -195,7 +188,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         self.substitution
                             .get(&variable)
                             .map(|l| LinComb::from(l.clone()) * &coefficient)
-                            .unwrap_or(LinComb::summand(coefficient, variable))
+                            .unwrap_or_else(|| LinComb::summand(coefficient, variable))
                     })
                     .fold(LinComb::zero(), |acc, x| acc + x)
             }
@@ -243,7 +236,7 @@ mod tests {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(y, x), Statement::definition(z, y)],
-            returns: vec![z.into()],
+            returns: vec![z],
         };
 
         let optimized: Function<Bn128Field> = Function {
@@ -270,7 +263,7 @@ mod tests {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(one, x)],
-            returns: vec![x.into()],
+            returns: vec![x],
         };
 
         let optimized = f.clone();
@@ -305,14 +298,14 @@ mod tests {
                 Statement::definition(z, y),
                 Statement::constraint(z, y),
             ],
-            returns: vec![z.into()],
+            returns: vec![z],
         };
 
         let optimized: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(z, x), Statement::constraint(z, x)],
-            returns: vec![z.into()],
+            returns: vec![z],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
@@ -482,7 +475,7 @@ mod tests {
                 Statement::constraint(x, Bn128Field::from(1)),
                 Statement::constraint(x, Bn128Field::from(2)),
             ],
-            returns: vec![x.into()],
+            returns: vec![x],
         };
 
         let optimized = f.clone();

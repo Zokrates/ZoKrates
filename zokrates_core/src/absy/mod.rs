@@ -15,7 +15,7 @@ pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
 use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
-use embed::FlatEmbed;
+use crate::embed::FlatEmbed;
 use std::path::PathBuf;
 
 use crate::imports::ImportNode;
@@ -323,9 +323,9 @@ impl<'ast> fmt::Display for Statement<'ast> {
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Assertion(ref e) => write!(f, "assert({})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{}\n", l)?;
+                    writeln!(f, "\t\t{}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -352,9 +352,9 @@ impl<'ast> fmt::Debug for Statement<'ast> {
             }
             Statement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
+                writeln!(f, "for {:?} in {:?}..{:?} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{:?}\n", l)?;
+                    writeln!(f, "\t\t{:?}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -458,11 +458,11 @@ impl<'ast> fmt::Display for Range<'ast> {
             self.from
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or("".to_string()),
+                .unwrap_or_else(|| "".to_string()),
             self.to
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or("".to_string())
+                .unwrap_or_else(|| "".to_string())
         )
     }
 }
@@ -487,6 +487,7 @@ pub enum Expression<'ast> {
     Sub(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Mult(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Div(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Rem(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Pow(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     IfElse(
         Box<ExpressionNode<'ast>>,
@@ -529,6 +530,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
+            Expression::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "({}**{})", lhs, rhs),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
@@ -599,6 +601,7 @@ impl<'ast> fmt::Debug for Expression<'ast> {
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
+            Expression::Rem(ref lhs, ref rhs) => write!(f, "Rem({:?}, {:?})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
@@ -648,20 +651,12 @@ impl<'ast> fmt::Debug for Expression<'ast> {
 }
 
 /// A list of expressions, used in return statements
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Default)]
 pub struct ExpressionList<'ast> {
     pub expressions: Vec<ExpressionNode<'ast>>,
 }
 
 pub type ExpressionListNode<'ast> = Node<ExpressionList<'ast>>;
-
-impl<'ast> ExpressionList<'ast> {
-    pub fn new() -> ExpressionList<'ast> {
-        ExpressionList {
-            expressions: vec![],
-        }
-    }
-}
 
 impl<'ast> fmt::Display for ExpressionList<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

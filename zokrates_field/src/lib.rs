@@ -3,16 +3,20 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
-extern crate algebra_core;
+
 extern crate num_bigint;
 
-use algebra_core::PairingEngine;
-use bellman_ce::pairing::ff::ScalarEngine;
-use bellman_ce::pairing::Engine;
+#[cfg(feature = "ark")]
+use ark_ec::PairingEngine;
+
+#[cfg(feature = "bellman")]
+use bellman_ce::pairing::{ff::ScalarEngine, Engine};
+
 use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::{From, TryFrom};
+use std::fmt;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
@@ -22,6 +26,7 @@ pub trait Pow<RHS> {
     fn pow(self, _: RHS) -> Self::Output;
 }
 
+#[cfg(feature = "bellman")]
 pub trait BellmanFieldExtensions {
     /// An associated type to be able to operate with Bellman ff traits
     type BellmanEngine: Engine;
@@ -31,12 +36,21 @@ pub trait BellmanFieldExtensions {
     fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
 }
 
-pub trait ZexeFieldExtensions {
-    /// An associated type to be able to operate with zexe ff traits
-    type ZexeEngine: PairingEngine;
+#[cfg(feature = "ark")]
+pub trait ArkFieldExtensions {
+    /// An associated type to be able to operate with ark ff traits
+    type ArkEngine: PairingEngine;
 
-    fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self;
-    fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr;
+    fn from_ark(e: <Self::ArkEngine as ark_ec::PairingEngine>::Fr) -> Self;
+    fn into_ark(self) -> <Self::ArkEngine as ark_ec::PairingEngine>::Fr;
+}
+
+pub struct FieldParseError;
+
+impl fmt::Debug for FieldParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Failed to parse to field element")
+    }
 }
 
 pub trait Field:
@@ -63,8 +77,8 @@ pub trait Field:
     + for<'a> Sub<&'a Self, Output = Self>
     + Mul<Self, Output = Self>
     + for<'a> Mul<&'a Self, Output = Self>
+    + CheckedDiv
     + Div<Self, Output = Self>
-    + for<'a> Div<&'a Self, Output = Self>
     + Pow<usize, Output = Self>
     + for<'a> Deserialize<'a>
     + Serialize
@@ -78,7 +92,7 @@ pub trait Field:
     /// Returns this `Field`'s contents as decimal string
     fn to_dec_string(&self) -> String;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
-    fn inverse_mul(&self) -> Self;
+    fn inverse_mul(&self) -> Option<Self>;
     /// Returns the smallest value that can be represented by this field type.
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
@@ -89,8 +103,8 @@ pub trait Field:
     /// Returns the number of bits required to represent any element of this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
-    fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()>;
-    fn try_from_str(s: &str, radix: u32) -> Result<Self, ()>;
+    fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError>;
+    fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError>;
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
@@ -125,11 +139,11 @@ pub trait Field:
 mod prime_field {
     macro_rules! prime_field {
         ($modulus:expr, $name:expr) => {
-            use crate::{Field, Pow};
+            use crate::{Field, FieldParseError, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
             use num_integer::Integer;
-            use num_traits::{One, Zero};
+            use num_traits::{CheckedDiv, One, Zero};
             use serde_derive::{Deserialize, Serialize};
             use std::convert::From;
             use std::convert::TryFrom;
@@ -173,11 +187,14 @@ mod prime_field {
                     self.value.to_str_radix(10)
                 }
 
-                fn inverse_mul(&self) -> FieldPrime {
+                fn inverse_mul(&self) -> Option<FieldPrime> {
                     let (b, s, _) = extended_euclid(&self.value, &*P);
-                    assert_eq!(b, BigInt::one());
-                    FieldPrime {
-                        value: &s - s.div_floor(&*P) * &*P,
+                    if b == BigInt::one() {
+                        Some(FieldPrime {
+                            value: &s - s.div_floor(&*P) * &*P,
+                        })
+                    } else {
+                        None
                     }
                 }
                 fn min_value() -> FieldPrime {
@@ -200,11 +217,11 @@ mod prime_field {
                 fn get_required_bits() -> usize {
                     (*P).bits()
                 }
-                fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()> {
+                fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError> {
                     Self::try_from_str(s, 10)
                 }
-                fn try_from_str(s: &str, radix: u32) -> Result<Self, ()> {
-                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(())?;
+                fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError> {
+                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(FieldParseError)?;
                     Ok(FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,
                     })
@@ -387,11 +404,17 @@ mod prime_field {
                 }
             }
 
+            impl CheckedDiv for FieldPrime {
+                fn checked_div(&self, other: &FieldPrime) -> Option<FieldPrime> {
+                    other.inverse_mul().map(|inv| inv * self)
+                }
+            }
+
             impl Div<FieldPrime> for FieldPrime {
                 type Output = FieldPrime;
 
                 fn div(self, other: FieldPrime) -> FieldPrime {
-                    self * other.inverse_mul()
+                    self.checked_div(&other).unwrap()
                 }
             }
 
@@ -399,7 +422,7 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn div(self, other: &FieldPrime) -> FieldPrime {
-                    self / other.clone()
+                    self.checked_div(&other).unwrap()
                 }
             }
 
@@ -477,6 +500,7 @@ mod prime_field {
         };
     }
 
+    #[cfg(feature = "bellman")]
     macro_rules! bellman_extensions {
         ($bellman_type:ty, $fq2_type:ident) => {
             use crate::BellmanFieldExtensions;
@@ -511,24 +535,25 @@ mod prime_field {
         };
     }
 
-    macro_rules! zexe_extensions {
-        ($zexe_type:ty) => {
-            use crate::ZexeFieldExtensions;
+    #[cfg(feature = "ark")]
+    macro_rules! ark_extensions {
+        ($ark_type:ty) => {
+            use crate::ArkFieldExtensions;
 
-            impl ZexeFieldExtensions for FieldPrime {
-                type ZexeEngine = $zexe_type;
+            impl ArkFieldExtensions for FieldPrime {
+                type ArkEngine = $ark_type;
 
-                fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
-                    use algebra_core::{BigInteger, PrimeField};
+                fn from_ark(e: <Self::ArkEngine as ark_ec::PairingEngine>::Fr) -> Self {
+                    use ark_ff::{BigInteger, PrimeField};
                     let mut res: Vec<u8> = vec![];
                     e.into_repr().write_le(&mut res).unwrap();
                     Self::from_byte_vector(res)
                 }
 
-                fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr {
+                fn into_ark(self) -> <Self::ArkEngine as ark_ec::PairingEngine>::Fr {
                     use core::str::FromStr;
                     let s = self.to_dec_string();
-                    <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
+                    <Self::ArkEngine as ark_ec::PairingEngine>::Fr::from_str(&s).unwrap()
                 }
             }
         };

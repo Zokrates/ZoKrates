@@ -10,14 +10,14 @@
 //! if(index == 0, a[0], if(index == 1, a[1], ...))
 //! ```
 
-use typed_absy::{folder::*, *};
+use crate::typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
-pub struct VariableAccessRemover<'ast, T: Field> {
+pub struct VariableReadRemover<'ast, T: Field> {
     statements: Vec<TypedStatement<'ast, T>>,
 }
 
-impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
+impl<'ast, T: Field> VariableReadRemover<'ast, T> {
     fn new() -> Self {
         Self { statements: vec![] }
     }
@@ -56,8 +56,7 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
                             Some(acc) => Some(BooleanExpression::Or(box acc, box e)),
                             None => Some(e),
                         })
-                        .unwrap()
-                        .into(),
+                        .unwrap(),
                 ));
 
                 (0..size)
@@ -86,7 +85,7 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
+impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
@@ -109,15 +108,14 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type<'ast, T>,
-        size: &UExpression<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
             ArrayExpressionInner::Select(box a, box i) => {
                 self.select::<ArrayExpression<'ast, T>>(a, i).into_inner()
             }
-            e => fold_array_expression_inner(self, ty, size, e),
+            e => fold_array_expression_inner(self, ty, e),
         }
     }
 
@@ -177,21 +175,18 @@ mod tests {
         );
 
         assert_eq!(
-            VariableAccessRemover::new().fold_statement(access),
+            VariableReadRemover::new().fold_statement(access),
             vec![
-                TypedStatement::Assertion(
-                    BooleanExpression::Or(
-                        box BooleanExpression::UintEq(
-                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
-                            box UExpressionInner::Value(0).annotate(UBitwidth::B32)
-                        ),
-                        box BooleanExpression::UintEq(
-                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
-                            box UExpressionInner::Value(1).annotate(UBitwidth::B32)
-                        )
+                TypedStatement::Assertion(BooleanExpression::Or(
+                    box BooleanExpression::UintEq(
+                        box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                        box UExpressionInner::Value(0).annotate(UBitwidth::B32)
+                    ),
+                    box BooleanExpression::UintEq(
+                        box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                        box UExpressionInner::Value(1).annotate(UBitwidth::B32)
                     )
-                    .into(),
-                ),
+                )),
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::if_else(

@@ -1,7 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
+use crate::typed_absy::types::{ArrayType, StructMember, StructType};
 use crate::typed_absy::*;
-use typed_absy::types::{ArrayType, StructMember, StructType};
 use zokrates_field::Field;
 
 pub trait Folder<'ast, T: Field>: Sized {
@@ -56,22 +56,30 @@ pub trait Folder<'ast, T: Field>: Sized {
         use self::GType::*;
 
         match t {
-            Array(array_type) => Array(ArrayType {
-                ty: box self.fold_type(*array_type.ty),
-                size: self.fold_uint_expression(array_type.size),
-            }),
-            Struct(struct_type) => Struct(StructType {
-                members: struct_type
-                    .members
-                    .into_iter()
-                    .map(|m| StructMember {
-                        ty: box self.fold_type(*m.ty),
-                        ..m
-                    })
-                    .collect(),
-                ..struct_type
-            }),
+            Array(array_type) => Array(self.fold_array_type(array_type)),
+            Struct(struct_type) => Struct(self.fold_struct_type(struct_type)),
             t => t,
+        }
+    }
+
+    fn fold_array_type(&mut self, t: ArrayType<'ast, T>) -> ArrayType<'ast, T> {
+        ArrayType {
+            ty: box self.fold_type(*t.ty),
+            size: self.fold_uint_expression(t.size),
+        }
+    }
+
+    fn fold_struct_type(&mut self, t: StructType<'ast, T>) -> StructType<'ast, T> {
+        StructType {
+            members: t
+                .members
+                .into_iter()
+                .map(|m| StructMember {
+                    ty: box self.fold_type(*m.ty),
+                    ..m
+                })
+                .collect(),
+            ..t
         }
     }
 
@@ -80,18 +88,31 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
-        match a {
-            TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.fold_variable(v)),
-            TypedAssignee::Select(box a, box index) => TypedAssignee::Select(
-                box self.fold_assignee(a),
-                box self.fold_uint_expression(index),
-            ),
-            TypedAssignee::Member(box s, m) => TypedAssignee::Member(box self.fold_assignee(s), m),
-        }
+        fold_assignee(self, a)
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         fold_statement(self, s)
+    }
+
+    fn fold_expression_or_spread(
+        &mut self,
+        e: TypedExpressionOrSpread<'ast, T>,
+    ) -> TypedExpressionOrSpread<'ast, T> {
+        match e {
+            TypedExpressionOrSpread::Expression(e) => {
+                TypedExpressionOrSpread::Expression(self.fold_expression(e))
+            }
+            TypedExpressionOrSpread::Spread(s) => {
+                TypedExpressionOrSpread::Spread(self.fold_spread(s))
+            }
+        }
+    }
+
+    fn fold_spread(&mut self, s: TypedSpread<'ast, T>) -> TypedSpread<'ast, T> {
+        TypedSpread {
+            array: self.fold_array_expression(s.array),
+        }
     }
 
     fn fold_expression(&mut self, e: TypedExpression<'ast, T>) -> TypedExpression<'ast, T> {
@@ -153,11 +174,10 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type<'ast, T>,
-        size: &UExpression<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
-        fold_array_expression_inner(self, ty, size, e)
+        fold_array_expression_inner(self, ty, e)
     }
     fn fold_struct_expression_inner(
         &mut self,
@@ -178,7 +198,6 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
             .into_iter()
             .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
             .collect(),
-        ..p
     }
 }
 
@@ -207,8 +226,8 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
                 .flat_map(|s| f.fold_statement(s))
                 .collect(),
         ),
-        TypedStatement::MultipleDefinition(variables, elist) => TypedStatement::MultipleDefinition(
-            variables.into_iter().map(|v| f.fold_variable(v)).collect(),
+        TypedStatement::MultipleDefinition(assignees, elist) => TypedStatement::MultipleDefinition(
+            assignees.into_iter().map(|a| f.fold_assignee(a)).collect(),
             f.fold_expression_list(elist),
         ),
         s => s,
@@ -218,15 +237,17 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    _: &Type<'ast, T>,
-    _: &UExpression<'ast, T>,
+    _: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> ArrayExpressionInner<'ast, T> {
     match e {
         ArrayExpressionInner::Identifier(id) => ArrayExpressionInner::Identifier(f.fold_name(id)),
-        ArrayExpressionInner::Value(exprs) => {
-            ArrayExpressionInner::Value(exprs.into_iter().map(|e| f.fold_expression(e)).collect())
-        }
+        ArrayExpressionInner::Value(exprs) => ArrayExpressionInner::Value(
+            exprs
+                .into_iter()
+                .map(|e| f.fold_expression_or_spread(e))
+                .collect(),
+        ),
         ArrayExpressionInner::FunctionCall(id, exps) => {
             let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
             ArrayExpressionInner::FunctionCall(id, exps)
@@ -502,6 +523,18 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
 
             UExpressionInner::Mult(box left, box right)
         }
+        UExpressionInner::Div(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            UExpressionInner::Div(box left, box right)
+        }
+        UExpressionInner::Rem(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            UExpressionInner::Rem(box left, box right)
+        }
         UExpressionInner::Xor(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
@@ -582,14 +615,11 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: ArrayExpression<'ast, T>,
 ) -> ArrayExpression<'ast, T> {
-    let size = f.fold_uint_expression(e.size);
-    let ty = f.fold_type(e.ty);
+    let ty = f.fold_array_type(*e.ty);
 
     ArrayExpression {
-        inner: f.fold_array_expression_inner(&ty, &size, e.inner),
-        size,
-        ty,
-        ..e
+        inner: f.fold_array_expression_inner(&ty, e.inner),
+        ty: box ty,
     }
 }
 
@@ -628,6 +658,19 @@ pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
     match s {
         TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
         there => there, // by default, do not fold modules recursively
+    }
+}
+
+pub fn fold_assignee<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    a: TypedAssignee<'ast, T>,
+) -> TypedAssignee<'ast, T> {
+    match a {
+        TypedAssignee::Identifier(v) => TypedAssignee::Identifier(f.fold_variable(v)),
+        TypedAssignee::Select(box a, box index) => {
+            TypedAssignee::Select(box f.fold_assignee(a), box f.fold_uint_expression(index))
+        }
+        TypedAssignee::Member(box s, m) => TypedAssignee::Member(box f.fold_assignee(s), m),
     }
 }
 

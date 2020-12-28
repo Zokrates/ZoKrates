@@ -1,7 +1,7 @@
+use crate::typed_absy;
+use crate::typed_absy::types::UBitwidth;
+use crate::zir;
 use std::marker::PhantomData;
-use typed_absy;
-use typed_absy::types::UBitwidth;
-use zir;
 use zokrates_field::Field;
 
 use std::convert::{TryFrom, TryInto};
@@ -12,7 +12,7 @@ pub struct Flattener<T: Field> {
 
 fn flatten_identifier_rec<'ast>(
     id: zir::SourceIdentifier<'ast>,
-    ty: typed_absy::types::ConcreteType,
+    ty: &typed_absy::types::ConcreteType,
 ) -> Vec<zir::Variable<'ast>> {
     match ty {
         typed_absy::ConcreteType::Int => unreachable!(),
@@ -32,16 +32,16 @@ fn flatten_identifier_rec<'ast>(
             .flat_map(|i| {
                 flatten_identifier_rec(
                     zir::SourceIdentifier::Select(box id.clone(), i),
-                    *array_type.ty.clone(),
+                    &array_type.ty,
                 )
             })
             .collect(),
         typed_absy::types::ConcreteType::Struct(members) => members
-            .into_iter()
+            .iter()
             .flat_map(|struct_member| {
                 flatten_identifier_rec(
-                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id),
-                    *struct_member.ty,
+                    zir::SourceIdentifier::Member(box id.clone(), struct_member.id.clone()),
+                    &struct_member.ty,
                 )
             })
             .collect(),
@@ -99,7 +99,7 @@ impl<'ast, T: Field> Flattener<T> {
 
         let ty = typed_absy::types::ConcreteType::try_from(ty).unwrap();
 
-        flatten_identifier_rec(id, ty)
+        flatten_identifier_rec(id, &ty)
     }
 
     fn fold_assignee(
@@ -108,7 +108,45 @@ impl<'ast, T: Field> Flattener<T> {
     ) -> Vec<zir::ZirAssignee<'ast>> {
         match a {
             typed_absy::TypedAssignee::Identifier(v) => self.fold_variable(v),
-            _ => unreachable!(),
+            typed_absy::TypedAssignee::Select(box a, box i) => {
+                use typed_absy::Typed;
+                let count = match typed_absy::ConcreteType::try_from(a.get_type()).unwrap() {
+                    typed_absy::ConcreteType::Array(array_ty) => array_ty.ty.get_primitive_count(),
+                    _ => unreachable!(),
+                };
+                let a = self.fold_assignee(a);
+
+                match i.as_inner() {
+                    typed_absy::UExpressionInner::Value(index) => {
+                        a[*index as usize * count..(*index as usize + 1) * count].to_vec()
+                    }
+                    i => unreachable!("index {:?} not allowed, should be a constant", i),
+                }
+            }
+            typed_absy::TypedAssignee::Member(box a, m) => {
+                use typed_absy::Typed;
+
+                let (offset, size) = match typed_absy::ConcreteType::try_from(a.get_type()).unwrap()
+                {
+                    typed_absy::ConcreteType::Struct(struct_type) => struct_type
+                        .members
+                        .iter()
+                        .fold((0, None), |(offset, size), member| match size {
+                            Some(_) => (offset, size),
+                            None => match m == member.id {
+                                true => (offset, Some(member.ty.get_primitive_count())),
+                                false => (offset + member.ty.get_primitive_count(), None),
+                            },
+                        }),
+                    _ => unreachable!(),
+                };
+
+                let size = size.unwrap();
+
+                let a = self.fold_assignee(a);
+
+                a[offset..offset + size].to_vec()
+            }
         }
     }
 
@@ -117,6 +155,16 @@ impl<'ast, T: Field> Flattener<T> {
         s: typed_absy::TypedStatement<'ast, T>,
     ) -> Vec<zir::ZirStatement<'ast, T>> {
         fold_statement(self, s)
+    }
+
+    fn fold_expression_or_spread(
+        &mut self,
+        e: typed_absy::TypedExpressionOrSpread<'ast, T>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        match e {
+            typed_absy::TypedExpressionOrSpread::Expression(e) => self.fold_expression(e),
+            typed_absy::TypedExpressionOrSpread::Spread(s) => self.fold_array_expression(s.array),
+        }
     }
 
     fn fold_expression(
@@ -129,8 +177,8 @@ impl<'ast, T: Field> Flattener<T> {
             }
             typed_absy::TypedExpression::Boolean(e) => vec![self.fold_boolean_expression(e).into()],
             typed_absy::TypedExpression::Uint(e) => vec![self.fold_uint_expression(e).into()],
-            typed_absy::TypedExpression::Array(e) => self.fold_array_expression(e).into(),
-            typed_absy::TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
+            typed_absy::TypedExpression::Array(e) => self.fold_array_expression(e),
+            typed_absy::TypedExpression::Struct(e) => self.fold_struct_expression(e),
             typed_absy::TypedExpression::Int(_) => unreachable!(),
         }
     }
@@ -260,9 +308,7 @@ pub fn fold_statement<'ast, T: Field>(
         }
         typed_absy::TypedStatement::Declaration(v) => {
             let v = f.fold_variable(v);
-            v.into_iter()
-                .map(|v| zir::ZirStatement::Declaration(v))
-                .collect()
+            v.into_iter().map(zir::ZirStatement::Declaration).collect()
         }
         typed_absy::TypedStatement::Assertion(e) => {
             let e = f.fold_boolean_expression(e);
@@ -273,7 +319,7 @@ pub fn fold_statement<'ast, T: Field>(
             vec![zir::ZirStatement::MultipleDefinition(
                 variables
                     .into_iter()
-                    .flat_map(|v| f.fold_variable(v))
+                    .flat_map(|v| f.fold_assignee(v))
                     .collect(),
                 f.fold_expression_list(elist),
             )]
@@ -285,15 +331,15 @@ pub fn fold_statement<'ast, T: Field>(
 
 pub fn fold_array_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
-    t: &typed_absy::types::ConcreteType,
+    ty: &typed_absy::types::ConcreteType,
     size: usize,
-    e: typed_absy::ArrayExpressionInner<'ast, T>,
+    array: typed_absy::ArrayExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    match e {
+    match array {
         typed_absy::ArrayExpressionInner::Identifier(id) => {
             let variables = flatten_identifier_rec(
                 f.fold_name(id),
-                typed_absy::types::ConcreteType::array(t.clone(), size),
+                &typed_absy::types::ConcreteType::array((ty.clone(), size)),
             );
             variables
                 .into_iter()
@@ -306,10 +352,16 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 })
                 .collect()
         }
-        typed_absy::ArrayExpressionInner::Value(exprs) => exprs
-            .into_iter()
-            .flat_map(|e| f.fold_expression(e))
-            .collect(),
+        typed_absy::ArrayExpressionInner::Value(exprs) => {
+            let exprs: Vec<_> = exprs
+                .into_iter()
+                .flat_map(|e| f.fold_expression_or_spread(e))
+                .collect();
+
+            assert_eq!(exprs.len(), size * ty.get_primitive_count());
+
+            exprs
+        }
         typed_absy::ArrayExpressionInner::FunctionCall(..) => unreachable!(),
         typed_absy::ArrayExpressionInner::IfElse(
             box condition,
@@ -322,7 +374,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             assert_eq!(consequence.len(), alternative.len());
 
-            use zir::IfElse;
+            use crate::zir::IfElse;
 
             consequence
                 .into_iter()
@@ -357,7 +409,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 .sum();
 
             // we also need the size of this member
-            let size = t.get_primitive_count() * size;
+            let size = ty.get_primitive_count() * size;
 
             s[offset..offset + size].to_vec()
         }
@@ -367,10 +419,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             match index.into_inner() {
                 zir::UExpressionInner::Value(i) => {
-                    let size = typed_absy::types::ConcreteType::try_from(t.clone())
-                        .unwrap()
-                        .get_primitive_count()
-                        * size;
+                    let size = ty.clone().get_primitive_count() * size;
                     let start = i as usize * size;
                     let end = start + size;
                     array[start..end].to_vec()
@@ -385,12 +434,11 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             match (from.into_inner(), to.into_inner()) {
                 (zir::UExpressionInner::Value(from), zir::UExpressionInner::Value(to)) => {
-                    let size = typed_absy::types::ConcreteType::try_from(t.clone())
-                        .unwrap()
-                        .get_primitive_count()
-                        * size;
-                    let start = from as usize * size;
-                    let end = to as usize * size;
+                    assert_eq!(size, to.checked_sub(from).unwrap_or(0) as usize);
+
+                    let element_size = ty.get_primitive_count();
+                    let start = from as usize * element_size;
+                    let end = to as usize * element_size;
                     array[start..end].to_vec()
                 }
                 _ => unreachable!(),
@@ -401,14 +449,14 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
 pub fn fold_struct_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
-    t: &typed_absy::types::ConcreteStructType,
-    e: typed_absy::StructExpressionInner<'ast, T>,
+    ty: &typed_absy::types::ConcreteStructType,
+    struc: typed_absy::StructExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    match e {
+    match struc {
         typed_absy::StructExpressionInner::Identifier(id) => {
             let variables = flatten_identifier_rec(
                 f.fold_name(id),
-                typed_absy::types::ConcreteType::struc(t.clone()),
+                &typed_absy::types::ConcreteType::struc(ty.clone()),
             );
             variables
                 .into_iter()
@@ -437,7 +485,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
 
             assert_eq!(consequence.len(), alternative.len());
 
-            use zir::IfElse;
+            use crate::zir::IfElse;
 
             consequence
                 .into_iter()
@@ -472,11 +520,13 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 .sum();
 
             // we also need the size of this member
-            let size = typed_absy::types::ConcreteType::try_from(
-                *t.iter().find(|member| member.id == id).cloned().unwrap().ty,
-            )
-            .unwrap()
-            .get_primitive_count();
+            let size = ty
+                .iter()
+                .find(|member| member.id == id)
+                .cloned()
+                .unwrap()
+                .ty
+                .get_primitive_count();
 
             s[offset..offset + size].to_vec()
         }
@@ -486,10 +536,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
 
             match index.into_inner() {
                 zir::UExpressionInner::Value(i) => {
-                    let size = t
-                        .iter()
-                        .map(|m| m.ty.get_primitive_count())
-                        .fold(0, |acc, current| acc + current);
+                    let size: usize = ty.iter().map(|m| m.ty.get_primitive_count()).sum();
                     let start = i as usize * size;
                     let end = start + size;
                     array[start..end].to_vec()
@@ -510,7 +557,7 @@ pub fn fold_field_expression<'ast, T: Field>(
             zir::FieldElementExpression::Identifier(
                 flatten_identifier_rec(
                     f.fold_name(id),
-                    typed_absy::types::ConcreteType::FieldElement,
+                    &typed_absy::types::ConcreteType::FieldElement,
                 )[0]
                 .id
                 .clone(),
@@ -585,7 +632,7 @@ pub fn fold_boolean_expression<'ast, T: Field>(
     match e {
         typed_absy::BooleanExpression::Value(v) => zir::BooleanExpression::Value(v),
         typed_absy::BooleanExpression::Identifier(id) => zir::BooleanExpression::Identifier(
-            flatten_identifier_rec(f.fold_name(id), typed_absy::types::ConcreteType::Boolean)[0]
+            flatten_identifier_rec(f.fold_name(id), &typed_absy::types::ConcreteType::Boolean)[0]
                 .id
                 .clone(),
         ),
@@ -769,7 +816,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
         typed_absy::UExpressionInner::Identifier(id) => zir::UExpressionInner::Identifier(
             flatten_identifier_rec(
                 f.fold_name(id),
-                typed_absy::types::ConcreteType::Uint(bitwidth),
+                &typed_absy::types::ConcreteType::Uint(bitwidth),
             )[0]
             .id
             .clone(),
@@ -792,6 +839,18 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
             let right = f.fold_uint_expression(right);
 
             zir::UExpressionInner::Mult(box left, box right)
+        }
+        typed_absy::UExpressionInner::Div(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            zir::UExpressionInner::Div(box left, box right)
+        }
+        typed_absy::UExpressionInner::Rem(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            zir::UExpressionInner::Rem(box left, box right)
         }
         typed_absy::UExpressionInner::Xor(box left, box right) => {
             let left = f.fold_uint_expression(left);

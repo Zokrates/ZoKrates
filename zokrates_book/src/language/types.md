@@ -8,13 +8,15 @@ ZoKrates currently exposes two primitive types and two complex types:
 
 This is the most basic type in ZoKrates, and it represents a field element with positive integer values in `[0,  p - 1]` where `p` is a (large) prime number. Standard arithmetic operations are supported; note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
 
-As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](/reference/proving_schemes.html#alt_bn128) curve supported by Ethereum.
+As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](/toolbox/proving_schemes.html#alt_bn128) curve supported by Ethereum.
 
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2, so that we have:
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/field_overflow.zok}}
 ```
+
+Note that for field elements, the division operation multiplies the numerator with the denominator's inverse field element. The results coincide with integer divisions for cases with remainder 0, but differ otherwise.
 
 ### `bool`
 
@@ -27,6 +29,8 @@ Unsigned integers represent positive numbers of the interval `[0, 2 ** bitwidth[
 Internally, they use a binary encoding, which makes them particularly efficient for implementing programs that operate on that binary representation, e.g., the SHA256 hash function.
 
 Similarly to booleans, unsigned integer inputs of the main function only accept values of the appropriate range.
+
+The division operation calculates the standard floor division for integers. The `%` operand can be used to obtain the remainder.
 
 ### Numeric inference
 
@@ -44,7 +48,7 @@ ZoKrates provides two complex types: arrays and structs.
 
 ### Arrays
 
-ZoKrates supports static arrays, i.e., whose length needs to be known at compile time.
+ZoKrates supports static arrays, i.e., whose length needs to be known at compile time. For more details on generic array sizes, see [constant generics](/language/generics.html)
 Arrays can contain elements of any type and have arbitrary dimensions.
 
 The following example code shows examples of how to use arrays:

@@ -1,11 +1,11 @@
-use crate::solvers::Solver;
-use flat_absy::{
+use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
     FlatVariable,
 };
+use crate::solvers::Solver;
+use crate::typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
+use crate::typed_absy::TypedModuleId;
 use std::collections::HashMap;
-use typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
-use typed_absy::TypedModuleId;
 use zokrates_field::Field;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
@@ -30,25 +30,28 @@ impl FlatEmbed {
                 .outputs(vec![ConcreteType::FieldElement]),
             FlatEmbed::Unpack(bitwidth) => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::FieldElement])
-                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, *bitwidth)]),
+                .outputs(vec![ConcreteType::array((
+                    ConcreteType::Boolean,
+                    *bitwidth,
+                ))]),
             FlatEmbed::U8ToBits => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::uint(8)])
-                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 8usize)]),
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 8usize))]),
             FlatEmbed::U16ToBits => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::uint(16)])
-                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 16usize)]),
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 16usize))]),
             FlatEmbed::U32ToBits => ConcreteSignature::new()
                 .inputs(vec![ConcreteType::uint(32)])
-                .outputs(vec![ConcreteType::array(ConcreteType::Boolean, 32usize)]),
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 32usize))]),
             FlatEmbed::U8FromBits => ConcreteSignature::new()
                 .outputs(vec![ConcreteType::uint(8)])
-                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 8usize)]),
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 8usize))]),
             FlatEmbed::U16FromBits => ConcreteSignature::new()
                 .outputs(vec![ConcreteType::uint(16)])
-                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 16usize)]),
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 16usize))]),
             FlatEmbed::U32FromBits => ConcreteSignature::new()
                 .outputs(vec![ConcreteType::uint(32)])
-                .inputs(vec![ConcreteType::array(ConcreteType::Boolean, 32usize)]),
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 32usize))]),
         }
     }
 
@@ -88,7 +91,7 @@ fn use_variable(
 ) -> FlatVariable {
     let var = FlatVariable::new(*index);
     layout.insert(name, var);
-    *index = *index + 1;
+    *index += 1;
     var
 }
 
@@ -119,7 +122,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
 
     let directive_inputs = vec![FlatExpression::Identifier(use_variable(
         &mut layout,
-        format!("i0"),
+        "i0".into(),
         &mut counter,
     ))];
 
@@ -132,7 +135,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
     let outputs = directive_outputs
         .iter()
         .enumerate()
-        .map(|(_, o)| FlatExpression::Identifier(o.clone()))
+        .map(|(_, o)| FlatExpression::Identifier(*o))
         .collect::<Vec<_>>();
 
     // o253, o252, ... o{253 - (bit_width - 1)} are bits
@@ -172,7 +175,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
         FlatStatement::Directive(FlatDirective {
             inputs: directive_inputs,
             outputs: directive_outputs,
-            solver: solver,
+            solver,
         }),
     );
 

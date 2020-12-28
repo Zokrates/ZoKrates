@@ -1,26 +1,26 @@
 pub mod gm17;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
-use zexe_gm17::Proof;
-use zexe_gm17::{
+use ark_gm17::Proof;
+use ark_gm17::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
-    Parameters,
+    ProvingKey,
 };
 
 use crate::flat_absy::FlatVariable;
-use algebra_core::PairingEngine;
-use r1cs_core::{
+use ark_ec::PairingEngine;
+use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, LinearCombination,
     SynthesisError, Variable,
 };
 use std::collections::BTreeMap;
-use zokrates_field::{Field, ZexeFieldExtensions};
+use zokrates_field::{ArkFieldExtensions, Field};
 
 pub use self::parse::*;
 
 use rand_0_7::SeedableRng;
 
-pub struct Zexe;
+pub struct Ark;
 
 #[derive(Clone)]
 pub struct Computation<T> {
@@ -44,61 +44,52 @@ impl<T: Field> Computation<T> {
     }
 }
 
-fn zexe_combination<T: Field + ZexeFieldExtensions>(
+fn ark_combination<T: Field + ArkFieldExtensions>(
     l: CanonicalLinComb<T>,
-    cs: &mut ConstraintSystem<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>,
+    cs: &mut ConstraintSystem<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
     symbols: &mut BTreeMap<FlatVariable, Variable>,
     witness: &mut Witness<T>,
-) -> Result<
-    LinearCombination<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>,
-    SynthesisError,
-> {
-    let lc =
-        l.0.into_iter()
-            .map(|(k, v)| {
-                (
-                    v.into_zexe(),
-                    symbols
-                        .entry(k)
-                        .or_insert_with(|| {
-                            match k.is_output() {
-                                true => cs.new_input_variable(|| {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_zexe())
-                                }),
-                                false => cs.new_witness_variable(|| {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_zexe())
-                                }),
-                            }
-                            .unwrap()
-                        })
-                        .clone(),
-                )
-            })
-            .fold(LinearCombination::zero(), |acc, e| acc + e);
-
-    Ok(lc)
+) -> LinearCombination<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr> {
+    l.0.into_iter()
+        .map(|(k, v)| {
+            (
+                v.into_ark(),
+                *symbols.entry(k).or_insert_with(|| {
+                    match k.is_output() {
+                        true => cs.new_input_variable(|| {
+                            Ok(witness
+                                .0
+                                .remove(&k)
+                                .ok_or(SynthesisError::AssignmentMissing)?
+                                .into_ark())
+                        }),
+                        false => cs.new_witness_variable(|| {
+                            Ok(witness
+                                .0
+                                .remove(&k)
+                                .ok_or(SynthesisError::AssignmentMissing)?
+                                .into_ark())
+                        }),
+                    }
+                    .unwrap()
+                }),
+            )
+        })
+        .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field + ZexeFieldExtensions> Prog<T> {
+impl<T: Field + ArkFieldExtensions> Prog<T> {
     pub fn generate_constraints(
         self,
-        cs: ConstraintSystemRef<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>,
+        cs: ConstraintSystemRef<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
         witness: Option<Witness<T>>,
     ) -> Result<(), SynthesisError> {
         // mapping from IR variables
         let mut symbols = BTreeMap::new();
 
-        let mut witness = witness.unwrap_or(Witness::empty());
+        let mut witness = witness.unwrap_or_else(Witness::empty);
 
-        assert!(symbols.insert(FlatVariable::one(), ConstraintSystem::<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>::one()).is_none());
+        assert!(symbols.insert(FlatVariable::one(), ConstraintSystem::<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>::one()).is_none());
 
         match cs {
             ConstraintSystemRef::CS(rc) => {
@@ -116,48 +107,45 @@ impl<T: Field + ZexeFieldExtensions> Prog<T> {
                                         .0
                                         .remove(&var)
                                         .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_zexe())
+                                        .into_ark())
                                 }),
                                 false => cs.new_input_variable(|| {
                                     Ok(witness
                                         .0
                                         .remove(&var)
                                         .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_zexe())
+                                        .into_ark())
                                 }),
                             }
                             .unwrap();
-                            (var.clone(), wire)
+                            (*var, wire)
                         }),
                 );
 
                 let main = self.main;
 
                 for statement in main.statements {
-                    match statement {
-                        Statement::Constraint(quad, lin) => {
-                            let a = zexe_combination(
-                                quad.left.clone().into_canonical(),
-                                &mut cs,
-                                &mut symbols,
-                                &mut witness,
-                            )?;
-                            let b = zexe_combination(
-                                quad.right.clone().into_canonical(),
-                                &mut cs,
-                                &mut symbols,
-                                &mut witness,
-                            )?;
-                            let c = zexe_combination(
-                                lin.into_canonical(),
-                                &mut cs,
-                                &mut symbols,
-                                &mut witness,
-                            )?;
+                    if let Statement::Constraint(quad, lin) = statement {
+                        let a = ark_combination(
+                            quad.left.clone().into_canonical(),
+                            &mut cs,
+                            &mut symbols,
+                            &mut witness,
+                        );
+                        let b = ark_combination(
+                            quad.right.clone().into_canonical(),
+                            &mut cs,
+                            &mut symbols,
+                            &mut witness,
+                        );
+                        let c = ark_combination(
+                            lin.into_canonical(),
+                            &mut cs,
+                            &mut symbols,
+                            &mut witness,
+                        );
 
-                            cs.enforce_constraint(a, b, c)?;
-                        }
-                        _ => {}
+                        cs.enforce_constraint(a, b, c)?;
                     }
                 }
 
@@ -168,8 +156,8 @@ impl<T: Field + ZexeFieldExtensions> Prog<T> {
     }
 }
 
-impl<T: Field + ZexeFieldExtensions> Computation<T> {
-    pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine> {
+impl<T: Field + ArkFieldExtensions> Computation<T> {
+    pub fn prove(self, params: &ProvingKey<T::ArkEngine>) -> Proof<T::ArkEngine> {
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
@@ -184,15 +172,15 @@ impl<T: Field + ZexeFieldExtensions> Computation<T> {
         proof
     }
 
-    pub fn public_inputs_values(&self) -> Vec<<T::ZexeEngine as PairingEngine>::Fr> {
+    pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
         self.program
             .public_inputs(self.witness.as_ref().unwrap())
             .iter()
-            .map(|v| v.clone().into_zexe())
+            .map(|v| v.clone().into_ark())
             .collect()
     }
 
-    pub fn setup(self) -> Parameters<T::ZexeEngine> {
+    pub fn setup(self) -> ProvingKey<T::ArkEngine> {
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 
         // run setup phase
@@ -200,13 +188,13 @@ impl<T: Field + ZexeFieldExtensions> Computation<T> {
     }
 }
 
-impl<T: Field + ZexeFieldExtensions>
-    ConstraintSynthesizer<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>
+impl<T: Field + ArkFieldExtensions>
+    ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
     for Computation<T>
 {
     fn generate_constraints(
         self,
-        cs: ConstraintSystemRef<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>,
+        cs: ConstraintSystemRef<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
     ) -> Result<(), SynthesisError> {
         self.program.generate_constraints(cs, self.witness)
     }
@@ -214,11 +202,11 @@ impl<T: Field + ZexeFieldExtensions>
 
 mod parse {
     use super::*;
-    use algebra_core::ToBytes;
-    use proof_system::{Fr, G1Affine, G2Affine, G2AffineFq};
+    use crate::proof_system::{Fr, G1Affine, G2Affine, G2AffineFq};
+    use ark_ff::ToBytes;
 
-    pub fn parse_g1<T: Field + ZexeFieldExtensions>(
-        e: &<T::ZexeEngine as PairingEngine>::G1Affine,
+    pub fn parse_g1<T: Field + ArkFieldExtensions>(
+        e: &<T::ArkEngine as PairingEngine>::G1Affine,
     ) -> G1Affine {
         let mut bytes: Vec<u8> = Vec::new();
         e.write(&mut bytes).unwrap();
@@ -238,8 +226,8 @@ mod parse {
         )
     }
 
-    pub fn parse_g2<T: Field + ZexeFieldExtensions>(
-        e: &<T::ZexeEngine as PairingEngine>::G2Affine,
+    pub fn parse_g2<T: Field + ArkFieldExtensions>(
+        e: &<T::ArkEngine as PairingEngine>::G2Affine,
     ) -> G2Affine {
         let mut bytes: Vec<u8> = Vec::new();
         e.write(&mut bytes).unwrap();
@@ -268,8 +256,8 @@ mod parse {
         )
     }
 
-    pub fn parse_g2_fq<T: ZexeFieldExtensions>(
-        e: &<T::ZexeEngine as PairingEngine>::G2Affine,
+    pub fn parse_g2_fq<T: ArkFieldExtensions>(
+        e: &<T::ArkEngine as PairingEngine>::G2Affine,
     ) -> G2AffineFq {
         let mut bytes: Vec<u8> = Vec::new();
         e.write(&mut bytes).unwrap();
@@ -289,7 +277,7 @@ mod parse {
         )
     }
 
-    pub fn parse_fr<T: ZexeFieldExtensions>(e: &<T::ZexeEngine as PairingEngine>::Fr) -> Fr {
+    pub fn parse_fr<T: ArkFieldExtensions>(e: &<T::ArkEngine as PairingEngine>::Fr) -> Fr {
         let mut bytes: Vec<u8> = Vec::new();
         e.write(&mut bytes).unwrap();
         bytes.reverse();

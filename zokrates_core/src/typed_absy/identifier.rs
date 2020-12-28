@@ -71,9 +71,4 @@ impl<'ast> Identifier<'ast> {
         self.version = version;
         self
     }
-
-    // pub fn stack(mut self, stack: Vec<(TypedModuleId, ConcreteFunctionKey<'ast>, usize)>) -> Self {
-    //     self.stack = stack;
-    //     self
-    // }
 }

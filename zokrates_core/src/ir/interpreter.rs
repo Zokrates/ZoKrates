@@ -1,7 +1,8 @@
 use crate::flat_absy::flat_variable::FlatVariable;
+use crate::ir::Directive;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
-use ir::Directive;
-use solvers::Solver;
+use crate::solvers::Solver;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_field::Field;
@@ -33,13 +34,13 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &Vec<T>) -> ExecutionResult<T> {
+    pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &[T]) -> ExecutionResult<T> {
         let main = &program.main;
         self.check_inputs(&program, &inputs)?;
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
         for (arg, value) in main.arguments.iter().zip(inputs.iter()) {
-            witness.insert(arg.clone(), value.clone().into());
+            witness.insert(*arg, value.clone());
         }
 
         for statement in main.statements.iter() {
@@ -47,7 +48,7 @@ impl Interpreter {
                 Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
                     true => {
                         let val = quad.evaluate(&witness).unwrap();
-                        witness.insert(lin.0.iter().next().unwrap().0.clone(), val);
+                        witness.insert(lin.0.get(0).unwrap().0, val);
                     }
                     false => {
                         let lhs_value = quad.evaluate(&witness).unwrap();
@@ -78,7 +79,7 @@ impl Interpreter {
                             match self.execute_solver(&d.solver, &inputs) {
                                 Ok(res) => {
                                     for (i, o) in d.outputs.iter().enumerate() {
-                                        witness.insert(o.clone(), res[i].clone());
+                                        witness.insert(*o, res[i].clone());
                                     }
                                     continue;
                                 }
@@ -106,12 +107,12 @@ impl Interpreter {
             value.to_biguint()
         };
 
-        let mut num = input.clone();
+        let mut num = input;
         let mut res = vec![];
         let bits = T::get_required_bits();
         for i in (0..bits).rev() {
             if T::from(2).to_biguint().pow(i as usize) <= num {
-                num = num - T::from(2).to_biguint().pow(i as usize);
+                num -= T::from(2).to_biguint().pow(i as usize);
                 res.push(T::one());
             } else {
                 res.push(T::zero());
@@ -119,11 +120,11 @@ impl Interpreter {
         }
         assert_eq!(num, T::zero().to_biguint());
         for (i, o) in d.outputs.iter().enumerate() {
-            witness.insert(o.clone(), res[i].clone());
+            witness.insert(*o, res[i].clone());
         }
     }
 
-    fn check_inputs<T: Field, U>(&self, program: &Prog<T>, inputs: &Vec<U>) -> Result<(), Error> {
+    fn check_inputs<T: Field, U>(&self, program: &Prog<T>, inputs: &[U]) -> Result<(), Error> {
         if program.main.arguments.len() == inputs.len() {
             Ok(())
         } else {
@@ -134,14 +135,21 @@ impl Interpreter {
         }
     }
 
-    pub fn execute_solver<T: Field>(&self, s: &Solver, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-        let (expected_input_count, expected_output_count) = s.get_signature();
+    pub fn execute_solver<T: Field>(
+        &self,
+        solver: &Solver,
+        inputs: &[T],
+    ) -> Result<Vec<T>, String> {
+        let (expected_input_count, expected_output_count) = solver.get_signature();
         assert!(inputs.len() == expected_input_count);
 
-        let res = match s {
+        let res = match solver {
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
-                false => vec![T::one(), T::one() / inputs[0].clone()],
+                false => vec![
+                    T::one(),
+                    T::one().checked_div(&inputs[0]).unwrap_or_else(T::one),
+                ],
             },
             Solver::Bits(bit_width) => {
                 let mut num = inputs[0].clone();
@@ -183,7 +191,20 @@ impl Interpreter {
                 let c = inputs[2].clone();
                 vec![a * (b - c.clone()) + c]
             }
-            Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
+            Solver::Div => vec![inputs[0]
+                .clone()
+                .checked_div(&inputs[1])
+                .unwrap_or_else(T::one)],
+            Solver::EuclideanDiv => {
+                use num::CheckedDiv;
+
+                let n = inputs[0].clone().to_biguint();
+                let d = inputs[1].clone().to_biguint();
+
+                let q = n.checked_div(&d).unwrap_or_else(|| 0u32.into());
+                let r = n - d * &q;
+                vec![T::try_from(q).unwrap(), T::try_from(r).unwrap()]
+            }
         };
 
         assert_eq!(res.len(), expected_output_count);
@@ -192,24 +213,32 @@ impl Interpreter {
     }
 }
 
+#[derive(Debug)]
+pub struct EvaluationError;
+
 impl<T: Field> LinComb<T> {
-    fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, ()> {
+    fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, EvaluationError> {
         self.0
             .iter()
-            .map(|(var, mult)| witness.get(var).map(|v| v.clone() * mult).ok_or(())) // get each term
+            .map(|(var, mult)| {
+                witness
+                    .get(var)
+                    .map(|v| v.clone() * mult)
+                    .ok_or(EvaluationError)
+            }) // get each term
             .collect::<Result<Vec<_>, _>>() // fail if any term isn't found
             .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
     }
 
     fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
         self.0.iter().count() == 1
-            && self.0.iter().next().unwrap().1 == T::from(1)
-            && !witness.contains_key(&self.0.iter().next().unwrap().0)
+            && self.0.get(0).unwrap().1 == T::from(1)
+            && !witness.contains_key(&self.0.get(0).unwrap().0)
     }
 }
 
 impl<T: Field> QuadComb<T> {
-    pub fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, ()> {
+    pub fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, EvaluationError> {
         let left = self.left.evaluate(&witness)?;
         let right = self.right.evaluate(&witness)?;
         Ok(left * right)
@@ -270,7 +299,10 @@ mod tests {
             let r = interpreter
                 .execute_solver(
                     &cond_eq,
-                    &inputs.iter().map(|&i| Bn128Field::from(i)).collect(),
+                    &inputs
+                        .iter()
+                        .map(|&i| Bn128Field::from(i))
+                        .collect::<Vec<_>>(),
                 )
                 .unwrap();
             let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
@@ -285,7 +317,10 @@ mod tests {
             let r = interpreter
                 .execute_solver(
                     &cond_eq,
-                    &inputs.iter().map(|&i| Bn128Field::from(i)).collect(),
+                    &inputs
+                        .iter()
+                        .map(|&i| Bn128Field::from(i))
+                        .collect::<Vec<_>>(),
                 )
                 .unwrap();
             let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();

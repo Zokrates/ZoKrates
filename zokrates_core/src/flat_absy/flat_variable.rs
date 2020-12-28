@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -44,7 +45,7 @@ impl FlatVariable {
                 Ok(FlatVariable::public(v))
             }
             None => {
-                let mut private = s.split("_");
+                let mut private = s.split('_');
                 match private.nth(1) {
                     Some(v) => {
                         let v = v.parse().map_err(|_| s)?;

@@ -50,7 +50,9 @@ mod ast {
             Operator::new(Rule::op_left_shift, Assoc::Left)
                 | Operator::new(Rule::op_right_shift, Assoc::Left),
             Operator::new(Rule::op_add, Assoc::Left) | Operator::new(Rule::op_sub, Assoc::Left),
-            Operator::new(Rule::op_mul, Assoc::Left) | Operator::new(Rule::op_div, Assoc::Left),
+            Operator::new(Rule::op_mul, Assoc::Left)
+                | Operator::new(Rule::op_div, Assoc::Left)
+                | Operator::new(Rule::op_rem, Assoc::Left),
             Operator::new(Rule::op_pow, Assoc::Left),
         ])
     }
@@ -72,6 +74,7 @@ mod ast {
             Rule::op_sub => Expression::binary(BinaryOperator::Sub, lhs, rhs, span),
             Rule::op_mul => Expression::binary(BinaryOperator::Mul, lhs, rhs, span),
             Rule::op_div => Expression::binary(BinaryOperator::Div, lhs, rhs, span),
+            Rule::op_rem => Expression::binary(BinaryOperator::Rem, lhs, rhs, span),
             Rule::op_pow => Expression::binary(BinaryOperator::Pow, lhs, rhs, span),
             Rule::op_equal => Expression::binary(BinaryOperator::Eq, lhs, rhs, span),
             Rule::op_not_equal => Expression::binary(BinaryOperator::NotEq, lhs, rhs, span),
@@ -361,6 +364,7 @@ mod ast {
     #[pest_ast(rule(Rule::vis_private))]
     pub struct PrivateVisibility {}
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::statement))]
     pub enum Statement<'ast> {
@@ -420,6 +424,7 @@ mod ast {
         Sub,
         Mul,
         Div,
+        Rem,
         Eq,
         NotEq,
         Lt,
@@ -556,6 +561,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::access))]
     pub enum Access<'ast> {
@@ -848,7 +854,7 @@ impl fmt::Display for Error {
 }
 
 pub fn generate_ast(input: &str) -> Result<ast::File, Error> {
-    let parse_tree = parse(input).map_err(|e| Error(e))?;
+    let parse_tree = parse(input).map_err(Error)?;
     Ok(Prog::from(parse_tree).0)
 }
 

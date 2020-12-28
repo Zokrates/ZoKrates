@@ -1,5 +1,6 @@
+use crate::zir::ZirModuleId;
+use serde::{Deserialize, Serialize};
 use std::fmt;
-use zir::ZirModuleId;
 
 pub type Identifier<'ast> = &'ast str;
 
@@ -139,7 +140,7 @@ pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
+    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd, Default)]
     pub struct Signature {
         pub inputs: Vec<Type>,
         pub outputs: Vec<Type>,
@@ -199,12 +200,10 @@ pub mod signature {
                     let len = res.len();
                     if len == 0 {
                         res.push((1, t))
+                    } else if res[len - 1].1 == t {
+                        res[len - 1].0 += 1;
                     } else {
-                        if res[len - 1].1 == t {
-                            res[len - 1].0 += 1;
-                        } else {
-                            res.push((1, t))
-                        }
+                        res.push((1, t))
                     }
                 }
                 res.into_iter()
@@ -227,10 +226,7 @@ pub mod signature {
         }
 
         pub fn new() -> Signature {
-            Signature {
-                inputs: vec![],
-                outputs: vec![],
-            }
+            Signature::default()
         }
 
         pub fn inputs(mut self, inputs: Vec<Type>) -> Self {

@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate serde_derive;
 
-use std::path::PathBuf;
+use std::fs::File;
+use std::path::{Path, PathBuf};
 use zokrates_core::ir;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
@@ -92,12 +93,12 @@ pub fn test_inner(test_path: &str) {
     let t: Tests =
         serde_json::from_reader(BufReader::new(File::open(Path::new(test_path)).unwrap())).unwrap();
 
-    let curves = t.curves.clone().unwrap_or(vec![Curve::Bn128]);
+    let curves = t.curves.clone().unwrap_or_else(|| vec![Curve::Bn128]);
 
     let t = Tests {
         entry_point: Some(
             t.entry_point
-                .unwrap_or(PathBuf::from(String::from(test_path)).with_extension("zok")),
+                .unwrap_or_else(|| PathBuf::from(String::from(test_path)).with_extension("zok")),
         ),
         ..t
     };
@@ -123,17 +124,14 @@ fn compile_and_run<T: Field>(t: Tests) {
 
     let bin = artifacts.prog();
 
-    match t.max_constraint_count {
-        Some(target_count) => {
-            let count = bin.constraint_count();
+    if let Some(target_count) = t.max_constraint_count {
+        let count = bin.constraint_count();
 
-            println!(
-                "{} at {}% of max",
-                entry_point.display(),
-                (count as f32) / (target_count as f32) * 100_f32
-            );
-        }
-        _ => {}
+        println!(
+            "{} at {}% of max",
+            entry_point.display(),
+            (count as f32) / (target_count as f32) * 100_f32
+        );
     };
 
     let interpreter = zokrates_core::ir::Interpreter::default();
@@ -141,69 +139,25 @@ fn compile_and_run<T: Field>(t: Tests) {
     for test in t.tests.into_iter() {
         let input = &test.input.values;
 
-        let output = interpreter.execute(bin, &(input.iter().cloned().map(parse_val).collect()));
+        let output = interpreter.execute(
+            bin,
+            &(input.iter().cloned().map(parse_val).collect::<Vec<_>>()),
+        );
 
-        match compare(output, test.output) {
-            Err(e) => {
-                let mut code = File::open(&entry_point).unwrap();
-                let mut s = String::new();
-                code.read_to_string(&mut s).unwrap();
-                let context = format!(
-                    "\n{}\nCalled with input ({})\n",
-                    s,
-                    input
-                        .iter()
-                        .map(|i| format!("{}", i))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-                panic!("{}{}", context, e)
-            }
-            Ok(..) => {}
-        };
+        if let Err(e) = compare(output, test.output) {
+            let mut code = File::open(&entry_point).unwrap();
+            let mut s = String::new();
+            code.read_to_string(&mut s).unwrap();
+            let context = format!(
+                "\n{}\nCalled with input ({})\n",
+                s,
+                input
+                    .iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            panic!("{}{}", context, e)
+        }
     }
-}
-
-use std::env;
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::Path;
-
-pub fn write_tests(base: &str) {
-    use glob::glob;
-
-    let base = Path::new(&base);
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let destination = Path::new(&out_dir).join("tests.rs");
-    let test_file = File::create(&destination).unwrap();
-    let mut writer = BufWriter::new(test_file);
-
-    for p in glob(base.join("**/*.json").to_str().unwrap()).unwrap() {
-        write_test(&mut writer, &p.unwrap(), &base);
-    }
-}
-
-fn write_test<W: Write>(test_file: &mut W, test_path: &Path, base_path: &Path) {
-    println!("{:?}", test_path);
-    println!("{:?}", base_path);
-
-    let test_name = format!(
-        "test_{}",
-        test_path
-            .strip_prefix(base_path.strip_prefix("./").unwrap())
-            .unwrap()
-            .display()
-            .to_string()
-            .replace("/", "_")
-            .replace(".json", "")
-            .replace(".", "")
-    );
-
-    write!(
-        test_file,
-        include_str!("../test_template"),
-        test_name = test_name,
-        test_path = test_path.display()
-    )
-    .unwrap();
 }

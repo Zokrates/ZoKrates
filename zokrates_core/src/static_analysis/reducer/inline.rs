@@ -25,15 +25,16 @@
 // - The body of the function is in SSA form
 // - The return value(s) are assigned to internal variables
 
-use embed::FlatEmbed;
-use static_analysis::reducer::CallCache;
-use static_analysis::reducer::Output;
-use static_analysis::reducer::ShallowTransformer;
-use static_analysis::reducer::Versions;
-use typed_absy::CoreIdentifier;
-use typed_absy::Identifier;
-use typed_absy::TypedAssignee;
-use typed_absy::{
+use crate::embed::FlatEmbed;
+use crate::static_analysis::reducer::CallCache;
+use crate::static_analysis::reducer::Output;
+use crate::static_analysis::reducer::ShallowTransformer;
+use crate::static_analysis::reducer::Versions;
+use crate::typed_absy::types::ConcreteGenericsAssignment;
+use crate::typed_absy::CoreIdentifier;
+use crate::typed_absy::Identifier;
+use crate::typed_absy::TypedAssignee;
+use crate::typed_absy::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Signature,
     Type, TypedExpression, TypedFunction, TypedFunctionSymbol, TypedProgram, TypedStatement,
     Variable,
@@ -54,8 +55,6 @@ fn get_canonical_function<'ast, T: Field>(
     function_key: DeclarationFunctionKey<'ast>,
     program: &TypedProgram<'ast, T>,
 ) -> Result<(DeclarationFunctionKey<'ast>, TypedFunction<'ast, T>), FlatEmbed> {
-    println!("{:?}", function_key);
-
     match program
         .modules
         .get(&function_key.module)
@@ -71,6 +70,11 @@ fn get_canonical_function<'ast, T: Field>(
     }
 }
 
+type InlineResult<'ast, T> = Result<
+    Output<(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>), Vec<Versions<'ast>>>,
+    InlineError<'ast, T>,
+>;
+
 pub fn inline_call<'a, 'ast, T: Field>(
     k: DeclarationFunctionKey<'ast>,
     arguments: Vec<TypedExpression<'ast, T>>,
@@ -78,13 +82,10 @@ pub fn inline_call<'a, 'ast, T: Field>(
     program: &TypedProgram<'ast, T>,
     cache: &mut CallCache<'ast, T>,
     versions: &'a mut Versions<'ast>,
-) -> Result<
-    Output<(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>), Vec<Versions<'ast>>>,
-    InlineError<'ast, T>,
-> {
+) -> InlineResult<'ast, T> {
     use std::convert::TryFrom;
 
-    use typed_absy::Typed;
+    use crate::typed_absy::Typed;
 
     // we infer a signature based on inputs and outputs
     // this is where we could handle explicit annotations
@@ -95,7 +96,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     // we try to get concrete values for the whole signature. if this fails we should propagate again
     let inferred_signature = match ConcreteSignature::try_from(inferred_signature) {
         Ok(s) => s,
-        Err(()) => {
+        Err(_) => {
             return Err(InlineError::NonConstant(k, arguments, output_types));
         }
     };
@@ -105,7 +106,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     assert_eq!(f.arguments.len(), arguments.len());
 
     // get an assignment of generics for this call site
-    let assignment = decl_key
+    let assignment: ConcreteGenericsAssignment<'ast> = decl_key
         .signature
         .specialize(&inferred_signature)
         .map_err(|_| {
@@ -113,7 +114,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
                 decl_key.clone(),
                 ConcreteFunctionKey {
                     module: decl_key.module.clone(),
-                    id: decl_key.id.clone(),
+                    id: decl_key.id,
                     signature: inferred_signature.clone(),
                 },
             )
@@ -121,15 +122,12 @@ pub fn inline_call<'a, 'ast, T: Field>(
 
     let concrete_key = ConcreteFunctionKey {
         module: decl_key.module.clone(),
-        id: decl_key.id.clone(),
+        id: decl_key.id,
         signature: inferred_signature.clone(),
     };
 
-    match cache.get(&(concrete_key.clone(), arguments.clone())) {
-        Some(v) => {
-            return Ok(Output::Complete((vec![], v.clone())));
-        }
-        None => {}
+    if let Some(v) = cache.get(&(concrete_key.clone(), arguments.clone())) {
+        return Ok(Output::Complete((vec![], v.clone())));
     };
 
     let (ssa_f, incomplete_data) = match ShallowTransformer::transform(f, &assignment, versions) {
@@ -148,15 +146,14 @@ pub fn inline_call<'a, 'ast, T: Field>(
         .map(|(v, a)| TypedStatement::Definition(TypedAssignee::Identifier(v.into()), a))
         .collect();
 
-    let (statements, returns): (Vec<_>, Vec<_>) =
-        ssa_f.statements.into_iter().partition(|s| match s {
-            TypedStatement::Return(..) => false,
-            _ => true,
-        });
+    let (statements, mut returns): (Vec<_>, Vec<_>) = ssa_f
+        .statements
+        .into_iter()
+        .partition(|s| !matches!(s, TypedStatement::Return(..)));
 
     assert_eq!(returns.len(), 1);
 
-    let returns = match returns[0].clone() {
+    let returns = match returns.pop().unwrap() {
         TypedStatement::Return(e) => e,
         _ => unreachable!(),
     };

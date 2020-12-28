@@ -1,8 +1,8 @@
+use crate::typed_absy::types::Constant;
 use crate::typed_absy::GVariable;
 use std::fmt;
-use typed_absy::types::Constant;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct GParameter<'ast, S> {
     pub id: GVariable<'ast, S>,
     pub private: bool,

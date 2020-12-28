@@ -1,13 +1,13 @@
-use proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
-use proof_system::libsnark::{
+use crate::proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
+use crate::proof_system::libsnark::{
     prepare_generate_proof, prepare_public_inputs, prepare_setup, Libsnark,
 };
-use proof_system::{Backend, G1Affine, G2Affine, Proof, SetupKeypair};
+use crate::proof_system::{Backend, G1Affine, G2Affine, Proof, SetupKeypair};
 
-use ir::{Prog, Witness};
-use proof_system::libsnark::serialization::{read_g1, read_g2, write_g1, write_g2};
-use proof_system::pghr13::{ProofPoints, VerificationKey, PGHR13};
-use proof_system::Scheme;
+use crate::ir::{Prog, Witness};
+use crate::proof_system::libsnark::serialization::{read_g1, read_g2, write_g1, write_g2};
+use crate::proof_system::pghr13::{ProofPoints, VerificationKey, PGHR13};
+use crate::proof_system::Scheme;
 use std::io::{BufReader, BufWriter, Write};
 use zokrates_field::Bn128Field;
 use zokrates_field::Field;

@@ -111,7 +111,6 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
             .into_iter()
             .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
             .collect(),
-        ..p
     }
 }
 
@@ -302,6 +301,18 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             let right = f.fold_uint_expression(right);
 
             UExpressionInner::Mult(box left, box right)
+        }
+        UExpressionInner::Div(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            UExpressionInner::Div(box left, box right)
+        }
+        UExpressionInner::Rem(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            UExpressionInner::Rem(box left, box right)
         }
         UExpressionInner::Xor(box left, box right) => {
             let left = f.fold_uint_expression(left);

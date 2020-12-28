@@ -12,6 +12,7 @@
 	- [Control flow](language/control_flow.md)
 	- [Imports](language/imports.md)
 	- [Comments](language/comments.md)
+	- [Generics](language/generics.md)
 	- [Macros](language/macros.md)
 
 - [Toolbox](toolbox/index.md)
@@ -23,6 +24,6 @@
     - [JSON ABI](toolbox/abi.md)
 	- [zokrates.js](toolbox/zokrates_js.md)
 
-- [Tutorial: Proof of preimage](sha256example.md)
+- [Tutorial: A zkSNARK RNG](rng_tutorial.md)
 
 - [Testing](testing.md)

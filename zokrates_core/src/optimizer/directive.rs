@@ -12,7 +12,7 @@
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::*;
 use crate::ir::*;
-use solvers::Solver;
+use crate::solvers::Solver;
 use std::collections::hash_map::{Entry, HashMap};
 use zokrates_field::Field;
 
@@ -49,7 +49,7 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
                     }
                     Entry::Occupied(e) => {
                         self.substitution
-                            .extend(d.outputs.into_iter().zip(e.get().into_iter().cloned()));
+                            .extend(d.outputs.into_iter().zip(e.get().iter().cloned()));
                         vec![]
                     }
                 }

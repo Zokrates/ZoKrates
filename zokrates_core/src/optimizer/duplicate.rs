@@ -48,7 +48,7 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flat_absy::FlatVariable;
+    use crate::flat_absy::FlatVariable;
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -120,7 +120,7 @@ mod tests {
             main: Function {
                 id: "main".to_string(),
                 statements: vec![
-                    constraint.clone(),
+                    constraint,
                     Statement::Constraint(
                         QuadComb::from_linear_combinations(
                             LinComb::summand(3, FlatVariable::new(42)),

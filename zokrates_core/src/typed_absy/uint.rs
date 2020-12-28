@@ -1,34 +1,70 @@
-use typed_absy::types::UBitwidth;
-use typed_absy::*;
+use crate::typed_absy::types::UBitwidth;
+use crate::typed_absy::*;
+use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use zokrates_field::Field;
 
 type Bitwidth = usize;
 
-impl<'ast, T: Field> UExpression<'ast, T> {
-    pub fn add(self, other: Self) -> UExpression<'ast, T> {
+impl<'ast, T> Add for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn add(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Add(box self, box other).annotate(bitwidth)
     }
+}
 
-    pub fn sub(self, other: Self) -> UExpression<'ast, T> {
+impl<'ast, T> Sub for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Sub(box self, box other).annotate(bitwidth)
     }
+}
 
-    pub fn floor_sub(self, other: Self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        assert_eq!(bitwidth, other.bitwidth);
-        UExpressionInner::FloorSub(box self, box other).annotate(bitwidth)
-    }
+impl<'ast, T> Mul for UExpression<'ast, T> {
+    type Output = Self;
 
-    pub fn mult(self, other: Self) -> UExpression<'ast, T> {
+    fn mul(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Mult(box self, box other).annotate(bitwidth)
     }
+}
 
+impl<'ast, T> Div for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn div(self, other: Self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(bitwidth, other.bitwidth);
+        UExpressionInner::Div(box self, box other).annotate(bitwidth)
+    }
+}
+
+impl<'ast, T> Rem for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn rem(self, other: Self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(bitwidth, other.bitwidth);
+        UExpressionInner::Rem(box self, box other).annotate(bitwidth)
+    }
+}
+
+impl<'ast, T> Not for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn not(self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        UExpressionInner::Not(box self).annotate(bitwidth)
+    }
+}
+
+impl<'ast, T: Field> UExpression<'ast, T> {
     pub fn xor(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
@@ -47,11 +83,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::And(box self, box other).annotate(bitwidth)
     }
 
-    pub fn not(self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        UExpressionInner::Not(box self).annotate(bitwidth)
-    }
-
     pub fn left_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::LeftShift(box self, box by).annotate(bitwidth)
@@ -60,6 +91,12 @@ impl<'ast, T: Field> UExpression<'ast, T> {
     pub fn right_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::RightShift(box self, box by).annotate(bitwidth)
+    }
+
+    pub fn floor_sub(self, other: Self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(bitwidth, other.bitwidth);
+        UExpressionInner::FloorSub(box self, box other).annotate(bitwidth)
     }
 }
 
@@ -106,7 +143,16 @@ impl<'ast, T> From<u8> for UExpression<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
+    fn eq(&self, other: &usize) -> bool {
+        match self.as_inner() {
+            UExpressionInner::Value(v) => *v == *other as u128,
+            _ => true,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(u128),
@@ -114,6 +160,8 @@ pub enum UExpressionInner<'ast, T> {
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     FloorSub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Div(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Rem(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Xor(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
@@ -134,81 +182,6 @@ pub enum UExpressionInner<'ast, T> {
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-}
-
-impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.inner {
-            UExpressionInner::Value(ref v) => write!(f, "{}u{}", v, self.bitwidth),
-            UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
-            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
-            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
-            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
-            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
-            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
-            UExpressionInner::FloorSub(..) => unreachable!("FloorSub is internal only"),
-            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
-            UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
-            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
-            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
-            UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
-            UExpressionInner::FunctionCall(ref k, ref p) => {
-                write!(f, "{}(", k.id,)?;
-                for (i, param) in p.iter().enumerate() {
-                    write!(f, "{}", param)?;
-                    if i < p.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ")")
-            }
-            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
-            UExpressionInner::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
-        }
-    }
-}
-
-impl<'ast, T: fmt::Debug> fmt::Debug for UExpressionInner<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            UExpressionInner::Identifier(ref var) => write!(f, "Ide({})", var),
-            UExpressionInner::Value(ref i) => write!(f, "Num({:?})", i),
-            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
-            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
-            UExpressionInner::FloorSub(ref lhs, ref rhs) => {
-                write!(f, "FloorSub({:?}, {:?})", lhs, rhs)
-            }
-            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
-            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "IfElse({:?}, {:?}, {:?})",
-                condition, consequent, alternative
-            ),
-            UExpressionInner::Select(ref id, ref index) => {
-                write!(f, "Select({:?}, {:?})", id, index)
-            }
-            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),
-            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "Or({:?}, {:?})", lhs, rhs),
-            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "Xor({:?}, {:?})", lhs, rhs),
-            UExpressionInner::RightShift(ref e, ref by) => {
-                write!(f, "RightShift({:?}, {:?})", e, by)
-            }
-            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "LeftShift({:?}, {:?})", e, by),
-            UExpressionInner::Not(ref e) => write!(f, "Not({:?})", e),
-            UExpressionInner::FunctionCall(ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
-                f.debug_list().entries(p.iter()).finish()?;
-                write!(f, ")")
-            }
-            UExpressionInner::Member(ref struc, ref id) => {
-                write!(f, "Access({:?}, {:?})", struc, id)
-            }
-        }
-    }
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {

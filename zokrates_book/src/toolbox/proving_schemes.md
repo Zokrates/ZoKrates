@@ -44,7 +44,7 @@ ZoKrates supports multiple backends. The options are the following:
 | ---- | -------- | --------------- | ------ |
 | Bellman | `--backend bellman` | G16 | ALTBN_128, BLS12_381 |
 | Libsnark | `--backend libsnark` | GM17, PGHR13 | ALTBN_128 |
-| Zexe | `--backend zexe` | GM17 | ALTBN_128, BLS12_377, BW6_761 |
+| Ark | `--backend ark` | GM17 | ALTBN_128, BLS12_377, BW6_761 |
 
 Default: `bellman`
 

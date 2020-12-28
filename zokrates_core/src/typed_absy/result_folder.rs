@@ -1,7 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
+use crate::typed_absy::types::{ArrayType, StructMember, StructType};
 use crate::typed_absy::*;
-use typed_absy::types::{ArrayType, StructMember, StructType};
 use zokrates_field::Field;
 
 pub trait ResultFolder<'ast, T: Field>: Sized {
@@ -56,23 +56,38 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         use self::GType::*;
 
         match t {
-            Array(array_type) => Ok(Array(ArrayType {
-                ty: box self.fold_type(*array_type.ty)?,
-                size: self.fold_uint_expression(array_type.size)?,
-            })),
-            Struct(struct_type) => Ok(Struct(StructType {
-                members: struct_type
-                    .members
-                    .into_iter()
-                    .map(|m| {
-                        self.fold_type(*m.ty.clone())
-                            .map(|ty| StructMember { ty: box ty, ..m })
-                    })
-                    .collect::<Result<_, _>>()?,
-                ..struct_type
-            })),
+            Array(array_type) => Ok(Array(self.fold_array_type(array_type)?)),
+            Struct(struct_type) => Ok(Struct(self.fold_struct_type(struct_type)?)),
             t => Ok(t),
         }
+    }
+
+    fn fold_array_type(
+        &mut self,
+        t: ArrayType<'ast, T>,
+    ) -> Result<ArrayType<'ast, T>, Self::Error> {
+        Ok(ArrayType {
+            ty: box self.fold_type(*t.ty)?,
+            size: self.fold_uint_expression(t.size)?,
+        })
+    }
+
+    fn fold_struct_type(
+        &mut self,
+        t: StructType<'ast, T>,
+    ) -> Result<StructType<'ast, T>, Self::Error> {
+        Ok(StructType {
+            members: t
+                .members
+                .into_iter()
+                .map(|m| {
+                    let id = m.id;
+                    self.fold_type(*m.ty)
+                        .map(|ty| StructMember { ty: box ty, id })
+                })
+                .collect::<Result<_, _>>()?,
+            ..t
+        })
     }
 
     fn fold_declaration_type(
@@ -103,6 +118,29 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
         fold_statement(self, s)
+    }
+
+    fn fold_expression_or_spread(
+        &mut self,
+        e: TypedExpressionOrSpread<'ast, T>,
+    ) -> Result<TypedExpressionOrSpread<'ast, T>, Self::Error> {
+        Ok(match e {
+            TypedExpressionOrSpread::Expression(e) => {
+                TypedExpressionOrSpread::Expression(self.fold_expression(e)?)
+            }
+            TypedExpressionOrSpread::Spread(s) => {
+                TypedExpressionOrSpread::Spread(self.fold_spread(s)?)
+            }
+        })
+    }
+
+    fn fold_spread(
+        &mut self,
+        s: TypedSpread<'ast, T>,
+    ) -> Result<TypedSpread<'ast, T>, Self::Error> {
+        Ok(TypedSpread {
+            array: self.fold_array_expression(s.array)?,
+        })
     }
 
     fn fold_expression(
@@ -176,11 +214,10 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type<'ast, T>,
-        size: &UExpression<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
-        fold_array_expression_inner(self, ty, size, e)
+        fold_array_expression_inner(self, ty, e)
     }
     fn fold_struct_expression_inner(
         &mut self,
@@ -222,7 +259,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
         TypedStatement::MultipleDefinition(variables, elist) => TypedStatement::MultipleDefinition(
             variables
                 .into_iter()
-                .map(|v| f.fold_variable(v))
+                .map(|v| f.fold_assignee(v))
                 .collect::<Result<_, _>>()?,
             f.fold_expression_list(elist)?,
         ),
@@ -233,8 +270,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    _: &Type<'ast, T>,
-    _: &UExpression<'ast, T>,
+    _: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> Result<ArrayExpressionInner<'ast, T>, F::Error> {
     let e = match e {
@@ -242,7 +278,7 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
         ArrayExpressionInner::Value(exprs) => ArrayExpressionInner::Value(
             exprs
                 .into_iter()
-                .map(|e| f.fold_expression(e))
+                .map(|e| f.fold_expression_or_spread(e))
                 .collect::<Result<_, _>>()?,
         ),
         ArrayExpressionInner::FunctionCall(id, exps) => {
@@ -541,6 +577,18 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
             UExpressionInner::Mult(box left, box right)
         }
+        UExpressionInner::Div(box left, box right) => {
+            let left = f.fold_uint_expression(left)?;
+            let right = f.fold_uint_expression(right)?;
+
+            UExpressionInner::Div(box left, box right)
+        }
+        UExpressionInner::Rem(box left, box right) => {
+            let left = f.fold_uint_expression(left)?;
+            let right = f.fold_uint_expression(right)?;
+
+            UExpressionInner::Rem(box left, box right)
+        }
         UExpressionInner::Xor(box left, box right) => {
             let left = f.fold_uint_expression(left)?;
             let right = f.fold_uint_expression(right)?;
@@ -628,14 +676,11 @@ pub fn fold_array_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: ArrayExpression<'ast, T>,
 ) -> Result<ArrayExpression<'ast, T>, F::Error> {
-    let size = f.fold_uint_expression(e.size)?;
-    let ty = f.fold_type(e.ty)?;
+    let ty = f.fold_array_type(*e.ty)?;
 
     Ok(ArrayExpression {
-        inner: f.fold_array_expression_inner(&ty, &size, e.inner)?,
-        size,
-        ty,
-        ..e
+        inner: f.fold_array_expression_inner(&ty, e.inner)?,
+        ty: box ty,
     })
 }
 
