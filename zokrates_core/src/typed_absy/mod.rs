@@ -1629,6 +1629,19 @@ impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Clone> Select<'ast, T> for TypedExpression<'ast, T> {
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
+        match *array.get_array_type().ty {
+            Type::Array(..) => ArrayExpression::select(array, index).into(),
+            Type::Struct(..) => StructExpression::select(array, index).into(),
+            Type::FieldElement => FieldElementExpression::select(array, index).into(),
+            Type::Boolean => BooleanExpression::select(array, index).into(),
+            Type::Int => IntExpression::select(array, index).into(),
+            Type::Uint(..) => UExpression::select(array, index).into(),
+        }
+    }
+}
+
 impl<'ast, T: Clone> Select<'ast, T> for UExpression<'ast, T> {
     fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
         let bitwidth = match array.inner_type().clone() {

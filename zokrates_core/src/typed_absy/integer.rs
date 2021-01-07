@@ -66,11 +66,40 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 ))
             }
             (Array(lhs), Array(rhs)) => {
-                //if lhs.get_type() == rhs.get_type() {
-                Ok((Array(lhs), Array(rhs)))
-                //} else {
-                //    Err((Array(lhs), Array(rhs)))
-                //}
+                fn get_common_type<'a, T: Field>(
+                    t: Type<'a, T>,
+                    u: Type<'a, T>,
+                ) -> Result<Type<'a, T>, ()> {
+                    match (t, u) {
+                        (Type::Int, Type::Int) => Err(()),
+                        (Type::Int, u) => Ok(u),
+                        (t, Type::Int) => Ok(t),
+                        (Type::Array(t), Type::Array(u)) => Ok(Type::Array(ArrayType::new(
+                            get_common_type(*t.ty, *u.ty)?,
+                            t.size,
+                        ))),
+                        (t, _) => Ok(t),
+                    }
+                }
+
+                let common_type = get_common_type(lhs.get_type(), rhs.get_type())
+                    .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
+
+                let common_type = match common_type {
+                    Type::Array(t) => t,
+                    _ => unreachable!(),
+                };
+
+                println!("common type: {}", common_type);
+
+                Ok((
+                    ArrayExpression::try_from_int(lhs.clone(), common_type.clone())
+                        .map_err(|lhs| (lhs.clone(), rhs.clone().into()))?
+                        .into(),
+                    ArrayExpression::try_from_int(rhs, common_type)
+                        .map_err(|rhs| (lhs.clone().into(), rhs.clone()))?
+                        .into(),
+                ))
             }
             (Struct(lhs), Struct(rhs)) => {
                 if lhs.get_type() == rhs.get_type() {
@@ -286,7 +315,14 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                             .into_iter()
                             .map(|v| {
                                 TypedExpressionOrSpread::align_to_type(v, Type::FieldElement)
-                                    .map_err(|_| IntExpression::Value(unimplemented!()))
+                                    .map_err(|(e, _)| match e {
+                                        TypedExpressionOrSpread::Expression(e) => {
+                                            IntExpression::try_from(e).unwrap()
+                                        }
+                                        TypedExpressionOrSpread::Spread(a) => {
+                                            IntExpression::select(a.array, 0u32)
+                                        }
+                                    })
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         Ok(FieldElementExpression::select(
@@ -383,7 +419,14 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                             .into_iter()
                             .map(|v| {
                                 TypedExpressionOrSpread::align_to_type(v, Type::Uint(bitwidth))
-                                    .map_err(|_| IntExpression::Value(unimplemented!()))
+                                    .map_err(|(e, _)| match e {
+                                        TypedExpressionOrSpread::Expression(e) => {
+                                            IntExpression::try_from(e).unwrap()
+                                        }
+                                        TypedExpressionOrSpread::Spread(a) => {
+                                            IntExpression::select(a.array, 0u32)
+                                        }
+                                    })
                             })
                             .collect::<Result<Vec<_>, _>>()?;
                         Ok(UExpression::select(
@@ -419,33 +462,44 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
     ) -> Result<Self, TypedExpression<'ast, T>> {
         let array_ty = array.get_array_type();
 
-        if array_ty.weak_eq(&target_array_ty) {
-            return Ok(array);
-        }
-
         // elements must fit in the target type
-        let converted = match array.into_inner() {
+        match array.into_inner() {
             ArrayExpressionInner::Value(inline_array) => {
-                match *target_array_ty.ty.clone() {
+                let res = match *target_array_ty.ty.clone() {
                     Type::Int => Ok(inline_array),
                     t => {
                         // try to convert all elements to the target type
                         inline_array
                             .into_iter()
-                            .map(|e| {
-                                TypedExpressionOrSpread::align_to_type(e, t.clone())
-                                    .map_err(|_| IntExpression::Value(unimplemented!()))
+                            .map(|v| {
+                                TypedExpressionOrSpread::align_to_type(v, t.clone()).map_err(
+                                    |(e, _)| match e {
+                                        TypedExpressionOrSpread::Expression(e) => e,
+                                        TypedExpressionOrSpread::Spread(a) => {
+                                            TypedExpression::select(a.array, 0u32)
+                                        }
+                                    },
+                                )
                             })
                             .collect::<Result<Vec<_>, _>>()
                             .map(|v| v.into())
-                            .map_err(TypedExpression::from)
                     }
+                }?;
+
+                let inner_ty = res.0[0].get_type();
+
+                println!("inner type {}", inner_ty);
+
+                Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, array_ty.size))
+            }
+            a => {
+                if array_ty.ty.weak_eq(&target_array_ty.ty) {
+                    Ok(a.annotate(*array_ty.ty, array_ty.size))
+                } else {
+                    Err(a.annotate(*array_ty.ty, array_ty.size).into())
                 }
             }
-            _ => unreachable!(),
-        }?;
-
-        Ok(ArrayExpressionInner::Value(converted).annotate(*target_array_ty.ty, array_ty.size))
+        }
     }
 }
 
@@ -464,10 +518,11 @@ mod tests {
     fn field_from_int() {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![n.clone().into()]).annotate(Type::Int, 1u32);
+            ArrayExpressionInner::Value(vec![n.clone().into()].into()).annotate(Type::Int, 1u32);
         let t: FieldElementExpression<Bn128Field> = Bn128Field::from(42).into();
         let t_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![t.clone().into()]).annotate(Type::FieldElement, 1u32);
+            ArrayExpressionInner::Value(vec![t.clone().into()].into())
+                .annotate(Type::FieldElement, 1u32);
         let i: UExpression<Bn128Field> = 42u32.into();
         let s: FieldElementExpression<Bn128Field> = Bn128Field::from(0).into();
         let c: BooleanExpression<Bn128Field> = true.into();
@@ -524,10 +579,11 @@ mod tests {
     fn uint_from_int() {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![n.clone().into()]).annotate(Type::Int, 1u32);
+            ArrayExpressionInner::Value(vec![n.clone().into()].into()).annotate(Type::Int, 1u32);
         let t: UExpression<Bn128Field> = 42u32.into();
-        let t_a: ArrayExpression<Bn128Field> = ArrayExpressionInner::Value(vec![t.clone().into()])
-            .annotate(Type::Uint(UBitwidth::B32), 1u32);
+        let t_a: ArrayExpression<Bn128Field> =
+            ArrayExpressionInner::Value(vec![t.clone().into()].into())
+                .annotate(Type::Uint(UBitwidth::B32), 1u32);
         let i: UExpression<Bn128Field> = 0u32.into();
         let s: FieldElementExpression<Bn128Field> = Bn128Field::from(0).into();
         let c: BooleanExpression<Bn128Field> = true.into();

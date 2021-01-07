@@ -661,10 +661,13 @@ mod tests {
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::array("a", Type::FieldElement, 2u32)),
-                ArrayExpressionInner::Value(vec![
-                    FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                    FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                ])
+                ArrayExpressionInner::Value(
+                    vec![
+                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                    ]
+                    .into(),
+                )
                 .annotate(Type::FieldElement, 2u32)
                 .into(),
             );
@@ -677,10 +680,13 @@ mod tests {
                         Type::FieldElement,
                         2u32
                     )),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                        FieldElementExpression::Number(Bn128Field::from(1)).into()
-                    ])
+                    ArrayExpressionInner::Value(
+                        vec![
+                            FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                            FieldElementExpression::Number(Bn128Field::from(1)).into()
+                        ]
+                        .into()
+                    )
                     .annotate(Type::FieldElement, 2u32)
                     .into()
                 )]
@@ -722,20 +728,29 @@ mod tests {
                     "a",
                     array_of_array_ty.clone(),
                 )),
-                ArrayExpressionInner::Value(vec![
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(0)).into(),
-                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                    ])
-                    .annotate(Type::FieldElement, 2u32)
+                ArrayExpressionInner::Value(
+                    vec![
+                        ArrayExpressionInner::Value(
+                            vec![
+                                FieldElementExpression::Number(Bn128Field::from(0)).into(),
+                                FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                            ]
+                            .into(),
+                        )
+                        .annotate(Type::FieldElement, 2u32)
+                        .into(),
+                        ArrayExpressionInner::Value(
+                            vec![
+                                FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                                FieldElementExpression::Number(Bn128Field::from(3)).into(),
+                            ]
+                            .into(),
+                        )
+                        .annotate(Type::FieldElement, 2u32)
+                        .into(),
+                    ]
                     .into(),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                        FieldElementExpression::Number(Bn128Field::from(3)).into(),
-                    ])
-                    .annotate(Type::FieldElement, 2u32)
-                    .into(),
-                ])
+                )
                 .annotate(Type::array((Type::FieldElement, 2u32)), 2u32)
                 .into(),
             );
@@ -747,20 +762,29 @@ mod tests {
                         Identifier::from("a").version(0),
                         array_of_array_ty.clone(),
                     )),
-                    ArrayExpressionInner::Value(vec![
-                        ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::Number(Bn128Field::from(0)).into(),
-                            FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                        ])
-                        .annotate(Type::FieldElement, 2u32)
-                        .into(),
-                        ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                            FieldElementExpression::Number(Bn128Field::from(3)).into(),
-                        ])
-                        .annotate(Type::FieldElement, 2u32)
-                        .into(),
-                    ])
+                    ArrayExpressionInner::Value(
+                        vec![
+                            ArrayExpressionInner::Value(
+                                vec![
+                                    FieldElementExpression::Number(Bn128Field::from(0)).into(),
+                                    FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                                ]
+                                .into()
+                            )
+                            .annotate(Type::FieldElement, 2u32)
+                            .into(),
+                            ArrayExpressionInner::Value(
+                                vec![
+                                    FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                                    FieldElementExpression::Number(Bn128Field::from(3)).into(),
+                                ]
+                                .into()
+                            )
+                            .annotate(Type::FieldElement, 2u32)
+                            .into(),
+                        ]
+                        .into()
+                    )
                     .annotate(Type::array((Type::FieldElement, 2u32)), 2u32)
                     .into(),
                 )]
@@ -774,10 +798,13 @@ mod tests {
                     )),
                     box UExpression::from(1u32),
                 ),
-                ArrayExpressionInner::Value(vec![
-                    FieldElementExpression::Number(Bn128Field::from(4)).into(),
-                    FieldElementExpression::Number(Bn128Field::from(5)).into(),
-                ])
+                ArrayExpressionInner::Value(
+                    vec![
+                        FieldElementExpression::Number(Bn128Field::from(4)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(5)).into(),
+                    ]
+                    .into(),
+                )
                 .annotate(Type::FieldElement, 2u32)
                 .into(),
             );

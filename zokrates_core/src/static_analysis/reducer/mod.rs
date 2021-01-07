@@ -51,7 +51,7 @@ pub enum Output<U, V> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
-    Incompatible(String, String),
+    Incompatible(String),
     GenericsInMain,
     // TODO: give more details about what's blocking the progress
     NoProgress,
@@ -60,10 +60,10 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::Incompatible(decl, conc) => write!(
+            Error::Incompatible(s) => write!(
                 f,
-                "Call site `{}` incompatible with declaration `{}`",
-                conc, decl
+                "{}",
+                s
             ),
             Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
             Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds")
@@ -291,9 +291,11 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
                 Ok(expressions[0].clone().try_into().unwrap())
             }
-            Err(InlineError::Generic(decl, conc)) => {
-                Err(Error::Incompatible(decl.to_string(), conc.to_string()))
-            }
+            Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
+                "Call site `{}` incompatible with declaration `{}`",
+                decl.to_string(),
+                conc.to_string()
+            ))),
             Err(InlineError::NonConstant(key, arguments, mut output_types)) => {
                 self.complete = false;
 
@@ -384,9 +386,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             )
                             .collect())
                     }
-                    Err(InlineError::Generic(decl, conc)) => {
-                        Err(Error::Incompatible(decl.to_string(), conc.to_string()))
-                    }
+                    Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
+                        "Call site `{}` incompatible with declaration `{}`",
+                        decl.to_string(),
+                        conc.to_string()
+                    ))),
                     Err(InlineError::NonConstant(key, arguments, output_types)) => {
                         self.complete = false;
 
@@ -530,13 +534,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 let to = self.fold_uint_expression(to)?;
 
                 match (from.as_inner(), to.as_inner()) {
-                    (UExpressionInner::Value(from_v), UExpressionInner::Value(to_v)) => {
-                        // assert that the slice size is still synced with the slice type
-                        // see semantic checking where we store both values
-                        // assert_eq!(
-                        //     &UExpressionInner::Value(to_v.checked_sub(*from_v).unwrap_or(0)),
-                        //     ty.size.as_inner()
-                        // );
+                    (UExpressionInner::Value(..), UExpressionInner::Value(..)) => {
                         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
                     }
                     _ => {
@@ -639,18 +637,19 @@ fn reduce_function<'ast, T: Field>(
                     for_loop_versions,
                 );
 
-                let statements: Vec<TypedStatement<'ast, T>> = f
-                    .statements
-                    .into_iter()
-                    .map(|s| reducer.fold_statement(s))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .flatten()
-                    .collect();
+                let new_f = TypedFunction {
+                    statements: f
+                        .statements
+                        .into_iter()
+                        .map(|s| reducer.fold_statement(s))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flatten()
+                        .collect(),
+                    ..f
+                };
 
                 assert!(reducer.for_loop_versions.is_empty());
-
-                let new_f = TypedFunction { statements, ..f };
 
                 match reducer.complete {
                     true => {
@@ -658,7 +657,13 @@ fn reduce_function<'ast, T: Field>(
 
                         let new_f = Sub::new(&substitutions).fold_function(new_f);
 
-                        let new_f = Propagator::with_constants(&mut constants).fold_function(new_f);
+                        let new_f = Propagator::with_constants(&mut constants)
+                            .fold_function(new_f)
+                            .map_err(|e| match e {
+                                crate::static_analysis::propagation::Error::Type(e) => {
+                                    Error::Incompatible(e)
+                                }
+                            })?;
 
                         break Ok(new_f);
                     }
@@ -667,7 +672,13 @@ fn reduce_function<'ast, T: Field>(
 
                         let new_f = Sub::new(&substitutions).fold_function(new_f);
 
-                        f = Propagator::with_constants(&mut constants).fold_function(new_f);
+                        f = Propagator::with_constants(&mut constants)
+                            .fold_function(new_f)
+                            .map_err(|e| match e {
+                                crate::static_analysis::propagation::Error::Type(e) => {
+                                    Error::Incompatible(e)
+                                }
+                            })?;
 
                         let new_hash = Some(compute_hash(&f));
 
@@ -941,10 +952,9 @@ mod tests {
                 ),
                 TypedStatement::Definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpressionInner::Value(vec![FieldElementExpression::Identifier(
-                        "a".into(),
+                    ArrayExpressionInner::Value(
+                        vec![FieldElementExpression::Identifier("a".into()).into()].into(),
                     )
-                    .into()])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -1015,10 +1025,9 @@ mod tests {
             statements: vec![
                 TypedStatement::Definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpressionInner::Value(vec![FieldElementExpression::Identifier(
-                        "a".into(),
+                    ArrayExpressionInner::Value(
+                        vec![FieldElementExpression::Identifier("a".into()).into()].into(),
                     )
-                    .into()])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -1164,10 +1173,9 @@ mod tests {
                         .annotate(UBitwidth::B32),
                     )
                     .into(),
-                    ArrayExpressionInner::Value(vec![FieldElementExpression::Identifier(
-                        "a".into(),
+                    ArrayExpressionInner::Value(
+                        vec![FieldElementExpression::Identifier("a".into()).into()].into(),
                     )
-                    .into()])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -1238,10 +1246,9 @@ mod tests {
             statements: vec![
                 TypedStatement::Definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpressionInner::Value(vec![FieldElementExpression::Identifier(
-                        "a".into(),
+                    ArrayExpressionInner::Value(
+                        vec![FieldElementExpression::Identifier("a".into()).into()].into(),
                     )
-                    .into()])
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
@@ -1576,7 +1583,7 @@ mod tests {
                     TypedExpressionList::FunctionCall(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
-                        vec![ArrayExpressionInner::Value(vec![])
+                        vec![ArrayExpressionInner::Value(vec![].into())
                             .annotate(Type::FieldElement, 0u32)
                             .into()],
                         vec![Type::array((Type::FieldElement, 1u32))],
@@ -1617,24 +1624,7 @@ mod tests {
 
         assert_eq!(
             reduced,
-            Err(Error::Incompatible(
-                DeclarationFunctionKey::with_location("main", "foo")
-                    .signature(foo_signature.clone())
-                    .to_string(),
-                ConcreteFunctionKey::with_location("main", "foo")
-                    .signature(
-                        ConcreteSignature::new()
-                            .inputs(vec![ConcreteType::array((
-                                ConcreteType::FieldElement,
-                                0usize
-                            ))])
-                            .outputs(vec![ConcreteType::array((
-                                ConcreteType::FieldElement,
-                                1usize
-                            ))])
-                    )
-                    .to_string()
-            ))
+            Err(Error::Incompatible("Call site `main/foo(field[K]) -> field[K]` incompatible with declaration `main/foo(field[0]) -> field[1]`".into()))
         );
     }
 }

@@ -88,9 +88,9 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let fmt_error = |e: &CompileError| {
         let file = e.file().canonicalize().unwrap();
         format!(
-            "{}:{}",
+            "{}: {}",
             file.strip_prefix(std::env::current_dir().unwrap())
-                .unwrap_or(file.as_path())
+                .unwrap_or_else(|_| file.as_path())
                 .display(),
             e.value()
         )
@@ -146,7 +146,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             .map_err(|why| format!("Couldn't create {}: {}", hr_output_path.display(), why))?;
 
         let mut hrofb = BufWriter::new(hr_output_file);
-        write!(&mut hrofb, "{}\n", program_flattened)
+        writeln!(&mut hrofb, "{}", program_flattened)
             .map_err(|_| "Unable to write data to file".to_string())?;
         hrofb
             .flush()

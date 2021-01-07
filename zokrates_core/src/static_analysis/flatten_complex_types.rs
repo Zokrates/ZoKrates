@@ -434,7 +434,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             match (from.into_inner(), to.into_inner()) {
                 (zir::UExpressionInner::Value(from), zir::UExpressionInner::Value(to)) => {
-                    assert_eq!(size, to.checked_sub(from).unwrap_or(0) as usize);
+                    assert_eq!(size, to.saturating_sub(from) as usize);
 
                     let element_size = ty.get_primitive_count();
                     let start = from as usize * element_size;

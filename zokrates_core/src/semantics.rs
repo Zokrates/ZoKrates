@@ -2095,20 +2095,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Ok(BooleanExpression::BoolEq(box e1, box e2).into())
                     }
                     (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
-                        //if e1.get_type() == e2.get_type() {
                         Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
-                        // } else {
-                        //     Err(ErrorInner {
-                        //         pos: Some(pos),
-                        //         message: format!(
-                        //             "Cannot compare {} of type {} to {} of type {}",
-                        //             e1,
-                        //             e1.get_type(),
-                        //             e2,
-                        //             e2.get_type()
-                        //         ),
-                        //     })
-                        // }
                     }
                     (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
                         if e1.get_type() == e2.get_type() {
@@ -2270,13 +2257,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .value
                                     .from
                                     .map(|e| self.check_expression(e, module_id, &types))
-                                    .unwrap_or(Ok(UExpression::from(0u32).into()))?;
+                                    .unwrap_or_else(|| Ok(UExpression::from(0u32).into()))?;
 
                                 let to = r
                                     .value
                                     .to
                                     .map(|e| self.check_expression(e, module_id, &types))
-                                    .unwrap_or(Ok(array_size.clone().into()))?;
+                                    .unwrap_or_else(|| Ok(array_size.clone().into()))?;
 
                                 // check the bounds are field constants
                                 // Note: it would be nice to allow any field expression, and check it's a constant after constant propagation,
@@ -2343,29 +2330,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                                 })
                                             }?;
 
-                                match (from, to, array_size) {
-                                    // (f, _, s) if f > s => Err(ErrorInner {
-                                    //     pos: Some(pos),
-                                    //     message: format!(
-                                    //         "Lower range bound {} is out of array bounds [0, {}]",
-                                    //         f, s,
-                                    //     ),
-                                    // }),
-                                    // (_, t, s) if t > s => Err(ErrorInner {
-                                    //     pos: Some(pos),
-                                    //     message: format!(
-                                    //         "Higher range bound {} is out of array bounds [0, {}]",
-                                    //         t, s,
-                                    //     ),
-                                    // }),
-                                    (f, t, _) => Ok(ArrayExpressionInner::Slice(
-                                        box array,
-                                        box f.clone(),
-                                        box t.clone(),
-                                    )
-                                    .annotate(inner_type, UExpression::floor_sub(t, f))
-                                    .into()),
-                                }
+                                Ok(ArrayExpressionInner::Slice(
+                                    box array,
+                                    box from.clone(),
+                                    box to.clone(),
+                                )
+                                .annotate(inner_type, UExpression::floor_sub(to, from))
+                                .into())
                             }
                             e => Err(ErrorInner {
                                 pos: Some(pos),
@@ -2497,46 +2468,49 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .next()
                     .unwrap_or(Type::Int);
 
-                match inferred_type {
-                    Type::Int => {
-                        // no need to check the expressions have the same type, this is guaranteed above
-                        let size: UExpression<'ast, T> = expressions_or_spreads_checked
-                            .iter()
-                            .map(|e| e.size())
-                            .fold(0u32.into(), |acc, e| acc + e);
+                let unwrapped_expressions_or_spreads = match &inferred_type {
+                    Type::Int => expressions_or_spreads_checked,
+                    t => expressions_or_spreads_checked
+                        .into_iter()
+                        .map(|e| {
+                            TypedExpressionOrSpread::align_to_type(e, t.clone()).map_err(
+                                |(e, ty)| ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!("Expected {} to have type {}", e, ty,),
+                                },
+                            )
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                };
 
-                        Ok(
-                            ArrayExpressionInner::Value(expressions_or_spreads_checked.into())
-                                .annotate(Type::Int, size)
-                                .into(),
-                        )
-                    }
-                    t => {
-                        // we check all expressions have that same type
-                        let unwrapped_expressions_or_spreads = expressions_or_spreads_checked
-                            .into_iter()
-                            .map(|e| {
-                                TypedExpressionOrSpread::align_to_type(e, t.clone()).map_err(
-                                    |(e, ty)| ErrorInner {
-                                        pos: Some(pos),
-                                        message: format!("Expected {} to have type {}", e, ty,),
-                                    },
-                                )
-                            })
-                            .collect::<Result<Vec<_>, _>>()?;
+                // the size of the inline array is the sum of the size of its elements. However expressed as a u32 expression,
+                // this value can be an tree of height n in the worst case, with n the size of the array (if all elements are
+                // simple values and not spreads, 1 + 1 + 1 + ... 1)
+                // To avoid that, we compute 2 sizes: the sum of all non constant sizes as an u32 expression, and the
+                // sum of all non constant sizes as a u32 number. We then return the sum of the two as a u32 expression.
+                // `1 + 1 + ... + 1` is reduced to a single expression, which prevents this blowup
 
-                        let size: UExpression<'ast, T> = unwrapped_expressions_or_spreads
-                            .iter()
-                            .map(|e| e.size())
-                            .fold(0u32.into(), |acc, e| acc + e);
+                let size: UExpression<'ast, T> = unwrapped_expressions_or_spreads
+                    .iter()
+                    .map(|e| e.size())
+                    .fold(None, |acc, e| match acc {
+                        Some((c_acc, e_acc)) => match e.as_inner() {
+                            UExpressionInner::Value(e) => Some(((c_acc + *e as u32), e_acc)),
+                            _ => Some((c_acc, e_acc + e)),
+                        },
+                        None => match e.as_inner() {
+                            UExpressionInner::Value(e) => Some((*e as u32, 0u32.into())),
+                            _ => Some((0u32, e)),
+                        },
+                    })
+                    .map(|(c_size, e_size)| e_size + c_size.into())
+                    .unwrap_or_else(|| 0u32.into());
 
-                        Ok(
-                            ArrayExpressionInner::Value(unwrapped_expressions_or_spreads.into())
-                                .annotate(t, size)
-                                .into(),
-                        )
-                    }
-                }
+                Ok(
+                    ArrayExpressionInner::Value(unwrapped_expressions_or_spreads.into())
+                        .annotate(inferred_type, size)
+                        .into(),
+                )
             }
             Expression::ArrayInitializer(box e, box count) => {
                 let e = self.check_expression(e, module_id, &types)?;
@@ -2996,6 +2970,7 @@ mod tests {
                 .is_err());
 
             // [[0f], [0f, 0f]]
+            // accepted at this stage, as we do not check array lengths (as they can be variable)
             let a = Expression::InlineArray(vec![
                 Expression::InlineArray(vec![Expression::FieldConstant(BigUint::from(0u32))
                     .mock()
@@ -3012,7 +2987,7 @@ mod tests {
             .mock();
             assert!(Checker::<Bn128Field>::new()
                 .check_expression(a, &module_id, &types)
-                .is_err());
+                .is_ok());
 
             // [[0f], true]
             let a = Expression::InlineArray(vec![

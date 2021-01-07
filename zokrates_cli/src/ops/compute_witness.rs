@@ -126,8 +126,8 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                     a.map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
                         .collect::<Result<Vec<_>, _>>()
                 })
-                .unwrap_or(Ok(vec![]))
-                .map(|v| Inputs::Raw(v))
+                .unwrap_or_else(|| Ok(vec![]))
+                .map(Inputs::Raw)
         }
         // take stdin arguments
         true => {
@@ -140,7 +140,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                         use zokrates_abi::parse_strict;
 
                         parse_strict(&input, signature.inputs)
-                            .map(|parsed| Inputs::Abi(parsed))
+                            .map(Inputs::Abi)
                             .map_err(|why| why.to_string())
                     }
                     Err(_) => Err(String::from("???")),
@@ -151,10 +151,10 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                         Ok(_) => {
                             input.retain(|x| x != '\n');
                             input
-                                .split(" ")
+                                .split(' ')
                                 .map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
                                 .collect::<Result<Vec<_>, _>>()
-                                .map(|v| Inputs::Raw(v))
+                                .map(Inputs::Raw)
                         }
                         Err(_) => Err(String::from("???")),
                     },

@@ -160,8 +160,6 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
-    println!("flatten");
-
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
 
@@ -202,17 +200,11 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     let source = arena.alloc(source);
     let compiled = compile_program::<T, E>(source, location, resolver, &arena)?;
 
-    println!("check semantics");
-
     // check semantics
     let typed_ast = Checker::check(compiled)
         .map_err(|errors| CompileErrors(errors.into_iter().map(CompileError::from).collect()))?;
 
-    println!("checked");
-
     let main_module = typed_ast.main.clone();
-
-    println!("analyse");
 
     // analyse (unroll and constant propagation)
     typed_ast

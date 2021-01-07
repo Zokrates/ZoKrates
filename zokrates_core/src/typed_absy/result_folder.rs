@@ -7,6 +7,20 @@ use zokrates_field::Field;
 pub trait ResultFolder<'ast, T: Field>: Sized {
     type Error;
 
+    fn fold_program(
+        &mut self,
+        p: TypedProgram<'ast, T>,
+    ) -> Result<TypedProgram<'ast, T>, Self::Error> {
+        fold_program(self, p)
+    }
+
+    fn fold_module(
+        &mut self,
+        p: TypedModule<'ast, T>,
+    ) -> Result<TypedModule<'ast, T>, Self::Error> {
+        fold_module(self, p)
+    }
+
     fn fold_function_symbol(
         &mut self,
         s: TypedFunctionSymbol<'ast, T>,
@@ -723,4 +737,31 @@ pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
         TypedFunctionSymbol::Here(fun) => Ok(TypedFunctionSymbol::Here(f.fold_function(fun)?)),
         there => Ok(there), // by default, do not fold modules recursively
     }
+}
+
+pub fn fold_module<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    p: TypedModule<'ast, T>,
+) -> Result<TypedModule<'ast, T>, F::Error> {
+    Ok(TypedModule {
+        functions: p
+            .functions
+            .into_iter()
+            .map(|(key, fun)| f.fold_function_symbol(fun).map(|f| (key, f)))
+            .collect::<Result<_, _>>()?,
+    })
+}
+
+pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    p: TypedProgram<'ast, T>,
+) -> Result<TypedProgram<'ast, T>, F::Error> {
+    Ok(TypedProgram {
+        modules: p
+            .modules
+            .into_iter()
+            .map(|(module_id, module)| f.fold_module(module).map(|m| (module_id, m)))
+            .collect::<Result<_, _>>()?,
+        main: p.main,
+    })
 }

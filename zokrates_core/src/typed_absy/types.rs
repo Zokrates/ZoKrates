@@ -223,12 +223,25 @@ impl<S: fmt::Display> fmt::Display for GArrayType<S> {
     }
 }
 
-impl<'ast, T: PartialEq> ArrayType<'ast, T> {
-    // TODO this should be recursive
+impl<'ast, T: PartialEq + fmt::Display> Type<'ast, T> {
     // array type equality with non-strict size checks
     // sizes always match unless they are different constants
     pub fn weak_eq(&self, other: &Self) -> bool {
-        self.ty == other.ty
+        print!("{} weak eq {} ? -> ", self, other);
+
+        let res = match (self, other) {
+            (Type::Array(t), Type::Array(u)) => t.ty.weak_eq(&u.ty),
+            (Type::Struct(t), Type::Struct(u)) => t
+                .members
+                .iter()
+                .zip(u.members.iter())
+                .all(|(m, n)| m.ty.weak_eq(&n.ty)),
+            (t, u) => t == u,
+        };
+
+        println!("{}", res);
+
+        res
     }
 }
 

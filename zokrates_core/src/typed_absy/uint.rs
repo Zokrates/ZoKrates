@@ -11,7 +11,12 @@ impl<'ast, T> Add for UExpression<'ast, T> {
     fn add(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
-        UExpressionInner::Add(box self, box other).annotate(bitwidth)
+
+        match (self.as_inner(), other.as_inner()) {
+            (UExpressionInner::Value(0), _) => other,
+            (_, UExpressionInner::Value(0)) => self,
+            _ => UExpressionInner::Add(box self, box other).annotate(bitwidth),
+        }
     }
 }
 
