@@ -1549,8 +1549,6 @@ mod tests {
         // expected:
         // Error: Incompatible
 
-        use crate::typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
-
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
