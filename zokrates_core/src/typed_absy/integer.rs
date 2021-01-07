@@ -90,8 +90,6 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                     _ => unreachable!(),
                 };
 
-                println!("common type: {}", common_type);
-
                 Ok((
                     ArrayExpression::try_from_int(lhs.clone(), common_type.clone())
                         .map_err(|lhs| (lhs.clone(), rhs.clone().into()))?
@@ -487,8 +485,6 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                 }?;
 
                 let inner_ty = res.0[0].get_type();
-
-                println!("inner type {}", inner_ty);
 
                 Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, array_ty.size))
             }

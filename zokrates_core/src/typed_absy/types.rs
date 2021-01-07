@@ -227,9 +227,7 @@ impl<'ast, T: PartialEq + fmt::Display> Type<'ast, T> {
     // array type equality with non-strict size checks
     // sizes always match unless they are different constants
     pub fn weak_eq(&self, other: &Self) -> bool {
-        print!("{} weak eq {} ? -> ", self, other);
-
-        let res = match (self, other) {
+        match (self, other) {
             (Type::Array(t), Type::Array(u)) => t.ty.weak_eq(&u.ty),
             (Type::Struct(t), Type::Struct(u)) => t
                 .members
@@ -237,11 +235,7 @@ impl<'ast, T: PartialEq + fmt::Display> Type<'ast, T> {
                 .zip(u.members.iter())
                 .all(|(m, n)| m.ty.weak_eq(&n.ty)),
             (t, u) => t == u,
-        };
-
-        println!("{}", res);
-
-        res
+        }
     }
 }
 
