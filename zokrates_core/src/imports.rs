@@ -149,6 +149,18 @@ impl Importer {
             // handle the case of special bellman and packing imports
             if import.source.starts_with("EMBED") {
                 match import.source.to_str().unwrap() {
+                    #[cfg(feature = "bellman")]
+                    "EMBED/sha256round" => {
+                        let alias = alias.unwrap_or("sha256round");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::Sha256Round),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
                     "EMBED/unpack" => {
                         let alias = alias.unwrap_or("unpack");
 

@@ -1,5 +1,9 @@
+#[cfg(feature = "bellman")]
+use pairing_ce::bn256::Bn256;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+#[cfg(feature = "bellman")]
+use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
@@ -12,6 +16,7 @@ pub enum Solver {
     ShaAndXorAndXorAnd,
     ShaCh,
     EuclideanDiv,
+    #[cfg(feature = "bellman")]
     Sha256Round,
 }
 
@@ -32,6 +37,7 @@ impl Solver {
             Solver::ShaAndXorAndXorAnd => (3, 1),
             Solver::ShaCh => (3, 1),
             Solver::EuclideanDiv => (2, 2),
+            #[cfg(feature = "bellman")]
             Solver::Sha256Round => (768, 26935),
         }
     }
@@ -114,7 +120,28 @@ impl<T: Field> Executable<T> for Solver {
                 let r = n - d * &q;
                 vec![T::try_from(q).unwrap(), T::try_from(r).unwrap()]
             }
-            _ => unimplemented!(),
+            #[cfg(feature = "bellman")]
+            Solver::Sha256Round => {
+                let i = &inputs[0..512];
+                let h = &inputs[512..];
+                let to_fr = |x: &T| {
+                    use pairing_ce::ff::{PrimeField, ScalarEngine};
+                    let s = x.to_dec_string();
+                    <Bn256 as ScalarEngine>::Fr::from_str(&s).unwrap()
+                };
+                let i: Vec<_> = i.iter().map(|x| to_fr(x)).collect();
+                let h: Vec<_> = h.iter().map(|x| to_fr(x)).collect();
+                assert_eq!(h.len(), 256);
+                generate_sha256_round_witness::<Bn256>(&i, &h)
+                    .into_iter()
+                    .map(|x| {
+                        use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                        let mut res: Vec<u8> = vec![];
+                        x.into_repr().write_le(&mut res).unwrap();
+                        T::from_byte_vector(res)
+                    })
+                    .collect()
+            }
         };
 
         assert_eq!(res.len(), expected_output_count);
