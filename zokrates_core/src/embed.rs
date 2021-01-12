@@ -37,10 +37,10 @@ impl FlatEmbed {
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => Signature::new()
                 .inputs(vec![
-                    Type::array(Type::FieldElement, 512),
-                    Type::array(Type::FieldElement, 256),
+                    Type::array(Type::Boolean, 512),
+                    Type::array(Type::Boolean, 256),
                 ])
-                .outputs(vec![Type::array(Type::FieldElement, 256)]),
+                .outputs(vec![Type::array(Type::Boolean, 256)]),
             FlatEmbed::Unpack(bitwidth) => Signature::new()
                 .inputs(vec![Type::FieldElement])
                 .outputs(vec![Type::array(Type::Boolean, *bitwidth)]),
@@ -374,7 +374,7 @@ mod tests {
             let compiled = sha256_round::<Bn128Field>();
 
             // function should have 768 inputs
-            assert_eq!(compiled.arguments.len(), 768,);
+            assert_eq!(compiled.arguments.len(), 768);
 
             // function should return 256 values
             assert_eq!(
@@ -435,8 +435,9 @@ mod tests {
             };
 
             let input = (0..512)
-                .map(|_| Bn128Field::from(0))
-                .chain((0..256).map(|_| Bn128Field::from(1)))
+                .map(|_| 0)
+                .chain((0..256).map(|_| 1))
+                .map(|i| Bn128Field::from(i))
                 .collect();
 
             let interpreter = Interpreter::default();

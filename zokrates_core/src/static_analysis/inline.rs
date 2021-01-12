@@ -100,6 +100,14 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         // inline all calls in the main function, recursively
         let main = inliner.fold_function_symbol(main);
 
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "bellman")] {
+                // define a function in the main module for the `sha256` embed
+                let sha256_round = crate::embed::FlatEmbed::Sha256Round;
+                let sha256_round_key = sha256_round.key::<T>();
+            }
+        }
+
         // define a function in the main module for the `unpack` embed
         let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
         let unpack_key = unpack.key::<T>();
@@ -135,6 +143,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 "main".into(),
                 TypedModule {
                     functions: vec![
+                        #[cfg(feature = "bellman")]
+                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
                         (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
                         (u16_from_bits_key, TypedFunctionSymbol::Flat(u16_from_bits)),
