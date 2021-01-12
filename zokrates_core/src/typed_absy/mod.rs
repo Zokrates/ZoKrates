@@ -91,7 +91,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .arguments
                 .iter()
                 .map(|p| {
-                    types::ConcreteType::try_from(p.id._type.clone())
+                    types::OwnedType::try_from(p.id._type.clone())
                         .map(|ty| AbiInput {
                             public: !p.private,
                             name: p.id.id.to_string(),
@@ -104,7 +104,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .signature
                 .outputs
                 .iter()
-                .map(|ty| types::ConcreteType::try_from(ty.clone()).unwrap())
+                .map(|ty| types::OwnedType::try_from(ty.clone()).unwrap())
                 .collect(),
         }
     }
@@ -661,8 +661,20 @@ impl<'ast, T: fmt::Display> fmt::Display for StructExpression<'ast, T> {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            StructExpressionInner::FunctionCall(ref key, ref p) => {
-                write!(f, "{}(", key.id,)?;
+            StructExpressionInner::FunctionCall(ref key, ref generics, ref p) => {
+                write!(f, "{}", key.id,)?;
+                if let Some(generics) = generics {
+                    write!(
+                        f,
+                        "::<{}>",
+                        generics
+                            .iter()
+                            .map(|g| g.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, "(")?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -741,6 +753,7 @@ pub trait MultiTyped<'ast, T> {
 pub enum TypedExpressionList<'ast, T> {
     FunctionCall(
         DeclarationFunctionKey<'ast>,
+        Option<Vec<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
@@ -749,7 +762,7 @@ pub enum TypedExpressionList<'ast, T> {
 impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
     fn get_types(&self) -> &Vec<Type<'ast, T>> {
         match *self {
-            TypedExpressionList::FunctionCall(_, _, ref types) => types,
+            TypedExpressionList::FunctionCall(_, _, _, ref types) => types,
         }
     }
 }
@@ -784,7 +797,11 @@ pub enum FieldElementExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(
+        DeclarationFunctionKey<'ast>,
+        Option<Vec<UExpression<'ast, T>>>,
+        Vec<TypedExpression<'ast, T>>,
+    ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
@@ -886,7 +903,11 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
-    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(
+        DeclarationFunctionKey<'ast>,
+        Option<Vec<UExpression<'ast, T>>>,
+        Vec<TypedExpression<'ast, T>>,
+    ),
     Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
@@ -989,7 +1010,11 @@ impl<'ast, T> std::iter::FromIterator<TypedExpressionOrSpread<'ast, T>> for Arra
 pub enum ArrayExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(ArrayValue<'ast, T>),
-    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(
+        DeclarationFunctionKey<'ast>,
+        Option<Vec<UExpression<'ast, T>>>,
+        Vec<TypedExpression<'ast, T>>,
+    ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<ArrayExpression<'ast, T>>,
@@ -1092,7 +1117,11 @@ impl<'ast, T> StructExpression<'ast, T> {
 pub enum StructExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(Vec<TypedExpression<'ast, T>>),
-    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(
+        DeclarationFunctionKey<'ast>,
+        Option<Vec<UExpression<'ast, T>>>,
+        Vec<TypedExpression<'ast, T>>,
+    ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<StructExpression<'ast, T>>,
@@ -1197,8 +1226,20 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
                     condition, consequent, alternative
                 )
             }
-            FieldElementExpression::FunctionCall(ref k, ref p) => {
-                write!(f, "{}(", k.id,)?;
+            FieldElementExpression::FunctionCall(ref k, ref generics, ref p) => {
+                write!(f, "{}", k.id,)?;
+                if let Some(generics) = generics {
+                    write!(
+                        f,
+                        "::<{}>",
+                        generics
+                            .iter()
+                            .map(|g| g.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, "(")?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -1233,8 +1274,20 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
             UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
-            UExpressionInner::FunctionCall(ref k, ref p) => {
-                write!(f, "{}(", k.id,)?;
+            UExpressionInner::FunctionCall(ref k, ref generics, ref p) => {
+                write!(f, "{}", k.id,)?;
+                if let Some(generics) = generics {
+                    write!(
+                        f,
+                        "::<{}>",
+                        generics
+                            .iter()
+                            .map(|g| g.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, "(")?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -1274,8 +1327,20 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
-            BooleanExpression::FunctionCall(ref k, ref p) => {
-                write!(f, "{}(", k.id,)?;
+            BooleanExpression::FunctionCall(ref k, ref generics, ref p) => {
+                write!(f, "{}", k.id,)?;
+                if let Some(generics) = generics {
+                    write!(
+                        f,
+                        "::<{}>",
+                        generics
+                            .iter()
+                            .map(|g| g.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, "(")?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -1308,8 +1373,20 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            ArrayExpressionInner::FunctionCall(ref key, ref p) => {
-                write!(f, "{}(", key.id,)?;
+            ArrayExpressionInner::FunctionCall(ref key, ref generics, ref p) => {
+                write!(f, "{}", key.id,)?;
+                if let Some(generics) = generics {
+                    write!(
+                        f,
+                        "::<{}>",
+                        generics
+                            .iter()
+                            .map(|g| g.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, "(")?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -1383,8 +1460,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
             }
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "Not({:?})", exp),
-            BooleanExpression::FunctionCall(ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
+            BooleanExpression::FunctionCall(ref i, ref g, ref p) => {
+                write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
@@ -1418,8 +1495,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for FieldElementExpression<'ast, T> {
                     condition, consequent, alternative
                 )
             }
-            FieldElementExpression::FunctionCall(ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
+            FieldElementExpression::FunctionCall(ref i, ref g, ref p) => {
+                write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
@@ -1438,8 +1515,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ArrayExpressionInner<'ast, T> {
         match *self {
             ArrayExpressionInner::Identifier(ref var) => write!(f, "Identifier({:?})", var),
             ArrayExpressionInner::Value(ref values) => write!(f, "Value({:?})", values),
-            ArrayExpressionInner::FunctionCall(ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
+            ArrayExpressionInner::FunctionCall(ref i, ref g, ref p) => {
+                write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
@@ -1466,8 +1543,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for StructExpressionInner<'ast, T> {
         match *self {
             StructExpressionInner::Identifier(ref var) => write!(f, "{:?}", var),
             StructExpressionInner::Value(ref values) => write!(f, "{:?}", values),
-            StructExpressionInner::FunctionCall(ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
+            StructExpressionInner::FunctionCall(ref i, ref g, ref p) => {
+                write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
@@ -1491,8 +1568,20 @@ impl<'ast, T: fmt::Debug> fmt::Debug for StructExpressionInner<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedExpressionList::FunctionCall(ref key, ref p, _) => {
-                write!(f, "{}(", key.id,)?;
+            TypedExpressionList::FunctionCall(ref k, ref generics, ref p, _) => {
+                write!(f, "{}", k.id,)?;
+                if let Some(generics) = generics {
+                    write!(
+                        f,
+                        "::<{}>",
+                        generics
+                            .iter()
+                            .map(|g| g.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, "(")?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -1508,8 +1597,8 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedExpressionList::FunctionCall(ref i, ref p, _) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
+            TypedExpressionList::FunctionCall(ref i, ref g, ref p, _) => {
+                write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
@@ -1754,6 +1843,7 @@ impl<'ast, T: Clone> Member<'ast, T> for StructExpression<'ast, T> {
 pub trait FunctionCall<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
+        generics: Option<Vec<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_type: Type<'ast, T>,
     ) -> Self;
@@ -1762,28 +1852,31 @@ pub trait FunctionCall<'ast, T> {
 impl<'ast, T: Field> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
+        generics: Option<Vec<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_type: Type<'ast, T>,
     ) -> Self {
         assert_eq!(output_type, Type::FieldElement);
-        FieldElementExpression::FunctionCall(key, arguments)
+        FieldElementExpression::FunctionCall(key, generics, arguments)
     }
 }
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for BooleanExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
+        generics: Option<Vec<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_type: Type<'ast, T>,
     ) -> Self {
         assert_eq!(output_type, Type::Boolean);
-        BooleanExpression::FunctionCall(key, arguments)
+        BooleanExpression::FunctionCall(key, generics, arguments)
     }
 }
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for UExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
+        generics: Option<Vec<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_type: Type<'ast, T>,
     ) -> Self {
@@ -1791,13 +1884,14 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for UExpression<'ast, T> {
             Type::Uint(bitwidth) => bitwidth,
             _ => unreachable!(),
         };
-        UExpressionInner::FunctionCall(key, arguments).annotate(bitwidth)
+        UExpressionInner::FunctionCall(key, generics, arguments).annotate(bitwidth)
     }
 }
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
+        generics: Option<Vec<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_type: Type<'ast, T>,
     ) -> Self {
@@ -1805,13 +1899,15 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
             Type::Array(array_ty) => array_ty,
             _ => unreachable!(),
         };
-        ArrayExpressionInner::FunctionCall(key, arguments).annotate(*array_ty.ty, array_ty.size)
+        ArrayExpressionInner::FunctionCall(key, generics, arguments)
+            .annotate(*array_ty.ty, array_ty.size)
     }
 }
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
     fn function_call(
         key: DeclarationFunctionKey<'ast>,
+        generics: Option<Vec<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_type: Type<'ast, T>,
     ) -> Self {
@@ -1820,6 +1916,6 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
             _ => unreachable!(),
         };
 
-        StructExpressionInner::FunctionCall(key, arguments).annotate(struct_ty)
+        StructExpressionInner::FunctionCall(key, generics, arguments).annotate(struct_ty)
     }
 }

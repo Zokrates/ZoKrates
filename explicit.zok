@@ -1,0 +1,6 @@
+def foo<N>(field[N] x) -> field[N]:
+	return x
+
+def main(field[2] x) -> field[2]:
+	u32 P = 10
+	return foo::<P>(x)

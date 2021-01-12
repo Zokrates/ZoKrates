@@ -260,18 +260,31 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
     fn fold_function_call<E>(
         &mut self,
         key: DeclarationFunctionKey<'ast>,
+        generics: Option<Vec<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_types: Vec<Type<'ast, T>>,
     ) -> Result<E, Error>
     where
         E: FunctionCall<'ast, T> + TryFrom<TypedExpression<'ast, T>, Error = ()> + std::fmt::Debug,
     {
+        let generics = match generics {
+            Some(generics) => Some(
+                generics
+                    .into_iter()
+                    .map(|g| self.fold_uint_expression(g))
+                    .collect::<Result<_, _>>()?,
+            ),
+            None => None,
+        };
+
         let arguments = arguments
             .into_iter()
             .map(|e| self.fold_expression(e))
             .collect::<Result<_, _>>()?;
+
         let res = inline_call(
             key.clone(),
+            generics,
             arguments,
             output_types,
             &self.program,
@@ -296,16 +309,17 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                 decl.to_string(),
                 conc.to_string()
             ))),
-            Err(InlineError::NonConstant(key, arguments, mut output_types)) => {
+            Err(InlineError::NonConstant(key, generics, arguments, mut output_types)) => {
                 self.complete = false;
 
                 Ok(E::function_call(
                     key,
+                    generics,
                     arguments,
                     output_types.pop().unwrap(),
                 ))
             }
-            Err(InlineError::Flat(embed, arguments, output_types)) => {
+            Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                 let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
                     *self
                         .versions
@@ -322,6 +336,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                         v,
                         TypedExpressionList::FunctionCall(
                             embed.key_in_module::<T>(&self.program.main).into(),
+                            generics,
                             arguments,
                             output_types,
                         ),
@@ -342,8 +357,18 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         let res = match s {
             TypedStatement::MultipleDefinition(
                 v,
-                TypedExpressionList::FunctionCall(key, arguments, output_types),
+                TypedExpressionList::FunctionCall(key, generics, arguments, output_types),
             ) => {
+                let generics = match generics {
+                    Some(generics) => Some(
+                        generics
+                            .into_iter()
+                            .map(|g| self.fold_uint_expression(g))
+                            .collect::<Result<_, _>>()?,
+                    ),
+                    None => None,
+                };
+
                 let arguments = arguments
                     .into_iter()
                     .map(|a| self.fold_expression(a))
@@ -351,6 +376,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 match inline_call(
                     key,
+                    generics,
                     arguments,
                     output_types,
                     &self.program,
@@ -391,19 +417,25 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         decl.to_string(),
                         conc.to_string()
                     ))),
-                    Err(InlineError::NonConstant(key, arguments, output_types)) => {
+                    Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
                         self.complete = false;
 
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionList::FunctionCall(key, arguments, output_types),
+                            TypedExpressionList::FunctionCall(
+                                key,
+                                generics,
+                                arguments,
+                                output_types,
+                            ),
                         )])
                     }
-                    Err(InlineError::Flat(embed, arguments, output_types)) => {
+                    Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
                             TypedExpressionList::FunctionCall(
                                 embed.key_in_module::<T>(&self.program.main).into(),
+                                generics,
                                 arguments,
                                 output_types,
                             ),
@@ -484,8 +516,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         e: BooleanExpression<'ast, T>,
     ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
         match e {
-            BooleanExpression::FunctionCall(key, arguments) => {
-                self.fold_function_call(key, arguments, vec![Type::Boolean])
+            BooleanExpression::FunctionCall(key, generics, arguments) => {
+                self.fold_function_call(key, generics, arguments, vec![Type::Boolean])
             }
             e => fold_boolean_expression(self, e),
         }
@@ -496,9 +528,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         e: UExpression<'ast, T>,
     ) -> Result<UExpression<'ast, T>, Self::Error> {
         match e.as_inner() {
-            UExpressionInner::FunctionCall(key, arguments) => {
-                self.fold_function_call(key.clone(), arguments.clone(), vec![e.get_type()])
-            }
+            UExpressionInner::FunctionCall(key, generics, arguments) => self.fold_function_call(
+                key.clone(),
+                generics.clone(),
+                arguments.clone(),
+                vec![e.get_type()],
+            ),
             _ => fold_uint_expression(self, e),
         }
     }
@@ -508,8 +543,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
         match e {
-            FieldElementExpression::FunctionCall(key, arguments) => {
-                self.fold_function_call(key, arguments, vec![Type::FieldElement])
+            FieldElementExpression::FunctionCall(key, generic, arguments) => {
+                self.fold_function_call(key, generic, arguments, vec![Type::FieldElement])
             }
             e => fold_field_expression(self, e),
         }
@@ -521,9 +556,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
-            ArrayExpressionInner::FunctionCall(key, arguments) => self
+            ArrayExpressionInner::FunctionCall(key, generics, arguments) => self
                 .fold_function_call::<ArrayExpression<_>>(
                     key.clone(),
+                    generics,
                     arguments.clone(),
                     vec![Type::array(ty.clone())],
                 )
@@ -552,9 +588,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         e: StructExpression<'ast, T>,
     ) -> Result<StructExpression<'ast, T>, Self::Error> {
         match e.as_inner() {
-            StructExpressionInner::FunctionCall(key, arguments) => {
-                self.fold_function_call(key.clone(), arguments.clone(), vec![e.get_type()])
-            }
+            StructExpressionInner::FunctionCall(key, generics, arguments) => self
+                .fold_function_call(
+                    key.clone(),
+                    generics.clone(),
+                    arguments.clone(),
+                    vec![e.get_type()],
+                ),
             _ => fold_struct_expression(self, e),
         }
     }

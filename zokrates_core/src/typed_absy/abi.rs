@@ -1,15 +1,15 @@
-use crate::typed_absy::types::{ConcreteSignature, ConcreteType};
+use crate::typed_absy::types::{OwnedSignature, OwnedType};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct AbiInput {
     pub name: String,
     pub public: bool,
     #[serde(flatten)]
-    pub ty: ConcreteType,
+    pub ty: OwnedType,
 }
 
-pub type AbiOutput = ConcreteType;
+pub type AbiOutput = OwnedType;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Abi {
@@ -18,8 +18,9 @@ pub struct Abi {
 }
 
 impl Abi {
-    pub fn signature(&self) -> ConcreteSignature {
-        ConcreteSignature {
+    pub fn signature(&self) -> OwnedSignature {
+        OwnedSignature {
+            generics: vec![],
             inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
             outputs: self.outputs.clone(),
         }

@@ -17,6 +17,30 @@ pub enum Constant<'ast> {
     Concrete(u32),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OwnedConstant {
+    Generic(String),
+    Concrete(u32),
+}
+
+impl fmt::Display for OwnedConstant {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            OwnedConstant::Generic(s) => write!(f, "{}", s),
+            OwnedConstant::Concrete(c) => write!(f, "{}", c),
+        }
+    }
+}
+
+impl<'ast> From<Constant<'ast>> for OwnedConstant {
+    fn from(c: Constant<'ast>) -> OwnedConstant {
+        match c {
+            Constant::Generic(i) => OwnedConstant::Generic(i.into()),
+            Constant::Concrete(c) => OwnedConstant::Concrete(c),
+        }
+    }
+}
+
 // At this stage we want all constants to be equal
 impl<'ast> PartialEq for Constant<'ast> {
     fn eq(&self, _: &Self) -> bool {
@@ -124,6 +148,7 @@ pub struct GStructMember<S> {
 }
 
 pub type DeclarationStructMember<'ast> = GStructMember<Constant<'ast>>;
+pub type OwnedStructMember = GStructMember<OwnedConstant>;
 pub type ConcreteStructMember = GStructMember<usize>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
@@ -150,11 +175,9 @@ impl<'ast, T> TryFrom<StructMember<'ast, T>> for ConcreteStructMember {
     }
 }
 
-impl<'ast> TryFrom<DeclarationStructMember<'ast>> for ConcreteStructMember {
-    type Error = SpecializationError;
-
-    fn try_from(t: DeclarationStructMember<'ast>) -> Result<Self, Self::Error> {
-        try_from_g_struct_member(t)
+impl<'ast> From<DeclarationStructMember<'ast>> for OwnedStructMember {
+    fn from(t: DeclarationStructMember<'ast>) -> Self {
+        try_from_g_struct_member(t).unwrap()
     }
 }
 
@@ -184,6 +207,7 @@ pub struct GArrayType<S> {
 }
 
 pub type DeclarationArrayType<'ast> = GArrayType<Constant<'ast>>;
+pub type OwnedArrayType = GArrayType<OwnedConstant>;
 pub type ConcreteArrayType = GArrayType<usize>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
@@ -256,11 +280,9 @@ impl<'ast, T> TryFrom<ArrayType<'ast, T>> for ConcreteArrayType {
     }
 }
 
-impl<'ast> TryFrom<DeclarationArrayType<'ast>> for ConcreteArrayType {
-    type Error = SpecializationError;
-
-    fn try_from(t: DeclarationArrayType<'ast>) -> Result<Self, Self::Error> {
-        try_from_g_array_type(t)
+impl<'ast> From<DeclarationArrayType<'ast>> for OwnedArrayType {
+    fn from(t: DeclarationArrayType<'ast>) -> Self {
+        try_from_g_array_type(t).unwrap()
     }
 }
 
@@ -299,6 +321,7 @@ pub struct GStructType<S> {
 }
 
 pub type DeclarationStructType<'ast> = GStructType<Constant<'ast>>;
+pub type OwnedStructType = GStructType<OwnedConstant>;
 pub type ConcreteStructType = GStructType<usize>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
@@ -338,11 +361,9 @@ impl<'ast, T> TryFrom<StructType<'ast, T>> for ConcreteStructType {
     }
 }
 
-impl<'ast> TryFrom<DeclarationStructType<'ast>> for ConcreteStructType {
-    type Error = SpecializationError;
-
-    fn try_from(t: DeclarationStructType<'ast>) -> Result<Self, Self::Error> {
-        try_from_g_struct_type(t)
+impl<'ast> From<DeclarationStructType<'ast>> for OwnedStructType {
+    fn from(t: DeclarationStructType<'ast>) -> Self {
+        try_from_g_struct_type(t).unwrap()
     }
 }
 
@@ -542,8 +563,32 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
 }
 
 pub type DeclarationType<'ast> = GType<Constant<'ast>>;
+pub type OwnedType = GType<OwnedConstant>;
 pub type ConcreteType = GType<usize>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
+
+impl OwnedType {
+    // the number of field elements the type maps to
+    // this will panic if the type has generic parameters
+    pub fn get_primitive_count(&self) -> usize {
+        match self {
+            GType::FieldElement => 1,
+            GType::Boolean => 1,
+            GType::Uint(_) => 1,
+            GType::Array(array_type) => match array_type.size {
+                OwnedConstant::Concrete(size) => {
+                    size as usize * array_type.ty.get_primitive_count()
+                }
+                _ => unreachable!(),
+            },
+            GType::Int => unreachable!(),
+            GType::Struct(struct_type) => struct_type
+                .iter()
+                .map(|member| member.ty.get_primitive_count())
+                .sum(),
+        }
+    }
+}
 
 impl<'ast, T: PartialEq> PartialEq<DeclarationType<'ast>> for Type<'ast, T> {
     fn eq(&self, other: &DeclarationType<'ast>) -> bool {
@@ -578,11 +623,9 @@ impl<'ast, T> TryFrom<Type<'ast, T>> for ConcreteType {
     }
 }
 
-impl<'ast> TryFrom<DeclarationType<'ast>> for ConcreteType {
-    type Error = SpecializationError;
-
-    fn try_from(t: DeclarationType<'ast>) -> Result<Self, Self::Error> {
-        try_from_g_type(t)
+impl<'ast> From<DeclarationType<'ast>> for OwnedType {
+    fn from(t: DeclarationType<'ast>) -> Self {
+        try_from_g_type(t).unwrap()
     }
 }
 
@@ -806,13 +849,13 @@ impl<'ast, T> TryFrom<FunctionKey<'ast, T>> for ConcreteFunctionKey<'ast> {
     }
 }
 
-impl<'ast> TryFrom<DeclarationFunctionKey<'ast>> for ConcreteFunctionKey<'ast> {
-    type Error = SpecializationError;
+// impl<'ast> TryFrom<DeclarationFunctionKey<'ast>> for ConcreteFunctionKey<'ast> {
+//     type Error = SpecializationError;
 
-    fn try_from(k: DeclarationFunctionKey<'ast>) -> Result<Self, Self::Error> {
-        try_from_g_function_key(k)
-    }
-}
+//     fn try_from(k: DeclarationFunctionKey<'ast>) -> Result<Self, Self::Error> {
+//         try_from_g_function_key(k)
+//     }
+// }
 
 impl<'ast, T> From<ConcreteFunctionKey<'ast>> for FunctionKey<'ast, T> {
     fn from(k: ConcreteFunctionKey<'ast>) -> Self {
@@ -871,7 +914,9 @@ impl<'ast> ConcreteFunctionKey<'ast> {
     }
 }
 
-pub use self::signature::{ConcreteSignature, DeclarationSignature, GSignature, Signature};
+pub use self::signature::{
+    ConcreteSignature, DeclarationSignature, GSignature, OwnedSignature, Signature,
+};
 
 pub mod signature {
     use super::*;
@@ -879,6 +924,7 @@ pub mod signature {
 
     #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct GSignature<S> {
+        pub generics: Vec<Option<S>>,
         pub inputs: Vec<GType<S>>,
         pub outputs: Vec<GType<S>>,
     }
@@ -886,6 +932,7 @@ pub mod signature {
     impl<S> Default for GSignature<S> {
         fn default() -> Self {
             GSignature {
+                generics: vec![],
                 inputs: vec![],
                 outputs: vec![],
             }
@@ -893,6 +940,7 @@ pub mod signature {
     }
 
     pub type DeclarationSignature<'ast> = GSignature<Constant<'ast>>;
+    pub type OwnedSignature = GSignature<OwnedConstant>;
     pub type ConcreteSignature = GSignature<usize>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
@@ -984,10 +1032,17 @@ pub mod signature {
     impl<'ast> DeclarationSignature<'ast> {
         pub fn specialize(
             &self,
+            //generics: Vec<GenericIdentifier<'ast>>,
             signature: &ConcreteSignature,
+            //concrete_generics: Option<Vec<u32>>,
         ) -> Result<ConcreteGenericsAssignment<'ast>, SpecializationError> {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = ConcreteGenericsAssignment::default();
+
+            // if let Some(values) = concrete_generics {
+            //     assert_eq!(values.len(), generics.len());
+            //     constants.extend(generics.into_iter().zip(values.into_iter()));
+            // }
 
             let condition = self
                 .inputs
@@ -1029,6 +1084,17 @@ pub mod signature {
         t: GSignature<T>,
     ) -> Result<GSignature<U>, SpecializationError> {
         Ok(GSignature {
+            generics: t
+                .generics
+                .into_iter()
+                .map(|g| match g {
+                    Some(g) => g
+                        .try_into()
+                        .map(|g| Some(g))
+                        .map_err(|_| SpecializationError),
+                    None => Ok(None),
+                })
+                .collect::<Result<_, _>>()?,
             inputs: t
                 .inputs
                 .into_iter()
@@ -1050,11 +1116,9 @@ pub mod signature {
         }
     }
 
-    impl<'ast> TryFrom<DeclarationSignature<'ast>> for ConcreteSignature {
-        type Error = SpecializationError;
-
-        fn try_from(s: DeclarationSignature<'ast>) -> Result<Self, Self::Error> {
-            try_from_g_signature(s)
+    impl<'ast> From<DeclarationSignature<'ast>> for OwnedSignature {
+        fn from(s: DeclarationSignature<'ast>) -> Self {
+            try_from_g_signature(s).unwrap()
         }
     }
 

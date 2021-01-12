@@ -90,6 +90,13 @@ impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
         let span = function.span;
 
         let signature = absy::UnresolvedSignature::new()
+            .generics(
+                function
+                    .generics
+                    .into_iter()
+                    .map(absy::ConstantGenericNode::from)
+                    .collect(),
+            )
             .inputs(
                 function
                     .parameters
@@ -110,11 +117,6 @@ impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
         let id = function.id.span.as_str();
 
         let function = absy::Function {
-            generics: function
-                .generics
-                .into_iter()
-                .map(absy::ConstantGenericNode::from)
-                .collect(),
             arguments: function
                 .parameters
                 .into_iter()
@@ -535,7 +537,15 @@ impl<'ast> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<'ast> {
             pest::Access::Call(a) => match acc.value {
                 absy::Expression::Identifier(_) => absy::Expression::FunctionCall(
                     &id_str,
-                    a.expressions
+                    a.explicit_generics.map(|explicit_generics| {
+                        explicit_generics
+                            .identifiers
+                            .into_iter()
+                            .map(|i| absy::Expression::Identifier(i.span.as_str()).span(i.span))
+                            .collect()
+                    }),
+                    a.arguments
+                        .expressions
                         .into_iter()
                         .map(absy::ExpressionNode::from)
                         .collect(),
@@ -1091,7 +1101,11 @@ mod tests {
                     span: span.clone(),
                 },
                 accesses: vec![pest::Access::Call(pest::CallAccess {
-                    expressions: vec![],
+                    explicit_generics:
+                    arguments: Arguments {
+                        expressions: vec![],
+                        span: span.clone()
+                    },
                     span: span.clone(),
                 })],
                 span: span.clone(),
@@ -1148,7 +1162,14 @@ mod tests {
                     span: span.clone(),
                 },
                 accesses: vec![pest::Access::Call(pest::CallAccess {
-                    expressions: vec![],
+                    explicit_generics: ExplicitGenerics {
+                        expressions: vec![],
+                        span: span.clone(),
+                    },
+                    arguments: Arguments {
+                        expressions: vec![],
+                        span: span.clone(),
+                    },
                     span: span.clone(),
                 })],
                 span: span.clone(),

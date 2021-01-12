@@ -723,8 +723,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         match self.check_signature(funct.signature, module_id, types, &mut used_constants) {
             Ok(s) => {
-                // check that the set of declared generic constants equals the set of generic constants used in the signature
-                // we build maps to avoid losing track of positions in the set comparison process
+                // check that all used generic parameters are declared
                 let decl_pos: HashMap<Identifier<'ast>, _> =
                     funct.generics.iter().map(|c| (c.value, c.pos())).collect();
                 let use_pos: HashMap<Identifier<'ast>, _> = used_constants
@@ -743,14 +742,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 // build comparable sets
                 let decl_set: HashSet<_> = decl_pos.keys().cloned().collect();
                 let use_set: HashSet<_> = use_pos.keys().cloned().collect();
-
-                // detect declared but not used
-                for c in decl_set.difference(&use_set) {
-                    errors.push(ErrorInner {
-                        pos: Some(*decl_pos.get(c).unwrap()),
-                        message: format!("Unused generic parameter in function definition: `{}` isn't used in the function signature", c)
-                    });
-                }
 
                 // detect used but not declared
                 for c in use_set.difference(&decl_set) {
@@ -820,6 +811,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let mut inputs = vec![];
         let mut outputs = vec![];
 
+        let generics = vec![];
+
         for t in signature.inputs {
             match self.check_declaration_type(t, module_id, types, constants) {
                 Ok(t) => {
@@ -848,7 +841,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         self.return_types = Some(outputs.clone());
 
-        Ok(DeclarationSignature { inputs, outputs })
+        Ok(DeclarationSignature {
+            generics,
+            inputs,
+            outputs,
+        })
     }
 
     fn check_type(
@@ -1316,7 +1313,20 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::MultipleDefinition(assignees, rhs) => {
                 match rhs.value {
                     // Right side has to be a function call
-                    Expression::FunctionCall(fun_id, arguments) => {
+                    Expression::FunctionCall(fun_id, generics, arguments) => {
+                        // check the generic arguments, if any
+                        let generics_checked: Option<Vec<TypedExpression<'ast, T>>> = match generics {
+                            Some(generics) => Some(generics.into_iter().map(|g| self.check_expression(g, module_id, &types)).collect::<Result<_, _>>().map_err(|e| vec![e])?),
+                            None => None
+                        };
+
+                        let generics_checked = match generics_checked {
+                            Some(generics) => Some(generics.into_iter().map(|g| match g {
+                                TypedExpression::Uint(e) => if e.bitwidth() == UBitwidth::B32 { Ok(e) } else { Err(unimplemented!()) },
+                                _ => Err(unimplemented!())
+                            }).collect::<Result<_, _>>().map_err(|e| vec![e])?),
+                            None => None
+                        };
 
                         // check lhs assignees are defined
                         let (assignees, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| self.check_assignee(a, module_id, types)).partition(|r| r.is_ok());
@@ -1355,7 +1365,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     message: format!("Expected function call argument to be of type {}, found {} of type {}", e.1, e.0, e.0.get_type())
                                 }])?;
 
-                                let call = TypedExpressionList::FunctionCall(f.clone(), arguments_checked, assignees.iter().map(|a| a.get_type()).collect());
+                                let call = TypedExpressionList::FunctionCall(f.clone(), generics_checked, arguments_checked, assignees.iter().map(|a| a.get_type()).collect());
 
                                 Ok(TypedStatement::MultipleDefinition(assignees, call))
                     		},
@@ -1857,7 +1867,37 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
-            Expression::FunctionCall(fun_id, arguments) => {
+            Expression::FunctionCall(fun_id, generics, arguments) => {
+                // check the generic arguments, if any
+                let generics_checked: Option<Vec<TypedExpression<'ast, T>>> = match generics {
+                    Some(generics) => Some(
+                        generics
+                            .into_iter()
+                            .map(|g| self.check_expression(g, module_id, &types))
+                            .collect::<Result<_, _>>()?,
+                    ),
+                    None => None,
+                };
+
+                let generics_checked = match generics_checked {
+                    Some(generics) => Some(
+                        generics
+                            .into_iter()
+                            .map(|g| match g {
+                                TypedExpression::Uint(e) => {
+                                    if e.bitwidth() == UBitwidth::B32 {
+                                        Ok(e)
+                                    } else {
+                                        Err(unimplemented!())
+                                    }
+                                }
+                                _ => Err(unimplemented!()),
+                            })
+                            .collect::<Result<_, _>>()?,
+                    ),
+                    None => None,
+                };
+
                 // check the arguments
                 let mut arguments_checked = vec![];
                 for arg in arguments {
@@ -1902,6 +1942,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         id: f.id,
                                         signature: signature.clone(),
                                     },
+                                    generics_checked,
                                     arguments_checked,
                                 )
                                 .into()),
@@ -1911,6 +1952,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         id: f.id,
                                         signature: signature.clone(),
                                     },
+                                    generics_checked,
                                     arguments_checked,
                                 )
                                 .into()),
@@ -1920,6 +1962,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         id: f.id,
                                         signature: signature.clone(),
                                     },
+                                    generics_checked,
                                     arguments_checked,
                                 )
                                 .annotate(*bitwidth)
@@ -1930,6 +1973,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         id: f.id,
                                         signature: signature.clone(),
                                     },
+                                    generics_checked,
                                     arguments_checked,
                                 )
                                 .annotate(members.clone())
@@ -1940,6 +1984,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         id: f.id,
                                         signature: signature.clone(),
                                     },
+                                    generics_checked,
                                     arguments_checked,
                                 )
                                 .annotate(*array_type.ty.clone(), array_type.size.clone())

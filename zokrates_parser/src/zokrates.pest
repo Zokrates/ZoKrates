@@ -66,10 +66,13 @@ to_expression = { expression }
 
 conditional_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
 
-postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers. Not sure that's what we want.
+postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers
 access = { array_access | call_access | member_access }
 array_access = { "[" ~ range_or_expression ~ "]" }
-call_access = { "(" ~ expression_list ~ ")" }
+call_access = { explicit_generics? ~ "(" ~ arguments ~ ")" }
+arguments = { expression_list }
+explicit_generics = { "::<" ~ constant_generics_values ~ ">" }
+constant_generics_values = _{ identifier ~ ("," ~ identifier)* }
 member_access = { "." ~ identifier }
 
 primary_expression = { identifier

@@ -99,11 +99,6 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
         f: TypedFunction<'ast, T>,
         generics: &ConcreteGenericsAssignment<'ast>,
     ) -> TypedFunction<'ast, T> {
-        assert_eq!(
-            f.generics.iter().collect::<HashSet<_>>(),
-            generics.0.keys().collect::<HashSet<_>>()
-        );
-
         let mut f = f;
 
         f.statements = generics
@@ -184,7 +179,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
-        if let FieldElementExpression::FunctionCall(ref k, _) = e {
+        if let FieldElementExpression::FunctionCall(ref k, _, _) = e {
             if !k.id.starts_with('_') {
                 self.blocked = true;
             }
@@ -197,7 +192,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
-        if let BooleanExpression::FunctionCall(ref k, _) = e {
+        if let BooleanExpression::FunctionCall(ref k, _, _) = e {
             if !k.id.starts_with('_') {
                 self.blocked = true;
             }
@@ -211,7 +206,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         b: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
-        if let UExpressionInner::FunctionCall(ref k, _) = e {
+        if let UExpressionInner::FunctionCall(ref k, _, _) = e {
             if !k.id.starts_with('_') {
                 self.blocked = true;
             }
@@ -225,7 +220,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
-        if let ArrayExpressionInner::FunctionCall(ref k, _) = e {
+        if let ArrayExpressionInner::FunctionCall(ref k, _, _) = e {
             if !k.id.starts_with('_') {
                 self.blocked = true;
             }
@@ -239,7 +234,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
-        if let StructExpressionInner::FunctionCall(ref k, _) = e {
+        if let StructExpressionInner::FunctionCall(ref k, _, _) = e {
             if !k.id.starts_with('_') {
                 self.blocked = true;
             }
@@ -253,7 +248,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         e: TypedExpressionList<'ast, T>,
     ) -> TypedExpressionList<'ast, T> {
         match e {
-            TypedExpressionList::FunctionCall(ref k, _, _) => {
+            TypedExpressionList::FunctionCall(ref k, _, _, _) => {
                 if !k.id.starts_with('_') {
                     self.blocked = true;
                 }

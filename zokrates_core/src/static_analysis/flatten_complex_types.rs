@@ -202,7 +202,10 @@ impl<'ast, T: Field> Flattener<T> {
         es: typed_absy::TypedExpressionList<'ast, T>,
     ) -> zir::ZirExpressionList<'ast, T> {
         match es {
-            typed_absy::TypedExpressionList::FunctionCall(id, arguments, _) => {
+            typed_absy::TypedExpressionList::FunctionCall(id, _, arguments, _) => {
+                let id: typed_absy::types::FunctionKey<'ast, T> =
+                    typed_absy::types::FunctionKey::try_from(id).unwrap();
+
                 let id = typed_absy::types::ConcreteFunctionKey::try_from(id).unwrap();
 
                 zir::ZirExpressionList::FunctionCall(
@@ -278,7 +281,12 @@ pub fn fold_module<'ast, T: Field>(
             .into_iter()
             .map(|(key, fun)| {
                 (
-                    f.fold_function_key(key.try_into().unwrap()),
+                    f.fold_function_key(
+                        typed_absy::types::FunctionKey::<'ast, T>::try_from(key)
+                            .unwrap()
+                            .try_into()
+                            .unwrap(),
+                    ),
                     f.fold_function_symbol(fun),
                 )
             })
@@ -945,9 +953,11 @@ pub fn fold_function<'ast, T: Field>(
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        signature: typed_absy::types::ConcreteSignature::try_from(fun.signature)
-            .unwrap()
-            .into(),
+        signature: typed_absy::types::ConcreteSignature::try_from(
+            typed_absy::types::Signature::<T>::try_from(fun.signature).unwrap(),
+        )
+        .unwrap()
+        .into(),
     }
 }
 
@@ -985,8 +995,13 @@ pub fn fold_function_symbol<'ast, T: Field>(
             zir::ZirFunctionSymbol::Here(f.fold_function(fun))
         }
         typed_absy::TypedFunctionSymbol::There(key) => zir::ZirFunctionSymbol::There(
-            f.fold_function_key(typed_absy::types::ConcreteFunctionKey::try_from(key).unwrap()),
-        ), // by default, do not fold modules recursively
+            f.fold_function_key(
+                typed_absy::types::FunctionKey::<T>::try_from(key)
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+            ),
+        ),
         typed_absy::TypedFunctionSymbol::Flat(flat) => zir::ZirFunctionSymbol::Flat(flat),
     }
 }

@@ -179,7 +179,11 @@ pub enum UExpressionInner<'ast, T> {
         Box<UExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(
+        DeclarationFunctionKey<'ast>,
+        Option<Vec<UExpression<'ast, T>>>,
+        Vec<TypedExpression<'ast, T>>,
+    ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
