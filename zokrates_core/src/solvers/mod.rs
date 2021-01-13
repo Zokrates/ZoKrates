@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 #[cfg(feature = "bellman")]
 use zokrates_embed::generate_sha256_round_witness;
-use zokrates_field::Field;
+use zokrates_field::{Bn128Field, Field};
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver {
@@ -122,6 +122,7 @@ impl<T: Field> Executable<T> for Solver {
             }
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => {
+                assert_eq!(T::id(), Bn128Field::id());
                 let i = &inputs[0..512];
                 let h = &inputs[512..];
                 let to_fr = |x: &T| {
