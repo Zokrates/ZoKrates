@@ -507,7 +507,7 @@ pub enum Expression<'ast> {
     ),
     FunctionCall(
         FunctionIdentifier<'ast>,
-        Option<Vec<ExpressionNode<'ast>>>,
+        Option<Vec<Option<ExpressionNode<'ast>>>>,
         Vec<ExpressionNode<'ast>>,
     ),
     Lt(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
@@ -554,20 +554,20 @@ impl<'ast> fmt::Display for Expression<'ast> {
                 condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref g, ref p) => {
-                write!(
-                    f,
-                    "{}{}(",
-                    g.as_ref()
-                        .map(|g| format!(
-                            "::<{}>",
-                            g.iter()
+                if let Some(g) = g {
+                    write!(
+                        f,
+                        "::<{}>",
+                        g.into_iter()
+                            .map(|g| g
+                                .as_ref()
                                 .map(|g| g.to_string())
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        ))
-                        .unwrap_or_else(|| "".into()),
-                    i,
-                )?;
+                                .unwrap_or_else(|| "_".into()))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    )?;
+                }
+                write!(f, "{}(", i)?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {

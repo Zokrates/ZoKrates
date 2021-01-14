@@ -45,13 +45,13 @@ pub enum InlineError<'ast, T> {
     Generic(DeclarationFunctionKey<'ast>, ConcreteFunctionKey<'ast>),
     Flat(
         FlatEmbed,
-        Option<Vec<UExpression<'ast, T>>>,
+        Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
     NonConstant(
         DeclarationFunctionKey<'ast>,
-        Option<Vec<UExpression<'ast, T>>>,
+        Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
@@ -83,7 +83,7 @@ type InlineResult<'ast, T> = Result<
 
 pub fn inline_call<'a, 'ast, T: Field>(
     k: DeclarationFunctionKey<'ast>,
-    generics: Option<Vec<UExpression<'ast, T>>>,
+    generics: Vec<Option<UExpression<'ast, T>>>,
     arguments: Vec<TypedExpression<'ast, T>>,
     output_types: Vec<Type<'ast, T>>,
     program: &TypedProgram<'ast, T>,
@@ -95,35 +95,32 @@ pub fn inline_call<'a, 'ast, T: Field>(
     use crate::typed_absy::Typed;
 
     // we try to get concrete values for explicit generics
-    let generics_values: Option<Vec<u32>> = match generics.clone() {
-        Some(generics) => Some(
-            generics
-                .iter()
+    let generics_values: Vec<Option<u32>> = generics
+        .iter()
+        .map(|g| {
+            g.as_ref()
                 .map(|g| match g.as_inner() {
                     UExpressionInner::Value(v) => Ok(*v as u32),
                     _ => Err(()),
                 })
-                .collect::<Result<_, _>>()
-                .map_err(|_| {
-                    InlineError::NonConstant(
-                        k.clone(),
-                        Some(generics),
-                        arguments.clone(),
-                        output_types.clone(),
-                    )
-                })?,
-        ),
-        None => None,
-    };
+                .transpose()
+        })
+        .collect::<Result<_, _>>()
+        .map_err(|_| {
+            InlineError::NonConstant(
+                k.clone(),
+                generics.clone(),
+                arguments.clone(),
+                output_types.clone(),
+            )
+        })?;
 
     // we infer a signature based on inputs and outputs
     // this is where we could handle explicit annotations
     let inferred_signature = Signature::new()
+        .generics(generics.clone())
         .inputs(arguments.iter().map(|a| a.get_type()).collect())
         .outputs(output_types.clone());
-
-    println!("{:?}", generics_values);
-    println!("{:?}", inferred_signature);
 
     // we try to get concrete values for the whole signature. if this fails we should propagate again
     let inferred_signature = match ConcreteSignature::try_from(inferred_signature) {
@@ -138,8 +135,6 @@ pub fn inline_call<'a, 'ast, T: Field>(
         }
     };
 
-    println!("concrete values");
-
     let (decl_key, f) = get_canonical_function(k.clone(), program)
         .map_err(|e| InlineError::Flat(e, generics, arguments.clone(), output_types))?;
     assert_eq!(f.arguments.len(), arguments.len());
@@ -147,7 +142,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     // get an assignment of generics for this call site
     let assignment: ConcreteGenericsAssignment<'ast> = decl_key
         .signature
-        .specialize(&inferred_signature)
+        .specialize(generics_values, &inferred_signature)
         .map_err(|_| {
             InlineError::Generic(
                 decl_key.clone(),

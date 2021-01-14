@@ -539,9 +539,14 @@ impl<'ast> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<'ast> {
                     &id_str,
                     a.explicit_generics.map(|explicit_generics| {
                         explicit_generics
-                            .identifiers
+                            .identifiers_or_underscores
                             .into_iter()
-                            .map(|i| absy::Expression::Identifier(i.span.as_str()).span(i.span))
+                            .map(|i| match i {
+                                pest::IdentifierExpressionOrUnderscore::Underscore(_) => None,
+                                pest::IdentifierExpressionOrUnderscore::Identifier(i) => {
+                                    Some(absy::Expression::Identifier(i.span.as_str()).span(i.span))
+                                }
+                            })
                             .collect()
                     }),
                     a.arguments
@@ -736,7 +741,6 @@ mod tests {
                         signature: UnresolvedSignature::new()
                             .inputs(vec![])
                             .outputs(vec![UnresolvedType::FieldElement.mock()]),
-                        generics: vec![],
                     }
                     .into(),
                 ),
@@ -767,7 +771,6 @@ mod tests {
                         signature: UnresolvedSignature::new()
                             .inputs(vec![])
                             .outputs(vec![UnresolvedType::Boolean.mock()]),
-                        generics: vec![],
                     }
                     .into(),
                 ),
@@ -821,7 +824,6 @@ mod tests {
                                 UnresolvedType::Boolean.mock(),
                             ])
                             .outputs(vec![UnresolvedType::FieldElement.mock()]),
-                        generics: vec![],
                     }
                     .into(),
                 ),
@@ -854,7 +856,6 @@ mod tests {
                                 .into(),
                             )
                             .into()],
-                            generics: vec![],
                             signature: UnresolvedSignature::new().inputs(vec![ty.mock()]),
                         }
                         .into(),
@@ -926,7 +927,6 @@ mod tests {
                                 .into(),
                             )
                             .into()],
-                            generics: vec![],
                             signature: UnresolvedSignature::new(),
                         }
                         .into(),
@@ -975,6 +975,7 @@ mod tests {
                     absy::Expression::Select(
                         box absy::Expression::FunctionCall(
                             "a",
+                            None,
                             vec![absy::Expression::IntConstant(3usize.into()).into()],
                         )
                         .into(),
@@ -990,6 +991,7 @@ mod tests {
                         box absy::Expression::Select(
                             box absy::Expression::FunctionCall(
                                 "a",
+                                None,
                                 vec![absy::Expression::IntConstant(3usize.into()).into()],
                             )
                             .into(),
@@ -1101,10 +1103,10 @@ mod tests {
                     span: span.clone(),
                 },
                 accesses: vec![pest::Access::Call(pest::CallAccess {
-                    explicit_generics:
-                    arguments: Arguments {
+                    explicit_generics: None,
+                    arguments: pest::Arguments {
                         expressions: vec![],
-                        span: span.clone()
+                        span: span.clone(),
                     },
                     span: span.clone(),
                 })],
@@ -1162,11 +1164,8 @@ mod tests {
                     span: span.clone(),
                 },
                 accesses: vec![pest::Access::Call(pest::CallAccess {
-                    explicit_generics: ExplicitGenerics {
-                        expressions: vec![],
-                        span: span.clone(),
-                    },
-                    arguments: Arguments {
+                    explicit_generics: None,
+                    arguments: pest::Arguments {
                         expressions: vec![],
                         span: span.clone(),
                     },

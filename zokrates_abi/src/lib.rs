@@ -17,7 +17,7 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::fmt;
-use zokrates_core::typed_absy::types::{OwnedConstant, OwnedType, UBitwidth};
+use zokrates_core::typed_absy::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
 
@@ -94,18 +94,15 @@ impl<T: Field> fmt::Display for Value<T> {
 }
 
 impl<T: Field> Value<T> {
-    fn check(self, ty: OwnedType) -> Result<CheckedValue<T>, String> {
+    fn check(self, ty: ConcreteType) -> Result<CheckedValue<T>, String> {
         match (self, ty) {
-            (Value::Field(f), OwnedType::FieldElement) => Ok(CheckedValue::Field(f)),
-            (Value::U8(f), OwnedType::Uint(UBitwidth::B8)) => Ok(CheckedValue::U8(f)),
-            (Value::U16(f), OwnedType::Uint(UBitwidth::B16)) => Ok(CheckedValue::U16(f)),
-            (Value::U32(f), OwnedType::Uint(UBitwidth::B32)) => Ok(CheckedValue::U32(f)),
-            (Value::Boolean(b), OwnedType::Boolean) => Ok(CheckedValue::Boolean(b)),
-            (Value::Array(a), OwnedType::Array(array_type)) => {
-                let size = match array_type.size {
-                    OwnedConstant::Concrete(v) => v,
-                    _ => unreachable!(),
-                };
+            (Value::Field(f), ConcreteType::FieldElement) => Ok(CheckedValue::Field(f)),
+            (Value::U8(f), ConcreteType::Uint(UBitwidth::B8)) => Ok(CheckedValue::U8(f)),
+            (Value::U16(f), ConcreteType::Uint(UBitwidth::B16)) => Ok(CheckedValue::U16(f)),
+            (Value::U32(f), ConcreteType::Uint(UBitwidth::B32)) => Ok(CheckedValue::U32(f)),
+            (Value::Boolean(b), ConcreteType::Boolean) => Ok(CheckedValue::Boolean(b)),
+            (Value::Array(a), ConcreteType::Array(array_type)) => {
+                let size = array_type.size;
 
                 if a.len() != size as usize {
                     Err(format!(
@@ -121,7 +118,7 @@ impl<T: Field> Value<T> {
                     Ok(CheckedValue::Array(a))
                 }
             }
-            (Value::Struct(mut s), OwnedType::Struct(struc)) => {
+            (Value::Struct(mut s), ConcreteType::Struct(struc)) => {
                 if s.len() != struc.members_count() {
                     Err(format!(
                         "Expected {} member(s), found {}",
@@ -173,7 +170,7 @@ impl<T: From<usize>> Encode<T> for CheckedValue<T> {
 }
 
 impl<T: Field> Decode<T> for CheckedValues<T> {
-    type Expected = Vec<OwnedType>;
+    type Expected = Vec<ConcreteType>;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
         CheckedValues(
@@ -191,24 +188,24 @@ impl<T: Field> Decode<T> for CheckedValues<T> {
 }
 
 impl<T: Field> Decode<T> for CheckedValue<T> {
-    type Expected = OwnedType;
+    type Expected = ConcreteType;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
         let mut raw = raw;
 
         match expected {
-            OwnedType::Int => unreachable!(),
-            OwnedType::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
-            OwnedType::Uint(UBitwidth::B8) => CheckedValue::U8(
+            ConcreteType::Int => unreachable!(),
+            ConcreteType::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
+            ConcreteType::Uint(UBitwidth::B8) => CheckedValue::U8(
                 u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
             ),
-            OwnedType::Uint(UBitwidth::B16) => CheckedValue::U16(
+            ConcreteType::Uint(UBitwidth::B16) => CheckedValue::U16(
                 u16::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
             ),
-            OwnedType::Uint(UBitwidth::B32) => CheckedValue::U32(
+            ConcreteType::Uint(UBitwidth::B32) => CheckedValue::U32(
                 u32::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
             ),
-            OwnedType::Boolean => {
+            ConcreteType::Boolean => {
                 let v = raw.pop().unwrap();
                 CheckedValue::Boolean(if v == 0.into() {
                     false
@@ -218,12 +215,12 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
                     unreachable!()
                 })
             }
-            OwnedType::Array(array_type) => CheckedValue::Array(
+            ConcreteType::Array(array_type) => CheckedValue::Array(
                 raw.chunks(array_type.ty.get_primitive_count())
                     .map(|c| CheckedValue::decode(c.to_vec(), *array_type.ty.clone()))
                     .collect(),
             ),
-            OwnedType::Struct(members) => CheckedValue::Struct(
+            ConcreteType::Struct(members) => CheckedValue::Struct(
                 members
                     .into_iter()
                     .scan(0, |state, member| {
@@ -332,7 +329,10 @@ fn parse<T: Field>(s: &str) -> Result<Values<T>, Error> {
     Values::try_from(json_values).map_err(Error::Conversion)
 }
 
-pub fn parse_strict<T: Field>(s: &str, types: Vec<OwnedType>) -> Result<CheckedValues<T>, Error> {
+pub fn parse_strict<T: Field>(
+    s: &str,
+    types: Vec<ConcreteType>,
+) -> Result<CheckedValues<T>, Error> {
     let parsed = parse(s)?;
     if parsed.0.len() != types.len() {
         return Err(Error::Type(format!(
@@ -413,7 +413,7 @@ mod tests {
     mod strict {
         use super::*;
         use zokrates_core::typed_absy::types::{
-            ConcreteStructMember, ConcreteStructType, OwnedType,
+            ConcreteStructMember, ConcreteStructType, ConcreteType,
         };
 
         #[test]
@@ -422,7 +422,7 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![OwnedType::FieldElement, OwnedType::FieldElement]
+                    vec![ConcreteType::FieldElement, ConcreteType::FieldElement]
                 )
                 .unwrap(),
                 CheckedValues(vec![
@@ -436,7 +436,7 @@ mod tests {
         fn bools() {
             let s = "[true, false]";
             assert_eq!(
-                parse_strict::<Bn128Field>(s, vec![OwnedType::Boolean, OwnedType::Boolean])
+                parse_strict::<Bn128Field>(s, vec![ConcreteType::Boolean, ConcreteType::Boolean])
                     .unwrap(),
                 CheckedValues(vec![
                     CheckedValue::Boolean(true),
@@ -449,8 +449,11 @@ mod tests {
         fn array() {
             let s = "[[true, false]]";
             assert_eq!(
-                parse_strict::<Bn128Field>(s, vec![OwnedType::array((OwnedType::Boolean, 2usize))])
-                    .unwrap(),
+                parse_strict::<Bn128Field>(
+                    s,
+                    vec![ConcreteType::array((ConcreteType::Boolean, 2usize))]
+                )
+                .unwrap(),
                 CheckedValues(vec![CheckedValue::Array(vec![
                     CheckedValue::Boolean(true),
                     CheckedValue::Boolean(false)
@@ -464,12 +467,12 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![OwnedType::Struct(ConcreteStructType::new(
+                    vec![ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "".into(),
                         vec![ConcreteStructMember::new(
                             "a".into(),
-                            OwnedType::FieldElement
+                            ConcreteType::FieldElement
                         )]
                     ))]
                 )
@@ -485,12 +488,12 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![OwnedType::Struct(ConcreteStructType::new(
+                    vec![ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "".into(),
                         vec![ConcreteStructMember::new(
                             "a".into(),
-                            OwnedType::FieldElement
+                            ConcreteType::FieldElement
                         )]
                     ))]
                 )
@@ -502,12 +505,12 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![OwnedType::Struct(ConcreteStructType::new(
+                    vec![ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "".into(),
                         vec![ConcreteStructMember::new(
                             "a".into(),
-                            OwnedType::FieldElement
+                            ConcreteType::FieldElement
                         )]
                     ))]
                 )
@@ -519,12 +522,12 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![OwnedType::Struct(ConcreteStructType::new(
+                    vec![ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "".into(),
                         vec![ConcreteStructMember::new(
                             "a".into(),
-                            OwnedType::FieldElement
+                            ConcreteType::FieldElement
                         )]
                     ))]
                 )

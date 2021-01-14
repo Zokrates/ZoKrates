@@ -132,7 +132,7 @@ mod tests {
         fn parse_single_def_to_multi() {
             parses_to! {
                 parser: ZoKratesParser,
-                input: r#"a = foo::<3>(x)
+                input: r#"a = foo::<_>(x)
             "#,
                 rule: Rule::statement,
                 tokens: [
@@ -150,27 +150,15 @@ mod tests {
                                         access(7, 15, [
                                             call_access(7, 15, [
                                                 explicit_generics(7, 12, [
-                                                    expression(10, 11, [
-                                                        term(10, 11, [
-                                                            primary_expression(10, 11, [
-                                                                literal(10, 11, [
-                                                                    decimal_literal(10, 11, [
-                                                                        decimal_number(10, 11)
-                                                                    ])
-                                                                ])
-                                                            ])
-                                                        ])
+                                                    identifier_or_underscore(10, 11, [
+                                                        underscore(10, 11)
                                                     ])
                                                 ]),
                                                 arguments(13, 14, [
                                                     expression(13, 14, [
                                                         term(13, 14, [
                                                             primary_expression(13, 14, [
-                                                                identifier(13, 14, [
-                                                                    decimal_literal(13, 14, [
-                                                                        decimal_number(13, 14)
-                                                                    ])
-                                                                ])
+                                                                identifier(13, 14)
                                                             ])
                                                         ])
                                                     ])
@@ -211,7 +199,9 @@ mod tests {
                                     postfix_expression(10, 15, [
                                         identifier(10, 13),
                                         access(13, 15, [
-                                            call_access(13, 15)
+                                            call_access(13, 15, [
+                                                arguments(14, 14)
+                                            ])
                                         ])
                                     ])
                                 ])
@@ -247,7 +237,9 @@ mod tests {
                                     postfix_expression(8, 13, [
                                         identifier(8, 11),
                                         access(11, 13, [
-                                            call_access(11, 13)
+                                            call_access(11, 13, [
+                                                arguments(12, 12)
+                                            ])
                                         ])
                                     ])
                                 ])

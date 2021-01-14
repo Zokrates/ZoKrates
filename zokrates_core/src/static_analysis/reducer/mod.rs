@@ -260,22 +260,17 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
     fn fold_function_call<E>(
         &mut self,
         key: DeclarationFunctionKey<'ast>,
-        generics: Option<Vec<UExpression<'ast, T>>>,
+        generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_types: Vec<Type<'ast, T>>,
     ) -> Result<E, Error>
     where
         E: FunctionCall<'ast, T> + TryFrom<TypedExpression<'ast, T>, Error = ()> + std::fmt::Debug,
     {
-        let generics = match generics {
-            Some(generics) => Some(
-                generics
-                    .into_iter()
-                    .map(|g| self.fold_uint_expression(g))
-                    .collect::<Result<_, _>>()?,
-            ),
-            None => None,
-        };
+        let generics = generics
+            .into_iter()
+            .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
+            .collect::<Result<_, _>>()?;
 
         let arguments = arguments
             .into_iter()
@@ -306,8 +301,8 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
-                decl.to_string(),
-                conc.to_string()
+                conc.to_string(),
+                decl.to_string()
             ))),
             Err(InlineError::NonConstant(key, generics, arguments, mut output_types)) => {
                 self.complete = false;
@@ -359,15 +354,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 v,
                 TypedExpressionList::FunctionCall(key, generics, arguments, output_types),
             ) => {
-                let generics = match generics {
-                    Some(generics) => Some(
-                        generics
-                            .into_iter()
-                            .map(|g| self.fold_uint_expression(g))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                    None => None,
-                };
+                let generics = generics
+                    .into_iter()
+                    .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
+                    .collect::<Result<_, _>>()?;
 
                 let arguments = arguments
                     .into_iter()
@@ -414,8 +404,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                     Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                         "Call site `{}` incompatible with declaration `{}`",
-                        decl.to_string(),
-                        conc.to_string()
+                        conc.to_string(),
+                        decl.to_string()
                     ))),
                     Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
                         self.complete = false;
@@ -620,7 +610,7 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
 
     main_module.functions.extend(embeds_in_module(&p.main));
 
-    match main_function.generics.len() {
+    match main_function.signature.generics.len() {
         0 => {
             let main_function = reduce_function(main_function, GGenericsAssignment::default(), &p)?;
 
@@ -777,7 +767,6 @@ mod tests {
         //      return a_2
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
-            generics: vec![],
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![TypedStatement::Return(vec![
                 FieldElementExpression::Identifier("a".into()).into(),
@@ -788,7 +777,6 @@ mod tests {
         };
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
-            generics: vec![],
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
@@ -813,6 +801,7 @@ mod tests {
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement]),
                         ),
+                        vec![],
                         vec![FieldElementExpression::Identifier("a".into()).into()],
                         vec![Type::FieldElement],
                     ),
@@ -864,7 +853,6 @@ mod tests {
         let reduced = reduce_program(p);
 
         let expected_main = TypedFunction {
-            generics: vec![],
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
@@ -954,6 +942,7 @@ mod tests {
         //      return a_2 + b_1[0]
 
         let foo_signature = DeclarationSignature::new()
+            .generics(vec![Some("K".into())])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
@@ -964,7 +953,6 @@ mod tests {
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
-            generics: vec!["K".into()],
             arguments: vec![
                 DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
             ],
@@ -977,7 +965,6 @@ mod tests {
         };
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
-            generics: vec![],
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
@@ -1003,6 +990,7 @@ mod tests {
                     TypedExpressionList::FunctionCall(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
+                        vec![None],
                         vec![ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into()],
@@ -1060,7 +1048,6 @@ mod tests {
         let reduced = reduce_program(p);
 
         let expected_main = TypedFunction {
-            generics: vec![],
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
@@ -1166,6 +1153,7 @@ mod tests {
         //      return a_2 + b_1[0]
 
         let foo_signature = DeclarationSignature::new()
+            .generics(vec![Some("K".into())])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
@@ -1176,7 +1164,6 @@ mod tests {
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
-            generics: vec!["K".into()],
             arguments: vec![
                 DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
             ],
@@ -1189,7 +1176,6 @@ mod tests {
         };
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
-            generics: vec![],
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
@@ -1224,6 +1210,7 @@ mod tests {
                     TypedExpressionList::FunctionCall(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
+                        vec![None],
                         vec![ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into()],
@@ -1281,7 +1268,6 @@ mod tests {
         let reduced = reduce_program(p);
 
         let expected_main = TypedFunction {
-            generics: vec![],
             arguments: vec![DeclarationVariable::field_element("a").into()],
             statements: vec![
                 TypedStatement::Definition(
@@ -1590,6 +1576,7 @@ mod tests {
         // Error: Incompatible
 
         let foo_signature = DeclarationSignature::new()
+            .generics(vec![Some("K".into())])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
                 Constant::Generic("K"),
@@ -1600,7 +1587,6 @@ mod tests {
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
-            generics: vec!["K".into()],
             arguments: vec![
                 DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
             ],
@@ -1613,7 +1599,6 @@ mod tests {
         };
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
-            generics: vec![],
             arguments: vec![],
             statements: vec![
                 TypedStatement::MultipleDefinition(
@@ -1621,6 +1606,7 @@ mod tests {
                     TypedExpressionList::FunctionCall(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
+                        vec![None],
                         vec![ArrayExpressionInner::Value(vec![].into())
                             .annotate(Type::FieldElement, 0u32)
                             .into()],
@@ -1662,7 +1648,7 @@ mod tests {
 
         assert_eq!(
             reduced,
-            Err(Error::Incompatible("Call site `main/foo(field[K]) -> field[K]` incompatible with declaration `main/foo(field[0]) -> field[1]`".into()))
+            Err(Error::Incompatible("Call site `main/foo<_>(field[0]) -> field[1]` incompatible with declaration `main/foo<K>(field[K]) -> field[K]`".into()))
         );
     }
 }

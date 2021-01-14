@@ -181,7 +181,7 @@ pub enum UExpressionInner<'ast, T> {
     ),
     FunctionCall(
         DeclarationFunctionKey<'ast>,
-        Option<Vec<UExpression<'ast, T>>>,
+        Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
     ),
     IfElse(

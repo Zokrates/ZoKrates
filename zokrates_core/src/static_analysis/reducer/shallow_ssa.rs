@@ -115,7 +115,6 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
             })
             .chain(f.statements)
             .collect();
-        f.generics = vec![];
 
         for arg in &f.arguments {
             let _ = self.issue_next_identifier(arg.id.id.id.clone());
@@ -445,7 +444,6 @@ mod tests {
             let statements = loops;
 
             let f = TypedFunction {
-                generics: vec![],
                 arguments: vec![],
                 signature: DeclarationSignature::new(),
                 statements,
@@ -613,6 +611,7 @@ mod tests {
                             .inputs(vec![DeclarationType::FieldElement])
                             .outputs(vec![DeclarationType::FieldElement]),
                     ),
+                    vec![],
                     vec![FieldElementExpression::Identifier("a".into()).into()],
                     vec![Type::FieldElement],
                 ),
@@ -627,6 +626,7 @@ mod tests {
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement])
                         ),
+                        vec![],
                         vec![
                             FieldElementExpression::Identifier(Identifier::from("a").version(0))
                                 .into()
@@ -847,7 +847,6 @@ mod tests {
             //      # versions: {n: 5, a: 7}
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
-                generics: vec!["K".into()],
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
                     TypedStatement::Definition(
@@ -905,6 +904,7 @@ mod tests {
                     ]),
                 ],
                 signature: DeclarationSignature::new()
+                    .generics(vec![Some("K".into())])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
             };
@@ -918,7 +918,6 @@ mod tests {
             );
 
             let expected = TypedFunction {
-                generics: vec![],
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
                     TypedStatement::Definition(
@@ -983,6 +982,7 @@ mod tests {
                     .into()]),
                 ],
                 signature: DeclarationSignature::new()
+                    .generics(vec![Some("K".into())])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
             };
@@ -1038,7 +1038,6 @@ mod tests {
             //      # versions: {n: 2, a: 3}
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
-                generics: vec!["K".into()],
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
                     TypedStatement::Definition(
@@ -1059,6 +1058,11 @@ mod tests {
                         vec![Variable::field_element("a").into()],
                         TypedExpressionList::FunctionCall(
                             DeclarationFunctionKey::with_location("main", "foo"),
+                            vec![Some(
+                                UExpressionInner::Identifier("n".into())
+                                    .annotate(UBitwidth::B32)
+                                    .into(),
+                            )],
                             vec![FieldElementExpression::Identifier("a".into()).into()],
                             vec![Type::FieldElement],
                         ),
@@ -1074,6 +1078,11 @@ mod tests {
                         (FieldElementExpression::Identifier("a".into())
                             * FieldElementExpression::FunctionCall(
                                 DeclarationFunctionKey::with_location("main", "foo"),
+                                vec![Some(
+                                    UExpressionInner::Identifier("n".into())
+                                        .annotate(UBitwidth::B32)
+                                        .into(),
+                                )],
                                 vec![FieldElementExpression::Identifier("a".into()).into()],
                             ))
                         .into(),
@@ -1083,6 +1092,7 @@ mod tests {
                     ]),
                 ],
                 signature: DeclarationSignature::new()
+                    .generics(vec![Some("K".into())])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
             };
@@ -1096,7 +1106,6 @@ mod tests {
             );
 
             let expected = TypedFunction {
-                generics: vec![],
                 arguments: vec![DeclarationVariable::field_element("a").into()],
                 statements: vec![
                     TypedStatement::Definition(
@@ -1121,6 +1130,11 @@ mod tests {
                         vec![Variable::field_element(Identifier::from("a").version(2)).into()],
                         TypedExpressionList::FunctionCall(
                             DeclarationFunctionKey::with_location("main", "foo"),
+                            vec![Some(
+                                UExpressionInner::Identifier(Identifier::from("n").version(1))
+                                    .annotate(UBitwidth::B32)
+                                    .into(),
+                            )],
                             vec![FieldElementExpression::Identifier(
                                 Identifier::from("a").version(1),
                             )
@@ -1139,6 +1153,11 @@ mod tests {
                         (FieldElementExpression::Identifier(Identifier::from("a").version(2))
                             * FieldElementExpression::FunctionCall(
                                 DeclarationFunctionKey::with_location("main", "foo"),
+                                vec![Some(
+                                    UExpressionInner::Identifier(Identifier::from("n").version(2))
+                                        .annotate(UBitwidth::B32)
+                                        .into(),
+                                )],
                                 vec![FieldElementExpression::Identifier(
                                     Identifier::from("a").version(2),
                                 )
@@ -1152,6 +1171,7 @@ mod tests {
                     .into()]),
                 ],
                 signature: DeclarationSignature::new()
+                    .generics(vec![Some("K".into())])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
             };

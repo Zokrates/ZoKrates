@@ -8,7 +8,7 @@ use zokrates_abi::Encode;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::{OwnedConstant, OwnedSignature, OwnedType};
+use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -106,9 +106,12 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
 
             abi.signature()
         }
-        false => OwnedSignature::new()
-            .inputs(vec![OwnedType::FieldElement; ir_prog.main.arguments.len()])
-            .outputs(vec![OwnedType::FieldElement; ir_prog.main.returns.len()]),
+        false => ConcreteSignature::new()
+            .inputs(vec![
+                ConcreteType::FieldElement;
+                ir_prog.main.arguments.len()
+            ])
+            .outputs(vec![ConcreteType::FieldElement; ir_prog.main.returns.len()]),
     };
 
     use zokrates_abi::Inputs;

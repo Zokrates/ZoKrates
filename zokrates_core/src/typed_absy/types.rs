@@ -17,30 +17,6 @@ pub enum Constant<'ast> {
     Concrete(u32),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum OwnedConstant {
-    Generic(String),
-    Concrete(u32),
-}
-
-impl fmt::Display for OwnedConstant {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            OwnedConstant::Generic(s) => write!(f, "{}", s),
-            OwnedConstant::Concrete(c) => write!(f, "{}", c),
-        }
-    }
-}
-
-impl<'ast> From<Constant<'ast>> for OwnedConstant {
-    fn from(c: Constant<'ast>) -> OwnedConstant {
-        match c {
-            Constant::Generic(i) => OwnedConstant::Generic(i.into()),
-            Constant::Concrete(c) => OwnedConstant::Concrete(c),
-        }
-    }
-}
-
 // At this stage we want all constants to be equal
 impl<'ast> PartialEq for Constant<'ast> {
     fn eq(&self, _: &Self) -> bool {
@@ -148,7 +124,6 @@ pub struct GStructMember<S> {
 }
 
 pub type DeclarationStructMember<'ast> = GStructMember<Constant<'ast>>;
-pub type OwnedStructMember = GStructMember<OwnedConstant>;
 pub type ConcreteStructMember = GStructMember<usize>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
@@ -172,12 +147,6 @@ impl<'ast, T> TryFrom<StructMember<'ast, T>> for ConcreteStructMember {
 
     fn try_from(t: StructMember<'ast, T>) -> Result<Self, Self::Error> {
         try_from_g_struct_member(t)
-    }
-}
-
-impl<'ast> From<DeclarationStructMember<'ast>> for OwnedStructMember {
-    fn from(t: DeclarationStructMember<'ast>) -> Self {
-        try_from_g_struct_member(t).unwrap()
     }
 }
 
@@ -207,7 +176,6 @@ pub struct GArrayType<S> {
 }
 
 pub type DeclarationArrayType<'ast> = GArrayType<Constant<'ast>>;
-pub type OwnedArrayType = GArrayType<OwnedConstant>;
 pub type ConcreteArrayType = GArrayType<usize>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
@@ -280,12 +248,6 @@ impl<'ast, T> TryFrom<ArrayType<'ast, T>> for ConcreteArrayType {
     }
 }
 
-impl<'ast> From<DeclarationArrayType<'ast>> for OwnedArrayType {
-    fn from(t: DeclarationArrayType<'ast>) -> Self {
-        try_from_g_array_type(t).unwrap()
-    }
-}
-
 impl<'ast, T> From<ConcreteArrayType> for ArrayType<'ast, T> {
     fn from(t: ConcreteArrayType) -> Self {
         try_from_g_array_type(t).unwrap()
@@ -321,7 +283,6 @@ pub struct GStructType<S> {
 }
 
 pub type DeclarationStructType<'ast> = GStructType<Constant<'ast>>;
-pub type OwnedStructType = GStructType<OwnedConstant>;
 pub type ConcreteStructType = GStructType<usize>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
@@ -358,12 +319,6 @@ impl<'ast, T> TryFrom<StructType<'ast, T>> for ConcreteStructType {
 
     fn try_from(t: StructType<'ast, T>) -> Result<Self, Self::Error> {
         try_from_g_struct_type(t)
-    }
-}
-
-impl<'ast> From<DeclarationStructType<'ast>> for OwnedStructType {
-    fn from(t: DeclarationStructType<'ast>) -> Self {
-        try_from_g_struct_type(t).unwrap()
     }
 }
 
@@ -563,32 +518,8 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
 }
 
 pub type DeclarationType<'ast> = GType<Constant<'ast>>;
-pub type OwnedType = GType<OwnedConstant>;
 pub type ConcreteType = GType<usize>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
-
-impl OwnedType {
-    // the number of field elements the type maps to
-    // this will panic if the type has generic parameters
-    pub fn get_primitive_count(&self) -> usize {
-        match self {
-            GType::FieldElement => 1,
-            GType::Boolean => 1,
-            GType::Uint(_) => 1,
-            GType::Array(array_type) => match array_type.size {
-                OwnedConstant::Concrete(size) => {
-                    size as usize * array_type.ty.get_primitive_count()
-                }
-                _ => unreachable!(),
-            },
-            GType::Int => unreachable!(),
-            GType::Struct(struct_type) => struct_type
-                .iter()
-                .map(|member| member.ty.get_primitive_count())
-                .sum(),
-        }
-    }
-}
 
 impl<'ast, T: PartialEq> PartialEq<DeclarationType<'ast>> for Type<'ast, T> {
     fn eq(&self, other: &DeclarationType<'ast>) -> bool {
@@ -620,12 +551,6 @@ impl<'ast, T> TryFrom<Type<'ast, T>> for ConcreteType {
 
     fn try_from(t: Type<'ast, T>) -> Result<Self, Self::Error> {
         try_from_g_type(t)
-    }
-}
-
-impl<'ast> From<DeclarationType<'ast>> for OwnedType {
-    fn from(t: DeclarationType<'ast>) -> Self {
-        try_from_g_type(t).unwrap()
     }
 }
 
@@ -914,19 +839,46 @@ impl<'ast> ConcreteFunctionKey<'ast> {
     }
 }
 
-pub use self::signature::{
-    ConcreteSignature, DeclarationSignature, GSignature, OwnedSignature, Signature,
-};
+pub use self::signature::{ConcreteSignature, DeclarationSignature, GSignature, Signature};
 
 pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    #[derive(Clone, Serialize, Deserialize, Eq)]
     pub struct GSignature<S> {
         pub generics: Vec<Option<S>>,
         pub inputs: Vec<GType<S>>,
         pub outputs: Vec<GType<S>>,
+    }
+
+    impl<S: PartialOrd> PartialOrd for GSignature<S> {
+        fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
+            match self.inputs.partial_cmp(&other.inputs) {
+                Some(std::cmp::Ordering::Equal) => self.outputs.partial_cmp(&other.outputs),
+                r => r,
+            }
+        }
+    }
+
+    impl<S: PartialOrd + Eq> Ord for GSignature<S> {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.partial_cmp(&other).unwrap()
+        }
+    }
+
+    impl<S: Hash> Hash for GSignature<S> {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.inputs.hash(state);
+            self.outputs.hash(state);
+        }
+    }
+
+    impl<S: PartialEq> PartialEq for GSignature<S> {
+        fn eq(&self, other: &GSignature<S>) -> bool {
+            // we ignore generics as we want a generic function to conflict with its specialized (generics free) version
+            self.inputs == other.inputs && self.outputs == other.outputs
+        }
     }
 
     impl<S> Default for GSignature<S> {
@@ -940,7 +892,6 @@ pub mod signature {
     }
 
     pub type DeclarationSignature<'ast> = GSignature<Constant<'ast>>;
-    pub type OwnedSignature = GSignature<OwnedConstant>;
     pub type ConcreteSignature = GSignature<usize>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
@@ -1032,17 +983,24 @@ pub mod signature {
     impl<'ast> DeclarationSignature<'ast> {
         pub fn specialize(
             &self,
-            //generics: Vec<GenericIdentifier<'ast>>,
+            values: Vec<Option<u32>>,
             signature: &ConcreteSignature,
-            //concrete_generics: Option<Vec<u32>>,
         ) -> Result<ConcreteGenericsAssignment<'ast>, SpecializationError> {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = ConcreteGenericsAssignment::default();
 
-            // if let Some(values) = concrete_generics {
-            //     assert_eq!(values.len(), generics.len());
-            //     constants.extend(generics.into_iter().zip(values.into_iter()));
-            // }
+            assert_eq!(self.generics.len(), values.len());
+
+            let decl_generics = self.generics.iter().map(|g| match g.clone().unwrap() {
+                Constant::Generic(g) => g,
+                _ => unreachable!(),
+            });
+
+            constants.0.extend(
+                decl_generics
+                    .zip(values.into_iter())
+                    .filter_map(|(g, v)| v.map(|v| (g, v as usize))),
+            );
 
             let condition = self
                 .inputs
@@ -1050,6 +1008,10 @@ pub mod signature {
                 .chain(self.outputs.iter())
                 .zip(signature.inputs.iter().chain(signature.outputs.iter()))
                 .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants));
+
+            if constants.0.len() != self.generics.len() {
+                return Err(SpecializationError);
+            }
 
             match condition {
                 true => Ok(constants),
@@ -1116,12 +1078,6 @@ pub mod signature {
         }
     }
 
-    impl<'ast> From<DeclarationSignature<'ast>> for OwnedSignature {
-        fn from(s: DeclarationSignature<'ast>) -> Self {
-            try_from_g_signature(s).unwrap()
-        }
-    }
-
     impl<'ast, T> From<ConcreteSignature> for Signature<'ast, T> {
         fn from(s: ConcreteSignature) -> Self {
             try_from_g_signature(s).unwrap()
@@ -1144,14 +1100,29 @@ pub mod signature {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(
                 f,
-                "Signature(inputs: {:?}, outputs: {:?})",
-                self.inputs, self.outputs
+                "Signature(generics: {:?}, inputs: {:?}, outputs: {:?})",
+                self.generics, self.inputs, self.outputs
             )
         }
     }
 
     impl<S: fmt::Display> fmt::Display for GSignature<S> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            if self.generics.len() > 0 {
+                write!(
+                    f,
+                    "<{}>",
+                    self.generics
+                        .iter()
+                        .map(|g| g
+                            .as_ref()
+                            .map(|g| g.to_string())
+                            .unwrap_or_else(|| '_'.to_string()))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )?;
+            }
+
             write!(f, "(")?;
             for (i, t) in self.inputs.iter().enumerate() {
                 write!(f, "{}", t)?;
@@ -1180,6 +1151,11 @@ pub mod signature {
     impl<S> GSignature<S> {
         pub fn new() -> GSignature<S> {
             Self::default()
+        }
+
+        pub fn generics(mut self, generics: Vec<Option<S>>) -> Self {
+            self.generics = generics;
+            self
         }
 
         pub fn inputs(mut self, inputs: Vec<GType<S>>) -> Self {
@@ -1247,6 +1223,38 @@ pub mod signature {
                 .outputs(vec![ConcreteType::Boolean]);
 
             assert_eq!(s.to_string(), String::from("(field, bool) -> bool"));
+        }
+
+        #[test]
+        fn signature_equivalence() {
+            let generic = DeclarationSignature::new()
+                .generics(vec![Some("P".into())])
+                .inputs(vec![DeclarationType::array(DeclarationArrayType::new(
+                    DeclarationType::FieldElement,
+                    "P".into(),
+                ))]);
+            let specialized = DeclarationSignature::new().inputs(vec![DeclarationType::array(
+                DeclarationArrayType::new(DeclarationType::FieldElement, 3u32.into()),
+            )]);
+
+            assert_eq!(generic, specialized);
+            assert_eq!(
+                {
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    generic.hash(&mut hasher);
+                    hasher.finish()
+                },
+                {
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    specialized.hash(&mut hasher);
+                    hasher.finish()
+                }
+            );
+            assert_eq!(
+                generic.partial_cmp(&specialized),
+                Some(std::cmp::Ordering::Equal)
+            );
+            assert_eq!(generic.cmp(&specialized), std::cmp::Ordering::Equal);
         }
 
         #[test]

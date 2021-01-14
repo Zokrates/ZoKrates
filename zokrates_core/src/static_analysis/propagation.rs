@@ -317,15 +317,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let expression_list = match expression_list {
                     TypedExpressionList::FunctionCall(key, generics, arguments, types) => {
-                        let generics = match generics {
-                            Some(generics) => Some(
-                                generics
-                                    .into_iter()
-                                    .map(|g| self.fold_uint_expression(g))
-                                    .collect::<Result<_, _>>()?,
-                            ),
-                            None => None,
-                        };
+                        let generics = generics
+                            .into_iter()
+                            .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
+                            .collect::<Result<_, _>>()?;
 
                         let arguments: Vec<_> = arguments
                             .into_iter()
