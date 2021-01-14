@@ -5,7 +5,7 @@ use crate::flat_absy::{
 use crate::solvers::Solver;
 use crate::typed_absy::types::{FunctionKey, Signature, Type};
 use std::collections::HashMap;
-use zokrates_field::Field;
+use zokrates_field::{Bn128Field, Field};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "bellman")] {
@@ -139,6 +139,8 @@ impl<T: Field, E: Engine> From<BellmanConstraint<E>> for FlatStatement<T> {
 /// - arguments
 #[cfg(feature = "bellman")]
 pub fn sha256_round<T: Field>() -> FlatFunction<T> {
+    assert_eq!(T::id(), Bn128Field::id());
+
     // Define iterators for all indices at hand
     let (r1cs, input_indices, current_hash_indices, output_indices) =
         generate_sha256_round_constraints::<Bn256>();
