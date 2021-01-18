@@ -10,12 +10,12 @@ extern crate lazy_static;
 pub use ast::{
     Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement,
     Assignee, AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
-    CallAccess, DecimalLiteralExpression, DecimalNumber, DecimalSuffix, DefinitionStatement,
-    ExplicitGenerics, Expression, FieldType, File, FromExpression, Function, HexLiteralExpression,
-    HexNumberExpression, IdentifierExpression, IdentifierExpressionOrUnderscore, ImportDirective,
-    ImportSource, InlineArrayExpression, InlineStructExpression, InlineStructMember,
-    IterationStatement, LiteralExpression, OptionallyTypedAssignee, Parameter, PostfixExpression,
-    Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
+    CallAccess, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber, DecimalSuffix,
+    DefinitionStatement, ExplicitGenerics, Expression, FieldType, File, FromExpression, Function,
+    HexLiteralExpression, HexNumberExpression, IdentifierExpression, ImportDirective, ImportSource,
+    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
+    LiteralExpression, OptionallyTypedAssignee, Parameter, PostfixExpression, Range,
+    RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
     StructDefinition, StructField, TernaryExpression, ToExpression, Type, UnaryExpression,
     UnaryOperator, Underscore, Visibility,
 };
@@ -590,14 +590,15 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::explicit_generics))]
     pub struct ExplicitGenerics<'ast> {
-        pub identifiers_or_underscores: Vec<IdentifierExpressionOrUnderscore<'ast>>,
+        pub values: Vec<ConstantGenericValue<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::identifier_or_underscore))]
-    pub enum IdentifierExpressionOrUnderscore<'ast> {
+    #[pest_ast(rule(Rule::constant_generic_value))]
+    pub enum ConstantGenericValue<'ast> {
+        Value(LiteralExpression<'ast>),
         Identifier(IdentifierExpression<'ast>),
         Underscore(Underscore<'ast>),
     }

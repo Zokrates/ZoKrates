@@ -539,11 +539,14 @@ impl<'ast> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<'ast> {
                     &id_str,
                     a.explicit_generics.map(|explicit_generics| {
                         explicit_generics
-                            .identifiers_or_underscores
+                            .values
                             .into_iter()
                             .map(|i| match i {
-                                pest::IdentifierExpressionOrUnderscore::Underscore(_) => None,
-                                pest::IdentifierExpressionOrUnderscore::Identifier(i) => {
+                                pest::ConstantGenericValue::Underscore(_) => None,
+                                pest::ConstantGenericValue::Value(v) => {
+                                    Some(absy::ExpressionNode::from(v))
+                                }
+                                pest::ConstantGenericValue::Identifier(i) => {
                                     Some(absy::Expression::Identifier(i.span.as_str()).span(i.span))
                                 }
                             })

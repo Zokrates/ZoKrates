@@ -72,8 +72,8 @@ array_access = { "[" ~ range_or_expression ~ "]" }
 call_access = { explicit_generics? ~ "(" ~ arguments ~ ")" }
 arguments = { expression_list }
 explicit_generics = { "::<" ~ constant_generics_values ~ ">" }
-constant_generics_values = _{ identifier_or_underscore ~ ("," ~ identifier_or_underscore)* }
-identifier_or_underscore = { identifier | underscore }
+constant_generics_values = _{ constant_generic_value ~ ("," ~ constant_generic_value)* }
+constant_generic_value = { literal | identifier | underscore }
 underscore = { "_" }
 member_access = { "." ~ identifier }
 
