@@ -548,7 +548,7 @@ mod ast {
     #[pest_ast(rule(Rule::array_initializer_expression))]
     pub struct ArrayInitializerExpression<'ast> {
         pub value: Box<Expression<'ast>>,
-        pub count: LiteralExpression<'ast>,
+        pub count: Box<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

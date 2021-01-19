@@ -504,7 +504,7 @@ impl<'ast> From<pest::ArrayInitializerExpression<'ast>> for absy::ExpressionNode
         use crate::absy::NodeValue;
 
         let value = absy::ExpressionNode::from(*initializer.value);
-        let count = absy::ExpressionNode::from(initializer.count);
+        let count = absy::ExpressionNode::from(*initializer.count);
         absy::Expression::ArrayInitializer(box value, box count).span(initializer.span)
     }
 }

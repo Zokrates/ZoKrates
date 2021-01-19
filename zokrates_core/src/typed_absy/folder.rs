@@ -278,6 +278,11 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             let to = f.fold_uint_expression(to);
             ArrayExpressionInner::Slice(box array, box from, box to)
         }
+        ArrayExpressionInner::Repeat(box e, box count) => {
+            let e = f.fold_expression(e);
+            let count = f.fold_uint_expression(count);
+            ArrayExpressionInner::Repeat(box e, box count)
+        }
     }
 }
 

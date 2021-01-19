@@ -118,7 +118,14 @@ fn is_constant<T: Field>(e: &TypedExpression<T>) -> bool {
                 TypedExpressionOrSpread::Expression(e) => is_constant(e),
                 _ => false,
             }),
-            ArrayExpressionInner::Slice(box a, ..) => is_constant(&a.clone().into()),
+            ArrayExpressionInner::Slice(box a, box from, box to) => {
+                is_constant(&from.clone().into())
+                    && is_constant(&to.clone().into())
+                    && is_constant(&a.clone().into())
+            }
+            ArrayExpressionInner::Repeat(box e, box count) => {
+                is_constant(&count.clone().into()) && is_constant(&e)
+            }
             _ => false,
         },
         TypedExpression::Struct(a) => match a.as_inner() {
@@ -182,6 +189,20 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
                             .map(|(_, e)| e)
                             .collect::<Vec<_>>()
                             .into(),
+                    )
+                    .annotate(*array_ty.ty, array_ty.size)
+                    .into()
+                }
+                ArrayExpressionInner::Repeat(box e, box count) => {
+                    let count = match count.into_inner() {
+                        UExpressionInner::Value(from) => from as usize,
+                        _ => unreachable!(),
+                    };
+
+                    let e = remove_spreads(e);
+
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Expression(e); count].into(),
                     )
                     .annotate(*array_ty.ty, array_ty.size)
                     .into()

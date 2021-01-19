@@ -1031,6 +1031,7 @@ pub enum ArrayExpressionInner<'ast, T> {
         Box<UExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
     ),
+    Repeat(Box<TypedExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
 impl<'ast, T> ArrayExpressionInner<'ast, T> {
@@ -1421,6 +1422,9 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
             ArrayExpressionInner::Slice(ref a, ref from, ref to) => {
                 write!(f, "{}[{}..{}]", a, from, to)
             }
+            ArrayExpressionInner::Repeat(ref e, ref count) => {
+                write!(f, "[{}; {}]", e, count)
+            }
         }
     }
 }
@@ -1549,6 +1553,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ArrayExpressionInner<'ast, T> {
             }
             ArrayExpressionInner::Slice(ref array, ref from, ref to) => {
                 write!(f, "Slice({:?}, {:?}, {:?})", array, from, to)
+            }
+            ArrayExpressionInner::Repeat(ref e, ref count) => {
+                write!(f, "Repeat({:?}, {:?})", e, count)
             }
         }
     }

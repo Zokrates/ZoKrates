@@ -931,20 +931,20 @@ pub mod signature {
         }
     }
 
-    fn specialize_type<'ast, S: Clone + PartialEq + PartialEq<usize> + From<u32>>(
+    fn specialize_type<'ast, S: Clone + PartialEq + PartialEq<usize> + From<u32> + fmt::Debug>(
         decl_ty: DeclarationType<'ast>,
         constants: &GGenericsAssignment<'ast, S>,
-    ) -> GType<S> {
-        match decl_ty {
+    ) -> Result<GType<S>, GenericIdentifier<'ast>> {
+        Ok(match decl_ty {
             DeclarationType::Int => unreachable!(),
             DeclarationType::Array(t0) => {
                 // let s1 = t1.size.clone();
 
-                let ty = box specialize_type(*t0.ty, &constants);
+                let ty = box specialize_type(*t0.ty, &constants)?;
                 let size = match t0.size {
-                    Constant::Generic(s) => constants.0.get(&s).unwrap().clone(),
-                    Constant::Concrete(s) => s.into(),
-                };
+                    Constant::Generic(s) => constants.0.get(&s).cloned().ok_or_else(|| s),
+                    Constant::Concrete(s) => Ok(s.into()),
+                }?;
 
                 GType::Array(GArrayType { ty, size })
             }
@@ -955,15 +955,15 @@ pub mod signature {
                 members: s0
                     .members
                     .into_iter()
-                    .map(|m| GStructMember {
-                        ty: box specialize_type(*m.ty, constants),
-                        id: m.id,
+                    .map(|m| {
+                        let id = m.id;
+                        specialize_type(*m.ty, constants).map(|ty| GStructMember { ty: box ty, id })
                     })
-                    .collect(),
+                    .collect::<Result<_, _>>()?,
                 canonical_location: s0.canonical_location,
                 location: s0.location,
             }),
-        }
+        })
     }
 
     impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
@@ -1022,7 +1022,7 @@ pub mod signature {
         pub fn get_output_types<T: Clone + PartialEq + fmt::Debug>(
             &self,
             inputs: Vec<Type<'ast, T>>,
-        ) -> Vec<Type<'ast, T>> {
+        ) -> Result<Vec<Type<'ast, T>>, GenericIdentifier<'ast>> {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = GenericsAssignment::default();
 
@@ -1038,7 +1038,7 @@ pub mod signature {
                 .clone()
                 .into_iter()
                 .map(|t| specialize_type(t, &constants))
-                .collect()
+                .collect::<Result<_, _>>()
         }
     }
 

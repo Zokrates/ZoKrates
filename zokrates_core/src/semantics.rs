@@ -1249,16 +1249,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 generics.into_iter().map(|g|
                                     g.map(|g| {
                                         let pos = g.pos();
-                                        self.check_expression(g, module_id, &types).and_then(|g| match g {
-                                            TypedExpression::Uint(e) if e.bitwidth() == UBitwidth::B32 => { Ok(e) },
-                                            e => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected {} to be of type u32, found {}",
-                                                    e,
-                                                    e.get_type(),
-                                                ),
-                                            })
+                                        self.check_expression(g, module_id, &types).and_then(|g| {
+                                            UExpression::try_from_typed(g, UBitwidth::B32).map_err(
+                                                |e| ErrorInner {
+                                                    pos: Some(pos),
+                                                    message: format!(
+                                                        "Expected {} to be of type u32, found {}",
+                                                        e,
+                                                        e.get_type(),
+                                                    ),
+                                                },
+                                            )
                                         })
                                     })
                                     .transpose()
@@ -1865,7 +1866,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
 
-                        let output_types = signature.get_output_types(arguments_checked.iter().map(|a| a.get_type()).collect());
+                        let output_types = signature.get_output_types(arguments_checked.iter().map(|a| a.get_type()).collect()).map_err(|e| ErrorInner {
+                            pos: Some(pos),
+                            message: format!(
+                                "Failed to infer value for generic parameter `{}`, try being more explicit by using an intermediate variable",
+                                e,
+                            ),
+                        })?;
 
                         let generics_checked = generics_checked.unwrap_or(vec![None; signature.generics.len()]);
 
@@ -2247,70 +2254,23 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .map(|e| self.check_expression(e, module_id, &types))
                                     .unwrap_or_else(|| Ok(array_size.clone().into()))?;
 
-                                // check the bounds are field constants
-                                // Note: it would be nice to allow any field expression, and check it's a constant after constant propagation,
-                                // but it's tricky from a type perspective: the size of the slice changes the type of the resulting array,
-                                // which doesn't work well with our static array approach. Enabling arrays to have unknown size introduces a lot
-                                // of complexity in the compiler, as function selection in inlining requires knowledge of the array size, but
-                                // determining array size potentially requires inlining and propagating. This suggests we would need semantic checking
-                                // to happen iteratively with inlining and propagation, which we can't do now as we go from absy to typed_absy
-                                let from = match from {
-                                            TypedExpression::Uint(e) => Ok(e),
-                                            TypedExpression::Int(v) => UExpression::try_from_int(v.clone(), UBitwidth::B32).map_err(|_| ErrorInner {
+                                let from = UExpression::try_from_typed(from, UBitwidth::B32).map_err(|e| ErrorInner {
                                                     pos: Some(pos),
                                                     message: format!(
-                                                        "Expected the lower bound of the range to be a u32, found {}",
-                                                        v
+                                                        "Expected the lower bound of the range to be a u32, found {} of type {}",
+                                                        e,
+                                                        e.get_type()
                                                     ),
-                                                }),
-                                            e => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected the lower bound of the range to be a u32, found {}",
-                                                    e.get_type()
-                                                ),
-                                            })
-                                        }?;
+                                                })?;
 
-                                let from = match from.bitwidth() {
-                                            UBitwidth::B32 => Ok(from),
-                                            _ => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected the lower bound of the range to be a constant u32, found {}",
-                                                    from.get_type()
-                                                ),
-                                            })
-                                        }?;
-
-                                let to = match to {
-                                            TypedExpression::Uint(e) => Ok(e),
-                                            TypedExpression::Int(v) => UExpression::try_from_int(v.clone(), UBitwidth::B32).map_err(|_| ErrorInner {
+                                let to = UExpression::try_from_typed(to, UBitwidth::B32).map_err(|e| ErrorInner {
                                                     pos: Some(pos),
                                                     message: format!(
-                                                        "Expected the lower bound of the range to be a u32, found {}",
-                                                        v
+                                                        "Expected the upper bound of the range to be a u32, found {} of type {}",
+                                                        e,
+                                                        e.get_type()
                                                     ),
-                                                }),
-                                            e => Err(ErrorInner {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Expected the upper bound of the range to be a u32, found {}",
-                                                    e.get_type()
-                                                ),
-                                            })
-                                        }?;
-
-                                let to = match to.bitwidth() {
-                                                UBitwidth::B32 => Ok(to),
-                                                _ => Err(ErrorInner {
-                                                    pos: Some(pos),
-                                                    message: format!(
-                                                        "Expected the upper bound of the range to be a u32, found {}",
-                                                        to.get_type()
-                                                    ),
-                                                })
-                                            }?;
+                                                })?;
 
                                 Ok(ArrayExpressionInner::Slice(
                                     box array,
@@ -2496,6 +2456,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
             Expression::ArrayInitializer(box e, box count) => {
                 let e = self.check_expression(e, module_id, &types)?;
+                let ty = e.get_type();
 
                 let count = self.check_expression(count, module_id, &types)?;
 
@@ -2503,27 +2464,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     UExpression::try_from_typed(count, UBitwidth::B32).map_err(|e| ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Expected array initializer count to be a u32, found {}",
-                            e
+                            "Expected array initializer count to be a u32, found {} of type {}",
+                            e,
+                            e.get_type(),
                         ),
                     })?;
 
-                let count = match count.as_inner() {
-                    UExpressionInner::Value(v) => Ok(v),
-                    _ => Err(ErrorInner {
-                        pos: Some(pos),
-                        message: format!(
-                            "Expected array initializer count to be a constant, found {}",
-                            count
-                        ),
-                    }),
-                }?;
-
-                Ok(
-                    ArrayExpressionInner::Value(vec![e.clone().into(); *count as usize].into())
-                        .annotate(e.get_type(), *count as usize)
-                        .into(),
-                )
+                Ok(ArrayExpressionInner::Repeat(box e, box count.clone())
+                    .annotate(ty, count)
+                    .into())
             }
             Expression::InlineStruct(id, inline_members) => {
                 let ty = self.check_type(

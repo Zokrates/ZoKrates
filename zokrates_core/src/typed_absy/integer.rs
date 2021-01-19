@@ -488,6 +488,19 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
 
                 Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, array_ty.size))
             }
+            ArrayExpressionInner::Repeat(box e, box count) => {
+                match *target_array_ty.ty.clone() {
+                    Type::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
+                        .annotate(Type::Int, array_ty.size)),
+                    // try to convert the repeated element to the target type
+                    t => TypedExpression::align_to_type(e, t)
+                        .map(|e| {
+                            ArrayExpressionInner::Repeat(box e, box count)
+                                .annotate(*target_array_ty.ty, target_array_ty.size)
+                        })
+                        .map_err(|(e, _)| e),
+                }
+            }
             a => {
                 if array_ty.ty.weak_eq(&target_array_ty.ty) {
                     Ok(a.annotate(*array_ty.ty, array_ty.size))

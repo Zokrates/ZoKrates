@@ -452,6 +452,17 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 _ => unreachable!(),
             }
         }
+        typed_absy::ArrayExpressionInner::Repeat(box e, box count) => {
+            let e = f.fold_expression(e);
+            let count = f.fold_uint_expression(count);
+
+            match count.into_inner() {
+                zir::UExpressionInner::Value(count) => {
+                    vec![e; count as usize].into_iter().flatten().collect()
+                }
+                _ => unreachable!(),
+            }
+        }
     }
 }
 

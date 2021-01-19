@@ -740,7 +740,7 @@ mod tests {
     use crate::typed_absy::{
         ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
         FieldElementExpression, Identifier, Select, Type, TypedExpression, TypedExpressionList,
-        UBitwidth, UExpressionInner, Variable,
+        TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
 
@@ -1350,219 +1350,286 @@ mod tests {
         assert_eq!(reduced.unwrap(), expected);
     }
 
-    // #[test]
-    // fn call_in_call() {
-    //     // we use a global ssa counter, hence reusing variable names in called functions
-    //     // leads to counter increase
+    #[test]
+    fn call_in_call() {
+        // we use a global ssa counter, hence reusing variable names in called functions
+        // leads to counter increase
 
-    //     // def bar<K>(field[K] a) -> field[K]:
-    //     //      return a
+        // def bar<K>(field[K] a) -> field[K]:
+        //      return a
 
-    //     // def foo<K>(field[K] a) -> field[K]:
-    //     //      field[K] ret = bar([...a, 0])[0..K]
-    //     //      return ret
+        // def foo<K>(field[K] a) -> field[K]:
+        //      field[K] ret = bar([...a, 0])[0..K]
+        //      return ret
 
-    //     // def main():
-    //     //      field[1] b = foo([1])
-    //     //      return
+        // def main():
+        //      field[1] b = foo([1])
+        //      return
 
-    //     // expected:
-    //     // def main():
-    //     //      # PUSH CALL to foo::<1> with a_0 := [1]
-    //     //      # PUSH CALL to bar::<2> with a_0 := [...a, 0]
-    //     //      # POP CALL with field[1] ~bar_0 := a_0
-    //     //      field[1] ret = ~bar_0[0..1]
-    //     //      # POP CALL with field[1] b_0 := ret
-    //     //      return
+        // expected:
+        // def main():
+        //      # PUSH CALL to foo::<1>
+        //          # PUSH CALL to bar::<2>
+        //              field[2] a_1 = [...[1]], 0]
+        //              field[2] #RET_0_1 = a_1
+        //          # POP CALL
+        //          field[1] ret := #RET_0_1[0..1]
+        //          field[1] #RET_0 = ret
+        //      # POP CALL
+        //      field[1] b_0 := #RET_0
+        //      return
 
-    //     let foo_signature = DeclarationSignature::new()
-    //         .inputs(vec![DeclarationType::array(
-    //             DeclarationType::FieldElement,
-    //             Constant::Generic("K"),
-    //         )])
-    //         .outputs(vec![DeclarationType::array(
-    //             DeclarationType::FieldElement,
-    //             Constant::Generic("K"),
-    //         )]);
+        let foo_signature = DeclarationSignature::new()
+            .inputs(vec![DeclarationType::array((
+                DeclarationType::FieldElement,
+                Constant::Generic("K"),
+            ))])
+            .outputs(vec![DeclarationType::array((
+                DeclarationType::FieldElement,
+                Constant::Generic("K"),
+            ))])
+            .generics(vec![Some("K".into())]);
 
-    //     let foo: TypedFunction<Bn128Field> = TypedFunction {
-    //         generics: vec!["K".into()],
-    //         arguments: vec![DeclarationVariable::array(
-    //             "a",
-    //             DeclarationType::FieldElement,
-    //             "K".into(),
-    //         )
-    //         .into()],
-    //         statements: vec![TypedStatement::Return(vec![
-    //             ArrayExpressionInner::Identifier("a".into())
-    //                 .annotate(
-    //                     Type::FieldElement,
-    //                     UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
-    //                 )
-    //                 .into(),
-    //         ])],
-    //         signature: foo_signature.clone(),
-    //     };
+        let foo: TypedFunction<Bn128Field> = TypedFunction {
+            arguments: vec![DeclarationVariable::array(
+                "a",
+                DeclarationType::FieldElement,
+                Constant::Generic("K".into()),
+            )
+            .into()],
+            statements: vec![
+                TypedStatement::Definition(
+                    Variable::array(
+                        "ret",
+                        Type::FieldElement,
+                        UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
+                    )
+                    .into(),
+                    ArrayExpressionInner::Slice(
+                        box ArrayExpressionInner::FunctionCall(
+                            DeclarationFunctionKey::with_location("main", "bar")
+                                .signature(foo_signature.clone()),
+                            vec![None],
+                            vec![ArrayExpressionInner::Value(
+                                vec![
+                                    TypedExpressionOrSpread::Spread(
+                                        ArrayExpressionInner::Identifier("a".into())
+                                            .annotate(Type::FieldElement, 1u32)
+                                            .into(),
+                                    ),
+                                    FieldElementExpression::Number(Bn128Field::from(0)).into(),
+                                ]
+                                .into(),
+                            )
+                            .annotate(
+                                Type::FieldElement,
+                                UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32)
+                                    + 1u32.into(),
+                            )
+                            .into()],
+                        )
+                        .annotate(
+                            Type::FieldElement,
+                            UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32)
+                                + 1u32.into(),
+                        ),
+                        box 0u32.into(),
+                        box UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
+                    )
+                    .annotate(
+                        Type::FieldElement,
+                        UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
+                    )
+                    .into(),
+                ),
+                TypedStatement::Return(vec![ArrayExpressionInner::Identifier("ret".into())
+                    .annotate(
+                        Type::FieldElement,
+                        UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
+                    )
+                    .into()]),
+            ],
+            signature: foo_signature.clone(),
+        };
 
-    //     let bar_signature = DeclarationSignature::new()
-    //         .inputs(vec![DeclarationType::array(
-    //             DeclarationType::FieldElement,
-    //             Constant::Generic("K"),
-    //         )])
-    //         .outputs(vec![DeclarationType::array(
-    //             DeclarationType::FieldElement,
-    //             Constant::Generic("K"),
-    //         )]);
+        let bar_signature = foo_signature.clone();
 
-    //     let bar: TypedFunction<Bn128Field> = TypedFunction {
-    //         generics: vec!["K".into()],
-    //         arguments: vec![DeclarationVariable::array(
-    //             "a",
-    //             DeclarationType::FieldElement,
-    //             "K".into(),
-    //         )
-    //         .into()],
-    //         statements: vec![TypedStatement::Return(vec![
-    //             ArrayExpressionInner::Identifier("a".into())
-    //                 .annotate(
-    //                     Type::FieldElement,
-    //                     UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
-    //                 )
-    //                 .into(),
-    //         ])],
-    //         signature: foo_signature.clone(),
-    //     };
+        let bar: TypedFunction<Bn128Field> = TypedFunction {
+            arguments: vec![DeclarationVariable::array(
+                "a",
+                DeclarationType::FieldElement,
+                Constant::Generic("K".into()),
+            )
+            .into()],
+            statements: vec![TypedStatement::Return(vec![
+                ArrayExpressionInner::Identifier("a".into())
+                    .annotate(
+                        Type::FieldElement,
+                        UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
+                    )
+                    .into(),
+            ])],
+            signature: bar_signature.clone(),
+        };
 
-    //     let main: TypedFunction<Bn128Field> = TypedFunction {
-    //         generics: vec![],
-    //         arguments: vec![DeclarationVariable::field_element("a").into()],
-    //         statements: vec![
-    //             TypedStatement::MultipleDefinition(
-    //                 vec![Variable::array("b", Type::FieldElement, 1u32.into()).into()],
-    //                 TypedExpressionList::FunctionCall(
-    //                     DeclarationFunctionKey::with_location(module_id.clone(), "foo").signature(foo_signature.clone()),
-    //                     vec![ArrayExpressionInner::Identifier("b".into())
-    //                         .annotate(Type::FieldElement, 1u32)
-    //                         .into()],
-    //                     vec![Type::array(Type::FieldElement, 1u32)],
-    //                 ),
-    //             ),
-    //             TypedStatement::Return(vec![]),
-    //         ],
-    //         signature: DeclarationSignature::new(),
-    //     };
+        let main: TypedFunction<Bn128Field> = TypedFunction {
+            arguments: vec![],
+            statements: vec![
+                TypedStatement::MultipleDefinition(
+                    vec![Variable::array("b", Type::FieldElement, 1u32).into()],
+                    TypedExpressionList::FunctionCall(
+                        DeclarationFunctionKey::with_location("main", "foo")
+                            .signature(foo_signature.clone()),
+                        vec![None],
+                        vec![ArrayExpressionInner::Value(
+                            vec![FieldElementExpression::Number(Bn128Field::from(1)).into()].into(),
+                        )
+                        .annotate(Type::FieldElement, 1u32)
+                        .into()],
+                        vec![Type::array((Type::FieldElement, 1u32))],
+                    ),
+                ),
+                TypedStatement::Return(vec![]),
+            ],
+            signature: DeclarationSignature::new(),
+        };
 
-    //     let p = TypedProgram {
-    //         main: "main".into(),
-    //         modules: vec![(
-    //             "main".into(),
-    //             TypedModule {
-    //                 functions: vec![
-    //                     (
-    //                         DeclarationFunctionKey::with_location(module_id.clone(), "foo").signature(foo_signature.clone()),
-    //                         TypedFunctionSymbol::Here(foo),
-    //                     ),
-    //                     (
-    //                         DeclarationFunctionKey::with_location(module_id.clone(), "main"),
-    //                         TypedFunctionSymbol::Here(main),
-    //                     ),
-    //                 ]
-    //                 .into_iter()
-    //                 .collect(),
-    //             },
-    //         )]
-    //         .into_iter()
-    //         .collect(),
-    //     };
+        let p = TypedProgram {
+            main: "main".into(),
+            modules: vec![(
+                "main".into(),
+                TypedModule {
+                    functions: vec![
+                        (
+                            DeclarationFunctionKey::with_location("main", "bar")
+                                .signature(bar_signature.clone()),
+                            TypedFunctionSymbol::Here(bar),
+                        ),
+                        (
+                            DeclarationFunctionKey::with_location("main", "foo")
+                                .signature(foo_signature.clone()),
+                            TypedFunctionSymbol::Here(foo),
+                        ),
+                        (
+                            DeclarationFunctionKey::with_location("main", "main"),
+                            TypedFunctionSymbol::Here(main),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        };
 
-    //     let reduced = reduce_program(p);
+        let reduced = reduce_program(p);
 
-    //     let expected_main = TypedFunction {
-    //         generics: vec![],
-    //         arguments: vec![DeclarationVariable::field_element("a").into()],
-    //         statements: vec![
-    //             TypedStatement::Definition(
-    //                 Variable::uint("n", UBitwidth::B32).into(),
-    //                 TypedExpression::Uint(42u32.into()),
-    //             ),
-    //             TypedStatement::Definition(
-    //                 Variable::uint(Identifier::from("n").version(1), UBitwidth::B32).into(),
-    //                 UExpressionInner::Identifier("n".into())
-    //                     .annotate(UBitwidth::B32)
-    //                     .into(),
-    //             ),
-    //             TypedStatement::Definition(
-    //                 Variable::array("b", Type::FieldElement, 1u32.into()).into(),
-    //                 ArrayExpressionInner::Value(vec![
-    //                     FieldElementExpression::Number(1.into()).into()
-    //                 ])
-    //                 .annotate(Type::FieldElement, 1u32)
-    //                 .into(),
-    //             ),
-    //             TypedStatement::PushCallLog(
-    //                 "main".into(),
-    //                 DeclarationFunctionKey::with_location(module_id.clone(), "foo").signature(foo_signature.clone()),
-    //                 GenericsAssignment(vec![("K", 1)].into_iter().collect()),
-    //                 vec![(
-    //                     ConcreteVariable::array("a", ConcreteType::FieldElement, 1).into(),
-    //                     ArrayExpressionInner::Identifier("b".into())
-    //                         .annotate(Type::FieldElement, 1u32)
-    //                         .into(),
-    //                 )],
-    //             ),
-    //             TypedStatement::Definition(
-    //                 Variable::uint("K", UBitwidth::B32).into(),
-    //                 UExpression::from(1u32).into(),
-    //             ),
-    //             TypedStatement::PopCallLog(vec![(
-    //                 ConcreteVariable::array(
-    //                     Identifier::from("b").version(1),
-    //                     ConcreteType::FieldElement,
-    //                     1,
-    //                 ),
-    //                 ArrayExpressionInner::Identifier("a".into())
-    //                     .annotate(Type::FieldElement, 1u32)
-    //                     .into(),
-    //             )]),
-    //             TypedStatement::Definition(
-    //                 Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
-    //                 UExpressionInner::Identifier(Identifier::from("n").version(1))
-    //                     .annotate(UBitwidth::B32)
-    //                     .into(),
-    //             ),
-    //             TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
-    //         ],
-    //         signature: DeclarationSignature::new()
-    //             .inputs(vec![DeclarationType::FieldElement])
-    //             .outputs(vec![DeclarationType::FieldElement]),
-    //     };
+        let expected_main = TypedFunction {
+            arguments: vec![],
+            statements: vec![
+                TypedStatement::PushCallLog(
+                    DeclarationFunctionKey::with_location("main", "foo")
+                        .signature(foo_signature.clone()),
+                    GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
+                ),
+                TypedStatement::PushCallLog(
+                    DeclarationFunctionKey::with_location("main", "bar")
+                        .signature(foo_signature.clone()),
+                    GGenericsAssignment(vec![("K", 2)].into_iter().collect()),
+                ),
+                TypedStatement::Definition(
+                    Variable::array(Identifier::from("a").version(1), Type::FieldElement, 2u32)
+                        .into(),
+                    ArrayExpressionInner::Value(
+                        vec![
+                            TypedExpressionOrSpread::Spread(
+                                ArrayExpressionInner::Value(
+                                    vec![TypedExpressionOrSpread::Expression(
+                                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                                    )]
+                                    .into(),
+                                )
+                                .annotate(Type::FieldElement, 1u32)
+                                .into(),
+                            ),
+                            FieldElementExpression::Number(Bn128Field::from(0)).into(),
+                        ]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 2u32)
+                    .into(),
+                ),
+                TypedStatement::Definition(
+                    Variable::array(
+                        Identifier::from(CoreIdentifier::Call(0)).version(1),
+                        Type::FieldElement,
+                        2u32,
+                    )
+                    .into(),
+                    ArrayExpressionInner::Identifier(Identifier::from("a").version(1))
+                        .annotate(Type::FieldElement, 2u32)
+                        .into(),
+                ),
+                TypedStatement::PopCallLog,
+                TypedStatement::Definition(
+                    Variable::array("ret", Type::FieldElement, 1u32).into(),
+                    ArrayExpressionInner::Slice(
+                        box ArrayExpressionInner::Identifier(
+                            Identifier::from(CoreIdentifier::Call(0)).version(1),
+                        )
+                        .annotate(Type::FieldElement, 2u32)
+                        .into(),
+                        box 0u32.into(),
+                        box 1u32.into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32)
+                    .into(),
+                ),
+                TypedStatement::Definition(
+                    Variable::array(
+                        Identifier::from(CoreIdentifier::Call(0)),
+                        Type::FieldElement,
+                        1u32,
+                    )
+                    .into(),
+                    ArrayExpressionInner::Identifier("ret".into())
+                        .annotate(Type::FieldElement, 1u32)
+                        .into(),
+                ),
+                TypedStatement::PopCallLog,
+                TypedStatement::Definition(
+                    Variable::array("b", Type::FieldElement, 1u32).into(),
+                    ArrayExpressionInner::Identifier(Identifier::from(CoreIdentifier::Call(0)))
+                        .annotate(Type::FieldElement, 1u32)
+                        .into(),
+                ),
+                TypedStatement::Return(vec![]),
+            ],
+            signature: DeclarationSignature::new(),
+        };
 
-    //     let expected = TypedProgram {
-    //         main: "main".into(),
-    //         modules: vec![(
-    //             "main".into(),
-    //             TypedModule {
-    //                 functions: vec![(
-    //                     DeclarationFunctionKey::with_location(module_id.clone(), "main").signature(
-    //                         DeclarationSignature::new()
-    //                             .inputs(vec![DeclarationType::FieldElement])
-    //                             .outputs(vec![DeclarationType::FieldElement]),
-    //                     ),
-    //                     TypedFunctionSymbol::Here(expected_main),
-    //                 )]
-    //                 .into_iter()
-    //                 .collect(),
-    //             },
-    //         )]
-    //         .into_iter()
-    //         .collect(),
-    //     };
+        let expected = TypedProgram {
+            main: "main".into(),
+            modules: vec![(
+                "main".into(),
+                TypedModule {
+                    functions: vec![(
+                        DeclarationFunctionKey::with_location("main", "main")
+                            .signature(DeclarationSignature::new()),
+                        TypedFunctionSymbol::Here(expected_main),
+                    )]
+                    .into_iter()
+                    .chain(embeds_in_module(&"main".into()))
+                    .collect(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        };
 
-    //     println!("{}", reduced.clone().unwrap());
-    //     println!("{}", expected);
-
-    //     assert_eq!(reduced.unwrap(), expected);
-    // }
+        assert_eq!(reduced.unwrap(), expected);
+    }
 
     #[test]
     fn incompatible() {
