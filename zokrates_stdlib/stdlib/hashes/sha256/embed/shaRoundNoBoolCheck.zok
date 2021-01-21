@@ -1,0 +1,8 @@
+#pragma curve bn128
+import "EMBED/sha256round" as sha256round
+
+// a and b is NOT checked to be 0 or 1
+// the return value is checked to be 0 or 1
+// IV vector is checked to be of type bool
+def main(bool[256] a, bool[256] b, bool[256] IV) -> (bool[256]):
+	return sha256round([...a, ...b], IV)

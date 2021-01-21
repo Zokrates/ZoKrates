@@ -40,6 +40,7 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::{fold_function, Folder};
 use crate::ir::LinComb;
 use crate::ir::*;
+use crate::solvers::Executable;
 use std::collections::{HashMap, HashSet};
 use zokrates_field::Field;
 
@@ -146,10 +147,8 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     true => {
                         // unwrap inputs to their constant value
                         let inputs = inputs.into_iter().map(|i| i.unwrap()).collect();
-                        // run the interpereter
-                        let outputs = Interpreter::default()
-                            .execute_solver(&d.solver, &inputs)
-                            .unwrap();
+                        // run the solver
+                        let outputs = d.solver.execute(&inputs).unwrap();
 
                         assert_eq!(outputs.len(), d.outputs.len());
 
