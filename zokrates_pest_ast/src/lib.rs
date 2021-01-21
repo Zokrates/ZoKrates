@@ -8,15 +8,16 @@ use zokrates_parser::Rule;
 extern crate lazy_static;
 
 pub use ast::{
-    Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
-    AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
-    DecimalLiteralExpression, DecimalNumber, DecimalSuffix, DefinitionStatement, Expression,
-    FieldType, File, FromExpression, Function, HexLiteralExpression, HexNumberExpression,
-    IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression,
-    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression,
-    OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
-    TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
+    Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement,
+    Assignee, AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
+    CallAccess, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber, DecimalSuffix,
+    DefinitionStatement, ExplicitGenerics, Expression, FieldType, File, FromExpression, Function,
+    HexLiteralExpression, HexNumberExpression, IdentifierExpression, ImportDirective, ImportSource,
+    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
+    LiteralExpression, OptionallyTypedAssignee, Parameter, PostfixExpression, Range,
+    RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
+    StructDefinition, StructField, TernaryExpression, ToExpression, Type, UnaryExpression,
+    UnaryOperator, Underscore, Visibility,
 };
 
 mod ast {
@@ -547,7 +548,7 @@ mod ast {
     #[pest_ast(rule(Rule::array_initializer_expression))]
     pub struct ArrayInitializerExpression<'ast> {
         pub value: Box<Expression<'ast>>,
-        pub count: LiteralExpression<'ast>,
+        pub count: Box<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -580,6 +581,38 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::call_access))]
     pub struct CallAccess<'ast> {
+        pub explicit_generics: Option<ExplicitGenerics<'ast>>,
+        pub arguments: Arguments<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::explicit_generics))]
+    pub struct ExplicitGenerics<'ast> {
+        pub values: Vec<ConstantGenericValue<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::constant_generics_value))]
+    pub enum ConstantGenericValue<'ast> {
+        Value(LiteralExpression<'ast>),
+        Identifier(IdentifierExpression<'ast>),
+        Underscore(Underscore<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::underscore))]
+    pub struct Underscore<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::arguments))]
+    pub struct Arguments<'ast> {
         pub expressions: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -1223,38 +1256,42 @@ mod tests {
                                 span: Span::new(&source, 36, 39).unwrap()
                             },
                             accesses: vec![Access::Call(CallAccess {
-                                expressions: vec![
-                                    Expression::Literal(LiteralExpression::DecimalLiteral(
-                                        DecimalLiteralExpression {
-                                            suffix: None,
-                                            value: DecimalNumber {
+                                explicit_generics: None,
+                                arguments: Arguments {
+                                    expressions: vec![
+                                        Expression::Literal(LiteralExpression::DecimalLiteral(
+                                            DecimalLiteralExpression {
+                                                suffix: None,
+                                                value: DecimalNumber {
+                                                    span: Span::new(&source, 40, 41).unwrap()
+                                                },
                                                 span: Span::new(&source, 40, 41).unwrap()
-                                            },
-                                            span: Span::new(&source, 40, 41).unwrap()
-                                        }
-                                    )),
-                                    Expression::add(
-                                        Expression::Literal(LiteralExpression::DecimalLiteral(
-                                            DecimalLiteralExpression {
-                                                suffix: None,
-                                                value: DecimalNumber {
+                                            }
+                                        )),
+                                        Expression::add(
+                                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                                DecimalLiteralExpression {
+                                                    suffix: None,
+                                                    value: DecimalNumber {
+                                                        span: Span::new(&source, 43, 44).unwrap()
+                                                    },
                                                     span: Span::new(&source, 43, 44).unwrap()
-                                                },
-                                                span: Span::new(&source, 43, 44).unwrap()
-                                            }
-                                        )),
-                                        Expression::Literal(LiteralExpression::DecimalLiteral(
-                                            DecimalLiteralExpression {
-                                                suffix: None,
-                                                value: DecimalNumber {
+                                                }
+                                            )),
+                                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                                DecimalLiteralExpression {
+                                                    suffix: None,
+                                                    value: DecimalNumber {
+                                                        span: Span::new(&source, 47, 48).unwrap()
+                                                    },
                                                     span: Span::new(&source, 47, 48).unwrap()
-                                                },
-                                                span: Span::new(&source, 47, 48).unwrap()
-                                            }
-                                        )),
-                                        Span::new(&source, 43, 48).unwrap()
-                                    ),
-                                ],
+                                                }
+                                            )),
+                                            Span::new(&source, 43, 48).unwrap()
+                                        ),
+                                    ],
+                                    span: Span::new(&source, 40, 48).unwrap()
+                                },
                                 span: Span::new(&source, 39, 49).unwrap()
                             })],
                             span: Span::new(&source, 36, 49).unwrap(),
@@ -1272,7 +1309,7 @@ mod tests {
 
     #[test]
     fn playground() {
-        let source = r#"import "heyman" as yo
+        let source = r#"import "foo" as bar
 
         struct Foo {
             field[2] foo
@@ -1281,7 +1318,7 @@ mod tests {
 
         def main<P>(private field[Q] a) -> (bool[234 + 6]):
         field a = 1
-        a[32 + x][55] = y
+        a[32 + x][55] = foo::<a, _>(y)
         for field i in 0..3 do
                assert(a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3)
         endfor

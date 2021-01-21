@@ -25,15 +25,15 @@ impl<'ast, T> TryFrom<Variable<'ast, T>> for ConcreteVariable<'ast> {
     }
 }
 
-impl<'ast> TryFrom<DeclarationVariable<'ast>> for ConcreteVariable<'ast> {
-    type Error = SpecializationError;
+// impl<'ast> TryFrom<DeclarationVariable<'ast>> for ConcreteVariable<'ast> {
+//     type Error = SpecializationError;
 
-    fn try_from(v: DeclarationVariable<'ast>) -> Result<Self, Self::Error> {
-        let _type = v._type.try_into()?;
+//     fn try_from(v: DeclarationVariable<'ast>) -> Result<Self, Self::Error> {
+//         let _type = v._type.try_into()?;
 
-        Ok(Self { _type, id: v.id })
-    }
-}
+//         Ok(Self { _type, id: v.id })
+//     }
+// }
 
 impl<'ast, T> From<ConcreteVariable<'ast>> for Variable<'ast, T> {
     fn from(v: ConcreteVariable<'ast>) -> Self {

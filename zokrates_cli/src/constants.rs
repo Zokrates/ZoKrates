@@ -19,6 +19,7 @@ lazy_static! {
         .unwrap();
 }
 
+#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 pub const BACKENDS: &[&str] = if cfg!(feature = "libsnark") {
     if cfg!(feature = "ark") {
         if cfg!(feature = "bellman") {

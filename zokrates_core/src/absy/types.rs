@@ -40,12 +40,14 @@ pub type FunctionIdentifier<'ast> = &'ast str;
 pub use self::signature::UnresolvedSignature;
 
 mod signature {
+    use crate::absy::ConstantGenericNode;
     use std::fmt;
 
     use crate::absy::UnresolvedTypeNode;
 
     #[derive(Clone, PartialEq, Default)]
     pub struct UnresolvedSignature<'ast> {
+        pub generics: Vec<ConstantGenericNode<'ast>>,
         pub inputs: Vec<UnresolvedTypeNode<'ast>>,
         pub outputs: Vec<UnresolvedTypeNode<'ast>>,
     }
@@ -83,6 +85,11 @@ mod signature {
     impl<'ast> UnresolvedSignature<'ast> {
         pub fn new() -> UnresolvedSignature<'ast> {
             UnresolvedSignature::default()
+        }
+
+        pub fn generics(mut self, generics: Vec<ConstantGenericNode<'ast>>) -> Self {
+            self.generics = generics;
+            self
         }
 
         pub fn inputs(mut self, inputs: Vec<UnresolvedTypeNode<'ast>>) -> Self {

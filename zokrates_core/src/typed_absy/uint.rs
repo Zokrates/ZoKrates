@@ -11,7 +11,12 @@ impl<'ast, T> Add for UExpression<'ast, T> {
     fn add(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
-        UExpressionInner::Add(box self, box other).annotate(bitwidth)
+
+        match (self.as_inner(), other.as_inner()) {
+            (UExpressionInner::Value(0), _) => other,
+            (_, UExpressionInner::Value(0)) => self,
+            _ => UExpressionInner::Add(box self, box other).annotate(bitwidth),
+        }
     }
 }
 
@@ -92,6 +97,12 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::RightShift(box self, box by).annotate(bitwidth)
     }
+
+    pub fn floor_sub(self, other: Self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(bitwidth, other.bitwidth);
+        UExpressionInner::FloorSub(box self, box other).annotate(bitwidth)
+    }
 }
 
 impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {
@@ -152,6 +163,7 @@ pub enum UExpressionInner<'ast, T> {
     Value(u128),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    FloorSub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Div(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Rem(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
@@ -167,7 +179,11 @@ pub enum UExpressionInner<'ast, T> {
         Box<UExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(DeclarationFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(
+        DeclarationFunctionKey<'ast>,
+        Vec<Option<UExpression<'ast, T>>>,
+        Vec<TypedExpression<'ast, T>>,
+    ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,

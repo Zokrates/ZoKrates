@@ -1,7 +1,7 @@
 use crate::typed_absy::types::{ConcreteSignature, ConcreteType};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct AbiInput {
     pub name: String,
     pub public: bool,
@@ -20,6 +20,7 @@ pub struct Abi {
 impl Abi {
     pub fn signature(&self) -> ConcreteSignature {
         ConcreteSignature {
+            generics: vec![],
             inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
             outputs: self.outputs.clone(),
         }
@@ -45,7 +46,6 @@ mod tests {
         functions.insert(
             ConcreteFunctionKey::with_location("main", "main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
-                generics: vec![],
                 arguments: vec![
                     DeclarationParameter {
                         id: DeclarationVariable::field_element("a"),

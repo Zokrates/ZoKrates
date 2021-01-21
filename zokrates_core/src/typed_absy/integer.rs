@@ -2,7 +2,8 @@ use crate::typed_absy::types::{ArrayType, Type};
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, FieldElementExpression, IfElse,
-    Select, StructExpression, Typed, TypedExpression, UExpression, UExpressionInner,
+    Select, StructExpression, Typed, TypedExpression, TypedExpressionOrSpread, TypedSpread,
+    UExpression, UExpressionInner,
 };
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -11,6 +12,21 @@ use std::ops::{Add, Div, Mul, Not, Sub};
 use zokrates_field::Field;
 
 type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
+
+impl<'ast, T: Field> TypedExpressionOrSpread<'ast, T> {
+    pub fn align_to_type(e: Self, ty: Type<'ast, T>) -> Result<Self, (Self, Type<'ast, T>)> {
+        match e {
+            TypedExpressionOrSpread::Expression(e) => TypedExpression::align_to_type(e, ty)
+                .map(|e| e.into())
+                .map_err(|(e, t)| (e.into(), t)),
+            TypedExpressionOrSpread::Spread(s) => {
+                ArrayExpression::try_from_int(s.array, ty.clone())
+                    .map(|e| TypedExpressionOrSpread::Spread(TypedSpread { array: e }))
+                    .map_err(|e| (e.into(), ty))
+            }
+        }
+    }
+}
 
 impl<'ast, T: Field> TypedExpression<'ast, T> {
     // return two TypedExpression, replacing IntExpression by FieldElement or Uint to try to align the two types if possible.
@@ -50,11 +66,34 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 ))
             }
             (Array(lhs), Array(rhs)) => {
-                if lhs.get_type() == rhs.get_type() {
-                    Ok((Array(lhs), Array(rhs)))
-                } else {
-                    Err((Array(lhs), Array(rhs)))
+                fn get_common_type<'a, T: Field>(
+                    t: Type<'a, T>,
+                    u: Type<'a, T>,
+                ) -> Result<Type<'a, T>, ()> {
+                    match (t, u) {
+                        (Type::Int, Type::Int) => Err(()),
+                        (Type::Int, u) => Ok(u),
+                        (t, Type::Int) => Ok(t),
+                        (Type::Array(t), Type::Array(u)) => Ok(Type::Array(ArrayType::new(
+                            get_common_type(*t.ty, *u.ty)?,
+                            t.size,
+                        ))),
+                        (t, _) => Ok(t),
+                    }
                 }
+
+                let common_type =
+                    get_common_type(lhs.inner_type().clone(), rhs.inner_type().clone())
+                        .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
+
+                Ok((
+                    ArrayExpression::try_from_int(lhs.clone(), common_type.clone())
+                        .map_err(|lhs| (lhs.clone(), rhs.clone().into()))?
+                        .into(),
+                    ArrayExpression::try_from_int(rhs, common_type)
+                        .map_err(|rhs| (lhs.clone().into(), rhs.clone()))?
+                        .into(),
+                ))
             }
             (Struct(lhs), Struct(rhs)) => {
                 if lhs.get_type() == rhs.get_type() {
@@ -81,7 +120,7 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 UExpression::try_from_typed(e, bitwidth).map(TypedExpression::from)
             }
             Type::Array(array_ty) => {
-                ArrayExpression::try_from_typed(e, array_ty).map(TypedExpression::from)
+                ArrayExpression::try_from_typed(e, *array_ty.ty).map(TypedExpression::from)
             }
             Type::Struct(struct_ty) => {
                 StructExpression::try_from_typed(e, struct_ty).map(TypedExpression::from)
@@ -261,25 +300,34 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                     box Self::try_from_int(alternative)?,
                 ))
             }
-            IntExpression::Select(box array, box index) => match array.as_inner() {
-                ArrayExpressionInner::Value(values) => {
-                    let values = values
-                        .iter()
-                        .map(|v| {
-                            FieldElementExpression::try_from_int(
-                                IntExpression::try_from(v.clone()).unwrap(),
-                            )
-                            .map(TypedExpression::from)
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    Ok(FieldElementExpression::select(
-                        ArrayExpressionInner::Value(values)
-                            .annotate(Type::FieldElement, array.size()),
-                        index,
-                    ))
+            IntExpression::Select(box array, box index) => {
+                let size = array.size();
+
+                match array.into_inner() {
+                    ArrayExpressionInner::Value(values) => {
+                        let values = values
+                            .into_iter()
+                            .map(|v| {
+                                TypedExpressionOrSpread::align_to_type(v, Type::FieldElement)
+                                    .map_err(|(e, _)| match e {
+                                        TypedExpressionOrSpread::Expression(e) => {
+                                            IntExpression::try_from(e).unwrap()
+                                        }
+                                        TypedExpressionOrSpread::Spread(a) => {
+                                            IntExpression::select(a.array, 0u32)
+                                        }
+                                    })
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        Ok(FieldElementExpression::select(
+                            ArrayExpressionInner::Value(values.into())
+                                .annotate(Type::FieldElement, size),
+                            index,
+                        ))
+                    }
+                    _ => unreachable!(),
                 }
-                _ => unreachable!(),
-            },
+            }
             i => Err(i),
         }
     }
@@ -357,26 +405,33 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 Self::try_from_int(consequence, bitwidth)?,
                 Self::try_from_int(alternative, bitwidth)?,
             )),
-            Select(box array, box index) => match array.as_inner() {
-                ArrayExpressionInner::Value(values) => {
-                    let values = values
-                        .iter()
-                        .map(|v| {
-                            UExpression::try_from_int(
-                                IntExpression::try_from(v.clone()).unwrap(),
-                                bitwidth,
-                            )
-                            .map(TypedExpression::from)
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    Ok(UExpression::select(
-                        ArrayExpressionInner::Value(values)
-                            .annotate(Type::Uint(bitwidth), array.size()),
-                        index,
-                    ))
+            Select(box array, box index) => {
+                let size = array.size();
+                match array.into_inner() {
+                    ArrayExpressionInner::Value(values) => {
+                        let values = values
+                            .into_iter()
+                            .map(|v| {
+                                TypedExpressionOrSpread::align_to_type(v, Type::Uint(bitwidth))
+                                    .map_err(|(e, _)| match e {
+                                        TypedExpressionOrSpread::Expression(e) => {
+                                            IntExpression::try_from(e).unwrap()
+                                        }
+                                        TypedExpressionOrSpread::Spread(a) => {
+                                            IntExpression::select(a.array, 0u32)
+                                        }
+                                    })
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        Ok(UExpression::select(
+                            ArrayExpressionInner::Value(values.into())
+                                .annotate(Type::Uint(bitwidth), size),
+                            index,
+                        ))
+                    }
+                    _ => unreachable!(),
                 }
-                _ => unreachable!(),
-            },
+            }
             i => Err(i),
         }
     }
@@ -385,89 +440,71 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 impl<'ast, T: Field> ArrayExpression<'ast, T> {
     pub fn try_from_typed(
         e: TypedExpression<'ast, T>,
-        target_array_ty: ArrayType<'ast, T>,
+        target_inner_ty: Type<'ast, T>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
         match e {
-            TypedExpression::Array(e) => Self::try_from_int(e.clone(), target_array_ty)
+            TypedExpression::Array(e) => Self::try_from_int(e.clone(), target_inner_ty)
                 .map_err(|_| TypedExpression::Array(e)),
             e => Err(e),
         }
     }
 
-    // precondition: `array` is only made of inline arrays
+    // precondition: `array` is only made of inline arrays unless it does not contain the Integer type
     pub fn try_from_int(
         array: Self,
-        target_array_ty: ArrayType<'ast, T>,
+        target_inner_ty: Type<'ast, T>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
         let array_ty = array.get_array_type();
 
-        if array_ty.weak_eq(&target_array_ty) {
-            return Ok(array);
-        }
-
         // elements must fit in the target type
-        let converted = match array.into_inner() {
+        match array.into_inner() {
             ArrayExpressionInner::Value(inline_array) => {
-                match *target_array_ty.ty {
+                let res = match target_inner_ty.clone() {
                     Type::Int => Ok(inline_array),
-                    Type::FieldElement => {
-                        // try to convert all elements to field
+                    t => {
+                        // try to convert all elements to the target type
                         inline_array
                             .into_iter()
-                            .map(|e| {
-                                FieldElementExpression::try_from_typed(e).map(TypedExpression::from)
+                            .map(|v| {
+                                TypedExpressionOrSpread::align_to_type(v, t.clone()).map_err(
+                                    |(e, _)| match e {
+                                        TypedExpressionOrSpread::Expression(e) => e,
+                                        TypedExpressionOrSpread::Spread(a) => {
+                                            TypedExpression::select(a.array, 0u32)
+                                        }
+                                    },
+                                )
                             })
-                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                            .map_err(TypedExpression::from)
+                            .collect::<Result<Vec<_>, _>>()
+                            .map(|v| v.into())
                     }
-                    Type::Uint(bitwidth) => {
-                        // try to convert all elements to uint
-                        inline_array
-                            .into_iter()
-                            .map(|e| {
-                                UExpression::try_from_typed(e, bitwidth).map(TypedExpression::from)
-                            })
-                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                            .map_err(TypedExpression::from)
-                    }
-                    Type::Array(ref inner_array_ty) => {
-                        // try to convert all elements to array
-                        inline_array
-                            .into_iter()
-                            .map(|e| {
-                                ArrayExpression::try_from_typed(e, inner_array_ty.clone())
-                                    .map(TypedExpression::from)
-                            })
-                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                            .map_err(TypedExpression::from)
-                    }
-                    Type::Struct(ref struct_ty) => {
-                        // try to convert all elements to struct
-                        inline_array
-                            .into_iter()
-                            .map(|e| {
-                                StructExpression::try_from_typed(e, struct_ty.clone())
-                                    .map(TypedExpression::from)
-                            })
-                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                            .map_err(TypedExpression::from)
-                    }
-                    Type::Boolean => {
-                        // try to convert all elements to boolean
-                        inline_array
-                            .into_iter()
-                            .map(|e| {
-                                BooleanExpression::try_from_typed(e).map(TypedExpression::from)
-                            })
-                            .collect::<Result<Vec<TypedExpression<'ast, T>>, _>>()
-                            .map_err(TypedExpression::from)
-                    }
+                }?;
+
+                let inner_ty = res.0[0].get_type().0;
+
+                Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, array_ty.size))
+            }
+            ArrayExpressionInner::Repeat(box e, box count) => {
+                match target_inner_ty.clone() {
+                    Type::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
+                        .annotate(Type::Int, array_ty.size)),
+                    // try to convert the repeated element to the target type
+                    t => TypedExpression::align_to_type(e, t)
+                        .map(|e| {
+                            ArrayExpressionInner::Repeat(box e, box count)
+                                .annotate(target_inner_ty, array_ty.size)
+                        })
+                        .map_err(|(e, _)| e),
                 }
             }
-            _ => unreachable!(),
-        }?;
-
-        Ok(ArrayExpressionInner::Value(converted).annotate(*target_array_ty.ty, array_ty.size))
+            a => {
+                if array_ty.ty.weak_eq(&target_inner_ty) {
+                    Ok(a.annotate(*array_ty.ty, array_ty.size))
+                } else {
+                    Err(a.annotate(*array_ty.ty, array_ty.size).into())
+                }
+            }
+        }
     }
 }
 
@@ -486,10 +523,11 @@ mod tests {
     fn field_from_int() {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![n.clone().into()]).annotate(Type::Int, 1u32);
+            ArrayExpressionInner::Value(vec![n.clone().into()].into()).annotate(Type::Int, 1u32);
         let t: FieldElementExpression<Bn128Field> = Bn128Field::from(42).into();
         let t_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![t.clone().into()]).annotate(Type::FieldElement, 1u32);
+            ArrayExpressionInner::Value(vec![t.clone().into()].into())
+                .annotate(Type::FieldElement, 1u32);
         let i: UExpression<Bn128Field> = 42u32.into();
         let s: FieldElementExpression<Bn128Field> = Bn128Field::from(0).into();
         let c: BooleanExpression<Bn128Field> = true.into();
@@ -546,10 +584,11 @@ mod tests {
     fn uint_from_int() {
         let n: IntExpression<Bn128Field> = BigUint::from(42usize).into();
         let n_a: ArrayExpression<Bn128Field> =
-            ArrayExpressionInner::Value(vec![n.clone().into()]).annotate(Type::Int, 1u32);
+            ArrayExpressionInner::Value(vec![n.clone().into()].into()).annotate(Type::Int, 1u32);
         let t: UExpression<Bn128Field> = 42u32.into();
-        let t_a: ArrayExpression<Bn128Field> = ArrayExpressionInner::Value(vec![t.clone().into()])
-            .annotate(Type::Uint(UBitwidth::B32), 1u32);
+        let t_a: ArrayExpression<Bn128Field> =
+            ArrayExpressionInner::Value(vec![t.clone().into()].into())
+                .annotate(Type::Uint(UBitwidth::B32), 1u32);
         let i: UExpression<Bn128Field> = 0u32.into();
         let s: FieldElementExpression<Bn128Field> = Bn128Field::from(0).into();
         let c: BooleanExpression<Bn128Field> = true.into();

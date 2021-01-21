@@ -17,7 +17,7 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::fmt;
-use zokrates_core::typed_absy::{ConcreteType, UBitwidth};
+use zokrates_core::typed_absy::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
 
@@ -102,10 +102,12 @@ impl<T: Field> Value<T> {
             (Value::U32(f), ConcreteType::Uint(UBitwidth::B32)) => Ok(CheckedValue::U32(f)),
             (Value::Boolean(b), ConcreteType::Boolean) => Ok(CheckedValue::Boolean(b)),
             (Value::Array(a), ConcreteType::Array(array_type)) => {
-                if a.len() != array_type.size {
+                let size = array_type.size;
+
+                if a.len() != size as usize {
                     Err(format!(
                         "Expected array of size {}, found array of size {}",
-                        array_type.size,
+                        size,
                         a.len()
                     ))
                 } else {

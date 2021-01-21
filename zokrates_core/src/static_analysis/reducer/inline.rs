@@ -37,15 +37,21 @@ use crate::typed_absy::TypedAssignee;
 use crate::typed_absy::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Signature,
     Type, TypedExpression, TypedFunction, TypedFunctionSymbol, TypedProgram, TypedStatement,
-    Variable,
+    UExpression, UExpressionInner, Variable,
 };
 use zokrates_field::Field;
 
 pub enum InlineError<'ast, T> {
     Generic(DeclarationFunctionKey<'ast>, ConcreteFunctionKey<'ast>),
-    Flat(FlatEmbed, Vec<TypedExpression<'ast, T>>, Vec<Type<'ast, T>>),
+    Flat(
+        FlatEmbed,
+        Vec<Option<UExpression<'ast, T>>>,
+        Vec<TypedExpression<'ast, T>>,
+        Vec<Type<'ast, T>>,
+    ),
     NonConstant(
         DeclarationFunctionKey<'ast>,
+        Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
@@ -77,6 +83,7 @@ type InlineResult<'ast, T> = Result<
 
 pub fn inline_call<'a, 'ast, T: Field>(
     k: DeclarationFunctionKey<'ast>,
+    generics: Vec<Option<UExpression<'ast, T>>>,
     arguments: Vec<TypedExpression<'ast, T>>,
     output_types: Vec<Type<'ast, T>>,
     program: &TypedProgram<'ast, T>,
@@ -87,9 +94,31 @@ pub fn inline_call<'a, 'ast, T: Field>(
 
     use crate::typed_absy::Typed;
 
+    // we try to get concrete values for explicit generics
+    let generics_values: Vec<Option<u32>> = generics
+        .iter()
+        .map(|g| {
+            g.as_ref()
+                .map(|g| match g.as_inner() {
+                    UExpressionInner::Value(v) => Ok(*v as u32),
+                    _ => Err(()),
+                })
+                .transpose()
+        })
+        .collect::<Result<_, _>>()
+        .map_err(|_| {
+            InlineError::NonConstant(
+                k.clone(),
+                generics.clone(),
+                arguments.clone(),
+                output_types.clone(),
+            )
+        })?;
+
     // we infer a signature based on inputs and outputs
     // this is where we could handle explicit annotations
     let inferred_signature = Signature::new()
+        .generics(generics.clone())
         .inputs(arguments.iter().map(|a| a.get_type()).collect())
         .outputs(output_types.clone());
 
@@ -97,18 +126,23 @@ pub fn inline_call<'a, 'ast, T: Field>(
     let inferred_signature = match ConcreteSignature::try_from(inferred_signature) {
         Ok(s) => s,
         Err(_) => {
-            return Err(InlineError::NonConstant(k, arguments, output_types));
+            return Err(InlineError::NonConstant(
+                k,
+                generics,
+                arguments,
+                output_types,
+            ));
         }
     };
 
     let (decl_key, f) = get_canonical_function(k.clone(), program)
-        .map_err(|e| InlineError::Flat(e, arguments.clone(), output_types))?;
+        .map_err(|e| InlineError::Flat(e, generics, arguments.clone(), output_types))?;
     assert_eq!(f.arguments.len(), arguments.len());
 
     // get an assignment of generics for this call site
     let assignment: ConcreteGenericsAssignment<'ast> = decl_key
         .signature
-        .specialize(&inferred_signature)
+        .specialize(generics_values, &inferred_signature)
         .map_err(|_| {
             InlineError::Generic(
                 decl_key.clone(),
@@ -126,7 +160,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         signature: inferred_signature.clone(),
     };
 
-    if let Some(v) = cache.get(&(concrete_key.clone(), arguments.clone())) {
+    if let Some(v) = cache.get(&(concrete_key.clone(), assignment.clone(), arguments.clone())) {
         return Ok(Output::Complete((vec![], v.clone())));
     };
 
@@ -135,7 +169,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         Output::Incomplete(statements, for_loop_versions) => (statements, Some(for_loop_versions)),
     };
 
-    let call_log = TypedStatement::PushCallLog(decl_key.clone(), assignment);
+    let call_log = TypedStatement::PushCallLog(decl_key.clone(), assignment.clone());
 
     let input_bindings: Vec<TypedStatement<'ast, T>> = ssa_f
         .arguments
@@ -198,7 +232,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         .collect();
 
     cache.insert(
-        (concrete_key.clone(), arguments.clone()),
+        (concrete_key.clone(), assignment.clone(), arguments.clone()),
         expressions.clone(),
     );
 

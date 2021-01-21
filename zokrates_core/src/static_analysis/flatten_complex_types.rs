@@ -157,6 +157,16 @@ impl<'ast, T: Field> Flattener<T> {
         fold_statement(self, s)
     }
 
+    fn fold_expression_or_spread(
+        &mut self,
+        e: typed_absy::TypedExpressionOrSpread<'ast, T>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        match e {
+            typed_absy::TypedExpressionOrSpread::Expression(e) => self.fold_expression(e),
+            typed_absy::TypedExpressionOrSpread::Spread(s) => self.fold_array_expression(s.array),
+        }
+    }
+
     fn fold_expression(
         &mut self,
         e: typed_absy::TypedExpression<'ast, T>,
@@ -192,7 +202,10 @@ impl<'ast, T: Field> Flattener<T> {
         es: typed_absy::TypedExpressionList<'ast, T>,
     ) -> zir::ZirExpressionList<'ast, T> {
         match es {
-            typed_absy::TypedExpressionList::FunctionCall(id, arguments, _) => {
+            typed_absy::TypedExpressionList::FunctionCall(id, _, arguments, _) => {
+                let id: typed_absy::types::FunctionKey<'ast, T> =
+                    typed_absy::types::FunctionKey::try_from(id).unwrap();
+
                 let id = typed_absy::types::ConcreteFunctionKey::try_from(id).unwrap();
 
                 zir::ZirExpressionList::FunctionCall(
@@ -268,7 +281,12 @@ pub fn fold_module<'ast, T: Field>(
             .into_iter()
             .map(|(key, fun)| {
                 (
-                    f.fold_function_key(key.try_into().unwrap()),
+                    f.fold_function_key(
+                        typed_absy::types::FunctionKey::<'ast, T>::try_from(key)
+                            .unwrap()
+                            .try_into()
+                            .unwrap(),
+                    ),
                     f.fold_function_symbol(fun),
                 )
             })
@@ -342,10 +360,16 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 })
                 .collect()
         }
-        typed_absy::ArrayExpressionInner::Value(exprs) => exprs
-            .into_iter()
-            .flat_map(|e| f.fold_expression(e))
-            .collect(),
+        typed_absy::ArrayExpressionInner::Value(exprs) => {
+            let exprs: Vec<_> = exprs
+                .into_iter()
+                .flat_map(|e| f.fold_expression_or_spread(e))
+                .collect();
+
+            assert_eq!(exprs.len(), size * ty.get_primitive_count());
+
+            exprs
+        }
         typed_absy::ArrayExpressionInner::FunctionCall(..) => unreachable!(),
         typed_absy::ArrayExpressionInner::IfElse(
             box condition,
@@ -407,6 +431,34 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                     let start = i as usize * size;
                     let end = start + size;
                     array[start..end].to_vec()
+                }
+                _ => unreachable!(),
+            }
+        }
+        typed_absy::ArrayExpressionInner::Slice(box array, box from, box to) => {
+            let array = f.fold_array_expression(array);
+            let from = f.fold_uint_expression(from);
+            let to = f.fold_uint_expression(to);
+
+            match (from.into_inner(), to.into_inner()) {
+                (zir::UExpressionInner::Value(from), zir::UExpressionInner::Value(to)) => {
+                    assert_eq!(size, to.saturating_sub(from) as usize);
+
+                    let element_size = ty.get_primitive_count();
+                    let start = from as usize * element_size;
+                    let end = to as usize * element_size;
+                    array[start..end].to_vec()
+                }
+                _ => unreachable!(),
+            }
+        }
+        typed_absy::ArrayExpressionInner::Repeat(box e, box count) => {
+            let e = f.fold_expression(e);
+            let count = f.fold_uint_expression(count);
+
+            match count.into_inner() {
+                zir::UExpressionInner::Value(count) => {
+                    vec![e; count as usize].into_iter().flatten().collect()
                 }
                 _ => unreachable!(),
             }
@@ -800,6 +852,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
 
             zir::UExpressionInner::Sub(box left, box right)
         }
+        typed_absy::UExpressionInner::FloorSub(..) => unreachable!(),
         typed_absy::UExpressionInner::Mult(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
@@ -911,9 +964,11 @@ pub fn fold_function<'ast, T: Field>(
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        signature: typed_absy::types::ConcreteSignature::try_from(fun.signature)
-            .unwrap()
-            .into(),
+        signature: typed_absy::types::ConcreteSignature::try_from(
+            typed_absy::types::Signature::<T>::try_from(fun.signature).unwrap(),
+        )
+        .unwrap()
+        .into(),
     }
 }
 
@@ -951,8 +1006,13 @@ pub fn fold_function_symbol<'ast, T: Field>(
             zir::ZirFunctionSymbol::Here(f.fold_function(fun))
         }
         typed_absy::TypedFunctionSymbol::There(key) => zir::ZirFunctionSymbol::There(
-            f.fold_function_key(typed_absy::types::ConcreteFunctionKey::try_from(key).unwrap()),
-        ), // by default, do not fold modules recursively
+            f.fold_function_key(
+                typed_absy::types::FunctionKey::<T>::try_from(key)
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+            ),
+        ),
         typed_absy::TypedFunctionSymbol::Flat(flat) => zir::ZirFunctionSymbol::Flat(flat),
     }
 }

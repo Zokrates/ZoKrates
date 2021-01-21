@@ -157,7 +157,8 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                     })
-                                    .collect(),
+                                    .collect::<Vec<_>>()
+                                    .into(),
                             )
                             .annotate(inner_ty.clone(), size)
                             .into()

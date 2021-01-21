@@ -32,10 +32,13 @@ fn cli() -> Result<(), String> {
             compile::subcommand(),
             check::subcommand(),
             compute_witness::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             generate_proof::subcommand(),
             print_proof::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             verify::subcommand()])
         .get_matches();
 

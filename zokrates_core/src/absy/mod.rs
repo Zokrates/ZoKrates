@@ -221,8 +221,6 @@ pub type ConstantGenericNode<'ast> = Node<Identifier<'ast>>;
 /// A function defined locally
 #[derive(Clone, PartialEq)]
 pub struct Function<'ast> {
-    /// Constant generics of the function
-    pub generics: Vec<ConstantGenericNode<'ast>>,
     /// Arguments of the function
     pub arguments: Vec<ParameterNode<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -235,6 +233,19 @@ pub type FunctionNode<'ast> = Node<Function<'ast>>;
 
 impl<'ast> fmt::Display for Function<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if !self.signature.generics.is_empty() {
+            write!(
+                f,
+                "<{}>",
+                self.signature
+                    .generics
+                    .iter()
+                    .map(|g| g.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?;
+        }
+
         write!(
             f,
             "({}):\n{}",
@@ -298,6 +309,7 @@ impl<'ast> fmt::Display for Assignee<'ast> {
 }
 
 /// A statement in a `Function`
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq)]
 pub enum Statement<'ast> {
     Return(ExpressionListNode<'ast>),
@@ -494,7 +506,11 @@ pub enum Expression<'ast> {
         Box<ExpressionNode<'ast>>,
         Box<ExpressionNode<'ast>>,
     ),
-    FunctionCall(FunctionIdentifier<'ast>, Vec<ExpressionNode<'ast>>),
+    FunctionCall(
+        FunctionIdentifier<'ast>,
+        Option<Vec<Option<ExpressionNode<'ast>>>>,
+        Vec<ExpressionNode<'ast>>,
+    ),
     Lt(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Le(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Eq(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
@@ -538,8 +554,21 @@ impl<'ast> fmt::Display for Expression<'ast> {
                 "if {} then {} else {} fi",
                 condition, consequent, alternative
             ),
-            Expression::FunctionCall(ref i, ref p) => {
-                write!(f, "{}(", i,)?;
+            Expression::FunctionCall(ref i, ref g, ref p) => {
+                if let Some(g) = g {
+                    write!(
+                        f,
+                        "::<{}>",
+                        g.iter()
+                            .map(|g| g
+                                .as_ref()
+                                .map(|g| g.to_string())
+                                .unwrap_or_else(|| "_".into()))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    )?;
+                }
+                write!(f, "{}(", i)?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -609,8 +638,8 @@ impl<'ast> fmt::Debug for Expression<'ast> {
                 "IfElse({:?}, {:?}, {:?})",
                 condition, consequent, alternative
             ),
-            Expression::FunctionCall(ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
+            Expression::FunctionCall(ref g, ref i, ref p) => {
+                write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
