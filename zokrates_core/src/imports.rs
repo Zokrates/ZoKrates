@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use typed_arena::Arena;
 use zokrates_common::Resolver;
-use zokrates_field::Field;
+use zokrates_field::{Bn128Field, Field};
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -144,6 +144,30 @@ impl Importer {
             // handle the case of special bellman and packing imports
             if import.source.starts_with("EMBED") {
                 match import.source.to_str().unwrap() {
+                    #[cfg(feature = "bellman")]
+                    "EMBED/sha256round" => {
+                        if T::id() != Bn128Field::id() {
+                            return Err(CompileErrorInner::ImportError(
+                                Error::new(format!(
+                                    "Embed sha256round cannot be used with curve {}",
+                                    T::name()
+                                ))
+                                .with_pos(Some(pos)),
+                            )
+                            .in_file(&location)
+                            .into());
+                        } else {
+                            let alias = alias.unwrap_or("sha256round");
+
+                            symbols.push(
+                                SymbolDeclaration {
+                                    id: &alias,
+                                    symbol: Symbol::Flat(FlatEmbed::Sha256Round),
+                                }
+                                .start_end(pos.0, pos.1),
+                            );
+                        }
+                    }
                     "EMBED/unpack" => {
                         let alias = alias.unwrap_or("unpack");
 

@@ -2,9 +2,12 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::Directive;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use crate::solvers::Solver;
+use pairing_ce::bn256::Bn256;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
+#[cfg(feature = "bellman")]
+use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -191,6 +194,7 @@ impl Interpreter {
                 let c = inputs[2].clone();
                 vec![a * (b - c.clone()) + c]
             }
+
             Solver::Div => vec![inputs[0]
                 .clone()
                 .checked_div(&inputs[1])
@@ -204,6 +208,30 @@ impl Interpreter {
                 let q = n.checked_div(&d).unwrap_or_else(|| 0u32.into());
                 let r = n - d * &q;
                 vec![T::try_from(q).unwrap(), T::try_from(r).unwrap()]
+            }
+            #[cfg(feature = "bellman")]
+            Solver::Sha256Round => {
+                use zokrates_field::Bn128Field;
+                assert_eq!(T::id(), Bn128Field::id());
+                let i = &inputs[0..512];
+                let h = &inputs[512..];
+                let to_fr = |x: &T| {
+                    use pairing_ce::ff::{PrimeField, ScalarEngine};
+                    let s = x.to_dec_string();
+                    <Bn256 as ScalarEngine>::Fr::from_str(&s).unwrap()
+                };
+                let i: Vec<_> = i.iter().map(|x| to_fr(x)).collect();
+                let h: Vec<_> = h.iter().map(|x| to_fr(x)).collect();
+                assert_eq!(h.len(), 256);
+                generate_sha256_round_witness::<Bn256>(&i, &h)
+                    .into_iter()
+                    .map(|x| {
+                        use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                        let mut res: Vec<u8> = vec![];
+                        x.into_repr().write_le(&mut res).unwrap();
+                        T::from_byte_vector(res)
+                    })
+                    .collect()
             }
         };
 

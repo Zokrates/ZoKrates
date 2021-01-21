@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver {
@@ -12,6 +11,8 @@ pub enum Solver {
     ShaAndXorAndXorAnd,
     ShaCh,
     EuclideanDiv,
+    #[cfg(feature = "bellman")]
+    Sha256Round,
 }
 
 impl fmt::Display for Solver {
@@ -31,6 +32,8 @@ impl Solver {
             Solver::ShaAndXorAndXorAnd => (3, 1),
             Solver::ShaCh => (3, 1),
             Solver::EuclideanDiv => (2, 2),
+            #[cfg(feature = "bellman")]
+            Solver::Sha256Round => (768, 26935),
         }
     }
 }
@@ -39,12 +42,4 @@ impl Solver {
     pub fn bits(width: usize) -> Self {
         Solver::Bits(width)
     }
-}
-
-pub trait Executable<T: Field>: Signed {
-    fn execute(&self, inputs: &[T]) -> Result<Vec<T>, String>;
-}
-
-pub trait Signed {
-    fn get_signature(&self) -> (usize, usize);
 }

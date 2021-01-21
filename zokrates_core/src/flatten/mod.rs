@@ -10,9 +10,9 @@
 mod utils;
 
 use self::utils::flat_expression_from_bits;
+use crate::ir::Interpreter;
 
 use crate::flat_absy::*;
-use crate::ir;
 use crate::solvers::Solver;
 use crate::zir::types::{FunctionIdentifier, FunctionKey, Signature, Type, UBitwidth};
 use crate::zir::*;
@@ -1744,7 +1744,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         // constants do not require directives
         if let Some(FlatExpression::Number(ref x)) = e.field {
-            let bits: Vec<_> = ir::Interpreter::default()
+            let bits: Vec<_> = Interpreter::default()
                 .execute_solver(&Solver::bits(to), &[x.clone()])
                 .unwrap()
                 .into_iter()
