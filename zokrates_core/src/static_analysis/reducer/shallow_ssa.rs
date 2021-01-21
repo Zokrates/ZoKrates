@@ -131,7 +131,8 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
 
                 let a = match a {
                     TypedAssignee::Identifier(v) => {
-                        TypedAssignee::Identifier(self.issue_next_ssa_variable(v))
+                        let v = self.issue_next_ssa_variable(v);
+                        TypedAssignee::Identifier(self.fold_variable(v))
                     }
                     a => fold_assignee(self, a),
                 };
@@ -144,7 +145,8 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
                     .into_iter()
                     .map(|a| match a {
                         TypedAssignee::Identifier(v) => {
-                            TypedAssignee::Identifier(self.issue_next_ssa_variable(v))
+                            let v = self.issue_next_ssa_variable(v);
+                            TypedAssignee::Identifier(self.fold_variable(v))
                         }
                         a => fold_assignee(self, a),
                     })

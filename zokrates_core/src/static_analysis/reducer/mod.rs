@@ -72,7 +72,11 @@ impl fmt::Display for Error {
 }
 
 type CallCache<'ast, T> = HashMap<
-    (ConcreteFunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    (
+        ConcreteFunctionKey<'ast>,
+        ConcreteGenericsAssignment<'ast>,
+        Vec<TypedExpression<'ast, T>>,
+    ),
     Vec<TypedExpression<'ast, T>>,
 >;
 

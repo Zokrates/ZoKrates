@@ -365,11 +365,11 @@ impl<'ast, T, U: Into<TypedExpression<'ast, T>>> From<U> for TypedExpressionOrSp
     }
 }
 
-impl<'ast, T: Clone> Typed<'ast, T> for TypedExpressionOrSpread<'ast, T> {
-    fn get_type(&self) -> Type<'ast, T> {
+impl<'ast, T: Clone> TypedExpressionOrSpread<'ast, T> {
+    pub fn get_type(&self) -> (Type<'ast, T>, UExpression<'ast, T>) {
         match self {
-            TypedExpressionOrSpread::Expression(e) => e.get_type(),
-            TypedExpressionOrSpread::Spread(s) => s.array.inner_type().clone(),
+            TypedExpressionOrSpread::Expression(e) => (e.get_type(), 1u32.into()),
+            TypedExpressionOrSpread::Spread(s) => (s.array.inner_type().clone(), s.array.size()),
         }
     }
 }
@@ -664,7 +664,7 @@ impl<'ast, T: fmt::Display> fmt::Display for StructExpression<'ast, T> {
             ),
             StructExpressionInner::FunctionCall(ref key, ref generics, ref p) => {
                 write!(f, "{}", key.id,)?;
-                if generics.len() > 0 {
+                if !generics.is_empty() {
                     write!(
                         f,
                         "::<{}>",
@@ -1233,7 +1233,7 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             }
             FieldElementExpression::FunctionCall(ref k, ref generics, ref p) => {
                 write!(f, "{}", k.id,)?;
-                if generics.len() > 0 {
+                if !generics.is_empty() {
                     write!(
                         f,
                         "::<{}>",
@@ -1284,7 +1284,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
             UExpressionInner::FunctionCall(ref k, ref generics, ref p) => {
                 write!(f, "{}", k.id,)?;
-                if generics.len() > 0 {
+                if !generics.is_empty() {
                     write!(
                         f,
                         "::<{}>",
@@ -1340,7 +1340,7 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Value(b) => write!(f, "{}", b),
             BooleanExpression::FunctionCall(ref k, ref generics, ref p) => {
                 write!(f, "{}", k.id,)?;
-                if generics.len() > 0 {
+                if !generics.is_empty() {
                     write!(
                         f,
                         "::<{}>",
@@ -1389,7 +1389,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
             ),
             ArrayExpressionInner::FunctionCall(ref key, ref generics, ref p) => {
                 write!(f, "{}", key.id,)?;
-                if generics.len() > 0 {
+                if !generics.is_empty() {
                     write!(
                         f,
                         "::<{}>",
@@ -1593,7 +1593,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
         match *self {
             TypedExpressionList::FunctionCall(ref k, ref generics, ref p, _) => {
                 write!(f, "{}", k.id,)?;
-                if generics.len() > 0 {
+                if !generics.is_empty() {
                     write!(
                         f,
                         "::<{}>",

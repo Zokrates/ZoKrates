@@ -942,7 +942,7 @@ pub mod signature {
 
                 let ty = box specialize_type(*t0.ty, &constants)?;
                 let size = match t0.size {
-                    Constant::Generic(s) => constants.0.get(&s).cloned().ok_or_else(|| s),
+                    Constant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
                     Constant::Concrete(s) => Ok(s.into()),
                 }?;
 
@@ -1050,10 +1050,7 @@ pub mod signature {
                 .generics
                 .into_iter()
                 .map(|g| match g {
-                    Some(g) => g
-                        .try_into()
-                        .map(|g| Some(g))
-                        .map_err(|_| SpecializationError),
+                    Some(g) => g.try_into().map(Some).map_err(|_| SpecializationError),
                     None => Ok(None),
                 })
                 .collect::<Result<_, _>>()?,
@@ -1108,7 +1105,7 @@ pub mod signature {
 
     impl<S: fmt::Display> fmt::Display for GSignature<S> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            if self.generics.len() > 0 {
+            if !self.generics.is_empty() {
                 write!(
                     f,
                     "<{}>",

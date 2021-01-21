@@ -233,7 +233,7 @@ pub type FunctionNode<'ast> = Node<Function<'ast>>;
 
 impl<'ast> fmt::Display for Function<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.signature.generics.len() > 0 {
+        if !self.signature.generics.is_empty() {
             write!(
                 f,
                 "<{}>",
@@ -309,6 +309,7 @@ impl<'ast> fmt::Display for Assignee<'ast> {
 }
 
 /// A statement in a `Function`
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq)]
 pub enum Statement<'ast> {
     Return(ExpressionListNode<'ast>),
@@ -558,7 +559,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
                     write!(
                         f,
                         "::<{}>",
-                        g.into_iter()
+                        g.iter()
                             .map(|g| g
                                 .as_ref()
                                 .map(|g| g.to_string())

@@ -10,8 +10,8 @@ main_import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identi
 import_source = @{(!"\"" ~ ANY)*}
 function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
 return_types = _{ ( "->" ~ ( "(" ~ type_list ~ ")" | ty ))? }
-constant_generics_declaration = _{ "<" ~ constant_generic_list ~ ">" }
-constant_generic_list = _{ identifier ~ ("," ~ identifier)* }
+constant_generics_declaration = _{ "<" ~ constant_generics_list ~ ">" }
+constant_generics_list = _{ identifier ~ ("," ~ identifier)* }
 
 parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
 parameter = {vis? ~ ty ~ identifier}
@@ -72,8 +72,8 @@ array_access = { "[" ~ range_or_expression ~ "]" }
 call_access = { explicit_generics? ~ "(" ~ arguments ~ ")" }
 arguments = { expression_list }
 explicit_generics = { "::<" ~ constant_generics_values ~ ">" }
-constant_generics_values = _{ constant_generic_value ~ ("," ~ constant_generic_value)* }
-constant_generic_value = { literal | identifier | underscore }
+constant_generics_values = _{ constant_generics_value ~ ("," ~ constant_generics_value)* }
+constant_generics_value = { literal | identifier | underscore }
 underscore = { "_" }
 member_access = { "." ~ identifier }
 

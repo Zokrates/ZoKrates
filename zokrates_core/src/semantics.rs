@@ -784,7 +784,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.inputs {
-            match self.check_declaration_type(t, module_id, types, &mut constants) {
+            match self.check_declaration_type(t, module_id, types, &constants) {
                 Ok(t) => {
                     inputs.push(t);
                 }
@@ -795,7 +795,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.outputs {
-            match self.check_declaration_type(t, module_id, types, &mut constants) {
+            match self.check_declaration_type(t, module_id, types, &constants) {
                 Ok(t) => {
                     outputs.push(t);
                 }
@@ -1190,7 +1190,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, bitwidth)
                         .map(TypedExpression::from),
                     Type::Array(array_ty) => {
-                        ArrayExpression::try_from_typed(checked_expr, array_ty)
+                        ArrayExpression::try_from_typed(checked_expr, *array_ty.ty)
                             .map(TypedExpression::from)
                     }
                     Type::Struct(struct_ty) => {
@@ -1304,7 +1304,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     message: format!("Expected function call argument to be of type {}, found {} of type {}", e.1, e.0, e.0.get_type())
                                 }])?;
 
-                                let call = TypedExpressionList::FunctionCall(f.clone(), generics_checked.unwrap_or(vec![None; f.signature.generics.len()]), arguments_checked, assignees.iter().map(|a| a.get_type()).collect());
+                                let call = TypedExpressionList::FunctionCall(f.clone(), generics_checked.unwrap_or_else(|| vec![None; f.signature.generics.len()]), arguments_checked, assignees.iter().map(|a| a.get_type()).collect());
 
                                 Ok(TypedStatement::MultipleDefinition(assignees, call))
                     		},
@@ -1874,7 +1874,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             ),
                         })?;
 
-                        let generics_checked = generics_checked.unwrap_or(vec![None; signature.generics.len()]);
+                        let generics_checked = generics_checked.unwrap_or_else(|| vec![None; signature.generics.len()]);
 
                         // the return count has to be 1
                         match output_types.len() {
@@ -2404,8 +2404,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let inferred_type = expressions_or_spreads_checked
                     .iter()
                     .filter_map(|e| match e.get_type() {
-                        Type::Int => None,
-                        t => Some(t),
+                        (Type::Int, _) => None,
+                        (t, _) => Some(t),
                     })
                     .next()
                     .unwrap_or(Type::Int);

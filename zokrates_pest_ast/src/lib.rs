@@ -596,7 +596,7 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::constant_generic_value))]
+    #[pest_ast(rule(Rule::constant_generics_value))]
     pub enum ConstantGenericValue<'ast> {
         Value(LiteralExpression<'ast>),
         Identifier(IdentifierExpression<'ast>),

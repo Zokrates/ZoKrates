@@ -150,7 +150,7 @@ mod tests {
                                         access(7, 15, [
                                             call_access(7, 15, [
                                                 explicit_generics(7, 12, [
-                                                    constant_generics_values(10, 11, [
+                                                    constant_generics_value(10, 11, [
                                                         underscore(10, 11)
                                                     ])
                                                 ]),

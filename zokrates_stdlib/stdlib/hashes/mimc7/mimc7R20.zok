@@ -1,5 +1,0 @@
-import "./constants" as constants
-import "./mimc7" as mimc7
-
-def main(field x_in, field k) -> field:
-	return mimc7::<20>(x_in, k)

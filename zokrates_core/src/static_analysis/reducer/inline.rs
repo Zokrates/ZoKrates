@@ -160,7 +160,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         signature: inferred_signature.clone(),
     };
 
-    if let Some(v) = cache.get(&(concrete_key.clone(), arguments.clone())) {
+    if let Some(v) = cache.get(&(concrete_key.clone(), assignment.clone(), arguments.clone())) {
         return Ok(Output::Complete((vec![], v.clone())));
     };
 
@@ -169,7 +169,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         Output::Incomplete(statements, for_loop_versions) => (statements, Some(for_loop_versions)),
     };
 
-    let call_log = TypedStatement::PushCallLog(decl_key.clone(), assignment);
+    let call_log = TypedStatement::PushCallLog(decl_key.clone(), assignment.clone());
 
     let input_bindings: Vec<TypedStatement<'ast, T>> = ssa_f
         .arguments
@@ -232,7 +232,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         .collect();
 
     cache.insert(
-        (concrete_key.clone(), arguments.clone()),
+        (concrete_key.clone(), assignment.clone(), arguments.clone()),
         expressions.clone(),
     );
 

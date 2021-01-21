@@ -20,7 +20,7 @@ impl<'ast, T: Field> TypedExpressionOrSpread<'ast, T> {
                 .map(|e| e.into())
                 .map_err(|(e, t)| (e.into(), t)),
             TypedExpressionOrSpread::Spread(s) => {
-                ArrayExpression::try_from_int(s.array, ArrayType::new(ty.clone(), 0u32.into()))
+                ArrayExpression::try_from_int(s.array, ty.clone())
                     .map(|e| TypedExpressionOrSpread::Spread(TypedSpread { array: e }))
                     .map_err(|e| (e.into(), ty))
             }
@@ -82,13 +82,9 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                     }
                 }
 
-                let common_type = get_common_type(lhs.get_type(), rhs.get_type())
-                    .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
-
-                let common_type = match common_type {
-                    Type::Array(t) => t,
-                    _ => unreachable!(),
-                };
+                let common_type =
+                    get_common_type(lhs.inner_type().clone(), rhs.inner_type().clone())
+                        .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
 
                 Ok((
                     ArrayExpression::try_from_int(lhs.clone(), common_type.clone())
@@ -124,7 +120,7 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 UExpression::try_from_typed(e, bitwidth).map(TypedExpression::from)
             }
             Type::Array(array_ty) => {
-                ArrayExpression::try_from_typed(e, array_ty).map(TypedExpression::from)
+                ArrayExpression::try_from_typed(e, *array_ty.ty).map(TypedExpression::from)
             }
             Type::Struct(struct_ty) => {
                 StructExpression::try_from_typed(e, struct_ty).map(TypedExpression::from)
@@ -444,10 +440,10 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 impl<'ast, T: Field> ArrayExpression<'ast, T> {
     pub fn try_from_typed(
         e: TypedExpression<'ast, T>,
-        target_array_ty: ArrayType<'ast, T>,
+        target_inner_ty: Type<'ast, T>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
         match e {
-            TypedExpression::Array(e) => Self::try_from_int(e.clone(), target_array_ty)
+            TypedExpression::Array(e) => Self::try_from_int(e.clone(), target_inner_ty)
                 .map_err(|_| TypedExpression::Array(e)),
             e => Err(e),
         }
@@ -456,14 +452,14 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
     // precondition: `array` is only made of inline arrays unless it does not contain the Integer type
     pub fn try_from_int(
         array: Self,
-        target_array_ty: ArrayType<'ast, T>,
+        target_inner_ty: Type<'ast, T>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
         let array_ty = array.get_array_type();
 
         // elements must fit in the target type
         match array.into_inner() {
             ArrayExpressionInner::Value(inline_array) => {
-                let res = match *target_array_ty.ty.clone() {
+                let res = match target_inner_ty.clone() {
                     Type::Int => Ok(inline_array),
                     t => {
                         // try to convert all elements to the target type
@@ -484,25 +480,25 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                     }
                 }?;
 
-                let inner_ty = res.0[0].get_type();
+                let inner_ty = res.0[0].get_type().0;
 
                 Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, array_ty.size))
             }
             ArrayExpressionInner::Repeat(box e, box count) => {
-                match *target_array_ty.ty.clone() {
+                match target_inner_ty.clone() {
                     Type::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
                         .annotate(Type::Int, array_ty.size)),
                     // try to convert the repeated element to the target type
                     t => TypedExpression::align_to_type(e, t)
                         .map(|e| {
                             ArrayExpressionInner::Repeat(box e, box count)
-                                .annotate(*target_array_ty.ty, target_array_ty.size)
+                                .annotate(target_inner_ty, array_ty.size)
                         })
                         .map_err(|(e, _)| e),
                 }
             }
             a => {
-                if array_ty.ty.weak_eq(&target_array_ty.ty) {
+                if array_ty.ty.weak_eq(&target_inner_ty) {
                     Ok(a.annotate(*array_ty.ty, array_ty.size))
                 } else {
                     Err(a.annotate(*array_ty.ty, array_ty.size).into())
