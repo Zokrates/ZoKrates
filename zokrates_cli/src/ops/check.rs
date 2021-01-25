@@ -65,13 +65,13 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     reader.read_to_string(&mut source).unwrap();
 
     let fmt_error = |e: &CompileError| {
-        let file = e.file().canonicalize().unwrap();
+        let file = e.module().canonicalize().unwrap();
         format!(
             "{}:{}",
             file.strip_prefix(std::env::current_dir().unwrap())
                 .unwrap_or_else(|_| file.as_path())
                 .display(),
-            e.value()
+            e.message()
         )
     };
 

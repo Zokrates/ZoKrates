@@ -6,7 +6,8 @@
 
 use crate::absy::*;
 use crate::compile::compile_module;
-use crate::compile::{CompileErrorInner, CompileErrors};
+use crate::compile::CompileError;
+use crate::compile::CompileErrors;
 use crate::embed::FlatEmbed;
 use crate::parser::Position;
 use std::collections::HashMap;
@@ -17,44 +18,6 @@ use std::path::{Path, PathBuf};
 use typed_arena::Arena;
 use zokrates_common::Resolver;
 use zokrates_field::{Bn128Field, Field};
-
-#[derive(PartialEq, Debug)]
-pub struct Error {
-    pos: Option<(Position, Position)>,
-    message: String,
-}
-
-impl Error {
-    pub fn new<T: Into<String>>(message: T) -> Error {
-        Error {
-            pos: None,
-            message: message.into(),
-        }
-    }
-
-    fn with_pos(self, pos: Option<(Position, Position)>) -> Error {
-        Error { pos, ..self }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let location = self
-            .pos
-            .map(|p| format!("{}", p.0))
-            .unwrap_or_else(|| "?".to_string());
-        write!(f, "{}\n\t{}", location, self.message)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        Error {
-            pos: None,
-            message: format!("I/O Error: {}", error),
-        }
-    }
-}
 
 type ImportPath<'ast> = &'ast Path;
 
@@ -128,7 +91,7 @@ impl<'ast> fmt::Debug for Import<'ast> {
 pub struct Importer;
 
 impl Importer {
-    pub fn apply_imports<'ast, T: Field, E: Into<Error>>(
+    pub fn apply_imports<'ast, T: Field, E: ToString>(
         destination: Module<'ast>,
         location: PathBuf,
         resolver: Option<&dyn Resolver<E>>,
@@ -147,15 +110,14 @@ impl Importer {
                     #[cfg(feature = "bellman")]
                     "EMBED/sha256round" => {
                         if T::id() != Bn128Field::id() {
-                            return Err(CompileErrorInner::ImportError(
-                                Error::new(format!(
+                            return Err(CompileErrors(vec![CompileError::in_module(
+                                location.clone(),
+                                format!(
                                     "Embed sha256round cannot be used with curve {}",
                                     T::name()
-                                ))
-                                .with_pos(Some(pos)),
+                                ),
                             )
-                            .in_file(&location)
-                            .into());
+                            .pos(pos)]));
                         } else {
                             let alias = alias.unwrap_or("sha256round");
 
@@ -246,11 +208,11 @@ impl Importer {
                         );
                     }
                     s => {
-                        return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Embed {} not found", s)).with_pos(Some(pos)),
+                        return Err(CompileErrors(vec![CompileError::in_module(
+                            location.clone(),
+                            format!("Embed {} not found", s),
                         )
-                        .in_file(&location)
-                        .into());
+                        .pos(pos)]));
                     }
                 }
             } else {
@@ -263,13 +225,14 @@ impl Importer {
                                 std::path::Path::new(import.source)
                                     .file_stem()
                                     .ok_or_else(|| {
-                                        CompileErrors::from(
-                                            CompileErrorInner::ImportError(Error::new(format!(
+                                        CompileErrors(vec![CompileError::in_module(
+                                            location.clone(),
+                                            format!(
                                                 "Could not determine alias for import {}",
                                                 import.source.display()
-                                            )))
-                                            .in_file(&location),
+                                            ),
                                         )
+                                        .pos(pos)])
                                     })?
                                     .to_str()
                                     .unwrap(),
@@ -309,19 +272,18 @@ impl Importer {
                             );
                         }
                         Err(err) => {
-                            return Err(CompileErrorInner::ImportError(
-                                err.into().with_pos(Some(pos)),
+                            return Err(CompileErrors(vec![CompileError::in_module(
+                                location,
+                                err.to_string(),
                             )
-                            .in_file(&location)
-                            .into());
+                            .pos(pos)]))
                         }
                     },
                     None => {
-                        return Err(CompileErrorInner::from(Error::new(
-                            "Can't resolve import without a resolver",
-                        ))
-                        .in_file(&location)
-                        .into());
+                        return Err(CompileErrors(vec![CompileError::in_module(
+                            location.clone(),
+                            "Can't resolve import without a resolver".into(),
+                        )]))
                     }
                 }
             }

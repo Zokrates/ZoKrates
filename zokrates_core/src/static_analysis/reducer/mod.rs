@@ -15,11 +15,13 @@ mod inline;
 mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
+use crate::compile::CompileError;
 use crate::typed_absy::result_folder::*;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::Folder;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, ConcreteFunctionKey,
@@ -37,8 +39,6 @@ use self::shallow_ssa::ShallowTransformer;
 
 use crate::static_analysis::Propagator;
 
-use std::fmt;
-
 // An SSA version map, giving access to the latest version number for each identifier
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
 
@@ -47,28 +47,6 @@ pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
 pub enum Output<U, V> {
     Complete(U),
     Incomplete(U, V),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Error {
-    Incompatible(String),
-    GenericsInMain,
-    // TODO: give more details about what's blocking the progress
-    NoProgress,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::Incompatible(s) => write!(
-                f,
-                "{}",
-                s
-            ),
-            Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
-            Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds")
-        }
-    }
 }
 
 type CallCache<'ast, T> = HashMap<
@@ -171,6 +149,14 @@ fn embeds_in_module<'ast, T: Field>(
     module_id: &TypedModuleId,
 ) -> Vec<(DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>)> {
     // define a function in the embed module for the `unpack` embed
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "bellman")] {
+            let sha_round = crate::embed::FlatEmbed::Sha256Round;
+            let sha_round_key = sha_round.key_in_module::<T>(module_id);
+        }
+    }
+
+    // define a function in the embed module for the `unpack` embed
     let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
     let unpack_key = unpack.key_in_module::<T>(module_id);
 
@@ -220,6 +206,8 @@ fn embeds_in_module<'ast, T: Field>(
             u16_to_bits_key.into(),
             TypedFunctionSymbol::Flat(u16_to_bits),
         ),
+        #[cfg(feature = "bellman")]
+        (sha_round_key.into(), TypedFunctionSymbol::Flat(sha_round)),
         (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
     ]
 }
@@ -232,10 +220,15 @@ struct Reducer<'ast, 'a, T> {
     versions: &'a mut Versions<'ast>,
     substitutions: &'a mut Substitutions<'ast>,
     cache: &'a mut CallCache<'ast, T>,
+    stack: Vec<TypedModuleId>,
     complete: bool,
 }
 
 impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
+    fn module(&self) -> PathBuf {
+        self.stack.last().cloned().unwrap()
+    }
+
     fn new(
         program: &'a TypedProgram<'ast, T>,
         versions: &'a mut Versions<'ast>,
@@ -257,6 +250,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             substitutions,
             program,
             versions,
+            stack: vec![program.main.clone()],
             complete: true,
         }
     }
@@ -267,7 +261,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
         output_types: Vec<Type<'ast, T>>,
-    ) -> Result<E, Error>
+    ) -> Result<E, CompileError>
     where
         E: FunctionCall<'ast, T> + TryFrom<TypedExpression<'ast, T>, Error = ()> + std::fmt::Debug,
     {
@@ -303,11 +297,14 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
                 Ok(expressions[0].clone().try_into().unwrap())
             }
-            Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
-                "Call site `{}` incompatible with declaration `{}`",
-                conc.to_string(),
-                decl.to_string()
-            ))),
+            Err(InlineError::Generic(decl, conc)) => Err(CompileError::in_module(
+                self.module(),
+                format!(
+                    "Call site `{}` incompatible with declaration `{}`",
+                    conc.to_string(),
+                    decl.to_string()
+                ),
+            )),
             Err(InlineError::NonConstant(key, generics, arguments, mut output_types)) => {
                 self.complete = false;
 
@@ -347,12 +344,10 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
 }
 
 impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
-    type Error = Error;
-
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
-    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+    ) -> Result<Vec<TypedStatement<'ast, T>>, CompileError> {
         let res = match s {
             TypedStatement::MultipleDefinition(
                 v,
@@ -406,11 +401,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             )
                             .collect())
                     }
-                    Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
-                        "Call site `{}` incompatible with declaration `{}`",
-                        conc.to_string(),
-                        decl.to_string()
-                    ))),
+                    Err(InlineError::Generic(decl, conc)) => Err(CompileError::in_module(
+                        self.module(),
+                        format!(
+                            "Call site `{}` incompatible with declaration `{}`",
+                            conc.to_string(),
+                            decl.to_string()
+                        ),
+                    )),
                     Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
                         self.complete = false;
 
@@ -499,6 +497,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                 }
             }
+            TypedStatement::PushCallLog(key, gen) => {
+                self.stack.push(key.module.clone());
+                fold_statement(self, TypedStatement::PushCallLog(key, gen))
+            }
+            TypedStatement::PopCallLog => {
+                self.stack.pop();
+                fold_statement(self, TypedStatement::PopCallLog)
+            }
             s => fold_statement(self, s),
         };
 
@@ -508,7 +514,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
-    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
+    ) -> Result<BooleanExpression<'ast, T>, CompileError> {
         match e {
             BooleanExpression::FunctionCall(key, generics, arguments) => {
                 self.fold_function_call(key, generics, arguments, vec![Type::Boolean])
@@ -520,7 +526,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     fn fold_uint_expression(
         &mut self,
         e: UExpression<'ast, T>,
-    ) -> Result<UExpression<'ast, T>, Self::Error> {
+    ) -> Result<UExpression<'ast, T>, CompileError> {
         match e.as_inner() {
             UExpressionInner::FunctionCall(key, generics, arguments) => self.fold_function_call(
                 key.clone(),
@@ -535,7 +541,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+    ) -> Result<FieldElementExpression<'ast, T>, CompileError> {
         match e {
             FieldElementExpression::FunctionCall(key, generic, arguments) => {
                 self.fold_function_call(key, generic, arguments, vec![Type::FieldElement])
@@ -548,7 +554,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         &mut self,
         ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
-    ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
+    ) -> Result<ArrayExpressionInner<'ast, T>, CompileError> {
         match e {
             ArrayExpressionInner::FunctionCall(key, generics, arguments) => self
                 .fold_function_call::<ArrayExpression<_>>(
@@ -580,7 +586,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     fn fold_struct_expression(
         &mut self,
         e: StructExpression<'ast, T>,
-    ) -> Result<StructExpression<'ast, T>, Self::Error> {
+    ) -> Result<StructExpression<'ast, T>, CompileError> {
         match e.as_inner() {
             StructExpressionInner::FunctionCall(key, generics, arguments) => self
                 .fold_function_call(
@@ -594,7 +600,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     }
 }
 
-pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
+pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, CompileError> {
     let mut p = p;
 
     let main_module = p.modules.get(&p.main).unwrap().clone();
@@ -636,7 +642,10 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
                 .collect(),
             })
         }
-        _ => Err(Error::GenericsInMain),
+        _ => Err(CompileError::in_module(
+            p.main,
+            "Cannot generate code for generic function".into(),
+        )),
     }
 }
 
@@ -644,7 +653,7 @@ fn reduce_function<'ast, T: Field>(
     f: TypedFunction<'ast, T>,
     generics: ConcreteGenericsAssignment<'ast>,
     program: &TypedProgram<'ast, T>,
-) -> Result<TypedFunction<'ast, T>, Error> {
+) -> Result<TypedFunction<'ast, T>, CompileError> {
     let mut versions = Versions::default();
 
     match ShallowTransformer::transform(f, &generics, &mut versions) {
@@ -691,13 +700,8 @@ fn reduce_function<'ast, T: Field>(
 
                         let new_f = Sub::new(&substitutions).fold_function(new_f);
 
-                        let new_f = Propagator::with_constants(&mut constants)
-                            .fold_function(new_f)
-                            .map_err(|e| match e {
-                                crate::static_analysis::propagation::Error::Type(e) => {
-                                    Error::Incompatible(e)
-                                }
-                            })?;
+                        let new_f =
+                            Propagator::with_constants(&mut constants).fold_function(new_f)?;
 
                         break Ok(new_f);
                     }
@@ -706,18 +710,15 @@ fn reduce_function<'ast, T: Field>(
 
                         let new_f = Sub::new(&substitutions).fold_function(new_f);
 
-                        f = Propagator::with_constants(&mut constants)
-                            .fold_function(new_f)
-                            .map_err(|e| match e {
-                                crate::static_analysis::propagation::Error::Type(e) => {
-                                    Error::Incompatible(e)
-                                }
-                            })?;
+                        f = Propagator::with_constants(&mut constants).fold_function(new_f)?;
 
                         let new_hash = Some(compute_hash(&f));
 
                         if new_hash == hash {
-                            break Err(Error::NoProgress);
+                            break Err(CompileError::in_module(
+                                program.main.clone(),
+                                "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds".into()
+                            ));
                         } else {
                             hash = new_hash
                         }
@@ -1718,8 +1719,8 @@ mod tests {
         let reduced = reduce_program(p);
 
         assert_eq!(
-            reduced,
-            Err(Error::Incompatible("Call site `main/foo<_>(field[0]) -> field[1]` incompatible with declaration `main/foo<K>(field[K]) -> field[K]`".into()))
+            reduced.unwrap_err().message(),
+            "Call site `foo<_>(field[0]) -> field[1]` incompatible with declaration `foo<K>(field[K]) -> field[K]`"
         );
     }
 }

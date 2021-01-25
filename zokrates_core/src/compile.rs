@@ -8,6 +8,7 @@ use crate::flatten::Flattener;
 use crate::imports::{self, Importer};
 use crate::ir;
 use crate::macros;
+use crate::parser::Position;
 use crate::semantics::{self, Checker};
 use crate::static_analysis;
 use crate::static_analysis::Analyse;
@@ -17,6 +18,7 @@ use macros::process_macros;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
+use std::path::Path;
 use std::path::PathBuf;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
@@ -39,119 +41,54 @@ impl<T: Field> CompilationArtifacts<T> {
     }
 }
 
-#[derive(Debug)]
-pub struct CompileErrors(pub Vec<CompileError>);
+#[derive(Debug, PartialEq)]
+pub struct CompileError {
+    pub module: PathBuf,
+    pub position: Option<(Position, Position)>,
+    pub message: String,
+}
+
+impl CompileError {
+    pub fn in_module(module: PathBuf, message: String) -> Self {
+        Self {
+            module,
+            message,
+            position: None,
+        }
+    }
+
+    pub fn pos(mut self, pos: (Position, Position)) -> Self {
+        self.position = Some(pos);
+        self
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    pub fn module(&self) -> &Path {
+        &self.module
+    }
+}
 
 impl From<CompileError> for CompileErrors {
-    fn from(e: CompileError) -> CompileErrors {
+    fn from(e: CompileError) -> Self {
         CompileErrors(vec![e])
     }
 }
 
-#[derive(Debug)]
-pub enum CompileErrorInner {
-    ParserError(pest::Error),
-    ImportError(imports::Error),
-    MacroError(macros::Error),
-    SemanticError(semantics::ErrorInner),
-    ReadError(io::Error),
-    AnalysisError(static_analysis::Error),
-}
-
-impl CompileErrorInner {
-    pub fn in_file(self, context: &PathBuf) -> CompileError {
-        CompileError {
-            value: self,
-            file: context.clone(),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct CompileError {
-    file: PathBuf,
-    value: CompileErrorInner,
-}
-
-impl CompileError {
-    pub fn file(&self) -> &PathBuf {
-        &self.file
-    }
-
-    pub fn value(&self) -> &CompileErrorInner {
-        &self.value
-    }
-}
+#[derive(Debug, PartialEq)]
+pub struct CompileErrors(pub Vec<CompileError>);
 
 impl CompileErrors {
-    pub fn with_context(self, file: PathBuf) -> Self {
-        CompileErrors(
-            self.0
-                .into_iter()
-                .map(|e| CompileError {
-                    file: file.clone(),
-                    ..e
-                })
-                .collect(),
-        )
-    }
-}
-
-impl From<pest::Error> for CompileErrorInner {
-    fn from(error: pest::Error) -> Self {
-        CompileErrorInner::ParserError(error)
-    }
-}
-
-impl From<imports::Error> for CompileErrorInner {
-    fn from(error: imports::Error) -> Self {
-        CompileErrorInner::ImportError(error)
-    }
-}
-
-impl From<io::Error> for CompileErrorInner {
-    fn from(error: io::Error) -> Self {
-        CompileErrorInner::ReadError(error)
-    }
-}
-
-impl From<macros::Error> for CompileErrorInner {
-    fn from(error: macros::Error) -> Self {
-        CompileErrorInner::MacroError(error)
-    }
-}
-
-impl From<semantics::Error> for CompileError {
-    fn from(error: semantics::Error) -> Self {
-        CompileError {
-            value: CompileErrorInner::SemanticError(error.inner),
-            file: error.module_id,
-        }
-    }
-}
-
-impl From<static_analysis::Error> for CompileErrorInner {
-    fn from(error: static_analysis::Error) -> Self {
-        CompileErrorInner::AnalysisError(error)
-    }
-}
-
-impl fmt::Display for CompileErrorInner {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            CompileErrorInner::ParserError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::MacroError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::AnalysisError(ref e) => write!(f, "{}", e),
-        }
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
 type FilePath = PathBuf;
 
-pub fn compile<T: Field, E: Into<imports::Error>>(
+pub fn compile<T: Field, E: ToString>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
@@ -181,7 +118,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     })
 }
 
-pub fn check<T: Field, E: Into<imports::Error>>(
+pub fn check<T: Field, E: ToString>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
@@ -191,7 +128,7 @@ pub fn check<T: Field, E: Into<imports::Error>>(
     check_with_arena::<T, _>(source, location, resolver, &arena).map(|_| ())
 }
 
-fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
+fn check_with_arena<'ast, T: Field, E: ToString>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
@@ -201,18 +138,15 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     let compiled = compile_program::<T, E>(source, location, resolver, &arena)?;
 
     // check semantics
-    let typed_ast = Checker::check(compiled)
-        .map_err(|errors| CompileErrors(errors.into_iter().map(CompileError::from).collect()))?;
+    let typed_ast = Checker::check(compiled)?;
 
     let main_module = typed_ast.main.clone();
 
     // analyse (unroll and constant propagation)
-    typed_ast
-        .analyse()
-        .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
+    typed_ast.analyse().map_err(|e| CompileErrors(vec![e]))
 }
 
-pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
+pub fn compile_program<'ast, T: Field, E: ToString>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
@@ -230,18 +164,20 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     })
 }
 
-pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
+pub fn compile_module<'ast, T: Field, E: ToString>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast>, CompileErrors> {
-    let ast = pest::generate_ast(&source)
-        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
+    let ast = pest::generate_ast(&source).map_err(|e| CompileError {
+        module: location.clone(),
+        message: e.to_string(),
+        position: None,
+    })?;
 
-    let ast = process_macros::<T>(ast)
-        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
+    let ast = process_macros::<T>(ast)?;
 
     let module_without_imports: Module = Module::from(ast);
 
@@ -273,7 +209,7 @@ mod test {
             None::<&dyn Resolver<io::Error>>,
         );
         assert!(res.unwrap_err().0[0]
-            .value()
+            .message()
             .to_string()
             .contains(&"Can't resolve import without a resolver"));
     }

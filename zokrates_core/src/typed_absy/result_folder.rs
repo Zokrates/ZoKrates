@@ -1,55 +1,54 @@
 // Generic walk through a typed AST. Not mutating in place
 
+use crate::compile::CompileError;
 use crate::typed_absy::types::{ArrayType, StructMember, StructType};
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
 pub trait ResultFolder<'ast, T: Field>: Sized {
-    type Error;
-
     fn fold_program(
         &mut self,
         p: TypedProgram<'ast, T>,
-    ) -> Result<TypedProgram<'ast, T>, Self::Error> {
+    ) -> Result<TypedProgram<'ast, T>, CompileError> {
         fold_program(self, p)
     }
 
     fn fold_module(
         &mut self,
         p: TypedModule<'ast, T>,
-    ) -> Result<TypedModule<'ast, T>, Self::Error> {
+    ) -> Result<TypedModule<'ast, T>, CompileError> {
         fold_module(self, p)
     }
 
     fn fold_function_symbol(
         &mut self,
         s: TypedFunctionSymbol<'ast, T>,
-    ) -> Result<TypedFunctionSymbol<'ast, T>, Self::Error> {
+    ) -> Result<TypedFunctionSymbol<'ast, T>, CompileError> {
         fold_function_symbol(self, s)
     }
 
     fn fold_function(
         &mut self,
         f: TypedFunction<'ast, T>,
-    ) -> Result<TypedFunction<'ast, T>, Self::Error> {
+    ) -> Result<TypedFunction<'ast, T>, CompileError> {
         fold_function(self, f)
     }
 
     fn fold_parameter(
         &mut self,
         p: DeclarationParameter<'ast>,
-    ) -> Result<DeclarationParameter<'ast>, Self::Error> {
+    ) -> Result<DeclarationParameter<'ast>, CompileError> {
         Ok(DeclarationParameter {
             id: self.fold_declaration_variable(p.id)?,
             ..p
         })
     }
 
-    fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
+    fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, CompileError> {
         Ok(n)
     }
 
-    fn fold_variable(&mut self, v: Variable<'ast, T>) -> Result<Variable<'ast, T>, Self::Error> {
+    fn fold_variable(&mut self, v: Variable<'ast, T>) -> Result<Variable<'ast, T>, CompileError> {
         Ok(Variable {
             id: self.fold_name(v.id)?,
             _type: self.fold_type(v._type)?,
@@ -59,14 +58,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_declaration_variable(
         &mut self,
         v: DeclarationVariable<'ast>,
-    ) -> Result<DeclarationVariable<'ast>, Self::Error> {
+    ) -> Result<DeclarationVariable<'ast>, CompileError> {
         Ok(DeclarationVariable {
             id: self.fold_name(v.id)?,
             _type: self.fold_declaration_type(v._type)?,
         })
     }
 
-    fn fold_type(&mut self, t: Type<'ast, T>) -> Result<Type<'ast, T>, Self::Error> {
+    fn fold_type(&mut self, t: Type<'ast, T>) -> Result<Type<'ast, T>, CompileError> {
         use self::GType::*;
 
         match t {
@@ -79,7 +78,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_array_type(
         &mut self,
         t: ArrayType<'ast, T>,
-    ) -> Result<ArrayType<'ast, T>, Self::Error> {
+    ) -> Result<ArrayType<'ast, T>, CompileError> {
         Ok(ArrayType {
             ty: box self.fold_type(*t.ty)?,
             size: self.fold_uint_expression(t.size)?,
@@ -89,7 +88,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_struct_type(
         &mut self,
         t: StructType<'ast, T>,
-    ) -> Result<StructType<'ast, T>, Self::Error> {
+    ) -> Result<StructType<'ast, T>, CompileError> {
         Ok(StructType {
             members: t
                 .members
@@ -107,14 +106,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_declaration_type(
         &mut self,
         t: DeclarationType<'ast>,
-    ) -> Result<DeclarationType<'ast>, Self::Error> {
+    ) -> Result<DeclarationType<'ast>, CompileError> {
         Ok(t)
     }
 
     fn fold_assignee(
         &mut self,
         a: TypedAssignee<'ast, T>,
-    ) -> Result<TypedAssignee<'ast, T>, Self::Error> {
+    ) -> Result<TypedAssignee<'ast, T>, CompileError> {
         match a {
             TypedAssignee::Identifier(v) => Ok(TypedAssignee::Identifier(self.fold_variable(v)?)),
             TypedAssignee::Select(box a, box index) => Ok(TypedAssignee::Select(
@@ -130,14 +129,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
-    ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+    ) -> Result<Vec<TypedStatement<'ast, T>>, CompileError> {
         fold_statement(self, s)
     }
 
     fn fold_expression_or_spread(
         &mut self,
         e: TypedExpressionOrSpread<'ast, T>,
-    ) -> Result<TypedExpressionOrSpread<'ast, T>, Self::Error> {
+    ) -> Result<TypedExpressionOrSpread<'ast, T>, CompileError> {
         Ok(match e {
             TypedExpressionOrSpread::Expression(e) => {
                 TypedExpressionOrSpread::Expression(self.fold_expression(e)?)
@@ -151,7 +150,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_spread(
         &mut self,
         s: TypedSpread<'ast, T>,
-    ) -> Result<TypedSpread<'ast, T>, Self::Error> {
+    ) -> Result<TypedSpread<'ast, T>, CompileError> {
         Ok(TypedSpread {
             array: self.fold_array_expression(s.array)?,
         })
@@ -160,7 +159,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_expression(
         &mut self,
         e: TypedExpression<'ast, T>,
-    ) -> Result<TypedExpression<'ast, T>, Self::Error> {
+    ) -> Result<TypedExpression<'ast, T>, CompileError> {
         match e {
             TypedExpression::FieldElement(e) => Ok(self.fold_field_expression(e)?.into()),
             TypedExpression::Boolean(e) => Ok(self.fold_boolean_expression(e)?.into()),
@@ -174,47 +173,47 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_array_expression(
         &mut self,
         e: ArrayExpression<'ast, T>,
-    ) -> Result<ArrayExpression<'ast, T>, Self::Error> {
+    ) -> Result<ArrayExpression<'ast, T>, CompileError> {
         fold_array_expression(self, e)
     }
 
     fn fold_struct_expression(
         &mut self,
         e: StructExpression<'ast, T>,
-    ) -> Result<StructExpression<'ast, T>, Self::Error> {
+    ) -> Result<StructExpression<'ast, T>, CompileError> {
         fold_struct_expression(self, e)
     }
 
     fn fold_expression_list(
         &mut self,
         es: TypedExpressionList<'ast, T>,
-    ) -> Result<TypedExpressionList<'ast, T>, Self::Error> {
+    ) -> Result<TypedExpressionList<'ast, T>, CompileError> {
         fold_expression_list(self, es)
     }
 
     fn fold_int_expression(
         &mut self,
         e: IntExpression<'ast, T>,
-    ) -> Result<IntExpression<'ast, T>, Self::Error> {
+    ) -> Result<IntExpression<'ast, T>, CompileError> {
         fold_int_expression(self, e)
     }
 
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+    ) -> Result<FieldElementExpression<'ast, T>, CompileError> {
         fold_field_expression(self, e)
     }
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
-    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
+    ) -> Result<BooleanExpression<'ast, T>, CompileError> {
         fold_boolean_expression(self, e)
     }
     fn fold_uint_expression(
         &mut self,
         e: UExpression<'ast, T>,
-    ) -> Result<UExpression<'ast, T>, Self::Error> {
+    ) -> Result<UExpression<'ast, T>, CompileError> {
         fold_uint_expression(self, e)
     }
 
@@ -222,7 +221,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
-    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
+    ) -> Result<UExpressionInner<'ast, T>, CompileError> {
         fold_uint_expression_inner(self, bitwidth, e)
     }
 
@@ -230,14 +229,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
-    ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
+    ) -> Result<ArrayExpressionInner<'ast, T>, CompileError> {
         fold_array_expression_inner(self, ty, e)
     }
     fn fold_struct_expression_inner(
         &mut self,
         ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
-    ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
+    ) -> Result<StructExpressionInner<'ast, T>, CompileError> {
         fold_struct_expression_inner(self, ty, e)
     }
 }
@@ -245,7 +244,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
 pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: TypedStatement<'ast, T>,
-) -> Result<Vec<TypedStatement<'ast, T>>, F::Error> {
+) -> Result<Vec<TypedStatement<'ast, T>>, CompileError> {
     let res = match s {
         TypedStatement::Return(expressions) => TypedStatement::Return(
             expressions
@@ -286,7 +285,7 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     _: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
-) -> Result<ArrayExpressionInner<'ast, T>, F::Error> {
+) -> Result<ArrayExpressionInner<'ast, T>, CompileError> {
     let e = match e {
         ArrayExpressionInner::Identifier(id) => ArrayExpressionInner::Identifier(f.fold_name(id)?),
         ArrayExpressionInner::Value(exprs) => ArrayExpressionInner::Value(
@@ -341,7 +340,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     _: &StructType<'ast, T>,
     e: StructExpressionInner<'ast, T>,
-) -> Result<StructExpressionInner<'ast, T>, F::Error> {
+) -> Result<StructExpressionInner<'ast, T>, CompileError> {
     let e = match e {
         StructExpressionInner::Identifier(id) => {
             StructExpressionInner::Identifier(f.fold_name(id)?)
@@ -386,7 +385,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
-) -> Result<FieldElementExpression<'ast, T>, F::Error> {
+) -> Result<FieldElementExpression<'ast, T>, CompileError> {
     let e = match e {
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
@@ -450,14 +449,14 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_int_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     _: &mut F,
     _: IntExpression<'ast, T>,
-) -> Result<IntExpression<'ast, T>, F::Error> {
+) -> Result<IntExpression<'ast, T>, CompileError> {
     unreachable!()
 }
 
 pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: BooleanExpression<'ast, T>,
-) -> Result<BooleanExpression<'ast, T>, F::Error> {
+) -> Result<BooleanExpression<'ast, T>, CompileError> {
     let e = match e {
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)?),
@@ -573,7 +572,7 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_uint_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: UExpression<'ast, T>,
-) -> Result<UExpression<'ast, T>, F::Error> {
+) -> Result<UExpression<'ast, T>, CompileError> {
     Ok(UExpression {
         inner: f.fold_uint_expression_inner(e.bitwidth, e.inner)?,
         ..e
@@ -584,7 +583,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     _: UBitwidth,
     e: UExpressionInner<'ast, T>,
-) -> Result<UExpressionInner<'ast, T>, F::Error> {
+) -> Result<UExpressionInner<'ast, T>, CompileError> {
     let e = match e {
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)?),
@@ -692,7 +691,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_function<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     fun: TypedFunction<'ast, T>,
-) -> Result<TypedFunction<'ast, T>, F::Error> {
+) -> Result<TypedFunction<'ast, T>, CompileError> {
     Ok(TypedFunction {
         arguments: fun
             .arguments
@@ -714,7 +713,7 @@ pub fn fold_function<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_array_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: ArrayExpression<'ast, T>,
-) -> Result<ArrayExpression<'ast, T>, F::Error> {
+) -> Result<ArrayExpression<'ast, T>, CompileError> {
     let ty = f.fold_array_type(*e.ty)?;
 
     Ok(ArrayExpression {
@@ -726,7 +725,7 @@ pub fn fold_array_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_expression_list<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     es: TypedExpressionList<'ast, T>,
-) -> Result<TypedExpressionList<'ast, T>, F::Error> {
+) -> Result<TypedExpressionList<'ast, T>, CompileError> {
     match es {
         TypedExpressionList::FunctionCall(id, generics, arguments, types) => {
             let generics = generics
@@ -752,7 +751,7 @@ pub fn fold_expression_list<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_struct_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: StructExpression<'ast, T>,
-) -> Result<StructExpression<'ast, T>, F::Error> {
+) -> Result<StructExpression<'ast, T>, CompileError> {
     Ok(StructExpression {
         inner: f.fold_struct_expression_inner(&e.ty, e.inner)?,
         ..e
@@ -762,7 +761,7 @@ pub fn fold_struct_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: TypedFunctionSymbol<'ast, T>,
-) -> Result<TypedFunctionSymbol<'ast, T>, F::Error> {
+) -> Result<TypedFunctionSymbol<'ast, T>, CompileError> {
     match s {
         TypedFunctionSymbol::Here(fun) => Ok(TypedFunctionSymbol::Here(f.fold_function(fun)?)),
         there => Ok(there), // by default, do not fold modules recursively
@@ -772,7 +771,7 @@ pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_module<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     p: TypedModule<'ast, T>,
-) -> Result<TypedModule<'ast, T>, F::Error> {
+) -> Result<TypedModule<'ast, T>, CompileError> {
     Ok(TypedModule {
         functions: p
             .functions
@@ -785,7 +784,7 @@ pub fn fold_module<'ast, T: Field, F: ResultFolder<'ast, T>>(
 pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     p: TypedProgram<'ast, T>,
-) -> Result<TypedProgram<'ast, T>, F::Error> {
+) -> Result<TypedProgram<'ast, T>, CompileError> {
     Ok(TypedProgram {
         modules: p
             .modules

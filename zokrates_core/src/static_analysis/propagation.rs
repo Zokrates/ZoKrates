@@ -7,47 +7,40 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+use crate::compile::CompileError;
 use crate::typed_absy::result_folder::*;
 use crate::typed_absy::types::Type;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use std::fmt;
+use std::path::PathBuf;
 use zokrates_field::Field;
 
 type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;
 
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    Type(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::Type(s) => write!(f, "{}", s),
-        }
-    }
-}
-
 pub struct Propagator<'ast, 'a, T: Field> {
+    stack: Vec<TypedModuleId>,
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
     constants: &'a mut Constants<'ast, T>,
 }
 
 impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
-    pub fn with_constants(constants: &'a mut Constants<'ast, T>) -> Self {
-        Propagator { constants }
+    fn module(&self) -> PathBuf {
+        self.stack.last().cloned().unwrap()
     }
 
-    pub fn propagate(p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, Error> {
+    pub fn with_constants(constants: &'a mut Constants<'ast, T>) -> Self {
+        Propagator {
+            stack: Vec::default(),
+            constants: constants,
+        }
+    }
+
+    pub fn propagate(p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, CompileError> {
         let mut constants = Constants::new();
 
-        Propagator {
-            constants: &mut constants,
-        }
-        .fold_program(p)
+        Propagator::with_constants(&mut constants).fold_program(p)
     }
 
     // get a mutable reference to the constant corresponding to a given assignee if any, otherwise
@@ -215,9 +208,10 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
 }
 
 impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
-    type Error = Error;
-
-    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, Error> {
+    fn fold_program(
+        &mut self,
+        p: TypedProgram<'ast, T>,
+    ) -> Result<TypedProgram<'ast, T>, CompileError> {
         let main = p.main.clone();
 
         Ok(TypedProgram {
@@ -236,7 +230,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         })
     }
 
-    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> Result<TypedModule<'ast, T>, Error> {
+    fn fold_module(
+        &mut self,
+        m: TypedModule<'ast, T>,
+    ) -> Result<TypedModule<'ast, T>, CompileError> {
         Ok(TypedModule {
             functions: m
                 .functions
@@ -255,14 +252,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     fn fold_function(
         &mut self,
         f: TypedFunction<'ast, T>,
-    ) -> Result<TypedFunction<'ast, T>, Error> {
+    ) -> Result<TypedFunction<'ast, T>, CompileError> {
         fold_function(self, f)
     }
 
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
-    ) -> Result<Vec<TypedStatement<'ast, T>>, Error> {
+    ) -> Result<Vec<TypedStatement<'ast, T>>, CompileError> {
         match s {
             // propagation to the defined variable if rhs is a constant
             TypedStatement::Definition(assignee, expr) => {
@@ -274,10 +271,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     ConcreteType::try_from(expr.get_type()),
                 ) {
                     if a != e {
-                        return Err(Error::Type(format!(
-                            "Cannot assign {} of type {} to {} of type {}",
-                            expr, e, assignee, a
-                        )));
+                        return Err(CompileError::in_module(
+                            self.module(),
+                            format!(
+                                "Cannot assign {} of type {} to {} of type {}",
+                                expr, e, assignee, a
+                            ),
+                        ));
                     }
                 };
 
@@ -613,8 +613,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 Ok(expression_list)
             }
-            s @ TypedStatement::PushCallLog(..) => Ok(vec![s]),
-            s @ TypedStatement::PopCallLog => Ok(vec![s]),
+            TypedStatement::PushCallLog(key, gen) => {
+                self.stack.push(key.module.clone());
+                Ok(vec![TypedStatement::PushCallLog(key, gen)])
+            }
+            s @ TypedStatement::PopCallLog => {
+                self.stack.pop();
+                Ok(vec![s])
+            }
             s => fold_statement(self, s),
         }
     }
@@ -623,7 +629,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         &mut self,
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
-    ) -> Result<UExpressionInner<'ast, T>, Error> {
+    ) -> Result<UExpressionInner<'ast, T>, CompileError> {
         Ok(match e {
             UExpressionInner::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
@@ -907,7 +913,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Error> {
+    ) -> Result<FieldElementExpression<'ast, T>, CompileError> {
         Ok(match e {
             FieldElementExpression::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
@@ -1078,7 +1084,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         &mut self,
         ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
-    ) -> Result<ArrayExpressionInner<'ast, T>, Error> {
+    ) -> Result<ArrayExpressionInner<'ast, T>, CompileError> {
         Ok(match e {
             ArrayExpressionInner::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
@@ -1192,7 +1198,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         &mut self,
         ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
-    ) -> Result<StructExpressionInner<'ast, T>, Error> {
+    ) -> Result<StructExpressionInner<'ast, T>, CompileError> {
         Ok(match e {
             StructExpressionInner::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
@@ -1305,7 +1311,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
-    ) -> Result<BooleanExpression<'ast, T>, Error> {
+    ) -> Result<BooleanExpression<'ast, T>, CompileError> {
         // Note: we only propagate when we see constants, as comparing of arbitrary expressions would lead to
         // a lot of false negatives due to expressions not being in a canonical form
         // For example, `2 * a` is equivalent to `a + a`, but our notion of equality would not detect that here
@@ -1361,10 +1367,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     ConcreteType::try_from(e2.get_type()),
                 ) {
                     if t1 != t2 {
-                        return Err(Error::Type(format!(
-                            "Cannot compare {} of type {} to {} of type {}",
-                            e1, t1, e2, t2
-                        )));
+                        return Err(CompileError::in_module(
+                            self.module(),
+                            format!(
+                                "Cannot compare {} of type {} to {} of type {}",
+                                e1, t1, e2, t2
+                            ),
+                        ));
                     }
                 };
 

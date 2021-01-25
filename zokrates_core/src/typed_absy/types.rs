@@ -720,7 +720,7 @@ pub type FunctionKey<'ast, T> = GFunctionKey<'ast, UExpression<'ast, T>>;
 
 impl<'ast, S: fmt::Display> fmt::Display for GFunctionKey<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/{}{}", self.module.display(), self.id, self.signature)
+        write!(f, "{}{}", self.id, self.signature)
     }
 }
 

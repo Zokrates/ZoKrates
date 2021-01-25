@@ -6,6 +6,8 @@
 
 use crate::absy::Identifier;
 use crate::absy::*;
+use crate::compile::CompileError;
+use crate::compile::CompileErrors;
 use crate::typed_absy::*;
 use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
 use num_bigint::BigUint;
@@ -36,6 +38,16 @@ pub struct ErrorInner {
 pub struct Error {
     pub inner: ErrorInner,
     pub module_id: PathBuf,
+}
+
+impl From<Error> for CompileError {
+    fn from(e: Error) -> Self {
+        CompileError {
+            module: e.module_id,
+            message: e.inner.message,
+            position: e.inner.pos,
+        }
+    }
 }
 
 impl ErrorInner {
@@ -271,14 +283,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
     /// # Arguments
     ///
     /// * `prog` - The `Program` to be checked
-    pub fn check(prog: Program<'ast>) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
+    pub fn check(prog: Program<'ast>) -> Result<TypedProgram<'ast, T>, CompileErrors> {
         Checker::new().check_program(prog)
     }
 
     fn check_program(
         &mut self,
         program: Program<'ast>,
-    ) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
+    ) -> Result<TypedProgram<'ast, T>, CompileErrors> {
         let mut state = State::new(program.modules);
 
         let mut errors = vec![];
@@ -286,21 +298,22 @@ impl<'ast, T: Field> Checker<'ast, T> {
         // recursively type-check modules starting with `main`
         match self.check_module(&program.main, &mut state) {
             Ok(()) => {}
-            Err(e) => errors.extend(e),
+            Err(e) => errors.extend(e.into_iter().map(|e| e.into())),
         };
 
         if !errors.is_empty() {
-            return Err(errors);
+            return Err(CompileErrors(errors));
         }
 
         let main_id = program.main.clone();
 
         Checker::check_single_main(state.typed_modules.get(&program.main).unwrap()).map_err(
             |inner| {
-                vec![Error {
+                CompileErrors(vec![Error {
                     inner,
                     module_id: main_id,
-                }]
+                }
+                .into()])
             },
         )?;
 
@@ -4756,13 +4769,12 @@ mod tests {
         let mut checker: Checker<Bn128Field> = Checker::new();
         assert_eq!(
             checker.check_program(program),
-            Err(vec![Error {
-                inner: ErrorInner {
-                    pos: None,
-                    message: "Only one main function allowed, found 2".into()
-                },
-                module_id: "main".into()
-            }])
+            Err(CompileError {
+                position: None,
+                message: "Only one main function allowed, found 2".into(),
+                module: "main".into()
+            }
+            .into())
         );
     }
 
@@ -5641,7 +5653,7 @@ mod tests {
             assert_eq!(errors.len(), 1);
 
             assert_eq!(
-                errors[0].inner.message,
+                errors.0[0].message(),
                 "Ambiguous call to function foo, 2 candidates were found. Please be more explicit."
             );
         }
