@@ -170,35 +170,45 @@ fn register<'ast>(
 fn embeds_in_module<'ast, T: Field>(
     module_id: &TypedModuleId,
 ) -> Vec<(DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>)> {
-    // define a function in the embed module for the `unpack` embed
+    // define a function in the given module for the `unpack` embed
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "bellman")] {
+            let sha_round = crate::embed::FlatEmbed::Sha256Round;
+            let sha_round_key = sha_round.key_in_module::<T>(module_id);
+        }
+    }
+
+    // define a function in the given module for the `unpack` embed
     let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
     let unpack_key = unpack.key_in_module::<T>(module_id);
 
-    // define a function in the embed module for the `u32_to_bits` embed
+    // define a function in the given module for the `u32_to_bits` embed
     let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
     let u32_to_bits_key = u32_to_bits.key_in_module::<T>(module_id);
 
-    // define a function in the embed module for the `u16_to_bits` embed
+    // define a function in the given module for the `u16_to_bits` embed
     let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
     let u16_to_bits_key = u16_to_bits.key_in_module::<T>(module_id);
 
-    // define a function in the embed module for the `u8_to_bits` embed
+    // define a function in the given module for the `u8_to_bits` embed
     let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
     let u8_to_bits_key = u8_to_bits.key_in_module::<T>(module_id);
 
-    // define a function in the embed module for the `u32_from_bits` embed
+    // define a function in the given module for the `u32_from_bits` embed
     let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
     let u32_from_bits_key = u32_from_bits.key_in_module::<T>(module_id);
 
-    // define a function in the embed module for the `u16_from_bits` embed
+    // define a function in the given module for the `u16_from_bits` embed
     let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
     let u16_from_bits_key = u16_from_bits.key_in_module::<T>(module_id);
 
-    // define a function in the embed module for the `u8_from_bits` embed
+    // define a function in the given module for the `u8_from_bits` embed
     let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
     let u8_from_bits_key = u8_from_bits.key_in_module::<T>(module_id);
 
     vec![
+        #[cfg(feature = "bellman")]
+        (sha_round_key.into(), TypedFunctionSymbol::Flat(sha_round)),
         (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
         (
             u32_from_bits_key.into(),
