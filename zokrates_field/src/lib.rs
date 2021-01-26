@@ -60,7 +60,6 @@ pub trait Field:
     + Ord
     + Display
     + Debug
-    + Send
     + Add<Self, Output = Self>
     + for<'a> Add<&'a Self, Output = Self>
     + Sub<Self, Output = Self>
@@ -151,8 +150,6 @@ mod prime_field {
             pub struct FieldPrime {
                 value: BigInt,
             }
-
-            unsafe impl Send for FieldPrime {}
 
             impl Field for FieldPrime {
                 fn bits(&self) -> u32 {
