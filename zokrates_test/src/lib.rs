@@ -95,14 +95,24 @@ pub fn test_inner(test_path: &str) {
 
     let curves = t.curves.clone().unwrap_or(vec![Curve::Bn128]);
 
-    for c in &curves {
-        match c {
-            Curve::Bn128 => compile_and_run::<Bn128Field>(t.clone()),
-            Curve::Bls12_381 => compile_and_run::<Bls12_381Field>(t.clone()),
-            Curve::Bls12_377 => compile_and_run::<Bls12_377Field>(t.clone()),
-            Curve::Bw6_761 => compile_and_run::<Bw6_761Field>(t.clone()),
-        }
-    }
+    // this function typically runs in a spawn thread whose stack size is small, leading to stack overflows
+    // to avoid that, run the stack-heavy bit in a thread with a larger stack (8M)
+    let builder = std::thread::Builder::new().stack_size(8388608);
+
+    builder
+        .spawn(move || {
+            for c in &curves {
+                match c {
+                    Curve::Bn128 => compile_and_run::<Bn128Field>(t.clone()),
+                    Curve::Bls12_381 => compile_and_run::<Bls12_381Field>(t.clone()),
+                    Curve::Bls12_377 => compile_and_run::<Bls12_377Field>(t.clone()),
+                    Curve::Bw6_761 => compile_and_run::<Bw6_761Field>(t.clone()),
+                }
+            }
+        })
+        .unwrap()
+        .join()
+        .unwrap();
 }
 
 fn compile_and_run<T: Field>(t: Tests) {

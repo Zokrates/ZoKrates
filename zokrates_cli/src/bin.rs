@@ -72,35 +72,41 @@ mod tests {
 
     #[test]
     fn compile_examples() {
-        for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
-            let path = match p {
-                Ok(x) => x,
-                Err(why) => panic!("Error: {:?}", why),
-            };
+        let builder = std::thread::Builder::new().stack_size(8388608);
 
-            if !path.is_file() {
-                continue;
-            }
+        builder
+            .spawn(|| {
+                for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
+                    let path = match p {
+                        Ok(x) => x,
+                        Err(why) => panic!("Error: {:?}", why),
+                    };
 
-            assert!(path.extension().expect("extension expected") == "zok");
+                    if !path.is_file() {
+                        continue;
+                    }
 
-            let should_error = path.to_str().unwrap().contains("compile_errors");
+                    assert!(path.extension().expect("extension expected") == "zok");
 
-            println!("Testing {:?}", path);
+                    let should_error = path.to_str().unwrap().contains("compile_errors");
 
-            let file = File::open(path.clone()).unwrap();
+                    println!("Testing {:?}", path);
 
-            let mut reader = BufReader::new(file);
+                    let file = File::open(path.clone()).unwrap();
 
-            let mut source = String::new();
-            reader.read_to_string(&mut source).unwrap();
+                    let mut reader = BufReader::new(file);
 
-            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
-            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
-            let res = compile::<Bn128Field, _>(source, path, Some(&resolver));
+                    let mut source = String::new();
+                    reader.read_to_string(&mut source).unwrap();
 
-            assert_eq!(res.is_err(), should_error);
-        }
+                    let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+                    let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+                    let res = compile::<Bn128Field, _>(source, path, Some(&resolver));
+
+                    assert_eq!(res.is_err(), should_error);
+                }
+            })
+            .unwrap();
     }
 
     #[test]
