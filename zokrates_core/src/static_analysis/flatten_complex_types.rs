@@ -332,8 +332,8 @@ pub fn fold_statement<'ast, T: Field>(
                 f.fold_expression_list(elist),
             )]
         }
-        typed_absy::TypedStatement::PushCallLog(..) => vec![],
-        typed_absy::TypedStatement::PopCallLog => vec![],
+        typed_absy::TypedStatement::PushCallLog(..) => vec![zir::ZirStatement::PushCallLog],
+        typed_absy::TypedStatement::PopCallLog => vec![zir::ZirStatement::PopCallLog],
     }
 }
 

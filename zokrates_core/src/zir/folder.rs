@@ -134,6 +134,7 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
             variables.into_iter().map(|v| f.fold_variable(v)).collect(),
             f.fold_expression_list(elist),
         ),
+        s => s,
     };
     vec![res]
 }

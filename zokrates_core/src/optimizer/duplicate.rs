@@ -34,14 +34,20 @@ impl DuplicateOptimizer {
 
 impl<T: Field> Folder<T> for DuplicateOptimizer {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
-        let hashed = hash(&s);
-        let result = match self.seen.get(&hashed) {
-            Some(_) => vec![],
-            None => vec![s],
-        };
+        match s {
+            Statement::PushCallLog => vec![Statement::PushCallLog],
+            Statement::PopCallLog => vec![Statement::PopCallLog],
+            s => {
+                let hashed = hash(&s);
+                let result = match self.seen.get(&hashed) {
+                    Some(_) => vec![],
+                    None => vec![s],
+                };
 
-        self.seen.insert(hashed);
-        result
+                self.seen.insert(hashed);
+                result
+            }
+        }
     }
 }
 

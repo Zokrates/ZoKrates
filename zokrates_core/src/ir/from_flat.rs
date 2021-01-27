@@ -114,6 +114,8 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                 e => Statement::Constraint(LinComb::from(e).into(), var.into()),
             },
             FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
+            FlatStatement::PushCallLog => Statement::PushCallLog,
+            FlatStatement::PopCallLog => Statement::PopCallLog,
             _ => panic!("return should be handled at the function level"),
         }
     }

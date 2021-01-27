@@ -227,8 +227,8 @@ pub fn inline_call<'a, 'ast, T: Field>(
     let statements: Vec<_> = std::iter::once(call_log)
         .chain(input_bindings)
         .chain(statements)
-        .chain(output_bindings)
         .chain(std::iter::once(pop_log))
+        .chain(output_bindings)
         .collect();
 
     cache.insert(

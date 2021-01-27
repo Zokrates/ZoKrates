@@ -81,6 +81,7 @@ impl<T: Field> FlatStatement<T> {
                     .collect(),
                 ..d
             })),
+            s => Some(s),
         }
     }
 }

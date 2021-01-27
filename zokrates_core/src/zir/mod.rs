@@ -192,6 +192,8 @@ pub enum ZirStatement<'ast, T> {
     Declaration(Variable<'ast>),
     Assertion(BooleanExpression<'ast, T>),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
+    PushCallLog,
+    PopCallLog,
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {
@@ -215,6 +217,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {
             ZirStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
             }
+            ZirStatement::PushCallLog => write!(f, "PushCallLog"),
+            ZirStatement::PopCallLog => write!(f, "PopCallLog"),
         }
     }
 }
@@ -244,6 +248,8 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                 }
                 write!(f, " = {}", rhs)
             }
+            ZirStatement::PushCallLog => write!(f, "# PUSH CALL"),
+            ZirStatement::PopCallLog => write!(f, "# POP CALL"),
         }
     }
 }

@@ -885,12 +885,12 @@ mod tests {
                     Variable::field_element(Identifier::from("a").version(3)).into(),
                     FieldElementExpression::Identifier(Identifier::from("a").version(1)).into(),
                 ),
+                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::field_element(Identifier::from(CoreIdentifier::Call(0)).version(0))
                         .into(),
                     FieldElementExpression::Identifier(Identifier::from("a").version(3)).into(),
                 ),
-                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::field_element(Identifier::from("a").version(2)).into(),
                     FieldElementExpression::Identifier(
@@ -1084,6 +1084,7 @@ mod tests {
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 ),
+                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::array(
                         Identifier::from(CoreIdentifier::Call(0)).version(0),
@@ -1095,7 +1096,6 @@ mod tests {
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 ),
-                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::array(Identifier::from("b").version(1), Type::FieldElement, 1u32)
                         .into(),
@@ -1304,6 +1304,7 @@ mod tests {
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 ),
+                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::array(
                         Identifier::from(CoreIdentifier::Call(0)).version(0),
@@ -1315,7 +1316,6 @@ mod tests {
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 ),
-                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::array(Identifier::from("b").version(1), Type::FieldElement, 1u32)
                         .into(),
@@ -1574,6 +1574,7 @@ mod tests {
                     .annotate(Type::FieldElement, 2u32)
                     .into(),
                 ),
+                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::array(
                         Identifier::from(CoreIdentifier::Call(0)).version(1),
@@ -1585,7 +1586,6 @@ mod tests {
                         .annotate(Type::FieldElement, 2u32)
                         .into(),
                 ),
-                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::array("ret", Type::FieldElement, 1u32).into(),
                     ArrayExpressionInner::Slice(
@@ -1600,6 +1600,7 @@ mod tests {
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
                 ),
+                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::array(
                         Identifier::from(CoreIdentifier::Call(0)),
@@ -1611,7 +1612,6 @@ mod tests {
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
                 ),
-                TypedStatement::PopCallLog,
                 TypedStatement::Definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
                     ArrayExpressionInner::Identifier(Identifier::from(CoreIdentifier::Call(0)))

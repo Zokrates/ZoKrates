@@ -22,6 +22,8 @@ pub use self::witness::Witness;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T> {
+    PushCallLog,
+    PopCallLog,
     Constraint(QuadComb<T>, LinComb<T>),
     Directive(Directive<T>),
 }
@@ -33,6 +35,8 @@ impl<T: Field> PartialEq for Statement<T> {
                 l1.eq(l2) && r1.eq(r2)
             }
             (Statement::Directive(d1), Statement::Directive(d2)) => d1.eq(d2),
+            (Statement::PushCallLog, Statement::PushCallLog) => true,
+            (Statement::PopCallLog, Statement::PopCallLog) => true,
             _ => false,
         }
     }
@@ -47,6 +51,9 @@ impl<T: Field> Hash for Statement<T> {
             }
             Statement::Directive(d) => {
                 d.hash(state);
+            }
+            s => {
+                s.hash(state);
             }
         }
     }
@@ -114,6 +121,8 @@ impl<T: Field> fmt::Display for Statement<T> {
         match *self {
             Statement::Constraint(ref quad, ref lin) => write!(f, "{} == {}", quad, lin),
             Statement::Directive(ref s) => write!(f, "{}", s),
+            Statement::PushCallLog => write!(f, "# PUSH CALL"),
+            Statement::PopCallLog => write!(f, "# POP CALL"),
         }
     }
 }

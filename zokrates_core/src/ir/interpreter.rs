@@ -91,6 +91,7 @@ impl Interpreter {
                         }
                     }
                 }
+                _ => {}
             }
         }
 

@@ -998,6 +998,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 inputs: new_inputs,
                             })
                         }
+                        s => s,
                     })
                     .collect();
 
@@ -2154,6 +2155,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     }
                 }
             }
+            ZirStatement::PushCallLog => statements_flattened.push(FlatStatement::PushCallLog),
+            ZirStatement::PopCallLog => statements_flattened.push(FlatStatement::PopCallLog),
         }
     }
 
