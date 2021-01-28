@@ -11,8 +11,7 @@ use self::utils::flat_expression_from_bits;
 
 use crate::compile::CompileConfig;
 use crate::flat_absy::*;
-use crate::ir;
-use crate::solvers::Solver;
+use crate::solvers::{Executable, Solver};
 use crate::zir::types::{FunctionIdentifier, FunctionKey, Signature, Type, UBitwidth};
 use crate::zir::*;
 use std::collections::hash_map::Entry;
@@ -1655,8 +1654,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // constants do not require directives
         match e.field {
             Some(FlatExpression::Number(ref x)) => {
-                let bits: Vec<_> = ir::Interpreter::default()
-                    .execute_solver(&Solver::bits(to), &vec![x.clone()])
+                let solver = Solver::bits(to);
+                let bits: Vec<_> = solver
+                    .execute(&vec![x.clone()])
                     .unwrap()
                     .into_iter()
                     .map(|x| FlatExpression::Number(x))
@@ -2147,17 +2147,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Checks if the given name is a not used variable and returns a fresh variable.
+    /// Returns a fresh FlatVariable for a given Variable
     /// # Arguments
     ///
     /// * `variable` - a variable in the program being flattened
     fn use_variable(&mut self, variable: &Variable<'ast>) -> FlatVariable {
         let var = self.issue_new_variable();
 
-        assert!(self
-            .layout
-            .insert(variable.id.clone(), var.clone())
-            .is_none());
+        self.layout.insert(variable.id.clone(), var.clone());
         var
     }
 
@@ -2650,18 +2647,5 @@ mod tests {
                 ),
             ]
         );
-    }
-
-    #[test]
-    #[should_panic]
-    fn next_variable() {
-        let config = CompileConfig::default();
-        let mut flattener: Flattener<Bn128Field> = Flattener::new(&config);
-        assert_eq!(
-            FlatVariable::new(0),
-            flattener.use_variable(&Variable::field_element("a"))
-        );
-        // using the same variable a second time should panic
-        flattener.use_variable(&Variable::field_element("a"));
     }
 }

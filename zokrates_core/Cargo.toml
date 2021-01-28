@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_core"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2018"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/JacobEberhardt/ZoKrates"
@@ -31,6 +31,7 @@ regex = "0.2"
 zokrates_field = { version = "0.3.0", path = "../zokrates_field", default-features = false }
 zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
 zokrates_common = { path = "../zokrates_common" }
+zokrates_embed = { path = "../zokrates_embed" }
 rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"

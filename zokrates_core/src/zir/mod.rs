@@ -192,7 +192,7 @@ pub enum ZirStatement<'ast, T> {
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
     Declaration(Variable<'ast>),
     Assertion(BooleanExpression<'ast, T>),
-    MultipleDefinition(Vec<Variable<'ast>>, ZirExpressionList<'ast, T>),
+    MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {

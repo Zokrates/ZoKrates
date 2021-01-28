@@ -100,6 +100,14 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         // inline all calls in the main function, recursively
         let main = inliner.fold_function_symbol(main);
 
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "bellman")] {
+                // define a function in the main module for the `sha256` embed
+                let sha256_round = crate::embed::FlatEmbed::Sha256Round;
+                let sha256_round_key = sha256_round.key::<T>();
+            }
+        }
+
         // define a function in the main module for the `unpack` embed
         let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
         let unpack_key = unpack.key::<T>();
@@ -135,6 +143,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 "main".into(),
                 TypedModule {
                     functions: vec![
+                        #[cfg(feature = "bellman")]
+                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
                         (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
                         (u16_from_bits_key, TypedFunctionSymbol::Flat(u16_from_bits)),
@@ -290,24 +300,22 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
     // add extra statements before the modified statement
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         let folded = match s {
-            TypedStatement::MultipleDefinition(variables, elist) => match elist {
+            TypedStatement::MultipleDefinition(assignees, elist) => match elist {
                 TypedExpressionList::FunctionCall(key, exps, types) => {
-                    let variables: Vec<_> = variables
+                    let assignees: Vec<_> = assignees
                         .into_iter()
-                        .map(|a| self.fold_variable(a))
+                        .map(|a| self.fold_assignee(a))
                         .collect();
                     let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
                     match self.try_inline_call(&key, exps) {
-                        Ok(ret) => variables
+                        Ok(ret) => assignees
                             .into_iter()
                             .zip(ret.into_iter())
-                            .map(|(v, e)| {
-                                TypedStatement::Definition(TypedAssignee::Identifier(v), e)
-                            })
+                            .map(|(a, e)| TypedStatement::Definition(a, e))
                             .collect(),
                         Err((key, expressions)) => vec![TypedStatement::MultipleDefinition(
-                            variables,
+                            assignees,
                             TypedExpressionList::FunctionCall(key, expressions, types),
                         )],
                     }
@@ -356,7 +364,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         };
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone()).into()],
                                 TypedExpressionList::FunctionCall(
                                     key.clone(),
                                     expressions.clone(),
@@ -410,7 +418,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         };
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone()).into()],
                                 TypedExpressionList::FunctionCall(
                                     key.clone(),
                                     expressions.clone(),
@@ -466,7 +474,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         };
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone()).into()],
                                 TypedExpressionList::FunctionCall(
                                     embed_key.clone(),
                                     expressions.clone(),
@@ -523,7 +531,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         };
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone()).into()],
                                 TypedExpressionList::FunctionCall(
                                     key.clone(),
                                     expressions.clone(),
@@ -577,7 +585,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         };
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
-                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone()).into()],
                                 TypedExpressionList::FunctionCall(
                                     embed_key.clone(),
                                     expressions.clone(),
@@ -1259,7 +1267,7 @@ mod tests {
                         arguments: vec![],
                         statements: vec![
                             TypedStatement::MultipleDefinition(
-                                vec![Variable::field_element("a")],
+                                vec![Variable::field_element("a").into()],
                                 TypedExpressionList::FunctionCall(
                                     FunctionKey::with_id("foo").signature(
                                         Signature::new().outputs(vec![Type::FieldElement]),
@@ -1368,7 +1376,7 @@ mod tests {
                         arguments: vec![],
                         statements: vec![
                             TypedStatement::MultipleDefinition(
-                                vec![Variable::field_element("a")],
+                                vec![Variable::field_element("a").into()],
                                 TypedExpressionList::FunctionCall(
                                     FunctionKey::with_id("foo").signature(
                                         Signature::new().outputs(vec![Type::FieldElement]),

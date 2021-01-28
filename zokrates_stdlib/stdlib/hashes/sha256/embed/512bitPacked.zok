@@ -1,0 +1,23 @@
+import "../../../utils/pack/bool/pack128" as pack128
+import "../../../utils/pack/bool/unpack128" as unpack128
+import "./512bitPadded" as sha256
+
+// A function that takes an array of 4 field elements as inputs, unpacks each of them to 128
+// bits (big endian), concatenates them and applies sha256.
+// It then returns an array of two field elements, each representing 128 bits of the result.
+def main(field[4] preimage) -> (field[2]):
+
+    bool[128] a = unpack128(preimage[0])
+    bool[128] b = unpack128(preimage[1])
+    bool[128] c = unpack128(preimage[2])
+    bool[128] d = unpack128(preimage[3])
+
+    bool[256] lhs = [...a, ...b]
+    bool[256] rhs = [...c, ...d]
+
+    bool[256] r = sha256(lhs, rhs)
+
+    field res0 = pack128(r[..128])
+    field res1 = pack128(r[128..])
+
+    return [res0, res1]

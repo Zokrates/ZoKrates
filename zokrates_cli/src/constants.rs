@@ -1,6 +1,23 @@
+pub const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
+pub const ABI_SPEC_DEFAULT_PATH: &str = "abi.json";
+pub const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
+pub const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
+pub const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
+pub const WITNESS_DEFAULT_PATH: &str = "witness";
+pub const JSON_PROOF_PATH: &str = "proof.json";
+
 pub const BELLMAN: &str = "bellman";
 pub const LIBSNARK: &str = "libsnark";
 pub const ARK: &str = "ark";
+
+lazy_static! {
+    pub static ref DEFAULT_STDLIB_PATH: String = dirs::home_dir()
+        .map(|p| p.join(".zokrates/stdlib"))
+        .unwrap()
+        .into_os_string()
+        .into_string()
+        .unwrap();
+}
 
 pub const BACKENDS: &[&str] = if cfg!(feature = "libsnark") {
     if cfg!(feature = "ark") {
