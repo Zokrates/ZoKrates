@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
-use zokrates_core::compile::{compile, CompilationArtifacts, CompileError};
+use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig, CompileError};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -105,9 +105,13 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )),
     }?;
 
+    let config = CompileConfig {
+        allow_unconstrained_variables: sub_matches.is_present("allow-unconstrained-variables"),
+    };
+
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
-    let artifacts: CompilationArtifacts<T> =
-        compile(source, path, Some(&resolver)).map_err(|e| {
+    let artifacts: CompilationArtifacts<T> = compile(source, path, Some(&resolver), &config)
+        .map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
                 e.0.iter()

@@ -65,7 +65,7 @@ mod tests {
     use std::fs::File;
     use std::io::{BufReader, Read};
     use std::string::String;
-    use zokrates_core::compile::{compile, CompilationArtifacts};
+    use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig};
     use zokrates_core::ir;
     use zokrates_field::Bn128Field;
     use zokrates_fs_resolver::FileSystemResolver;
@@ -101,8 +101,12 @@ mod tests {
 
                     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
                     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
-                    let res = compile::<Bn128Field, _>(source, path, Some(&resolver));
-
+                    let res = compile::<Bn128Field, _>(
+                        source,
+                        path,
+                        Some(&resolver),
+                        &CompileConfig::default(),
+                    );
                     assert_eq!(res.is_err(), should_error);
                 }
             })
@@ -129,7 +133,7 @@ mod tests {
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
             let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
 
             let interpreter = ir::Interpreter::default();
 
@@ -159,7 +163,7 @@ mod tests {
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
             let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
 
             let interpreter = ir::Interpreter::default();
 

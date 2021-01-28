@@ -13,6 +13,7 @@ use crate::static_analysis::Analyse;
 use crate::typed_absy::abi::Abi;
 use crate::zir::ZirProgram;
 use macros::process_macros;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
@@ -140,19 +141,25 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct CompileConfig {
+    pub allow_unconstrained_variables: bool,
+}
+
 type FilePath = PathBuf;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
+    config: &CompileConfig,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
     // flatten input program
-    let program_flattened = Flattener::flatten(typed_ast);
+    let program_flattened = Flattener::flatten(typed_ast, config);
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
@@ -163,7 +170,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    // analyse (check for unused constraints)
+    // analyse (check constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
 
     Ok(CompilationArtifacts {
@@ -263,6 +270,7 @@ mod test {
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
+            &CompileConfig::default(),
         );
         assert!(res.unwrap_err().0[0]
             .value()
@@ -281,6 +289,7 @@ mod test {
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
+            &CompileConfig::default(),
         );
         assert!(res.is_ok());
     }
@@ -361,6 +370,7 @@ struct Bar { field a }
                 main.to_string(),
                 "main".into(),
                 Some(&CustomResolver),
+                &CompileConfig::default(),
             )
             .unwrap();
 
