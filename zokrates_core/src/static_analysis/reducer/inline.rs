@@ -231,11 +231,6 @@ pub fn inline_call<'a, 'ast, T: Field>(
         .chain(output_bindings)
         .collect();
 
-    cache.insert(
-        (concrete_key.clone(), assignment.clone(), arguments.clone()),
-        expressions.clone(),
-    );
-
     Ok(incomplete_data
         .map(|d| Output::Incomplete((statements.clone(), expressions.clone()), d))
         .unwrap_or_else(|| Output::Complete((statements, expressions))))
