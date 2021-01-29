@@ -36,7 +36,7 @@ use crate::typed_absy::Identifier;
 use crate::typed_absy::TypedAssignee;
 use crate::typed_absy::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Signature,
-    Type, TypedExpression, TypedFunction, TypedFunctionSymbol, TypedProgram, TypedStatement,
+    Type, TypedExpression, TypedFunctionSymbol, TypedProgram, TypedStatement,
     UExpression, UExpressionInner, Variable,
 };
 use zokrates_field::Field;
@@ -60,7 +60,7 @@ pub enum InlineError<'ast, T> {
 fn get_canonical_function<'ast, T: Field>(
     function_key: DeclarationFunctionKey<'ast>,
     program: &TypedProgram<'ast, T>,
-) -> Result<(DeclarationFunctionKey<'ast>, TypedFunction<'ast, T>), FlatEmbed> {
+) -> (DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>) {
     match program
         .modules
         .get(&function_key.module)
@@ -70,9 +70,8 @@ fn get_canonical_function<'ast, T: Field>(
         .find(|(key, _)| function_key == **key)
         .unwrap()
     {
-        (key, TypedFunctionSymbol::Here(f)) => Ok((key.clone(), f.clone())),
         (_, TypedFunctionSymbol::There(key)) => get_canonical_function(key.clone(), &program),
-        (_, TypedFunctionSymbol::Flat(f)) => Err(f.clone()),
+        (key, s) => (key.clone(), s.clone())
     }
 }
 
@@ -135,17 +134,15 @@ pub fn inline_call<'a, 'ast, T: Field>(
         }
     };
 
-    let (decl_key, f) = get_canonical_function(k.clone(), program)
-        .map_err(|e| InlineError::Flat(e, generics, arguments.clone(), output_types))?;
-    assert_eq!(f.arguments.len(), arguments.len());
+    let (decl_key, symbol) = get_canonical_function(k.clone(), program);
 
     // get an assignment of generics for this call site
-    let assignment: ConcreteGenericsAssignment<'ast> = decl_key
+    let assignment: ConcreteGenericsAssignment<'ast> = k
         .signature
         .specialize(generics_values, &inferred_signature)
         .map_err(|_| {
             InlineError::Generic(
-                decl_key.clone(),
+                k.clone(),
                 ConcreteFunctionKey {
                     module: decl_key.module.clone(),
                     id: decl_key.id,
@@ -153,6 +150,14 @@ pub fn inline_call<'a, 'ast, T: Field>(
                 },
             )
         })?;
+
+    let f = match symbol {
+        TypedFunctionSymbol::Here(f) => Ok(f),
+        TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(e, generics, arguments.clone(), output_types)),
+        _ => unreachable!()
+    }?;
+
+    assert_eq!(f.arguments.len(), arguments.len());
 
     let concrete_key = ConcreteFunctionKey {
         module: decl_key.module.clone(),
