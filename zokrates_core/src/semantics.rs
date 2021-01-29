@@ -1682,8 +1682,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
 
+                use self::TypedExpression::*;
+
+                let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
+                    e1_checked, e2_checked,
+                )
+                .map_err(|(e1, e2)| ErrorInner {
+                    pos: Some(pos),
+                    message: format!("Cannot apply `%` to {}, {}", e1.get_type(), e2.get_type()),
+                })?;
+
                 match (e1_checked, e2_checked) {
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                    (Int(e1), Int(e2)) => Ok((e1 % e2).into()),
+                    (Uint(e1), Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
                             Ok((e1 % e2).into())
                         } else {

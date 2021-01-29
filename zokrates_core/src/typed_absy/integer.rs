@@ -8,7 +8,7 @@ use crate::typed_absy::{
 use num_bigint::BigUint;
 use std::convert::TryFrom;
 use std::fmt;
-use std::ops::{Add, Div, Mul, Not, Sub};
+use std::ops::{Add, Div, Mul, Not, Rem, Sub};
 use zokrates_field::Field;
 
 type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
@@ -138,6 +138,7 @@ pub enum IntExpression<'ast, T> {
     Sub(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Mult(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Div(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
+    Rem(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Pow(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
@@ -191,6 +192,14 @@ impl<'ast, T> Div for IntExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> Rem for IntExpression<'ast, T> {
+    type Output = Self;
+
+    fn rem(self, other: Self) -> Self {
+        IntExpression::Rem(box self, box other)
+    }
+}
+
 impl<'ast, T> Not for IntExpression<'ast, T> {
     type Output = Self;
 
@@ -230,6 +239,7 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
         match self {
             IntExpression::Value(ref v) => write!(f, "{}", v),
             IntExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
+            IntExpression::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             IntExpression::Pow(ref lhs, ref rhs) => write!(f, "({} ** {})", lhs, rhs),
             IntExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
             IntExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
@@ -378,6 +388,9 @@ impl<'ast, T: Field> UExpression<'ast, T> {
             }
             Div(box e1, box e2) => {
                 Ok(Self::try_from_int(e1, bitwidth)? / Self::try_from_int(e2, bitwidth)?)
+            }
+            Rem(box e1, box e2) => {
+                Ok(Self::try_from_int(e1, bitwidth)? % Self::try_from_int(e2, bitwidth)?)
             }
             And(box e1, box e2) => Ok(UExpression::and(
                 Self::try_from_int(e1, bitwidth)?,
@@ -602,6 +615,7 @@ mod tests {
             n.clone() - n.clone(),
             n.clone() * n.clone(),
             n.clone() / n.clone(),
+            n.clone() % n.clone(),
             IntExpression::left_shift(n.clone(), s.clone()),
             IntExpression::right_shift(n.clone(), s.clone()),
             !n.clone(),
@@ -618,6 +632,7 @@ mod tests {
             t.clone() - t.clone(),
             t.clone() * t.clone(),
             t.clone() / t.clone(),
+            t.clone() % t.clone(),
             UExpression::left_shift(t.clone(), s.clone()),
             UExpression::right_shift(t.clone(), s.clone()),
             !t.clone(),
