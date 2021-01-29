@@ -2069,12 +2069,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let bits = rhs.bits.clone();
 
-                let var = match rhs.get_field_unchecked() {
-                    FlatExpression::Identifier(id) => {
+                let var = match (assignee.is_return(), rhs.get_field_unchecked()) {
+                    (false, FlatExpression::Identifier(id)) => {
                         self.use_variable_with_existing(&assignee, id);
                         id
                     }
-                    e => {
+                    (_, e) => {
                         let var = self.use_variable(&assignee);
 
                         // handle return of function call

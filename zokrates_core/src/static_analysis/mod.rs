@@ -8,7 +8,6 @@ mod bounds_checker;
 mod flat_propagation;
 mod flatten_complex_types;
 mod propagation;
-mod redefinition;
 mod reducer;
 mod uint_optimizer;
 mod unconstrained_vars;
@@ -18,7 +17,6 @@ mod variable_write_remover;
 use self::bounds_checker::BoundsChecker;
 use self::flatten_complex_types::Flattener;
 use self::propagation::Propagator;
-use self::redefinition::RedefinitionOptimizer;
 use self::reducer::reduce_program;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
@@ -78,8 +76,6 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 
         // propagate
         let r = Propagator::propagate(r).map_err(Error::from)?;
-        // optimize redefinitions
-        let r = RedefinitionOptimizer::optimize(r);
         // remove assignment to variable index
         let r = VariableWriteRemover::apply(r);
         // remove variable access to complex types

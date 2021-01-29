@@ -31,6 +31,10 @@ impl<'ast> Variable<'ast> {
     pub fn get_type(&self) -> Type {
         self._type.clone()
     }
+
+    pub fn is_return(&self) -> bool {
+        self.id.is_return()
+    }
 }
 
 impl<'ast> fmt::Display for Variable<'ast> {

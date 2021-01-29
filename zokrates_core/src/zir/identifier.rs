@@ -9,6 +9,12 @@ pub enum Identifier<'ast> {
     Internal(&'static str, usize),
 }
 
+impl<'ast> Identifier<'ast> {
+    pub fn is_return(&self) -> bool {
+        matches!(self, Identifier::Source(SourceIdentifier::Basic(i)) if matches!(i.id, crate::typed_absy::CoreIdentifier::Call(..)))
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub enum SourceIdentifier<'ast> {
     Basic(CoreIdentifier<'ast>),
