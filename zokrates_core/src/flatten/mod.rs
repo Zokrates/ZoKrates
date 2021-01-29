@@ -2086,8 +2086,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 // register bits
                 //if let Some(bits) = bits {
-                    // self.bits_cache
-                    //     .insert(FlatExpression::Identifier(var), bits);
+                // self.bits_cache
+                //     .insert(FlatExpression::Identifier(var), bits);
                 //}
             }
             ZirStatement::Assertion(e) => {
