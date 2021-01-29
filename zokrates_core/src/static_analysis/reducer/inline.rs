@@ -36,8 +36,8 @@ use crate::typed_absy::Identifier;
 use crate::typed_absy::TypedAssignee;
 use crate::typed_absy::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Signature,
-    Type, TypedExpression, TypedFunctionSymbol, TypedProgram, TypedStatement,
-    UExpression, UExpressionInner, Variable,
+    Type, TypedExpression, TypedFunctionSymbol, TypedProgram, TypedStatement, UExpression,
+    UExpressionInner, Variable,
 };
 use zokrates_field::Field;
 
@@ -71,7 +71,7 @@ fn get_canonical_function<'ast, T: Field>(
         .unwrap()
     {
         (_, TypedFunctionSymbol::There(key)) => get_canonical_function(key.clone(), &program),
-        (key, s) => (key.clone(), s.clone())
+        (key, s) => (key.clone(), s.clone()),
     }
 }
 
@@ -153,8 +153,13 @@ pub fn inline_call<'a, 'ast, T: Field>(
 
     let f = match symbol {
         TypedFunctionSymbol::Here(f) => Ok(f),
-        TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(e, generics, arguments.clone(), output_types)),
-        _ => unreachable!()
+        TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(
+            e,
+            generics,
+            arguments.clone(),
+            output_types,
+        )),
+        _ => unreachable!(),
     }?;
 
     assert_eq!(f.arguments.len(), arguments.len());
