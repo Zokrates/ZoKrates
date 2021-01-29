@@ -1767,7 +1767,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             let from = std::cmp::max(from, to);
             match self.bits_cache.entry(e.field.clone().unwrap()) {
                 Entry::Occupied(entry) => {
-                    unreachable!();
                     let res: Vec<_> = entry.get().clone();
                     // if we already know a decomposition, it has to be of the size of the target bitwidth
                     assert_eq!(res.len(), to);
