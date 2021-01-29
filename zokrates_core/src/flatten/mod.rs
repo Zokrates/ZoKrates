@@ -2067,13 +2067,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let rhs = self.flatten_expression(symbols, statements_flattened, expr);
 
-                let bits = rhs.bits.clone();
+                let _bits = rhs.bits.clone();
 
-                let var = match (assignee.is_return(), rhs.get_field_unchecked()) {
-                    // (false, FlatExpression::Identifier(id)) => {
-                    //     self.use_variable_with_existing(&assignee, id);
-                    //     id
-                    // }
+                let _var = match (assignee.is_return(), rhs.get_field_unchecked()) {
+                    (false, FlatExpression::Identifier(id)) => {
+                        self.use_variable_with_existing(&assignee, id);
+                        id
+                    }
                     (_, e) => {
                         let var = self.use_variable(&assignee);
 
@@ -2085,10 +2085,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 };
 
                 // register bits
-                if let Some(bits) = bits {
+                //if let Some(bits) = bits {
                     // self.bits_cache
                     //     .insert(FlatExpression::Identifier(var), bits);
-                }
+                //}
             }
             ZirStatement::Assertion(e) => {
                 // naive approach: flatten the boolean to a single field element and constrain it to 1
@@ -2126,7 +2126,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                         let rhs = rhs_flattened.into_iter();
 
-                        let vars: Vec<_> = vars
+                        let _vars: Vec<_> = vars
                             .into_iter()
                             .zip(rhs)
                             .map(|(v, r)| match r.get_field_unchecked() {
