@@ -94,7 +94,7 @@ pub struct RedefinitionOptimizer<T> {
     substitution: StackedHashMap<FlatVariable, CanonicalLinComb<T>>,
     /// Set of variables that should not be substituted
     ignore: HashSet<FlatVariable>,
-    /// Hacky: we keep the previous scope as it's where the return value was defined
+    /// Hacky: we keep the previous scope as it's where the variables constituting the return value are
     previous_scope: Option<HashMap<FlatVariable, CanonicalLinComb<T>>>,
 }
 

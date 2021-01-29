@@ -1754,8 +1754,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
             assert_eq!(bits.len(), to);
 
-            self.bits_cache
-                .insert(e.field.clone().unwrap(), bits.clone());
+            // self.bits_cache
+            //     .insert(e.field.clone().unwrap(), bits.clone());
             return bits;
         };
 
@@ -1767,6 +1767,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             let from = std::cmp::max(from, to);
             match self.bits_cache.entry(e.field.clone().unwrap()) {
                 Entry::Occupied(entry) => {
+                    unreachable!();
                     let res: Vec<_> = entry.get().clone();
                     // if we already know a decomposition, it has to be of the size of the target bitwidth
                     assert_eq!(res.len(), to);
@@ -1805,8 +1806,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                     assert_eq!(bits.len(), to);
 
-                    self.bits_cache.insert(e.field.unwrap(), bits.clone());
-                    self.bits_cache.insert(sum, bits.clone());
+                    // self.bits_cache.insert(e.field.unwrap(), bits.clone());
+                    // self.bits_cache.insert(sum, bits.clone());
 
                     bits
                 }
@@ -2070,10 +2071,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let bits = rhs.bits.clone();
 
                 let var = match (assignee.is_return(), rhs.get_field_unchecked()) {
-                    (false, FlatExpression::Identifier(id)) => {
-                        self.use_variable_with_existing(&assignee, id);
-                        id
-                    }
+                    // (false, FlatExpression::Identifier(id)) => {
+                    //     self.use_variable_with_existing(&assignee, id);
+                    //     id
+                    // }
                     (_, e) => {
                         let var = self.use_variable(&assignee);
 
@@ -2086,8 +2087,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 // register bits
                 if let Some(bits) = bits {
-                    self.bits_cache
-                        .insert(FlatExpression::Identifier(var), bits);
+                    // self.bits_cache
+                    //     .insert(FlatExpression::Identifier(var), bits);
                 }
             }
             ZirStatement::Assertion(e) => {
@@ -2143,14 +2144,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .collect();
 
                         if ["_U32_FROM_BITS", "_U16_FROM_BITS", "_U8_FROM_BITS"].contains(&key.id) {
-                            let bits = exprs
-                                .into_iter()
-                                .map(|e| {
-                                    self.flatten_expression(symbols, statements_flattened, e)
-                                        .get_field_unchecked()
-                                })
-                                .collect();
-                            self.bits_cache.insert(vars[0].clone().into(), bits);
+                            // let bits = exprs
+                            //     .into_iter()
+                            //     .map(|e| {
+                            //         self.flatten_expression(symbols, statements_flattened, e)
+                            //             .get_field_unchecked()
+                            //     })
+                            //     .collect();
+                            //self.bits_cache.insert(vars[0].clone().into(), bits);
                         }
                     }
                 }
