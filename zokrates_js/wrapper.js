@@ -36,11 +36,15 @@ module.exports = (dep) => {
 
     return {
         compile: (source, options = {}) => {
-            const { location = "main.zok", resolveCallback = () => null } = options;
+            const createConfig = (config) => ({
+                allow_unconstrained_variables: false,
+                ...config
+            });
+            const { location = "main.zok", resolveCallback = () => null, config = {} } = options;
             const callback = (currentLocation, importLocation) => {
                 return resolveFromStdlib(currentLocation, importLocation) || resolveCallback(currentLocation, importLocation);
             };
-            const { program, abi } = zokrates.compile(source, location, callback);
+            const { program, abi } = zokrates.compile(source, location, callback, createConfig(config));
             return {
                 program: Array.from(program),
                 abi
