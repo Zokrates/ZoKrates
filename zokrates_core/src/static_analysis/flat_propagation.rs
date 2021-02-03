@@ -64,8 +64,8 @@ impl<T: Field> FlatStatement<T> {
             })),
             FlatStatement::Definition(var, expr) => match expr.propagate(constants) {
                 FlatExpression::Number(n) => {
-                    constants.insert(var, n);
-                    None
+                    constants.insert(var.clone(), n.clone());
+                    Some(FlatStatement::Definition(var, FlatExpression::Number(n)))
                 }
                 e => Some(FlatStatement::Definition(var, e)),
             },

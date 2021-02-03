@@ -169,11 +169,17 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
 
+    println!("BEFORE OPT {}", ir_prog.constraint_count());
+
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
+    println!("AFTER OPT {}", optimized_ir_prog.constraint_count());
+
     // analyse (check for unused constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
+
+    println!("AFTER AN {}", optimized_ir_prog.constraint_count());
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,

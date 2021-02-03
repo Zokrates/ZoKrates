@@ -16,6 +16,7 @@ mod optimizer;
 mod parser;
 mod semantics;
 mod solvers;
+mod stacked_hashmap;
 mod static_analysis;
 mod zir;
 

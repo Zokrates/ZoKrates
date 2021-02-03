@@ -192,6 +192,23 @@ pub fn inline_call<'a, 'ast, T: Field>(
         _ => unreachable!(),
     };
 
+    let ret: Vec<ConcreteVariable<'ast>> = inferred_signature
+        .outputs
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            ConcreteVariable::with_id_and_type(
+                Identifier::from(CoreIdentifier::Call(i)).version(
+                    *versions
+                        .entry(CoreIdentifier::Call(i).clone())
+                        .and_modify(|e| *e += 1) // if it was already declared, we increment
+                        .or_insert(0),
+                ),
+                t.clone(),
+            )
+        })
+        .collect();
+
     let res: Vec<ConcreteVariable<'ast>> = inferred_signature
         .outputs
         .iter()
@@ -216,10 +233,21 @@ pub fn inline_call<'a, 'ast, T: Field>(
 
     assert_eq!(res.len(), returns.len());
 
+    let return_bindings: Vec<TypedStatement<'ast, T>> = ret
+        .iter()
+        .zip(returns)
+        .map(|(v, e)| TypedStatement::Definition(TypedAssignee::Identifier(v.clone().into()), e))
+        .collect();
+
     let output_bindings: Vec<TypedStatement<'ast, T>> = res
         .into_iter()
-        .zip(returns)
-        .map(|(v, a)| TypedStatement::Definition(TypedAssignee::Identifier(v.into()), a))
+        .zip(ret)
+        .map(|(v, a)| {
+            TypedStatement::Definition(
+                TypedAssignee::Identifier(v.into()),
+                Variable::from(a).into(),
+            )
+        })
         .collect();
 
     let pop_log = TypedStatement::PopCallLog;
@@ -227,6 +255,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     let statements: Vec<_> = std::iter::once(call_log)
         .chain(input_bindings)
         .chain(statements)
+        .chain(return_bindings)
         .chain(std::iter::once(pop_log))
         .chain(output_bindings)
         .collect();

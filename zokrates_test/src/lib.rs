@@ -144,6 +144,8 @@ fn compile_and_run<T: Field>(t: Tests) {
             &(input.iter().cloned().map(parse_val).collect::<Vec<_>>()),
         );
 
+        println!("{:?}", output);
+
         if let Err(e) = compare(output, test.output) {
             let mut code = File::open(&entry_point).unwrap();
             let mut s = String::new();

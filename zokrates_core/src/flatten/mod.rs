@@ -11,6 +11,7 @@ mod utils;
 
 use self::utils::flat_expression_from_bits;
 use crate::ir::Interpreter;
+use crate::stacked_hashmap::StackedHashMap;
 
 use crate::flat_absy::*;
 use crate::solvers::Solver;
@@ -33,7 +34,7 @@ pub struct Flattener<'ast, T: Field> {
     /// Cached `FlatFunction`s to avoid re-flattening them
     flat_cache: HashMap<FunctionKey<'ast>, FlatFunction<T>>,
     /// Cached bit decompositions to avoid re-generating them
-    bits_cache: HashMap<FlatExpression<T>, Vec<FlatExpression<T>>>,
+    bits_cache: StackedHashMap<FlatExpression<T>, Vec<FlatExpression<T>>>,
 }
 
 trait FlattenOutput<T: Field>: Sized {
@@ -161,7 +162,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             next_var_idx: 0,
             layout: HashMap::new(),
             flat_cache: HashMap::new(),
-            bits_cache: HashMap::new(),
+            bits_cache: StackedHashMap::default(),
         }
     }
 
@@ -1754,8 +1755,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
             assert_eq!(bits.len(), to);
 
-            // self.bits_cache
-            //     .insert(e.field.clone().unwrap(), bits.clone());
+            self.bits_cache
+                .insert(e.field.clone().unwrap(), bits.clone());
             return bits;
         };
 
@@ -1805,8 +1806,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                     assert_eq!(bits.len(), to);
 
-                    // self.bits_cache.insert(e.field.unwrap(), bits.clone());
-                    // self.bits_cache.insert(sum, bits.clone());
+                    self.bits_cache.insert(e.field.unwrap(), bits.clone());
+                    self.bits_cache.insert(sum, bits.clone());
 
                     bits
                 }
@@ -2067,14 +2068,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let rhs = self.flatten_expression(symbols, statements_flattened, expr);
 
-                let _bits = rhs.bits.clone();
+                let bits = rhs.bits.clone();
 
-                let _var = match (assignee.is_return(), rhs.get_field_unchecked()) {
-                    (false, FlatExpression::Identifier(id)) => {
-                        self.use_variable_with_existing(&assignee, id);
-                        id
-                    }
-                    (_, e) => {
+                let var = match rhs.get_field_unchecked() {
+                    // (false, FlatExpression::Identifier(id)) => {
+                    //     self.use_variable_with_existing(&assignee, id);
+                    //     id
+                    // }
+                    e => {
                         let var = self.use_variable(&assignee);
 
                         // handle return of function call
@@ -2085,10 +2086,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 };
 
                 // register bits
-                //if let Some(bits) = bits {
-                // self.bits_cache
-                //     .insert(FlatExpression::Identifier(var), bits);
-                //}
+                if let Some(bits) = bits {
+                    self.bits_cache
+                        .insert(FlatExpression::Identifier(var), bits);
+                }
             }
             ZirStatement::Assertion(e) => {
                 // naive approach: flatten the boolean to a single field element and constrain it to 1
@@ -2126,7 +2127,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                         let rhs = rhs_flattened.into_iter();
 
-                        let _vars: Vec<_> = vars
+                        let vars: Vec<_> = vars
                             .into_iter()
                             .zip(rhs)
                             .map(|(v, r)| match r.get_field_unchecked() {
@@ -2143,20 +2144,30 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .collect();
 
                         if ["_U32_FROM_BITS", "_U16_FROM_BITS", "_U8_FROM_BITS"].contains(&key.id) {
-                            // let bits = exprs
-                            //     .into_iter()
-                            //     .map(|e| {
-                            //         self.flatten_expression(symbols, statements_flattened, e)
-                            //             .get_field_unchecked()
-                            //     })
-                            //     .collect();
-                            //self.bits_cache.insert(vars[0].clone().into(), bits);
+                            let bits = exprs
+                                .into_iter()
+                                .map(|e| {
+                                    self.flatten_expression(symbols, statements_flattened, e)
+                                        .get_field_unchecked()
+                                })
+                                .collect();
+                            self.bits_cache.insert(vars[0].clone().into(), bits);
                         }
                     }
                 }
             }
-            ZirStatement::PushCallLog => statements_flattened.push(FlatStatement::PushCallLog),
-            ZirStatement::PopCallLog => statements_flattened.push(FlatStatement::PopCallLog),
+            ZirStatement::PushCallLog => {
+                if std::env::var("BSTACKED").unwrap() == String::from("1") {
+                    self.bits_cache.push_scope();
+                }
+                statements_flattened.push(FlatStatement::PushCallLog)
+            }
+            ZirStatement::PopCallLog => {
+                if std::env::var("BSTACKED").unwrap() == String::from("1") {
+                    self.bits_cache.pop_scope();
+                }
+                statements_flattened.push(FlatStatement::PopCallLog)
+            }
         }
     }
 

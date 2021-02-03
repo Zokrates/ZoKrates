@@ -72,6 +72,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         let r = reduce_program(self).map_err(Error::from)?;
 
+        println!("REDUCED\n\n{}\n\n", r);
+
         let abi = r.abi();
 
         // propagate

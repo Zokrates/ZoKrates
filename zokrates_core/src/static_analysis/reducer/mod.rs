@@ -673,6 +673,8 @@ fn reduce_function<'ast, T: Field>(
             let mut hash = None;
 
             loop {
+                println!("F {}", f);
+
                 let mut reducer = Reducer::new(
                     &program,
                     &mut versions,

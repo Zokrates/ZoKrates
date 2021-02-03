@@ -1,0 +1,21 @@
+import "EMBED/u8_to_bits" as to_bits
+import "EMBED/u8_from_bits" as from_bits
+
+def fooo(u8 x) -> u8:
+	u8 res = from_bits(to_bits(x+1))	
+	return res
+
+def foo(u8 x) -> u8:
+	return fooo(x)
+
+def barr(u8 x) -> u8:	
+	u8 res = from_bits(to_bits(x+1))
+	return res
+
+def bar(u8 x) -> u8:	
+	return barr(x)
+
+def main(u8 x) -> u8:
+	// x gets decomposed as an input of the main function
+	// let's decompose `x + 1` in `foo` and use it in `bar`
+	return foo(x) + bar(x)

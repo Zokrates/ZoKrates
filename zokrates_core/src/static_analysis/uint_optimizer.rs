@@ -452,6 +452,65 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                             ZirExpressionList::FunctionCall(key, arguments, ty),
                         )]
                     }
+                    "_U32_TO_BITS" => {
+                        assert_eq!(lhs.len(), 32);
+                        assert_eq!(arguments.len(), 1);
+
+                        let arguments = arguments
+                            .into_iter()
+                            .map(|e| {
+                                force_no_reduce(match self.fold_expression(e) {
+                                    ZirExpression::Uint(e) => e,
+                                    _ => unreachable!(),
+                                })
+                                .into()
+                            })
+                            .collect();
+
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                        )]
+                    }
+                    "_U16_TO_BITS" => {
+                        assert_eq!(lhs.len(), 16);
+                        assert_eq!(arguments.len(), 1);
+
+                        let arguments = arguments
+                            .into_iter()
+                            .map(|e| {
+                                force_no_reduce(match self.fold_expression(e) {
+                                    ZirExpression::Uint(e) => e,
+                                    _ => unreachable!(),
+                                })
+                                .into()
+                            })
+                            .collect();
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                        )]
+                    }
+                    "_U8_TO_BITS" => {
+                        assert_eq!(lhs.len(), 8);
+                        assert_eq!(arguments.len(), 1);
+
+                        let arguments = arguments
+                            .into_iter()
+                            .map(|e| {
+                                force_no_reduce(match self.fold_expression(e) {
+                                    ZirExpression::Uint(e) => e,
+                                    _ => unreachable!(),
+                                })
+                                .into()
+                            })
+                            .collect();
+
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                        )]
+                    }
                     _ => vec![ZirStatement::MultipleDefinition(
                         lhs,
                         ZirExpressionList::FunctionCall(

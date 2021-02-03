@@ -40,61 +40,18 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::{fold_function, Folder};
 use crate::ir::LinComb;
 use crate::ir::*;
+use crate::stacked_hashmap::StackedHashMap;
 use std::collections::{HashMap, HashSet};
 use zokrates_field::Field;
 
-// Key-value store with constant-time access (two HashMap lookups) and constant-time deletion of many key-value pairs
-// This way we can remove all variables of a given scope when we exit it
-#[derive(Debug)]
-struct StackedHashMap<K, V> {
-    stack: Vec<HashMap<K, V>>,
-    scope: HashMap<K, usize>,
-}
-
-impl<K: std::hash::Hash + Eq + Clone, V> StackedHashMap<K, V> {
-    fn get(&self, key: &K) -> Option<&V> {
-        self.scope
-            .get(key)
-            .map(|i| self.stack.get(*i).map(|m| m.get(key)).flatten())
-            .flatten()
-    }
-
-    fn push_scope(&mut self) {
-        self.stack.push(HashMap::default())
-    }
-
-    fn pop_scope(&mut self) -> Option<HashMap<K, V>> {
-        self.stack.pop()
-    }
-
-    fn insert(&mut self, key: K, value: V) -> Option<V> {
-        let len = self.stack.len() - 1;
-        self.scope.insert(key.clone(), len);
-        self.stack[len].insert(key, value)
-    }
-
-    fn drain(&mut self) {
-        self.stack = vec![HashMap::default()];
-        self.scope = HashMap::default();
-    }
-}
-
-impl<K, V> Default for StackedHashMap<K, V> {
-    fn default() -> Self {
-        Self {
-            stack: vec![HashMap::default()],
-            scope: HashMap::default(),
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct RedefinitionOptimizer<T> {
+    stacked: bool,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: StackedHashMap<FlatVariable, CanonicalLinComb<T>>,
     /// Set of variables that should not be substituted
     ignore: HashSet<FlatVariable>,
-    /// Hacky: we keep the previous scope as it's where the variables constituting the return value are
+    /// Hacky: we keep the previous scope as it's where the return value was defined
     previous_scope: Option<HashMap<FlatVariable, CanonicalLinComb<T>>>,
 }
 
@@ -119,11 +76,15 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         match s {
             Statement::PushCallLog => {
-                self.substitution.push_scope();
+                if std::env::var("ZSTACKED").unwrap() == String::from("1") {
+                    self.substitution.push_scope();
+                }
                 vec![Statement::PushCallLog]
             }
             Statement::PopCallLog => {
-                self.previous_scope = self.substitution.pop_scope();
+                if std::env::var("ZSTACKED").unwrap() == String::from("1") {
+                    self.previous_scope = self.substitution.pop_scope();
+                }
                 vec![Statement::PopCallLog]
             }
             Statement::Constraint(quad, lin) => {

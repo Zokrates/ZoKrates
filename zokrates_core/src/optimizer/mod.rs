@@ -20,6 +20,7 @@ use zokrates_field::Field;
 impl<T: Field> Prog<T> {
     pub fn optimize(self) -> Self {
         // remove redefinitions
+        println!("{}", self);
         let r = RedefinitionOptimizer::optimize(self);
         // remove constraints that are always satisfied
         let r = TautologyOptimizer::optimize(r);
