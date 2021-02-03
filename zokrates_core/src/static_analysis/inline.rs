@@ -33,14 +33,6 @@ impl<'ast> Location<'ast> {
     }
 }
 
-type CallCache<'ast, T> = HashMap<
-    Location<'ast>,
-    HashMap<
-        FunctionKey<'ast>,
-        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
-    >,
->;
-
 /// An inliner
 #[derive(Debug)]
 pub struct Inliner<'ast, T: Field> {
@@ -54,8 +46,6 @@ pub struct Inliner<'ast, T: Field> {
     stack: Vec<(TypedModuleId, FunctionKeyHash, usize)>,
     /// the call count for each function
     call_count: HashMap<(TypedModuleId, FunctionKey<'ast>), usize>,
-    /// the cache for memoization: for each function body, tracks function calls
-    call_cache: CallCache<'ast, T>,
 }
 
 impl<'ast, T: Field> Inliner<'ast, T> {
@@ -73,7 +63,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             statement_buffer: vec![],
             stack: vec![],
             call_count: HashMap::new(),
-            call_cache: HashMap::new(),
         }
     }
 
@@ -172,11 +161,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         expressions: Vec<TypedExpression<'ast, T>>,
     ) -> Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>
     {
-        match self.call_cache().get(key).map(|m| m.get(&expressions)) {
-            Some(Some(exprs)) => return Ok(exprs.clone()),
-            _ => {}
-        };
-
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
         let res = match self.module().functions.get(&key).unwrap().clone() {
             // if the function called is in the same module, we can go ahead and inline in this module
@@ -247,13 +231,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             TypedFunctionSymbol::Flat(embed) => Err((embed.key::<T>(), expressions.clone())),
         };
 
-        res.map(|exprs| {
-            self.call_cache_mut()
-                .entry(key.clone())
-                .or_insert_with(|| HashMap::new())
-                .insert(expressions, exprs.clone());
-            exprs
-        })
+        res
     }
 
     // Focus the inliner on another module with id `module_id` and return the current `module_id`
@@ -269,26 +247,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
     fn module(&self) -> &TypedModule<'ast, T> {
         self.modules.get(self.module_id()).unwrap()
-    }
-
-    fn call_cache(
-        &mut self,
-    ) -> &HashMap<
-        FunctionKey<'ast>,
-        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
-    > {
-        self.call_cache
-            .entry(self.location.clone())
-            .or_insert_with(|| HashMap::new())
-    }
-
-    fn call_cache_mut(
-        &mut self,
-    ) -> &mut HashMap<
-        FunctionKey<'ast>,
-        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
-    > {
-        self.call_cache.get_mut(&self.location).unwrap()
     }
 
     fn module_id(&self) -> &TypedModuleId {
@@ -372,14 +330,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                 ),
                             ));
 
-                        self.call_cache_mut()
-                            .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .insert(
-                                expressions,
-                                vec![FieldElementExpression::Identifier(id.clone()).into()],
-                            );
-
                         FieldElementExpression::Identifier(id)
                     }
                 }
@@ -425,14 +375,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                     tys,
                                 ),
                             ));
-
-                        self.call_cache_mut()
-                            .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .insert(
-                                expressions,
-                                vec![BooleanExpression::Identifier(id.clone()).into()],
-                            );
 
                         BooleanExpression::Identifier(id)
                     }
@@ -482,17 +424,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                 ),
                             ));
 
-                        let out = ArrayExpressionInner::Identifier(id);
-
-                        self.call_cache_mut()
-                            .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .insert(
-                                expressions,
-                                vec![out.clone().annotate(ty.clone(), size).into()],
-                            );
-
-                        out
+                        ArrayExpressionInner::Identifier(id)
                     }
                 }
             }
@@ -539,14 +471,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                 ),
                             ));
 
-                        let out = StructExpressionInner::Identifier(id);
-
-                        self.call_cache_mut()
-                            .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .insert(expressions, vec![out.clone().annotate(ty.clone()).into()]);
-
-                        out
+                        StructExpressionInner::Identifier(id)
                     }
                 }
             }
@@ -593,14 +518,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                 ),
                             ));
 
-                        let out = UExpressionInner::Identifier(id);
-
-                        self.call_cache_mut()
-                            .entry(key.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .insert(expressions, vec![out.clone().annotate(size).into()]);
-
-                        out
+                        UExpressionInner::Identifier(id)
                     }
                 }
             }
