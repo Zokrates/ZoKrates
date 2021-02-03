@@ -29,8 +29,13 @@ impl UnconstrainedVariableDetector {
         assert!(
             instance.variables.is_empty(),
             format!(
-                "Unconstrained variables are not allowed (found {} occasions)",
-                instance.variables.len()
+                "Unconstrained variables are not allowed (found {} occurrence{})",
+                instance.variables.len(),
+                if instance.variables.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
             )
         );
         p
