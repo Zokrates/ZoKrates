@@ -13,6 +13,7 @@ use self::utils::flat_expression_from_bits;
 use crate::ir::Interpreter;
 use crate::stacked_hashmap::StackedHashMap;
 
+use crate::compile::CompileConfig;
 use crate::flat_absy::*;
 use crate::solvers::Solver;
 use crate::zir::types::{FunctionIdentifier, FunctionKey, Signature, Type, UBitwidth};
@@ -27,6 +28,7 @@ type FlatStatements<T> = Vec<FlatStatement<T>>;
 /// Flattener, computes flattened program.
 #[derive(Debug)]
 pub struct Flattener<'ast, T: Field> {
+    config: &'ast CompileConfig,
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
     /// `FlatVariable`s corresponding to each `Identifier`
@@ -151,14 +153,15 @@ impl<T: Field> FlatUExpression<T> {
 }
 
 impl<'ast, T: Field> Flattener<'ast, T> {
-    pub fn flatten(p: ZirProgram<'ast, T>) -> FlatProg<T> {
-        Flattener::new().flatten_program(p)
+    pub fn flatten(p: ZirProgram<'ast, T>, config: &CompileConfig) -> FlatProg<T> {
+        Flattener::new(config).flatten_program(p)
     }
 
     /// Returns a `Flattener` with fresh `layout`.
 
-    fn new() -> Flattener<'ast, T> {
+    fn new(config: &'ast CompileConfig) -> Flattener<'ast, T> {
         Flattener {
+            config,
             next_var_idx: 0,
             layout: HashMap::new(),
             flat_cache: HashMap::new(),
@@ -2283,7 +2286,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     FlatExpression::Mult(box variable.into(), box variable.into()),
                 ));
             }
-            _ => {}
+            Type::FieldElement => {
+                if self.config.allow_unconstrained_variables && parameter.private {
+                    // we insert dummy condition statement for private field elements
+                    // to avoid unconstrained variables
+                    // translates to y == x * x
+                    statements_flattened.push(FlatStatement::Condition(
+                        self.use_sym().into(),
+                        FlatExpression::Mult(box variable.into(), box variable.into()),
+                    ));
+                }
+            }
         }
 
         FlatParameter {
@@ -2362,7 +2375,8 @@ mod tests {
             },
         };
 
-        let mut flattener = Flattener::new();
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
 
         let expected = FlatFunction {
             arguments: vec![],
@@ -2421,7 +2435,8 @@ mod tests {
             },
         };
 
-        let mut flattener = Flattener::new();
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
 
         let expected = FlatFunction {
             arguments: vec![],
@@ -2500,7 +2515,8 @@ mod tests {
             },
         };
 
-        let mut flattener = Flattener::new();
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
 
         let expected = FlatFunction {
             arguments: vec![],
@@ -2564,6 +2580,7 @@ mod tests {
 
     #[test]
     fn if_else() {
+        let config = CompileConfig::default();
         let expression = FieldElementExpression::IfElse(
             box BooleanExpression::FieldEq(
                 box FieldElementExpression::Number(Bn128Field::from(32)),
@@ -2573,14 +2590,15 @@ mod tests {
             box FieldElementExpression::Number(Bn128Field::from(51)),
         );
 
-        let mut flattener = Flattener::new();
+        let mut flattener = Flattener::new(&config);
 
         flattener.flatten_field_expression(&HashMap::new(), &mut FlatStatements::new(), expression);
     }
 
     #[test]
     fn geq_leq() {
-        let mut flattener = Flattener::new();
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
         let expression_le = BooleanExpression::FieldLe(
             box FieldElementExpression::Number(Bn128Field::from(32)),
             box FieldElementExpression::Number(Bn128Field::from(4)),
@@ -2591,7 +2609,7 @@ mod tests {
             expression_le,
         );
 
-        let mut flattener = Flattener::new();
+        let mut flattener = Flattener::new(&config);
         let expression_ge = BooleanExpression::FieldGe(
             box FieldElementExpression::Number(Bn128Field::from(32)),
             box FieldElementExpression::Number(Bn128Field::from(4)),
@@ -2605,7 +2623,8 @@ mod tests {
 
     #[test]
     fn bool_and() {
-        let mut flattener = Flattener::new();
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
 
         let expression = FieldElementExpression::IfElse(
             box BooleanExpression::And(
@@ -2628,8 +2647,8 @@ mod tests {
     #[test]
     fn div() {
         // a = 5 / b / b
-
-        let mut flattener = Flattener::new();
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
         let mut statements_flattened = FlatStatements::new();
 
         let definition = ZirStatement::Definition(

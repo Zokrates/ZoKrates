@@ -62,4 +62,4 @@ zokrates generate-proof
 zokrates export-verifier
 ```
 
-The CLI commands are explained in more detail in the [CLI reference](reference/cli.md).
+The CLI commands are explained in more detail in the [CLI reference](toolbox/cli.md).

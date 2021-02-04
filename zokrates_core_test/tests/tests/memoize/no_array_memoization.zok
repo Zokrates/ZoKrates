@@ -1,0 +1,10 @@
+def foo(field[1] a) -> field:
+	return a[0]
+
+def main():
+	field[1] a = [1]
+	field b = foo(a)
+	a[0] = 0
+	field c = foo(a)
+	assert(c == 0)
+	return
