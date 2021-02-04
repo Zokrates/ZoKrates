@@ -651,6 +651,8 @@ impl<'ast> Checker<'ast> {
     ) -> Result<TypedFunction<'ast, T>, Vec<ErrorInner>> {
         self.enter_scope();
 
+        let pos = funct_node.pos();
+
         let mut errors = vec![];
         let funct = funct_node.value;
         let mut arguments_checked = vec![];
@@ -672,19 +674,30 @@ impl<'ast> Checker<'ast> {
 
         match self.check_signature(funct.signature, module_id, types) {
             Ok(s) => {
+                let mut found_return = false;
+
                 for stat in funct.statements.into_iter() {
-                    let pos = stat.pos();
+                    let pos = Some(stat.pos());
 
                     match self.check_statement(stat, module_id, types) {
                         Ok(statement) => {
                             match &statement {
                                 TypedStatement::Return(e) => {
+                                    if found_return {
+                                        errors.push(ErrorInner {
+                                            pos,
+                                            message: format!("Expected a single return statement",),
+                                        });
+                                    }
+
+                                    found_return = true;
+
                                     match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
                                         == s.outputs
                                     {
                                         true => {}
                                         false => errors.push(ErrorInner {
-                                            pos: Some(pos),
+                                            pos,
                                             message: format!(
                                                 "Expected ({}) in return statement, found ({})",
                                                 s.outputs
@@ -710,6 +723,14 @@ impl<'ast> Checker<'ast> {
                         }
                     }
                 }
+
+                if !found_return {
+                    errors.push(ErrorInner {
+                        pos: Some(pos),
+                        message: format!("Expected a return statement",),
+                    });
+                }
+
                 signature = Some(s);
             }
             Err(e) => {
