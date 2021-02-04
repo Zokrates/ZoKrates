@@ -28,9 +28,9 @@ pub fn subcommand() -> App<'static, 'static> {
         .required(false)
         .env("ZOKRATES_STDLIB")
         .default_value(constants::DEFAULT_STDLIB_PATH.as_str())
-    ).arg(Arg::with_name("abi_spec")
+    ).arg(Arg::with_name("abi-spec")
         .short("s")
-        .long("abi_spec")
+        .long("abi-spec")
         .help("Path of the ABI specification")
         .value_name("FILE")
         .takes_value(true)
@@ -52,6 +52,10 @@ pub fn subcommand() -> App<'static, 'static> {
         .required(false)
         .possible_values(constants::CURVES)
         .default_value(constants::BN128)
+    ).arg(Arg::with_name("allow-unconstrained-variables")
+        .long("allow-unconstrained-variables")
+        .help("Allow unconstrained variables by inserting dummy constraints")
+        .required(false)
     ).arg(Arg::with_name("light")
         .long("light")
         .help("Skip logs and human readable output")
@@ -75,7 +79,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
     let light = sub_matches.occurrences_of("light") > 0;
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
-    let abi_spec_path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+    let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
     let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
     let file = File::open(path.clone())
