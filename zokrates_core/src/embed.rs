@@ -12,7 +12,11 @@ cfg_if::cfg_if! {
         use pairing_ce::bn256::Bn256;
         use pairing_ce::ff::{PrimeField, PrimeFieldRepr};
         use pairing_ce::Engine;
-        use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
+        use zokrates_embed::{
+            sha256::generate_sha256_round_constraints,
+            blake2s::generate_blake2s_round_constraints,
+            BellmanConstraint
+        };
     }
 }
 
@@ -22,6 +26,8 @@ cfg_if::cfg_if! {
 pub enum FlatEmbed {
     #[cfg(feature = "bellman")]
     Sha256Round,
+    #[cfg(feature = "bellman")]
+    Blake2s,
     Unpack(usize),
     U8ToBits,
     U16ToBits,
@@ -40,6 +46,10 @@ impl FlatEmbed {
                     Type::array(Type::Boolean, 512),
                     Type::array(Type::Boolean, 256),
                 ])
+                .outputs(vec![Type::array(Type::Boolean, 256)]),
+            #[cfg(feature = "bellman")]
+            FlatEmbed::Blake2s => Signature::new()
+                .inputs(vec![Type::array(Type::Boolean, 512)])
                 .outputs(vec![Type::array(Type::Boolean, 256)]),
             FlatEmbed::Unpack(bitwidth) => Signature::new()
                 .inputs(vec![Type::FieldElement])
@@ -73,6 +83,8 @@ impl FlatEmbed {
         match self {
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
+            #[cfg(feature = "bellman")]
+            FlatEmbed::Blake2s => "_BLAKE2S_ROUND",
             FlatEmbed::Unpack(_) => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
@@ -88,6 +100,8 @@ impl FlatEmbed {
         match self {
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => sha256_round(),
+            #[cfg(feature = "bellman")]
+            FlatEmbed::Blake2s => blake2s_round(),
             FlatEmbed::Unpack(bitwidth) => unpack_to_bitwidth(*bitwidth),
             _ => unreachable!(),
         }
@@ -211,6 +225,90 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         .chain(constraint_statements)
         .chain(std::iter::once(return_statement))
         .collect();
+
+    FlatFunction {
+        arguments,
+        statements,
+    }
+}
+
+#[cfg(feature = "bellman")]
+pub fn blake2s_round<T: Field>() -> FlatFunction<T> {
+    assert_eq!(T::id(), Bn128Field::id());
+
+    // Define iterators for all indices at hand
+    let (r1cs, input_indices, output_indices) = generate_blake2s_round_constraints::<Bn256>();
+
+    // indices of the input
+    let input_indices = input_indices.into_iter();
+
+    // indices of the output
+    let output_indices = output_indices.into_iter();
+    let variable_count = r1cs.aux_count + 1; // auxiliary and ONE
+
+    // indices of the sha256round constraint system variables
+    let cs_indices = (0..variable_count).into_iter();
+
+    // indices of the arguments to the function
+    // apply an offset of `variable_count` to get the indice of our dummy `input` argument
+    let input_argument_indices = input_indices
+        .clone()
+        .into_iter()
+        .map(|i| i + variable_count);
+
+    // define parameters to the function based on the variables
+    let arguments = input_argument_indices
+        .clone()
+        .map(|i| FlatParameter {
+            id: FlatVariable::new(i),
+            private: true,
+        })
+        .collect();
+
+    // define a binding of the first variable in the constraint system to one
+    let one_binding_statement = FlatStatement::Condition(
+        FlatVariable::new(0).into(),
+        FlatExpression::Number(T::from(1)),
+    );
+
+    let input_binding_statements =
+        // bind input and current_hash to inputs
+        input_indices.clone().zip(input_argument_indices.clone()).map(|(cs_index, argument_index)| {
+            FlatStatement::Condition(
+                FlatVariable::new(cs_index).into(),
+                FlatVariable::new(argument_index).into(),
+            )
+        });
+
+    // insert flattened statements to represent constraints
+    let constraint_statements = r1cs.constraints.into_iter().map(|c| c.into());
+
+    // define which subset of the witness is returned
+    let outputs: Vec<FlatExpression<T>> = output_indices
+        .map(|o| FlatExpression::Identifier(FlatVariable::new(o)))
+        .collect();
+
+    // insert a directive to set the witness based on the bellman gadget and  inputs
+    let directive_statement = FlatStatement::Directive(FlatDirective {
+        outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
+        inputs: input_argument_indices
+            .map(|i| FlatVariable::new(i).into())
+            .collect(),
+        solver: Solver::Blake2s,
+    });
+
+    // insert a statement to return the subset of the witness
+    let return_statement = FlatStatement::Return(FlatExpressionList {
+        expressions: outputs,
+    });
+
+    let statements = std::iter::once(directive_statement)
+        .chain(std::iter::once(one_binding_statement))
+        .chain(input_binding_statements)
+        .chain(constraint_statements)
+        .chain(std::iter::once(return_statement))
+        .collect();
+
     FlatFunction {
         arguments,
         statements,
@@ -441,6 +539,64 @@ mod tests {
                 .chain((0..256).map(|_| 1))
                 .map(|i| Bn128Field::from(i))
                 .collect();
+
+            let interpreter = Interpreter::default();
+            interpreter.execute(&prog, &input).unwrap();
+        }
+    }
+
+    #[cfg(feature = "bellman")]
+    #[cfg(test)]
+    mod blake2s {
+        use crate::embed::blake2s_round;
+        use crate::flat_absy::FlatStatement;
+        use crate::ir::Interpreter;
+        use zokrates_field::Bn128Field;
+
+        #[test]
+        fn generate_blake2s_constraints() {
+            let compiled = blake2s_round::<Bn128Field>();
+
+            // function should have 512 inputs
+            assert_eq!(compiled.arguments.len(), 512);
+
+            // function should return 256 values
+            assert_eq!(
+                compiled
+                    .statements
+                    .iter()
+                    .filter_map(|s| match s {
+                        FlatStatement::Return(v) => Some(v),
+                        _ => None,
+                    })
+                    .next()
+                    .unwrap()
+                    .expressions
+                    .len(),
+                256,
+            );
+
+            // directive should take 512 inputs and return n_var outputs
+            let directive = compiled
+                .statements
+                .iter()
+                .filter_map(|s| match s {
+                    FlatStatement::Directive(d) => Some(d.clone()),
+                    _ => None,
+                })
+                .next()
+                .unwrap();
+
+            assert_eq!(directive.inputs.len(), 512);
+            assert_eq!(directive.outputs.len(), 21473);
+
+            let f = crate::ir::Function::from(compiled);
+            let prog = crate::ir::Prog {
+                main: f,
+                private: vec![true; 512],
+            };
+
+            let input = (0..512).map(|_| 0).map(|i| Bn128Field::from(i)).collect();
 
             let interpreter = Interpreter::default();
             interpreter.execute(&prog, &input).unwrap();

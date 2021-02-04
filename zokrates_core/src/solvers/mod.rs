@@ -2,8 +2,9 @@
 use pairing_ce::bn256::Bn256;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use zokrates_embed::blake2s::generate_blake2s_round_witness;
 #[cfg(feature = "bellman")]
-use zokrates_embed::generate_sha256_round_witness;
+use zokrates_embed::sha256::generate_sha256_round_witness;
 use zokrates_field::{Bn128Field, Field};
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
@@ -18,6 +19,8 @@ pub enum Solver {
     EuclideanDiv,
     #[cfg(feature = "bellman")]
     Sha256Round,
+    #[cfg(feature = "bellman")]
+    Blake2s,
 }
 
 impl fmt::Display for Solver {
@@ -39,6 +42,8 @@ impl Solver {
             Solver::EuclideanDiv => (2, 2),
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => (768, 26935),
+            #[cfg(feature = "bellman")]
+            Solver::Blake2s => (512, 21473),
         }
     }
 }
@@ -134,6 +139,26 @@ impl<T: Field> Executable<T> for Solver {
                 let h: Vec<_> = h.iter().map(|x| to_fr(x)).collect();
                 assert_eq!(h.len(), 256);
                 generate_sha256_round_witness::<Bn256>(&i, &h)
+                    .into_iter()
+                    .map(|x| {
+                        use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                        let mut res: Vec<u8> = vec![];
+                        x.into_repr().write_le(&mut res).unwrap();
+                        T::from_byte_vector(res)
+                    })
+                    .collect()
+            }
+            #[cfg(feature = "bellman")]
+            Solver::Blake2s => {
+                assert_eq!(T::id(), Bn128Field::id());
+                let i = &inputs[0..512];
+                let to_fr = |x: &T| {
+                    use pairing_ce::ff::{PrimeField, ScalarEngine};
+                    let s = x.to_dec_string();
+                    <Bn256 as ScalarEngine>::Fr::from_str(&s).unwrap()
+                };
+                let i: Vec<_> = i.iter().map(|x| to_fr(x)).collect();
+                generate_blake2s_round_witness::<Bn256>(&i)
                     .into_iter()
                     .map(|x| {
                         use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};

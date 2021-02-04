@@ -173,6 +173,30 @@ impl Importer {
                             );
                         }
                     }
+                    #[cfg(feature = "bellman")]
+                    "EMBED/blake2s" => {
+                        if T::id() != Bn128Field::id() {
+                            return Err(CompileErrorInner::ImportError(
+                                Error::new(format!(
+                                    "Embed blake2s cannot be used with curve {}",
+                                    T::name()
+                                ))
+                                .with_pos(Some(pos)),
+                            )
+                            .in_file(&location)
+                            .into());
+                        } else {
+                            let alias = alias.unwrap_or("blake2s");
+
+                            symbols.push(
+                                SymbolDeclaration {
+                                    id: &alias,
+                                    symbol: Symbol::Flat(FlatEmbed::Blake2s),
+                                }
+                                .start_end(pos.0, pos.1),
+                            );
+                        }
+                    }
                     "EMBED/unpack" => {
                         let alias = alias.unwrap_or("unpack");
 

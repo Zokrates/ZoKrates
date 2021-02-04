@@ -94,6 +94,10 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 // define a function in the main module for the `sha256` embed
                 let sha256_round = crate::embed::FlatEmbed::Sha256Round;
                 let sha256_round_key = sha256_round.key::<T>();
+
+                // define a function in the main module for the `blake2s` embed
+                let blake2s_round = crate::embed::FlatEmbed::Blake2s;
+                let blake2s_round_key = blake2s_round.key::<T>();
             }
         }
 
@@ -134,6 +138,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     functions: vec![
                         #[cfg(feature = "bellman")]
                         (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
+                        #[cfg(feature = "bellman")]
+                        (blake2s_round_key, TypedFunctionSymbol::Flat(blake2s_round)),
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
                         (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
                         (u16_from_bits_key, TypedFunctionSymbol::Flat(u16_from_bits)),
