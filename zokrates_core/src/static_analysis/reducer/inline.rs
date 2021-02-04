@@ -26,7 +26,6 @@
 // - The return value(s) are assigned to internal variables
 
 use crate::embed::FlatEmbed;
-use crate::static_analysis::reducer::CallCache;
 use crate::static_analysis::reducer::Output;
 use crate::static_analysis::reducer::ShallowTransformer;
 use crate::static_analysis::reducer::Versions;
@@ -86,7 +85,6 @@ pub fn inline_call<'a, 'ast, T: Field>(
     arguments: Vec<TypedExpression<'ast, T>>,
     output_types: Vec<Type<'ast, T>>,
     program: &TypedProgram<'ast, T>,
-    cache: &mut CallCache<'ast, T>,
     versions: &'a mut Versions<'ast>,
 ) -> InlineResult<'ast, T> {
     use std::convert::TryFrom;
@@ -164,16 +162,6 @@ pub fn inline_call<'a, 'ast, T: Field>(
 
     assert_eq!(f.arguments.len(), arguments.len());
 
-    let concrete_key = ConcreteFunctionKey {
-        module: decl_key.module.clone(),
-        id: decl_key.id,
-        signature: inferred_signature.clone(),
-    };
-
-    if let Some(v) = cache.get(&(concrete_key.clone(), assignment.clone(), arguments.clone())) {
-        return Ok(Output::Complete((vec![], v.clone())));
-    };
-
     let (ssa_f, incomplete_data) = match ShallowTransformer::transform(f, &assignment, versions) {
         Output::Complete(v) => (v, None),
         Output::Incomplete(statements, for_loop_versions) => (statements, Some(for_loop_versions)),
@@ -240,11 +228,6 @@ pub fn inline_call<'a, 'ast, T: Field>(
         .chain(output_bindings)
         .chain(std::iter::once(pop_log))
         .collect();
-
-    cache.insert(
-        (concrete_key.clone(), assignment.clone(), arguments.clone()),
-        expressions.clone(),
-    );
 
     Ok(incomplete_data
         .map(|d| Output::Incomplete((statements.clone(), expressions.clone()), d))

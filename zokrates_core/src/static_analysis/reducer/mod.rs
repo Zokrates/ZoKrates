@@ -22,11 +22,11 @@ use crate::typed_absy::Folder;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, ConcreteFunctionKey,
-    CoreIdentifier, DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier,
-    StructExpression, StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList,
-    TypedFunction, TypedFunctionSymbol, TypedModule, TypedModuleId, TypedProgram, TypedStatement,
-    UExpression, UExpressionInner, Variable,
+    ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
+    DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier, StructExpression,
+    StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList, TypedFunction,
+    TypedFunctionSymbol, TypedModule, TypedModuleId, TypedProgram, TypedStatement, UExpression,
+    UExpressionInner, Variable,
 };
 
 use std::convert::{TryFrom, TryInto};
@@ -70,15 +70,6 @@ impl fmt::Display for Error {
         }
     }
 }
-
-type CallCache<'ast, T> = HashMap<
-    (
-        ConcreteFunctionKey<'ast>,
-        ConcreteGenericsAssignment<'ast>,
-        Vec<TypedExpression<'ast, T>>,
-    ),
-    Vec<TypedExpression<'ast, T>>,
->;
 
 #[derive(Debug, Default)]
 struct Substitutions<'ast>(HashMap<CoreIdentifier<'ast>, HashMap<usize, usize>>);
@@ -241,7 +232,6 @@ struct Reducer<'ast, 'a, T> {
     program: &'a TypedProgram<'ast, T>,
     versions: &'a mut Versions<'ast>,
     substitutions: &'a mut Substitutions<'ast>,
-    cache: &'a mut CallCache<'ast, T>,
     complete: bool,
 }
 
@@ -250,7 +240,6 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         program: &'a TypedProgram<'ast, T>,
         versions: &'a mut Versions<'ast>,
         substitutions: &'a mut Substitutions<'ast>,
-        cache: &'a mut CallCache<'ast, T>,
         for_loop_versions: Vec<Versions<'ast>>,
     ) -> Self {
         // we reverse the vector as it's cheaper to `pop` than to take from
@@ -263,7 +252,6 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             statement_buffer: vec![],
             for_loop_versions_after: vec![],
             for_loop_versions,
-            cache,
             substitutions,
             program,
             versions,
@@ -297,7 +285,6 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             arguments,
             output_types,
             &self.program,
-            &mut self.cache,
             &mut self.versions,
         );
 
@@ -384,7 +371,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     arguments,
                     output_types,
                     &self.program,
-                    &mut self.cache,
                     &mut self.versions,
                 ) {
                     Ok(Output::Complete((statements, expressions))) => {
@@ -666,8 +652,6 @@ fn reduce_function<'ast, T: Field>(
 
             let mut substitutions = Substitutions::default();
 
-            let mut call_cache = CallCache::new();
-
             let mut constants: HashMap<Identifier<'ast>, TypedExpression<'ast, T>> = HashMap::new();
 
             let mut hash = None;
@@ -677,7 +661,6 @@ fn reduce_function<'ast, T: Field>(
                     &program,
                     &mut versions,
                     &mut substitutions,
-                    &mut call_cache,
                     for_loop_versions,
                 );
 
