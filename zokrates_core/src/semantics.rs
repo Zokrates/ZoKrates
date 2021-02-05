@@ -679,19 +679,21 @@ impl<'ast> Checker<'ast> {
                 for stat in funct.statements.into_iter() {
                     let pos = Some(stat.pos());
 
+                    if let Statement::Return(..) = stat.value {
+                        if found_return {
+                            errors.push(ErrorInner {
+                                pos,
+                                message: format!("Expected a single return statement",),
+                            });
+                        }
+
+                        found_return = true;
+                    }
+
                     match self.check_statement(stat, module_id, types) {
                         Ok(statement) => {
                             match &statement {
                                 TypedStatement::Return(e) => {
-                                    if found_return {
-                                        errors.push(ErrorInner {
-                                            pos,
-                                            message: format!("Expected a single return statement",),
-                                        });
-                                    }
-
-                                    found_return = true;
-
                                     match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
                                         == s.outputs
                                     {
@@ -2965,6 +2967,7 @@ mod tests {
     fn declared_in_other_function() {
         // def foo():
         //   field a = 1
+        //   return
         // def bar():
         //   return a
         // should fail
@@ -2979,14 +2982,18 @@ mod tests {
                 Expression::FieldConstant(BigUint::from(1u32)).mock(),
             )
             .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
         ];
         let foo = Function {
             arguments: foo_args,
             statements: foo_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3046,9 +3053,10 @@ mod tests {
     fn declared_in_two_scopes() {
         // def foo():
         //   a = 1
+        //   return
         // def bar():
         //   a = 2
-        //   return a
+        //   return
         // def main():
         //   return 1
         // should pass
@@ -3063,15 +3071,19 @@ mod tests {
                 Expression::FieldConstant(BigUint::from(1u32)).mock(),
             )
             .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
         ];
 
         let foo = Function {
             arguments: foo_args,
             statements: foo_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3088,7 +3100,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::Identifier("a").mock()],
+                    expressions: vec![],
                 }
                 .mock(),
             )
@@ -3097,10 +3109,7 @@ mod tests {
         let bar = Function {
             arguments: bar_args,
             statements: bar_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3204,6 +3213,7 @@ mod tests {
         //   for i in 0..10 do
         //     a = i
         //   endfor
+        //   return
         // should pass
 
         let for_statements = vec![
@@ -3218,13 +3228,22 @@ mod tests {
             .mock(),
         ];
 
-        let foo_statements = vec![Statement::For(
-            absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-            Expression::FieldConstant(BigUint::from(0u32)).mock(),
-            Expression::FieldConstant(BigUint::from(10u32)).mock(),
-            for_statements,
-        )
-        .mock()];
+        let foo_statements = vec![
+            Statement::For(
+                absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
+                Expression::FieldConstant(BigUint::from(0u32)).mock(),
+                Expression::FieldConstant(BigUint::from(10u32)).mock(),
+                for_statements,
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
 
         let for_statements_checked = vec![
             TypedStatement::Declaration(typed_absy::Variable::field_element("a")),
@@ -3234,30 +3253,27 @@ mod tests {
             ),
         ];
 
-        let foo_statements_checked = vec![TypedStatement::For(
-            typed_absy::Variable::field_element("i"),
-            FieldElementExpression::Number(Bn128Field::from(0u32)),
-            FieldElementExpression::Number(Bn128Field::from(10u32)),
-            for_statements_checked,
-        )];
+        let foo_statements_checked = vec![
+            TypedStatement::For(
+                typed_absy::Variable::field_element("i"),
+                FieldElementExpression::Number(Bn128Field::from(0u32)),
+                FieldElementExpression::Number(Bn128Field::from(10u32)),
+                for_statements_checked,
+            ),
+            TypedStatement::Return(vec![]),
+        ];
 
         let foo = Function {
             arguments: vec![],
             statements: foo_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
         let foo_checked = TypedFunction {
-            arguments: Vec::<Parameter>::new(),
+            arguments: vec![],
             statements: foo_statements_checked,
-            signature: Signature {
-                inputs: vec![],
-                outputs: vec![Type::FieldElement],
-            },
+            signature: Signature::new(),
         };
 
         let types = HashMap::new();
@@ -3287,6 +3303,13 @@ mod tests {
                 Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
         ];
 
         let foo = FunctionKey {
@@ -3302,10 +3325,7 @@ mod tests {
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3330,15 +3350,25 @@ mod tests {
         //   return 1, 2
         // def bar():
         //   2 == foo()
+        //   return
         // should fail
-        let bar_statements: Vec<StatementNode> = vec![Statement::Assertion(
-            Expression::Eq(
-                box Expression::FieldConstant(BigUint::from(2u32)).mock(),
-                box Expression::FunctionCall("foo", vec![]).mock(),
+        let bar_statements: Vec<StatementNode> = vec![
+            Statement::Assertion(
+                Expression::Eq(
+                    box Expression::FieldConstant(BigUint::from(2u32)).mock(),
+                    box Expression::FunctionCall("foo", vec![]).mock(),
+                )
+                .mock(),
             )
             .mock(),
-        )
-        .mock()];
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
 
         let foo = FunctionKey {
             id: "foo",
@@ -3355,7 +3385,7 @@ mod tests {
             statements: bar_statements,
             signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
+                outputs: vec![],
             },
         }
         .mock();
@@ -3378,6 +3408,7 @@ mod tests {
     fn function_undefined_in_multidef() {
         // def bar():
         //   field a = foo()
+        //   return
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
@@ -3389,15 +3420,19 @@ mod tests {
                 Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
         ];
 
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3726,23 +3761,30 @@ mod tests {
     fn function_undefined() {
         // def bar():
         //   1 == foo()
+        //   return
         // should fail
-        let bar_statements: Vec<StatementNode> = vec![Statement::Assertion(
-            Expression::Eq(
-                box Expression::FieldConstant(BigUint::from(1u32)).mock(),
-                box Expression::FunctionCall("foo", vec![]).mock(),
+        let bar_statements: Vec<StatementNode> = vec![
+            Statement::Assertion(
+                Expression::Eq(
+                    box Expression::FieldConstant(BigUint::from(1u32)).mock(),
+                    box Expression::FunctionCall("foo", vec![]).mock(),
+                )
+                .mock(),
             )
             .mock(),
-        )
-        .mock()];
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
 
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
