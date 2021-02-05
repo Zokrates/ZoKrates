@@ -1,7 +1,11 @@
 // https://tools.ietf.org/html/rfc7693
 
-def rotr32(u32 v, field n) -> (u32):
-    return (v >> n) ^ (v << (32 - n))
+import "EMBED/u32_to_bits" as to_bits
+import "EMBED/u32_from_bits" as from_bits
+
+def right_rotate<N>(u32 e) -> u32:
+	bool[32] b = to_bits(e)
+	return from_bits([...b[32 - N..], ...b[..32 - N]])
 
 def blake2s_iv() -> (u32[8]):
     return [
@@ -25,13 +29,13 @@ def blake2s_sigma() -> (u32[10][16]):
 
 def mixing_g(u32[16] v, u32 a, u32 b, u32 c, u32 d, u32 x, u32 y) -> (u32[16]):
     v[a] = (v[a] + v[b] + x)
-    v[d] = rotr32(v[d] ^ v[a], 16)
+    v[d] = right_rotate::<16>(v[d] ^ v[a])
     v[c] = (v[c] + v[d])
-    v[b] = rotr32(v[b] ^ v[c], 12)
+    v[b] = right_rotate::<12>(v[b] ^ v[c])
     v[a] = (v[a] + v[b] + y)
-    v[d] = rotr32(v[d] ^ v[a], 8)
+    v[d] = right_rotate::<8>(v[d] ^ v[a])
     v[c] = (v[c] + v[d])
-    v[b] = rotr32(v[b] ^ v[c], 7)
+    v[b] = right_rotate::<7>(v[b] ^ v[c])
     return v
 
 def blake2s_compression(u32[8] h, u32[16] m, u32[2] t, bool last) -> (u32[8]):
@@ -69,9 +73,17 @@ def blake2s_init() -> (u32[8]):
 def main<K>(u32[K][16] input) -> (u32[8]):
     u32[8] h = blake2s_init()
 
+    u32 t0 = 0
+    u32 t1 = 0
+
     for u32 i in 0..K-1 do
-        h = blake2s_compression(h, input[i], [(i + 1) * 64, 0], false)
+        t0 = (i + 1) * 64
+        t1 = if t0 < 64 then t1 + 1 else t1 fi
+        h = blake2s_compression(h, input[i], [t0, t1], false)
     endfor
 
-    h = blake2s_compression(h, input[K-1], [K * 64, 0], true)
+    t0 = t0 + 64
+    t1 = if t0 < 64 then t1 + 1 else t1 fi
+
+    h = blake2s_compression(h, input[K - 1], [t0, t1], true)
     return h
