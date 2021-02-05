@@ -1,5 +1,5 @@
 {
-  "entry_point": "./tests/tests/hashes/blake2/blake2s.zok",
+  "entry_point": "./tests/tests/hashes/blake2/blake2s_2.zok",
   "tests": [
     {
       "input": {
