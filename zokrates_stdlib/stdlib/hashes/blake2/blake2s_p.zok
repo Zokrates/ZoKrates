@@ -87,12 +87,12 @@ def main<K>(u32[K][16] input, u32[2] p) -> (u32[8]):
 
     for u32 i in 0..K-1 do
         t0 = (i + 1) * 64
-        t1 = if t0 < 64 then t1 + 1 else t1 fi
+        t1 = if t0 == 0 then t1 + 1 else t1 fi
         h = blake2s_compression(h, input[i], [t0, t1], false)
     endfor
 
     t0 = t0 + 64
-    t1 = if t0 < 64 then t1 + 1 else t1 fi
+    t1 = if t0 == 0 then t1 + 1 else t1 fi
 
     h = blake2s_compression(h, input[K - 1], [t0, t1], true)
     return h
