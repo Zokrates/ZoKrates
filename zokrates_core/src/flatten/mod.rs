@@ -2016,21 +2016,62 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
             }
             ZirStatement::Assertion(e) => {
-                // naive approach: flatten the boolean to a single field element and constrain it to 1
+                match e {
+                    BooleanExpression::FieldEq(lhs, rhs) => {
+                        let mut lhs_flattened =
+                            self.flatten_field_expression(symbols, statements_flattened, *lhs);
+                        let mut rhs_flattened =
+                            self.flatten_field_expression(symbols, statements_flattened, *rhs);
 
-                let e = self.flatten_boolean_expression(symbols, statements_flattened, e);
+                        lhs_flattened = match lhs_flattened {
+                            FlatExpression::Number(_) | FlatExpression::Identifier(_) => {
+                                lhs_flattened
+                            }
+                            _ => {
+                                let sym = self.use_sym();
+                                statements_flattened
+                                    .push(FlatStatement::Definition(sym, lhs_flattened));
+                                FlatExpression::Identifier(sym)
+                            }
+                        };
 
-                if e.is_linear() {
-                    statements_flattened.push(FlatStatement::Condition(
-                        e,
-                        FlatExpression::Number(T::from(1)),
-                    ));
-                } else {
-                    // swap so that left side is linear
-                    statements_flattened.push(FlatStatement::Condition(
-                        FlatExpression::Number(T::from(1)),
-                        e,
-                    ));
+                        rhs_flattened = match rhs_flattened {
+                            FlatExpression::Number(_) | FlatExpression::Identifier(_) => {
+                                rhs_flattened
+                            }
+                            _ => {
+                                let sym = self.use_sym();
+                                statements_flattened
+                                    .push(FlatStatement::Definition(sym, rhs_flattened));
+                                FlatExpression::Identifier(sym)
+                            }
+                        };
+
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Mult(
+                                box lhs_flattened,
+                                box FlatExpression::Number(T::from(1)),
+                            ),
+                            rhs_flattened,
+                        ));
+                    }
+                    _ => {
+                        // naive approach: flatten the boolean to a single field element and constrain it to 1
+                        let e = self.flatten_boolean_expression(symbols, statements_flattened, e);
+
+                        if e.is_linear() {
+                            statements_flattened.push(FlatStatement::Condition(
+                                e,
+                                FlatExpression::Number(T::from(1)),
+                            ));
+                        } else {
+                            // swap so that left side is linear
+                            statements_flattened.push(FlatStatement::Condition(
+                                FlatExpression::Number(T::from(1)),
+                                e,
+                            ));
+                        }
+                    }
                 }
             }
             ZirStatement::MultipleDefinition(vars, rhs) => {
@@ -2245,6 +2286,69 @@ mod tests {
     use crate::zir::types::Signature;
     use crate::zir::types::Type;
     use zokrates_field::Bn128Field;
+
+    #[test]
+    fn assertion_field_eq() {
+        let function = ZirFunction {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::Definition(
+                    Variable::field_element("a"),
+                    FieldElementExpression::Number(Bn128Field::from(42)).into(),
+                ),
+                ZirStatement::Definition(
+                    Variable::field_element("b"),
+                    FieldElementExpression::Number(Bn128Field::from(42)).into(),
+                ),
+                ZirStatement::Assertion(BooleanExpression::FieldEq(
+                    box FieldElementExpression::Add(
+                        box FieldElementExpression::Identifier("a".into()),
+                        box FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                    ),
+                    box FieldElementExpression::Identifier("b".into()),
+                )),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
+
+        let flat = flattener.flatten_function(&HashMap::new(), function);
+
+        let expected = FlatFunction {
+            arguments: vec![],
+            statements: vec![
+                FlatStatement::Definition(
+                    FlatVariable::new(0),
+                    FlatExpression::Number(Bn128Field::from(42)),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(1),
+                    FlatExpression::Number(Bn128Field::from(42)),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(2),
+                    FlatExpression::Add(
+                        box FlatExpression::Identifier(FlatVariable::new(0)),
+                        box FlatExpression::Number(Bn128Field::from(1)),
+                    ),
+                ),
+                FlatStatement::Condition(
+                    FlatExpression::Mult(
+                        box FlatExpression::Identifier(FlatVariable::new(2)),
+                        box FlatExpression::Number(Bn128Field::from(1)),
+                    ),
+                    FlatExpression::Identifier(FlatVariable::new(1)),
+                ),
+            ],
+        };
+
+        assert_eq!(flat, expected);
+    }
 
     #[test]
     fn powers_zero() {
