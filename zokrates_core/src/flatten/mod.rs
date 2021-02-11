@@ -2055,6 +2055,46 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             rhs_flattened,
                         ));
                     }
+                    BooleanExpression::UintEq(lhs, rhs) => {
+                        let mut lhs_flattened = self
+                            .flatten_uint_expression(symbols, statements_flattened, *lhs)
+                            .get_field_unchecked();
+                        let mut rhs_flattened = self
+                            .flatten_uint_expression(symbols, statements_flattened, *rhs)
+                            .get_field_unchecked();
+
+                        lhs_flattened = match lhs_flattened {
+                            FlatExpression::Number(_) | FlatExpression::Identifier(_) => {
+                                lhs_flattened
+                            }
+                            _ => {
+                                let sym = self.use_sym();
+                                statements_flattened
+                                    .push(FlatStatement::Definition(sym, lhs_flattened));
+                                FlatExpression::Identifier(sym)
+                            }
+                        };
+
+                        rhs_flattened = match rhs_flattened {
+                            FlatExpression::Number(_) | FlatExpression::Identifier(_) => {
+                                rhs_flattened
+                            }
+                            _ => {
+                                let sym = self.use_sym();
+                                statements_flattened
+                                    .push(FlatStatement::Definition(sym, rhs_flattened));
+                                FlatExpression::Identifier(sym)
+                            }
+                        };
+
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Mult(
+                                box lhs_flattened,
+                                box FlatExpression::Number(T::from(1)),
+                            ),
+                            rhs_flattened,
+                        ));
+                    }
                     _ => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
                         let e = self.flatten_boolean_expression(symbols, statements_flattened, e);
