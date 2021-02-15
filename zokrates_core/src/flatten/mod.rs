@@ -2017,83 +2017,39 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             ZirStatement::Assertion(e) => {
                 match e {
-                    BooleanExpression::FieldEq(lhs, rhs) => {
-                        let mut lhs_flattened =
-                            self.flatten_field_expression(symbols, statements_flattened, *lhs);
-                        let mut rhs_flattened =
-                            self.flatten_field_expression(symbols, statements_flattened, *rhs);
-
-                        lhs_flattened = match lhs_flattened {
-                            FlatExpression::Number(_) | FlatExpression::Identifier(_) => {
-                                lhs_flattened
-                            }
-                            _ => {
-                                let sym = self.use_sym();
-                                statements_flattened
-                                    .push(FlatStatement::Definition(sym, lhs_flattened));
-                                FlatExpression::Identifier(sym)
-                            }
-                        };
-
-                        rhs_flattened = match rhs_flattened {
-                            FlatExpression::Number(_) | FlatExpression::Identifier(_) => {
-                                rhs_flattened
-                            }
-                            _ => {
-                                let sym = self.use_sym();
-                                statements_flattened
-                                    .push(FlatStatement::Definition(sym, rhs_flattened));
-                                FlatExpression::Identifier(sym)
-                            }
-                        };
-
-                        statements_flattened.push(FlatStatement::Condition(
-                            FlatExpression::Mult(
-                                box lhs_flattened,
-                                box FlatExpression::Number(T::from(1)),
-                            ),
-                            rhs_flattened,
-                        ));
+                    BooleanExpression::And(..) => {
+                        let mut iter = self.unwrap_and_chain(e).into_iter();
+                        while let Some(inner) = iter.next() {
+                            self.flatten_statement(
+                                symbols,
+                                statements_flattened,
+                                ZirStatement::Assertion(inner),
+                            )
+                        }
                     }
-                    BooleanExpression::UintEq(lhs, rhs) => {
-                        let mut lhs_flattened = self
-                            .flatten_uint_expression(symbols, statements_flattened, *lhs)
+                    BooleanExpression::FieldEq(box lhs, box rhs) => {
+                        let lhs = self.flatten_field_expression(symbols, statements_flattened, lhs);
+                        let rhs = self.flatten_field_expression(symbols, statements_flattened, rhs);
+
+                        self.flatten_assertion(statements_flattened, lhs, rhs)
+                    }
+                    BooleanExpression::UintEq(box lhs, box rhs) => {
+                        let lhs = self
+                            .flatten_uint_expression(symbols, statements_flattened, lhs)
                             .get_field_unchecked();
-                        let mut rhs_flattened = self
-                            .flatten_uint_expression(symbols, statements_flattened, *rhs)
+                        let rhs = self
+                            .flatten_uint_expression(symbols, statements_flattened, rhs)
                             .get_field_unchecked();
 
-                        lhs_flattened = match lhs_flattened {
-                            FlatExpression::Number(_) | FlatExpression::Identifier(_) => {
-                                lhs_flattened
-                            }
-                            _ => {
-                                let sym = self.use_sym();
-                                statements_flattened
-                                    .push(FlatStatement::Definition(sym, lhs_flattened));
-                                FlatExpression::Identifier(sym)
-                            }
-                        };
+                        self.flatten_assertion(statements_flattened, lhs, rhs)
+                    }
+                    BooleanExpression::BoolEq(box lhs, box rhs) => {
+                        let lhs =
+                            self.flatten_boolean_expression(symbols, statements_flattened, lhs);
+                        let rhs =
+                            self.flatten_boolean_expression(symbols, statements_flattened, rhs);
 
-                        rhs_flattened = match rhs_flattened {
-                            FlatExpression::Number(_) | FlatExpression::Identifier(_) => {
-                                rhs_flattened
-                            }
-                            _ => {
-                                let sym = self.use_sym();
-                                statements_flattened
-                                    .push(FlatStatement::Definition(sym, rhs_flattened));
-                                FlatExpression::Identifier(sym)
-                            }
-                        };
-
-                        statements_flattened.push(FlatStatement::Condition(
-                            FlatExpression::Mult(
-                                box lhs_flattened,
-                                box FlatExpression::Number(T::from(1)),
-                            ),
-                            rhs_flattened,
-                        ));
+                        self.flatten_assertion(statements_flattened, lhs, rhs)
                     }
                     _ => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
@@ -2164,6 +2120,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Unwraps a boolean & (and) expression chain to a flat vector of boolean expressions
+    ///
+    /// # Arguments
+    /// * `e` - `BooleanExpression` to be flattened
+    fn unwrap_and_chain(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> Vec<BooleanExpression<'ast, T>> {
+        match e {
+            BooleanExpression::And(box lhs, box rhs) => {
+                let mut inner = self.unwrap_and_chain(lhs);
+                inner.push(rhs);
+                inner
+            }
+            _ => vec![e],
+        }
+    }
+
     /// Flattens a function
     ///
     /// # Arguments
@@ -2226,6 +2200,36 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         FlatProg {
             main: main_flattened,
         }
+    }
+
+    fn flatten_assertion(
+        &mut self,
+        statements_flattened: &mut FlatStatements<T>,
+        lhs: FlatExpression<T>,
+        rhs: FlatExpression<T>,
+    ) {
+        let lhs_flattened = match lhs {
+            FlatExpression::Number(_) | FlatExpression::Identifier(_) => lhs,
+            _ => {
+                let sym = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(sym, lhs));
+                FlatExpression::Identifier(sym)
+            }
+        };
+
+        let rhs_flattened = match rhs {
+            FlatExpression::Number(_) | FlatExpression::Identifier(_) => rhs,
+            _ => {
+                let sym = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(sym, rhs));
+                FlatExpression::Identifier(sym)
+            }
+        };
+
+        statements_flattened.push(FlatStatement::Condition(
+            FlatExpression::Mult(box lhs_flattened, box FlatExpression::Number(T::from(1))),
+            rhs_flattened,
+        ));
     }
 
     /// Returns a fresh FlatVariable for a given Variable
@@ -2326,6 +2330,37 @@ mod tests {
     use crate::zir::types::Signature;
     use crate::zir::types::Type;
     use zokrates_field::Bn128Field;
+
+    #[test]
+    fn assertion_bool_eq() {
+        let function = ZirFunction::<Bn128Field> {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::Definition(
+                    Variable::boolean("a".into()),
+                    BooleanExpression::Value(true).into(),
+                ),
+                ZirStatement::Definition(
+                    Variable::boolean("b".into()),
+                    BooleanExpression::Value(true).into(),
+                ),
+                ZirStatement::Assertion(BooleanExpression::BoolEq(
+                    box BooleanExpression::Identifier("a".into()),
+                    box BooleanExpression::Identifier("b".into()),
+                )),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
+
+        let flat = flattener.flatten_function(&HashMap::new(), function);
+        println!("{}", flat);
+    }
 
     #[test]
     fn assertion_field_eq() {
