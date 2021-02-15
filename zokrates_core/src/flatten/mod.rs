@@ -2359,7 +2359,29 @@ mod tests {
         let mut flattener = Flattener::new(&config);
 
         let flat = flattener.flatten_function(&HashMap::new(), function);
-        println!("{}", flat);
+
+        let expected = FlatFunction {
+            arguments: vec![],
+            statements: vec![
+                FlatStatement::Definition(
+                    FlatVariable::new(0),
+                    FlatExpression::Number(Bn128Field::from(1)),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(1),
+                    FlatExpression::Number(Bn128Field::from(1)),
+                ),
+                FlatStatement::Condition(
+                    FlatExpression::Mult(
+                        box FlatExpression::Identifier(FlatVariable::new(0)),
+                        box FlatExpression::Number(Bn128Field::from(1)),
+                    ),
+                    FlatExpression::Identifier(FlatVariable::new(1)),
+                ),
+            ],
+        };
+
+        assert_eq!(flat, expected);
     }
 
     #[test]
