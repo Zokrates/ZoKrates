@@ -2359,7 +2359,6 @@ mod tests {
         let mut flattener = Flattener::new(&config);
 
         let flat = flattener.flatten_function(&HashMap::new(), function);
-
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
@@ -2415,7 +2414,6 @@ mod tests {
         let mut flattener = Flattener::new(&config);
 
         let flat = flattener.flatten_function(&HashMap::new(), function);
-
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
@@ -2440,6 +2438,60 @@ mod tests {
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
                     FlatExpression::Identifier(FlatVariable::new(1)),
+                ),
+            ],
+        };
+
+        assert_eq!(flat, expected);
+    }
+
+    #[test]
+    fn assertion_uint_eq() {
+        let metadata = UMetadata {
+            max: 0xffffffff_u32.into(),
+            should_reduce: ShouldReduce::False,
+        };
+        let function = ZirFunction::<Bn128Field> {
+            arguments: vec![],
+            statements: vec![
+                ZirStatement::Definition(
+                    Variable::uint("a".into(), 32),
+                    ZirExpression::Uint(
+                        UExpressionInner::Value(42)
+                            .annotate(32)
+                            .metadata(metadata.clone()),
+                    ),
+                ),
+                ZirStatement::Assertion(BooleanExpression::UintEq(
+                    box UExpressionInner::Identifier("a".into())
+                        .annotate(32)
+                        .metadata(metadata.clone()),
+                    box UExpressionInner::Value(42).annotate(32).metadata(metadata),
+                )),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        };
+
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(&config);
+
+        let flat = flattener.flatten_function(&HashMap::new(), function);
+        let expected = FlatFunction {
+            arguments: vec![],
+            statements: vec![
+                FlatStatement::Definition(
+                    FlatVariable::new(0),
+                    FlatExpression::Number(Bn128Field::from(42)),
+                ),
+                FlatStatement::Condition(
+                    FlatExpression::Mult(
+                        box FlatExpression::Identifier(FlatVariable::new(0)),
+                        box FlatExpression::Number(Bn128Field::from(1)),
+                    ),
+                    FlatExpression::Number(Bn128Field::from(42)),
                 ),
             ],
         };
