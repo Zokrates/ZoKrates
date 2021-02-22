@@ -32,27 +32,24 @@ impl<T: Field> QuadComb<T> {
         QuadComb { left, right }
     }
 
-    pub fn try_linear(&self) -> Option<LinComb<T>> {
+    pub fn try_linear(self) -> Result<LinComb<T>, Self> {
         // identify (k * ~ONE) * (lincomb) and return (k * lincomb)
 
-        match self.left.try_summand() {
-            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.right.clone() * coefficient);
-            }
-            _ => {}
-        }
-        match self.right.try_summand() {
-            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.left.clone() * coefficient);
-            }
-            _ => {}
-        }
-
         if self.left.is_zero() || self.right.is_zero() {
-            return Some(LinComb::zero());
+            return Ok(LinComb::zero());
         }
 
-        None
+        match self.left.try_constant() {
+            Ok(coefficient) => {
+                return Ok(self.right * &coefficient);
+            }
+            Err(left) => match self.right.try_constant() {
+                Ok(coefficient) => {
+                    return Ok(left * &coefficient);
+                }
+                Err(right) => Err(QuadComb::from_linear_combinations(left, right)),
+            },
+        }
     }
 }
 
@@ -132,31 +129,54 @@ impl<T> LinComb<T> {
 }
 
 impl<T: Field> LinComb<T> {
-    pub fn try_summand(&self) -> Option<(FlatVariable, T)> {
+    pub fn try_constant(self) -> Result<T, Self> {
         match self.0.len() {
-            // if the lincomb is empty, it is not reduceable to a summand
-            0 => None,
+            // if the lincomb is empty, it is reduceable to 0
+            0 => Ok(T::zero()),
             _ => {
                 // take the first variable in the lincomb
                 let first = &self.0[0].0;
 
-                self.0
+                if first != &FlatVariable::one() {
+                    return Err(self);
+                }
+
+                if self.0
                     .iter()
-                    .map(|element| {
+                    .all(|element|
                         // all terms must contain the same variable
-                        if element.0 == *first {
-                            // if they do, return the coefficient
-                            Ok(&element.1)
-                        } else {
-                            // otherwise, stop
-                            Err(())
-                        }
-                    })
-                    // collect to a Result to short circuit when we hit an error
-                    .collect::<Result<_, _>>()
+                        element.0 == *first)
                     // we didn't hit an error, do final processing. It's fine to clone here.
-                    .map(|v: Vec<_>| (*first, v.iter().fold(T::zero(), |acc, e| acc + *e)))
-                    .ok()
+                    {
+                        Ok(self.0.into_iter().fold(T::zero(), |acc, e| acc + e.1))
+                    } else {
+                        Err(self)
+                    } 
+            }
+        }
+    }
+
+    pub fn try_summand(self) -> Result<(FlatVariable, T), Self> {
+        match self.0.len() {
+            // if the lincomb is empty, it is not reduceable to a summand
+            0 => Err(self),
+            _ => {
+                // take the first variable in the lincomb
+                let first = &self.0[0].0;
+
+                if self.0
+                    .iter()
+                    .all(|element|
+                        // all terms must contain the same variable
+                        element.0 == *first) {
+
+                        Ok((
+                            *first,
+                            self.0.into_iter().fold(T::zero(), |acc, e| acc + e.1),
+                        ))
+                    } else {
+                        Err(self)
+                    }
             }
         }
     }
@@ -265,10 +285,14 @@ impl<T: Field> Mul<&T> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn mul(self, scalar: &T) -> LinComb<T> {
+        if scalar == &T::one() {
+            return self;
+        }
+
         LinComb(
             self.0
                 .into_iter()
-                .map(|(var, coeff)| (var, coeff * scalar))
+                .map(|(var, coeff)| (var, coeff * scalar.clone()))
                 .collect(),
         )
     }

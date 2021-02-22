@@ -1,0 +1,4 @@
+def main(u8 a, field b):
+	u8 aa = a << 1
+	field c = b ** 33
+	return

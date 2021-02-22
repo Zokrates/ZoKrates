@@ -13,3 +13,6 @@ members = [
 ]
 
 exclude = ["zokrates_js"]
+
+[profile.release]
+debug = true
