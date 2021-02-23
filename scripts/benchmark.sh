@@ -1,7 +1,13 @@
 #!/bin/bash
 
-cmd=$*
-format="mem=%K rss=%M elapsed=%E cpu=%P cpu.sys=%S inputs=%I outputs=%O"
+# Usage: benchmark.sh <command>
+# For MacOS: install gtime with homebrew `brew install gnu-time`
 
-echo 'Benchmarking ' $cmd;
-/usr/bin/time -f "$format" bash -c "$cmd"
+cmd=$*
+format="mem=%KK rss=%MK elapsed=%E cpu=%P cpu.sys=%S inputs=%I outputs=%O"
+
+if command -v gtime; then
+  gtime -f "$format" $cmd
+else
+  /usr/bin/time -f "$format" $cmd
+fi
