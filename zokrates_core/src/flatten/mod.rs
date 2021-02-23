@@ -2018,12 +2018,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             ZirStatement::Assertion(e) => {
                 match e {
                     BooleanExpression::And(..) => {
-                        let mut iter = self.unwrap_and_chain(e).into_iter();
-                        while let Some(inner) = iter.next() {
+                        for boolean in e.into_iter() {
                             self.flatten_statement(
                                 symbols,
                                 statements_flattened,
-                                ZirStatement::Assertion(inner),
+                                ZirStatement::Assertion(boolean),
                             )
                         }
                     }
@@ -2031,7 +2030,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let lhs = self.flatten_field_expression(symbols, statements_flattened, lhs);
                         let rhs = self.flatten_field_expression(symbols, statements_flattened, rhs);
 
-                        self.flatten_assertion(statements_flattened, lhs, rhs)
+                        self.flatten_equality(statements_flattened, lhs, rhs)
                     }
                     BooleanExpression::UintEq(box lhs, box rhs) => {
                         let lhs = self
@@ -2041,7 +2040,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .flatten_uint_expression(symbols, statements_flattened, rhs)
                             .get_field_unchecked();
 
-                        self.flatten_assertion(statements_flattened, lhs, rhs)
+                        self.flatten_equality(statements_flattened, lhs, rhs)
                     }
                     BooleanExpression::BoolEq(box lhs, box rhs) => {
                         let lhs =
@@ -2049,7 +2048,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let rhs =
                             self.flatten_boolean_expression(symbols, statements_flattened, rhs);
 
-                        self.flatten_assertion(statements_flattened, lhs, rhs)
+                        self.flatten_equality(statements_flattened, lhs, rhs)
                     }
                     _ => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
@@ -2120,24 +2119,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Unwraps a boolean & (and) expression chain to a flat vector of boolean expressions
-    ///
-    /// # Arguments
-    /// * `e` - `BooleanExpression` to be flattened
-    fn unwrap_and_chain(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> Vec<BooleanExpression<'ast, T>> {
-        match e {
-            BooleanExpression::And(box lhs, box rhs) => {
-                let mut inner = self.unwrap_and_chain(lhs);
-                inner.push(rhs);
-                inner
-            }
-            _ => vec![e],
-        }
-    }
-
     /// Flattens a function
     ///
     /// # Arguments
@@ -2202,7 +2183,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    fn flatten_assertion(
+    fn flatten_equality(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         lhs: FlatExpression<T>,
@@ -2449,7 +2430,7 @@ mod tests {
     fn assertion_uint_eq() {
         let metadata = UMetadata {
             max: 0xffffffff_u32.into(),
-            should_reduce: ShouldReduce::False,
+            should_reduce: ShouldReduce::True,
         };
         let function = ZirFunction::<Bn128Field> {
             arguments: vec![],
