@@ -33,20 +33,17 @@ impl<T: Field> QuadComb<T> {
     }
 
     pub fn try_linear(self) -> Result<LinComb<T>, Self> {
-        // identify (k * ~ONE) * (lincomb) and return (k * lincomb)
+        // identify `(k * ~ONE) * (lincomb)` and `(lincomb) * (k * ~ONE)` and return (k * lincomb)
+        // if not, error out with the input
 
         if self.left.is_zero() || self.right.is_zero() {
             return Ok(LinComb::zero());
         }
 
         match self.left.try_constant() {
-            Ok(coefficient) => {
-                return Ok(self.right * &coefficient);
-            }
+            Ok(coefficient) => Ok(self.right * &coefficient),
             Err(left) => match self.right.try_constant() {
-                Ok(coefficient) => {
-                    return Ok(left * &coefficient);
-                }
+                Ok(coefficient) => Ok(left * &coefficient),
                 Err(right) => Err(QuadComb::from_linear_combinations(left, right)),
             },
         }
@@ -141,11 +138,8 @@ impl<T: Field> LinComb<T> {
                     return Err(self);
                 }
 
-                if self.0.iter().all(|element|
-                        // all terms must contain the same variable
-                        element.0 == *first)
-                // we didn't hit an error, do final processing. It's fine to clone here.
-                {
+                // all terms must contain the same variable
+                if self.0.iter().all(|element| element.0 == *first) {
                     Ok(self.0.into_iter().fold(T::zero(), |acc, e| acc + e.1))
                 } else {
                     Err(self)
