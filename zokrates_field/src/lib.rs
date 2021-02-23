@@ -72,11 +72,9 @@ pub trait Field:
     + Default
     + Hash
     + Add<Self, Output = Self>
-    + for<'a> Add<&'a Self, Output = Self>
     + Sub<Self, Output = Self>
     + for<'a> Sub<&'a Self, Output = Self>
     + Mul<Self, Output = Self>
-    + for<'a> Mul<&'a Self, Output = Self>
     + CheckedDiv
     + Div<Self, Output = Self>
     + Pow<usize, Output = Self>
@@ -346,18 +344,16 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn add(self, other: FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::zero() {
+                        return other;
+                    }
+
+                    if other.value == BigInt::zero() {
+                        return self;
+                    }
+
                     FieldPrime {
                         value: (self.value + other.value) % &*P,
-                    }
-                }
-            }
-
-            impl<'a> Add<&'a FieldPrime> for FieldPrime {
-                type Output = FieldPrime;
-
-                fn add(self, other: &FieldPrime) -> FieldPrime {
-                    FieldPrime {
-                        value: (self.value + other.value.clone()) % &*P,
                     }
                 }
             }
@@ -388,25 +384,23 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn mul(self, other: FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::one() {
+                        return other;
+                    }
+
+                    if other.value == BigInt::one() {
+                        return self;
+                    }
+
                     FieldPrime {
                         value: (self.value * other.value) % &*P,
                     }
                 }
             }
 
-            impl<'a> Mul<&'a FieldPrime> for FieldPrime {
-                type Output = FieldPrime;
-
-                fn mul(self, other: &FieldPrime) -> FieldPrime {
-                    FieldPrime {
-                        value: (self.value * other.value.clone()) % &*P,
-                    }
-                }
-            }
-
             impl CheckedDiv for FieldPrime {
                 fn checked_div(&self, other: &FieldPrime) -> Option<FieldPrime> {
-                    other.inverse_mul().map(|inv| inv * self)
+                    other.inverse_mul().map(|inv| inv * self.clone())
                 }
             }
 
@@ -432,7 +426,7 @@ mod prime_field {
                 fn pow(self, exp: usize) -> FieldPrime {
                     let mut res = FieldPrime::from(1);
                     for _ in 0..exp {
-                        res = res * &self;
+                        res = res * self.clone();
                     }
                     res
                 }
