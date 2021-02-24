@@ -37,11 +37,11 @@
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
-    "dree": "^2.4.14",
+    "dree": "^2.6.1",
     "esm": "^3.2.25",
     "gulp": "^4.0.2",
-    "gulp-cli": "^2.2.0",
-    "mocha": "^7.1.1",
+    "gulp-cli": "^2.3.0",
+    "mocha": "^7.2.0",
     "rimraf": "^3.0.2",
     "serve": "^11.3.2",
     "text-encoding": "^0.7.0",
