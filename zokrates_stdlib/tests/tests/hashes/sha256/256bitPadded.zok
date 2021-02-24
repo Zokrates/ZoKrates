@@ -1,0 +1,7 @@
+import "hashes/sha256/256bitPadded" as sha256
+def main() -> (field):
+	u32[8] a = [0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344, 0xa4093822, 0x299f31d0, 0x082efa98, 0xec4e6c89]
+	u32[8] digest = sha256(a)
+
+	assert(digest == [0x16d947ca, 0x4831aee7, 0x6999aa28, 0x20e5c3b4, 0x8171bf49, 0x27241da9, 0xebe644df, 0x9b690df0])
+	return 1
