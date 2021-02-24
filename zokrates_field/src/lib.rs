@@ -79,6 +79,7 @@ pub trait Field:
     + for<'a> Mul<&'a Self, Output = Self>
     + CheckedDiv
     + Div<Self, Output = Self>
+    + for<'a> Div<&'a Self, Output = Self>
     + Pow<usize, Output = Self>
     + for<'a> Deserialize<'a>
     + Serialize
@@ -346,6 +347,14 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn add(self, other: FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::zero() {
+                        return other;
+                    }
+
+                    if other.value == BigInt::zero() {
+                        return self;
+                    }
+
                     FieldPrime {
                         value: (self.value + other.value) % &*P,
                     }
@@ -356,8 +365,16 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn add(self, other: &FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::zero() {
+                        return other.clone();
+                    }
+
+                    if other.value == BigInt::zero() {
+                        return self;
+                    }
+
                     FieldPrime {
-                        value: (self.value + other.value.clone()) % &*P,
+                        value: (self.value + &other.value) % &*P,
                     }
                 }
             }
@@ -377,7 +394,7 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn sub(self, other: &FieldPrime) -> FieldPrime {
-                    let x = self.value - other.value.clone();
+                    let x = self.value - &other.value;
                     FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,
                     }
@@ -388,6 +405,14 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn mul(self, other: FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::one() {
+                        return other;
+                    }
+
+                    if other.value == BigInt::one() {
+                        return self;
+                    }
+
                     FieldPrime {
                         value: (self.value * other.value) % &*P,
                     }
@@ -398,8 +423,16 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn mul(self, other: &FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::one() {
+                        return other.clone();
+                    }
+
+                    if other.value == BigInt::one() {
+                        return self;
+                    }
+
                     FieldPrime {
-                        value: (self.value * other.value.clone()) % &*P,
+                        value: (self.value * &other.value) % &*P,
                     }
                 }
             }
@@ -445,7 +478,7 @@ mod prime_field {
                     assert!(self <= &bound);
                     assert!(other <= &bound);
 
-                    let big_res = self.value.clone() + other.value.clone();
+                    let big_res = &self.value + &other.value;
 
                     if big_res > bound.value {
                         None
@@ -462,7 +495,7 @@ mod prime_field {
                     assert!(self <= &bound);
                     assert!(other <= &bound);
 
-                    let big_res = self.value.clone() * other.value.clone();
+                    let big_res = &self.value * &other.value;
 
                     // we only go up to 2**(bitwidth - 1) because after that we lose uniqueness of bit decomposition
                     if big_res > bound.value {
