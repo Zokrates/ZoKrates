@@ -2183,34 +2183,57 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens an equality expression
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - `FlatStatements<T>` Vector where new flattened statements can be added.
+    /// * `lhs` - `FlatExpression<T>` Left-hand side of the equality expression.
+    /// * `rhs` - `FlatExpression<T>` Right-hand side of the equality expression.
     fn flatten_equality(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         lhs: FlatExpression<T>,
         rhs: FlatExpression<T>,
     ) {
-        let lhs_flattened = match lhs {
-            FlatExpression::Number(_) | FlatExpression::Identifier(_) => lhs,
-            _ => {
+        let (lhs, rhs) = match (lhs, rhs) {
+            (FlatExpression::Mult(box x, box y), z) | (z, FlatExpression::Mult(box x, box y)) => (
+                self.identify_expression(z, statements_flattened),
+                FlatExpression::Mult(
+                    box self.identify_expression(x, statements_flattened),
+                    box self.identify_expression(y, statements_flattened),
+                ),
+            ),
+            (x, z) => (
+                self.identify_expression(z, statements_flattened),
+                FlatExpression::Mult(
+                    box self.identify_expression(x, statements_flattened),
+                    box FlatExpression::Number(T::from(1)),
+                ),
+            ),
+        };
+        statements_flattened.push(FlatStatement::Condition(lhs, rhs));
+    }
+
+    /// Identifies a non-linear expression by assigning it to a new identifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - `FlatExpression<T>` Expression to be assigned to an identifier.
+    /// * `statements_flattened` - `FlatStatements<T>` Vector where new flattened statements can be added.
+    fn identify_expression(
+        &mut self,
+        e: FlatExpression<T>,
+        statements_flattened: &mut FlatStatements<T>,
+    ) -> FlatExpression<T> {
+        match e.is_linear() {
+            true => e,
+            false => {
                 let sym = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(sym, lhs));
+                statements_flattened.push(FlatStatement::Definition(sym, e));
                 FlatExpression::Identifier(sym)
             }
-        };
-
-        let rhs_flattened = match rhs {
-            FlatExpression::Number(_) | FlatExpression::Identifier(_) => rhs,
-            _ => {
-                let sym = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(sym, rhs));
-                FlatExpression::Identifier(sym)
-            }
-        };
-
-        statements_flattened.push(FlatStatement::Condition(
-            FlatExpression::Mult(box lhs_flattened, box FlatExpression::Number(T::from(1))),
-            rhs_flattened,
-        ));
+        }
     }
 
     /// Returns a fresh FlatVariable for a given Variable
@@ -2352,11 +2375,11 @@ mod tests {
                     FlatExpression::Number(Bn128Field::from(1)),
                 ),
                 FlatStatement::Condition(
+                    FlatExpression::Identifier(FlatVariable::new(1)),
                     FlatExpression::Mult(
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    FlatExpression::Identifier(FlatVariable::new(1)),
                 ),
             ],
         };
@@ -2406,19 +2429,15 @@ mod tests {
                     FlatVariable::new(1),
                     FlatExpression::Number(Bn128Field::from(42)),
                 ),
-                FlatStatement::Definition(
-                    FlatVariable::new(2),
-                    FlatExpression::Add(
-                        box FlatExpression::Identifier(FlatVariable::new(0)),
-                        box FlatExpression::Number(Bn128Field::from(1)),
-                    ),
-                ),
                 FlatStatement::Condition(
+                    FlatExpression::Identifier(FlatVariable::new(1)),
                     FlatExpression::Mult(
-                        box FlatExpression::Identifier(FlatVariable::new(2)),
+                        box FlatExpression::Add(
+                            box FlatExpression::Identifier(FlatVariable::new(0)),
+                            box FlatExpression::Number(Bn128Field::from(1)),
+                        ),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    FlatExpression::Identifier(FlatVariable::new(1)),
                 ),
             ],
         };
@@ -2468,11 +2487,11 @@ mod tests {
                     FlatExpression::Number(Bn128Field::from(42)),
                 ),
                 FlatStatement::Condition(
+                    FlatExpression::Number(Bn128Field::from(42)),
                     FlatExpression::Mult(
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    FlatExpression::Number(Bn128Field::from(42)),
                 ),
             ],
         };
