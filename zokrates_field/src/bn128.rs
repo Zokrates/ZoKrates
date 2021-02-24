@@ -59,6 +59,10 @@ mod tests {
                 "65484493".parse::<BigInt>().unwrap(),
                 (FieldPrime::from("65416358") + FieldPrime::from("68135")).value
             );
+            assert_eq!(
+                "65484493".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("65416358") + &FieldPrime::from("68135")).value
+            );
         }
 
         #[test]
@@ -67,6 +71,10 @@ mod tests {
                 "3".parse::<BigInt>().unwrap(),
                 (FieldPrime::from("5") + FieldPrime::from("-2")).value
             );
+            assert_eq!(
+                "3".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("5") + &FieldPrime::from("-2")).value
+            );
         }
 
         #[test]
@@ -74,6 +82,10 @@ mod tests {
             assert_eq!(
                 "65348223".parse::<BigInt>().unwrap(),
                 (FieldPrime::from("65416358") + FieldPrime::from("-68135")).value
+            );
+            assert_eq!(
+                "65348223".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("65416358") + &FieldPrime::from("-68135")).value
             );
         }
 
@@ -123,6 +135,10 @@ mod tests {
                 "13472".parse::<BigInt>().unwrap(),
                 (FieldPrime::from("32") * FieldPrime::from("421")).value
             );
+            assert_eq!(
+                "13472".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("32") * &FieldPrime::from("421")).value
+            );
         }
 
         #[test]
@@ -133,6 +149,12 @@ mod tests {
                     .unwrap(),
                 (FieldPrime::from("54") * FieldPrime::from("-8912")).value
             );
+            assert_eq!(
+                "21888242871839275222246405745257275088548364400416034343698204186575808014369"
+                    .parse::<BigInt>()
+                    .unwrap(),
+                (FieldPrime::from("54") * &FieldPrime::from("-8912")).value
+            );
         }
 
         #[test]
@@ -140,6 +162,10 @@ mod tests {
             assert_eq!(
                 "648".parse::<BigInt>().unwrap(),
                 (FieldPrime::from("-54") * FieldPrime::from("-12")).value
+            );
+            assert_eq!(
+                "648".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54") * &FieldPrime::from("-12")).value
             );
         }
 
@@ -153,6 +179,15 @@ mod tests {
                     "21888242871839225222246405785257275088694311157297823662689037894645225727"
                 ) * FieldPrime::from("218882428715392752222464057432572755886923"))
                 .value
+            );
+            assert_eq!(
+                "6042471409729479866150380306128222617399890671095126975526159292198160466142"
+                    .parse::<BigInt>()
+                    .unwrap(),
+                (FieldPrime::from(
+                    "21888242871839225222246405785257275088694311157297823662689037894645225727"
+                ) * &FieldPrime::from("218882428715392752222464057432572755886923"))
+                    .value
             );
         }
 

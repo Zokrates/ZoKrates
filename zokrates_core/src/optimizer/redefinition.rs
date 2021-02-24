@@ -99,19 +99,13 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 };
 
                 // insert into the ignored set
-                match to_ignore {
-                    Some(v) => {
-                        self.ignore.insert(v);
-                    }
-                    None => {}
+                if let Some(v) = to_ignore {
+                    self.ignore.insert(v);
                 }
 
                 // insert into the substitution map
-                match to_insert {
-                    Some((k, v)) => {
-                        self.substitution.insert(k, v.into_canonical());
-                    }
-                    None => {}
+                if let Some((k, v)) = to_insert {
+                    self.substitution.insert(k, v.into_canonical());
                 };
 
                 // decide whether the constraint should be kept

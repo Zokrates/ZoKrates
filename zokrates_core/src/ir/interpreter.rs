@@ -251,11 +251,11 @@ impl<T: Field> LinComb<T> {
             .map(|(var, mult)| {
                 witness
                     .get(var)
-                    .map(|v| v.clone() * mult.clone())
+                    .map(|v| v.clone() * mult)
                     .ok_or(EvaluationError)
             }) // get each term
             .collect::<Result<Vec<_>, _>>() // fail if any term isn't found
-            .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t.clone())) // return the sum
+            .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
     }
 
     fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
