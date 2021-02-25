@@ -444,11 +444,8 @@ impl<'ast, T> Iterator for ConjunctionIterator<BooleanExpression<'ast, T>> {
     }
 }
 
-impl<'ast, T> IntoIterator for BooleanExpression<'ast, T> {
-    type Item = BooleanExpression<'ast, T>;
-    type IntoIter = ConjunctionIterator<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
+impl<'ast, T> BooleanExpression<'ast, T> {
+    pub fn into_conjunction_iterator(self) -> ConjunctionIterator<Self> {
         ConjunctionIterator {
             current: vec![self],
         }
