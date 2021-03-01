@@ -58,7 +58,7 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
     let file = File::open(path.clone())
-        .map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
+        .map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
     let mut source = String::new();
