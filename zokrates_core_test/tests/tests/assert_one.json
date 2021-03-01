@@ -9,8 +9,8 @@
 			"output": {
 				"Err": {
 					"UnsatisfiedConstraint": {
-						"left": "1",
-						"right": "0"
+						"left": "0",
+						"right": "1"
 					}
 				}
 			}

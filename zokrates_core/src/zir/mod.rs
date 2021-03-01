@@ -422,6 +422,36 @@ pub enum BooleanExpression<'ast, T> {
     ),
 }
 
+pub struct ConjunctionIterator<T> {
+    current: Vec<T>,
+}
+
+impl<'ast, T> Iterator for ConjunctionIterator<BooleanExpression<'ast, T>> {
+    type Item = BooleanExpression<'ast, T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.current
+            .pop()
+            .map(|n| match n {
+                BooleanExpression::And(box left, box right) => {
+                    self.current.push(left);
+                    self.current.push(right);
+                    self.next()
+                }
+                n => Some(n),
+            })
+            .flatten()
+    }
+}
+
+impl<'ast, T> BooleanExpression<'ast, T> {
+    pub fn into_conjunction_iterator(self) -> ConjunctionIterator<Self> {
+        ConjunctionIterator {
+            current: vec![self],
+        }
+    }
+}
+
 // Downcasts
 impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for FieldElementExpression<'ast, T> {
     type Error = ();
