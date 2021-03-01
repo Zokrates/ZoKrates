@@ -29,7 +29,6 @@ fn cli() -> Result<(), String> {
         .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml, Darko Macesic")
         .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
         .arg(Arg::with_name("verbose")
-            .short("v")
             .long("verbose")
             .help("Verbose mode")
             .required(false)

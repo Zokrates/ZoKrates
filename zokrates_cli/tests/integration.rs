@@ -105,7 +105,6 @@ mod integration {
             abi_spec_path.to_str().unwrap(),
             "-o",
             flattened_path.to_str().unwrap(),
-            "--light",
         ];
 
         // compile
@@ -138,7 +137,7 @@ mod integration {
 
         // First we need to convert our test input into raw field elements. We need to ABI spec for that
         let file = File::open(&abi_spec_path)
-            .map_err(|why| format!("couldn't open {}: {}", flattened_path.display(), why))
+            .map_err(|why| format!("Could not open {}: {}", flattened_path.display(), why))
             .unwrap();
 
         let mut reader = BufReader::new(file);
