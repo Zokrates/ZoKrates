@@ -167,6 +167,9 @@ impl<T: BellmanFieldExtensions + Field> Computation<T> {
         getrandom::getrandom(&mut seed)?;
 
         use std::mem::transmute;
+        // This is safe because we are just reinterpreting the bytes (u8[32] -> u32[8]),
+        // byte order or the actual content does not matter here as this is used
+        // as a random seed for the rng.
         let seed: [u32; 8] = unsafe { transmute(seed) };
         Ok(seed)
     }
