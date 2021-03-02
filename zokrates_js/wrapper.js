@@ -46,7 +46,7 @@ module.exports = (dep) => {
             };
             const { program, abi } = zokrates.compile(source, location, callback, createConfig(config));
             return {
-                program: Array.from(program),
+                program: new Uint8Array(program),
                 abi
             }
         },
@@ -54,11 +54,12 @@ module.exports = (dep) => {
             const { vk, pk } = zokrates.setup(program);
             return {
                 vk,
-                pk: Array.from(pk)
+                pk: new Uint8Array(pk)
             };
         },
         computeWitness: (artifacts, args) => {
-            return zokrates.compute_witness(artifacts, JSON.stringify(Array.from(args)));
+            const { program, abi } = artifacts;
+            return zokrates.compute_witness(program, abi, JSON.stringify(Array.from(args)));
         },
         exportSolidityVerifier: (verificationKey, abiVersion) => {
             return zokrates.export_solidity_verifier(verificationKey, abiVersion);
