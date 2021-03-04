@@ -6,9 +6,7 @@ import "EMBED/unpack" as unpack
 def main<N>(field i) -> bool[N]:
 
 	assert(N <= 254)
+    
+    bool[N] res = unpack(i)
 
-    bool[254] b = unpack(i)
-
-    assert(b[0..254 - N] == [false; 254 - N])
-
-    return b[254 - N..]
+    return res

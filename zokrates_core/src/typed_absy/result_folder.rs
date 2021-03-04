@@ -746,6 +746,20 @@ pub fn fold_expression_list<'ast, T: Field, F: ResultFolder<'ast, T>>(
                     .collect::<Result<_, _>>()?,
             ))
         }
+        TypedExpressionList::EmbedCall(embed, generics, arguments, types) => {
+            Ok(TypedExpressionList::EmbedCall(
+                embed,
+                generics,
+                arguments
+                    .into_iter()
+                    .map(|a| f.fold_expression(a))
+                    .collect::<Result<_, _>>()?,
+                types
+                    .into_iter()
+                    .map(|t| f.fold_type(t))
+                    .collect::<Result<_, _>>()?,
+            ))
+        }
     }
 }
 

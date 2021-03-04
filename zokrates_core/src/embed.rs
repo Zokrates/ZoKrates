@@ -3,8 +3,9 @@ use crate::flat_absy::{
     FlatVariable,
 };
 use crate::solvers::Solver;
-use crate::typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
-use crate::typed_absy::TypedModuleId;
+use crate::typed_absy::types::{
+    ConcreteGenericsAssignment, Constant, DeclarationSignature, DeclarationType,
+};
 use std::collections::HashMap;
 use zokrates_field::{Bn128Field, Field};
 
@@ -19,12 +20,12 @@ cfg_if::cfg_if! {
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum FlatEmbed {
     U32ToField,
     #[cfg(feature = "bellman")]
     Sha256Round,
-    Unpack(usize),
+    Unpack,
     U8ToBits,
     U16ToBits,
     U32ToBits,
@@ -34,50 +35,80 @@ pub enum FlatEmbed {
 }
 
 impl FlatEmbed {
-    pub fn signature(&self) -> ConcreteSignature {
+    pub fn signature(&self) -> DeclarationSignature<'static> {
         match self {
-            FlatEmbed::U32ToField => ConcreteSignature::new()
-                .inputs(vec![ConcreteType::uint(32)])
-                .outputs(vec![ConcreteType::FieldElement]),
-            FlatEmbed::Unpack(bitwidth) => ConcreteSignature::new()
-                .inputs(vec![ConcreteType::FieldElement])
-                .outputs(vec![ConcreteType::array((
-                    ConcreteType::Boolean,
-                    *bitwidth,
+            FlatEmbed::U32ToField => DeclarationSignature::new()
+                .inputs(vec![DeclarationType::uint(32)])
+                .outputs(vec![DeclarationType::FieldElement]),
+            FlatEmbed::Unpack => DeclarationSignature::new()
+                .generics(vec![Some(Constant::Generic("N"))])
+                .inputs(vec![DeclarationType::FieldElement])
+                .outputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    "N",
                 ))]),
-            FlatEmbed::U8ToBits => ConcreteSignature::new()
-                .inputs(vec![ConcreteType::uint(8)])
-                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 8usize))]),
-            FlatEmbed::U16ToBits => ConcreteSignature::new()
-                .inputs(vec![ConcreteType::uint(16)])
-                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 16usize))]),
-            FlatEmbed::U32ToBits => ConcreteSignature::new()
-                .inputs(vec![ConcreteType::uint(32)])
-                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 32usize))]),
-            FlatEmbed::U8FromBits => ConcreteSignature::new()
-                .outputs(vec![ConcreteType::uint(8)])
-                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 8usize))]),
-            FlatEmbed::U16FromBits => ConcreteSignature::new()
-                .outputs(vec![ConcreteType::uint(16)])
-                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 16usize))]),
-            FlatEmbed::U32FromBits => ConcreteSignature::new()
-                .outputs(vec![ConcreteType::uint(32)])
-                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 32usize))]),
+            FlatEmbed::U8ToBits => DeclarationSignature::new()
+                .inputs(vec![DeclarationType::uint(8)])
+                .outputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    8usize,
+                ))]),
+            FlatEmbed::U16ToBits => DeclarationSignature::new()
+                .inputs(vec![DeclarationType::uint(16)])
+                .outputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    16usize,
+                ))]),
+            FlatEmbed::U32ToBits => DeclarationSignature::new()
+                .inputs(vec![DeclarationType::uint(32)])
+                .outputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    32usize,
+                ))]),
+            FlatEmbed::U8FromBits => DeclarationSignature::new()
+                .outputs(vec![DeclarationType::uint(8)])
+                .inputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    8usize,
+                ))]),
+            FlatEmbed::U16FromBits => DeclarationSignature::new()
+                .outputs(vec![DeclarationType::uint(16)])
+                .inputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    16usize,
+                ))]),
+            FlatEmbed::U32FromBits => DeclarationSignature::new()
+                .outputs(vec![DeclarationType::uint(32)])
+                .inputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    32usize,
+                ))]),
             #[cfg(feature = "bellman")]
-            FlatEmbed::Sha256Round => ConcreteSignature::new()
+            FlatEmbed::Sha256Round => DeclarationSignature::new()
                 .inputs(vec![
-                    ConcreteType::array((ConcreteType::Boolean, 512usize)),
-                    ConcreteType::array((ConcreteType::Boolean, 256usize)),
+                    DeclarationType::array((DeclarationType::Boolean, 512usize)),
+                    DeclarationType::array((DeclarationType::Boolean, 256usize)),
                 ])
-                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 256usize))]),
+                .outputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    256usize,
+                ))]),
         }
     }
 
-    pub fn key_in_module<T: Field>(
-        &self,
-        module_id: &TypedModuleId,
-    ) -> ConcreteFunctionKey<'static> {
-        ConcreteFunctionKey::with_location(module_id.clone(), self.id()).signature(self.signature())
+    pub fn generics<'ast>(&self, assignment: &ConcreteGenericsAssignment<'ast>) -> Vec<u32> {
+        let gen = self
+            .signature()
+            .generics
+            .into_iter()
+            .map(|c| match c.unwrap() {
+                Constant::Generic(g) => g,
+                _ => unreachable!(),
+            });
+
+        assert_eq!(gen.len(), assignment.0.len());
+        gen.map(|g| *assignment.0.get(&g).clone().unwrap() as u32)
+            .collect()
     }
 
     pub fn id(&self) -> &'static str {
@@ -85,7 +116,7 @@ impl FlatEmbed {
             FlatEmbed::U32ToField => "_U32_TO_FIELD",
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
-            FlatEmbed::Unpack(_) => "_UNPACK",
+            FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
             FlatEmbed::U32ToBits => "_U32_TO_BITS",
@@ -96,11 +127,11 @@ impl FlatEmbed {
     }
 
     /// Actually get the `FlatFunction` that this `FlatEmbed` represents
-    pub fn synthetize<T: Field>(&self) -> FlatFunction<T> {
+    pub fn synthetize<T: Field>(&self, generics: &[u32]) -> FlatFunction<T> {
         match self {
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => sha256_round(),
-            FlatEmbed::Unpack(bitwidth) => unpack_to_bitwidth(*bitwidth),
+            FlatEmbed::Unpack => unpack_to_bitwidth(generics[0] as usize),
             _ => unreachable!(),
         }
     }
