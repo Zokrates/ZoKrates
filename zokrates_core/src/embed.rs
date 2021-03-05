@@ -451,7 +451,7 @@ mod tests {
             let input: Vec<_> = (0..512)
                 .map(|_| 0)
                 .chain((0..256).map(|_| 1))
-                .map(|i| Bn128Field::from(i))
+                .map(Bn128Field::from)
                 .collect();
 
             let interpreter = Interpreter::default();

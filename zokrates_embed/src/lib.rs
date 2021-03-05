@@ -81,7 +81,7 @@ fn sha256_round<E: Engine, CS: ConstraintSystem<E>>(
         .map(|chunk| {
             UInt32::from_bits_be(
                 &chunk
-                    .into_iter()
+                    .iter()
                     .map(|i| Boolean::Is(i.clone()))
                     .collect::<Vec<_>>(),
             )
@@ -206,17 +206,17 @@ impl<E: Engine> ConstraintSystem<E> for BellmanR1CS<E> {
 
         let a = a
             .as_ref()
-            .into_iter()
+            .iter()
             .map(|(variable, coefficient)| (var_to_index(*variable), *coefficient))
             .collect();
         let b = b
             .as_ref()
-            .into_iter()
+            .iter()
             .map(|(variable, coefficient)| (var_to_index(*variable), *coefficient))
             .collect();
         let c = c
             .as_ref()
-            .into_iter()
+            .iter()
             .map(|(variable, coefficient)| (var_to_index(*variable), *coefficient))
             .collect();
 
@@ -265,8 +265,8 @@ pub fn generate_sha256_round_witness<E: Engine>(
 
     sha256_round(
         &mut cs,
-        &input.iter().map(|x| Some(x.clone())).collect(),
-        &current_hash.iter().map(|x| Some(x.clone())).collect(),
+        &input.iter().map(|x| Some(*x)).collect(),
+        &current_hash.iter().map(|x| Some(*x)).collect(),
     )
     .unwrap();
 

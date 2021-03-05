@@ -230,7 +230,7 @@ mod tests {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(y, x), Statement::definition(z, y)],
-            returns: vec![z.into()],
+            returns: vec![z],
         };
 
         let optimized: Function<Bn128Field> = Function {
@@ -257,7 +257,7 @@ mod tests {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(one, x)],
-            returns: vec![x.into()],
+            returns: vec![x],
         };
 
         let optimized = f.clone();
@@ -292,14 +292,14 @@ mod tests {
                 Statement::definition(z, y),
                 Statement::constraint(z, y),
             ],
-            returns: vec![z.into()],
+            returns: vec![z],
         };
 
         let optimized: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(z, x), Statement::constraint(z, x)],
-            returns: vec![z.into()],
+            returns: vec![z],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
@@ -469,7 +469,7 @@ mod tests {
                 Statement::constraint(x, Bn128Field::from(1)),
                 Statement::constraint(x, Bn128Field::from(2)),
             ],
-            returns: vec![x.into()],
+            returns: vec![x],
         };
 
         let optimized = f.clone();

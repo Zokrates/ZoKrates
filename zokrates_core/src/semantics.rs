@@ -781,7 +781,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 if !found_return {
                     errors.push(ErrorInner {
                         pos: Some(pos),
-                        message: format!("Expected a return statement",),
+                        message: "Expected a return statement".to_string(),
                     });
                 }
 
@@ -2927,9 +2927,7 @@ mod tests {
             let types = HashMap::new();
             let module_id = "".into();
 
-            let expr =
-                Expression::FieldConstant(BigUint::from(Bn128Field::max_value().to_biguint()))
-                    .mock();
+            let expr = Expression::FieldConstant(Bn128Field::max_value().to_biguint()).mock();
             assert!(Checker::<Bn128Field>::new()
                 .check_expression(expr, &module_id, &types)
                 .is_ok());
@@ -3209,7 +3207,7 @@ mod tests {
             };
 
             let mut state = State::<Bn128Field>::new(
-                vec![(PathBuf::from(MODULE_ID).into(), module)]
+                vec![(PathBuf::from(MODULE_ID), module)]
                     .into_iter()
                     .collect(),
             );
@@ -3217,7 +3215,7 @@ mod tests {
             let mut checker: Checker<Bn128Field> = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID), &mut state)
                     .unwrap_err()[0]
                     .inner
                     .message,
@@ -3292,7 +3290,7 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(PathBuf::from(MODULE_ID).into(), module)]
+                vec![(PathBuf::from(MODULE_ID), module)]
                     .into_iter()
                     .collect(),
             );
@@ -3341,14 +3339,14 @@ mod tests {
                 };
 
                 let mut state = State::new(
-                    vec![(PathBuf::from(MODULE_ID).into(), module)]
+                    vec![(PathBuf::from(MODULE_ID), module)]
                         .into_iter()
                         .collect(),
                 );
 
                 let mut checker: Checker<Bn128Field> = Checker::new();
                 assert!(checker
-                    .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID), &mut state)
                     .is_ok());
             }
 
@@ -3399,7 +3397,7 @@ mod tests {
                 };
 
                 let mut state = State::new(
-                    vec![(PathBuf::from(MODULE_ID).into(), module)]
+                    vec![(PathBuf::from(MODULE_ID), module)]
                         .into_iter()
                         .collect(),
                 );
@@ -3407,7 +3405,7 @@ mod tests {
                 let mut checker: Checker<Bn128Field> = Checker::new();
                 assert_eq!(
                     checker
-                        .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
+                        .check_module(&PathBuf::from(MODULE_ID), &mut state)
                         .unwrap_err()[0]
                         .inner
                         .message,

@@ -157,7 +157,7 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &vec![Bn128Field::from(42)])
+            .execute(&program, &[Bn128Field::from(42)])
             .unwrap();
 
         let proof =

@@ -1003,8 +1003,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1091,8 +1090,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1223,8 +1221,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1311,8 +1308,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1391,7 +1387,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic("K".into()),
+                Constant::Generic("K"),
             )
             .into()],
             statements: vec![
@@ -1455,7 +1451,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic("K".into()),
+                Constant::Generic("K"),
             )
             .into()],
             statements: vec![TypedStatement::Return(vec![
@@ -1575,8 +1571,7 @@ mod tests {
                         box ArrayExpressionInner::Identifier(
                             Identifier::from(CoreIdentifier::Call(0)).version(1),
                         )
-                        .annotate(Type::FieldElement, 2u32)
-                        .into(),
+                        .annotate(Type::FieldElement, 2u32),
                         box 0u32.into(),
                         box 1u32.into(),
                     )

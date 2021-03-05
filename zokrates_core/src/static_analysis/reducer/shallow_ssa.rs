@@ -699,13 +699,9 @@ mod tests {
                     ),
                     TypedStatement::For(
                         Variable::uint("i", UBitwidth::B32),
-                        UExpressionInner::Identifier("n".into())
-                            .annotate(UBitwidth::B32)
-                            .into(),
+                        UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
                         UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32)
-                            * UExpressionInner::Identifier("n".into())
-                                .annotate(UBitwidth::B32)
-                                .into(),
+                            * UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
                             FieldElementExpression::Identifier("a".into()).into(),
@@ -717,13 +713,9 @@ mod tests {
                     ),
                     TypedStatement::For(
                         Variable::uint("i", UBitwidth::B32),
-                        UExpressionInner::Identifier("n".into())
-                            .annotate(UBitwidth::B32)
-                            .into(),
+                        UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
                         UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32)
-                            * UExpressionInner::Identifier("n".into())
-                                .annotate(UBitwidth::B32)
-                                .into(),
+                            * UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
                             FieldElementExpression::Identifier("a".into()).into(),
@@ -747,7 +739,7 @@ mod tests {
 
             let ssa = ShallowTransformer::transform(
                 f,
-                &GGenericsAssignment(vec![("K".into(), 1)].into_iter().collect()),
+                &GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
                 &mut versions,
             );
 
@@ -775,13 +767,11 @@ mod tests {
                     TypedStatement::For(
                         Variable::uint("i", UBitwidth::B32),
                         UExpressionInner::Identifier(Identifier::from("n").version(1))
-                            .annotate(UBitwidth::B32)
-                            .into(),
+                            .annotate(UBitwidth::B32),
                         UExpressionInner::Identifier(Identifier::from("n").version(1))
                             .annotate(UBitwidth::B32)
                             * UExpressionInner::Identifier(Identifier::from("n").version(1))
-                                .annotate(UBitwidth::B32)
-                                .into(),
+                                .annotate(UBitwidth::B32),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
                             FieldElementExpression::Identifier("a".into()).into(),
@@ -794,13 +784,11 @@ mod tests {
                     TypedStatement::For(
                         Variable::uint("i", UBitwidth::B32),
                         UExpressionInner::Identifier(Identifier::from("n").version(3))
-                            .annotate(UBitwidth::B32)
-                            .into(),
+                            .annotate(UBitwidth::B32),
                         UExpressionInner::Identifier(Identifier::from("n").version(3))
                             .annotate(UBitwidth::B32)
                             * UExpressionInner::Identifier(Identifier::from("n").version(3))
-                                .annotate(UBitwidth::B32)
-                                .into(),
+                                .annotate(UBitwidth::B32),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
                             FieldElementExpression::Identifier("a".into()).into(),
@@ -893,9 +881,7 @@ mod tests {
                         TypedExpressionList::FunctionCall(
                             DeclarationFunctionKey::with_location("main", "foo"),
                             vec![Some(
-                                UExpressionInner::Identifier("n".into())
-                                    .annotate(UBitwidth::B32)
-                                    .into(),
+                                UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
                             )],
                             vec![FieldElementExpression::Identifier("a".into()).into()],
                             vec![Type::FieldElement],
@@ -914,8 +900,7 @@ mod tests {
                                 DeclarationFunctionKey::with_location("main", "foo"),
                                 vec![Some(
                                     UExpressionInner::Identifier("n".into())
-                                        .annotate(UBitwidth::B32)
-                                        .into(),
+                                        .annotate(UBitwidth::B32),
                                 )],
                                 vec![FieldElementExpression::Identifier("a".into()).into()],
                             ))
@@ -935,7 +920,7 @@ mod tests {
 
             let ssa = ShallowTransformer::transform(
                 f,
-                &GGenericsAssignment(vec![("K".into(), 1)].into_iter().collect()),
+                &GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
                 &mut versions,
             );
 
@@ -966,8 +951,7 @@ mod tests {
                             DeclarationFunctionKey::with_location("main", "foo"),
                             vec![Some(
                                 UExpressionInner::Identifier(Identifier::from("n").version(1))
-                                    .annotate(UBitwidth::B32)
-                                    .into(),
+                                    .annotate(UBitwidth::B32),
                             )],
                             vec![FieldElementExpression::Identifier(
                                 Identifier::from("a").version(1),
@@ -989,8 +973,7 @@ mod tests {
                                 DeclarationFunctionKey::with_location("main", "foo"),
                                 vec![Some(
                                     UExpressionInner::Identifier(Identifier::from("n").version(2))
-                                        .annotate(UBitwidth::B32)
-                                        .into(),
+                                        .annotate(UBitwidth::B32),
                                 )],
                                 vec![FieldElementExpression::Identifier(
                                     Identifier::from("a").version(2),

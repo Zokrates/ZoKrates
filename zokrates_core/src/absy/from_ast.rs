@@ -952,8 +952,7 @@ mod tests {
                         box absy::Expression::Identifier("a").into(),
                         box absy::RangeOrExpression::Expression(
                             absy::Expression::IntConstant(3usize.into()).into(),
-                        )
-                        .into(),
+                        ),
                     ),
                 ),
                 (
@@ -963,14 +962,12 @@ mod tests {
                             box absy::Expression::Identifier("a").into(),
                             box absy::RangeOrExpression::Expression(
                                 absy::Expression::IntConstant(3usize.into()).into(),
-                            )
-                            .into(),
+                            ),
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
                             absy::Expression::IntConstant(4usize.into()).into(),
-                        )
-                        .into(),
+                        ),
                     ),
                 ),
                 (
@@ -984,8 +981,7 @@ mod tests {
                         .into(),
                         box absy::RangeOrExpression::Expression(
                             absy::Expression::IntConstant(4usize.into()).into(),
-                        )
-                        .into(),
+                        ),
                     ),
                 ),
                 (
@@ -1000,14 +996,12 @@ mod tests {
                             .into(),
                             box absy::RangeOrExpression::Expression(
                                 absy::Expression::IntConstant(4usize.into()).into(),
-                            )
-                            .into(),
+                            ),
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
                             absy::Expression::IntConstant(5usize.into()).into(),
-                        )
-                        .into(),
+                        ),
                     ),
                 ),
             ];
