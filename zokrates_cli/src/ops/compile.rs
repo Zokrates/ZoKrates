@@ -61,6 +61,12 @@ pub fn subcommand() -> App<'static, 'static> {
         .help("Write human readable output (ztf)")
         .required(false)
     )
+    .arg(Arg::with_name("light") // TODO: deprecated, should be removed
+        .long("light")
+        .required(false)
+        .overrides_with_all(&["ztf", "verbose"])
+        .hidden(true)
+    )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -74,8 +80,16 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
-    println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
+    // TODO: remove the warning once light flag is removed entirely
+    if sub_matches.is_present("light") {
+        println!(
+            "Warning: the --light flag is deprecated and will be removed in a coming release.\n\
+            Terminal output is now off by default and can be activated with the --verbose flag.\n\
+            Human-readable output file (ztf) is now off by default and can be activated with the --ztf flag.\n"
+        )
+    }
 
+    println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
     let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
