@@ -196,15 +196,15 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
         match expected {
             ConcreteType::Int => unreachable!(),
             ConcreteType::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
-            ConcreteType::Uint(UBitwidth::B8) => CheckedValue::U8(
-                u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
-            ),
-            ConcreteType::Uint(UBitwidth::B16) => CheckedValue::U16(
-                u16::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
-            ),
-            ConcreteType::Uint(UBitwidth::B32) => CheckedValue::U32(
-                u32::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
-            ),
+            ConcreteType::Uint(UBitwidth::B8) => {
+                CheckedValue::U8(raw.pop().unwrap().to_dec_string().parse().unwrap())
+            }
+            ConcreteType::Uint(UBitwidth::B16) => {
+                CheckedValue::U16(raw.pop().unwrap().to_dec_string().parse().unwrap())
+            }
+            ConcreteType::Uint(UBitwidth::B32) => {
+                CheckedValue::U32(raw.pop().unwrap().to_dec_string().parse().unwrap())
+            }
             ConcreteType::Boolean => {
                 let v = raw.pop().unwrap();
                 CheckedValue::Boolean(if v == 0.into() {

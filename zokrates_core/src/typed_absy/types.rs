@@ -946,7 +946,7 @@ pub mod signature {
                     Constant::Concrete(s) => Ok(s.into()),
                 }?;
 
-                GType::Array(GArrayType { ty, size })
+                GType::Array(GArrayType { size, ty })
             }
             DeclarationType::FieldElement => GType::FieldElement,
             DeclarationType::Boolean => GType::Boolean,

@@ -71,7 +71,7 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
 
         let main = main.into();
 
-        Prog { private, main }
+        Prog { main, private }
     }
 }
 

@@ -581,15 +581,15 @@ impl<'ast> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'
                 pest::DecimalSuffix::Field(_) => absy::Expression::FieldConstant(
                     BigUint::parse_bytes(&expression.value.span.as_str().as_bytes(), 10).unwrap(),
                 ),
-                pest::DecimalSuffix::U32(_) => absy::Expression::U32Constant(
-                    u32::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
-                ),
-                pest::DecimalSuffix::U16(_) => absy::Expression::U16Constant(
-                    u16::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
-                ),
-                pest::DecimalSuffix::U8(_) => absy::Expression::U8Constant(
-                    u8::from_str_radix(&expression.value.span.as_str(), 10).unwrap(),
-                ),
+                pest::DecimalSuffix::U32(_) => {
+                    absy::Expression::U32Constant(expression.value.span.as_str().parse().unwrap())
+                }
+                pest::DecimalSuffix::U16(_) => {
+                    absy::Expression::U16Constant(expression.value.span.as_str().parse().unwrap())
+                }
+                pest::DecimalSuffix::U8(_) => {
+                    absy::Expression::U8Constant(expression.value.span.as_str().parse().unwrap())
+                }
             }
             .span(expression.span),
             None => absy::Expression::IntConstant(

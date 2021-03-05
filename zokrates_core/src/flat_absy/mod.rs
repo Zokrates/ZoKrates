@@ -146,8 +146,8 @@ impl<T: Field> FlatStatement<T> {
                     .collect();
 
                 FlatStatement::Directive(FlatDirective {
-                    outputs,
                     inputs,
+                    outputs,
                     ..d
                 })
             }
