@@ -364,8 +364,8 @@ mod tests {
             .execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
             .unwrap();
         assert_eq!(res[253], Bn128Field::from(1));
-        for i in 0..253 {
-            assert_eq!(res[i], Bn128Field::from(0));
+        for r in res[0..253].iter() {
+            assert_eq!(*r, Bn128Field::from(0));
         }
     }
 

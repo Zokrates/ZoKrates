@@ -240,7 +240,7 @@ mod tests {
         #[test]
         fn bytes_ser_deser() {
             let fp = FieldPrime::from("101");
-            let bv = fp.into_byte_vector();
+            let bv = fp.to_byte_vector();
             assert_eq!(fp, FieldPrime::from_byte_vector(bv));
         }
 

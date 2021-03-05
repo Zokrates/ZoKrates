@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)] // we allow uppercase acronyms because the pest derive generates WHITESPACE and COMMENT which have special meaning in pest
+
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;

@@ -77,7 +77,7 @@ impl FlatEmbed {
         &self,
         module_id: &TypedModuleId,
     ) -> ConcreteFunctionKey<'static> {
-        ConcreteFunctionKey::with_location(module_id.clone(), self.id()).signature(self.signature())
+        ConcreteFunctionKey::with_location(module_id, self.id()).signature(self.signature())
     }
 
     pub fn id(&self) -> &'static str {

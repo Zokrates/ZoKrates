@@ -12,13 +12,14 @@ use sapling_crypto::circuit::{
 };
 
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct BellmanR1CS<E: Engine> {
     pub aux_count: usize,
     pub constraints: Vec<BellmanConstraint<E>>,
 }
 
-impl<E: Engine> BellmanR1CS<E> {
-    pub fn new() -> Self {
+impl<E: Engine> Default for BellmanR1CS<E> {
+    fn default() -> Self {
         BellmanR1CS {
             aux_count: 0,
             constraints: vec![],
@@ -40,9 +41,9 @@ pub struct BellmanConstraint<E: Engine> {
 
 fn sha256_round<E: Engine, CS: ConstraintSystem<E>>(
     mut cs: CS,
-    input: &Vec<Option<E::Fr>>,
-    current_hash: &Vec<Option<E::Fr>>,
-) -> Result<(Vec<usize>, Vec<usize>, Vec<usize>), SynthesisError> {
+    input: &[Option<E::Fr>],
+    current_hash: &[Option<E::Fr>],
+) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     // Allocate bits for `input`
     let input_bits = input
         .iter()
@@ -95,11 +96,10 @@ fn sha256_round<E: Engine, CS: ConstraintSystem<E>>(
     let output_bits = res
         .into_iter()
         .flat_map(|u| u.into_bits_be())
-        .map(|b| b.get_variable().unwrap().clone())
-        .collect::<Vec<_>>();
+        .map(|b| b.get_variable().unwrap().clone());
 
     // Return indices of `input`, `current_hash` and `output` in the CS
-    Ok((
+    (
         input_bits
             .into_iter()
             .map(|b| var_to_index(b.get_variable()))
@@ -109,10 +109,9 @@ fn sha256_round<E: Engine, CS: ConstraintSystem<E>>(
             .map(|b| var_to_index(b.get_variable()))
             .collect(),
         output_bits
-            .into_iter()
             .map(|b| var_to_index(b.get_variable()))
             .collect(),
-    ))
+    )
 }
 
 impl<E: Engine> ConstraintSystem<E> for BellmanWitness<E> {
@@ -242,10 +241,10 @@ impl<E: Engine> ConstraintSystem<E> for BellmanR1CS<E> {
 
 pub fn generate_sha256_round_constraints<E: Engine>(
 ) -> (BellmanR1CS<E>, Vec<usize>, Vec<usize>, Vec<usize>) {
-    let mut cs = BellmanR1CS::new();
+    let mut cs = BellmanR1CS::default();
 
     let (input_bits, current_hash_bits, output_bits) =
-        sha256_round(&mut cs, &vec![None; 512], &vec![None; 256]).unwrap();
+        sha256_round(&mut cs, &[None; 512], &[None; 256]);
 
     // res is now the allocated bits for `input`, `current_hash` and `sha256_output`
 
@@ -265,10 +264,9 @@ pub fn generate_sha256_round_witness<E: Engine>(
 
     sha256_round(
         &mut cs,
-        &input.iter().map(|x| Some(*x)).collect(),
-        &current_hash.iter().map(|x| Some(*x)).collect(),
-    )
-    .unwrap();
+        &input.iter().map(|x| Some(*x)).collect::<Vec<_>>(),
+        &current_hash.iter().map(|x| Some(*x)).collect::<Vec<_>>(),
+    );
 
     cs.values
 }
@@ -311,8 +309,7 @@ mod tests {
             &mut cs,
             &vec![Some(Fr::zero()); 512],
             &vec![Some(Fr::one()); 256],
-        )
-        .unwrap();
+        );
 
         assert!(cs.is_satisfied());
     }

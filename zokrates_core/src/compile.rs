@@ -3,7 +3,7 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::absy::{Module, ModuleId, Program};
+use crate::absy::{Module, OwnedModuleId, Program};
 use crate::flatten::Flattener;
 use crate::imports::{self, Importer};
 use crate::ir;
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use typed_arena::Arena;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
@@ -60,10 +60,10 @@ pub enum CompileErrorInner {
 }
 
 impl CompileErrorInner {
-    pub fn in_file(self, context: &PathBuf) -> CompileError {
+    pub fn in_file(self, context: &Path) -> CompileError {
         CompileError {
             value: self,
-            file: context.clone(),
+            file: context.to_path_buf(),
         }
     }
 }
@@ -241,7 +241,7 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
-    modules: &mut HashMap<ModuleId, Module<'ast>>,
+    modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast>, CompileErrors> {
     let ast = pest::generate_ast(&source)

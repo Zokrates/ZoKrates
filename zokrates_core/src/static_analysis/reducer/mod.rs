@@ -736,10 +736,16 @@ mod tests {
     use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
         ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
-        FieldElementExpression, Identifier, Select, Type, TypedExpression, TypedExpressionList,
-        TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
+        FieldElementExpression, Identifier, OwnedTypedModuleId, Select, Type, TypedExpression,
+        TypedExpressionList, TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
+
+    use lazy_static::lazy_static;
+
+    lazy_static! {
+        static ref MAIN_MODULE_ID: OwnedTypedModuleId = OwnedTypedModuleId::from("main");
+    }
 
     #[test]
     fn no_generics() {
@@ -905,7 +911,7 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
-                    .chain(embeds_in_module(&"main".into()))
+                    .chain(embeds_in_module(&MAIN_MODULE_ID))
                     .collect(),
                 },
             )]
@@ -1114,7 +1120,7 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
-                    .chain(embeds_in_module(&"main".into()))
+                    .chain(embeds_in_module(&MAIN_MODULE_ID))
                     .collect(),
                 },
             )]
@@ -1332,7 +1338,7 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
-                    .chain(embeds_in_module(&"main".into()))
+                    .chain(embeds_in_module(&MAIN_MODULE_ID))
                     .collect(),
                 },
             )]
@@ -1612,7 +1618,7 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
-                    .chain(embeds_in_module(&"main".into()))
+                    .chain(embeds_in_module(&MAIN_MODULE_ID))
                     .collect(),
                 },
             )]
