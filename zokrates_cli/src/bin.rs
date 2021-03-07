@@ -148,7 +148,7 @@ fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     let mut pk_file = File::create(pk_path)
         .map_err(|why| format!("couldn't create {}: {}", pk_path.display(), why))?;
     pk_file
-        .write(keypair.pk.as_ref())
+        .write_all(keypair.pk.as_ref())
         .map_err(|why| format!("couldn't write to {}: {}", pk_path.display(), why))?;
 
     println!("Setup completed.");
