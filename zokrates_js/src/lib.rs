@@ -146,7 +146,8 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
         .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
     let return_values: serde_json::Value =
-        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs).into();
+        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
+            .into_serde_json();
 
     let result = ComputationResult {
         witness: format!("{}", witness),
