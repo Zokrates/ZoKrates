@@ -106,7 +106,8 @@ pub trait Field:
     /// Gets the number of bits
     fn bits(&self) -> u32;
     /// Returns this `Field`'s largest value as a big-endian bit vector
-    fn max_value_bit_vector_be() -> Vec<bool> {
+    /// Always returns `Self::get_required_bits()` elements
+    fn bit_vector_be(&self) -> Vec<bool> {
         fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
             bytes
                 .iter()
@@ -114,13 +115,27 @@ pub trait Field:
                 .collect()
         }
 
-        let field_bytes_le = Self::into_byte_vector(&Self::max_value());
+        let field_bytes_le = Self::into_byte_vector(&self);
         // reverse for big-endianess
         let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
         let field_bits_be = bytes_to_bits(&field_bytes_be);
 
-        let field_bits_be = &field_bits_be[field_bits_be.len() - Self::get_required_bits()..];
-        field_bits_be.to_vec()
+        let field_bits_be: Vec<_> = (0..Self::get_required_bits()
+            .checked_sub(field_bits_be.len())
+            .unwrap_or(0))
+            .map(|_| &false)
+            .chain(
+                &field_bits_be[field_bits_be
+                    .len()
+                    .checked_sub(Self::get_required_bits())
+                    .unwrap_or(0)..],
+            )
+            .cloned()
+            .collect();
+
+        assert_eq!(field_bits_be.len(), Self::get_required_bits());
+
+        field_bits_be
     }
     /// Returns the value as a BigUint
     fn to_biguint(&self) -> BigUint;
