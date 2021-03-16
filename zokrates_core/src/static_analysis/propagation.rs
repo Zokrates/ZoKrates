@@ -728,7 +728,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     UExpressionInner::Value(v) => {
                         use std::convert::TryInto;
                         UExpressionInner::Value(
-                            2_u128.pow(bitwidth.to_usize().try_into().unwrap()) - v,
+                            (0u128.wrapping_sub(v))
+                                % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                         )
                     }
                     e => UExpressionInner::Neg(box e.annotate(bitwidth)),
@@ -1202,6 +1203,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         BooleanExpression::Value(n1 == n2)
                     }
                     (e1, e2) => BooleanExpression::FieldEq(box e1, box e2),
+                }
+            }
+            BooleanExpression::UintEq(box e1, box e2) => {
+                let e1 = self.fold_uint_expression(e1);
+                let e2 = self.fold_uint_expression(e2);
+
+                match (e1.as_inner(), e2.as_inner()) {
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        BooleanExpression::Value(n1 == n2)
+                    }
+                    _ => BooleanExpression::UintEq(box e1, box e2),
                 }
             }
             BooleanExpression::BoolEq(box e1, box e2) => {
