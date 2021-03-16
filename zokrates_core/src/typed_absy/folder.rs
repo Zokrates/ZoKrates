@@ -277,6 +277,16 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_field_expression(e2);
             FieldElementExpression::Pow(box e1, box e2)
         }
+        FieldElementExpression::Neg(box e) => {
+            let e = f.fold_field_expression(e);
+
+            FieldElementExpression::Neg(box e)
+        }
+        FieldElementExpression::Pos(box e) => {
+            let e = f.fold_field_expression(e);
+
+            FieldElementExpression::Pos(box e)
+        }
         FieldElementExpression::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);
             let cons = f.fold_field_expression(cons);
@@ -469,6 +479,16 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             let e = f.fold_uint_expression(e);
 
             UExpressionInner::Not(box e)
+        }
+        UExpressionInner::Neg(box e) => {
+            let e = f.fold_uint_expression(e);
+
+            UExpressionInner::Neg(box e)
+        }
+        UExpressionInner::Pos(box e) => {
+            let e = f.fold_uint_expression(e);
+
+            UExpressionInner::Pos(box e)
         }
         UExpressionInner::FunctionCall(key, exps) => {
             let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();

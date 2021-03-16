@@ -58,6 +58,16 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::Not(box self).annotate(bitwidth)
     }
 
+    pub fn neg(self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        UExpressionInner::Neg(box self).annotate(bitwidth)
+    }
+
+    pub fn pos(self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        UExpressionInner::Pos(box self).annotate(bitwidth)
+    }
+
     pub fn left_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::LeftShift(box self, box by).annotate(bitwidth)
@@ -107,6 +117,8 @@ pub enum UExpressionInner<'ast, T> {
     And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Not(Box<UExpression<'ast, T>>),
+    Neg(Box<UExpression<'ast, T>>),
+    Pos(Box<UExpression<'ast, T>>),
     LeftShift(
         Box<UExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,

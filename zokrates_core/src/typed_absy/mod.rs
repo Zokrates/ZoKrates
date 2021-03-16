@@ -626,6 +626,8 @@ pub enum FieldElementExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+    Neg(Box<FieldElementExpression<'ast, T>>),
+    Pos(Box<FieldElementExpression<'ast, T>>),
     FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     Member(Box<StructExpression<'ast, T>>, MemberId),
     Select(
@@ -876,6 +878,8 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
+            FieldElementExpression::Neg(ref e) => write!(f, "(-{})", e),
+            FieldElementExpression::Pos(ref e) => write!(f, "(+{})", e),
             FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => {
                 write!(
                     f,
@@ -915,6 +919,8 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
+            UExpressionInner::Neg(ref e) => write!(f, "(-{})", e),
+            UExpressionInner::Pos(ref e) => write!(f, "(+{})", e),
             UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
             UExpressionInner::FunctionCall(ref k, ref p) => {
                 write!(f, "{}(", k.id,)?;
@@ -1067,6 +1073,8 @@ impl<'ast, T: fmt::Debug> fmt::Debug for FieldElementExpression<'ast, T> {
             }
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
+            FieldElementExpression::Neg(ref e) => write!(f, "Neg({:?})", e),
+            FieldElementExpression::Pos(ref e) => write!(f, "Pos({:?})", e),
             FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => {
                 write!(
                     f,

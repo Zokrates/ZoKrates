@@ -722,6 +722,25 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     e => UExpressionInner::Not(box e.annotate(bitwidth)),
                 }
             }
+            UExpressionInner::Neg(box e) => {
+                let e = self.fold_uint_expression(e).into_inner();
+                match e {
+                    UExpressionInner::Value(v) => {
+                        use std::convert::TryInto;
+                        UExpressionInner::Value(
+                            2_u128.pow(bitwidth.to_usize().try_into().unwrap()) - v,
+                        )
+                    }
+                    e => UExpressionInner::Neg(box e.annotate(bitwidth)),
+                }
+            }
+            UExpressionInner::Pos(box e) => {
+                let e = self.fold_uint_expression(e).into_inner();
+                match e {
+                    UExpressionInner::Value(v) => UExpressionInner::Value(v),
+                    e => UExpressionInner::Pos(box e.annotate(bitwidth)),
+                }
+            }
             UExpressionInner::Select(box array, box index) => {
                 let array = self.fold_array_expression(array);
                 let index = self.fold_field_expression(index);
@@ -829,6 +848,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     FieldElementExpression::Number(n1 / n2)
                 }
                 (e1, e2) => FieldElementExpression::Div(box e1, box e2),
+            },
+            FieldElementExpression::Neg(box e) => match self.fold_field_expression(e) {
+                FieldElementExpression::Number(n) => FieldElementExpression::Number(T::zero() - n),
+                e => FieldElementExpression::Neg(box e),
+            },
+            FieldElementExpression::Pos(box e) => match self.fold_field_expression(e) {
+                FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
+                e => FieldElementExpression::Pos(box e),
             },
             FieldElementExpression::Pow(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);

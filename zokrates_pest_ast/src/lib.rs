@@ -435,11 +435,27 @@ mod ast {
     #[pest_ast(rule(Rule::op_unary))]
     pub enum UnaryOperator<'ast> {
         Not(Not<'ast>),
+        Neg(Neg<'ast>),
+        Pos(Pos<'ast>),
     }
 
     #[derive(Debug, PartialEq, FromPest, Clone)]
     #[pest_ast(rule(Rule::op_not))]
     pub struct Not<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, PartialEq, FromPest, Clone)]
+    #[pest_ast(rule(Rule::op_neg))]
+    pub struct Neg<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, PartialEq, FromPest, Clone)]
+    #[pest_ast(rule(Rule::op_pos))]
+    pub struct Pos<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

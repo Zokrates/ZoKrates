@@ -507,6 +507,12 @@ impl<'ast> From<pest::UnaryExpression<'ast>> for absy::ExpressionNode<'ast> {
             pest::UnaryOperator::Not(_) => {
                 absy::Expression::Not(Box::new(absy::ExpressionNode::from(*unary.expression)))
             }
+            pest::UnaryOperator::Neg(_) => {
+                absy::Expression::Neg(Box::new(absy::ExpressionNode::from(*unary.expression)))
+            }
+            pest::UnaryOperator::Pos(_) => {
+                absy::Expression::Pos(Box::new(absy::ExpressionNode::from(*unary.expression)))
+            }
         }
         .span(unary.span)
     }
