@@ -1,3 +1,0 @@
-def main(field x):
-    assert(x < 3)
-    return
