@@ -146,7 +146,7 @@ fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     let mut vk_file = File::create(vk_path)
         .map_err(|why| format!("Could not create {}: {}", vk_path.display(), why))?;
     vk_file
-        .write(
+        .write_all(
             serde_json::to_string_pretty(&keypair.vk)
                 .unwrap()
                 .as_bytes(),
@@ -159,7 +159,7 @@ fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     let mut pk_file = File::create(pk_path)
         .map_err(|why| format!("Could not create {}: {}", pk_path.display(), why))?;
     pk_file
-        .write(keypair.pk.as_ref())
+        .write_all(keypair.pk.as_ref())
         .map_err(|why| format!("Could not write to {}: {}", pk_path.display(), why))?;
 
     println!("Proving key written to '{}'", pk_path.display());
