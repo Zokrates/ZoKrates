@@ -366,7 +366,7 @@ mod tests {
         // ->
 
         // def main(x, y) -> (1):
-        //    6*x + 6*y == 6*x + 6*y // will be eliminated as a tautology
+        //    1*x + 1*y + 2*x + 2*y + 3*x + 3*y == 6*x + 6*y // will be eliminated as a tautology
         //    return 6*x + 6*y
 
         let x = FlatVariable::new(0);
@@ -400,7 +400,15 @@ mod tests {
                     LinComb::summand(6, x) + LinComb::summand(6, y),
                     LinComb::summand(6, x) + LinComb::summand(6, y),
                 ),
-                Statement::definition(r, LinComb::summand(6, x) + LinComb::summand(6, y)),
+                Statement::definition(
+                    r,
+                    LinComb::summand(1, x)
+                        + LinComb::summand(1, y)
+                        + LinComb::summand(2, x)
+                        + LinComb::summand(2, y)
+                        + LinComb::summand(3, x)
+                        + LinComb::summand(3, y),
+                ),
             ],
             returns: vec![r],
         };
