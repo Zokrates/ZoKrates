@@ -214,8 +214,8 @@ impl<T: Field + ArkFieldExtensions>
 
 mod parse {
     use super::*;
+    use crate::proof_system::{Fr, G1Affine, G2Affine, G2AffineFq};
     use ark_ff::ToBytes;
-    use proof_system::{Fr, G1Affine, G2Affine, G2AffineFq};
 
     pub fn parse_g1<T: Field + ArkFieldExtensions>(
         e: &<T::ArkEngine as PairingEngine>::G1Affine,

@@ -1,6 +1,6 @@
+use crate::zir::types::{Type, UBitwidth};
+use crate::zir::Identifier;
 use std::fmt;
-use zir::types::{Type, UBitwidth};
-use zir::Identifier;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Variable<'ast> {

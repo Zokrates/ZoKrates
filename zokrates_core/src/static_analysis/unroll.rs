@@ -5,11 +5,9 @@
 //! @date 2018
 
 use crate::typed_absy::folder::*;
-use crate::typed_absy::types::{MemberId, Type};
+use crate::typed_absy::identifier::CoreIdentifier;
 use crate::typed_absy::*;
 use std::collections::HashMap;
-use std::collections::HashSet;
-use typed_absy::identifier::CoreIdentifier;
 use zokrates_field::Field;
 
 pub enum Output<'ast, T: Field> {
@@ -63,320 +61,6 @@ impl<'ast> Unroller<'ast> {
             false => Output::Incomplete(p, unroller.statement_count),
         }
     }
-
-    fn choose_many<T: Field>(
-        base: TypedExpression<'ast, T>,
-        indices: Vec<Access<'ast, T>>,
-        new_expression: TypedExpression<'ast, T>,
-        statements: &mut HashSet<TypedStatement<'ast, T>>,
-    ) -> TypedExpression<'ast, T> {
-        let mut indices = indices;
-
-        match indices.len() {
-            0 => new_expression,
-            _ => match base {
-                TypedExpression::Array(base) => {
-                    let inner_ty = base.inner_type();
-                    let size = base.size();
-
-                    let head = indices.remove(0);
-                    let tail = indices;
-
-                    match head {
-                        Access::Select(head) => {
-                            statements.insert(TypedStatement::Assertion(
-                                BooleanExpression::Lt(
-                                    box head.clone(),
-                                    box FieldElementExpression::Number(T::from(size)),
-                                )
-                                .into(),
-                            ));
-
-                            ArrayExpressionInner::Value(
-                                (0..size)
-                                    .map(|i| match inner_ty {
-                                        Type::Array(..) => ArrayExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
-                                                box head.clone(),
-                                            ),
-                                            match Self::choose_many(
-                                                ArrayExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            ) {
-                                                TypedExpression::Array(e) => e,
-                                                e => unreachable!(
-                                            "the interior was expected to be an array, was {}",
-                                            e.get_type()
-                                        ),
-                                            },
-                                            ArrayExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
-                                        )
-                                        .into(),
-                                        Type::Struct(..) => StructExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
-                                                box head.clone(),
-                                            ),
-                                            match Self::choose_many(
-                                                StructExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            ) {
-                                                TypedExpression::Struct(e) => e,
-                                                e => unreachable!(
-                                            "the interior was expected to be a struct, was {}",
-                                            e.get_type()
-                                        ),
-                                            },
-                                            StructExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
-                                        )
-                                        .into(),
-                                        Type::FieldElement => FieldElementExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
-                                                box head.clone(),
-                                            ),
-                                            match Self::choose_many(
-                                                FieldElementExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            ) {
-                                                TypedExpression::FieldElement(e) => e,
-                                                e => unreachable!(
-                                            "the interior was expected to be a field, was {}",
-                                            e.get_type()
-                                        ),
-                                            },
-                                            FieldElementExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
-                                        )
-                                        .into(),
-                                        Type::Boolean => BooleanExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
-                                                box head.clone(),
-                                            ),
-                                            match Self::choose_many(
-                                                BooleanExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            ) {
-                                                TypedExpression::Boolean(e) => e,
-                                                e => unreachable!(
-                                            "the interior was expected to be a boolean, was {}",
-                                            e.get_type()
-                                        ),
-                                            },
-                                            BooleanExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
-                                        )
-                                        .into(),
-                                        Type::Uint(..) => UExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
-                                                box head.clone(),
-                                            ),
-                                            match Self::choose_many(
-                                                UExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            ) {
-                                                TypedExpression::Uint(e) => e,
-                                                e => unreachable!(
-                                            "the interior was expected to be a uint, was {}",
-                                            e.get_type()
-                                        ),
-                                            },
-                                            UExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
-                                        )
-                                        .into(),
-                                    })
-                                    .collect(),
-                            )
-                            .annotate(inner_ty.clone(), size)
-                            .into()
-                        }
-                        Access::Member(..) => unreachable!("can't get a member from an array"),
-                    }
-                }
-                TypedExpression::Struct(base) => {
-                    let members = match base.get_type() {
-                        Type::Struct(members) => members.clone(),
-                        _ => unreachable!(),
-                    };
-
-                    let head = indices.remove(0);
-                    let tail = indices;
-
-                    match head {
-                        Access::Member(head) => StructExpressionInner::Value(
-                            members
-                                .clone()
-                                .into_iter()
-                                .map(|member| match *member.ty {
-                                    Type::FieldElement => {
-                                        if member.id == head {
-                                            Self::choose_many(
-                                                FieldElementExpression::member(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            )
-                                        } else {
-                                            FieldElementExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
-                                        }
-                                    }
-                                    Type::Uint(..) => {
-                                        if member.id == head {
-                                            Self::choose_many(
-                                                UExpression::member(base.clone(), head.clone())
-                                                    .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            )
-                                        } else {
-                                            UExpression::member(base.clone(), member.id.clone())
-                                                .into()
-                                        }
-                                    }
-                                    Type::Boolean => {
-                                        if member.id == head {
-                                            Self::choose_many(
-                                                BooleanExpression::member(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            )
-                                        } else {
-                                            BooleanExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
-                                        }
-                                    }
-                                    Type::Array(..) => {
-                                        if member.id == head {
-                                            Self::choose_many(
-                                                ArrayExpression::member(base.clone(), head.clone())
-                                                    .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            )
-                                        } else {
-                                            ArrayExpression::member(base.clone(), member.id.clone())
-                                                .into()
-                                        }
-                                    }
-                                    Type::Struct(..) => {
-                                        if member.id == head {
-                                            Self::choose_many(
-                                                StructExpression::member(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
-                                                tail.clone(),
-                                                new_expression.clone(),
-                                                statements,
-                                            )
-                                        } else {
-                                            StructExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
-                                        }
-                                    }
-                                })
-                                .collect(),
-                        )
-                        .annotate(members)
-                        .into(),
-                        Access::Select(..) => unreachable!("can't get a element from a struct"),
-                    }
-                }
-                e => unreachable!("can't make an access on a {}", e.get_type()),
-            },
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-enum Access<'ast, T: Field> {
-    Select(FieldElementExpression<'ast, T>),
-    Member(MemberId),
-}
-/// Turn an assignee into its representation as a base variable and a list accesses
-/// a[2][3][4] -> (a, [2, 3, 4])
-fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable, Vec<Access<'ast, T>>) {
-    match a {
-        TypedAssignee::Identifier(v) => (v, vec![]),
-        TypedAssignee::Select(box array, box index) => {
-            let (v, mut indices) = linear(array);
-            indices.push(Access::Select(index));
-            (v, indices)
-        }
-        TypedAssignee::Member(box s, m) => {
-            let (v, mut indices) = linear(s);
-            indices.push(Access::Member(m));
-            (v, indices)
-        }
-    }
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
@@ -384,64 +68,31 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
         self.statement_count += 1;
         match s {
             TypedStatement::Declaration(_) => vec![],
-            TypedStatement::Definition(assignee, expr) => {
-                let expr = self.fold_expression(expr);
+            TypedStatement::Definition(a, e) => {
+                let e = self.fold_expression(e);
 
-                let (variable, indices) = linear(assignee);
-
-                let base = match variable.get_type() {
-                    Type::FieldElement => {
-                        FieldElementExpression::Identifier(variable.id.clone().into()).into()
+                let a = match a {
+                    TypedAssignee::Identifier(v) => {
+                        TypedAssignee::Identifier(self.issue_next_ssa_variable(v))
                     }
-                    Type::Boolean => {
-                        BooleanExpression::Identifier(variable.id.clone().into()).into()
-                    }
-                    Type::Uint(bitwidth) => {
-                        UExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(bitwidth)
-                            .into()
-                    }
-                    Type::Array(array_type) => {
-                        ArrayExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(*array_type.ty, array_type.size)
-                            .into()
-                    }
-                    Type::Struct(members) => {
-                        StructExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(members)
-                            .into()
-                    }
+                    a => fold_assignee(self, a),
                 };
 
-                let base = self.fold_expression(base);
-
-                let indices = indices
+                vec![TypedStatement::Definition(a, e)]
+            }
+            TypedStatement::MultipleDefinition(assignees, exprs) => {
+                let exprs = self.fold_expression_list(exprs);
+                let assignees = assignees
                     .into_iter()
                     .map(|a| match a {
-                        Access::Select(i) => Access::Select(self.fold_field_expression(i)),
-                        a => a,
+                        TypedAssignee::Identifier(v) => {
+                            TypedAssignee::Identifier(self.issue_next_ssa_variable(v))
+                        }
+                        a => fold_assignee(self, a),
                     })
                     .collect();
 
-                let mut range_checks = HashSet::new();
-                let e = Self::choose_many(base, indices, expr, &mut range_checks);
-
-                range_checks
-                    .into_iter()
-                    .chain(std::iter::once(TypedStatement::Definition(
-                        TypedAssignee::Identifier(self.issue_next_ssa_variable(variable)),
-                        e,
-                    )))
-                    .collect()
-            }
-            TypedStatement::MultipleDefinition(variables, exprs) => {
-                let exprs = self.fold_expression_list(exprs);
-                let variables = variables
-                    .into_iter()
-                    .map(|v| self.issue_next_ssa_variable(v))
-                    .collect();
-
-                vec![TypedStatement::MultipleDefinition(variables, exprs)]
+                vec![TypedStatement::MultipleDefinition(assignees, exprs)]
             }
             TypedStatement::For(v, from, to, stats) => {
                 let from = self.fold_field_expression(from);
@@ -509,246 +160,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 mod tests {
     use super::*;
     use zokrates_field::Bn128Field;
-
-    #[test]
-    fn ssa_array() {
-        let a0 = ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 3);
-
-        let e = FieldElementExpression::Number(Bn128Field::from(42)).into();
-
-        let index = FieldElementExpression::Number(Bn128Field::from(1));
-
-        let a1 = Unroller::choose_many(
-            a0.clone().into(),
-            vec![Access::Select(index)],
-            e,
-            &mut HashSet::new(),
-        );
-
-        // a[1] = 42
-        // -> a = [0 == 1 ? 42 : a[0], 1 == 1 ? 42 : a[1], 2 == 1 ? 42 : a[2]]
-
-        assert_eq!(
-            a1,
-            ArrayExpressionInner::Value(vec![
-                FieldElementExpression::if_else(
-                    BooleanExpression::FieldEq(
-                        box FieldElementExpression::Number(Bn128Field::from(0)),
-                        box FieldElementExpression::Number(Bn128Field::from(1))
-                    ),
-                    FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(
-                        a0.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(0))
-                    )
-                )
-                .into(),
-                FieldElementExpression::if_else(
-                    BooleanExpression::FieldEq(
-                        box FieldElementExpression::Number(Bn128Field::from(1)),
-                        box FieldElementExpression::Number(Bn128Field::from(1))
-                    ),
-                    FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(
-                        a0.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(1))
-                    )
-                )
-                .into(),
-                FieldElementExpression::if_else(
-                    BooleanExpression::FieldEq(
-                        box FieldElementExpression::Number(Bn128Field::from(2)),
-                        box FieldElementExpression::Number(Bn128Field::from(1))
-                    ),
-                    FieldElementExpression::Number(Bn128Field::from(42)),
-                    FieldElementExpression::select(
-                        a0.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(2))
-                    )
-                )
-                .into()
-            ])
-            .annotate(Type::FieldElement, 3)
-            .into()
-        );
-
-        let a0 = ArrayExpressionInner::Identifier("a".into())
-            .annotate(Type::array(Type::FieldElement, 3), 3);
-
-        let e = ArrayExpressionInner::Identifier("b".into()).annotate(Type::FieldElement, 3);
-
-        let index = FieldElementExpression::Number(Bn128Field::from(1));
-
-        let a1 = Unroller::choose_many(
-            a0.clone().into(),
-            vec![Access::Select(index)],
-            e.clone().into(),
-            &mut HashSet::new(),
-        );
-
-        // a[0] = b
-        // -> a = [0 == 1 ? b : a[0], 1 == 1 ? b : a[1], 2 == 1 ? b : a[2]]
-
-        assert_eq!(
-            a1,
-            ArrayExpressionInner::Value(vec![
-                ArrayExpression::if_else(
-                    BooleanExpression::FieldEq(
-                        box FieldElementExpression::Number(Bn128Field::from(0)),
-                        box FieldElementExpression::Number(Bn128Field::from(1))
-                    ),
-                    e.clone(),
-                    ArrayExpression::select(
-                        a0.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(0))
-                    )
-                )
-                .into(),
-                ArrayExpression::if_else(
-                    BooleanExpression::FieldEq(
-                        box FieldElementExpression::Number(Bn128Field::from(1)),
-                        box FieldElementExpression::Number(Bn128Field::from(1))
-                    ),
-                    e.clone(),
-                    ArrayExpression::select(
-                        a0.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(1))
-                    )
-                )
-                .into(),
-                ArrayExpression::if_else(
-                    BooleanExpression::FieldEq(
-                        box FieldElementExpression::Number(Bn128Field::from(2)),
-                        box FieldElementExpression::Number(Bn128Field::from(1))
-                    ),
-                    e.clone(),
-                    ArrayExpression::select(
-                        a0.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(2))
-                    )
-                )
-                .into()
-            ])
-            .annotate(Type::array(Type::FieldElement, 3), 3)
-            .into()
-        );
-
-        let a0 = ArrayExpressionInner::Identifier("a".into())
-            .annotate(Type::array(Type::FieldElement, 2), 2);
-
-        let e = FieldElementExpression::Number(Bn128Field::from(42));
-
-        let indices = vec![
-            Access::Select(FieldElementExpression::Number(Bn128Field::from(0))),
-            Access::Select(FieldElementExpression::Number(Bn128Field::from(0))),
-        ];
-
-        let a1 = Unroller::choose_many(
-            a0.clone().into(),
-            indices,
-            e.clone().into(),
-            &mut HashSet::new(),
-        );
-
-        // a[0][0] = 42
-        // -> a = [0 == 0 ? [0 == 0 ? 42 : a[0][0], 1 == 0 ? 42 : a[0][1]] : a[0], 1 == 0 ? [0 == 0 ? 42 : a[1][0], 1 == 0 ? 42 : a[1][1]] : a[1]]
-
-        assert_eq!(
-            a1,
-            ArrayExpressionInner::Value(vec![
-                ArrayExpression::if_else(
-                    BooleanExpression::FieldEq(
-                        box FieldElementExpression::Number(Bn128Field::from(0)),
-                        box FieldElementExpression::Number(Bn128Field::from(0))
-                    ),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::if_else(
-                            BooleanExpression::FieldEq(
-                                box FieldElementExpression::Number(Bn128Field::from(0)),
-                                box FieldElementExpression::Number(Bn128Field::from(0))
-                            ),
-                            e.clone(),
-                            FieldElementExpression::select(
-                                ArrayExpression::select(
-                                    a0.clone(),
-                                    FieldElementExpression::Number(Bn128Field::from(0))
-                                ),
-                                FieldElementExpression::Number(Bn128Field::from(0))
-                            )
-                        )
-                        .into(),
-                        FieldElementExpression::if_else(
-                            BooleanExpression::FieldEq(
-                                box FieldElementExpression::Number(Bn128Field::from(1)),
-                                box FieldElementExpression::Number(Bn128Field::from(0))
-                            ),
-                            e.clone(),
-                            FieldElementExpression::select(
-                                ArrayExpression::select(
-                                    a0.clone(),
-                                    FieldElementExpression::Number(Bn128Field::from(0))
-                                ),
-                                FieldElementExpression::Number(Bn128Field::from(1))
-                            )
-                        )
-                        .into()
-                    ])
-                    .annotate(Type::FieldElement, 2),
-                    ArrayExpression::select(
-                        a0.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(0))
-                    )
-                )
-                .into(),
-                ArrayExpression::if_else(
-                    BooleanExpression::FieldEq(
-                        box FieldElementExpression::Number(Bn128Field::from(1)),
-                        box FieldElementExpression::Number(Bn128Field::from(0))
-                    ),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::if_else(
-                            BooleanExpression::FieldEq(
-                                box FieldElementExpression::Number(Bn128Field::from(0)),
-                                box FieldElementExpression::Number(Bn128Field::from(0))
-                            ),
-                            e.clone(),
-                            FieldElementExpression::select(
-                                ArrayExpression::select(
-                                    a0.clone(),
-                                    FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                FieldElementExpression::Number(Bn128Field::from(0))
-                            )
-                        )
-                        .into(),
-                        FieldElementExpression::if_else(
-                            BooleanExpression::FieldEq(
-                                box FieldElementExpression::Number(Bn128Field::from(1)),
-                                box FieldElementExpression::Number(Bn128Field::from(0))
-                            ),
-                            e.clone(),
-                            FieldElementExpression::select(
-                                ArrayExpression::select(
-                                    a0.clone(),
-                                    FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                FieldElementExpression::Number(Bn128Field::from(1))
-                            )
-                        )
-                        .into()
-                    ])
-                    .annotate(Type::FieldElement, 2),
-                    ArrayExpression::select(
-                        a0.clone(),
-                        FieldElementExpression::Number(Bn128Field::from(1))
-                    )
-                )
-                .into(),
-            ])
-            .annotate(Type::array(Type::FieldElement, 2), 2)
-            .into()
-        );
-    }
 
     #[cfg(test)]
     mod statement {
@@ -829,16 +240,44 @@ mod tests {
         fn idempotence() {
             // an already unrolled program should not be modified by unrolling again
 
+            // b = [5]
+            // b[0] = 1
             // a = 5
             // a_1 = 6
             // a_2 = 7
 
             // should be turned into
+            // b = [5]
+            // b[0] = 1
             // a = 5
             // a_1 = 6
             // a_2 = 7
 
             let mut u = Unroller::new();
+
+            let s = TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::array(
+                    Identifier::from("b").version(0),
+                    Type::FieldElement,
+                    1,
+                )),
+                ArrayExpressionInner::Value(vec![FieldElementExpression::from(Bn128Field::from(
+                    5,
+                ))
+                .into()])
+                .annotate(Type::FieldElement, 1)
+                .into(),
+            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
+
+            let s = TypedStatement::Definition(
+                TypedAssignee::Select(
+                    box Variable::field_element(Identifier::from("b").version(0)).into(),
+                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                ),
+                FieldElementExpression::Number(Bn128Field::from(1)).into(),
+            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(
@@ -1005,7 +444,7 @@ mod tests {
             );
 
             let s: TypedStatement<Bn128Field> = TypedStatement::MultipleDefinition(
-                vec![Variable::field_element("a")],
+                vec![Variable::field_element("a").into()],
                 TypedExpressionList::FunctionCall(
                     FunctionKey::with_id("foo").signature(
                         Signature::new()
@@ -1019,7 +458,7 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::MultipleDefinition(
-                    vec![Variable::field_element(Identifier::from("a").version(1))],
+                    vec![Variable::field_element(Identifier::from("a").version(1)).into()],
                     TypedExpressionList::FunctionCall(
                         FunctionKey::with_id("foo").signature(
                             Signature::new()
@@ -1043,7 +482,7 @@ mod tests {
 
             // should be turned into
             // a_0 = [1, 1]
-            // a_1 = [if 0 == 1 then 2 else a_0[0], if 1 == 1 then 2 else a_0[1]]
+            // a_0[1] = 2
 
             let mut u = Unroller::new();
 
@@ -1085,58 +524,7 @@ mod tests {
                 FieldElementExpression::Number(Bn128Field::from(2)).into(),
             );
 
-            assert_eq!(
-                u.fold_statement(s),
-                vec![
-                    TypedStatement::Assertion(
-                        BooleanExpression::Lt(
-                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                            box FieldElementExpression::Number(Bn128Field::from(2))
-                        )
-                        .into(),
-                    ),
-                    TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_array(
-                            Identifier::from("a").version(1),
-                            2
-                        )),
-                        ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::FieldEq(
-                                    box FieldElementExpression::Number(Bn128Field::from(0)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                box FieldElementExpression::Number(Bn128Field::from(2)),
-                                box FieldElementExpression::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        Identifier::from("a").version(0)
-                                    )
-                                    .annotate(Type::FieldElement, 2),
-                                    box FieldElementExpression::Number(Bn128Field::from(0))
-                                ),
-                            )
-                            .into(),
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::FieldEq(
-                                    box FieldElementExpression::Number(Bn128Field::from(1)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                box FieldElementExpression::Number(Bn128Field::from(2)),
-                                box FieldElementExpression::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        Identifier::from("a").version(0)
-                                    )
-                                    .annotate(Type::FieldElement, 2),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                            )
-                            .into(),
-                        ])
-                        .annotate(Type::FieldElement, 2)
-                        .into()
-                    )
-                ]
-            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
         }
 
         #[test]
@@ -1146,7 +534,7 @@ mod tests {
 
             // should be turned into
             // a_0 = [[0, 1], [2, 3]]
-            // a_1 = [if 0 == 1 then [4, 5] else a_0[0], if 1 == 1 then [4, 5] else a_0[1]]
+            // a_0 = [4, 5]
 
             let mut u = Unroller::new();
 
@@ -1222,72 +610,7 @@ mod tests {
                 .into(),
             );
 
-            assert_eq!(
-                u.fold_statement(s),
-                vec![
-                    TypedStatement::Assertion(
-                        BooleanExpression::Lt(
-                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                            box FieldElementExpression::Number(Bn128Field::from(2))
-                        )
-                        .into(),
-                    ),
-                    TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::with_id_and_type(
-                            Identifier::from("a").version(1),
-                            array_of_array_ty.clone()
-                        )),
-                        ArrayExpressionInner::Value(vec![
-                            ArrayExpressionInner::IfElse(
-                                box BooleanExpression::FieldEq(
-                                    box FieldElementExpression::Number(Bn128Field::from(0)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                box ArrayExpressionInner::Value(vec![
-                                    FieldElementExpression::Number(Bn128Field::from(4)).into(),
-                                    FieldElementExpression::Number(Bn128Field::from(5)).into(),
-                                ])
-                                .annotate(Type::FieldElement, 2)
-                                .into(),
-                                box ArrayExpressionInner::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        Identifier::from("a").version(0)
-                                    )
-                                    .annotate(Type::array(Type::FieldElement, 2), 2),
-                                    box FieldElementExpression::Number(Bn128Field::from(0))
-                                )
-                                .annotate(Type::FieldElement, 2),
-                            )
-                            .annotate(Type::FieldElement, 2)
-                            .into(),
-                            ArrayExpressionInner::IfElse(
-                                box BooleanExpression::FieldEq(
-                                    box FieldElementExpression::Number(Bn128Field::from(1)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                ),
-                                box ArrayExpressionInner::Value(vec![
-                                    FieldElementExpression::Number(Bn128Field::from(4)).into(),
-                                    FieldElementExpression::Number(Bn128Field::from(5)).into(),
-                                ])
-                                .annotate(Type::FieldElement, 2)
-                                .into(),
-                                box ArrayExpressionInner::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        Identifier::from("a").version(0)
-                                    )
-                                    .annotate(Type::array(Type::FieldElement, 2), 2),
-                                    box FieldElementExpression::Number(Bn128Field::from(1))
-                                )
-                                .annotate(Type::FieldElement, 2),
-                            )
-                            .annotate(Type::FieldElement, 2)
-                            .into(),
-                        ])
-                        .annotate(Type::array(Type::FieldElement, 2), 2)
-                        .into()
-                    )
-                ]
-            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
         }
     }
 }

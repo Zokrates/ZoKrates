@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
 use zokrates_common::Resolver;
-use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
+use zokrates_core::compile::{
+    compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
+};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::bellman::Bellman;
@@ -34,8 +36,8 @@ pub struct ComputationResult {
 }
 
 #[inline]
-fn deserialize_program(value: &Vec<u8>) -> Result<ir::Prog<Bn128Field>, JsValue> {
-    deserialize(&value)
+fn deserialize_program(value: &[u8]) -> Result<ir::Prog<Bn128Field>, JsValue> {
+    deserialize(value)
         .map_err(|err| JsValue::from_str(&format!("Could not deserialize program: {}", err)))
 }
 
@@ -92,14 +94,17 @@ pub fn compile(
     source: JsValue,
     location: JsValue,
     resolve_callback: &js_sys::Function,
+    config: JsValue,
 ) -> Result<JsValue, JsValue> {
     let resolver = JsResolver::new(resolve_callback);
+    let config: CompileConfig = config.into_serde().unwrap_or(CompileConfig::default());
 
     let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
     let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
+        &config,
     )
     .map_err(|ce| {
         JsValue::from_str(&format!(
@@ -120,11 +125,9 @@ pub fn compile(
 }
 
 #[wasm_bindgen]
-pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsValue> {
-    let result: CompilationResult = artifacts.into_serde().unwrap();
-    let program_flattened = deserialize_program(&result.program)?;
-
-    let abi: Abi = serde_json::from_str(result.abi.as_str())
+pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<JsValue, JsValue> {
+    let program_flattened = deserialize_program(program)?;
+    let abi: Abi = serde_json::from_str(abi.as_string().unwrap().as_str())
         .map_err(|err| JsValue::from_str(&format!("Could not deserialize abi: {}", err)))?;
 
     let signature: Signature = abi.signature();
@@ -152,9 +155,8 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
 }
 
 #[wasm_bindgen]
-pub fn setup(program: JsValue) -> Result<JsValue, JsValue> {
-    let input: Vec<u8> = program.into_serde().unwrap();
-    let program_flattened = deserialize_program(&input)?;
+pub fn setup(program: &[u8]) -> Result<JsValue, JsValue> {
+    let program_flattened = deserialize_program(program)?;
     let keypair = <Bellman as Backend<Bn128Field, G16>>::setup(program_flattened);
     Ok(JsValue::from_serde(&keypair).unwrap())
 }
@@ -173,19 +175,17 @@ pub fn export_solidity_verifier(vk: JsValue, abi_version: JsValue) -> Result<JsV
 }
 
 #[wasm_bindgen]
-pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result<JsValue, JsValue> {
-    let input: Vec<u8> = program.into_serde().unwrap();
-    let program_flattened = deserialize_program(&input)?;
-
+pub fn generate_proof(program: &[u8], witness: JsValue, pk: &[u8]) -> Result<JsValue, JsValue> {
+    let program_flattened = deserialize_program(program)?;
     let str_witness = witness.as_string().unwrap();
+
     let ir_witness: ir::Witness<Bn128Field> = ir::Witness::read(str_witness.as_bytes())
         .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
-    let proving_key: Vec<u8> = pk.into_serde().unwrap();
     let proof = <Bellman as Backend<Bn128Field, G16>>::generate_proof(
         program_flattened,
         ir_witness,
-        proving_key,
+        pk.to_vec(),
     );
 
     Ok(JsValue::from_serde(&proof).unwrap())

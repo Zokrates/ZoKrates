@@ -19,9 +19,9 @@
 //! In the case that a loop bound cannot be reduced to a constant, we detect it by noticing that the unroll does
 //! not make progress anymore.
 
-use static_analysis::propagation::Propagator;
-use static_analysis::unroll::{Output, Unroller};
-use typed_absy::TypedProgram;
+use crate::static_analysis::propagation::Propagator;
+use crate::static_analysis::unroll::{Output, Unroller};
+use crate::typed_absy::TypedProgram;
 use zokrates_field::Field;
 
 pub struct PropagatedUnroller;
@@ -61,8 +61,8 @@ impl PropagatedUnroller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use typed_absy::types::{FunctionKey, Signature};
-    use typed_absy::*;
+    use crate::typed_absy::types::{FunctionKey, Signature};
+    use crate::typed_absy::*;
     use zokrates_field::Bn128Field;
 
     #[test]

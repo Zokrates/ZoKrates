@@ -1,5 +1,5 @@
+use crate::zir::Variable;
 use std::fmt;
-use zir::Variable;
 
 #[derive(Clone, PartialEq)]
 pub struct Parameter<'ast> {

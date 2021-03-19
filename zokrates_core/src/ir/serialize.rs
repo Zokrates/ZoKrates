@@ -1,5 +1,5 @@
+use crate::ir::Prog;
 use bincode::{deserialize_from, serialize_into, Infinite};
-use ir::Prog;
 use std::io::{Read, Write};
 use zokrates_field::*;
 
@@ -70,7 +70,7 @@ impl ProgEnum {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ir;
+    use crate::ir;
     use std::io::{Cursor, Seek, SeekFrom};
     use zokrates_field::{Bls12_381Field, Bn128Field};
 

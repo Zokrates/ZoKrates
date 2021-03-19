@@ -9,14 +9,14 @@ mod variable;
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
+pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 use std::path::PathBuf;
-pub use zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
-use embed::FlatEmbed;
+use crate::embed::FlatEmbed;
+use crate::zir::types::{FunctionKey, Signature};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
-use zir::types::{FunctionKey, Signature};
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
@@ -192,7 +192,7 @@ pub enum ZirStatement<'ast, T> {
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
     Declaration(Variable<'ast>),
     Assertion(BooleanExpression<'ast, T>),
-    MultipleDefinition(Vec<Variable<'ast>>, ZirExpressionList<'ast, T>),
+    MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {
@@ -420,6 +420,36 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
     ),
+}
+
+pub struct ConjunctionIterator<T> {
+    current: Vec<T>,
+}
+
+impl<'ast, T> Iterator for ConjunctionIterator<BooleanExpression<'ast, T>> {
+    type Item = BooleanExpression<'ast, T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.current
+            .pop()
+            .map(|n| match n {
+                BooleanExpression::And(box left, box right) => {
+                    self.current.push(left);
+                    self.current.push(right);
+                    self.next()
+                }
+                n => Some(n),
+            })
+            .flatten()
+    }
+}
+
+impl<'ast, T> BooleanExpression<'ast, T> {
+    pub fn into_conjunction_iterator(self) -> ConjunctionIterator<Self> {
+        ConjunctionIterator {
+            current: vec![self],
+        }
+    }
 }
 
 // Downcasts

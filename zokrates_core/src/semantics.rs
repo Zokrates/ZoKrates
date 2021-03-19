@@ -18,8 +18,8 @@ use crate::parser::Position;
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 use crate::typed_absy::types::{FunctionKey, Signature, StructLocation, Type};
 
+use crate::typed_absy::types::{ArrayType, StructMember};
 use std::hash::{Hash, Hasher};
-use typed_absy::types::{ArrayType, StructMember};
 
 #[derive(PartialEq, Debug)]
 pub struct ErrorInner {
@@ -651,6 +651,8 @@ impl<'ast> Checker<'ast> {
     ) -> Result<TypedFunction<'ast, T>, Vec<ErrorInner>> {
         self.enter_scope();
 
+        let pos = funct_node.pos();
+
         let mut errors = vec![];
         let funct = funct_node.value;
         let mut arguments_checked = vec![];
@@ -672,8 +674,21 @@ impl<'ast> Checker<'ast> {
 
         match self.check_signature(funct.signature, module_id, types) {
             Ok(s) => {
+                let mut found_return = false;
+
                 for stat in funct.statements.into_iter() {
-                    let pos = stat.pos();
+                    let pos = Some(stat.pos());
+
+                    if let Statement::Return(..) = stat.value {
+                        if found_return {
+                            errors.push(ErrorInner {
+                                pos,
+                                message: format!("Expected a single return statement",),
+                            });
+                        }
+
+                        found_return = true;
+                    }
 
                     match self.check_statement(stat, module_id, types) {
                         Ok(statement) => {
@@ -684,7 +699,7 @@ impl<'ast> Checker<'ast> {
                                     {
                                         true => {}
                                         false => errors.push(ErrorInner {
-                                            pos: Some(pos),
+                                            pos,
                                             message: format!(
                                                 "Expected ({}) in return statement, found ({})",
                                                 s.outputs
@@ -710,6 +725,14 @@ impl<'ast> Checker<'ast> {
                         }
                     }
                 }
+
+                if !found_return {
+                    errors.push(ErrorInner {
+                        pos: Some(pos),
+                        message: format!("Expected a return statement",),
+                    });
+                }
+
                 signature = Some(s);
             }
             Err(e) => {
@@ -973,22 +996,9 @@ impl<'ast> Checker<'ast> {
                             return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
                         }
 
-                        // constrain assignees to being identifiers
-                        let (variables, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| match a.unwrap() {
-                            TypedAssignee::Identifier(v) => Ok(v),
-                            a => Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!("Only assignment to identifiers is supported, found {}", a)
-                            })
-                        }).partition(|r| r.is_ok());
+                        let assignees: Vec<_> = assignees.into_iter().map(|a| a.unwrap()).collect();
 
-                        if errors.len() > 0 {
-                            return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
-                        }
-
-                        let variables: Vec<_> = variables.into_iter().map(|v| v.unwrap()).collect();
-
-                        let vars_types = variables.iter().map(|a| Some(a.get_type().clone())).collect();
+                        let assignee_types = assignees.iter().map(|a| Some(a.get_type().clone())).collect();
 
                         // find argument types
                         let mut arguments_checked = vec![];
@@ -1000,7 +1010,7 @@ impl<'ast> Checker<'ast> {
                         let arguments_types =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
-                        let query = FunctionQuery::new(&fun_id, &arguments_types, &vars_types);
+                        let query = FunctionQuery::new(&fun_id, &arguments_types, &assignee_types);
 
                         let f = self.find_function(&query);
 
@@ -1010,7 +1020,7 @@ impl<'ast> Checker<'ast> {
 
                                 let call = TypedExpressionList::FunctionCall(f.clone(), arguments_checked, f.signature.outputs.clone());
 
-                                Ok(TypedStatement::MultipleDefinition(variables, call))
+                                Ok(TypedStatement::MultipleDefinition(assignees, call))
                     		},
                     		None => Err(ErrorInner {                         pos: Some(pos),
  message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
@@ -2378,9 +2388,9 @@ impl<'ast> Checker<'ast> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use absy;
+    use crate::absy;
+    use crate::typed_absy;
     use num_bigint::BigUint;
-    use typed_absy;
     use zokrates_field::Bn128Field;
 
     const MODULE_ID: &str = "";
@@ -2957,6 +2967,7 @@ mod tests {
     fn declared_in_other_function() {
         // def foo():
         //   field a = 1
+        //   return
         // def bar():
         //   return a
         // should fail
@@ -2971,14 +2982,18 @@ mod tests {
                 Expression::FieldConstant(BigUint::from(1u32)).mock(),
             )
             .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
         ];
         let foo = Function {
             arguments: foo_args,
             statements: foo_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3038,9 +3053,10 @@ mod tests {
     fn declared_in_two_scopes() {
         // def foo():
         //   a = 1
+        //   return
         // def bar():
         //   a = 2
-        //   return a
+        //   return
         // def main():
         //   return 1
         // should pass
@@ -3055,15 +3071,19 @@ mod tests {
                 Expression::FieldConstant(BigUint::from(1u32)).mock(),
             )
             .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
         ];
 
         let foo = Function {
             arguments: foo_args,
             statements: foo_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3080,7 +3100,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::Identifier("a").mock()],
+                    expressions: vec![],
                 }
                 .mock(),
             )
@@ -3089,10 +3109,7 @@ mod tests {
         let bar = Function {
             arguments: bar_args,
             statements: bar_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3196,6 +3213,7 @@ mod tests {
         //   for i in 0..10 do
         //     a = i
         //   endfor
+        //   return
         // should pass
 
         let for_statements = vec![
@@ -3210,13 +3228,22 @@ mod tests {
             .mock(),
         ];
 
-        let foo_statements = vec![Statement::For(
-            absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-            Expression::FieldConstant(BigUint::from(0u32)).mock(),
-            Expression::FieldConstant(BigUint::from(10u32)).mock(),
-            for_statements,
-        )
-        .mock()];
+        let foo_statements = vec![
+            Statement::For(
+                absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
+                Expression::FieldConstant(BigUint::from(0u32)).mock(),
+                Expression::FieldConstant(BigUint::from(10u32)).mock(),
+                for_statements,
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
 
         let for_statements_checked = vec![
             TypedStatement::Declaration(typed_absy::Variable::field_element("a")),
@@ -3226,30 +3253,27 @@ mod tests {
             ),
         ];
 
-        let foo_statements_checked = vec![TypedStatement::For(
-            typed_absy::Variable::field_element("i"),
-            FieldElementExpression::Number(Bn128Field::from(0u32)),
-            FieldElementExpression::Number(Bn128Field::from(10u32)),
-            for_statements_checked,
-        )];
+        let foo_statements_checked = vec![
+            TypedStatement::For(
+                typed_absy::Variable::field_element("i"),
+                FieldElementExpression::Number(Bn128Field::from(0u32)),
+                FieldElementExpression::Number(Bn128Field::from(10u32)),
+                for_statements_checked,
+            ),
+            TypedStatement::Return(vec![]),
+        ];
 
         let foo = Function {
             arguments: vec![],
             statements: foo_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
         let foo_checked = TypedFunction {
-            arguments: Vec::<Parameter>::new(),
+            arguments: vec![],
             statements: foo_statements_checked,
-            signature: Signature {
-                inputs: vec![],
-                outputs: vec![Type::FieldElement],
-            },
+            signature: Signature::new(),
         };
 
         let types = HashMap::new();
@@ -3279,6 +3303,13 @@ mod tests {
                 Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
         ];
 
         let foo = FunctionKey {
@@ -3294,10 +3325,7 @@ mod tests {
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3322,15 +3350,25 @@ mod tests {
         //   return 1, 2
         // def bar():
         //   2 == foo()
+        //   return
         // should fail
-        let bar_statements: Vec<StatementNode> = vec![Statement::Assertion(
-            Expression::Eq(
-                box Expression::FieldConstant(BigUint::from(2u32)).mock(),
-                box Expression::FunctionCall("foo", vec![]).mock(),
+        let bar_statements: Vec<StatementNode> = vec![
+            Statement::Assertion(
+                Expression::Eq(
+                    box Expression::FieldConstant(BigUint::from(2u32)).mock(),
+                    box Expression::FunctionCall("foo", vec![]).mock(),
+                )
+                .mock(),
             )
             .mock(),
-        )
-        .mock()];
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
 
         let foo = FunctionKey {
             id: "foo",
@@ -3347,7 +3385,7 @@ mod tests {
             statements: bar_statements,
             signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
+                outputs: vec![],
             },
         }
         .mock();
@@ -3370,6 +3408,7 @@ mod tests {
     fn function_undefined_in_multidef() {
         // def bar():
         //   field a = foo()
+        //   return
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
@@ -3381,15 +3420,19 @@ mod tests {
                 Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
         ];
 
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3617,14 +3660,14 @@ mod tests {
     }
 
     #[test]
-    fn assign_to_non_variable() {
+    fn assign_to_select() {
         // def foo() -> field:
         //  return 1
         // def main():
         //  field[1] a = [0]
         //  a[0] = foo()
         //  return
-        // should fail
+        // should succeed
 
         let foo_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
@@ -3711,39 +3754,37 @@ mod tests {
             State::<Bn128Field>::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-        assert_eq!(
-            checker.check_module(&"main".into(), &mut state),
-            Err(vec![Error {
-                inner: ErrorInner {
-                    pos: Some((Position::mock(), Position::mock())),
-                    message: "Only assignment to identifiers is supported, found a[0]".into()
-                },
-                module_id: "main".into()
-            }])
-        );
+        assert!(checker.check_module(&"main".into(), &mut state).is_ok());
     }
 
     #[test]
     fn function_undefined() {
         // def bar():
         //   1 == foo()
+        //   return
         // should fail
-        let bar_statements: Vec<StatementNode> = vec![Statement::Assertion(
-            Expression::Eq(
-                box Expression::FieldConstant(BigUint::from(1u32)).mock(),
-                box Expression::FunctionCall("foo", vec![]).mock(),
+        let bar_statements: Vec<StatementNode> = vec![
+            Statement::Assertion(
+                Expression::Eq(
+                    box Expression::FieldConstant(BigUint::from(1u32)).mock(),
+                    box Expression::FunctionCall("foo", vec![]).mock(),
+                )
+                .mock(),
             )
             .mock(),
-        )
-        .mock()];
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
 
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
+            signature: UnresolvedSignature::new(),
         }
         .mock();
 
@@ -3848,8 +3889,8 @@ mod tests {
             TypedStatement::Declaration(typed_absy::Variable::field_element("b")),
             TypedStatement::MultipleDefinition(
                 vec![
-                    typed_absy::Variable::field_element("a"),
-                    typed_absy::Variable::field_element("b"),
+                    typed_absy::Variable::field_element("a").into(),
+                    typed_absy::Variable::field_element("b").into(),
                 ],
                 TypedExpressionList::FunctionCall(
                     FunctionKey::with_id("foo").signature(

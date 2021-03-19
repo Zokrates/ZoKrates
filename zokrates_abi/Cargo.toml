@@ -5,7 +5,7 @@ authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>"]
 edition = "2018"
 
 [dependencies]
-zokrates_field = { version = "0.3", path = "../zokrates_field" }
+zokrates_field = { version = "0.3", path = "../zokrates_field", default-features = false }
 zokrates_core = { version = "0.5", path = "../zokrates_core", default-features = false }
 serde = "1.0"
 serde_derive = "1.0"

@@ -36,13 +36,17 @@ module.exports = (dep) => {
 
     return {
         compile: (source, options = {}) => {
-            const { location = "main.zok", resolveCallback = () => null } = options;
+            const createConfig = (config) => ({
+                allow_unconstrained_variables: false,
+                ...config
+            });
+            const { location = "main.zok", resolveCallback = () => null, config = {} } = options;
             const callback = (currentLocation, importLocation) => {
                 return resolveFromStdlib(currentLocation, importLocation) || resolveCallback(currentLocation, importLocation);
             };
-            const { program, abi } = zokrates.compile(source, location, callback);
+            const { program, abi } = zokrates.compile(source, location, callback, createConfig(config));
             return {
-                program: Array.from(program),
+                program: new Uint8Array(program),
                 abi
             }
         },
@@ -50,11 +54,12 @@ module.exports = (dep) => {
             const { vk, pk } = zokrates.setup(program);
             return {
                 vk,
-                pk: Array.from(pk)
+                pk: new Uint8Array(pk)
             };
         },
         computeWitness: (artifacts, args) => {
-            return zokrates.compute_witness(artifacts, JSON.stringify(Array.from(args)));
+            const { program, abi } = artifacts;
+            return zokrates.compute_witness(program, abi, JSON.stringify(Array.from(args)));
         },
         exportSolidityVerifier: (verificationKey, abiVersion) => {
             return zokrates.export_solidity_verifier(verificationKey, abiVersion);

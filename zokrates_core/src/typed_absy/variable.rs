@@ -1,7 +1,7 @@
 use crate::typed_absy::types::Type;
+use crate::typed_absy::types::{StructType, UBitwidth};
 use crate::typed_absy::Identifier;
 use std::fmt;
-use typed_absy::types::{StructType, UBitwidth};
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Variable<'ast> {

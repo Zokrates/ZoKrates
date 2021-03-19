@@ -3,21 +3,22 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use absy::{Module, ModuleId, Program};
-use flatten::Flattener;
-use imports::{self, Importer};
-use ir;
-use macros;
+use crate::absy::{Module, ModuleId, Program};
+use crate::flatten::Flattener;
+use crate::imports::{self, Importer};
+use crate::ir;
+use crate::macros;
+use crate::semantics::{self, Checker};
+use crate::static_analysis::Analyse;
+use crate::typed_absy::abi::Abi;
+use crate::zir::ZirProgram;
 use macros::process_macros;
-use semantics::{self, Checker};
-use static_analysis::Analyse;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::path::PathBuf;
-use typed_absy::abi::Abi;
 use typed_arena::Arena;
-use zir::ZirProgram;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
@@ -140,19 +141,25 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct CompileConfig {
+    pub allow_unconstrained_variables: bool,
+}
+
 type FilePath = PathBuf;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
+    config: &CompileConfig,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
     // flatten input program
-    let program_flattened = Flattener::flatten(typed_ast);
+    let program_flattened = Flattener::flatten(typed_ast, config);
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
@@ -163,7 +170,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    // analyse (check for unused constraints)
+    // analyse (check constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
 
     Ok(CompilationArtifacts {
@@ -263,6 +270,7 @@ mod test {
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
+            &CompileConfig::default(),
         );
         assert!(res.unwrap_err().0[0]
             .value()
@@ -281,14 +289,15 @@ mod test {
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
+            &CompileConfig::default(),
         );
         assert!(res.is_ok());
     }
 
     mod abi {
         use super::*;
-        use typed_absy::abi::*;
-        use typed_absy::types::*;
+        use crate::typed_absy::abi::*;
+        use crate::typed_absy::types::*;
 
         #[test]
         fn use_struct_declaration_types() {
@@ -361,6 +370,7 @@ struct Bar { field a }
                 main.to_string(),
                 "main".into(),
                 Some(&CustomResolver),
+                &CompileConfig::default(),
             )
             .unwrap();
 
