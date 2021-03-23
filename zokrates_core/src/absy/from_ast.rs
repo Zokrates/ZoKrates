@@ -500,17 +500,17 @@ impl<'ast> From<pest::ArrayInitializerExpression<'ast>> for absy::ExpressionNode
 }
 
 impl<'ast> From<pest::UnaryExpression<'ast>> for absy::ExpressionNode<'ast> {
-    fn from(e: pest::UnaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
+    fn from(unary: pest::UnaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
         use crate::absy::NodeValue;
 
-        let expression = Box::new(absy::ExpressionNode::from(*e.expression));
+        let expression = Box::new(absy::ExpressionNode::from(*unary.expression));
 
-        match e.op {
+        match unary.op {
             pest::UnaryOperator::Not(..) => absy::Expression::Not(expression),
             pest::UnaryOperator::Neg(..) => absy::Expression::Neg(expression),
             pest::UnaryOperator::Pos(..) => absy::Expression::Pos(expression),
         }
-        .span(e.span)
+        .span(unary.span)
     }
 }
 

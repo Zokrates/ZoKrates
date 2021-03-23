@@ -12,7 +12,7 @@ pub use ast::{
     AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
     ConstantExpression, DecimalNumberExpression, DefinitionStatement, Expression, FieldType, File,
     FromExpression, Function, IdentifierExpression, ImportDirective, ImportSource,
-    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement, Not,
+    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
     OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
     ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
     TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
@@ -95,8 +95,8 @@ mod ast {
         PREC_CLIMBER.climb(pair.into_inner(), build_factor, infix_rule)
     }
 
-    // Create an Expression from a `signed_term`.
-    // Precondition: `pair` MUST be a signed_term
+    // Create an Expression from a `unaried_term`.
+    // Precondition: `pair` MUST be a `unaried_term`
     fn build_factor(pair: Pair<Rule>) -> Box<Expression> {
         Box::new(Expression::from(
             UnariedTerm::from_pest(&mut Pairs::single(pair)).unwrap(),
@@ -367,27 +367,6 @@ mod ast {
         Pow,
     }
 
-    #[derive(Debug, PartialEq, FromPest, Clone)]
-    #[pest_ast(rule(Rule::op_not))]
-    pub struct Not<'ast> {
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
-    #[derive(Debug, PartialEq, FromPest, Clone)]
-    #[pest_ast(rule(Rule::op_neg))]
-    pub struct Neg<'ast> {
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
-    #[derive(Debug, PartialEq, FromPest, Clone)]
-    #[pest_ast(rule(Rule::op_pos))]
-    pub struct Pos<'ast> {
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
     #[derive(Debug, PartialEq, Clone)]
     pub enum Expression<'ast> {
         Ternary(TernaryExpression<'ast>),
@@ -417,15 +396,10 @@ mod ast {
     #[pest_ast(rule(Rule::powered_term))]
     struct PoweredTerm<'ast> {
         base: Term<'ast>,
-        op: Option<PowOp>,
         exponent: Option<ExponentExpression<'ast>>,
         #[pest_ast(outer())]
         span: Span<'ast>,
     }
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::op_pow))]
-    struct PowOp;
 
     impl<'ast> From<PoweredTerm<'ast>> for Expression<'ast> {
         fn from(t: PoweredTerm<'ast>) -> Self {
