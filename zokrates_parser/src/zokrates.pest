@@ -55,8 +55,10 @@ optionally_typed_assignee = { (ty ~ assignee) | (assignee) } // we don't use { t
 // Expressions
 expression_list = _{(expression ~ ("," ~ expression)*)?}
 
-expression = { term ~ (op_binary ~ term)* }
-term = { ("(" ~ expression ~ ")") | inline_struct_expression | conditional_expression | postfix_expression | primary_expression | inline_array_expression | array_initializer_expression | unary_expression }
+expression = { unaried_term ~ (op_binary ~ unaried_term)* }
+unaried_term = { op_unary? ~ powered_term }
+powered_term = { term ~ (op_pow ~ exponent_expression)? }
+term = { ("(" ~ expression ~ ")") | inline_struct_expression | conditional_expression | postfix_expression | primary_expression | inline_array_expression | array_initializer_expression }
 spread = { "..." ~ expression }
 range = { from_expression? ~ ".." ~ to_expression? }
 from_expression = { expression }
@@ -84,7 +86,8 @@ spread_or_expression = { spread | expression }
 range_or_expression = { range | expression }
 array_initializer_expression = { "[" ~ expression ~ ";" ~ constant ~ "]" }
 
-unary_expression = { op_unary ~ term }
+signeable_expression = { "(" ~ expression ~ ")" | primary_expression }
+exponent_expression = { "(" ~ expression ~ ")" | primary_expression }
 
 // End Expressions
 
@@ -121,9 +124,8 @@ op_neg = {"-"}
 op_pos = {"+"}
 op_left_shift = @{"<<"}
 op_right_shift = @{">>"}
-op_binary = _ { op_pow | op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div | op_rem }
-op_unary = { op_not | op_neg | op_pos }
-
+op_binary = _ { op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div | op_rem }
+op_unary = { op_pos | op_neg | op_not }
 
 WHITESPACE = _{ " " | "\t" | "\\" ~ NEWLINE}
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }

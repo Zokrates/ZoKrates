@@ -12,7 +12,7 @@ pub use ast::{
     AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
     ConstantExpression, DecimalNumberExpression, DefinitionStatement, Expression, FieldType, File,
     FromExpression, Function, IdentifierExpression, ImportDirective, ImportSource,
-    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
+    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement, Not,
     OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
     ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
     TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
@@ -52,7 +52,6 @@ mod ast {
             Operator::new(Rule::op_mul, Assoc::Left)
                 | Operator::new(Rule::op_div, Assoc::Left)
                 | Operator::new(Rule::op_rem, Assoc::Left),
-            Operator::new(Rule::op_pow, Assoc::Left),
         ])
     }
 
@@ -74,7 +73,6 @@ mod ast {
             Rule::op_mul => Expression::binary(BinaryOperator::Mul, lhs, rhs, span),
             Rule::op_div => Expression::binary(BinaryOperator::Div, lhs, rhs, span),
             Rule::op_rem => Expression::binary(BinaryOperator::Rem, lhs, rhs, span),
-            Rule::op_pow => Expression::binary(BinaryOperator::Pow, lhs, rhs, span),
             Rule::op_equal => Expression::binary(BinaryOperator::Eq, lhs, rhs, span),
             Rule::op_not_equal => Expression::binary(BinaryOperator::NotEq, lhs, rhs, span),
             Rule::op_lte => Expression::binary(BinaryOperator::Lte, lhs, rhs, span),
@@ -97,74 +95,12 @@ mod ast {
         PREC_CLIMBER.climb(pair.into_inner(), build_factor, infix_rule)
     }
 
-    // Create an Expression from a `term`.
-    // Precondition: `pair` MUST be a term
+    // Create an Expression from a `signed_term`.
+    // Precondition: `pair` MUST be a signed_term
     fn build_factor(pair: Pair<Rule>) -> Box<Expression> {
-        Box::new(match pair.as_rule() {
-            Rule::term => {
-                // clone the pair to peek into what we should create
-                let clone = pair.clone();
-                // define the child pair
-                let next = clone.into_inner().next().unwrap();
-                match next.as_rule() {
-                    // this happens when we have an expression in parentheses: it needs to be processed as another sequence of terms and operators
-                    Rule::expression => Expression::from_pest(&mut pair.into_inner()).unwrap(),
-                    Rule::conditional_expression => Expression::Ternary(
-                        TernaryExpression::from_pest(&mut pair.into_inner()).unwrap(),
-                    ),
-                    Rule::primary_expression => {
-                        // maybe this could be simplified
-                        let next = next.into_inner().next().unwrap();
-                        match next.as_rule() {
-                            Rule::constant => Expression::Constant(
-                                ConstantExpression::from_pest(
-                                    &mut pair.into_inner().next().unwrap().into_inner(),
-                                )
-                                .unwrap(),
-                            ),
-                            Rule::identifier => Expression::Identifier(
-                                IdentifierExpression::from_pest(
-                                    &mut pair.into_inner().next().unwrap().into_inner(),
-                                )
-                                .unwrap(),
-                            ),
-                            r => unreachable!("`primary_expression` should contain one of [`constant`, `identifier`], found {:#?}", r),
-                        }
-                    }
-                    Rule::postfix_expression => Expression::Postfix(
-                        PostfixExpression::from_pest(&mut pair.into_inner()).unwrap(),
-                    ),
-                    Rule::inline_struct_expression => Expression::InlineStruct(
-                        InlineStructExpression::from_pest(&mut pair.into_inner()).unwrap(),
-                    ),
-                    Rule::inline_array_expression => Expression::InlineArray(
-                        InlineArrayExpression::from_pest(&mut pair.into_inner()).unwrap(),
-                    ),
-                    Rule::array_initializer_expression => Expression::ArrayInitializer(
-                        ArrayInitializerExpression::from_pest(&mut pair.into_inner()).unwrap()
-                    ),
-                    Rule::unary_expression => {
-                        let span = next.as_span();
-                        let mut inner = next.into_inner();
-                        let op = match inner.next().unwrap().as_rule() {
-                            Rule::op_unary => UnaryOperator::from_pest(&mut pair.into_inner().next().unwrap().into_inner()).unwrap(),
-                            r => unreachable!("`unary_expression` should yield `op_unary`, found {:#?}", r)
-                        };
-                        let expression = build_factor(inner.next().unwrap());
-                        Expression::Unary(UnaryExpression {
-                            op,
-                            expression,
-                            span
-                        })
-                    },
-                    r => unreachable!("`term` should contain one of [`expression`, `conditional_expression`, `primary_expression`, `postfix_expression`, `inline_array_expression`, `unary_expression`, `array_initializer_expression`], found {:#?}", r)
-                }
-            }
-            r => unreachable!(
-                "`build_factor` can only be called on `term`, found {:#?}",
-                r
-            ),
-        })
+        Box::new(Expression::from(
+            UnariedTerm::from_pest(&mut Pairs::single(pair)).unwrap(),
+        ))
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -432,14 +368,6 @@ mod ast {
     }
 
     #[derive(Debug, PartialEq, FromPest, Clone)]
-    #[pest_ast(rule(Rule::op_unary))]
-    pub enum UnaryOperator<'ast> {
-        Not(Not<'ast>),
-        Neg(Neg<'ast>),
-        Pos(Pos<'ast>),
-    }
-
-    #[derive(Debug, PartialEq, FromPest, Clone)]
     #[pest_ast(rule(Rule::op_not))]
     pub struct Not<'ast> {
         #[pest_ast(outer())]
@@ -464,13 +392,145 @@ mod ast {
     pub enum Expression<'ast> {
         Ternary(TernaryExpression<'ast>),
         Binary(BinaryExpression<'ast>),
+        Unary(UnaryExpression<'ast>),
         Postfix(PostfixExpression<'ast>),
         Identifier(IdentifierExpression<'ast>),
         Constant(ConstantExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
-        Unary(UnaryExpression<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::term))]
+    pub enum Term<'ast> {
+        Expression(Expression<'ast>),
+        InlineStruct(InlineStructExpression<'ast>),
+        Ternary(TernaryExpression<'ast>),
+        Postfix(PostfixExpression<'ast>),
+        Primary(PrimaryExpression<'ast>),
+        InlineArray(InlineArrayExpression<'ast>),
+        ArrayInitializer(ArrayInitializerExpression<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::powered_term))]
+    struct PoweredTerm<'ast> {
+        base: Term<'ast>,
+        op: Option<PowOp>,
+        exponent: Option<ExponentExpression<'ast>>,
+        #[pest_ast(outer())]
+        span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_pow))]
+    struct PowOp;
+
+    impl<'ast> From<PoweredTerm<'ast>> for Expression<'ast> {
+        fn from(t: PoweredTerm<'ast>) -> Self {
+            let base = Expression::from(t.base);
+
+            match t.exponent {
+                Some(exponent) => Expression::Binary(BinaryExpression {
+                    op: BinaryOperator::Pow,
+                    left: Box::new(base),
+                    right: Box::new(exponent.into()),
+                    span: t.span,
+                }),
+                None => base,
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::unaried_term))]
+    struct UnariedTerm<'ast> {
+        op: Option<UnaryOperator>,
+        expression: PoweredTerm<'ast>,
+        #[pest_ast(outer())]
+        span: Span<'ast>,
+    }
+
+    impl<'ast> From<UnariedTerm<'ast>> for Expression<'ast> {
+        fn from(t: UnariedTerm<'ast>) -> Self {
+            let expression = Expression::from(t.expression);
+
+            match t.op {
+                Some(sign) => Expression::Unary(UnaryExpression {
+                    op: sign.into(),
+                    expression: Box::new(expression),
+                    span: t.span,
+                }),
+                None => expression,
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_unary))]
+    pub enum UnaryOperator {
+        Pos(PosOperator),
+        Neg(NegOperator),
+        Not(NotOperator),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_pos))]
+    pub struct PosOperator;
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_neg))]
+    pub struct NegOperator;
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_not))]
+    pub struct NotOperator;
+
+    impl<'ast> From<Term<'ast>> for Expression<'ast> {
+        fn from(t: Term<'ast>) -> Self {
+            match t {
+                Term::Expression(e) => e,
+                Term::Ternary(e) => Expression::Ternary(e),
+                Term::Postfix(e) => Expression::Postfix(e),
+                Term::Primary(e) => e.into(),
+                Term::InlineArray(e) => Expression::InlineArray(e),
+                Term::InlineStruct(e) => Expression::InlineStruct(e),
+                Term::ArrayInitializer(e) => Expression::ArrayInitializer(e),
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::primary_expression))]
+    pub enum PrimaryExpression<'ast> {
+        Identifier(IdentifierExpression<'ast>),
+        Constant(ConstantExpression<'ast>),
+    }
+
+    impl<'ast> From<PrimaryExpression<'ast>> for Expression<'ast> {
+        fn from(e: PrimaryExpression<'ast>) -> Self {
+            match e {
+                PrimaryExpression::Constant(c) => Expression::Constant(c),
+                PrimaryExpression::Identifier(i) => Expression::Identifier(i),
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::exponent_expression))]
+    pub enum ExponentExpression<'ast> {
+        Expression(Expression<'ast>),
+        Primary(PrimaryExpression<'ast>),
+    }
+
+    impl<'ast> From<ExponentExpression<'ast>> for Expression<'ast> {
+        fn from(e: ExponentExpression<'ast>) -> Self {
+            match e {
+                ExponentExpression::Expression(e) => e,
+                ExponentExpression::Primary(e) => e.into(),
+            }
+        }
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -517,15 +577,6 @@ mod ast {
     pub struct PostfixExpression<'ast> {
         pub id: IdentifierExpression<'ast>,
         pub accesses: Vec<Access<'ast>>,
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::unary_expression))]
-    pub struct UnaryExpression<'ast> {
-        pub op: UnaryOperator<'ast>,
-        pub expression: Box<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -618,6 +669,13 @@ mod ast {
         pub op: BinaryOperator,
         pub left: Box<Expression<'ast>>,
         pub right: Box<Expression<'ast>>,
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, PartialEq, Clone)]
+    pub struct UnaryExpression<'ast> {
+        pub op: UnaryOperator,
+        pub expression: Box<Expression<'ast>>,
         pub span: Span<'ast>,
     }
 
