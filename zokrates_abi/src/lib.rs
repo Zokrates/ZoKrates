@@ -45,6 +45,7 @@ enum Value<T> {
     U8(u8),
     U16(u16),
     U32(u32),
+    U64(u64),
     Field(T),
     Boolean(bool),
     Array(Vec<Value<T>>),
@@ -56,6 +57,7 @@ enum CheckedValue<T> {
     U8(u8),
     U16(u16),
     U32(u32),
+    U64(u64),
     Field(T),
     Boolean(bool),
     Array(Vec<CheckedValue<T>>),
@@ -72,6 +74,7 @@ impl<T: Field> fmt::Display for Value<T> {
             Value::U8(v) => write!(f, "{:#04x}", v),
             Value::U16(v) => write!(f, "{:#06x}", v),
             Value::U32(v) => write!(f, "{:#010x}", v),
+            Value::U64(v) => write!(f, "{:#018x}", v),
             Value::Boolean(v) => write!(f, "{}", v),
             Value::Array(v) => write!(
                 f,
@@ -100,6 +103,7 @@ impl<T: Field> Value<T> {
             (Value::U8(f), ConcreteType::Uint(UBitwidth::B8)) => Ok(CheckedValue::U8(f)),
             (Value::U16(f), ConcreteType::Uint(UBitwidth::B16)) => Ok(CheckedValue::U16(f)),
             (Value::U32(f), ConcreteType::Uint(UBitwidth::B32)) => Ok(CheckedValue::U32(f)),
+            (Value::U64(f), ConcreteType::Uint(UBitwidth::B64)) => Ok(CheckedValue::U64(f)),
             (Value::Boolean(b), ConcreteType::Boolean) => Ok(CheckedValue::Boolean(b)),
             (Value::Array(a), ConcreteType::Array(array_type)) => {
                 let size = array_type.size;
@@ -162,6 +166,7 @@ impl<T: From<usize>> Encode<T> for CheckedValue<T> {
             CheckedValue::U8(t) => vec![T::from(t as usize)],
             CheckedValue::U16(t) => vec![T::from(t as usize)],
             CheckedValue::U32(t) => vec![T::from(t as usize)],
+            CheckedValue::U64(t) => vec![T::from(t as usize)],
             CheckedValue::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
             CheckedValue::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
             CheckedValue::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
@@ -204,6 +209,9 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
             ),
             ConcreteType::Uint(UBitwidth::B32) => CheckedValue::U32(
                 u32::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
+            ),
+            ConcreteType::Uint(UBitwidth::B64) => CheckedValue::U64(
+                u64::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
             ),
             ConcreteType::Boolean => {
                 let v = raw.pop().unwrap();
@@ -276,6 +284,9 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
                         10 => u32::from_str_radix(&s[2..], 16)
                             .map(Value::U32)
                             .map_err(|_| format!("Expected u32 value, found {}", s)),
+                        18 => u64::from_str_radix(&s[2..], 16)
+                            .map(Value::U64)
+                            .map_err(|_| format!("Expected u64 value, found {}", s)),
                         _ => Err(format!("Cannot parse {} to any type", s)),
                     })
             }
@@ -306,6 +317,7 @@ impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
             CheckedValue::U8(u) => serde_json::Value::String(format!("{:#04x}", u)),
             CheckedValue::U16(u) => serde_json::Value::String(format!("{:#06x}", u)),
             CheckedValue::U32(u) => serde_json::Value::String(format!("{:#010x}", u)),
+            CheckedValue::U64(u) => serde_json::Value::String(format!("{:#018x}", u)),
             CheckedValue::Boolean(b) => serde_json::Value::Bool(b),
             CheckedValue::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into()).collect())
