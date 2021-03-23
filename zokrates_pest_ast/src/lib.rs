@@ -396,10 +396,15 @@ mod ast {
     #[pest_ast(rule(Rule::powered_term))]
     struct PoweredTerm<'ast> {
         base: Term<'ast>,
+        op: Option<PowOperator>,
         exponent: Option<ExponentExpression<'ast>>,
         #[pest_ast(outer())]
         span: Span<'ast>,
     }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_pow))]
+    struct PowOperator;
 
     impl<'ast> From<PoweredTerm<'ast>> for Expression<'ast> {
         fn from(t: PoweredTerm<'ast>) -> Self {
