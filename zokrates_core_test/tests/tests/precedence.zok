@@ -14,6 +14,7 @@ def main():
   assert(0x00 ^ 0x00 == 0x00)
 
   assert(0 - 2 ** 2 == -4)
+  assert(-2**2 == -4)
 
   //check if all statements have evalutated to true
   assert(a * b * c * d * e * f == 1)

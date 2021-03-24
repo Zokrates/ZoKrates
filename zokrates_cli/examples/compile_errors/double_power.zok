@@ -1,0 +1,3 @@
+def main():
+    field a = 1**2**3 // parentheses are required here
+    return
