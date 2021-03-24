@@ -110,6 +110,8 @@ mod tests {
                     assert_eq!(res.is_err(), should_error);
                 }
             })
+            .unwrap()
+            .join()
             .unwrap();
     }
 
