@@ -6,7 +6,7 @@ about: Bug reports about the ZoKrates toolbox.
 <!--## Prerequisites
 
 - First, many thanks for taking part in the community. We really appreciate that.
-- Support questions are better asked on our [gitter channel](https://gitter.im/ZoKrates/ZoKrates) 
+- Support questions are better asked on our [gitter channel](https://gitter.im/ZoKrates/ZoKrates)
 - Ensure the issue isn't already reported.
 - The issue should be reproducible with the latest ZoKrates version; however, this isn't a hard requirement and being reproducible with an older version is sufficient.
 

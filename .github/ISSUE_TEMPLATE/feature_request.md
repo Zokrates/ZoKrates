@@ -6,7 +6,7 @@ about: ZoKrates toolbox feature requests.
 <!--## Prerequisites
 
 - First, many thanks for taking part in the community. We really appreciate that.
-- Support questions are better asked on our [gitter channel](https://gitter.im/ZoKrates/ZoKrates) 
+- Support questions are better asked on our [gitter channel](https://gitter.im/ZoKrates/ZoKrates)
 - Ensure the issue isn't already reported.
 
 *Delete the above section and the instructions in the sections below before submitting*
