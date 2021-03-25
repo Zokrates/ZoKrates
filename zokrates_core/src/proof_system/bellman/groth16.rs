@@ -133,10 +133,9 @@ mod serialization {
 mod tests {
     use zokrates_field::Bn128Field;
 
+    use super::*;
     use crate::flat_absy::FlatVariable;
     use crate::ir::{Function, Interpreter, Prog, Statement};
-
-    use super::*;
 
     #[test]
     fn verify() {

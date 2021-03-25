@@ -2,30 +2,15 @@ use crate::flat_absy::FlatVariable;
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::Field;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct QuadComb<T> {
     pub left: LinComb<T>,
     pub right: LinComb<T>,
 }
-
-impl<T: Field> PartialEq for QuadComb<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.left.eq(&other.left) && self.right.eq(&other.right)
-    }
-}
-
-impl<T: Field> Hash for QuadComb<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.left.hash(state);
-        self.right.hash(state);
-    }
-}
-
-impl<T: Field> Eq for QuadComb<T> {}
 
 impl<T: Field> QuadComb<T> {
     pub fn from_linear_combinations(left: LinComb<T>, right: LinComb<T>) -> Self {
@@ -68,22 +53,8 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
-
-impl<T: Field> PartialEq for LinComb<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.clone().into_canonical() == other.clone().into_canonical()
-    }
-}
-
-impl<T: Field> Hash for LinComb<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.clone().into_canonical().hash(state);
-    }
-}
-
-impl<T: Field> Eq for LinComb<T> {}
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct CanonicalLinComb<T>(pub BTreeMap<FlatVariable, T>);
@@ -231,9 +202,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
             false => write!(
                 f,
                 "{}",
-                self.clone()
-                    .into_canonical()
-                    .0
+                self.0
                     .iter()
                     .map(|(k, v)| format!("{} * {}", v.to_compact_dec_string(), k))
                     .collect::<Vec<_>>()
@@ -343,7 +312,7 @@ mod tests {
         fn display() {
             let a: LinComb<Bn128Field> =
                 LinComb::from(FlatVariable::new(42)) + LinComb::summand(3, FlatVariable::new(21));
-            assert_eq!(&a.to_string(), "3 * _21 + 1 * _42");
+            assert_eq!(&a.to_string(), "1 * _42 + 3 * _21");
             let zero: LinComb<Bn128Field> = LinComb::zero();
             assert_eq!(&zero.to_string(), "0");
         }
@@ -379,7 +348,7 @@ mod tests {
                     + LinComb::summand(4, FlatVariable::new(33)),
                 right: LinComb::summand(1, FlatVariable::new(21)),
             };
-            assert_eq!(&a.to_string(), "(4 * _33 + 3 * _42) * (1 * _21)");
+            assert_eq!(&a.to_string(), "(3 * _42 + 4 * _33) * (1 * _21)");
             let a: QuadComb<Bn128Field> = QuadComb {
                 left: LinComb::zero(),
                 right: LinComb::summand(1, FlatVariable::new(21)),

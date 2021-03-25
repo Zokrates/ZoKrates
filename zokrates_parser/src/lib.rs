@@ -255,17 +255,17 @@ mod tests {
         //     };
         // }
 
-        #[test]
-        fn parse_invalid_identifier() {
-            fails_with! {
-                parser: ZoKratesParser,
-                input: "0_invalididentifier",
-                rule: Rule::identifier,
-                positives: vec![Rule::identifier],
-                negatives: vec![],
-                pos: 0
-            };
-        }
+        // #[test]
+        // fn parse_invalid_identifier() {
+        //     fails_with! {
+        //         parser: ZoKratesParser,
+        //         input: "0_invalididentifier",
+        //         rule: Rule::identifier,
+        //         positives: vec![Rule::identifier],
+        //         negatives: vec![],
+        //         pos: 0
+        //     };
+        // }
 
         // #[test]
         // fn parse_struct_def() {

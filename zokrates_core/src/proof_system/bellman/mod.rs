@@ -155,8 +155,22 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
 }
 
 impl<T: BellmanFieldExtensions + Field> Computation<T> {
+    fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
+        let mut seed = [0u8; 32];
+        getrandom::getrandom(&mut seed)?;
+
+        use std::mem::transmute;
+        // This is safe because we are just reinterpreting the bytes (u8[32] -> u32[8]),
+        // byte order or the actual content does not matter here as this is used
+        // as a random seed for the rng.
+        let seed: [u32; 8] = unsafe { transmute(seed) };
+        Ok(seed)
+    }
+
     pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
-        let rng = &mut ChaChaRng::new_unseeded();
+        use rand_0_4::SeedableRng;
+        let seed = self.get_random_seed().unwrap();
+        let rng = &mut ChaChaRng::from_seed(seed.as_ref());
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
 
@@ -179,7 +193,9 @@ impl<T: BellmanFieldExtensions + Field> Computation<T> {
     }
 
     pub fn setup(self) -> Parameters<T::BellmanEngine> {
-        let rng = &mut ChaChaRng::new_unseeded();
+        use rand_0_4::SeedableRng;
+        let seed = self.get_random_seed().unwrap();
+        let rng = &mut ChaChaRng::from_seed(seed.as_ref());
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
     }
