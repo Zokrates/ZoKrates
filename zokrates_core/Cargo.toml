@@ -43,14 +43,14 @@ pairing_ce = { version = "^0.21", optional = true }
 ff_ce = { version = "^0.9", optional = true }
 
 # ark
-ark-ff = { git = "https://github.com/arkworks-rs/algebra", default-features = false, optional = true }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra", default-features = false, optional = true }
-ark-bn254 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"], default-features = false, optional = true }
-ark-bls12-377 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"], default-features = false, optional = true }
-ark-bw6-761 = { git = "https://github.com/arkworks-rs/curves", default-features = false, optional = true }
-ark-gm17 = { git = "https://github.com/arkworks-rs/gm17", default-features = false, optional = true }
-ark-serialize = { git = "https://github.com/arkworks-rs/algebra", default-features = false, optional = true }
-ark-relations = { git = "https://github.com/arkworks-rs/snark", default-features = false, optional = true }
+ark-ff = { version = "^0.2.0", default-features = false, optional = true }
+ark-ec = { version = "^0.2.0", default-features = false, optional = true }
+ark-bn254 = { version = "^0.2.0", features = ["curve"], default-features = false, optional = true }
+ark-bls12-377 = { version = "^0.2.0", features = ["curve"], default-features = false, optional = true }
+ark-bw6-761 = { version = "^0.2.0", default-features = false, optional = true }
+ark-gm17 = { version = "^0.2.0", default-features = false, optional = true }
+ark-serialize = { version = "^0.2.0", default-features = false, optional = true }
+ark-relations = { version = "^0.2.0", default-features = false, optional = true }
 
 [dev-dependencies]
 wasm-bindgen-test = "^0.3.0"
