@@ -122,7 +122,7 @@
 		  {
 			"comment": "decimal integers and floats",
 			"name": "constant.numeric.decimal.zokrates",
-			"match": "\\b\\d[\\d_]*(u128|u16|u32|u64|u8|field)?\\b",
+			"match": "\\b\\d[\\d_]*(u128|u16|u32|u64|u8|f)?\\b",
 			"captures": {
 			  "5": {
 				"name": "entity.name.type.numeric.zokrates"
