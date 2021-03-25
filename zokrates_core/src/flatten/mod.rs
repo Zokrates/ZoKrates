@@ -1224,10 +1224,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             UExpressionInner::LeftShift(box e, box by) => {
                 let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
-                let by = match by {
-                    FieldElementExpression::Number(n) => {
-                        n.to_dec_string().parse::<usize>().unwrap()
-                    }
+                assert_eq!(by.bitwidth(), UBitwidth::B32);
+
+                let by = match by.into_inner() {
+                    UExpressionInner::Value(n) => n,
                     _ => unreachable!(),
                 };
 
@@ -1238,9 +1238,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_bits(
                     e_bits
                         .into_iter()
-                        .skip(by)
+                        .skip(by as usize)
                         .chain(
-                            (0..std::cmp::min(by, target_bitwidth.to_usize()))
+                            (0..std::cmp::min(by as usize, target_bitwidth.to_usize()))
                                 .map(|_| FlatExpression::Number(T::from(0))),
                         )
                         .collect::<Vec<_>>(),
@@ -1249,10 +1249,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             UExpressionInner::RightShift(box e, box by) => {
                 let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
-                let by = match by {
-                    FieldElementExpression::Number(n) => {
-                        n.to_dec_string().parse::<usize>().unwrap()
-                    }
+                assert_eq!(by.bitwidth(), UBitwidth::B32);
+
+                let by = match by.into_inner() {
+                    UExpressionInner::Value(n) => n,
                     _ => unreachable!(),
                 };
 
@@ -1261,11 +1261,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 assert_eq!(e_bits.len(), target_bitwidth.to_usize());
 
                 FlatUExpression::with_bits(
-                    (0..std::cmp::min(by, target_bitwidth.to_usize()))
+                    (0..std::cmp::min(by as usize, target_bitwidth.to_usize()))
                         .map(|_| FlatExpression::Number(T::from(0)))
                         .chain(e_bits.into_iter().take(
                             target_bitwidth.to_usize()
-                                - std::cmp::min(by, target_bitwidth.to_usize()),
+                                - std::cmp::min(by as usize, target_bitwidth.to_usize()),
                         ))
                         .collect::<Vec<_>>(),
                 )

@@ -280,40 +280,36 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .with_max(range_max)
             }
             LeftShift(box e, box by) => {
-                // reduce the two terms
+                // reduce the left term
                 let e = self.fold_uint_expression(e);
-                let by = self.fold_field_expression(by);
+                let by = self.fold_uint_expression(by);
 
-                let by_u = match by {
-                    FieldElementExpression::Number(ref by) => {
-                        by.to_dec_string().parse::<usize>().unwrap()
-                    }
+                let by_u = match by.as_inner() {
+                    UExpressionInner::Value(ref by) => by,
                     _ => unreachable!(),
                 };
 
                 let bitwidth = e.metadata.clone().unwrap().bitwidth();
 
-                let max =
-                    T::from(2).pow(std::cmp::min(bitwidth as usize + by_u, range)) - T::from(1);
+                let max = T::from(2).pow(std::cmp::min(bitwidth as usize + *by_u as usize, range))
+                    - T::from(1);
 
                 UExpression::left_shift(force_reduce(e), by).with_max(max)
             }
             RightShift(box e, box by) => {
-                // reduce the two terms
+                // reduce the left term
                 let e = self.fold_uint_expression(e);
-                let by = self.fold_field_expression(by);
+                let by = self.fold_uint_expression(by);
 
-                let by_u = match by {
-                    FieldElementExpression::Number(ref by) => {
-                        by.to_dec_string().parse::<usize>().unwrap()
-                    }
+                let by_u = match by.as_inner() {
+                    UExpressionInner::Value(ref by) => by,
                     _ => unreachable!(),
                 };
 
                 let bitwidth = e.metadata.clone().unwrap().bitwidth();
 
                 let max = T::from(2)
-                    .pow(bitwidth as usize - std::cmp::min(by_u, bitwidth as usize))
+                    .pow(bitwidth as usize - std::cmp::min(*by_u as usize, bitwidth as usize))
                     - T::from(1);
 
                 UExpression::right_shift(force_reduce(e), by).with_max(max)
@@ -621,72 +617,16 @@ mod tests {
 
     #[test]
     fn right_shift() {
-        let e = e_with_max(255);
-
-        let e_expected = force_reduce(e.clone());
-
-        assert_eq!(
-            UintOptimizer::new().fold_uint_expression(UExpression::right_shift(
-                e,
-                FieldElementExpression::Number(Bn128Field::from(2))
-            )),
-            UExpression::right_shift(
-                e_expected,
-                FieldElementExpression::Number(Bn128Field::from(2))
-            )
-            .with_max(63)
-        );
-
-        let e = e_with_max(2);
-
-        let e_expected = force_reduce(e.clone());
-
-        assert_eq!(
-            UintOptimizer::new().fold_uint_expression(UExpression::right_shift(
-                e,
-                FieldElementExpression::Number(Bn128Field::from(2))
-            )),
-            UExpression::right_shift(
-                e_expected,
-                FieldElementExpression::Number(Bn128Field::from(2))
-            )
-            .with_max(0)
-        );
+        uint_test!(255, true, 2, true, right_shift, 63_u32);
+        uint_test!(2, true, 2, true, right_shift, 0_u32);
+        unimplemented!("non reduction");
     }
 
     #[test]
     fn left_shift() {
-        let e = e_with_max(255);
-
-        let e_expected = force_reduce(e.clone());
-
-        assert_eq!(
-            UintOptimizer::new().fold_uint_expression(UExpression::left_shift(
-                e,
-                FieldElementExpression::Number(Bn128Field::from(2))
-            )),
-            UExpression::left_shift(
-                e_expected,
-                FieldElementExpression::Number(Bn128Field::from(2))
-            )
-            .with_max(1023)
-        );
-
-        let e = e_with_max(0xffffffff_u32);
-
-        let e_expected = force_reduce(e.clone());
-
-        assert_eq!(
-            UintOptimizer::new().fold_uint_expression(UExpression::left_shift(
-                e,
-                FieldElementExpression::Number(Bn128Field::from(2))
-            )),
-            UExpression::left_shift(
-                e_expected,
-                FieldElementExpression::Number(Bn128Field::from(2))
-            )
-            .with_max(0xffffffff_u32)
-        );
+        uint_test!(255, true, 2, true, right_shift, 1023_u32);
+        uint_test!(0xffffffff_u32, true, 2, true, right_shift, 0xffffffff_u32);
+        unimplemented!("non reduction");
     }
 
     #[test]
