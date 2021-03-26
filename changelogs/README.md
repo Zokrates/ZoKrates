@@ -11,4 +11,4 @@ changelogs/unreleased   # folder to place changelogs
     101-username        # your changelog file (pull request #101 by @username)
 ```
 
-If a pull request does not warrant a changelog, the CI check for a changelog can be skipped by applying a `changelog-not-required` label.
+Any user-facing change must have a changelog entry. If a pull request does not warrant a changelog, the CI check for a changelog can be skipped by applying a `changelog-not-required` label.
