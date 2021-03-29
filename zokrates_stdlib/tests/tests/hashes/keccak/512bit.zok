@@ -1,0 +1,9 @@
+import "hashes/keccak/512bit" as keccak512
+
+def main():
+    u64[8] h = keccak512::<20>([42; 20])
+    assert(h == [
+        0x2716192386255918, 0x68DFF390376BBF13, 0xBD695ADA4CD230E3, 0xF3B00388676A04D3,
+        0x484F3F1BB9F36A09, 0x9D0119067282F940, 0xDF27DE0F48072A66, 0xF5957972134160EB
+    ])
+    return
