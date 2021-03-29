@@ -16,3 +16,9 @@ if [ ! -f "$changelog" ]; then
     echo "Pull request #${pr_number:-?} is missing a changelog. Please add a changelog to ${CHANGELOG_PATH}."
     exit 1
 fi
+
+cl_diff=$(git diff --exit-code $GITHUB_HEAD_REF CHANGELOG.md)
+if [ -n "$cl_diff" ]; then
+    echo "Pull requests should not directly modify the main CHANGELOG.md file. For more information, please read changelogs/README.md"
+    exit 1
+fi

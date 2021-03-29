@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# This script is intended for maintainers only to generate changelog markdown before new releases.
+# The generated markdown can be added to the main CHANGELOG.md file located at the root of the repository.
+
 set -e
 
 if [ -z "$1" ]; then
