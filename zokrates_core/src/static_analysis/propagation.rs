@@ -663,7 +663,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 match (e.into_inner(), by) {
                     (UExpressionInner::Value(v), FieldElementExpression::Number(by)) => {
                         let by_as_usize = by.to_dec_string().parse::<usize>().unwrap();
-                        UExpressionInner::Value((v << by_as_usize) & 0xffffffff)
+                        UExpressionInner::Value(
+                            (v << by_as_usize) & (2_u128.pow(bitwidth as u32) - 1),
+                        )
                     }
                     (e, FieldElementExpression::Number(by)) => UExpressionInner::LeftShift(
                         box e.annotate(bitwidth),
@@ -718,7 +720,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             UExpressionInner::Not(box e) => {
                 let e = self.fold_uint_expression(e).into_inner();
                 match e {
-                    UExpressionInner::Value(v) => UExpressionInner::Value((!v) & 0xffffffff),
+                    UExpressionInner::Value(v) => {
+                        UExpressionInner::Value((!v) & (2_u128.pow(bitwidth as u32) - 1))
+                    }
                     e => UExpressionInner::Not(box e.annotate(bitwidth)),
                 }
             }
