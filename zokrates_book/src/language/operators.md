@@ -22,4 +22,4 @@ The following table lists the precedence and associativity of all available oper
 
 [^2]: The right operand must be a compile time constant
 
-[^3]: Both operands are asserted to be strictly lower than the biggest power of 2 lower than `p/2`
+[^3]: Both operands are asserted to be strictly lower than the biggest power of 2 lower than `p/2`, unless one of them can be determined to be a compile-time constant
