@@ -1,0 +1,14 @@
+name: Pull request changelog check
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+jobs:
+  build:
+    if: ${{ !(contains(github.event.pull_request.labels.*.name, 'changelog-not-required')) }}
+    name: Run changelog check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v2
+      - name: Changelog check
+        run: ./scripts/changelog-check.sh
