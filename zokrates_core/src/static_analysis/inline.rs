@@ -19,6 +19,7 @@
 use crate::typed_absy::types::{FunctionKey, FunctionKeyHash, Type, UBitwidth};
 use crate::typed_absy::{folder::*, *};
 use std::collections::HashMap;
+use std::convert::TryInto;
 use zokrates_field::Field;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -145,6 +146,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -298,6 +300,12 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
         match e {
+            FieldElementExpression::Identifier(ref id) => {
+                match self.module().constants.get(id).cloned() {
+                    Some(c) => fold_field_expression(self, c.expression.try_into().unwrap()),
+                    None => fold_field_expression(self, e),
+                }
+            }
             FieldElementExpression::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
@@ -344,6 +352,12 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
+            BooleanExpression::Identifier(ref id) => {
+                match self.module().constants.get(id).cloned() {
+                    Some(c) => fold_boolean_expression(self, c.expression.try_into().unwrap()),
+                    None => fold_boolean_expression(self, e),
+                }
+            }
             BooleanExpression::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
@@ -392,6 +406,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
+            ArrayExpressionInner::Identifier(ref id) => {
+                match self.module().constants.get(id).cloned() {
+                    Some(c) => {
+                        let expr: ArrayExpression<'ast, T> = c.expression.try_into().unwrap();
+                        fold_array_expression(self, expr).into_inner()
+                    }
+                    None => fold_array_expression_inner(self, ty, size, e),
+                }
+            }
             ArrayExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
@@ -439,6 +462,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
+            StructExpressionInner::Identifier(ref id) => {
+                match self.module().constants.get(id).cloned() {
+                    Some(c) => {
+                        let expr: StructExpression<'ast, T> = c.expression.try_into().unwrap();
+                        fold_struct_expression(self, expr).into_inner()
+                    }
+                    None => fold_struct_expression_inner(self, ty, e),
+                }
+            }
             StructExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
@@ -486,6 +518,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         match e {
+            UExpressionInner::Identifier(ref id) => {
+                match self.module().constants.get(id).cloned() {
+                    Some(c) => {
+                        let expr: UExpression<'ast, T> = c.expression.try_into().unwrap();
+                        fold_uint_expression(self, expr).into_inner()
+                    }
+                    None => fold_uint_expression_inner(self, size, e),
+                }
+            }
             UExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
@@ -581,6 +622,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let foo = TypedModule {
@@ -597,6 +639,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
@@ -696,6 +739,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let foo = TypedModule {
@@ -719,6 +763,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
@@ -875,6 +920,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let foo: TypedModule<Bn128Field> = TypedModule {
@@ -893,6 +939,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
@@ -1065,6 +1112,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let foo = TypedModule {
@@ -1081,6 +1129,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
@@ -1176,6 +1225,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let modules: HashMap<_, _> = vec![("main".into(), main)].into_iter().collect();
@@ -1283,6 +1333,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let id = TypedModule {
@@ -1304,6 +1355,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            constants: Default::default(),
         };
 
         let modules = vec![("main".into(), main), ("id".into(), id)]

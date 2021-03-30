@@ -1,6 +1,7 @@
 use crate::absy;
 use crate::imports;
 
+use crate::absy::SymbolDefinition;
 use num::ToPrimitive;
 use num_bigint::BigUint;
 use zokrates_pest_ast as pest;
@@ -11,6 +12,11 @@ impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
             prog.structs
                 .into_iter()
                 .map(|t| absy::SymbolDeclarationNode::from(t))
+                .chain(
+                    prog.constants
+                        .into_iter()
+                        .map(|f| absy::SymbolDeclarationNode::from(f)),
+                )
                 .chain(
                     prog.functions
                         .into_iter()
@@ -65,7 +71,7 @@ impl<'ast> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'a
 
         absy::SymbolDeclaration {
             id,
-            symbol: absy::Symbol::HereType(ty),
+            symbol: absy::Symbol::Here(SymbolDefinition::Struct(ty)),
         }
         .span(span)
     }
@@ -82,6 +88,28 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'as
         let ty = absy::UnresolvedTypeNode::from(field.ty);
 
         absy::StructDefinitionField { id, ty }.span(span)
+    }
+}
+
+impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<'ast> {
+    fn from(definition: pest::ConstantDefinition<'ast>) -> absy::SymbolDeclarationNode<'ast> {
+        use crate::absy::NodeValue;
+
+        let span = definition.span;
+        let id = definition.id.span.as_str();
+
+        let ty = absy::ConstantDefinition {
+            id,
+            ty: definition.ty.into(),
+            expression: definition.expression.into(),
+        }
+        .span(span.clone());
+
+        absy::SymbolDeclaration {
+            id,
+            symbol: absy::Symbol::Here(SymbolDefinition::Constant(ty)),
+        }
+        .span(span)
     }
 }
 
@@ -128,7 +156,7 @@ impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
 
         absy::SymbolDeclaration {
             id,
-            symbol: absy::Symbol::HereFunction(function),
+            symbol: absy::Symbol::Here(SymbolDefinition::Function(function)),
         }
         .span(span)
     }
@@ -683,7 +711,7 @@ mod tests {
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::Symbol::HereFunction(
+                symbol: absy::Symbol::Here(SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
@@ -701,7 +729,7 @@ mod tests {
                             .outputs(vec![UnresolvedType::FieldElement.mock()]),
                     }
                     .into(),
-                ),
+                )),
             }
             .into()],
             imports: vec![],
@@ -716,7 +744,7 @@ mod tests {
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::Symbol::HereFunction(
+                symbol: absy::Symbol::Here(SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
@@ -731,7 +759,7 @@ mod tests {
                             .outputs(vec![UnresolvedType::Boolean.mock()]),
                     }
                     .into(),
-                ),
+                )),
             }
             .into()],
             imports: vec![],
@@ -747,7 +775,7 @@ mod tests {
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::Symbol::HereFunction(
+                symbol: absy::Symbol::Here(SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![
                             absy::Parameter::private(
@@ -785,7 +813,7 @@ mod tests {
                             .outputs(vec![UnresolvedType::FieldElement.mock()]),
                     }
                     .into(),
-                ),
+                )),
             }
             .into()],
             imports: vec![],
@@ -802,7 +830,7 @@ mod tests {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
-                    symbol: absy::Symbol::HereFunction(
+                    symbol: absy::Symbol::Here(SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![absy::Parameter::private(
                                 absy::Variable::new("a", ty.clone().mock()).into(),
@@ -818,7 +846,7 @@ mod tests {
                             signature: UnresolvedSignature::new().inputs(vec![ty.mock()]),
                         }
                         .into(),
-                    ),
+                    )),
                 }
                 .into()],
                 imports: vec![],
@@ -866,7 +894,7 @@ mod tests {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
-                    symbol: absy::Symbol::HereFunction(
+                    symbol: absy::Symbol::Here(SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![],
                             statements: vec![absy::Statement::Return(
@@ -879,7 +907,7 @@ mod tests {
                             signature: UnresolvedSignature::new(),
                         }
                         .into(),
-                    ),
+                    )),
                 }
                 .into()],
                 imports: vec![],

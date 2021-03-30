@@ -61,7 +61,13 @@ mod tests {
         );
 
         let mut modules = HashMap::new();
-        modules.insert("main".into(), TypedModule { functions });
+        modules.insert(
+            "main".into(),
+            TypedModule {
+                functions,
+                constants: Default::default(),
+            },
+        );
 
         let typed_ast: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),

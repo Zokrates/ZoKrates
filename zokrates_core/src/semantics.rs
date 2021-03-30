@@ -59,6 +59,7 @@ struct State<'ast, T: Field> {
 #[derive(PartialEq, Hash, Eq, Debug)]
 enum SymbolType {
     Type,
+    Constant,
     Functions(BTreeSet<Signature>),
 }
 
@@ -69,14 +70,14 @@ struct SymbolUnifier {
 }
 
 impl SymbolUnifier {
-    fn insert_type<S: Into<String>>(&mut self, id: S) -> bool {
+    fn insert_symbol<S: Into<String>>(&mut self, id: S, ty: SymbolType) -> bool {
         let s_type = self.symbols.entry(id.into());
         match s_type {
             // if anything is already called `id`, we cannot introduce this type
             Entry::Occupied(..) => false,
             // otherwise, we can!
             Entry::Vacant(v) => {
-                v.insert(SymbolType::Type);
+                v.insert(ty);
                 true
             }
         }
@@ -88,8 +89,8 @@ impl SymbolUnifier {
             // if anything is already called `id`, it depends what it is
             Entry::Occupied(mut o) => {
                 match o.get_mut() {
-                    // if it's a Type, then we can't introduce a function
-                    SymbolType::Type => false,
+                    // if it's a Type or a Constant, then we can't introduce a function
+                    SymbolType::Type | SymbolType::Constant => false,
                     // if it's a Function, we can introduce a new function only if it has a different signature
                     SymbolType::Functions(signatures) => signatures.insert(signature),
                 }
@@ -205,6 +206,7 @@ impl<'ast> FunctionQuery<'ast> {
 pub struct ScopedVariable<'ast> {
     id: Variable<'ast>,
     level: usize,
+    constant: bool,
 }
 
 /// Identifiers of different `ScopedVariable`s should not conflict, so we define them as equivalent
@@ -282,6 +284,35 @@ impl<'ast> Checker<'ast> {
         })
     }
 
+    fn check_constant_definition<T: Field>(
+        &mut self,
+        c: ConstantDefinitionNode<'ast>,
+        module_id: &ModuleId,
+        types: &TypeMap,
+    ) -> Result<TypedConstant<'ast, T>, ErrorInner> {
+        let pos = c.pos();
+        let ty = self.check_type(c.value.ty, module_id, &types)?;
+        let expression = self.check_expression(c.value.expression, module_id, types)?;
+
+        match ty == expression.get_type() {
+            true => Ok(TypedConstant {
+                id: crate::typed_absy::Identifier::from(c.value.id),
+                ty,
+                expression,
+            }),
+            false => Err(ErrorInner {
+                pos: Some(pos),
+                message: format!(
+                    "Expression `{}` of type `{}` cannot be assigned to constant `{}` of type `{}`",
+                    expression,
+                    expression.get_type(),
+                    c.value.id,
+                    ty
+                ),
+            }),
+        }
+    }
+
     fn check_struct_type_declaration(
         &mut self,
         id: String,
@@ -335,6 +366,7 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
         functions: &mut HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
+        constants: &mut HashMap<identifier::Identifier<'ast>, TypedConstant<'ast, T>>,
         symbol_unifier: &mut SymbolUnifier,
     ) -> Result<(), Vec<Error>> {
         let mut errors: Vec<Error> = vec![];
@@ -343,67 +375,99 @@ impl<'ast> Checker<'ast> {
         let declaration = declaration.value;
 
         match declaration.symbol.clone() {
-            Symbol::HereType(t) => {
-                match self.check_struct_type_declaration(
-                    declaration.id.to_string(),
-                    t.clone(),
-                    module_id,
-                    &state.types,
-                ) {
-                    Ok(ty) => {
-                        match symbol_unifier.insert_type(declaration.id) {
-                            false => errors.push(
-                                ErrorInner {
-                                    pos: Some(pos),
-                                    message: format!(
-                                        "{} conflicts with another symbol",
-                                        declaration.id,
-                                    ),
-                                }
-                                .in_file(module_id),
-                            ),
-                            true => {}
-                        };
-                        state
-                            .types
-                            .entry(module_id.clone())
-                            .or_default()
-                            .insert(declaration.id.to_string(), ty);
-                    }
-                    Err(e) => errors.extend(e.into_iter().map(|inner| Error {
-                        inner,
-                        module_id: module_id.clone(),
-                    })),
-                }
-            }
-            Symbol::HereFunction(f) => match self.check_function(f, module_id, &state.types) {
-                Ok(funct) => {
-                    match symbol_unifier.insert_function(declaration.id, funct.signature.clone()) {
-                        false => errors.push(
-                            ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "{} conflicts with another symbol",
-                                    declaration.id,
+            Symbol::Here(kind) => match kind {
+                SymbolDefinition::Struct(t) => {
+                    match self.check_struct_type_declaration(
+                        declaration.id.to_string(),
+                        t.clone(),
+                        module_id,
+                        &state.types,
+                    ) {
+                        Ok(ty) => {
+                            match symbol_unifier.insert_symbol(declaration.id, SymbolType::Type) {
+                                false => errors.push(
+                                    ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "{} conflicts with another symbol",
+                                            declaration.id,
+                                        ),
+                                    }
+                                    .in_file(module_id),
                                 ),
-                            }
-                            .in_file(module_id),
-                        ),
-                        true => {}
-                    };
-
-                    self.functions.insert(
-                        FunctionKey::with_id(declaration.id.clone())
-                            .signature(funct.signature.clone()),
-                    );
-                    functions.insert(
-                        FunctionKey::with_id(declaration.id.clone())
-                            .signature(funct.signature.clone()),
-                        TypedFunctionSymbol::Here(funct),
-                    );
+                                true => {}
+                            };
+                            state
+                                .types
+                                .entry(module_id.clone())
+                                .or_default()
+                                .insert(declaration.id.to_string(), ty);
+                        }
+                        Err(e) => errors.extend(e.into_iter().map(|inner| Error {
+                            inner,
+                            module_id: module_id.clone(),
+                        })),
+                    }
                 }
-                Err(e) => {
-                    errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));
+                SymbolDefinition::Constant(c) => {
+                    match self.check_constant_definition(c, module_id, &state.types) {
+                        Ok(c) => {
+                            match symbol_unifier.insert_symbol(declaration.id, SymbolType::Constant)
+                            {
+                                false => errors.push(
+                                    ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "{} conflicts with another symbol",
+                                            declaration.id,
+                                        ),
+                                    }
+                                    .in_file(module_id),
+                                ),
+                                true => {}
+                            };
+                            constants
+                                .insert(identifier::Identifier::from(declaration.id), c.clone());
+                            self.insert_into_scope(Variable::with_id_and_type(c.id, c.ty), true);
+                        }
+                        Err(e) => {
+                            errors.push(e.in_file(module_id));
+                        }
+                    }
+                }
+                SymbolDefinition::Function(f) => {
+                    match self.check_function(f, module_id, &state.types) {
+                        Ok(funct) => {
+                            match symbol_unifier
+                                .insert_function(declaration.id, funct.signature.clone())
+                            {
+                                false => errors.push(
+                                    ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "{} conflicts with another symbol",
+                                            declaration.id,
+                                        ),
+                                    }
+                                    .in_file(module_id),
+                                ),
+                                true => {}
+                            };
+
+                            self.functions.insert(
+                                FunctionKey::with_id(declaration.id.clone())
+                                    .signature(funct.signature.clone()),
+                            );
+                            functions.insert(
+                                FunctionKey::with_id(declaration.id.clone())
+                                    .signature(funct.signature.clone()),
+                                TypedFunctionSymbol::Here(funct),
+                            );
+                        }
+                        Err(e) => {
+                            errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));
+                        }
+                    }
                 }
             },
             Symbol::There(import) => {
@@ -450,7 +514,7 @@ impl<'ast> Checker<'ast> {
                                 };
 
                                 // we imported a type, so the symbol it gets bound to should not already exist
-                                match symbol_unifier.insert_type(declaration.id) {
+                                match symbol_unifier.insert_symbol(declaration.id, SymbolType::Type) {
                                     false => {
                                         errors.push(Error {
                                             module_id: module_id.clone(),
@@ -557,6 +621,7 @@ impl<'ast> Checker<'ast> {
     ) -> Result<(), Vec<Error>> {
         let mut errors = vec![];
         let mut checked_functions = HashMap::new();
+        let mut checked_constants = HashMap::new();
 
         // check if the module was already removed from the untyped ones
         let to_insert = match state.modules.remove(module_id) {
@@ -569,7 +634,7 @@ impl<'ast> Checker<'ast> {
                 // we need to create an entry in the types map to store types for this module
                 state.types.entry(module_id.clone()).or_default();
 
-                // we keep track of the introduced symbols to avoid colisions between types and functions
+                // we keep track of the introduced symbols to avoid collisions between types and functions
                 let mut symbol_unifier = SymbolUnifier::default();
 
                 // we go through symbol declarations and check them
@@ -579,6 +644,7 @@ impl<'ast> Checker<'ast> {
                         module_id,
                         state,
                         &mut checked_functions,
+                        &mut checked_constants,
                         &mut symbol_unifier,
                     ) {
                         Ok(()) => {}
@@ -590,6 +656,7 @@ impl<'ast> Checker<'ast> {
 
                 Some(TypedModule {
                     functions: checked_functions,
+                    constants: checked_constants,
                 })
             }
         };
@@ -663,7 +730,7 @@ impl<'ast> Checker<'ast> {
         for arg in funct.arguments {
             match self.check_parameter(arg, module_id, types) {
                 Ok(a) => {
-                    self.insert_into_scope(a.id.clone());
+                    self.insert_into_scope(a.id.clone(), false);
                     arguments_checked.push(a);
                 }
                 Err(e) => errors.extend(e),
@@ -873,7 +940,7 @@ impl<'ast> Checker<'ast> {
             }
             Statement::Declaration(var) => {
                 let var = self.check_variable(var, module_id, types)?;
-                match self.insert_into_scope(var.clone()) {
+                match self.insert_into_scope(var.clone(), false) {
                     true => Ok(TypedStatement::Declaration(var)),
                     false => Err(ErrorInner {
                         pos: Some(pos),
@@ -909,7 +976,7 @@ impl<'ast> Checker<'ast> {
                     false => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Expression {} of type {} cannot be assigned to {} of type {}",
+                            "Expression `{}` of type `{}` cannot be assigned to `{}` of type `{}`",
                             checked_expr, expression_type, var, var_type
                         ),
                     }),
@@ -972,7 +1039,7 @@ impl<'ast> Checker<'ast> {
                 }
                 .map_err(|e| vec![e])?;
 
-                self.insert_into_scope(var.clone());
+                self.insert_into_scope(var.clone(), false);
 
                 let mut checked_statements = vec![];
 
@@ -1045,10 +1112,16 @@ impl<'ast> Checker<'ast> {
         // check that the assignee is declared
         match assignee.value {
             Assignee::Identifier(variable_name) => match self.get_scope(&variable_name) {
-                Some(var) => Ok(TypedAssignee::Identifier(Variable::with_id_and_type(
-                    variable_name,
-                    var.id._type.clone(),
-                ))),
+                Some(var) => match var.constant {
+                    false => Ok(TypedAssignee::Identifier(Variable::with_id_and_type(
+                        variable_name,
+                        var.id._type.clone(),
+                    ))),
+                    true => Err(ErrorInner {
+                        pos: Some(assignee.pos()),
+                        message: format!("Assignment to constant variable `{}`", variable_name),
+                    }),
+                },
                 None => Err(ErrorInner {
                     pos: Some(assignee.pos()),
                     message: format!("Variable `{}` is undeclared", variable_name),
@@ -2359,13 +2432,15 @@ impl<'ast> Checker<'ast> {
                 Type::FieldElement,
             ),
             level: 0,
+            constant: false,
         })
     }
 
-    fn insert_into_scope(&mut self, v: Variable<'ast>) -> bool {
+    fn insert_into_scope(&mut self, v: Variable<'ast>, constant: bool) -> bool {
         self.scope.insert(ScopedVariable {
             id: v,
             level: self.level,
+            constant,
         })
     }
 
@@ -2555,15 +2630,15 @@ mod tests {
 
             let mut unifier = SymbolUnifier::default();
 
-            assert!(unifier.insert_type("foo"));
-            assert!(!unifier.insert_type("foo"));
+            assert!(unifier.insert_symbol("foo", SymbolType::Type));
+            assert!(!unifier.insert_symbol("foo", SymbolType::Type));
             assert!(!unifier.insert_function("foo", Signature::new()));
             assert!(unifier.insert_function("bar", Signature::new()));
             assert!(!unifier.insert_function("bar", Signature::new()));
             assert!(
                 unifier.insert_function("bar", Signature::new().inputs(vec![Type::FieldElement]))
             );
-            assert!(!unifier.insert_type("bar"));
+            assert!(!unifier.insert_symbol("bar", SymbolType::Type));
         }
 
         #[test]
@@ -2580,7 +2655,7 @@ mod tests {
             let foo: Module = Module {
                 symbols: vec![SymbolDeclaration {
                     id: "main",
-                    symbol: Symbol::HereFunction(function0()),
+                    symbol: Symbol::Here(SymbolDefinition::Function(function0())),
                 }
                 .mock()],
                 imports: vec![],
@@ -2616,6 +2691,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default()
                 })
             );
         }
@@ -2633,12 +2709,12 @@ mod tests {
                 symbols: vec![
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereFunction(function0()),
+                        symbol: Symbol::Here(SymbolDefinition::Function(function0())),
                     }
                     .mock(),
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereFunction(function0()),
+                        symbol: Symbol::Here(SymbolDefinition::Function(function0())),
                     }
                     .mock(),
                 ],
@@ -2675,12 +2751,12 @@ mod tests {
                 symbols: vec![
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereFunction(function0()),
+                        symbol: Symbol::Here(SymbolDefinition::Function(function0())),
                     }
                     .mock(),
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereFunction(function1()),
+                        symbol: Symbol::Here(SymbolDefinition::Function(function1())),
                     }
                     .mock(),
                 ],
@@ -2726,12 +2802,12 @@ mod tests {
                 symbols: vec![
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereType(struct0()),
+                        symbol: Symbol::Here(SymbolDefinition::Struct(struct0())),
                     }
                     .mock(),
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereType(struct1()),
+                        symbol: Symbol::Here(SymbolDefinition::Struct(struct1())),
                     }
                     .mock(),
                 ],
@@ -2764,12 +2840,14 @@ mod tests {
                 symbols: vec![
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereFunction(function0()),
+                        symbol: Symbol::Here(SymbolDefinition::Function(function0())),
                     }
                     .mock(),
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereType(StructDefinition { fields: vec![] }.mock()),
+                        symbol: Symbol::Here(SymbolDefinition::Struct(
+                            StructDefinition { fields: vec![] }.mock(),
+                        )),
                     }
                     .mock(),
                 ],
@@ -2805,7 +2883,7 @@ mod tests {
 
             let bar = Module::with_symbols(vec![SymbolDeclaration {
                 id: "main",
-                symbol: Symbol::HereFunction(function0()),
+                symbol: Symbol::Here(SymbolDefinition::Function(function0())),
             }
             .mock()]);
 
@@ -2820,7 +2898,7 @@ mod tests {
                     .mock(),
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereType(struct0()),
+                        symbol: Symbol::Here(SymbolDefinition::Struct(struct0())),
                     }
                     .mock(),
                 ],
@@ -2856,7 +2934,7 @@ mod tests {
 
             let bar = Module::with_symbols(vec![SymbolDeclaration {
                 id: "main",
-                symbol: Symbol::HereFunction(function0()),
+                symbol: Symbol::Here(SymbolDefinition::Function(function0())),
             }
             .mock()]);
 
@@ -2864,7 +2942,7 @@ mod tests {
                 symbols: vec![
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereType(struct0()),
+                        symbol: Symbol::Here(SymbolDefinition::Struct(struct0())),
                     }
                     .mock(),
                     SymbolDeclaration {
@@ -2948,10 +3026,12 @@ mod tests {
         scope.insert(ScopedVariable {
             id: Variable::field_element("a"),
             level: 0,
+            constant: false,
         });
         scope.insert(ScopedVariable {
             id: Variable::field_element("b"),
             level: 0,
+            constant: false,
         });
         let mut checker = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
@@ -3019,12 +3099,12 @@ mod tests {
         let symbols = vec![
             SymbolDeclaration {
                 id: "foo",
-                symbol: Symbol::HereFunction(foo),
+                symbol: Symbol::Here(SymbolDefinition::Function(foo)),
             }
             .mock(),
             SymbolDeclaration {
                 id: "bar",
-                symbol: Symbol::HereFunction(bar),
+                symbol: Symbol::Here(SymbolDefinition::Function(bar)),
             }
             .mock(),
         ];
@@ -3135,17 +3215,17 @@ mod tests {
         let symbols = vec![
             SymbolDeclaration {
                 id: "foo",
-                symbol: Symbol::HereFunction(foo),
+                symbol: Symbol::Here(SymbolDefinition::Function(foo)),
             }
             .mock(),
             SymbolDeclaration {
                 id: "bar",
-                symbol: Symbol::HereFunction(bar),
+                symbol: Symbol::Here(SymbolDefinition::Function(bar)),
             }
             .mock(),
             SymbolDeclaration {
                 id: "main",
-                symbol: Symbol::HereFunction(main),
+                symbol: Symbol::Here(SymbolDefinition::Function(main)),
             }
             .mock(),
         ];
@@ -3529,12 +3609,12 @@ mod tests {
             symbols: vec![
                 SymbolDeclaration {
                     id: "foo",
-                    symbol: Symbol::HereFunction(foo),
+                    symbol: Symbol::Here(SymbolDefinition::Function(foo)),
                 }
                 .mock(),
                 SymbolDeclaration {
                     id: "main",
-                    symbol: Symbol::HereFunction(main),
+                    symbol: Symbol::Here(SymbolDefinition::Function(main)),
                 }
                 .mock(),
             ],
@@ -3622,12 +3702,12 @@ mod tests {
             symbols: vec![
                 SymbolDeclaration {
                     id: "foo",
-                    symbol: Symbol::HereFunction(foo),
+                    symbol: Symbol::Here(SymbolDefinition::Function(foo)),
                 }
                 .mock(),
                 SymbolDeclaration {
                     id: "main",
-                    symbol: Symbol::HereFunction(main),
+                    symbol: Symbol::Here(SymbolDefinition::Function(main)),
                 }
                 .mock(),
             ],
@@ -3738,12 +3818,12 @@ mod tests {
             symbols: vec![
                 SymbolDeclaration {
                     id: "foo",
-                    symbol: Symbol::HereFunction(foo),
+                    symbol: Symbol::Here(SymbolDefinition::Function(foo)),
                 }
                 .mock(),
                 SymbolDeclaration {
                     id: "main",
-                    symbol: Symbol::HereFunction(main),
+                    symbol: Symbol::Here(SymbolDefinition::Function(main)),
                 }
                 .mock(),
             ],
@@ -4002,12 +4082,12 @@ mod tests {
         let symbols = vec![
             SymbolDeclaration {
                 id: "main",
-                symbol: Symbol::HereFunction(main1),
+                symbol: Symbol::Here(SymbolDefinition::Function(main1)),
             }
             .mock(),
             SymbolDeclaration {
                 id: "main",
-                symbol: Symbol::HereFunction(main2),
+                symbol: Symbol::Here(SymbolDefinition::Function(main2)),
             }
             .mock(),
         ];
@@ -4121,7 +4201,7 @@ mod tests {
                 imports: vec![],
                 symbols: vec![SymbolDeclaration {
                     id: "Foo",
-                    symbol: Symbol::HereType(s.mock()),
+                    symbol: Symbol::Here(SymbolDefinition::Struct(s.mock())),
                 }
                 .mock()],
             };
@@ -4305,7 +4385,7 @@ mod tests {
                     symbols: vec![
                         SymbolDeclaration {
                             id: "Foo",
-                            symbol: Symbol::HereType(
+                            symbol: Symbol::Here(SymbolDefinition::Struct(
                                 StructDefinition {
                                     fields: vec![StructDefinitionField {
                                         id: "foo",
@@ -4314,12 +4394,12 @@ mod tests {
                                     .mock()],
                                 }
                                 .mock(),
-                            ),
+                            )),
                         }
                         .mock(),
                         SymbolDeclaration {
                             id: "Bar",
-                            symbol: Symbol::HereType(
+                            symbol: Symbol::Here(SymbolDefinition::Struct(
                                 StructDefinition {
                                     fields: vec![StructDefinitionField {
                                         id: "foo",
@@ -4328,7 +4408,7 @@ mod tests {
                                     .mock()],
                                 }
                                 .mock(),
-                            ),
+                            )),
                         }
                         .mock(),
                     ],
@@ -4373,7 +4453,7 @@ mod tests {
                     imports: vec![],
                     symbols: vec![SymbolDeclaration {
                         id: "Bar",
-                        symbol: Symbol::HereType(
+                        symbol: Symbol::Here(SymbolDefinition::Struct(
                             StructDefinition {
                                 fields: vec![StructDefinitionField {
                                     id: "foo",
@@ -4382,7 +4462,7 @@ mod tests {
                                 .mock()],
                             }
                             .mock(),
-                        ),
+                        )),
                     }
                     .mock()],
                 };
@@ -4406,7 +4486,7 @@ mod tests {
                     imports: vec![],
                     symbols: vec![SymbolDeclaration {
                         id: "Foo",
-                        symbol: Symbol::HereType(
+                        symbol: Symbol::Here(SymbolDefinition::Struct(
                             StructDefinition {
                                 fields: vec![StructDefinitionField {
                                     id: "foo",
@@ -4415,7 +4495,7 @@ mod tests {
                                 .mock()],
                             }
                             .mock(),
-                        ),
+                        )),
                     }
                     .mock()],
                 };
@@ -4441,7 +4521,7 @@ mod tests {
                     symbols: vec![
                         SymbolDeclaration {
                             id: "Foo",
-                            symbol: Symbol::HereType(
+                            symbol: Symbol::Here(SymbolDefinition::Struct(
                                 StructDefinition {
                                     fields: vec![StructDefinitionField {
                                         id: "bar",
@@ -4450,12 +4530,12 @@ mod tests {
                                     .mock()],
                                 }
                                 .mock(),
-                            ),
+                            )),
                         }
                         .mock(),
                         SymbolDeclaration {
                             id: "Bar",
-                            symbol: Symbol::HereType(
+                            symbol: Symbol::Here(SymbolDefinition::Struct(
                                 StructDefinition {
                                     fields: vec![StructDefinitionField {
                                         id: "foo",
@@ -4464,7 +4544,7 @@ mod tests {
                                     .mock()],
                                 }
                                 .mock(),
-                            ),
+                            )),
                         }
                         .mock(),
                     ],
@@ -4607,7 +4687,7 @@ mod tests {
                         )
                         .mock(),
                         &PathBuf::from(MODULE_ID).into(),
-                        &state.types,
+                        &state.types
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
                         "a",

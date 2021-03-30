@@ -1,5 +1,5 @@
 
-file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
+file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ const_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
 
 pragma = { "#pragma" ~ "curve" ~ curve }
 curve = @{ (ASCII_ALPHANUMERIC | "_") * }
@@ -9,6 +9,7 @@ from_import_directive = { "from" ~ "\"" ~ import_source ~ "\"" ~ "import" ~ iden
 main_import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+}
 import_source = @{(!"\"" ~ ANY)*}
 function_definition = {"def" ~ identifier ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
+const_definition = {"const" ~ ty ~ identifier ~ "=" ~ expression ~ NEWLINE*}
 return_types = _{ ( "->" ~ ( "(" ~ type_list ~ ")" | ty ))? }
 
 parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
@@ -128,6 +129,6 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
 // the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly
 // accepted
-keyword = @{"assert"|"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
+keyword = @{"assert"|"as"|"bool"|"byte"|"const"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
             "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"
             }

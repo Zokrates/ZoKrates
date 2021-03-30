@@ -90,6 +90,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -215,6 +216,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()

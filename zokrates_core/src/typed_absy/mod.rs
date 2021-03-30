@@ -45,6 +45,9 @@ pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
 ///   in a given `TypedModule`, hence the use of a HashMap
 pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
 
+/// A collection of `TypedConstant`s
+pub type TypedConstants<'ast, T> = HashMap<Identifier<'ast>, TypedConstant<'ast, T>>;
+
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypedProgram<'ast, T> {
@@ -102,11 +105,13 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
     }
 }
 
-/// A typed program as a collection of functions. Types have been resolved during semantic checking.
+/// A typed module as a collection of functions. Types have been resolved during semantic checking.
 #[derive(PartialEq, Clone)]
 pub struct TypedModule<'ast, T> {
-    /// Functions of the program
+    /// Functions of the module
     pub functions: TypedFunctionSymbols<'ast, T>,
+    /// Constants defined in module
+    pub constants: TypedConstants<'ast, T>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -245,6 +250,25 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedFunction<'ast, T> {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct TypedConstant<'ast, T> {
+    pub id: Identifier<'ast>,
+    pub ty: Type,
+    pub expression: TypedExpression<'ast, T>,
+}
+
+impl<'ast, T: fmt::Debug> fmt::Debug for TypedConstant<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TypedConstant({:?}, {:?}, ...)", self.id, self.ty)
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "const {} {} = {}", self.ty, self.id, self.expression)
     }
 }
 
