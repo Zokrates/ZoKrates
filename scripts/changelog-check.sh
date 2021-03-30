@@ -10,7 +10,7 @@ fi
 CHANGELOG_PATH='changelogs/unreleased'
 
 pr_number=$(echo $GITHUB_REF | cut -d / -f 3)
-changelog="${CHANGELOG_PATH}/${pr_number}-*"
+changelog="${CHANGELOG_PATH}/${pr_number}-${GITHUB_ACTOR}"
 
 if [ ! -f "$changelog" ]; then
     echo "Pull request #${pr_number:-?} is missing a changelog. Please add a changelog to ${CHANGELOG_PATH}."
