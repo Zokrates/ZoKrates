@@ -1,20 +1,22 @@
 ## Operators
 
-The following table lists the precedence and associativity of all available operators. Operators are listed top to bottom, in ascending precedence.
+The following table lists the precedence and associativity of all operators. Operators are listed top to bottom, in ascending precedence. Operators in the same box group left to right. Operators are binary, unless the syntax is provided.
 
-| Operator                     | Description                                                  | Associativity                      | Remarks |
-|------------------------------|--------------------------------------------------------------|------------------------------------|---------|
-| ** <br>                      | Power                                                        | Left                               | [^1]     |
-| *<br> /<br> %<br>                | Multiplication <br>  Division <br>  Remainder                | Left <br> Left <br>Left                     |         |
-| + <br> - <br>                | Addition <br>  Subtraction <br>                              | Left <br> Left                     |         |
-| << <br> >> <br>              | Left shift <br>  Right shift <br>                            | Left <br> Left                     | [^2]     |
-| &                            | Bitwise AND                                                  | Left <br> Left                     |         |
-| \|                           | Bitwise OR                                                   | Left <br> Left                     |         |
-| ^                            | Bitwise XOR                                                  | Left <br> Left                     |         |
-| >= <br><br> > <br> <= <br> < | Greater or equal <br> Greater <br> Lower or equal <br> Lower | Left <br> Left <br> Left <br> Left | [^3]     |
-| != <br> == <br>              | Not Equal <br> Equal  <br>                                   | Left <br> Left                     |         |
-| &&                           | Boolean AND                                                  | Left                               |         |
-| \|\|                         | Boolean OR                                                   | Left                               |         |
+| Operator                        | Description                                                       | Remarks |
+|---------------------------------|-------------------------------------------------------------------|---------|
+| `**` <br>                       | Power                                                             |  [^1]   |
+| `+x` <br> `-x` <br> `!x` <br>   | Positive <br> Negative <br> Negation <br>                         |         |
+| `*` <br> `/` <br> `%` <br>      | Multiplication <br>  Division <br>  Remainder <br>                |         |
+| `+` <br> `-` <br>               | Addition <br>  Subtraction <br>                                   |         |
+| `<<` <br> `>>` <br>             | Left shift <br>  Right shift <br>                                 |  [^2]   |
+| `&`                             | Bitwise AND                                                       |         |
+| <code>&#124;</code>             | Bitwise OR                                                        |         |
+| `^`                             | Bitwise XOR                                                       |         |
+| `>=` <br> `>` <br> `<=` <br> `<`| Greater or equal <br> Greater <br> Lower or equal <br> Lower <br> |  [^3]   |
+| `!=` <br> `==` <br>             | Not Equal <br> Equal  <br>                                        |         |
+| `&&`                            | Boolean AND                                                       |         |
+| <code>&#124;&#124;</code>       | Boolean OR                                                        |         |
+| `if c then x else y fi`         | Conditional expression                                            |         |
 
 
 
