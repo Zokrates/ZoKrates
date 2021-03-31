@@ -1134,7 +1134,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let mut expression_list_checked = vec![];
                 let mut errors = vec![];
 
-                let return_types = std::mem::take(&mut self.return_types).unwrap();
+                // we clone the return types because there might be other return statements
+                let return_types = self.return_types.clone().unwrap();
 
                 for e in e.value.expressions.into_iter() {
                     let e_checked = self
