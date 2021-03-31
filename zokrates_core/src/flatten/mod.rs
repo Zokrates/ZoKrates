@@ -948,7 +948,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .map(|x| x.get_field_unchecked())
                     .collect::<Vec<_>>();
 
-                #[allow(clippy::needless_collect)]
                 for (concrete_argument, formal_argument) in
                     params_flattened.into_iter().zip(funct.arguments)
                 {
