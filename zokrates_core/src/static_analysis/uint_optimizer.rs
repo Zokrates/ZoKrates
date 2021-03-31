@@ -280,7 +280,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .with_max(range_max)
             }
             LeftShift(box e, box by) => {
-                // reduce the left term
+                // reduce both terms
                 let e = self.fold_uint_expression(e);
                 let by = self.fold_uint_expression(by);
 
@@ -325,11 +325,9 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .parse()
                     .unwrap();
 
-                println!("e_max: {:x?}, by_u: {}", e_max, by_u);
 
                 let max = (e_max & (2_usize.pow(range as u32) - 1)) >> by_u;
 
-                println!("MAX {:x?}", max);
 
                 let max = T::from(max);
 
