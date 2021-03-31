@@ -29,7 +29,7 @@ echo "Published zokrates/zokrates:$TAG"
 
 # Release on Github
 git tag -f latest
-git tag $TAG
+git tag -f $TAG
 git push origin -f latest
 git push origin $TAG
 
