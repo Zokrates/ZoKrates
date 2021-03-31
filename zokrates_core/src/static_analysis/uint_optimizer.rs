@@ -325,9 +325,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .parse()
                     .unwrap();
 
-
                 let max = (e_max & (2_usize.pow(range as u32) - 1)) >> by_u;
-
 
                 let max = T::from(max);
 
