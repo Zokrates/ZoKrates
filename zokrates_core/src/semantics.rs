@@ -1245,20 +1245,10 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Add(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::add(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `+` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(UExpression::add(e1, e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1279,20 +1269,10 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Sub(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::sub(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `+` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(UExpression::sub(e1, e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1313,20 +1293,10 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Mult(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::mult(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `*` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(UExpression::mult(e1, e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1347,20 +1317,10 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Div(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::div(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `/` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(UExpression::div(e1, e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1378,20 +1338,10 @@ impl<'ast> Checker<'ast> {
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
 
                 match (e1_checked, e2_checked) {
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::rem(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `%` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(UExpression::rem(e1, e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1657,53 +1607,20 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::BoolEq(box e1, box e2).into())
                     }
-                    (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Array(e1), TypedExpression::Array(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
                     }
-                    (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::StructEq(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Struct(e1), TypedExpression::Struct(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(BooleanExpression::StructEq(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintEq(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(BooleanExpression::UintEq(box e1, box e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -2019,22 +1936,7 @@ impl<'ast> Checker<'ast> {
 
                         for e in expressions_checked {
                             let unwrapped_e = match e {
-                                TypedExpression::Uint(e) => {
-                                    if e.get_type() == ty {
-                                        Ok(e)
-                                    } else {
-                                        Err(ErrorInner {
-                                            pos: Some(pos),
-
-                                            message: format!(
-                                                "Expected {} to have type {}, but type is {}",
-                                                e,
-                                                ty,
-                                                e.get_type()
-                                            ),
-                                        })
-                                    }
-                                }
+                                TypedExpression::Uint(e) if e.get_type() == ty => Ok(e),
                                 e => Err(ErrorInner {
                                     pos: Some(pos),
 
@@ -2061,22 +1963,7 @@ impl<'ast> Checker<'ast> {
 
                         for e in expressions_checked {
                             let unwrapped_e = match e {
-                                TypedExpression::Array(e) => {
-                                    if e.get_type() == ty {
-                                        Ok(e)
-                                    } else {
-                                        Err(ErrorInner {
-                                            pos: Some(pos),
-
-                                            message: format!(
-                                                "Expected {} to have type {}, but type is {}",
-                                                e,
-                                                ty,
-                                                e.get_type()
-                                            ),
-                                        })
-                                    }
-                                }
+                                TypedExpression::Array(e) if e.get_type() == ty => Ok(e),
                                 e => Err(ErrorInner {
                                     pos: Some(pos),
 
@@ -2103,22 +1990,7 @@ impl<'ast> Checker<'ast> {
 
                         for e in expressions_checked {
                             let unwrapped_e = match e {
-                                TypedExpression::Struct(e) => {
-                                    if e.get_type() == ty {
-                                        Ok(e)
-                                    } else {
-                                        Err(ErrorInner {
-                                            pos: Some(pos),
-
-                                            message: format!(
-                                                "Expected {} to have type {}, but type is {}",
-                                                e,
-                                                ty,
-                                                e.get_type()
-                                            ),
-                                        })
-                                    }
-                                }
+                                TypedExpression::Struct(e) if e.get_type() == ty => Ok(e),
                                 e => Err(ErrorInner {
                                     pos: Some(pos),
 
@@ -2251,7 +2123,9 @@ impl<'ast> Checker<'ast> {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
-                    (TypedExpression::Uint(e1), TypedExpression::FieldElement(e2)) => {
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e2.bitwidth == UBitwidth::B32 =>
+                    {
                         Ok(UExpression::left_shift(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
@@ -2269,7 +2143,9 @@ impl<'ast> Checker<'ast> {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
-                    (TypedExpression::Uint(e1), TypedExpression::FieldElement(e2)) => {
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e2.bitwidth == UBitwidth::B32 =>
+                    {
                         Ok(UExpression::right_shift(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
@@ -2287,20 +2163,10 @@ impl<'ast> Checker<'ast> {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::or(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `|` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.bitwidth() == e2.bitwidth() =>
+                    {
+                        Ok(UExpression::or(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -2317,20 +2183,10 @@ impl<'ast> Checker<'ast> {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::and(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `&` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.bitwidth() == e2.bitwidth() =>
+                    {
+                        Ok(UExpression::and(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -2347,20 +2203,10 @@ impl<'ast> Checker<'ast> {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::xor(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `^` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.bitwidth() == e2.bitwidth() =>
+                    {
+                        Ok(UExpression::xor(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),

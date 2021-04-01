@@ -9,15 +9,18 @@ fi
 
 CHANGELOG_PATH='changelogs/unreleased'
 
+echo $GITHUB_REF
 pr_number=$(echo $GITHUB_REF | cut -d / -f 3)
 changelog="${CHANGELOG_PATH}/${pr_number}-*"
 
-if [ ! -f "$changelog" ]; then
+if ls ${changelog} 1> /dev/null 2>&1; then
+    echo "Pull request #${pr_number:-?} contains a changelog."
+else
     echo "Pull request #${pr_number:-?} is missing a changelog. Please add a changelog to ${CHANGELOG_PATH}."
     exit 1
 fi
 
-cl_diff=$(git diff --exit-code $GITHUB_HEAD_REF CHANGELOG.md)
+cl_diff=$(git diff --exit-code $GITHUB_SHA -- CHANGELOG.md)
 if [ -n "$cl_diff" ]; then
     echo "Pull requests should not directly modify the main CHANGELOG.md file. For more information, please read changelogs/README.md"
     exit 1

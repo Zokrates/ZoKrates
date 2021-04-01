@@ -809,13 +809,13 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
         }
         typed_absy::UExpressionInner::LeftShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_field_expression(by);
+            let by = f.fold_uint_expression(by);
 
             zir::UExpressionInner::LeftShift(box e, box by)
         }
         typed_absy::UExpressionInner::RightShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_field_expression(by);
+            let by = f.fold_uint_expression(by);
 
             zir::UExpressionInner::RightShift(box e, box by)
         }

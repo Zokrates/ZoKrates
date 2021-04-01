@@ -465,13 +465,13 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
         }
         UExpressionInner::LeftShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_field_expression(by);
+            let by = f.fold_uint_expression(by);
 
             UExpressionInner::LeftShift(box e, box by)
         }
         UExpressionInner::RightShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_field_expression(by);
+            let by = f.fold_uint_expression(by);
 
             UExpressionInner::RightShift(box e, box by)
         }

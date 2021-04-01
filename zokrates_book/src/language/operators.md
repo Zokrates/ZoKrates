@@ -18,10 +18,8 @@ The following table lists the precedence and associativity of all operators. Ope
 | <code>&#124;&#124;</code>       | Boolean OR                                                        |         |
 | `if c then x else y fi`         | Conditional expression                                            |         |
 
+[^1]: The exponent must be a compile-time constant of type `u32`
 
-
-[^1]: The exponent must be a compile-time constant
-
-[^2]: The right operand must be a compile time constant
+[^2]: The right operand must be a compile time constant of type `u32`
 
 [^3]: Both operands are asserted to be strictly lower than the biggest power of 2 lower than `p/2`
