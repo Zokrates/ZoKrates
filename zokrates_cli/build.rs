@@ -11,5 +11,5 @@ fn export_stdlib() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let mut options = CopyOptions::new();
     options.overwrite = true;
-    copy_items(&vec!["tests/contract"], out_dir, &options).unwrap();
+    copy_items(&["tests/contract"], out_dir, &options).unwrap();
 }

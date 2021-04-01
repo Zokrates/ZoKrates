@@ -174,7 +174,7 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
         .write(proof.as_bytes())
         .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
 
-    println!("Proof:\n{}", format!("{}", proof));
+    println!("Proof:\n{}", proof);
 
     Ok(())
 }

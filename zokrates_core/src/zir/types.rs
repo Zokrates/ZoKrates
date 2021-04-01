@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-pub type Identifier<'ast> = &'ast str;
-
 pub type MemberId = String;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
@@ -92,44 +90,13 @@ impl Type {
     }
 }
 
-pub type FunctionIdentifier<'ast> = &'ast str;
-
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
-pub struct FunctionKey<'ast> {
-    pub id: FunctionIdentifier<'ast>,
-    pub signature: Signature,
-}
-
-impl<'ast> FunctionKey<'ast> {
-    pub fn with_id<S: Into<Identifier<'ast>>>(id: S) -> Self {
-        FunctionKey {
-            id: id.into(),
-            signature: Signature::new(),
-        }
-    }
-
-    pub fn signature(mut self, signature: Signature) -> Self {
-        self.signature = signature;
-        self
-    }
-
-    pub fn id<S: Into<Identifier<'ast>>>(mut self, id: S) -> Self {
-        self.id = id.into();
-        self
-    }
-
-    pub fn to_slug(&self) -> String {
-        format!("{}_{}", self.id, self.signature.to_slug())
-    }
-}
-
 pub use self::signature::Signature;
 
 pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
+    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd, Default)]
     pub struct Signature {
         pub inputs: Vec<Type>,
         pub outputs: Vec<Type>,
@@ -189,12 +156,10 @@ pub mod signature {
                     let len = res.len();
                     if len == 0 {
                         res.push((1, t))
+                    } else if res[len - 1].1 == t {
+                        res[len - 1].0 += 1;
                     } else {
-                        if res[len - 1].1 == t {
-                            res[len - 1].0 += 1;
-                        } else {
-                            res.push((1, t))
-                        }
+                        res.push((1, t))
                     }
                 }
                 res.into_iter()
@@ -217,10 +182,7 @@ pub mod signature {
         }
 
         pub fn new() -> Signature {
-            Signature {
-                inputs: vec![],
-                outputs: vec![],
-            }
+            Signature::default()
         }
 
         pub fn inputs(mut self, inputs: Vec<Type>) -> Self {

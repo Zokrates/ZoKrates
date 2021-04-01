@@ -81,7 +81,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
             ic: vk
                 .gamma_abc
                 .into_iter()
-                .map(|g1| serialization::to_g1::<T>(g1))
+                .map(serialization::to_g1::<T>)
                 .collect(),
         };
 

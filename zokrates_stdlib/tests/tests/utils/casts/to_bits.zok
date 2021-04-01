@@ -7,7 +7,7 @@ def main(u32[4] a, u16[4] b, u8[4] c) -> (bool[4][32], bool[4][16], bool[4][8]):
 	bool[4][16] e = [[false; 16]; 4]
 	bool[4][8] f = [[false; 8]; 4]
 
-	for field i in 0..4 do
+	for u32 i in 0..4 do
 		d[i] = u32_to_bits(a[i])
 		e[i] = u16_to_bits(b[i])
 		f[i] = u8_to_bits(c[i])

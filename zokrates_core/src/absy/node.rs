@@ -81,7 +81,7 @@ impl<'ast> NodeValue for ExpressionList<'ast> {}
 impl<'ast> NodeValue for Assignee<'ast> {}
 impl<'ast> NodeValue for Statement<'ast> {}
 impl<'ast> NodeValue for SymbolDeclaration<'ast> {}
-impl NodeValue for UnresolvedType {}
+impl<'ast> NodeValue for UnresolvedType<'ast> {}
 impl<'ast> NodeValue for StructDefinition<'ast> {}
 impl<'ast> NodeValue for StructDefinitionField<'ast> {}
 impl<'ast> NodeValue for Function<'ast> {}
@@ -92,6 +92,7 @@ impl<'ast> NodeValue for Parameter<'ast> {}
 impl<'ast> NodeValue for Import<'ast> {}
 impl<'ast> NodeValue for Spread<'ast> {}
 impl<'ast> NodeValue for Range<'ast> {}
+impl<'ast> NodeValue for Identifier<'ast> {}
 
 impl<T: PartialEq> PartialEq for Node<T> {
     fn eq(&self, other: &Node<T>) -> bool {

@@ -1,6 +1,6 @@
-def slice32from(field offset, field[2048] input) -> (field[32]):
+def slice32from(u32 offset, field[2048] input) -> (field[32]):
 	field[32] result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-	for field i in 0..32 do
+	for u32 i in 0..32 do
 		result[i] = input[offset + i]
 	endfor
 	return result

@@ -29,7 +29,7 @@ fn generate_proof() {
 
     let interpreter = Interpreter::default();
     let witness = interpreter
-        .execute(&program, &vec![Bn128Field::from(42)])
+        .execute(&program, &[Bn128Field::from(42)])
         .unwrap();
 
     let keypair = <Bellman as Backend<Bn128Field, G16>>::setup(program.clone());

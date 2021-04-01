@@ -7,21 +7,21 @@ use crate::absy::Identifier;
 #[derive(Clone, PartialEq)]
 pub struct Variable<'ast> {
     pub id: Identifier<'ast>,
-    pub _type: UnresolvedTypeNode,
+    pub _type: UnresolvedTypeNode<'ast>,
 }
 
 pub type VariableNode<'ast> = Node<Variable<'ast>>;
 
 impl<'ast> Variable<'ast> {
-    pub fn new<S: Into<&'ast str>>(id: S, t: UnresolvedTypeNode) -> Variable<'ast> {
+    pub fn new<S: Into<&'ast str>>(id: S, t: UnresolvedTypeNode<'ast>) -> Variable<'ast> {
         Variable {
             id: id.into(),
             _type: t,
         }
     }
 
-    pub fn get_type(&self) -> UnresolvedType {
-        self._type.value.clone()
+    pub fn get_type(&self) -> &UnresolvedType<'ast> {
+        &self._type.value
     }
 }
 

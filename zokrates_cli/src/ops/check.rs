@@ -69,7 +69,7 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         format!(
             "{}:{}",
             file.strip_prefix(std::env::current_dir().unwrap())
-                .unwrap_or(file.as_path())
+                .unwrap_or_else(|_| file.as_path())
                 .display(),
             e.value()
         )

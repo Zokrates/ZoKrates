@@ -105,7 +105,7 @@ impl<'ast> Module<'ast> {
     }
 }
 
-pub type UnresolvedTypeNode = Node<UnresolvedType>;
+pub type UnresolvedTypeNode<'ast> = Node<UnresolvedType<'ast>>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
@@ -133,7 +133,7 @@ pub type StructDefinitionNode<'ast> = Node<StructDefinition<'ast>>;
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructDefinitionField<'ast> {
     pub id: Identifier<'ast>,
-    pub ty: UnresolvedTypeNode,
+    pub ty: UnresolvedTypeNode<'ast>,
 }
 
 impl<'ast> fmt::Display for StructDefinitionField<'ast> {
@@ -216,6 +216,8 @@ impl<'ast> fmt::Debug for Module<'ast> {
     }
 }
 
+pub type ConstantGenericNode<'ast> = Node<Identifier<'ast>>;
+
 /// A function defined locally
 #[derive(Clone, PartialEq)]
 pub struct Function<'ast> {
@@ -224,13 +226,26 @@ pub struct Function<'ast> {
     /// Vector of statements that are executed when running the function
     pub statements: Vec<StatementNode<'ast>>,
     /// function signature
-    pub signature: UnresolvedSignature,
+    pub signature: UnresolvedSignature<'ast>,
 }
 
 pub type FunctionNode<'ast> = Node<Function<'ast>>;
 
 impl<'ast> fmt::Display for Function<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if !self.signature.generics.is_empty() {
+            write!(
+                f,
+                "<{}>",
+                self.signature
+                    .generics
+                    .iter()
+                    .map(|g| g.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?;
+        }
+
         write!(
             f,
             "({}):\n{}",
@@ -294,6 +309,7 @@ impl<'ast> fmt::Display for Assignee<'ast> {
 }
 
 /// A statement in a `Function`
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq)]
 pub enum Statement<'ast> {
     Return(ExpressionListNode<'ast>),
@@ -319,9 +335,9 @@ impl<'ast> fmt::Display for Statement<'ast> {
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Assertion(ref e) => write!(f, "assert({})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{}\n", l)?;
+                    writeln!(f, "\t\t{}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -348,9 +364,9 @@ impl<'ast> fmt::Debug for Statement<'ast> {
             }
             Statement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
+                writeln!(f, "for {:?} in {:?}..{:?} do", var, start, stop)?;
                 for l in list {
-                    write!(f, "\t\t{:?}\n", l)?;
+                    writeln!(f, "\t\t{:?}", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -454,11 +470,11 @@ impl<'ast> fmt::Display for Range<'ast> {
             self.from
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or("".to_string()),
+                .unwrap_or_else(|| "".to_string()),
             self.to
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or("".to_string())
+                .unwrap_or_else(|| "".to_string())
         )
     }
 }
@@ -472,6 +488,7 @@ impl<'ast> fmt::Debug for Range<'ast> {
 /// An expression
 #[derive(Clone, PartialEq)]
 pub enum Expression<'ast> {
+    IntConstant(BigUint),
     FieldConstant(BigUint),
     BooleanConstant(bool),
     U8Constant(u8),
@@ -491,7 +508,11 @@ pub enum Expression<'ast> {
         Box<ExpressionNode<'ast>>,
         Box<ExpressionNode<'ast>>,
     ),
-    FunctionCall(FunctionIdentifier<'ast>, Vec<ExpressionNode<'ast>>),
+    FunctionCall(
+        FunctionIdentifier<'ast>,
+        Option<Vec<Option<ExpressionNode<'ast>>>>,
+        Vec<ExpressionNode<'ast>>,
+    ),
     Lt(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Le(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Eq(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
@@ -500,6 +521,7 @@ pub enum Expression<'ast> {
     And(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Not(Box<ExpressionNode<'ast>>),
     InlineArray(Vec<SpreadOrExpression<'ast>>),
+    ArrayInitializer(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     InlineStruct(UserTypeId, Vec<(Identifier<'ast>, ExpressionNode<'ast>)>),
     Select(Box<ExpressionNode<'ast>>, Box<RangeOrExpression<'ast>>),
     Member(Box<ExpressionNode<'ast>>, Box<Identifier<'ast>>),
@@ -520,6 +542,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::U8Constant(ref i) => write!(f, "{}", i),
             Expression::U16Constant(ref i) => write!(f, "{}", i),
             Expression::U32Constant(ref i) => write!(f, "{}", i),
+            Expression::IntConstant(ref i) => write!(f, "{}", i),
             Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
@@ -535,8 +558,21 @@ impl<'ast> fmt::Display for Expression<'ast> {
                 "if {} then {} else {} fi",
                 condition, consequent, alternative
             ),
-            Expression::FunctionCall(ref i, ref p) => {
-                write!(f, "{}(", i,)?;
+            Expression::FunctionCall(ref i, ref g, ref p) => {
+                if let Some(g) = g {
+                    write!(
+                        f,
+                        "::<{}>",
+                        g.iter()
+                            .map(|g| g
+                                .as_ref()
+                                .map(|g| g.to_string())
+                                .unwrap_or_else(|| "_".into()))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    )?;
+                }
+                write!(f, "{}(", i)?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -562,6 +598,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
                 }
                 write!(f, "]")
             }
+            Expression::ArrayInitializer(ref e, ref count) => write!(f, "[{}; {}]", e, count),
             Expression::InlineStruct(ref id, ref members) => {
                 write!(f, "{} {{", id)?;
                 for (i, (member_id, e)) in members.iter().enumerate() {
@@ -587,10 +624,11 @@ impl<'ast> fmt::Display for Expression<'ast> {
 impl<'ast> fmt::Debug for Expression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expression::U8Constant(ref i) => write!(f, "{:x}", i),
-            Expression::U16Constant(ref i) => write!(f, "{:x}", i),
-            Expression::U32Constant(ref i) => write!(f, "{:x}", i),
-            Expression::FieldConstant(ref i) => write!(f, "Num({:?})", i),
+            Expression::U8Constant(ref i) => write!(f, "U8({:x})", i),
+            Expression::U16Constant(ref i) => write!(f, "U16({:x})", i),
+            Expression::U32Constant(ref i) => write!(f, "U32({:x})", i),
+            Expression::FieldConstant(ref i) => write!(f, "Field({:?})", i),
+            Expression::IntConstant(ref i) => write!(f, "Int({:?})", i),
             Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
@@ -606,8 +644,8 @@ impl<'ast> fmt::Debug for Expression<'ast> {
                 "IfElse({:?}, {:?}, {:?})",
                 condition, consequent, alternative
             ),
-            Expression::FunctionCall(ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
+            Expression::FunctionCall(ref g, ref i, ref p) => {
+                write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
@@ -622,6 +660,9 @@ impl<'ast> fmt::Debug for Expression<'ast> {
                 write!(f, "InlineArray([")?;
                 f.debug_list().entries(exprs.iter()).finish()?;
                 write!(f, "]")
+            }
+            Expression::ArrayInitializer(ref e, ref count) => {
+                write!(f, "ArrayInitializer({:?}, {:?})", e, count)
             }
             Expression::InlineStruct(ref id, ref members) => {
                 write!(f, "InlineStruct({:?}, [", id)?;
@@ -645,20 +686,12 @@ impl<'ast> fmt::Debug for Expression<'ast> {
 }
 
 /// A list of expressions, used in return statements
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Default)]
 pub struct ExpressionList<'ast> {
     pub expressions: Vec<ExpressionNode<'ast>>,
 }
 
 pub type ExpressionListNode<'ast> = Node<ExpressionList<'ast>>;
-
-impl<'ast> ExpressionList<'ast> {
-    pub fn new() -> ExpressionList<'ast> {
-        ExpressionList {
-            expressions: vec![],
-        }
-    }
-}
 
 impl<'ast> fmt::Display for ExpressionList<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

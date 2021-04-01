@@ -1,3 +1,4 @@
+use crate::embed::FlatEmbed;
 use crate::zir::folder::*;
 use crate::zir::*;
 use std::collections::HashMap;
@@ -24,7 +25,7 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
     }
 }
 
-fn force_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+fn force_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
     let metadata = e.metadata.unwrap();
 
     let should_reduce = metadata.should_reduce.make_true();
@@ -38,7 +39,7 @@ fn force_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T>
     }
 }
 
-fn force_no_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+fn force_no_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
     let metadata = e.metadata.unwrap();
 
     let should_reduce = metadata.should_reduce.make_false();
@@ -67,6 +68,42 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 BooleanExpression::UintEq(box left, box right)
             }
+            BooleanExpression::UintLt(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintLt(box left, box right)
+            }
+            BooleanExpression::UintLe(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintLe(box left, box right)
+            }
+            BooleanExpression::UintGt(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintGt(box left, box right)
+            }
+            BooleanExpression::UintGe(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintGe(box left, box right)
+            }
             e => fold_boolean_expression(self, e),
         }
     }
@@ -94,7 +131,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 self.ids
                     .get(&Variable::uint(id.clone(), range))
                     .cloned()
-                    .expect(&format!("identifier should have been defined: {}", id)),
+                    .unwrap_or_else(|| panic!("identifier should have been defined: {}", id)),
             ),
             Add(box left, box right) => {
                 // reduce the two terms
@@ -109,7 +146,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .map(|max| (false, false, max))
                     .unwrap_or_else(|| {
                         range_max
-                            .clone()
                             .checked_add(&right_max)
                             .map(|max| (true, false, max))
                             .unwrap_or_else(|| {
@@ -167,7 +203,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         // if and only if `right_bitwidth` is `T::get_required_bits() - 1`, then `offset` is out of the interval
                         // [0, 2**(max_bitwidth)[, therefore we need to reduce `right`
                         left_max
-                            .checked_add(&target_offset.clone())
+                            .checked_add(&target_offset)
                             .map(|max| (false, true, max))
                             .unwrap_or_else(|| (true, true, range_max.clone() + target_offset))
                     } else {
@@ -234,7 +270,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .map(|max| (false, false, max))
                     .unwrap_or_else(|| {
                         range_max
-                            .clone()
                             .checked_mul(&right_max)
                             .map(|max| (true, false, max))
                             .unwrap_or_else(|| {
@@ -387,8 +422,8 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .collect(),
             )],
             ZirStatement::MultipleDefinition(lhs, rhs) => match rhs {
-                ZirExpressionList::FunctionCall(key, arguments, ty) => match key.clone().id {
-                    "_U32_FROM_BITS" => {
+                ZirExpressionList::EmbedCall(embed, generics, arguments) => match embed {
+                    FlatEmbed::U32FromBits => {
                         assert_eq!(lhs.len(), 1);
                         self.register(
                             lhs[0].clone(),
@@ -397,12 +432,13 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                                 should_reduce: ShouldReduce::False,
                             },
                         );
+
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
-                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                            ZirExpressionList::EmbedCall(embed, generics, arguments),
                         )]
                     }
-                    "_U16_FROM_BITS" => {
+                    FlatEmbed::U16FromBits => {
                         assert_eq!(lhs.len(), 1);
                         self.register(
                             lhs[0].clone(),
@@ -413,10 +449,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         );
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
-                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                            ZirExpressionList::EmbedCall(embed, generics, arguments),
                         )]
                     }
-                    "_U8_FROM_BITS" => {
+                    FlatEmbed::U8FromBits => {
                         assert_eq!(lhs.len(), 1);
                         self.register(
                             lhs[0].clone(),
@@ -427,18 +463,18 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         );
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
-                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                            ZirExpressionList::EmbedCall(embed, generics, arguments),
                         )]
                     }
                     _ => vec![ZirStatement::MultipleDefinition(
                         lhs,
-                        ZirExpressionList::FunctionCall(
-                            key,
+                        ZirExpressionList::EmbedCall(
+                            embed,
+                            generics,
                             arguments
                                 .into_iter()
                                 .map(|e| self.fold_expression(e))
                                 .collect(),
-                            ty,
                         ),
                     )],
                 },

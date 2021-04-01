@@ -10,6 +10,6 @@ def main(field x, field y, u8 z, u8 t) -> (field[4], u8[4]):
     u8 h = z - + t // should parse to sub(pos)
 
     assert(-0x00 == 0x00)
-    assert(-0 == 0)
+    assert(-0f == 0)
 
     return [a, b, c, d], [e, f, g, h]

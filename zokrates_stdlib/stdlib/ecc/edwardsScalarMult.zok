@@ -15,8 +15,8 @@ def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> field[2]:
     field[2] doubledP = pt
     field[2] accumulatedP = infinity
 
-    for field i in 0..256 do
-        field j = 255 - i
+    for u32 i in 0..256 do
+        u32 j = 255 - i
         field[2] candidateP = add(accumulatedP, doubledP, context)
         accumulatedP = if exponent[j] then candidateP else accumulatedP fi
         doubledP = add(doubledP, doubledP, context)

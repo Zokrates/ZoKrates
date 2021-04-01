@@ -9,17 +9,6 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_program(self, p)
     }
 
-    fn fold_module(&mut self, p: ZirModule<'ast, T>) -> ZirModule<'ast, T> {
-        fold_module(self, p)
-    }
-
-    fn fold_function_symbol(
-        &mut self,
-        s: ZirFunctionSymbol<'ast, T>,
-    ) -> ZirFunctionSymbol<'ast, T> {
-        fold_function_symbol(self, s)
-    }
-
     fn fold_function(&mut self, f: ZirFunction<'ast, T>) -> ZirFunction<'ast, T> {
         fold_function(self, f)
     }
@@ -63,14 +52,14 @@ pub trait Folder<'ast, T: Field>: Sized {
         es: ZirExpressionList<'ast, T>,
     ) -> ZirExpressionList<'ast, T> {
         match es {
-            ZirExpressionList::FunctionCall(id, arguments, types) => {
-                ZirExpressionList::FunctionCall(
-                    id,
+            ZirExpressionList::EmbedCall(embed, generics, arguments) => {
+                ZirExpressionList::EmbedCall(
+                    embed,
+                    generics,
                     arguments
                         .into_iter()
                         .map(|a| self.fold_expression(a))
                         .collect(),
-                    types,
                 )
             }
         }
@@ -98,20 +87,6 @@ pub trait Folder<'ast, T: Field>: Sized {
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         fold_uint_expression_inner(self, bitwidth, e)
-    }
-}
-
-pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    p: ZirModule<'ast, T>,
-) -> ZirModule<'ast, T> {
-    ZirModule {
-        functions: p
-            .functions
-            .into_iter()
-            .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
-            .collect(),
-        ..p
     }
 }
 
@@ -170,7 +145,7 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
         }
         FieldElementExpression::Pow(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
-            let e2 = f.fold_field_expression(e2);
+            let e2 = f.fold_uint_expression(e2);
             FieldElementExpression::Pow(box e1, box e2)
         }
         FieldElementExpression::IfElse(box cond, box cons, box alt) => {
@@ -204,25 +179,45 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_uint_expression(e2);
             BooleanExpression::UintEq(box e1, box e2)
         }
-        BooleanExpression::Lt(box e1, box e2) => {
+        BooleanExpression::FieldLt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::Lt(box e1, box e2)
+            BooleanExpression::FieldLt(box e1, box e2)
         }
-        BooleanExpression::Le(box e1, box e2) => {
+        BooleanExpression::FieldLe(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::Le(box e1, box e2)
+            BooleanExpression::FieldLe(box e1, box e2)
         }
-        BooleanExpression::Gt(box e1, box e2) => {
+        BooleanExpression::FieldGt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::Gt(box e1, box e2)
+            BooleanExpression::FieldGt(box e1, box e2)
         }
-        BooleanExpression::Ge(box e1, box e2) => {
+        BooleanExpression::FieldGe(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::Ge(box e1, box e2)
+            BooleanExpression::FieldGe(box e1, box e2)
+        }
+        BooleanExpression::UintLt(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintLt(box e1, box e2)
+        }
+        BooleanExpression::UintLe(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintLe(box e1, box e2)
+        }
+        BooleanExpression::UintGt(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintGt(box e1, box e2)
+        }
+        BooleanExpression::UintGe(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintGe(box e1, box e2)
         }
         BooleanExpression::Or(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);
@@ -358,26 +353,11 @@ pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    s: ZirFunctionSymbol<'ast, T>,
-) -> ZirFunctionSymbol<'ast, T> {
-    match s {
-        ZirFunctionSymbol::Here(fun) => ZirFunctionSymbol::Here(f.fold_function(fun)),
-        there => there, // by default, do not fold modules recursively
-    }
-}
-
 pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     p: ZirProgram<'ast, T>,
 ) -> ZirProgram<'ast, T> {
     ZirProgram {
-        modules: p
-            .modules
-            .into_iter()
-            .map(|(module_id, module)| (module_id, f.fold_module(module)))
-            .collect(),
-        main: p.main,
+        main: f.fold_function(p.main),
     }
 }

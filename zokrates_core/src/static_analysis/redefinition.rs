@@ -68,6 +68,6 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<'ast> {
     }
 
     fn fold_name(&mut self, s: Identifier<'ast>) -> Identifier<'ast> {
-        self.identifiers.get(&s).map(|r| r.clone()).unwrap_or(s)
+        self.identifiers.get(&s).cloned().unwrap_or(s)
     }
 }

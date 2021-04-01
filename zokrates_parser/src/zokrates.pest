@@ -8,8 +8,10 @@ import_directive = { main_import_directive | from_import_directive }
 from_import_directive = { "from" ~ "\"" ~ import_source ~ "\"" ~ "import" ~ identifier ~ ("as" ~ identifier)? ~ NEWLINE*}
 main_import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+}
 import_source = @{(!"\"" ~ ANY)*}
-function_definition = {"def" ~ identifier ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
+function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
 return_types = _{ ( "->" ~ ( "(" ~ type_list ~ ")" | ty ))? }
+constant_generics_declaration = _{ "<" ~ constant_generics_list ~ ">" }
+constant_generics_list = _{ identifier ~ ("," ~ identifier)* }
 
 parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
 parameter = {vis? ~ ty ~ identifier}
@@ -66,14 +68,19 @@ to_expression = { expression }
 
 conditional_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
 
-postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers. Not sure that's what we want.
+postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers
 access = { array_access | call_access | member_access }
 array_access = { "[" ~ range_or_expression ~ "]" }
-call_access = { "(" ~ expression_list ~ ")" }
+call_access = { explicit_generics? ~ "(" ~ arguments ~ ")" }
+arguments = { expression_list }
+explicit_generics = { "::<" ~ constant_generics_values ~ ">" }
+constant_generics_values = _{ constant_generics_value ~ ("," ~ constant_generics_value)* }
+constant_generics_value = { literal | identifier | underscore }
+underscore = { "_" }
 member_access = { "." ~ identifier }
 
 primary_expression = { identifier
-                    | constant
+                    | literal
                     }
 
 inline_struct_expression = { identifier ~ "{" ~ NEWLINE* ~ inline_struct_member_list ~ NEWLINE* ~ "}" }
@@ -84,21 +91,37 @@ inline_array_expression = { "[" ~ NEWLINE* ~ inline_array_inner ~ NEWLINE* ~ "]"
 inline_array_inner = _{(spread_or_expression ~ ("," ~ NEWLINE* ~ spread_or_expression)*)?}
 spread_or_expression = { spread | expression }
 range_or_expression = { range | expression }
-array_initializer_expression = { "[" ~ expression ~ ";" ~ constant ~ "]" }
+
 exponent_expression = { "(" ~ expression ~ ")" | primary_expression }
+array_initializer_expression = { "[" ~ expression ~ ";" ~ expression ~ "]" }
 
 // End Expressions
 
 assignee = { identifier ~ assignee_access* }
 assignee_access = { array_access | member_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
-constant = { hex_number | decimal_number | boolean_literal }
+
+// Literals for all types
+
+literal = { hex_literal | decimal_literal | boolean_literal }
+
+decimal_literal = ${ decimal_number ~ decimal_suffix? }
 decimal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+decimal_suffix = { decimal_suffix_u8 | decimal_suffix_u16 | decimal_suffix_u32 | decimal_suffix_field }
+decimal_suffix_u8 = { "u8" }
+decimal_suffix_u16 = { "u16" }
+decimal_suffix_u32 = { "u32" }
+decimal_suffix_field = { "f" }
+
 boolean_literal = { "true" | "false" }
-hex_number = _{ hex_number_32 | hex_number_16 | hex_number_8 }
-hex_number_8 = @{ "0x" ~ ASCII_HEX_DIGIT{2} }
-hex_number_16 = @{ "0x" ~ ASCII_HEX_DIGIT{4} }
-hex_number_32 = @{ "0x" ~ ASCII_HEX_DIGIT{8} }
+
+hex_literal = !{ "0x" ~ hex_number }
+hex_number = { hex_number_u32 | hex_number_u16 | hex_number_u8 }
+hex_number_u8 = { ASCII_HEX_DIGIT{2} }
+hex_number_u16 = { ASCII_HEX_DIGIT{4} }
+hex_number_u32 = { ASCII_HEX_DIGIT{8} }
+
+// Operators
 
 op_or = @{"||"}
 op_and = @{"&&"}
