@@ -2311,7 +2311,7 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(&config);
 
-        let flat = flattener.flatten_function(&HashMap::new(), function);
+        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
@@ -2375,7 +2375,7 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(&config);
 
-        let flat = flattener.flatten_function(&HashMap::new(), function);
+        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
@@ -2443,7 +2443,7 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(&config);
 
-        let flat = flattener.flatten_function(&HashMap::new(), function);
+        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
@@ -2500,7 +2500,7 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(&config);
 
-        let flat = flattener.flatten_function(&HashMap::new(), function);
+        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
@@ -2570,7 +2570,7 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(&config);
 
-        let flat = flattener.flatten_function(&HashMap::new(), function);
+        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
@@ -2644,7 +2644,7 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(&config);
 
-        let flat = flattener.flatten_function(&HashMap::new(), function);
+        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
@@ -2728,7 +2728,7 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(&config);
 
-        let flat = flattener.flatten_function(&HashMap::new(), function);
+        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
             statements: vec![
