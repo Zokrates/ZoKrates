@@ -174,7 +174,7 @@ impl Importer {
                         symbols.push(
                             SymbolDeclaration {
                                 id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Unpack(T::get_required_bits())),
+                                symbol: Symbol::Flat(FlatEmbed::Unpack),
                             }
                             .start_end(pos.0, pos.1),
                         );

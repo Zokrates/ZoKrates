@@ -44,7 +44,7 @@ pub enum InlineError<'ast, T> {
     Generic(DeclarationFunctionKey<'ast>, ConcreteFunctionKey<'ast>),
     Flat(
         FlatEmbed,
-        Vec<Option<UExpression<'ast, T>>>,
+        Vec<u32>,
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
@@ -153,7 +153,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         TypedFunctionSymbol::Here(f) => Ok(f),
         TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(
             e,
-            generics,
+            e.generics(&assignment),
             arguments.clone(),
             output_types,
         )),

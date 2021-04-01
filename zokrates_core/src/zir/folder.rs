@@ -9,17 +9,6 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_program(self, p)
     }
 
-    fn fold_module(&mut self, p: ZirModule<'ast, T>) -> ZirModule<'ast, T> {
-        fold_module(self, p)
-    }
-
-    fn fold_function_symbol(
-        &mut self,
-        s: ZirFunctionSymbol<'ast, T>,
-    ) -> ZirFunctionSymbol<'ast, T> {
-        fold_function_symbol(self, s)
-    }
-
     fn fold_function(&mut self, f: ZirFunction<'ast, T>) -> ZirFunction<'ast, T> {
         fold_function(self, f)
     }
@@ -63,14 +52,14 @@ pub trait Folder<'ast, T: Field>: Sized {
         es: ZirExpressionList<'ast, T>,
     ) -> ZirExpressionList<'ast, T> {
         match es {
-            ZirExpressionList::FunctionCall(id, arguments, types) => {
-                ZirExpressionList::FunctionCall(
-                    id,
+            ZirExpressionList::EmbedCall(embed, generics, arguments) => {
+                ZirExpressionList::EmbedCall(
+                    embed,
+                    generics,
                     arguments
                         .into_iter()
                         .map(|a| self.fold_expression(a))
                         .collect(),
-                    types,
                 )
             }
         }
@@ -98,19 +87,6 @@ pub trait Folder<'ast, T: Field>: Sized {
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         fold_uint_expression_inner(self, bitwidth, e)
-    }
-}
-
-pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    p: ZirModule<'ast, T>,
-) -> ZirModule<'ast, T> {
-    ZirModule {
-        functions: p
-            .functions
-            .into_iter()
-            .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
-            .collect(),
     }
 }
 
@@ -334,13 +310,13 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
         }
         UExpressionInner::LeftShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_field_expression(by);
+            let by = f.fold_uint_expression(by);
 
             UExpressionInner::LeftShift(box e, box by)
         }
         UExpressionInner::RightShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_field_expression(by);
+            let by = f.fold_uint_expression(by);
 
             UExpressionInner::RightShift(box e, box by)
         }
@@ -377,26 +353,11 @@ pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    s: ZirFunctionSymbol<'ast, T>,
-) -> ZirFunctionSymbol<'ast, T> {
-    match s {
-        ZirFunctionSymbol::Here(fun) => ZirFunctionSymbol::Here(f.fold_function(fun)),
-        there => there, // by default, do not fold modules recursively
-    }
-}
-
 pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     p: ZirProgram<'ast, T>,
 ) -> ZirProgram<'ast, T> {
     ZirProgram {
-        modules: p
-            .modules
-            .into_iter()
-            .map(|(module_id, module)| (module_id, f.fold_module(module)))
-            .collect(),
-        main: p.main,
+        main: f.fold_function(p.main),
     }
 }
