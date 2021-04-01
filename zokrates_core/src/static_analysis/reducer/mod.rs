@@ -1029,24 +1029,20 @@ mod tests {
         let expected = TypedProgram {
             main: "main".into(),
             modules: vec![(
-                            "main".into(),
-                            TypedModule {
-                                functions: vec![(
-                                    DeclarationFunctionKey::with_location("main", "main").signature(
-                                        DeclarationSignature::new()
-                                            .inputs(vec![DeclarationType::FieldElement])
-                                            .outputs(vec![DeclarationType::FieldElement]),
-                                    ),
-                                    TypedFunctionSymbol::Here(expected_main),
-                                )]
-                                .into_iter()
-            <<<<<<< HEAD
-                                .chain(embeds_in_module(&MAIN_MODULE_ID))
-            =======
-            >>>>>>> a101026f785e06146fce7908f449b8a08a33b7b9
-                                .collect(),
-                            },
-                        )]
+                "main".into(),
+                TypedModule {
+                    functions: vec![(
+                        DeclarationFunctionKey::with_location("main", "main").signature(
+                            DeclarationSignature::new()
+                                .inputs(vec![DeclarationType::FieldElement])
+                                .outputs(vec![DeclarationType::FieldElement]),
+                        ),
+                        TypedFunctionSymbol::Here(expected_main),
+                    )]
+                    .into_iter()
+                    .collect(),
+                },
+            )]
             .into_iter()
             .collect(),
         };
@@ -1250,24 +1246,20 @@ mod tests {
         let expected = TypedProgram {
             main: "main".into(),
             modules: vec![(
-                            "main".into(),
-                            TypedModule {
-                                functions: vec![(
-                                    DeclarationFunctionKey::with_location("main", "main").signature(
-                                        DeclarationSignature::new()
-                                            .inputs(vec![DeclarationType::FieldElement])
-                                            .outputs(vec![DeclarationType::FieldElement]),
-                                    ),
-                                    TypedFunctionSymbol::Here(expected_main),
-                                )]
-                                .into_iter()
-            <<<<<<< HEAD
-                                .chain(embeds_in_module(&MAIN_MODULE_ID))
-            =======
-            >>>>>>> a101026f785e06146fce7908f449b8a08a33b7b9
-                                .collect(),
-                            },
-                        )]
+                "main".into(),
+                TypedModule {
+                    functions: vec![(
+                        DeclarationFunctionKey::with_location("main", "main").signature(
+                            DeclarationSignature::new()
+                                .inputs(vec![DeclarationType::FieldElement])
+                                .outputs(vec![DeclarationType::FieldElement]),
+                        ),
+                        TypedFunctionSymbol::Here(expected_main),
+                    )]
+                    .into_iter()
+                    .collect(),
+                },
+            )]
             .into_iter()
             .collect(),
         };
@@ -1536,21 +1528,17 @@ mod tests {
         let expected = TypedProgram {
             main: "main".into(),
             modules: vec![(
-                            "main".into(),
-                            TypedModule {
-                                functions: vec![(
-                                    DeclarationFunctionKey::with_location("main", "main")
-                                        .signature(DeclarationSignature::new()),
-                                    TypedFunctionSymbol::Here(expected_main),
-                                )]
-                                .into_iter()
-            <<<<<<< HEAD
-                                .chain(embeds_in_module(&MAIN_MODULE_ID))
-            =======
-            >>>>>>> a101026f785e06146fce7908f449b8a08a33b7b9
-                                .collect(),
-                            },
-                        )]
+                "main".into(),
+                TypedModule {
+                    functions: vec![(
+                        DeclarationFunctionKey::with_location("main", "main")
+                            .signature(DeclarationSignature::new()),
+                        TypedFunctionSymbol::Here(expected_main),
+                    )]
+                    .into_iter()
+                    .collect(),
+                },
+            )]
             .into_iter()
             .collect(),
         };
