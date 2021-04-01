@@ -36,6 +36,6 @@ fn out_of_range() {
     let interpreter = Interpreter::try_out_of_range();
 
     assert!(interpreter
-        .execute(&res.prog(), &vec![Bn128Field::from(10000)])
+        .execute(&res.prog(), &[Bn128Field::from(10000)])
         .is_err());
 }

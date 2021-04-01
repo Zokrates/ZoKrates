@@ -38,10 +38,13 @@ fn cli() -> Result<(), String> {
             compile::subcommand(),
             check::subcommand(),
             compute_witness::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             generate_proof::subcommand(),
             print_proof::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             verify::subcommand()])
         .get_matches();
 
@@ -116,6 +119,8 @@ mod tests {
                     assert_eq!(res.is_err(), should_error);
                 }
             })
+            .unwrap()
+            .join()
             .unwrap();
     }
 
@@ -144,7 +149,7 @@ mod tests {
             let interpreter = ir::Interpreter::default();
 
             let _ = interpreter
-                .execute(&artifacts.prog(), &vec![Bn128Field::from(0)])
+                .execute(&artifacts.prog(), &[Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -173,7 +178,7 @@ mod tests {
 
             let interpreter = ir::Interpreter::default();
 
-            let res = interpreter.execute(&artifacts.prog(), &vec![Bn128Field::from(0)]);
+            let res = interpreter.execute(&artifacts.prog(), &[Bn128Field::from(0)]);
 
             assert!(res.is_err());
         }

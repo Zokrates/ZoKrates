@@ -3,7 +3,7 @@ extern crate serde_json;
 
 #[cfg(test)]
 mod integration {
-    use assert_cli;
+
     use serde_json::from_reader;
     use std::fs;
     use std::fs::File;
@@ -146,11 +146,11 @@ mod integration {
             .map_err(|why| why.to_string())
             .unwrap();
 
-        let signature = abi.signature().clone();
+        let signature = abi.signature();
 
         let inputs_abi: zokrates_abi::Inputs<zokrates_field::Bn128Field> =
             parse_strict(&json_input_str, signature.inputs)
-                .map(|parsed| zokrates_abi::Inputs::Abi(parsed))
+                .map(zokrates_abi::Inputs::Abi)
                 .map_err(|why| why.to_string())
                 .unwrap();
         let inputs_raw: Vec<_> = inputs_abi
@@ -168,7 +168,7 @@ mod integration {
             inline_witness_path.to_str().unwrap(),
         ];
 
-        if inputs_raw.len() > 0 {
+        if !inputs_raw.is_empty() {
             compute_inline.push("-a");
 
             for arg in &inputs_raw {
@@ -201,7 +201,7 @@ mod integration {
 
         assert_eq!(inline_witness, witness);
 
-        for line in expected_witness.as_str().split("\n") {
+        for line in expected_witness.as_str().split('\n') {
             assert!(
                 witness.contains(line),
                 "Witness generation failed for {}\n\nLine \"{}\" not found in witness",

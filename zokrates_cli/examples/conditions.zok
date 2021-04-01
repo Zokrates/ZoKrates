@@ -14,6 +14,6 @@ def main(field a) -> field:
   assert(2 * b == a * 12 + 60)
   field c = 7 * (b + a)
   assert(isEqual(c, 7 * b + 7 * a))
-  field k = if [1, 2] == [3, 4] then 1 else 3 fi
+  field k = if [1f, 2] == [3f, 4] then 1 else 3 fi
   assert([Bar { foo : [Foo { a: 42 }]}] == [Bar { foo : [Foo { a: 42 }]}])
   return b + c

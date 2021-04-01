@@ -18,6 +18,7 @@ pub enum BackendParameter {
     Libsnark,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 pub enum SchemeParameter {
     G16,
     GM17,

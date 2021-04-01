@@ -10,11 +10,9 @@ pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
 pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
-use std::path::PathBuf;
 
 use crate::embed::FlatEmbed;
-use crate::zir::types::{FunctionKey, Signature};
-use std::collections::HashMap;
+use crate::zir::types::Signature;
 use std::convert::TryFrom;
 use std::fmt;
 use zokrates_field::Field;
@@ -23,115 +21,17 @@ pub use self::folder::Folder;
 
 pub use self::identifier::{Identifier, SourceIdentifier};
 
-/// An identifier for a `ZirModule`. Typically a path or uri.
-pub type ZirModuleId = PathBuf;
-
-/// A collection of `ZirModule`s
-pub type ZirModules<'ast, T> = HashMap<ZirModuleId, ZirModule<'ast, T>>;
-
-/// A collection of `ZirFunctionSymbol`s
-/// # Remarks
-/// * It is the role of the semantic checker to make sure there are no duplicates for a given `FunctionKey`
-///   in a given `ZirModule`, hence the use of a HashMap
-pub type ZirFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, ZirFunctionSymbol<'ast, T>>;
-
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug)]
 pub struct ZirProgram<'ast, T> {
-    pub modules: ZirModules<'ast, T>,
-    pub main: ZirModuleId,
+    pub main: ZirFunction<'ast, T>,
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (module_id, module) in &self.modules {
-            writeln!(
-                f,
-                "| {}: |{}",
-                module_id.display(),
-                if *module_id == self.main {
-                    "<---- main"
-                } else {
-                    ""
-                }
-            )?;
-            writeln!(f, "{}", "-".repeat(100))?;
-            writeln!(f, "{}", module)?;
-            writeln!(f, "{}", "-".repeat(100))?;
-            writeln!(f, "")?;
-        }
-        write!(f, "")
+        write!(f, "{}", self.main)
     }
 }
-
-/// A typed program as a collection of functions. Types have been resolved during semantic checking.
-#[derive(PartialEq, Clone)]
-pub struct ZirModule<'ast, T> {
-    /// Functions of the program
-    pub functions: ZirFunctionSymbols<'ast, T>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ZirFunctionSymbol<'ast, T> {
-    Here(ZirFunction<'ast, T>),
-    There(FunctionKey<'ast>, ZirModuleId),
-    Flat(FlatEmbed),
-}
-
-impl<'ast, T> ZirFunctionSymbol<'ast, T> {
-    pub fn signature<'a>(&'a self, modules: &'a ZirModules<T>) -> Signature {
-        match self {
-            ZirFunctionSymbol::Here(f) => f.signature.clone(),
-            ZirFunctionSymbol::There(key, module_id) => modules
-                .get(module_id)
-                .unwrap()
-                .functions
-                .get(key)
-                .unwrap()
-                .signature(&modules)
-                .clone(),
-            ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature().into(),
-        }
-    }
-}
-
-impl<'ast, T: fmt::Display> fmt::Display for ZirModule<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let res = self
-            .functions
-            .iter()
-            .map(|(key, symbol)| match symbol {
-                ZirFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
-                ZirFunctionSymbol::There(ref fun_key, ref module_id) => format!(
-                    "import {} from \"{}\" as {} // with signature {}",
-                    fun_key.id,
-                    module_id.display(),
-                    key.id,
-                    key.signature
-                ),
-                ZirFunctionSymbol::Flat(ref flat_fun) => {
-                    format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature())
-                }
-            })
-            .collect::<Vec<_>>();
-        write!(f, "{}", res.join("\n"))
-    }
-}
-
-impl<'ast, T: fmt::Debug> fmt::Debug for ZirModule<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "module(\n\tfunctions:\n\t\t{}\n)",
-            self.functions
-                .iter()
-                .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t")
-        )
-    }
-}
-
 /// A typed function
 #[derive(Clone, PartialEq)]
 pub struct ZirFunction<'ast, T> {
@@ -333,15 +233,7 @@ pub trait MultiTyped {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum ZirExpressionList<'ast, T> {
-    FunctionCall(FunctionKey<'ast>, Vec<ZirExpression<'ast, T>>, Vec<Type>),
-}
-
-impl<'ast, T: Field> MultiTyped for ZirExpressionList<'ast, T> {
-    fn get_types(&self) -> &Vec<Type> {
-        match *self {
-            ZirExpressionList::FunctionCall(_, _, ref types) => types,
-        }
-    }
+    EmbedCall(FlatEmbed, Vec<u32>, Vec<ZirExpression<'ast, T>>),
 }
 
 /// An expression of type `field`
@@ -367,7 +259,7 @@ pub enum FieldElementExpression<'ast, T> {
     ),
     Pow(
         Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
     ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
@@ -381,14 +273,26 @@ pub enum FieldElementExpression<'ast, T> {
 pub enum BooleanExpression<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(bool),
-    Lt(
+    FieldLt(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    Le(
+    FieldLe(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+    FieldGe(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    FieldGt(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    UintLt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     FieldEq(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -398,14 +302,6 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
     ),
     UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Ge(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
-    Gt(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
     Or(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
@@ -538,13 +434,17 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
-            BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
@@ -590,8 +490,24 @@ impl<'ast, T: fmt::Debug> fmt::Debug for FieldElementExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for ZirExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ZirExpressionList::FunctionCall(ref key, ref p, _) => {
-                write!(f, "{}(", key.id,)?;
+            ZirExpressionList::EmbedCall(ref embed, ref generics, ref p) => {
+                write!(
+                    f,
+                    "{}{}(",
+                    embed.id(),
+                    if generics.is_empty() {
+                        "".into()
+                    } else {
+                        format!(
+                            "::<{}>",
+                            generics
+                                .iter()
+                                .map(|g| g.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                    }
+                )?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -607,8 +523,8 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirExpressionList<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ZirExpressionList::FunctionCall(ref i, ref p, _) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
+            ZirExpressionList::EmbedCall(ref embed, ref generics, ref p) => {
+                write!(f, "EmbedCall({:?}, {:?}, (", generics, embed)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }

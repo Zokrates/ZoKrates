@@ -8,7 +8,7 @@ use zokrates_abi::Encode;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::{Signature, Type};
+use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -104,9 +104,12 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
 
             abi.signature()
         }
-        false => Signature::new()
-            .inputs(vec![Type::FieldElement; ir_prog.main.arguments.len()])
-            .outputs(vec![Type::FieldElement; ir_prog.main.returns.len()]),
+        false => ConcreteSignature::new()
+            .inputs(vec![
+                ConcreteType::FieldElement;
+                ir_prog.main.arguments.len()
+            ])
+            .outputs(vec![ConcreteType::FieldElement; ir_prog.main.returns.len()]),
     };
 
     use zokrates_abi::Inputs;
@@ -121,8 +124,8 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                     a.map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
                         .collect::<Result<Vec<_>, _>>()
                 })
-                .unwrap_or(Ok(vec![]))
-                .map(|v| Inputs::Raw(v))
+                .unwrap_or_else(|| Ok(vec![]))
+                .map(Inputs::Raw)
         }
         // take stdin arguments
         true => {
@@ -135,7 +138,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                         use zokrates_abi::parse_strict;
 
                         parse_strict(&input, signature.inputs)
-                            .map(|parsed| Inputs::Abi(parsed))
+                            .map(Inputs::Abi)
                             .map_err(|why| why.to_string())
                     }
                     Err(_) => Err(String::from("???")),
@@ -146,10 +149,10 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                         Ok(_) => {
                             input.retain(|x| x != '\n');
                             input
-                                .split(" ")
+                                .split(' ')
                                 .map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
                                 .collect::<Result<Vec<_>, _>>()
-                                .map(|v| Inputs::Raw(v))
+                                .map(Inputs::Raw)
                         }
                         Err(_) => Err(String::from("???")),
                     },
@@ -168,7 +171,8 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     use zokrates_abi::Decode;
 
     let results_json_value: serde_json::Value =
-        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs).into();
+        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
+            .into_serde_json();
 
     if verbose {
         println!("\nWitness: \n{}\n", results_json_value);

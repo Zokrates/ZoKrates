@@ -42,7 +42,7 @@ def right_rotate_25(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	return from_bits([...b[7..], ...b[..7]])
 
-def extend(u32[64] w, field i) -> u32:
+def extend(u32[64] w, u32 i) -> u32:
 	u32 s0 = right_rotate_7(w[i-15]) ^ right_rotate_18(w[i-15]) ^ (w[i-15] >> 3)
     u32 s1 = right_rotate_17(w[i-2]) ^ right_rotate_19(w[i-2]) ^ (w[i-2] >> 10)
     return w[i-16] + s0 + w[i-7] + s1
@@ -84,7 +84,7 @@ def main(u32[16] input, u32[8] current) -> u32[8]:
 
 	u32[64] w = [...input, ...[0x00000000; 48]]
 
-	for field i in 16..64 do
+	for u32 i in 16..64 do
         w[i] = extend(w, i)
 	endfor
 
@@ -97,7 +97,7 @@ def main(u32[16] input, u32[8] current) -> u32[8]:
 	u32 g = h6
 	u32 h = h7
 
-	for field i in 0..64 do
+	for u32 i in 0..64 do
 
 		u32 t1 = temp1(e, f, g, h, k[i], w[i])
 

@@ -138,7 +138,7 @@ mod tests {
         fn wrong_value() {
             let mut buff = Cursor::new(vec![]);
 
-            buff.write("_1 123bug".as_ref()).unwrap();
+            buff.write_all("_1 123bug".as_ref()).unwrap();
             buff.set_position(0);
 
             assert!(Witness::<Bn128Field>::read(buff).is_err());
@@ -148,7 +148,7 @@ mod tests {
         fn wrong_variable() {
             let mut buff = Cursor::new(vec![]);
 
-            buff.write("_1bug 123".as_ref()).unwrap();
+            buff.write_all("_1bug 123".as_ref()).unwrap();
             buff.set_position(0);
 
             assert!(Witness::<Bn128Field>::read(buff).is_err());
@@ -157,7 +157,7 @@ mod tests {
         #[test]
         fn not_csv() {
             let mut buff = Cursor::new(vec![]);
-            buff.write("whatwhat".as_ref()).unwrap();
+            buff.write_all("whatwhat".as_ref()).unwrap();
             buff.set_position(0);
 
             assert!(Witness::<Bn128Field>::read(buff).is_err());

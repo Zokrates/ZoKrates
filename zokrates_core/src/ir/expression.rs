@@ -2,49 +2,36 @@ use crate::flat_absy::FlatVariable;
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
+use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::Field;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct QuadComb<T> {
     pub left: LinComb<T>,
     pub right: LinComb<T>,
 }
-
-impl<T: Field> PartialEq for QuadComb<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.left.eq(&other.left) && self.right.eq(&other.right)
-    }
-}
-
-impl<T: Field> Eq for QuadComb<T> {}
 
 impl<T: Field> QuadComb<T> {
     pub fn from_linear_combinations(left: LinComb<T>, right: LinComb<T>) -> Self {
         QuadComb { left, right }
     }
 
-    pub fn try_linear(&self) -> Option<LinComb<T>> {
-        // identify (k * ~ONE) * (lincomb) and return (k * lincomb)
-
-        match self.left.try_summand() {
-            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.right.clone() * &coefficient);
-            }
-            _ => {}
-        }
-        match self.right.try_summand() {
-            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.left.clone() * &coefficient);
-            }
-            _ => {}
-        }
+    pub fn try_linear(self) -> Result<LinComb<T>, Self> {
+        // identify `(k * ~ONE) * (lincomb)` and `(lincomb) * (k * ~ONE)` and return (k * lincomb)
+        // if not, error out with the input
 
         if self.left.is_zero() || self.right.is_zero() {
-            return Some(LinComb::zero());
+            return Ok(LinComb::zero());
         }
 
-        None
+        match self.left.try_constant() {
+            Ok(coefficient) => Ok(self.right * &coefficient),
+            Err(left) => match self.right.try_constant() {
+                Ok(coefficient) => Ok(left * &coefficient),
+                Err(right) => Err(QuadComb::from_linear_combinations(left, right)),
+            },
+        }
     }
 }
 
@@ -66,16 +53,8 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
-#[derive(Clone, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
-
-impl<T: Field> PartialEq for LinComb<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.clone().into_canonical() == other.clone().into_canonical()
-    }
-}
-
-impl<T: Field> Eq for LinComb<T> {}
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct CanonicalLinComb<T>(pub BTreeMap<FlatVariable, T>);
@@ -113,36 +92,52 @@ impl<T> LinComb<T> {
     }
 
     pub fn is_zero(&self) -> bool {
-        self.0.len() == 0
+        self.0.is_empty()
     }
 }
 
 impl<T: Field> LinComb<T> {
-    pub fn try_summand(&self) -> Option<(FlatVariable, T)> {
+    pub fn try_constant(self) -> Result<T, Self> {
         match self.0.len() {
-            // if the lincomb is empty, it is not reduceable to a summand
-            0 => None,
+            // if the lincomb is empty, it is reduceable to 0
+            0 => Ok(T::zero()),
             _ => {
                 // take the first variable in the lincomb
                 let first = &self.0[0].0;
 
-                self.0
-                    .iter()
-                    .map(|element| {
+                if first != &FlatVariable::one() {
+                    return Err(self);
+                }
+
+                // all terms must contain the same variable
+                if self.0.iter().all(|element| element.0 == *first) {
+                    Ok(self.0.into_iter().fold(T::zero(), |acc, e| acc + e.1))
+                } else {
+                    Err(self)
+                }
+            }
+        }
+    }
+
+    pub fn try_summand(self) -> Result<(FlatVariable, T), Self> {
+        match self.0.len() {
+            // if the lincomb is empty, it is not reduceable to a summand
+            0 => Err(self),
+            _ => {
+                // take the first variable in the lincomb
+                let first = &self.0[0].0;
+
+                if self.0.iter().all(|element|
                         // all terms must contain the same variable
-                        if element.0 == *first {
-                            // if they do, return the coefficient
-                            Ok(&element.1)
-                        } else {
-                            // otherwise, stop
-                            Err(())
-                        }
-                    })
-                    // collect to a Result to short circuit when we hit an error
-                    .collect::<Result<_, _>>()
-                    // we didn't hit an error, do final processing. It's fine to clone here.
-                    .map(|v: Vec<_>| (first.clone(), v.iter().fold(T::zero(), |acc, e| acc + *e)))
-                    .ok()
+                        element.0 == *first)
+                {
+                    Ok((
+                        *first,
+                        self.0.into_iter().fold(T::zero(), |acc, e| acc + e.1),
+                    ))
+                } else {
+                    Err(self)
+                }
             }
         }
     }
@@ -207,9 +202,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
             false => write!(
                 f,
                 "{}",
-                self.clone()
-                    .into_canonical()
-                    .0
+                self.0
                     .iter()
                     .map(|(k, v)| format!("{} * {}", v.to_compact_dec_string(), k))
                     .collect::<Vec<_>>()
@@ -251,10 +244,14 @@ impl<T: Field> Mul<&T> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn mul(self, scalar: &T) -> LinComb<T> {
+        if scalar == &T::one() {
+            return self;
+        }
+
         LinComb(
             self.0
                 .into_iter()
-                .map(|(var, coeff)| (var, coeff * scalar))
+                .map(|(var, coeff)| (var, coeff * scalar.clone()))
                 .collect(),
         )
     }
@@ -262,7 +259,8 @@ impl<T: Field> Mul<&T> for LinComb<T> {
 
 impl<T: Field> Div<&T> for LinComb<T> {
     type Output = LinComb<T>;
-
+    // Clippy warns about multiplication in a method named div. It's okay, here, since we multiply with the inverse.
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, scalar: &T) -> LinComb<T> {
         self * &scalar.inverse_mul().unwrap()
     }
@@ -287,7 +285,7 @@ mod tests {
         fn add() {
             let a: LinComb<Bn128Field> = FlatVariable::new(42).into();
             let b: LinComb<Bn128Field> = FlatVariable::new(42).into();
-            let c = a + b.clone();
+            let c = a + b;
 
             let expected_vec = vec![
                 (FlatVariable::new(42), Bn128Field::from(1)),
@@ -300,7 +298,7 @@ mod tests {
         fn sub() {
             let a: LinComb<Bn128Field> = FlatVariable::new(42).into();
             let b: LinComb<Bn128Field> = FlatVariable::new(42).into();
-            let c = a - b.clone();
+            let c = a - b;
 
             let expected_vec = vec![
                 (FlatVariable::new(42), Bn128Field::from(1)),
@@ -314,7 +312,7 @@ mod tests {
         fn display() {
             let a: LinComb<Bn128Field> =
                 LinComb::from(FlatVariable::new(42)) + LinComb::summand(3, FlatVariable::new(21));
-            assert_eq!(&a.to_string(), "3 * _21 + 1 * _42");
+            assert_eq!(&a.to_string(), "1 * _42 + 3 * _21");
             let zero: LinComb<Bn128Field> = LinComb::zero();
             assert_eq!(&zero.to_string(), "0");
         }
@@ -350,7 +348,7 @@ mod tests {
                     + LinComb::summand(4, FlatVariable::new(33)),
                 right: LinComb::summand(1, FlatVariable::new(21)),
             };
-            assert_eq!(&a.to_string(), "(4 * _33 + 3 * _42) * (1 * _21)");
+            assert_eq!(&a.to_string(), "(3 * _42 + 4 * _33) * (1 * _21)");
             let a: QuadComb<Bn128Field> = QuadComb {
                 left: LinComb::zero(),
                 right: LinComb::summand(1, FlatVariable::new(21)),
@@ -371,7 +369,7 @@ mod tests {
             ]);
             assert_eq!(
                 summand.try_summand(),
-                Some((FlatVariable::new(42), Bn128Field::from(6)))
+                Ok((FlatVariable::new(42), Bn128Field::from(6)))
             );
 
             let not_summand = LinComb(vec![
@@ -379,10 +377,10 @@ mod tests {
                 (FlatVariable::new(42), Bn128Field::from(2)),
                 (FlatVariable::new(42), Bn128Field::from(3)),
             ]);
-            assert_eq!(not_summand.try_summand(), None);
+            assert!(not_summand.try_summand().is_err());
 
             let empty: LinComb<Bn128Field> = LinComb(vec![]);
-            assert_eq!(empty.try_summand(), None);
+            assert!(empty.try_summand().is_err());
         }
     }
 }

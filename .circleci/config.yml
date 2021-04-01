@@ -4,6 +4,7 @@ jobs:
   build:
     docker:
       - image: zokrates/env:latest
+    resource_class: large
     steps:
       - checkout
       - run:
@@ -28,6 +29,7 @@ jobs:
   test:
     docker:
       - image: zokrates/env:latest
+    resource_class: large
     steps:
       - checkout
       - run:
@@ -42,6 +44,9 @@ jobs:
       - run:
           name: Check format
           command: cargo fmt --all -- --check
+      - run:
+          name: Run clippy
+          command: cargo clippy -- -D warnings
       - run:
           name: Build
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
@@ -80,6 +85,7 @@ jobs:
     docker:
       - image: zokrates/env:latest
       - image: trufflesuite/ganache-cli:next
+    resource_class: large
     steps:
       - checkout
       - run:
@@ -134,7 +140,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - deploy
           requires:
             - build
             - test
