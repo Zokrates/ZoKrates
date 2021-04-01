@@ -173,7 +173,8 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     use zokrates_abi::Decode;
 
     let results_json_value: serde_json::Value =
-        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs).into();
+        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
+            .into_serde_json();
 
     println!("\nWitness: \n\n{}", results_json_value);
 

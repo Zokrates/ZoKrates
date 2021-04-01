@@ -271,7 +271,7 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &vec![Bls12_377Field::from(42)])
+            .execute(&program, &[Bls12_377Field::from(42)])
             .unwrap();
 
         let proof =
@@ -300,7 +300,7 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &vec![Bw6_761Field::from(42)])
+            .execute(&program, &[Bw6_761Field::from(42)])
             .unwrap();
 
         let proof =

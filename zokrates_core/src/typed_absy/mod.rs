@@ -26,7 +26,7 @@ pub use self::types::{
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub use crate::typed_absy::integer::IntExpression;
 pub use crate::typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
@@ -48,10 +48,11 @@ use std::ops::{Add, Div, Mul, Sub};
 pub use self::identifier::Identifier;
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
-pub type TypedModuleId = PathBuf;
+pub type OwnedTypedModuleId = PathBuf;
+pub type TypedModuleId = Path;
 
 /// A collection of `TypedModule`s
-pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
+pub type TypedModules<'ast, T> = HashMap<OwnedTypedModuleId, TypedModule<'ast, T>>;
 
 /// A collection of `TypedFunctionSymbol`s
 /// # Remarks
@@ -64,7 +65,7 @@ pub type TypedFunctionSymbols<'ast, T> =
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypedProgram<'ast, T> {
     pub modules: TypedModules<'ast, T>,
-    pub main: TypedModuleId,
+    pub main: OwnedTypedModuleId,
 }
 
 impl<'ast, T> TypedProgram<'ast, T> {

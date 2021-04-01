@@ -570,11 +570,7 @@ pub fn fold_field_expression<'ast, T: Field>(
                 box e,
             )
         }
-        typed_absy::FieldElementExpression::Pos(box e) => {
-            let e = f.fold_field_expression(e);
-
-            e
-        }
+        typed_absy::FieldElementExpression::Pos(box e) => f.fold_field_expression(e),
         typed_absy::FieldElementExpression::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);
             let cons = f.fold_field_expression(cons);

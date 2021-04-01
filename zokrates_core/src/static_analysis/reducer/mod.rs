@@ -657,10 +657,16 @@ mod tests {
     use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
         ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
-        FieldElementExpression, Identifier, Select, Type, TypedExpression, TypedExpressionList,
-        TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
+        FieldElementExpression, Identifier, OwnedTypedModuleId, Select, Type, TypedExpression,
+        TypedExpressionList, TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
+
+    use lazy_static::lazy_static;
+
+    lazy_static! {
+        static ref MAIN_MODULE_ID: OwnedTypedModuleId = OwnedTypedModuleId::from("main");
+    }
 
     #[test]
     fn no_generics() {
@@ -923,8 +929,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1011,8 +1016,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1142,8 +1146,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1230,8 +1233,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1309,7 +1311,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic("K".into()),
+                Constant::Generic("K"),
             )
             .into()],
             statements: vec![
@@ -1373,7 +1375,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic("K".into()),
+                Constant::Generic("K"),
             )
             .into()],
             statements: vec![TypedStatement::Return(vec![
@@ -1493,8 +1495,7 @@ mod tests {
                         box ArrayExpressionInner::Identifier(
                             Identifier::from(CoreIdentifier::Call(0)).version(1),
                         )
-                        .annotate(Type::FieldElement, 2u32)
-                        .into(),
+                        .annotate(Type::FieldElement, 2u32),
                         box 0u32.into(),
                         box 1u32.into(),
                     )

@@ -1,6 +1,6 @@
 use crate::typed_absy::types::UBitwidth;
 use crate::typed_absy::*;
-use std::ops::{Add, Div, Mul, Not, Rem, Sub};
+use std::ops::{Add, Div, Mul, Neg, Not, Rem, Sub};
 use zokrates_field::Field;
 
 type Bitwidth = usize;
@@ -69,6 +69,15 @@ impl<'ast, T> Not for UExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> Neg for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn neg(self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        UExpressionInner::Neg(box self).annotate(bitwidth)
+    }
+}
+
 impl<'ast, T: Field> UExpression<'ast, T> {
     pub fn xor(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
@@ -86,16 +95,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::And(box self, box other).annotate(bitwidth)
-    }
-
-    pub fn not(self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        UExpressionInner::Not(box self).annotate(bitwidth)
-    }
-
-    pub fn neg(self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        UExpressionInner::Neg(box self).annotate(bitwidth)
     }
 
     pub fn pos(self) -> UExpression<'ast, T> {

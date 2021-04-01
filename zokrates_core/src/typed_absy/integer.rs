@@ -8,7 +8,7 @@ use crate::typed_absy::{
 use num_bigint::BigUint;
 use std::convert::TryFrom;
 use std::fmt;
-use std::ops::{Add, Div, Mul, Not, Rem, Sub};
+use std::ops::{Add, Div, Mul, Neg, Not, Rem, Sub};
 use zokrates_field::Field;
 
 type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
@@ -204,6 +204,14 @@ impl<'ast, T> Not for IntExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> Neg for IntExpression<'ast, T> {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        IntExpression::Neg(box self)
+    }
+}
+
 impl<'ast, T> IntExpression<'ast, T> {
     pub fn pow(self, other: Self) -> Self {
         IntExpression::Pow(box self, box other)
@@ -231,10 +239,6 @@ impl<'ast, T> IntExpression<'ast, T> {
 
     pub fn pos(self) -> Self {
         IntExpression::Pos(box self)
-    }
-
-    pub fn neg(self) -> Self {
-        IntExpression::Neg(box self)
     }
 }
 
@@ -596,7 +600,7 @@ mod tests {
 
         for e in should_error
             .into_iter()
-            .map(|e| FieldElementExpression::try_from_int(e))
+            .map(FieldElementExpression::try_from_int)
         {
             assert!(e.is_err());
         }

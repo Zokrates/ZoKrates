@@ -46,7 +46,7 @@ jobs:
           command: cargo fmt --all -- --check
       - run:
           name: Run clippy
-          command: cargo clippy
+          command: cargo clippy -- -D warnings
       - run:
           name: Build
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh

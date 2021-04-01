@@ -132,7 +132,7 @@ impl Importer {
         destination: Module<'ast>,
         location: PathBuf,
         resolver: Option<&dyn Resolver<E>>,
-        modules: &mut HashMap<ModuleId, Module<'ast>>,
+        modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
         arena: &'ast Arena<String>,
     ) -> Result<Module<'ast>, CompileErrors> {
         let mut symbols: Vec<_> = vec![];

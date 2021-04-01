@@ -7,6 +7,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct PGHR13;
 
 #[derive(Serialize, Deserialize)]
