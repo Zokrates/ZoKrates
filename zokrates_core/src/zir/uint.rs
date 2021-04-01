@@ -1,6 +1,6 @@
 use crate::zir::identifier::Identifier;
 use crate::zir::types::UBitwidth;
-use crate::zir::{BooleanExpression, FieldElementExpression};
+use crate::zir::BooleanExpression;
 use zokrates_field::Field;
 
 impl<'ast, T: Field> UExpression<'ast, T> {
@@ -57,13 +57,15 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::And(box self, box other).annotate(bitwidth)
     }
 
-    pub fn left_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
+    pub fn left_shift(self, by: UExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
+        assert_eq!(by.bitwidth(), UBitwidth::B32);
         UExpressionInner::LeftShift(box self, box by).annotate(bitwidth)
     }
 
-    pub fn right_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
+    pub fn right_shift(self, by: UExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
+        assert_eq!(by.bitwidth(), UBitwidth::B32);
         UExpressionInner::RightShift(box self, box by).annotate(bitwidth)
     }
 }
@@ -168,14 +170,8 @@ pub enum UExpressionInner<'ast, T> {
     Xor(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    LeftShift(
-        Box<UExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
-    RightShift(
-        Box<UExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    LeftShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    RightShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Not(Box<UExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,

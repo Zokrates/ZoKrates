@@ -34,7 +34,6 @@ use zokrates_field::Field;
 pub trait Analyse {
     fn analyse(self) -> Self;
 }
-
 #[derive(Debug)]
 pub enum Error {
     Reducer(self::reducer::Error),

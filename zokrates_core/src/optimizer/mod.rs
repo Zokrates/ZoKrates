@@ -4,6 +4,7 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+mod canonicalizer;
 mod directive;
 mod duplicate;
 mod redefinition;

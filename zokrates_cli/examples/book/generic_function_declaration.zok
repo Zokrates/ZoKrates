@@ -1,0 +1,6 @@
+def foo<N>() -> field[N]:
+    return [42; N]
+
+def main() -> field[2]:
+    field[2] res = foo()
+    return res

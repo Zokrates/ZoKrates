@@ -12,6 +12,12 @@ Arguments are passed by value.
 {{#include ../../../zokrates_cli/examples/book/side_effects.zok}}
 ```
 
+Generic paramaters, if any, must be compile-time constants. They are inferred by the compiler if that is possible, but can also be provided explicitly.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/generic_call.zok}}
+```
+
 ### If-expressions
 
 An if-expression allows you to branch your code depending on a boolean condition.
@@ -28,7 +34,7 @@ For loops are available with the following syntax:
 {{#include ../../../zokrates_cli/examples/book/for.zok}}
 ```
 
-The bounds have to be constant at compile-time, therefore they cannot depend on execution inputs.
+The bounds have to be constant at compile-time, therefore they cannot depend on execution inputs. They can depend on generic parameters.
 
 ### Assertions
 

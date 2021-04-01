@@ -1,0 +1,14 @@
+{
+    "entry_point": "./tests/tests/hashes/pedersen/512bitBool.zok",
+    "curves": ["Bn128"],
+    "tests": [{
+        "input": {
+            "values": []
+        },
+        "output": {
+            "Ok": {
+                "values": ["1"]
+            }
+        }
+    }]
+}
