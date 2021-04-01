@@ -1738,6 +1738,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e = self.check_expression(e, module_id, &types)?;
 
                 match e {
+                    TypedExpression::Int(e) => Ok(IntExpression::Neg(box e).into()),
                     TypedExpression::FieldElement(e) => {
                         Ok(FieldElementExpression::Neg(box e).into())
                     }
@@ -1756,6 +1757,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e = self.check_expression(e, module_id, &types)?;
 
                 match e {
+                    TypedExpression::Int(e) => Ok(IntExpression::Pos(box e).into()),
                     TypedExpression::FieldElement(e) => {
                         Ok(FieldElementExpression::Pos(box e).into())
                     }
