@@ -2,24 +2,24 @@ def main(field[4] values) -> (field, field, field):
     field res0 = 1
     field res1 = 0
 
-    field counter = 0
+    u32 counter = 0
 
-    for field i in 0..4 do
-        for field j in i..4 do
+    for u32 i in 0..4 do
+        for u32 j in i..4 do
             counter = counter + 1
             res0 = res0 * (values[i] + values[j])
         endfor
     endfor
 
-    for field i in 0..counter do
+    for u32 i in 0..counter do
         res1 = res1 + 1
     endfor
 
     field res2 = 0
-    field i = 0
-    for field i in i..5 do
+    u32 i = 0
+    for u32 i in i..5 do
         i = 5
-        for field i in 0..i do
+        for u32 i in 0..i do
             res2 = res2 + 1
         endfor
     endfor

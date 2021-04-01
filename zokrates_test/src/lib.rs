@@ -16,7 +16,7 @@ enum Curve {
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Tests {
-    pub entry_point: PathBuf,
+    pub entry_point: Option<PathBuf>,
     pub curves: Option<Vec<Curve>>,
     pub max_constraint_count: Option<usize>,
     pub tests: Vec<Test>,
@@ -93,7 +93,15 @@ pub fn test_inner(test_path: &str) {
     let t: Tests =
         serde_json::from_reader(BufReader::new(File::open(Path::new(test_path)).unwrap())).unwrap();
 
-    let curves = t.curves.clone().unwrap_or(vec![Curve::Bn128]);
+    let curves = t.curves.clone().unwrap_or_else(|| vec![Curve::Bn128]);
+
+    let t = Tests {
+        entry_point: Some(
+            t.entry_point
+                .unwrap_or_else(|| PathBuf::from(String::from(test_path)).with_extension("zok")),
+        ),
+        ..t
+    };
 
     // this function typically runs in a spawn thread whose stack size is small, leading to stack overflows
     // to avoid that, run the stack-heavy bit in a thread with a larger stack (8M)
@@ -116,13 +124,16 @@ pub fn test_inner(test_path: &str) {
 }
 
 fn compile_and_run<T: Field>(t: Tests) {
-    let code = std::fs::read_to_string(&t.entry_point).unwrap();
+    let entry_point = t.entry_point.unwrap();
+
+    let code = std::fs::read_to_string(&entry_point).unwrap();
 
     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+
     let artifacts = compile::<T, _>(
         code,
-        t.entry_point.clone(),
+        entry_point.clone(),
         Some(&resolver),
         &CompileConfig::default(),
     )
@@ -130,17 +141,14 @@ fn compile_and_run<T: Field>(t: Tests) {
 
     let bin = artifacts.prog();
 
-    match t.max_constraint_count {
-        Some(target_count) => {
-            let count = bin.constraint_count();
+    if let Some(target_count) = t.max_constraint_count {
+        let count = bin.constraint_count();
 
-            println!(
-                "{} at {}% of max",
-                t.entry_point.display(),
-                (count as f32) / (target_count as f32) * 100_f32
-            );
-        }
-        _ => {}
+        println!(
+            "{} at {}% of max",
+            entry_point.display(),
+            (count as f32) / (target_count as f32) * 100_f32
+        );
     };
 
     let interpreter = zokrates_core::ir::Interpreter::default();
@@ -148,25 +156,25 @@ fn compile_and_run<T: Field>(t: Tests) {
     for test in t.tests.into_iter() {
         let input = &test.input.values;
 
-        let output = interpreter.execute(bin, &(input.iter().cloned().map(parse_val).collect()));
+        let output = interpreter.execute(
+            bin,
+            &(input.iter().cloned().map(parse_val).collect::<Vec<_>>()),
+        );
 
-        match compare(output, test.output) {
-            Err(e) => {
-                let mut code = File::open(&t.entry_point).unwrap();
-                let mut s = String::new();
-                code.read_to_string(&mut s).unwrap();
-                let context = format!(
-                    "\n{}\nCalled with input ({})\n",
-                    s,
-                    input
-                        .iter()
-                        .map(|i| format!("{}", i))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-                panic!("{}{}", context, e)
-            }
-            Ok(..) => {}
-        };
+        if let Err(e) = compare(output, test.output) {
+            let mut code = File::open(&entry_point).unwrap();
+            let mut s = String::new();
+            code.read_to_string(&mut s).unwrap();
+            let context = format!(
+                "\n{}\nCalled with input ({})\n",
+                s,
+                input
+                    .iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            panic!("{}{}", context, e)
+        }
     }
 }

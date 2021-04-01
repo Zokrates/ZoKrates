@@ -1,0 +1,17 @@
+{
+	"curves": ["Bn128", "Bls12_381"],
+	"tests": [
+		{
+            "input": {
+                "values": [
+                ]
+            },
+            "output": {
+                "Ok": {
+                    "values": [
+                    ]
+                }
+            }
+        }
+    ] 
+}

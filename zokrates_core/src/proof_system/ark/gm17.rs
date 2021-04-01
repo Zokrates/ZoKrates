@@ -78,7 +78,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
             query: vk
                 .query
                 .into_iter()
-                .map(|g1| serialization::to_g1::<T>(g1))
+                .map(serialization::to_g1::<T>)
                 .collect(),
         };
 
@@ -172,7 +172,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
             query: vk
                 .query
                 .into_iter()
-                .map(|g1| serialization::to_g1::<Bw6_761Field>(g1))
+                .map(serialization::to_g1::<Bw6_761Field>)
                 .collect(),
         };
 

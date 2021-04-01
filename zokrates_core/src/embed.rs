@@ -3,7 +3,8 @@ use crate::flat_absy::{
     FlatVariable,
 };
 use crate::solvers::Solver;
-use crate::typed_absy::types::{FunctionKey, Signature, Type};
+use crate::typed_absy::types::{ConcreteFunctionKey, ConcreteSignature, ConcreteType};
+use crate::typed_absy::TypedModuleId;
 use std::collections::HashMap;
 use zokrates_field::{Bn128Field, Field};
 
@@ -20,6 +21,7 @@ cfg_if::cfg_if! {
 /// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FlatEmbed {
+    U32ToField,
     #[cfg(feature = "bellman")]
     Sha256Round,
     Unpack(usize),
@@ -32,45 +34,55 @@ pub enum FlatEmbed {
 }
 
 impl FlatEmbed {
-    pub fn signature(&self) -> Signature {
+    pub fn signature(&self) -> ConcreteSignature {
         match self {
+            FlatEmbed::U32ToField => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::uint(32)])
+                .outputs(vec![ConcreteType::FieldElement]),
+            FlatEmbed::Unpack(bitwidth) => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::FieldElement])
+                .outputs(vec![ConcreteType::array((
+                    ConcreteType::Boolean,
+                    *bitwidth,
+                ))]),
+            FlatEmbed::U8ToBits => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::uint(8)])
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 8usize))]),
+            FlatEmbed::U16ToBits => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::uint(16)])
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 16usize))]),
+            FlatEmbed::U32ToBits => ConcreteSignature::new()
+                .inputs(vec![ConcreteType::uint(32)])
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 32usize))]),
+            FlatEmbed::U8FromBits => ConcreteSignature::new()
+                .outputs(vec![ConcreteType::uint(8)])
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 8usize))]),
+            FlatEmbed::U16FromBits => ConcreteSignature::new()
+                .outputs(vec![ConcreteType::uint(16)])
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 16usize))]),
+            FlatEmbed::U32FromBits => ConcreteSignature::new()
+                .outputs(vec![ConcreteType::uint(32)])
+                .inputs(vec![ConcreteType::array((ConcreteType::Boolean, 32usize))]),
             #[cfg(feature = "bellman")]
-            FlatEmbed::Sha256Round => Signature::new()
+            FlatEmbed::Sha256Round => ConcreteSignature::new()
                 .inputs(vec![
-                    Type::array(Type::Boolean, 512),
-                    Type::array(Type::Boolean, 256),
+                    ConcreteType::array((ConcreteType::Boolean, 512usize)),
+                    ConcreteType::array((ConcreteType::Boolean, 256usize)),
                 ])
-                .outputs(vec![Type::array(Type::Boolean, 256)]),
-            FlatEmbed::Unpack(bitwidth) => Signature::new()
-                .inputs(vec![Type::FieldElement])
-                .outputs(vec![Type::array(Type::Boolean, *bitwidth)]),
-            FlatEmbed::U8ToBits => Signature::new()
-                .inputs(vec![Type::uint(8)])
-                .outputs(vec![Type::array(Type::Boolean, 8)]),
-            FlatEmbed::U16ToBits => Signature::new()
-                .inputs(vec![Type::uint(16)])
-                .outputs(vec![Type::array(Type::Boolean, 16)]),
-            FlatEmbed::U32ToBits => Signature::new()
-                .inputs(vec![Type::uint(32)])
-                .outputs(vec![Type::array(Type::Boolean, 32)]),
-            FlatEmbed::U8FromBits => Signature::new()
-                .outputs(vec![Type::uint(8)])
-                .inputs(vec![Type::array(Type::Boolean, 8)]),
-            FlatEmbed::U16FromBits => Signature::new()
-                .outputs(vec![Type::uint(16)])
-                .inputs(vec![Type::array(Type::Boolean, 16)]),
-            FlatEmbed::U32FromBits => Signature::new()
-                .outputs(vec![Type::uint(32)])
-                .inputs(vec![Type::array(Type::Boolean, 32)]),
+                .outputs(vec![ConcreteType::array((ConcreteType::Boolean, 256usize))]),
         }
     }
 
-    pub fn key<T: Field>(&self) -> FunctionKey<'static> {
-        FunctionKey::with_id(self.id()).signature(self.signature())
+    pub fn key_in_module<T: Field>(
+        &self,
+        module_id: &TypedModuleId,
+    ) -> ConcreteFunctionKey<'static> {
+        ConcreteFunctionKey::with_location(module_id.clone(), self.id()).signature(self.signature())
     }
 
     pub fn id(&self) -> &'static str {
         match self {
+            FlatEmbed::U32ToField => "_U32_TO_FIELD",
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
             FlatEmbed::Unpack(_) => "_UNPACK",
@@ -101,7 +113,7 @@ fn flat_expression_from_vec<T: Field, E: Engine>(v: &[(usize, E::Fr)]) -> FlatEx
     match v.len() {
         0 => FlatExpression::Number(T::zero()),
         1 => {
-            let (key, val) = v[0].clone();
+            let (key, val) = v[0];
             let mut res: Vec<u8> = vec![];
             val.into_repr().write_le(&mut res).unwrap();
             FlatExpression::Mult(
@@ -152,7 +164,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     let output_indices = output_indices.into_iter();
     let variable_count = r1cs.aux_count + 1; // auxiliary and ONE
                                              // indices of the sha256round constraint system variables
-    let cs_indices = (0..variable_count).into_iter();
+    let cs_indices = 0..variable_count;
     // indices of the arguments to the function
     // apply an offset of `variable_count` to get the indice of our dummy `input` argument
     let input_argument_indices = input_indices
@@ -180,7 +192,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     );
     let input_binding_statements =
     // bind input and current_hash to inputs
-    input_indices.clone().chain(current_hash_indices).zip(input_argument_indices.clone().chain(current_hash_argument_indices.clone())).map(|(cs_index, argument_index)| {
+    input_indices.chain(current_hash_indices).zip(input_argument_indices.clone().chain(current_hash_argument_indices.clone())).map(|(cs_index, argument_index)| {
         FlatStatement::Condition(
             FlatVariable::new(cs_index).into(),
             FlatVariable::new(argument_index).into(),
@@ -194,7 +206,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         .collect();
     // insert a directive to set the witness based on the bellman gadget and  inputs
     let directive_statement = FlatStatement::Directive(FlatDirective {
-        outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
+        outputs: cs_indices.map(FlatVariable::new).collect(),
         inputs: input_argument_indices
             .chain(current_hash_argument_indices)
             .map(|i| FlatVariable::new(i).into())
@@ -224,7 +236,7 @@ fn use_variable(
 ) -> FlatVariable {
     let var = FlatVariable::new(*index);
     layout.insert(name, var);
-    *index = *index + 1;
+    *index += 1;
     var
 }
 
@@ -255,7 +267,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
 
     let directive_inputs = vec![FlatExpression::Identifier(use_variable(
         &mut layout,
-        format!("i0"),
+        "i0".into(),
         &mut counter,
     ))];
 
@@ -268,7 +280,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
     let outputs = directive_outputs
         .iter()
         .enumerate()
-        .map(|(_, o)| FlatExpression::Identifier(o.clone()))
+        .map(|(_, o)| FlatExpression::Identifier(*o))
         .collect::<Vec<_>>();
 
     // o253, o252, ... o{253 - (bit_width - 1)} are bits
@@ -308,7 +320,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
         FlatStatement::Directive(FlatDirective {
             inputs: directive_inputs,
             outputs: directive_outputs,
-            solver: solver,
+            solver,
         }),
     );
 
@@ -436,7 +448,7 @@ mod tests {
                 private: vec![true; 768],
             };
 
-            let input = (0..512)
+            let input: Vec<_> = (0..512)
                 .map(|_| 0)
                 .chain((0..256).map(|_| 1))
                 .map(|i| Bn128Field::from(i))

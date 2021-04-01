@@ -3,6 +3,7 @@ use crate::flat_absy::FlatVariable;
 use crate::solvers::Solver;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::hash::Hash;
 use zokrates_field::Field;
 
 mod expression;
@@ -19,25 +20,11 @@ pub use self::serialize::ProgEnum;
 pub use self::interpreter::{Error, ExecutionResult, Interpreter};
 pub use self::witness::Witness;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>),
     Directive(Directive<T>),
 }
-
-impl<T: Field> PartialEq for Statement<T> {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Statement::Constraint(l1, r1), Statement::Constraint(l2, r2)) => {
-                l1.eq(l2) && r1.eq(r2)
-            }
-            (Statement::Directive(d1), Statement::Directive(d2)) => d1.eq(d2),
-            _ => false,
-        }
-    }
-}
-
-impl<T: Field> Eq for Statement<T> {}
 
 impl<T: Field> Statement<T> {
     pub fn definition<U: Into<QuadComb<T>>>(v: FlatVariable, e: U) -> Self {
@@ -49,22 +36,12 @@ impl<T: Field> Statement<T> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct Directive<T> {
     pub inputs: Vec<QuadComb<T>>,
     pub outputs: Vec<FlatVariable>,
     pub solver: Solver,
 }
-
-impl<T: Field> PartialEq for Directive<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.inputs.eq(&other.inputs)
-            && self.outputs.eq(&other.outputs)
-            && self.solver.eq(&other.solver)
-    }
-}
-
-impl<T: Field> Eq for Directive<T> {}
 
 impl<T: Field> fmt::Display for Directive<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -95,21 +72,12 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 pub struct Function<T> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
     pub arguments: Vec<FlatVariable>,
     pub returns: Vec<FlatVariable>,
-}
-
-impl<T: Field> PartialEq for Function<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.id.eq(&other.id)
-            && self.statements.eq(&other.statements)
-            && self.arguments.eq(&other.arguments)
-            && self.returns.eq(&other.returns)
-    }
 }
 
 impl<T: Field> fmt::Display for Function<T> {
@@ -138,16 +106,10 @@ impl<T: Field> fmt::Display for Function<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Prog<T> {
     pub main: Function<T>,
     pub private: Vec<bool>,
-}
-
-impl<T: Field> PartialEq for Prog<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.main.eq(&other.main) && self.private.eq(&other.private)
-    }
 }
 
 impl<T: Field> Prog<T> {
@@ -155,10 +117,7 @@ impl<T: Field> Prog<T> {
         self.main
             .statements
             .iter()
-            .filter(|s| match s {
-                Statement::Constraint(..) => true,
-                _ => false,
-            })
+            .filter(|s| matches!(s, Statement::Constraint(..)))
             .count()
     }
 

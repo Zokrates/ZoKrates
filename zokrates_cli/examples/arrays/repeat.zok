@@ -1,0 +1,4 @@
+def main(field a) -> field[4]:
+	u32 SIZE = 4
+	field[SIZE] res = [a; SIZE]
+	return res

@@ -51,34 +51,31 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .map(|(k, v)| {
             (
                 v.into_bellman(),
-                symbols
-                    .entry(k)
-                    .or_insert_with(|| {
-                        match k.is_output() {
-                            true => cs.alloc_input(
-                                || format!("{}", k),
-                                || {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_bellman())
-                                },
-                            ),
-                            false => cs.alloc(
-                                || format!("{}", k),
-                                || {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_bellman())
-                                },
-                            ),
-                        }
-                        .unwrap()
-                    })
-                    .clone(),
+                *symbols.entry(k).or_insert_with(|| {
+                    match k.is_output() {
+                        true => cs.alloc_input(
+                            || format!("{}", k),
+                            || {
+                                Ok(witness
+                                    .0
+                                    .remove(&k)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into_bellman())
+                            },
+                        ),
+                        false => cs.alloc(
+                            || format!("{}", k),
+                            || {
+                                Ok(witness
+                                    .0
+                                    .remove(&k)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into_bellman())
+                            },
+                        ),
+                    }
+                    .unwrap()
+                }),
             )
         })
         .fold(LinearCombination::zero(), |acc, e| acc + e)
@@ -93,7 +90,7 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
         // mapping from IR variables
         let mut symbols = BTreeMap::new();
 
-        let mut witness = witness.unwrap_or(Witness::empty());
+        let mut witness = witness.unwrap_or_else(Witness::empty);
 
         assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
 
@@ -127,33 +124,29 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
                         ),
                     }
                     .unwrap();
-                    (var.clone(), wire)
+                    (*var, wire)
                 }),
         );
 
         let main = self.main;
 
         for statement in main.statements {
-            match statement {
-                Statement::Constraint(quad, lin) => {
-                    let a = &bellman_combination(
-                        quad.left.into_canonical(),
-                        cs,
-                        &mut symbols,
-                        &mut witness,
-                    );
-                    let b = &bellman_combination(
-                        quad.right.into_canonical(),
-                        cs,
-                        &mut symbols,
-                        &mut witness,
-                    );
-                    let c =
-                        &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
+            if let Statement::Constraint(quad, lin) = statement {
+                let a = &bellman_combination(
+                    quad.left.into_canonical(),
+                    cs,
+                    &mut symbols,
+                    &mut witness,
+                );
+                let b = &bellman_combination(
+                    quad.right.into_canonical(),
+                    cs,
+                    &mut symbols,
+                    &mut witness,
+                );
+                let c = &bellman_combination(lin.into_canonical(), cs, &mut symbols, &mut witness);
 
-                    cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
-                }
-                _ => {}
+                cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
             }
         }
 

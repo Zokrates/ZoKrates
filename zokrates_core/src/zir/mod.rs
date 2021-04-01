@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use crate::embed::FlatEmbed;
 use crate::zir::types::{FunctionKey, Signature};
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use zokrates_field::Field;
 
@@ -58,7 +58,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
             writeln!(f, "{}", "-".repeat(100))?;
             writeln!(f, "{}", module)?;
             writeln!(f, "{}", "-".repeat(100))?;
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         write!(f, "")
     }
@@ -74,7 +74,7 @@ pub struct ZirModule<'ast, T> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ZirFunctionSymbol<'ast, T> {
     Here(ZirFunction<'ast, T>),
-    There(FunctionKey<'ast>, ZirModuleId),
+    There(FunctionKey<'ast>),
     Flat(FlatEmbed),
 }
 
@@ -82,15 +82,14 @@ impl<'ast, T> ZirFunctionSymbol<'ast, T> {
     pub fn signature<'a>(&'a self, modules: &'a ZirModules<T>) -> Signature {
         match self {
             ZirFunctionSymbol::Here(f) => f.signature.clone(),
-            ZirFunctionSymbol::There(key, module_id) => modules
-                .get(module_id)
+            ZirFunctionSymbol::There(key) => modules
+                .get(&key.module)
                 .unwrap()
                 .functions
                 .get(key)
                 .unwrap()
-                .signature(&modules)
-                .clone(),
-            ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature().into(),
+                .signature(&modules),
+            ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature().try_into().unwrap(),
         }
     }
 }
@@ -102,10 +101,10 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirModule<'ast, T> {
             .iter()
             .map(|(key, symbol)| match symbol {
                 ZirFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
-                ZirFunctionSymbol::There(ref fun_key, ref module_id) => format!(
+                ZirFunctionSymbol::There(ref fun_key) => format!(
                     "import {} from \"{}\" as {} // with signature {}",
                     fun_key.id,
-                    module_id.display(),
+                    fun_key.module.display(),
                     key.id,
                     key.signature
                 ),
@@ -367,7 +366,7 @@ pub enum FieldElementExpression<'ast, T> {
     ),
     Pow(
         Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
     ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
@@ -381,14 +380,26 @@ pub enum FieldElementExpression<'ast, T> {
 pub enum BooleanExpression<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(bool),
-    Lt(
+    FieldLt(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    Le(
+    FieldLe(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+    FieldGe(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    FieldGt(
+        Box<FieldElementExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
+    UintLt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     FieldEq(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -398,14 +409,6 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
     ),
     UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Ge(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
-    Gt(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
     Or(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
@@ -538,13 +541,17 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
-            BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),

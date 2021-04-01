@@ -9,6 +9,7 @@ use crate::imports::{self, Importer};
 use crate::ir;
 use crate::macros;
 use crate::semantics::{self, Checker};
+use crate::static_analysis;
 use crate::static_analysis::Analyse;
 use crate::typed_absy::abi::Abi;
 use crate::zir::ZirProgram;
@@ -55,6 +56,7 @@ pub enum CompileErrorInner {
     MacroError(macros::Error),
     SemanticError(semantics::ErrorInner),
     ReadError(io::Error),
+    AnalysisError(static_analysis::Error),
 }
 
 impl CompileErrorInner {
@@ -129,6 +131,12 @@ impl From<semantics::Error> for CompileError {
     }
 }
 
+impl From<static_analysis::Error> for CompileErrorInner {
+    fn from(error: static_analysis::Error) -> Self {
+        CompileErrorInner::AnalysisError(error)
+    }
+}
+
 impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -137,6 +145,7 @@ impl fmt::Display for CompileErrorInner {
             CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
             CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
             CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::AnalysisError(ref e) => write!(f, "{}", e),
         }
     }
 }
@@ -179,7 +188,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     })
 }
 
-pub fn check<'ast, T: Field, E: Into<imports::Error>>(
+pub fn check<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
@@ -196,19 +205,18 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
-    let compiled = compile_program::<T, E>(source, location.clone(), resolver, &arena)?;
+    let compiled = compile_program::<T, E>(source, location, resolver, &arena)?;
 
     // check semantics
-    let typed_ast = Checker::check(compiled).map_err(|errors| {
-        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
-    })?;
+    let typed_ast = Checker::check(compiled)
+        .map_err(|errors| CompileErrors(errors.into_iter().map(CompileError::from).collect()))?;
 
-    let abi = typed_ast.abi();
+    let main_module = typed_ast.main.clone();
 
     // analyse (unroll and constant propagation)
-    let typed_ast = typed_ast.analyse();
-
-    Ok((typed_ast, abi))
+    typed_ast
+        .analyse()
+        .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
@@ -244,7 +252,7 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
 
     let module_without_imports: Module = Module::from(ast);
 
-    Importer::new().apply_imports::<T, E>(
+    Importer::apply_imports::<T, E>(
         module_without_imports,
         location.clone(),
         resolver,
@@ -380,17 +388,17 @@ struct Bar { field a }
                     inputs: vec![AbiInput {
                         name: "f".into(),
                         public: true,
-                        ty: Type::Struct(StructType::new(
+                        ty: ConcreteType::Struct(ConcreteStructType::new(
                             "foo".into(),
                             "Foo".into(),
-                            vec![StructMember {
+                            vec![ConcreteStructMember {
                                 id: "b".into(),
-                                ty: box Type::Struct(StructType::new(
+                                ty: box ConcreteType::Struct(ConcreteStructType::new(
                                     "bar".into(),
                                     "Bar".into(),
-                                    vec![StructMember {
+                                    vec![ConcreteStructMember {
                                         id: "a".into(),
-                                        ty: box Type::FieldElement
+                                        ty: box ConcreteType::FieldElement
                                     }]
                                 ))
                             }]

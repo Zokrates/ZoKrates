@@ -82,6 +82,12 @@ impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
     }
 }
 
+impl<'ast, T> From<u32> for UExpression<'ast, T> {
+    fn from(u: u32) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B32)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum ShouldReduce {
     Unknown,
@@ -101,10 +107,7 @@ impl ShouldReduce {
     }
 
     pub fn is_unknown(&self) -> bool {
-        match self {
-            ShouldReduce::Unknown => true,
-            _ => false,
-        }
+        *self == ShouldReduce::Unknown
     }
 
     // we can always enable a reduction

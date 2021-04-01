@@ -43,7 +43,7 @@ def right_rotate_25(u32 e) -> u32:
 
 // already paying 33 * 64 = 2112 constraints for input constraining. in sha this is done only once. So this is just ~ 152 constraints
 def main(u32[64] w) -> u32:
-	field i = 16
-	u32 s0 = right_rotate_7(w[i-15]) ^ right_rotate_18(w[i-15]) ^ (w[i-15] >> 0x00000003)
-    u32 s1 = right_rotate_17(w[i-2]) ^ right_rotate_19(w[i-2]) ^ (w[i-2] >> 0x0000000a)
+	u32 i = 16
+	u32 s0 = right_rotate_7(w[i-15]) ^ right_rotate_18(w[i-15]) ^ (w[i-15] >> 3)
+    u32 s1 = right_rotate_17(w[i-2]) ^ right_rotate_19(w[i-2]) ^ (w[i-2] >> 10)
     return w[i-16] + s0 + w[i-7] + s1
