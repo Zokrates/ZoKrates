@@ -290,7 +290,7 @@ mod tests {
 
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(&program, &vec![]).unwrap();
+            let witness = interpreter.execute(&program, &[]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -315,7 +315,7 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &vec![Bn128Field::from(0)])
+                .execute(&program, &[Bn128Field::from(0)])
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
@@ -342,7 +342,7 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &vec![Bn128Field::from(0)])
+                .execute(&program, &[Bn128Field::from(0)])
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
@@ -368,7 +368,7 @@ mod tests {
 
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(&program, &vec![]).unwrap();
+            let witness = interpreter.execute(&program, &[]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -405,7 +405,7 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &vec![Bn128Field::from(3), Bn128Field::from(4)])
+                .execute(&program, &[Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
@@ -431,7 +431,7 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &vec![Bn128Field::from(3)])
+                .execute(&program, &[Bn128Field::from(3)])
                 .unwrap();
 
             let computation = Computation::with_witness(program, witness);
@@ -460,7 +460,7 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &vec![Bn128Field::from(3), Bn128Field::from(4)])
+                .execute(&program, &[Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 

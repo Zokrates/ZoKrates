@@ -16,7 +16,7 @@ pub use crate::absy::parameter::{Parameter, ParameterNode};
 use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
 use crate::embed::FlatEmbed;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::imports::ImportNode;
 use std::fmt;
@@ -28,18 +28,19 @@ use std::collections::HashMap;
 pub type Identifier<'ast> = &'ast str;
 
 /// The identifier of a `Module`, typically a path or uri
-pub type ModuleId = PathBuf;
+pub type OwnedModuleId = PathBuf;
+pub type ModuleId = Path;
 
 /// A collection of `Module`s
-pub type Modules<'ast> = HashMap<ModuleId, Module<'ast>>;
+pub type Modules<'ast> = HashMap<OwnedModuleId, Module<'ast>>;
 
 /// A collection of `SymbolDeclaration`. Duplicates are allowed here as they are fine syntactically.
 pub type Declarations<'ast> = Vec<SymbolDeclarationNode<'ast>>;
 
 /// A `Program` is a collection of `Module`s and an id of the main `Module`
 pub struct Program<'ast> {
-    pub modules: HashMap<ModuleId, Module<'ast>>,
-    pub main: ModuleId,
+    pub modules: HashMap<OwnedModuleId, Module<'ast>>,
+    pub main: OwnedModuleId,
 }
 
 /// A declaration of a `FunctionSymbol`, be it from an import or a function definition
@@ -150,13 +151,13 @@ pub struct SymbolImport<'ast> {
     /// the id of the symbol in the target module. Note: there may be many candidates as imports statements do not specify the signature. In that case they must all be functions however.
     pub symbol_id: Identifier<'ast>,
     /// the id of the module to import from
-    pub module_id: ModuleId,
+    pub module_id: OwnedModuleId,
 }
 
 type SymbolImportNode<'ast> = Node<SymbolImport<'ast>>;
 
 impl<'ast> SymbolImport<'ast> {
-    pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<ModuleId>>(
+    pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<OwnedModuleId>>(
         symbol_id: S,
         module_id: U,
     ) -> Self {

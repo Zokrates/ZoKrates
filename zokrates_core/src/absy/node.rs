@@ -35,7 +35,7 @@ impl<T: fmt::Display> Node<T> {
 
 pub trait NodeValue: fmt::Display + fmt::Debug + Sized + PartialEq {
     fn at(self, line: usize, col: usize, delta: isize) -> Node<Self> {
-        let start = Position { col, line };
+        let start = Position { line, col };
         Node::new(start, start.col(delta), self)
     }
 

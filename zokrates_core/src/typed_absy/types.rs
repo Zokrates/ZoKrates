@@ -1,5 +1,5 @@
+use crate::typed_absy::{OwnedTypedModuleId, UExpression, UExpressionInner};
 use crate::typed_absy::{TryFrom, TryInto};
-use crate::typed_absy::{TypedModuleId, UExpression, UExpressionInner};
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -709,7 +709,7 @@ pub type FunctionIdentifier<'ast> = &'ast str;
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct GFunctionKey<'ast, S> {
-    pub module: TypedModuleId,
+    pub module: OwnedTypedModuleId,
     pub id: FunctionIdentifier<'ast>,
     pub signature: GSignature<S>,
 }
@@ -801,7 +801,7 @@ impl<'ast, T> From<DeclarationFunctionKey<'ast>> for FunctionKey<'ast, T> {
 }
 
 impl<'ast, S> GFunctionKey<'ast, S> {
-    pub fn with_location<T: Into<TypedModuleId>, U: Into<FunctionIdentifier<'ast>>>(
+    pub fn with_location<T: Into<OwnedTypedModuleId>, U: Into<FunctionIdentifier<'ast>>>(
         module: T,
         id: U,
     ) -> Self {
@@ -822,7 +822,7 @@ impl<'ast, S> GFunctionKey<'ast, S> {
         self
     }
 
-    pub fn module<T: Into<TypedModuleId>>(mut self, module: T) -> Self {
+    pub fn module<T: Into<OwnedTypedModuleId>>(mut self, module: T) -> Self {
         self.module = module.into();
         self
     }
@@ -946,7 +946,7 @@ pub mod signature {
                     Constant::Concrete(s) => Ok(s.into()),
                 }?;
 
-                GType::Array(GArrayType { ty, size })
+                GType::Array(GArrayType { size, ty })
             }
             DeclarationType::FieldElement => GType::FieldElement,
             DeclarationType::Boolean => GType::Boolean,

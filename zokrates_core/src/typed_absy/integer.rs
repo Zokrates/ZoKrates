@@ -580,7 +580,7 @@ mod tests {
 
         for e in should_error
             .into_iter()
-            .map(|e| FieldElementExpression::try_from_int(e))
+            .map(FieldElementExpression::try_from_int)
         {
             assert!(e.is_err());
         }

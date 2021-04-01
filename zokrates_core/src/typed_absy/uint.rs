@@ -88,11 +88,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::And(box self, box other).annotate(bitwidth)
     }
 
-    pub fn not(self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        UExpressionInner::Not(box self).annotate(bitwidth)
-    }
-
     pub fn left_shift(self, by: UExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(by.bitwidth, UBitwidth::B32);

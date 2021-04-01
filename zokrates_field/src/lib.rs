@@ -87,7 +87,7 @@ pub trait Field:
     + num_traits::CheckedMul
 {
     /// Returns this `Field`'s contents as little-endian byte vector
-    fn into_byte_vector(&self) -> Vec<u8>;
+    fn to_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
     fn from_byte_vector(_: Vec<u8>) -> Self;
     /// Returns this `Field`'s contents as decimal string
@@ -124,7 +124,7 @@ pub trait Field:
                 .collect()
         }
 
-        let field_bytes_le = Self::into_byte_vector(&Self::max_value());
+        let field_bytes_le = Self::to_byte_vector(&Self::max_value());
         // reverse for big-endianess
         let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
         let field_bits_be = bytes_to_bits(&field_bytes_be);
@@ -170,7 +170,7 @@ mod prime_field {
                     self.value.to_biguint().unwrap()
                 }
 
-                fn into_byte_vector(&self) -> Vec<u8> {
+                fn to_byte_vector(&self) -> Vec<u8> {
                     match self.value.to_biguint() {
                         Option::Some(val) => val.to_bytes_le(),
                         Option::None => panic!("Should never happen."),
