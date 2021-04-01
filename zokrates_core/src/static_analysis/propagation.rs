@@ -755,40 +755,28 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             },
             UExpressionInner::RightShift(box e, box by) => {
                 let e = self.fold_uint_expression(e)?;
-                let by = self.fold_field_expression(by)?;
-                match (e.into_inner(), by) {
-                    (UExpressionInner::Value(v), FieldElementExpression::Number(by)) => {
-                        let by_as_usize = by.to_dec_string().parse::<usize>().unwrap();
-                        UExpressionInner::Value(v >> by_as_usize)
+                let by = self.fold_uint_expression(by)?;
+                match (e.into_inner(), by.into_inner()) {
+                    (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
+                        UExpressionInner::Value(v >> by)
                     }
-                    (e, FieldElementExpression::Number(by)) => UExpressionInner::RightShift(
+                    (e, by) => UExpressionInner::RightShift(
                         box e.annotate(bitwidth),
-                        box FieldElementExpression::Number(by),
+                        box by.annotate(UBitwidth::B32),
                     ),
-                    (_, e2) => unreachable!(format!(
-                        "non-constant shift {} detected during static analysis",
-                        e2
-                    )),
                 }
             }
             UExpressionInner::LeftShift(box e, box by) => {
                 let e = self.fold_uint_expression(e)?;
-                let by = self.fold_field_expression(by)?;
-                match (e.into_inner(), by) {
-                    (UExpressionInner::Value(v), FieldElementExpression::Number(by)) => {
-                        let by_as_usize = by.to_dec_string().parse::<usize>().unwrap();
-                        UExpressionInner::Value(
-                            (v << by_as_usize) & (2_u128.pow(bitwidth as u32) - 1),
-                        )
+                let by = self.fold_uint_expression(by)?;
+                match (e.into_inner(), by.into_inner()) {
+                    (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
+                        UExpressionInner::Value((v << by) & (2_u128.pow(bitwidth as u32) - 1))
                     }
-                    (e, FieldElementExpression::Number(by)) => UExpressionInner::LeftShift(
+                    (e, by) => UExpressionInner::LeftShift(
                         box e.annotate(bitwidth),
-                        box FieldElementExpression::Number(by),
+                        box by.annotate(UBitwidth::B32),
                     ),
-                    (_, e2) => unreachable!(format!(
-                        "non-constant shift {} detected during static analysis",
-                        e2
-                    )),
                 }
             }
             UExpressionInner::Xor(box e1, box e2) => match (

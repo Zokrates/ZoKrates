@@ -56,9 +56,9 @@ Witness:
 Pick your own value and store it somewhere.
 
 ### Detailed explanation
-This line imports a Zokrates function from the [standard library](https://github.com/Zokrates/ZoKrates/tree/master/zokrates_stdlib/stdlib). 
+This line imports a Zokrates function from the [standard library](https://github.com/Zokrates/ZoKrates/tree/latest/zokrates_stdlib/stdlib). 
 You can see the specific function we are importing 
-[here](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok). It will be
+[here](https://github.com/Zokrates/ZoKrates/blob/latest/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok). It will be
 called `sha256`.
 ```javascript
 import "hashes/sha256/512bit" as sha256
@@ -80,7 +80,7 @@ def main(u32[16] hashMe) -> u32[8]:
 
 This line does several things. First, `u32[8] h` defines a variable called `h`, whose type is an array of eight 32-bit unsigned integers.
 This variable is initialized using `sha256`, the function we 
-[imported from the standard library](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok).
+[imported from the standard library](https://github.com/Zokrates/ZoKrates/blob/latest/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok).
 The `sha256` function expects to get two arrays of eight values each, so we use a [slice `..`](https://zokrates.github.io/language/types.html#slices)
 to divide `hashMe` into two arrays.
 

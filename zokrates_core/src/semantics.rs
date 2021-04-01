@@ -1560,20 +1560,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Add(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok((e1 + e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `+` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok((e1 + e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1602,24 +1592,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (Int(e1), Int(e2)) => Ok(IntExpression::Sub(box e1, box e2).into()),
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok((e1 - e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `-` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
-                    }
                     (FieldElement(e1), FieldElement(e2)) => {
                         Ok(FieldElementExpression::Sub(box e1, box e2).into())
                     }
+                    (Uint(e1), Uint(e2)) if e1.get_type() == e2.get_type() => Ok((e1 - e2).into()),
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
 
@@ -1650,20 +1626,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Mult(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok((e1 * e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `*` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok((e1 * e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1691,34 +1657,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok(FieldElementExpression::Div(
-                        box FieldElementExpression::try_from_int(e1).map_err(|e| ErrorInner {
-                            pos: Some(pos),
-                            message: format!("{} cannot be the first summand of operation `/`", e),
-                        })?,
-                        box FieldElementExpression::try_from_int(e2).map_err(|e| ErrorInner {
-                            pos: Some(pos),
-                            message: format!("{} cannot be the second summand of operation `/`", e),
-                        })?,
-                    )
-                    .into()),
+                    (Int(e1), Int(e2)) => Ok(IntExpression::Div(box e1, box e2).into()),
                     (FieldElement(e1), FieldElement(e2)) => {
                         Ok(FieldElementExpression::Div(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok((e1 / e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `/` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok((e1 / e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -1735,8 +1681,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
 
-                use self::TypedExpression::*;
-
                 let (e1_checked, e2_checked) = TypedExpression::align_without_integers(
                     e1_checked, e2_checked,
                 )
@@ -1746,21 +1690,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 })?;
 
                 match (e1_checked, e2_checked) {
-                    (Int(e1), Int(e2)) => Ok((e1 % e2).into()),
-                    (Uint(e1), Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok((e1 % e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `%` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok((e1 % e2).into())
                     }
                     (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -2150,37 +2083,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
                         Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
                     }
-                    (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::StructEq(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Struct(e1), TypedExpression::Struct(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(BooleanExpression::StructEq(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(BooleanExpression::UintEq(box e1, box e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Cannot compare {} of type {} to {} of type {}",
-                                    e1,
-                                    e1.get_type(),
-                                    e2,
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.get_type() == e2.get_type() =>
+                    {
+                        Ok(BooleanExpression::UintEq(box e1, box e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -2492,7 +2403,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 // the size of the inline array is the sum of the size of its elements. However expressed as a u32 expression,
                 // this value can be an tree of height n in the worst case, with n the size of the array (if all elements are
                 // simple values and not spreads, 1 + 1 + 1 + ... 1)
-                // To avoid that, we compute 2 sizes: the sum of all non constant sizes as an u32 expression, and the
+                // To avoid that, we compute 2 sizes: the sum of all constant sizes as an u32 expression, and the
                 // sum of all non constant sizes as a u32 number. We then return the sum of the two as a u32 expression.
                 // `1 + 1 + ... + 1` is reduced to a single expression, which prevents this blowup
 
@@ -2681,13 +2592,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e1 = self.check_expression(e1, module_id, &types)?;
                 let e2 = self.check_expression(e2, module_id, &types)?;
 
-                let e2 = FieldElementExpression::try_from_typed(e2).map_err(|e| ErrorInner {
-                    pos: Some(pos),
-                    message: format!(
-                        "Expected the left shift right operand to be a field element, found {}",
-                        e
-                    ),
-                })?;
+                let e2 =
+                    UExpression::try_from_typed(e2, UBitwidth::B32).map_err(|e| ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected the left shift right operand to have type `u32`, found {}",
+                            e
+                        ),
+                    })?;
 
                 match e1 {
                     TypedExpression::Int(e1) => Ok(IntExpression::LeftShift(box e1, box e2).into()),
@@ -2707,13 +2619,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e1 = self.check_expression(e1, module_id, &types)?;
                 let e2 = self.check_expression(e2, module_id, &types)?;
 
-                let e2 = FieldElementExpression::try_from_typed(e2).map_err(|e| ErrorInner {
-                    pos: Some(pos),
-                    message: format!(
-                        "Expected the right shift right operand to be a field element, found {}",
-                        e
-                    ),
-                })?;
+                let e2 =
+                    UExpression::try_from_typed(e2, UBitwidth::B32).map_err(|e| ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected the right shift right operand to be of type `u32`, found {}",
+                            e
+                        ),
+                    })?;
 
                 match e1 {
                     TypedExpression::Int(e1) => {
@@ -2747,20 +2660,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::Or(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::or(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `|` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.bitwidth() == e2.bitwidth() =>
+                    {
+                        Ok(UExpression::or(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -2789,20 +2692,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::And(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::and(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `&` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.bitwidth() == e2.bitwidth() =>
+                    {
+                        Ok(UExpression::and(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -2831,20 +2724,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Int(e1), TypedExpression::Int(e2)) => {
                         Ok(IntExpression::Xor(box e1, box e2).into())
                     }
-                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
-                        if e1.get_type() == e2.get_type() {
-                            Ok(UExpression::xor(e1, e2).into())
-                        } else {
-                            Err(ErrorInner {
-                                pos: Some(pos),
-
-                                message: format!(
-                                    "Cannot apply `^` to {}, {}",
-                                    e1.get_type(),
-                                    e2.get_type()
-                                ),
-                            })
-                        }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
+                        if e1.bitwidth() == e2.bitwidth() =>
+                    {
+                        Ok(UExpression::xor(e1, e2).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),

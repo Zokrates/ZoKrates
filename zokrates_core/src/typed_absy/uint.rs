@@ -88,13 +88,20 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::And(box self, box other).annotate(bitwidth)
     }
 
-    pub fn left_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
+    pub fn not(self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
+        UExpressionInner::Not(box self).annotate(bitwidth)
+    }
+
+    pub fn left_shift(self, by: UExpression<'ast, T>) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(by.bitwidth, UBitwidth::B32);
         UExpressionInner::LeftShift(box self, box by).annotate(bitwidth)
     }
 
-    pub fn right_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
+    pub fn right_shift(self, by: UExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
+        assert_eq!(by.bitwidth, UBitwidth::B32);
         UExpressionInner::RightShift(box self, box by).annotate(bitwidth)
     }
 
@@ -171,19 +178,13 @@ pub enum UExpressionInner<'ast, T> {
     And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Not(Box<UExpression<'ast, T>>),
-    LeftShift(
-        Box<UExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
-    RightShift(
-        Box<UExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
     FunctionCall(
         DeclarationFunctionKey<'ast>,
         Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
     ),
+    LeftShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    RightShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,

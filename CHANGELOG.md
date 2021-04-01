@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-https://github.com/Zokrates/ZoKrates/compare/master...develop
+https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
 ## [0.6.4] - 2021-03-19
 ### Release
