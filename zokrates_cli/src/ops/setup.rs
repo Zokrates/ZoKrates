@@ -70,12 +70,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .possible_values(constants::SCHEMES)
                 .default_value(constants::G16),
         )
-        .arg(
-            Arg::with_name("light")
-                .long("light")
-                .help("Skip logging the human-readable program and writing it to a file")
-                .required(false),
-        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -136,8 +130,8 @@ fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
 ) -> Result<(), String> {
     println!("Performing setup...");
 
-    // print deserialized flattened program
-    if !sub_matches.is_present("light") {
+    // print deserialized flattened program if in verbose mode
+    if sub_matches.is_present("verbose") {
         println!("{}", program);
     }
 
@@ -150,23 +144,26 @@ fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
 
     // write verification key
     let mut vk_file = File::create(vk_path)
-        .map_err(|why| format!("couldn't create {}: {}", vk_path.display(), why))?;
+        .map_err(|why| format!("Could not create {}: {}", vk_path.display(), why))?;
     vk_file
         .write_all(
             serde_json::to_string_pretty(&keypair.vk)
                 .unwrap()
                 .as_bytes(),
         )
-        .map_err(|why| format!("couldn't write to {}: {}", vk_path.display(), why))?;
+        .map_err(|why| format!("Could not write to {}: {}", vk_path.display(), why))?;
+
+    println!("Verification key written to '{}'", vk_path.display());
 
     // write proving key
     let mut pk_file = File::create(pk_path)
-        .map_err(|why| format!("couldn't create {}: {}", pk_path.display(), why))?;
+        .map_err(|why| format!("Could not create {}: {}", pk_path.display(), why))?;
     pk_file
         .write_all(keypair.pk.as_ref())
-        .map_err(|why| format!("couldn't write to {}: {}", pk_path.display(), why))?;
+        .map_err(|why| format!("Could not write to {}: {}", pk_path.display(), why))?;
 
-    println!("Setup completed.");
+    println!("Proving key written to '{}'", pk_path.display());
+    println!("Setup completed");
 
     Ok(())
 }

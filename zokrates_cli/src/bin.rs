@@ -11,7 +11,7 @@ mod constants;
 mod helpers;
 mod ops;
 
-use clap::{App, AppSettings};
+use clap::{App, AppSettings, Arg};
 use ops::*;
 
 fn main() {
@@ -28,6 +28,12 @@ fn cli() -> Result<(), String> {
         .version(env!("CARGO_PKG_VERSION"))
         .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml, Darko Macesic")
         .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
+        .arg(Arg::with_name("verbose")
+            .long("verbose")
+            .help("Verbose mode")
+            .required(false)
+            .global(true)
+        )
         .subcommands(vec![
             compile::subcommand(),
             check::subcommand(),
