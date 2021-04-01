@@ -175,7 +175,7 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
         .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;
 
     if sub_matches.is_present("verbose") {
-        println!("Proof:\n{}", format!("{}", proof));
+        println!("Proof:\n{}", proof);
     }
 
     println!("Proof written to '{}'", proof_path.display());
