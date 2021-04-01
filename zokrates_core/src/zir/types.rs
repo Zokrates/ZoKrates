@@ -1,8 +1,5 @@
-use crate::zir::ZirModuleId;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-
-pub type Identifier<'ast> = &'ast str;
 
 pub type MemberId = String;
 
@@ -90,47 +87,6 @@ impl Type {
             Type::Boolean => 1,
             Type::Uint(_) => 1,
         }
-    }
-}
-
-pub type FunctionIdentifier<'ast> = &'ast str;
-
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
-pub struct FunctionKey<'ast> {
-    pub module: ZirModuleId,
-    pub id: FunctionIdentifier<'ast>,
-    pub signature: Signature,
-}
-
-impl<'ast> FunctionKey<'ast> {
-    pub fn with_location<T: Into<ZirModuleId>, S: Into<Identifier<'ast>>>(
-        module: T,
-        id: S,
-    ) -> Self {
-        FunctionKey {
-            module: module.into(),
-            id: id.into(),
-            signature: Signature::new(),
-        }
-    }
-
-    pub fn signature(mut self, signature: Signature) -> Self {
-        self.signature = signature;
-        self
-    }
-
-    pub fn id<S: Into<Identifier<'ast>>>(mut self, id: S) -> Self {
-        self.id = id.into();
-        self
-    }
-
-    pub fn module<T: Into<ZirModuleId>>(mut self, module: T) -> Self {
-        self.module = module.into();
-        self
-    }
-
-    pub fn to_slug(&self) -> String {
-        format!("{}_{}", self.id, self.signature.to_slug())
     }
 }
 

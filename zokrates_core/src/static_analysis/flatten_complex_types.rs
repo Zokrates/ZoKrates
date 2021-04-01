@@ -60,17 +60,6 @@ impl<'ast, T: Field> Flattener<T> {
         fold_program(self, p)
     }
 
-    fn fold_module(&mut self, p: typed_absy::TypedModule<'ast, T>) -> zir::ZirModule<'ast, T> {
-        fold_module(self, p)
-    }
-
-    fn fold_function_symbol(
-        &mut self,
-        s: typed_absy::TypedFunctionSymbol<'ast, T>,
-    ) -> zir::ZirFunctionSymbol<'ast, T> {
-        fold_function_symbol(self, s)
-    }
-
     fn fold_function(
         &mut self,
         f: typed_absy::TypedFunction<'ast, T>,
@@ -202,29 +191,18 @@ impl<'ast, T: Field> Flattener<T> {
         es: typed_absy::TypedExpressionList<'ast, T>,
     ) -> zir::ZirExpressionList<'ast, T> {
         match es {
-            typed_absy::TypedExpressionList::FunctionCall(id, _, arguments, _) => {
-                let id: typed_absy::types::FunctionKey<'ast, T> =
-                    typed_absy::types::FunctionKey::try_from(id).unwrap();
-
-                let id = typed_absy::types::ConcreteFunctionKey::try_from(id).unwrap();
-
-                zir::ZirExpressionList::FunctionCall(
-                    self.fold_function_key(id),
+            typed_absy::TypedExpressionList::EmbedCall(embed, generics, arguments, _) => {
+                zir::ZirExpressionList::EmbedCall(
+                    embed,
+                    generics,
                     arguments
                         .into_iter()
                         .flat_map(|a| self.fold_expression(a))
                         .collect(),
-                    vec![],
                 )
             }
+            _ => unreachable!("should have been inlined"),
         }
-    }
-
-    fn fold_function_key(
-        &mut self,
-        k: typed_absy::types::ConcreteFunctionKey<'ast>,
-    ) -> zir::types::FunctionKey<'ast> {
-        k.into()
     }
 
     fn fold_field_expression(
@@ -268,29 +246,6 @@ impl<'ast, T: Field> Flattener<T> {
         e: typed_absy::StructExpressionInner<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_struct_expression_inner(self, ty, e)
-    }
-}
-
-pub fn fold_module<'ast, T: Field>(
-    f: &mut Flattener<T>,
-    p: typed_absy::TypedModule<'ast, T>,
-) -> zir::ZirModule<'ast, T> {
-    zir::ZirModule {
-        functions: p
-            .functions
-            .into_iter()
-            .map(|(key, fun)| {
-                (
-                    f.fold_function_key(
-                        typed_absy::types::FunctionKey::<'ast, T>::try_from(key)
-                            .unwrap()
-                            .try_into()
-                            .unwrap(),
-                    ),
-                    f.fold_function_symbol(fun),
-                )
-            })
-            .collect(),
     }
 }
 
@@ -997,36 +952,25 @@ pub fn fold_struct_expression<'ast, T: Field>(
     )
 }
 
-pub fn fold_function_symbol<'ast, T: Field>(
-    f: &mut Flattener<T>,
-    s: typed_absy::TypedFunctionSymbol<'ast, T>,
-) -> zir::ZirFunctionSymbol<'ast, T> {
-    match s {
-        typed_absy::TypedFunctionSymbol::Here(fun) => {
-            zir::ZirFunctionSymbol::Here(f.fold_function(fun))
-        }
-        typed_absy::TypedFunctionSymbol::There(key) => zir::ZirFunctionSymbol::There(
-            f.fold_function_key(
-                typed_absy::types::FunctionKey::<T>::try_from(key)
-                    .unwrap()
-                    .try_into()
-                    .unwrap(),
-            ),
-        ),
-        typed_absy::TypedFunctionSymbol::Flat(flat) => zir::ZirFunctionSymbol::Flat(flat),
-    }
-}
-
 pub fn fold_program<'ast, T: Field>(
     f: &mut Flattener<T>,
-    p: typed_absy::TypedProgram<'ast, T>,
+    mut p: typed_absy::TypedProgram<'ast, T>,
 ) -> zir::ZirProgram<'ast, T> {
+    let main_module = p.modules.remove(&p.main).unwrap();
+
+    let main_function = main_module
+        .functions
+        .into_iter()
+        .find(|(key, _)| key.id == "main")
+        .unwrap()
+        .1;
+
+    let main_function = match main_function {
+        typed_absy::TypedFunctionSymbol::Here(f) => f,
+        _ => unreachable!(),
+    };
+
     zir::ZirProgram {
-        modules: p
-            .modules
-            .into_iter()
-            .map(|(module_id, module)| (module_id, f.fold_module(module)))
-            .collect(),
-        main: p.main,
+        main: f.fold_function(main_function),
     }
 }

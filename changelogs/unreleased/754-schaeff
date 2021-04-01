@@ -1,0 +1,1 @@
+Make embed functions generic, enabling unpacking to any width at minimal cost

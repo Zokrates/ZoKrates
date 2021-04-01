@@ -252,6 +252,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
                     self.blocked = true;
                 }
             }
+            _ => unreachable!(),
         };
 
         fold_expression_list(self, e)

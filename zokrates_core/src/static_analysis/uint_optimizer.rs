@@ -1,3 +1,4 @@
+use crate::embed::FlatEmbed;
 use crate::zir::folder::*;
 use crate::zir::*;
 use std::collections::HashMap;
@@ -421,8 +422,8 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .collect(),
             )],
             ZirStatement::MultipleDefinition(lhs, rhs) => match rhs {
-                ZirExpressionList::FunctionCall(key, arguments, ty) => match key.clone().id {
-                    "_U32_FROM_BITS" => {
+                ZirExpressionList::EmbedCall(embed, generics, arguments) => match embed {
+                    FlatEmbed::U32FromBits => {
                         assert_eq!(lhs.len(), 1);
                         self.register(
                             lhs[0].clone(),
@@ -434,10 +435,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
-                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                            ZirExpressionList::EmbedCall(embed, generics, arguments),
                         )]
                     }
-                    "_U16_FROM_BITS" => {
+                    FlatEmbed::U16FromBits => {
                         assert_eq!(lhs.len(), 1);
                         self.register(
                             lhs[0].clone(),
@@ -448,10 +449,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         );
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
-                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                            ZirExpressionList::EmbedCall(embed, generics, arguments),
                         )]
                     }
-                    "_U8_FROM_BITS" => {
+                    FlatEmbed::U8FromBits => {
                         assert_eq!(lhs.len(), 1);
                         self.register(
                             lhs[0].clone(),
@@ -462,18 +463,18 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         );
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
-                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                            ZirExpressionList::EmbedCall(embed, generics, arguments),
                         )]
                     }
                     _ => vec![ZirStatement::MultipleDefinition(
                         lhs,
-                        ZirExpressionList::FunctionCall(
-                            key,
+                        ZirExpressionList::EmbedCall(
+                            embed,
+                            generics,
                             arguments
                                 .into_iter()
                                 .map(|e| self.fold_expression(e))
                                 .collect(),
-                            ty,
                         ),
                     )],
                 },
