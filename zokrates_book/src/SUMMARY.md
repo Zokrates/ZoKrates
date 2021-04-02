@@ -12,6 +12,7 @@
 	- [Control flow](language/control_flow.md)
 	- [Imports](language/imports.md)
 	- [Comments](language/comments.md)
+	- [Generics](language/generics.md)
 	- [Macros](language/macros.md)
 
 - [Toolbox](toolbox/index.md)

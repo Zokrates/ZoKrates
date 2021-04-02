@@ -11,7 +11,7 @@ mod constants;
 mod helpers;
 mod ops;
 
-use clap::{App, AppSettings};
+use clap::{App, AppSettings, Arg};
 use ops::*;
 
 fn main() {
@@ -28,14 +28,23 @@ fn cli() -> Result<(), String> {
         .version(env!("CARGO_PKG_VERSION"))
         .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml, Darko Macesic")
         .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
+        .arg(Arg::with_name("verbose")
+            .long("verbose")
+            .help("Verbose mode")
+            .required(false)
+            .global(true)
+        )
         .subcommands(vec![
             compile::subcommand(),
             check::subcommand(),
             compute_witness::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             generate_proof::subcommand(),
             print_proof::subcommand(),
+            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             verify::subcommand()])
         .get_matches();
 
@@ -140,7 +149,7 @@ mod tests {
             let interpreter = ir::Interpreter::default();
 
             let _ = interpreter
-                .execute(&artifacts.prog(), &vec![Bn128Field::from(0)])
+                .execute(&artifacts.prog(), &[Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -169,7 +178,7 @@ mod tests {
 
             let interpreter = ir::Interpreter::default();
 
-            let res = interpreter.execute(&artifacts.prog(), &vec![Bn128Field::from(0)]);
+            let res = interpreter.execute(&artifacts.prog(), &[Bn128Field::from(0)]);
 
             assert!(res.is_err());
         }

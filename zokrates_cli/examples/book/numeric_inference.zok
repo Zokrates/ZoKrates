@@ -1,0 +1,9 @@
+def main():
+	// `255` is infered to `255f`, and the addition happens between field elements
+	assert(255 + 1f == 256)
+
+	// `255` is infered to `255u8`, and the addition happens between u8
+	// This causes an overflow 
+	assert(255 + 1u8 == 0)
+	
+	return

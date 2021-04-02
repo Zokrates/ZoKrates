@@ -1,6 +1,10 @@
+def bound(field x) -> u32:
+	return 41 + 1
+
 def main(field a) -> field:
   field x = 7
-  for field i in 0..10 do
+  x = x + 1
+  for u32 i in 0..bound(x) do
     // x = x + a
     x = x + a
   endfor

@@ -14,7 +14,7 @@ use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::groth16::G16;
 use zokrates_core::proof_system::{Backend, Proof, Scheme, SolidityAbi, SolidityCompatibleScheme};
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::Signature;
+use zokrates_core::typed_absy::types::ConcreteSignature as Signature;
 use zokrates_field::Bn128Field;
 
 #[derive(Serialize, Deserialize)]
@@ -144,7 +144,8 @@ pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<Js
         .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
     let return_values: serde_json::Value =
-        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs).into();
+        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
+            .into_serde_json();
 
     let result = ComputationResult {
         witness: format!("{}", witness),

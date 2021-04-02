@@ -16,9 +16,9 @@ pub enum ProgEnum {
 
 impl<T: Field> Prog<T> {
     pub fn serialize<W: Write>(&self, mut w: W) {
-        w.write(ZOKRATES_MAGIC).unwrap();
-        w.write(ZOKRATES_VERSION_1).unwrap();
-        w.write(&T::id()).unwrap();
+        w.write_all(ZOKRATES_MAGIC).unwrap();
+        w.write_all(ZOKRATES_VERSION_1).unwrap();
+        w.write_all(&T::id()).unwrap();
 
         serialize_into(&mut w, self, Infinite).unwrap();
     }

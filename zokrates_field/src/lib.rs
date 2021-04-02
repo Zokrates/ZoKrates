@@ -16,6 +16,7 @@ use num_bigint::BigUint;
 use num_traits::{CheckedDiv, One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::{From, TryFrom};
+use std::fmt;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
@@ -44,6 +45,14 @@ pub trait ArkFieldExtensions {
     fn into_ark(self) -> <Self::ArkEngine as ark_ec::PairingEngine>::Fr;
 }
 
+pub struct FieldParseError;
+
+impl fmt::Debug for FieldParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Failed to parse to field element")
+    }
+}
+
 pub trait Field:
     From<i32>
     + From<u32>
@@ -60,6 +69,8 @@ pub trait Field:
     + Ord
     + Display
     + Debug
+    + Default
+    + Hash
     + Add<Self, Output = Self>
     + for<'a> Add<&'a Self, Output = Self>
     + Sub<Self, Output = Self>
@@ -68,16 +79,15 @@ pub trait Field:
     + for<'a> Mul<&'a Self, Output = Self>
     + CheckedDiv
     + Div<Self, Output = Self>
+    + for<'a> Div<&'a Self, Output = Self>
     + Pow<usize, Output = Self>
-    + Pow<Self, Output = Self>
-    + for<'a> Pow<&'a Self, Output = Self>
     + for<'a> Deserialize<'a>
     + Serialize
     + num_traits::CheckedAdd
     + num_traits::CheckedMul
 {
     /// Returns this `Field`'s contents as little-endian byte vector
-    fn into_byte_vector(&self) -> Vec<u8>;
+    fn to_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
     fn from_byte_vector(_: Vec<u8>) -> Self;
     /// Returns this `Field`'s contents as decimal string
@@ -94,8 +104,8 @@ pub trait Field:
     /// Returns the number of bits required to represent any element of this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
-    fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()>;
-    fn try_from_str(s: &str, radix: u32) -> Result<Self, ()>;
+    fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError>;
+    fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError>;
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
@@ -114,7 +124,7 @@ pub trait Field:
                 .collect()
         }
 
-        let field_bytes_le = Self::into_byte_vector(&Self::max_value());
+        let field_bytes_le = Self::to_byte_vector(&Self::max_value());
         // reverse for big-endianess
         let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
         let field_bits_be = bytes_to_bits(&field_bytes_be);
@@ -130,7 +140,7 @@ pub trait Field:
 mod prime_field {
     macro_rules! prime_field {
         ($modulus:expr, $name:expr) => {
-            use crate::{Field, Pow};
+            use crate::{Field, FieldParseError, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
             use num_integer::Integer;
@@ -160,7 +170,7 @@ mod prime_field {
                     self.value.to_biguint().unwrap()
                 }
 
-                fn into_byte_vector(&self) -> Vec<u8> {
+                fn to_byte_vector(&self) -> Vec<u8> {
                     match self.value.to_biguint() {
                         Option::Some(val) => val.to_bytes_le(),
                         Option::None => panic!("Should never happen."),
@@ -208,11 +218,11 @@ mod prime_field {
                 fn get_required_bits() -> usize {
                     (*P).bits()
                 }
-                fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()> {
+                fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError> {
                     Self::try_from_str(s, 10)
                 }
-                fn try_from_str(s: &str, radix: u32) -> Result<Self, ()> {
-                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(())?;
+                fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError> {
+                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(FieldParseError)?;
                     Ok(FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,
                     })
@@ -337,6 +347,14 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn add(self, other: FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::zero() {
+                        return other;
+                    }
+
+                    if other.value == BigInt::zero() {
+                        return self;
+                    }
+
                     FieldPrime {
                         value: (self.value + other.value) % &*P,
                     }
@@ -347,8 +365,16 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn add(self, other: &FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::zero() {
+                        return other.clone();
+                    }
+
+                    if other.value == BigInt::zero() {
+                        return self;
+                    }
+
                     FieldPrime {
-                        value: (self.value + other.value.clone()) % &*P,
+                        value: (self.value + &other.value) % &*P,
                     }
                 }
             }
@@ -368,7 +394,7 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn sub(self, other: &FieldPrime) -> FieldPrime {
-                    let x = self.value - other.value.clone();
+                    let x = self.value - &other.value;
                     FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,
                     }
@@ -379,6 +405,14 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn mul(self, other: FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::one() {
+                        return other;
+                    }
+
+                    if other.value == BigInt::one() {
+                        return self;
+                    }
+
                     FieldPrime {
                         value: (self.value * other.value) % &*P,
                     }
@@ -389,8 +423,16 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn mul(self, other: &FieldPrime) -> FieldPrime {
+                    if self.value == BigInt::one() {
+                        return other.clone();
+                    }
+
+                    if other.value == BigInt::one() {
+                        return self;
+                    }
+
                     FieldPrime {
-                        value: (self.value * other.value.clone()) % &*P,
+                        value: (self.value * &other.value) % &*P,
                     }
                 }
             }
@@ -429,38 +471,6 @@ mod prime_field {
                 }
             }
 
-            impl Pow<FieldPrime> for FieldPrime {
-                type Output = FieldPrime;
-
-                fn pow(self, exp: FieldPrime) -> FieldPrime {
-                    let mut res = FieldPrime::one();
-                    let mut current = FieldPrime::zero();
-                    loop {
-                        if current >= exp {
-                            return res;
-                        }
-                        res = res * &self;
-                        current = current + FieldPrime::one();
-                    }
-                }
-            }
-
-            impl<'a> Pow<&'a FieldPrime> for FieldPrime {
-                type Output = FieldPrime;
-
-                fn pow(self, exp: &'a FieldPrime) -> FieldPrime {
-                    let mut res = FieldPrime::one();
-                    let mut current = FieldPrime::zero();
-                    loop {
-                        if &current >= exp {
-                            return res;
-                        }
-                        res = res * &self;
-                        current = current + FieldPrime::one();
-                    }
-                }
-            }
-
             impl num_traits::CheckedAdd for FieldPrime {
                 fn checked_add(&self, other: &Self) -> Option<Self> {
                     let bound = Self::max_unique_value();
@@ -468,7 +478,7 @@ mod prime_field {
                     assert!(self <= &bound);
                     assert!(other <= &bound);
 
-                    let big_res = self.value.clone() + other.value.clone();
+                    let big_res = &self.value + &other.value;
 
                     if big_res > bound.value {
                         None
@@ -485,7 +495,7 @@ mod prime_field {
                     assert!(self <= &bound);
                     assert!(other <= &bound);
 
-                    let big_res = self.value.clone() * other.value.clone();
+                    let big_res = &self.value * &other.value;
 
                     // we only go up to 2**(bitwidth - 1) because after that we lose uniqueness of bit decomposition
                     if big_res > bound.value {

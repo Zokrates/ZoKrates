@@ -106,26 +106,26 @@ fn cli_verify<T: Field, S: Scheme<T>, B: Backend<T, S>>(
 ) -> Result<(), String> {
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
     let vk_file = File::open(&vk_path)
-        .map_err(|why| format!("Couldn't open {}: {}", vk_path.display(), why))?;
+        .map_err(|why| format!("Could not open {}: {}", vk_path.display(), why))?;
 
     let vk_reader = BufReader::new(vk_file);
     let vk = serde_json::from_reader(vk_reader)
-        .map_err(|why| format!("Couldn't deserialize verification key: {}", why))?;
+        .map_err(|why| format!("Could not deserialize verification key: {}", why))?;
 
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
     let proof_file = File::open(&proof_path)
-        .map_err(|why| format!("Couldn't open {}: {}", proof_path.display(), why))?;
+        .map_err(|why| format!("Could not open {}: {}", proof_path.display(), why))?;
 
     let proof_reader = BufReader::new(proof_file);
     let proof = serde_json::from_reader(proof_reader)
-        .map_err(|why| format!("Couldn't deserialize proof: {}", why))?;
+        .map_err(|why| format!("Could not deserialize proof: {}", why))?;
 
     println!("Performing verification...");
     println!(
-        "The verification result is: {}",
+        "{}",
         match B::verify(vk, proof) {
-            true => "PASS",
-            false => "FAIL",
+            true => "PASSED",
+            false => "FAILED",
         }
     );
 

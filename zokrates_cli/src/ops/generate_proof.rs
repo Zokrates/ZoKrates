@@ -86,7 +86,7 @@ pub fn subcommand() -> App<'static, 'static> {
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let program_path = Path::new(sub_matches.value_of("input").unwrap());
     let program_file = File::open(&program_path)
-        .map_err(|why| format!("Couldn't open {}: {}", program_path.display(), why))?;
+        .map_err(|why| format!("Could not open {}: {}", program_path.display(), why))?;
 
     let mut reader = BufReader::new(program_file);
     let prog = ProgEnum::deserialize(&mut reader)?;
@@ -148,7 +148,7 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
     let witness_file = match File::open(&witness_path) {
         Ok(file) => file,
-        Err(why) => panic!("Couldn't open {}: {}", witness_path.display(), why),
+        Err(why) => panic!("Could not open {}: {}", witness_path.display(), why),
     };
 
     let witness = ir::Witness::read(witness_file)
@@ -158,13 +158,13 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
     let pk_file = File::open(&pk_path)
-        .map_err(|why| format!("Couldn't open {}: {}", pk_path.display(), why))?;
+        .map_err(|why| format!("Could not open {}: {}", pk_path.display(), why))?;
 
     let mut pk: Vec<u8> = Vec::new();
     let mut pk_reader = BufReader::new(pk_file);
     pk_reader
         .read_to_end(&mut pk)
-        .map_err(|why| format!("Couldn't read {}: {}", pk_path.display(), why))?;
+        .map_err(|why| format!("Could not read {}: {}", pk_path.display(), why))?;
 
     let proof = B::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
@@ -172,9 +172,12 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
     let proof = serde_json::to_string_pretty(&proof).unwrap();
     proof_file
         .write(proof.as_bytes())
-        .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
+        .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;
 
-    println!("Proof:\n{}", format!("{}", proof));
+    if sub_matches.is_present("verbose") {
+        println!("Proof:\n{}", proof);
+    }
 
+    println!("Proof written to '{}'", proof_path.display());
     Ok(())
 }

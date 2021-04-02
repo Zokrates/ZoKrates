@@ -1,0 +1,15 @@
+import "EMBED/u32_to_bits" as to_bits
+
+def main<N, P>(u32[N] input) -> bool[P]:
+	assert(P == 32 * N)
+
+	bool[P] res = [false; P]
+
+	for u32 i in 0..N do
+		bool[32] bits = to_bits(input[i])
+		for u32 j in 0..32 do
+			res[i * 32 + j] = bits[j]
+		endfor
+	endfor
+
+	return res

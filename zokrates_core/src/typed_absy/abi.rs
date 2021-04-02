@@ -1,15 +1,15 @@
-use crate::typed_absy::{Signature, Type};
+use crate::typed_absy::types::{ConcreteSignature, ConcreteType};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct AbiInput {
     pub name: String,
     pub public: bool,
     #[serde(flatten)]
-    pub ty: Type,
+    pub ty: ConcreteType,
 }
 
-pub type AbiOutput = Type;
+pub type AbiOutput = ConcreteType;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Abi {
@@ -18,8 +18,9 @@ pub struct Abi {
 }
 
 impl Abi {
-    pub fn signature(&self) -> Signature {
-        Signature {
+    pub fn signature(&self) -> ConcreteSignature {
+        ConcreteSignature {
+            generics: vec![],
             inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
             outputs: self.outputs.clone(),
         }
@@ -29,10 +30,12 @@ impl Abi {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::{ArrayType, FunctionKey, StructMember, StructType};
+    use crate::typed_absy::types::{
+        ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType, UBitwidth,
+    };
     use crate::typed_absy::{
-        Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, UBitwidth,
-        Variable,
+        parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType,
+        TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
     };
     use std::collections::HashMap;
     use zokrates_field::Bn128Field;
@@ -41,22 +44,23 @@ mod tests {
     fn generate_abi_from_typed_ast() {
         let mut functions = HashMap::new();
         functions.insert(
-            FunctionKey::with_id("main"),
+            ConcreteFunctionKey::with_location("main", "main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
-                    Parameter {
-                        id: Variable::field_element("a"),
+                    DeclarationParameter {
+                        id: DeclarationVariable::field_element("a"),
                         private: true,
                     },
-                    Parameter {
-                        id: Variable::boolean("b"),
+                    DeclarationParameter {
+                        id: DeclarationVariable::boolean("b"),
                         private: false,
                     },
                 ],
                 statements: vec![],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::Boolean])
-                    .outputs(vec![Type::FieldElement]),
+                signature: ConcreteSignature::new()
+                    .inputs(vec![ConcreteType::FieldElement, ConcreteType::Boolean])
+                    .outputs(vec![ConcreteType::FieldElement])
+                    .into(),
             }),
         );
 
@@ -80,15 +84,15 @@ mod tests {
                 AbiInput {
                     name: String::from("a"),
                     public: false,
-                    ty: Type::FieldElement,
+                    ty: ConcreteType::FieldElement,
                 },
                 AbiInput {
                     name: String::from("b"),
                     public: true,
-                    ty: Type::Boolean,
+                    ty: ConcreteType::Boolean,
                 },
             ],
-            outputs: vec![Type::FieldElement],
+            outputs: vec![ConcreteType::FieldElement],
         };
 
         assert_eq!(expected_abi, abi);
@@ -108,21 +112,34 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn serialize_integer() {
+        // serializing the Int type should panic as it is not allowed in signatures
+
+        let abi: Abi = Abi {
+            inputs: vec![],
+            outputs: vec![ConcreteType::Int],
+        };
+
+        let _ = serde_json::to_string_pretty(&abi).unwrap();
+    }
+
+    #[test]
     fn serialize_field() {
         let abi: Abi = Abi {
             inputs: vec![
                 AbiInput {
                     name: String::from("a"),
                     public: true,
-                    ty: Type::FieldElement,
+                    ty: ConcreteType::FieldElement,
                 },
                 AbiInput {
                     name: String::from("b"),
                     public: true,
-                    ty: Type::FieldElement,
+                    ty: ConcreteType::FieldElement,
                 },
             ],
-            outputs: vec![Type::FieldElement],
+            outputs: vec![ConcreteType::FieldElement],
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -160,17 +177,17 @@ mod tests {
                 AbiInput {
                     name: String::from("a"),
                     public: true,
-                    ty: Type::Uint(UBitwidth::B8),
+                    ty: ConcreteType::Uint(UBitwidth::B8),
                 },
                 AbiInput {
                     name: String::from("b"),
                     public: true,
-                    ty: Type::Uint(UBitwidth::B16),
+                    ty: ConcreteType::Uint(UBitwidth::B16),
                 },
                 AbiInput {
                     name: String::from("c"),
                     public: true,
-                    ty: Type::Uint(UBitwidth::B32),
+                    ty: ConcreteType::Uint(UBitwidth::B32),
                 },
             ],
             outputs: vec![],
@@ -211,21 +228,21 @@ mod tests {
             inputs: vec![AbiInput {
                 name: String::from("foo"),
                 public: true,
-                ty: Type::Struct(StructType::new(
+                ty: ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "Foo".into(),
                     vec![
-                        StructMember::new(String::from("a"), Type::FieldElement),
-                        StructMember::new(String::from("b"), Type::Boolean),
+                        ConcreteStructMember::new(String::from("a"), ConcreteType::FieldElement),
+                        ConcreteStructMember::new(String::from("b"), ConcreteType::Boolean),
                     ],
                 )),
             }],
-            outputs: vec![Type::Struct(StructType::new(
+            outputs: vec![ConcreteType::Struct(ConcreteStructType::new(
                 "".into(),
                 "Foo".into(),
                 vec![
-                    StructMember::new(String::from("a"), Type::FieldElement),
-                    StructMember::new(String::from("b"), Type::Boolean),
+                    ConcreteStructMember::new(String::from("a"), ConcreteType::FieldElement),
+                    ConcreteStructMember::new(String::from("b"), ConcreteType::Boolean),
                 ],
             ))],
         };
@@ -285,17 +302,23 @@ mod tests {
             inputs: vec![AbiInput {
                 name: String::from("foo"),
                 public: true,
-                ty: Type::Struct(StructType::new(
+                ty: ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "Foo".into(),
-                    vec![StructMember::new(
+                    vec![ConcreteStructMember::new(
                         String::from("bar"),
-                        Type::Struct(StructType::new(
+                        ConcreteType::Struct(ConcreteStructType::new(
                             "".into(),
                             "Bar".into(),
                             vec![
-                                StructMember::new(String::from("a"), Type::FieldElement),
-                                StructMember::new(String::from("b"), Type::FieldElement),
+                                ConcreteStructMember::new(
+                                    String::from("a"),
+                                    ConcreteType::FieldElement,
+                                ),
+                                ConcreteStructMember::new(
+                                    String::from("b"),
+                                    ConcreteType::FieldElement,
+                                ),
                             ],
                         )),
                     )],
@@ -351,19 +374,22 @@ mod tests {
             inputs: vec![AbiInput {
                 name: String::from("a"),
                 public: false,
-                ty: Type::Array(ArrayType::new(
-                    Type::Struct(StructType::new(
+                ty: ConcreteType::Array(ConcreteArrayType::new(
+                    ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "Foo".into(),
                         vec![
-                            StructMember::new(String::from("b"), Type::FieldElement),
-                            StructMember::new(String::from("c"), Type::Boolean),
+                            ConcreteStructMember::new(
+                                String::from("b"),
+                                ConcreteType::FieldElement,
+                            ),
+                            ConcreteStructMember::new(String::from("c"), ConcreteType::Boolean),
                         ],
                     )),
                     2,
                 )),
             }],
-            outputs: vec![Type::Boolean],
+            outputs: vec![ConcreteType::Boolean],
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -412,12 +438,12 @@ mod tests {
             inputs: vec![AbiInput {
                 name: String::from("a"),
                 public: false,
-                ty: Type::Array(ArrayType::new(
-                    Type::Array(ArrayType::new(Type::FieldElement, 2)),
+                ty: ConcreteType::Array(ConcreteArrayType::new(
+                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2)),
                     2,
                 )),
             }],
-            outputs: vec![Type::FieldElement],
+            outputs: vec![ConcreteType::FieldElement],
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
