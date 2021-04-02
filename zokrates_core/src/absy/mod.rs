@@ -53,7 +53,7 @@ pub struct SymbolDeclaration<'ast> {
 #[derive(PartialEq, Clone)]
 pub enum SymbolDefinition<'ast> {
     Struct(StructDefinitionNode<'ast>),
-    Constant(ConstantDefinitionNode<'ast>),
+    Constant(Box<ConstantDefinitionNode<'ast>>),
     Function(FunctionNode<'ast>),
 }
 

@@ -453,7 +453,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         })),
                     }
                 }
-                SymbolDefinition::Constant(c) => {
+                SymbolDefinition::Constant(box c) => {
                     match self.check_constant_definition(c, module_id, &state.types) {
                         Ok(c) => {
                             match symbol_unifier.insert_symbol(declaration.id, SymbolType::Constant)

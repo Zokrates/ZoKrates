@@ -105,7 +105,7 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<
 
         absy::SymbolDeclaration {
             id,
-            symbol: absy::Symbol::Here(SymbolDefinition::Constant(ty)),
+            symbol: absy::Symbol::Here(SymbolDefinition::Constant(box ty)),
         }
         .span(span)
     }
