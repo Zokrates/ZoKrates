@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_stdlib"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["Stefan Deml <stefandeml@gmail.com>", "schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 

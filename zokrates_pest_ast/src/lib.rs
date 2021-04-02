@@ -892,6 +892,7 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::EOI))]
+    #[allow(clippy::upper_case_acronyms)]
     pub struct EOI;
 }
 

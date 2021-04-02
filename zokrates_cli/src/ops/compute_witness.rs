@@ -22,9 +22,9 @@ pub fn subcommand() -> App<'static, 'static> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        ).arg(Arg::with_name("abi_spec")
+        ).arg(Arg::with_name("abi-spec")
         .short("s")
-        .long("abi_spec")
+        .long("abi-spec")
         .help("Path of the ABI specification")
         .value_name("FILE")
         .takes_value(true)
@@ -57,10 +57,6 @@ pub fn subcommand() -> App<'static, 'static> {
         .help("Read arguments from stdin")
         .conflicts_with("arguments")
         .required(false)
-    ).arg(Arg::with_name("light")
-        .long("light")
-        .help("Skip logging the human-readable program")
-        .required(false)
     )
 }
 
@@ -68,7 +64,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
+        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -83,8 +79,10 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Computing witness...");
 
-    // print deserialized flattened program
-    if !sub_matches.is_present("light") {
+    let verbose = sub_matches.is_present("verbose");
+
+    // print deserialized flattened program if in verbose mode
+    if verbose {
         println!("{}", ir_prog);
     }
 
@@ -97,9 +95,9 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
 
     let signature = match is_abi {
         true => {
-            let path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+            let path = Path::new(sub_matches.value_of("abi-spec").unwrap());
             let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                .map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
             let mut reader = BufReader::new(file);
 
             let abi: Abi = from_reader(&mut reader).map_err(|why| why.to_string())?;
@@ -173,20 +171,24 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     use zokrates_abi::Decode;
 
     let results_json_value: serde_json::Value =
-        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs).into();
+        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
+            .into_serde_json();
 
-    println!("\nWitness: \n\n{}", results_json_value);
+    if verbose {
+        println!("\nWitness: \n{}\n", results_json_value);
+    }
 
     // write witness to file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
-        .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
+        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
 
     let writer = BufWriter::new(output_file);
 
     witness
         .write(writer)
-        .map_err(|why| format!("could not save witness: {:?}", why))?;
+        .map_err(|why| format!("Could not save witness: {:?}", why))?;
 
+    println!("Witness file written to '{}'", output_path.display());
     Ok(())
 }

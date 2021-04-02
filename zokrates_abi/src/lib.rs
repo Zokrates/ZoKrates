@@ -201,18 +201,18 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
         match expected {
             ConcreteType::Int => unreachable!(),
             ConcreteType::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
-            ConcreteType::Uint(UBitwidth::B8) => CheckedValue::U8(
-                u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
-            ),
-            ConcreteType::Uint(UBitwidth::B16) => CheckedValue::U16(
-                u16::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
-            ),
-            ConcreteType::Uint(UBitwidth::B32) => CheckedValue::U32(
-                u32::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
-            ),
-            ConcreteType::Uint(UBitwidth::B64) => CheckedValue::U64(
-                u64::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
-            ),
+            ConcreteType::Uint(UBitwidth::B8) => {
+                CheckedValue::U8(raw.pop().unwrap().to_dec_string().parse().unwrap())
+            }
+            ConcreteType::Uint(UBitwidth::B16) => {
+                CheckedValue::U16(raw.pop().unwrap().to_dec_string().parse().unwrap())
+            }
+            ConcreteType::Uint(UBitwidth::B32) => {
+                CheckedValue::U32(raw.pop().unwrap().to_dec_string().parse().unwrap())
+            }
+            ConcreteType::Uint(UBitwidth::B64) => {
+                CheckedValue::U64(raw.pop().unwrap().to_dec_string().parse().unwrap())
+            }
             ConcreteType::Boolean => {
                 let v = raw.pop().unwrap();
                 CheckedValue::Boolean(if v == 0.into() {
@@ -310,8 +310,8 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
     }
 }
 
-impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
-    fn into(self) -> serde_json::Value {
+impl<T: Field> CheckedValue<T> {
+    pub fn into_serde_json(self) -> serde_json::Value {
         match self {
             CheckedValue::Field(f) => serde_json::Value::String(f.to_dec_string()),
             CheckedValue::U8(u) => serde_json::Value::String(format!("{:#04x}", u)),
@@ -320,18 +320,20 @@ impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
             CheckedValue::U64(u) => serde_json::Value::String(format!("{:#018x}", u)),
             CheckedValue::Boolean(b) => serde_json::Value::Bool(b),
             CheckedValue::Array(a) => {
-                serde_json::Value::Array(a.into_iter().map(|e| e.into()).collect())
+                serde_json::Value::Array(a.into_iter().map(|e| e.into_serde_json()).collect())
             }
-            CheckedValue::Struct(s) => {
-                serde_json::Value::Object(s.into_iter().map(|(k, v)| (k, v.into())).collect())
-            }
+            CheckedValue::Struct(s) => serde_json::Value::Object(
+                s.into_iter()
+                    .map(|(k, v)| (k, v.into_serde_json()))
+                    .collect(),
+            ),
         }
     }
 }
 
-impl<T: Field> Into<serde_json::Value> for CheckedValues<T> {
-    fn into(self) -> serde_json::Value {
-        serde_json::Value::Array(self.0.into_iter().map(|e| e.into()).collect())
+impl<T: Field> CheckedValues<T> {
+    pub fn into_serde_json(self) -> serde_json::Value {
+        serde_json::Value::Array(self.0.into_iter().map(|e| e.into_serde_json()).collect())
     }
 }
 

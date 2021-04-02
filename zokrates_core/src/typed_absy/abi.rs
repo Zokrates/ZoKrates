@@ -50,13 +50,11 @@ mod tests {
                     DeclarationParameter {
                         id: DeclarationVariable::field_element("a"),
                         private: true,
-                    }
-                    .into(),
+                    },
                     DeclarationParameter {
                         id: DeclarationVariable::boolean("b"),
                         private: false,
-                    }
-                    .into(),
+                    },
                 ],
                 statements: vec![],
                 signature: ConcreteSignature::new()

@@ -25,8 +25,8 @@ use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
     DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier, StructExpression,
     StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList, TypedFunction,
-    TypedFunctionSymbol, TypedModule, TypedModuleId, TypedProgram, TypedStatement, UExpression,
-    UExpressionInner, Variable,
+    TypedFunctionSymbol, TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
+    Variable,
 };
 
 use std::convert::{TryFrom, TryInto};
@@ -158,73 +158,6 @@ fn register<'ast>(
     }
 }
 
-fn embeds_in_module<'ast, T: Field>(
-    module_id: &TypedModuleId,
-) -> Vec<(DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>)> {
-    // define a function in the given module for the `unpack` embed
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "bellman")] {
-            let sha_round = crate::embed::FlatEmbed::Sha256Round;
-            let sha_round_key = sha_round.key_in_module::<T>(module_id);
-        }
-    }
-
-    // define a function in the given module for the `unpack` embed
-    let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
-    let unpack_key = unpack.key_in_module::<T>(module_id);
-
-    // define a function in the given module for the `u32_to_bits` embed
-    let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
-    let u32_to_bits_key = u32_to_bits.key_in_module::<T>(module_id);
-
-    // define a function in the given module for the `u16_to_bits` embed
-    let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
-    let u16_to_bits_key = u16_to_bits.key_in_module::<T>(module_id);
-
-    // define a function in the given module for the `u8_to_bits` embed
-    let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
-    let u8_to_bits_key = u8_to_bits.key_in_module::<T>(module_id);
-
-    // define a function in the given module for the `u32_from_bits` embed
-    let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
-    let u32_from_bits_key = u32_from_bits.key_in_module::<T>(module_id);
-
-    // define a function in the given module for the `u16_from_bits` embed
-    let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
-    let u16_from_bits_key = u16_from_bits.key_in_module::<T>(module_id);
-
-    // define a function in the given module for the `u8_from_bits` embed
-    let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
-    let u8_from_bits_key = u8_from_bits.key_in_module::<T>(module_id);
-
-    vec![
-        #[cfg(feature = "bellman")]
-        (sha_round_key.into(), TypedFunctionSymbol::Flat(sha_round)),
-        (unpack_key.into(), TypedFunctionSymbol::Flat(unpack)),
-        (
-            u32_from_bits_key.into(),
-            TypedFunctionSymbol::Flat(u32_from_bits),
-        ),
-        (
-            u16_from_bits_key.into(),
-            TypedFunctionSymbol::Flat(u16_from_bits),
-        ),
-        (
-            u8_from_bits_key.into(),
-            TypedFunctionSymbol::Flat(u8_from_bits),
-        ),
-        (
-            u32_to_bits_key.into(),
-            TypedFunctionSymbol::Flat(u32_to_bits),
-        ),
-        (
-            u16_to_bits_key.into(),
-            TypedFunctionSymbol::Flat(u16_to_bits),
-        ),
-        (u8_to_bits_key.into(), TypedFunctionSymbol::Flat(u8_to_bits)),
-    ]
-}
-
 struct Reducer<'ast, 'a, T> {
     statement_buffer: Vec<TypedStatement<'ast, T>>,
     for_loop_versions: Vec<Versions<'ast>>,
@@ -330,12 +263,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                 self.statement_buffer
                     .push(TypedStatement::MultipleDefinition(
                         v,
-                        TypedExpressionList::FunctionCall(
-                            embed.key_in_module::<T>(&self.program.main).into(),
-                            generics,
-                            arguments,
-                            output_types,
-                        ),
+                        TypedExpressionList::EmbedCall(embed, generics, arguments, output_types),
                     ));
                 Ok(TypedExpression::from(var).try_into().unwrap())
             }
@@ -423,8 +351,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionList::FunctionCall(
-                                embed.key_in_module::<T>(&self.program.main).into(),
+                            TypedExpressionList::EmbedCall(
+                                embed,
                                 generics,
                                 arguments,
                                 output_types,
@@ -591,8 +519,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 }
 
 pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
-    let mut p = p;
-
     let main_module = p.modules.get(&p.main).unwrap().clone();
 
     let (main_key, main_function) = main_module
@@ -605,10 +531,6 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
         TypedFunctionSymbol::Here(f) => f.clone(),
         _ => unreachable!(),
     };
-
-    let main_module = p.modules.get_mut(&p.main).unwrap();
-
-    main_module.functions.extend(embeds_in_module(&p.main));
 
     match main_function.signature.generics.len() {
         0 => {
@@ -624,7 +546,6 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
                             TypedFunctionSymbol::Here(main_function),
                         )]
                         .into_iter()
-                        .chain(embeds_in_module(&p.main))
                         .collect(),
                     },
                 )]
@@ -736,10 +657,16 @@ mod tests {
     use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
         ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
-        FieldElementExpression, Identifier, Select, Type, TypedExpression, TypedExpressionList,
-        TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
+        FieldElementExpression, Identifier, OwnedTypedModuleId, Select, Type, TypedExpression,
+        TypedExpressionList, TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
+
+    use lazy_static::lazy_static;
+
+    lazy_static! {
+        static ref MAIN_MODULE_ID: OwnedTypedModuleId = OwnedTypedModuleId::from("main");
+    }
 
     #[test]
     fn no_generics() {
@@ -905,7 +832,6 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
-                    .chain(embeds_in_module(&"main".into()))
                     .collect(),
                 },
             )]
@@ -1003,8 +929,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1091,8 +1016,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1116,7 +1040,6 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
-                    .chain(embeds_in_module(&"main".into()))
                     .collect(),
                 },
             )]
@@ -1223,8 +1146,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier("b".into())
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1311,8 +1233,7 @@ mod tests {
                 TypedStatement::Return(vec![(FieldElementExpression::Identifier("a".into())
                     + FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(Identifier::from("b").version(1))
-                            .annotate(Type::FieldElement, 1u32)
-                            .into(),
+                            .annotate(Type::FieldElement, 1u32),
                         0u32,
                     ))
                 .into()]),
@@ -1336,7 +1257,6 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
-                    .chain(embeds_in_module(&"main".into()))
                     .collect(),
                 },
             )]
@@ -1391,7 +1311,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic("K".into()),
+                Constant::Generic("K"),
             )
             .into()],
             statements: vec![
@@ -1455,7 +1375,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic("K".into()),
+                Constant::Generic("K"),
             )
             .into()],
             statements: vec![TypedStatement::Return(vec![
@@ -1575,8 +1495,7 @@ mod tests {
                         box ArrayExpressionInner::Identifier(
                             Identifier::from(CoreIdentifier::Call(0)).version(1),
                         )
-                        .annotate(Type::FieldElement, 2u32)
-                        .into(),
+                        .annotate(Type::FieldElement, 2u32),
                         box 0u32.into(),
                         box 1u32.into(),
                     )
@@ -1617,7 +1536,6 @@ mod tests {
                         TypedFunctionSymbol::Here(expected_main),
                     )]
                     .into_iter()
-                    .chain(embeds_in_module(&"main".into()))
                     .collect(),
                 },
             )]

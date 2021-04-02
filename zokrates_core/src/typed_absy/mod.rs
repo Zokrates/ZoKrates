@@ -26,7 +26,7 @@ pub use self::types::{
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub use crate::typed_absy::integer::IntExpression;
 pub use crate::typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
@@ -48,10 +48,11 @@ use std::ops::{Add, Div, Mul, Sub};
 pub use self::identifier::Identifier;
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
-pub type TypedModuleId = PathBuf;
+pub type OwnedTypedModuleId = PathBuf;
+pub type TypedModuleId = Path;
 
 /// A collection of `TypedModule`s
-pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
+pub type TypedModules<'ast, T> = HashMap<OwnedTypedModuleId, TypedModule<'ast, T>>;
 
 /// A collection of `TypedFunctionSymbol`s
 /// # Remarks
@@ -64,7 +65,7 @@ pub type TypedFunctionSymbols<'ast, T> =
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypedProgram<'ast, T> {
     pub modules: TypedModules<'ast, T>,
-    pub main: TypedModuleId,
+    pub main: OwnedTypedModuleId,
 }
 
 impl<'ast, T> TypedProgram<'ast, T> {
@@ -173,7 +174,7 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
                 .get(key)
                 .unwrap()
                 .signature(&modules),
-            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature().try_into().unwrap(),
+            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature(),
         }
     }
 }
@@ -761,12 +762,19 @@ pub enum TypedExpressionList<'ast, T> {
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
+    EmbedCall(
+        FlatEmbed,
+        Vec<u32>,
+        Vec<TypedExpression<'ast, T>>,
+        Vec<Type<'ast, T>>,
+    ),
 }
 
 impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
     fn get_types(&self) -> &Vec<Type<'ast, T>> {
         match *self {
             TypedExpressionList::FunctionCall(_, _, _, ref types) => types,
+            TypedExpressionList::EmbedCall(_, _, _, ref types) => types,
         }
     }
 }
@@ -1616,6 +1624,28 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
                 }
                 write!(f, ")")
             }
+            TypedExpressionList::EmbedCall(ref embed, ref generics, ref p, _) => {
+                write!(f, "{}", embed.id())?;
+                if !generics.is_empty() {
+                    write!(
+                        f,
+                        "::<{}>",
+                        generics
+                            .iter()
+                            .map(|g| g.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )?;
+                }
+                write!(f, "(")?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
         }
     }
 }
@@ -1625,6 +1655,11 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedExpressionList<'ast, T> {
         match *self {
             TypedExpressionList::FunctionCall(ref i, ref g, ref p, _) => {
                 write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
+                f.debug_list().entries(p.iter()).finish()?;
+                write!(f, ")")
+            }
+            TypedExpressionList::EmbedCall(ref embed, ref g, ref p, _) => {
+                write!(f, "EmbedCall({:?}, {:?}, (", g, embed)?;
                 f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }

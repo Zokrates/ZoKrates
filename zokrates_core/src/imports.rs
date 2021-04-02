@@ -132,7 +132,7 @@ impl Importer {
         destination: Module<'ast>,
         location: PathBuf,
         resolver: Option<&dyn Resolver<E>>,
-        modules: &mut HashMap<ModuleId, Module<'ast>>,
+        modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
         arena: &'ast Arena<String>,
     ) -> Result<Module<'ast>, CompileErrors> {
         let mut symbols: Vec<_> = vec![];
@@ -174,7 +174,18 @@ impl Importer {
                         symbols.push(
                             SymbolDeclaration {
                                 id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Unpack(T::get_required_bits())),
+                                symbol: Symbol::Flat(FlatEmbed::Unpack),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u64_to_bits" => {
+                        let alias = alias.unwrap_or("u64_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U64ToBits),
                             }
                             .start_end(pos.0, pos.1),
                         );
@@ -208,6 +219,17 @@ impl Importer {
                             SymbolDeclaration {
                                 id: &alias,
                                 symbol: Symbol::Flat(FlatEmbed::U8ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u64_from_bits" => {
+                        let alias = alias.unwrap_or("u64_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U64FromBits),
                             }
                             .start_end(pos.0, pos.1),
                         );

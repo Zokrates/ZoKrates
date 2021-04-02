@@ -259,7 +259,7 @@ impl<T: Field> Mul<&T> for LinComb<T> {
 
 impl<T: Field> Div<&T> for LinComb<T> {
     type Output = LinComb<T>;
-
+    // Clippy warns about multiplication in a method named div. It's okay, here, since we multiply with the inverse.
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, scalar: &T) -> LinComb<T> {
         self * &scalar.inverse_mul().unwrap()

@@ -93,11 +93,11 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
     // read vk file
     let input_path = Path::new(sub_matches.value_of("input").unwrap());
     let input_file = File::open(&input_path)
-        .map_err(|why| format!("Couldn't open {}: {}", input_path.display(), why))?;
+        .map_err(|why| format!("Could not open {}: {}", input_path.display(), why))?;
     let reader = BufReader::new(input_file);
 
     let vk = serde_json::from_reader(reader)
-        .map_err(|why| format!("Couldn't deserialize verifying key: {}", why))?;
+        .map_err(|why| format!("Could not deserialize verification key: {}", why))?;
 
     let abi = SolidityAbi::from(sub_matches.value_of("solidity-abi").unwrap())?;
 
@@ -106,7 +106,7 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
     //write output file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
-        .map_err(|why| format!("Couldn't create {}: {}", output_path.display(), why))?;
+        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
 
     let mut writer = BufWriter::new(output_file);
 
@@ -114,6 +114,6 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
         .write_all(&verifier.as_bytes())
         .map_err(|_| "Failed writing output to file".to_string())?;
 
-    println!("Finished exporting verifier");
+    println!("Verifier exported to '{}'", output_path.display());
     Ok(())
 }

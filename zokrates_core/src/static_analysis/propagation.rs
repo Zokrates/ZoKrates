@@ -7,6 +7,7 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+use crate::embed::FlatEmbed;
 use crate::typed_absy::result_folder::*;
 use crate::typed_absy::types::Type;
 use crate::typed_absy::*;
@@ -336,13 +337,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     .collect::<Result<_, _>>()?;
                 let expression_list = self.fold_expression_list(expression_list)?;
 
-                let expression_list = match expression_list {
-                    TypedExpressionList::FunctionCall(key, generics, arguments, types) => {
-                        let generics = generics
-                            .into_iter()
-                            .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
-                            .collect::<Result<_, _>>()?;
-
+                let statements = match expression_list {
+                    TypedExpressionList::EmbedCall(embed, generics, arguments, types) => {
                         let arguments: Vec<_> = arguments
                             .into_iter()
                             .map(|a| self.fold_expression(a))
@@ -440,40 +436,54 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                         match arguments.iter().all(|a| is_constant(a)) {
                             true => {
-                                let r: Option<TypedExpression<'ast, T>> = match key.id {
-                                    "_U32_FROM_BITS" => Some(process_u_from_bits(
+                                let r: Option<TypedExpression<'ast, T>> = match embed {
+                                    FlatEmbed::U32ToField => None, // todo
+                                    FlatEmbed::U64FromBits => Some(process_u_from_bits(
+                                        assignees.clone(),
+                                        arguments.clone(),
+                                        UBitwidth::B64,
+                                    )),
+                                    FlatEmbed::U32FromBits => Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B32,
                                     )),
-                                    "_U16_FROM_BITS" => Some(process_u_from_bits(
+                                    FlatEmbed::U16FromBits => Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B16,
                                     )),
-                                    "_U8_FROM_BITS" => Some(process_u_from_bits(
+                                    FlatEmbed::U8FromBits => Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B8,
                                     )),
-                                    "_U32_TO_BITS" => Some(process_u_to_bits(
+                                    FlatEmbed::U64ToBits => Some(process_u_to_bits(
+                                        assignees.clone(),
+                                        arguments.clone(),
+                                        UBitwidth::B64,
+                                    )),
+                                    FlatEmbed::U32ToBits => Some(process_u_to_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B32,
                                     )),
-                                    "_U16_TO_BITS" => Some(process_u_to_bits(
+                                    FlatEmbed::U16ToBits => Some(process_u_to_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B16,
                                     )),
-                                    "_U8_TO_BITS" => Some(process_u_to_bits(
+                                    FlatEmbed::U8ToBits => Some(process_u_to_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B8,
                                     )),
-                                    "_UNPACK" => {
+                                    FlatEmbed::Unpack => {
                                         assert_eq!(assignees.len(), 1);
                                         assert_eq!(arguments.len(), 1);
+                                        assert_eq!(generics.len(), 1);
+
+                                        let bit_width = generics[0];
 
                                         match FieldElementExpression::try_from(arguments[0].clone())
                                             .unwrap()
@@ -482,7 +492,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                 let mut num = num;
                                                 let mut res = vec![];
 
-                                                for i in (0..T::get_required_bits()).rev() {
+                                                for i in (0..bit_width as usize).rev() {
                                                     if T::from(2).pow(i) <= num {
                                                         num = num - T::from(2).pow(i);
                                                         res.push(true);
@@ -501,18 +511,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                             .collect::<Vec<_>>()
                                                             .into(),
                                                     )
-                                                    .annotate(
-                                                        Type::Boolean,
-                                                        T::get_required_bits() as u32,
-                                                    )
+                                                    .annotate(Type::Boolean, bit_width)
                                                     .into(),
                                                 )
                                             }
                                             _ => unreachable!("should be a field value"),
                                         }
                                     }
-                                    "_SHA256_ROUND" => None,
-                                    _ => None,
+                                    FlatEmbed::Sha256Round => None,
                                 };
 
                                 match r {
@@ -566,15 +572,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                 TypedStatement::Definition(v.clone().into(), c),
                                                 TypedStatement::MultipleDefinition(
                                                     vec![assignee],
-                                                    TypedExpressionList::FunctionCall(
-                                                        key, generics, arguments, types,
+                                                    TypedExpressionList::EmbedCall(
+                                                        embed, generics, arguments, types,
                                                     ),
                                                 ),
                                             ],
                                             None => vec![TypedStatement::MultipleDefinition(
                                                 vec![assignee],
-                                                TypedExpressionList::FunctionCall(
-                                                    key, generics, arguments, types,
+                                                TypedExpressionList::EmbedCall(
+                                                    embed, generics, arguments, types,
                                                 ),
                                             )],
                                         }
@@ -587,8 +593,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                                 let def = TypedStatement::MultipleDefinition(
                                     assignees.clone(),
-                                    TypedExpressionList::FunctionCall(
-                                        key, generics, arguments, types,
+                                    TypedExpressionList::EmbedCall(
+                                        embed, generics, arguments, types,
                                     ),
                                 );
 
@@ -609,9 +615,47 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             }
                         }
                     }
+                    TypedExpressionList::FunctionCall(key, generics, arguments, types) => {
+                        let generics = generics
+                            .into_iter()
+                            .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
+                            .collect::<Result<_, _>>()?;
+
+                        let arguments: Vec<_> = arguments
+                            .into_iter()
+                            .map(|a| self.fold_expression(a))
+                            .collect::<Result<_, _>>()?;
+
+                        let types = types
+                            .into_iter()
+                            .map(|t| self.fold_type(t))
+                            .collect::<Result<_, _>>()?;
+
+                        // invalidate the cache for the return assignees as this call mutates them
+
+                        let def = TypedStatement::MultipleDefinition(
+                            assignees.clone(),
+                            TypedExpressionList::FunctionCall(key, generics, arguments, types),
+                        );
+
+                        let invalidations = assignees.iter().flat_map(|assignee| {
+                            let v = self
+                                .try_get_constant_mut(&assignee)
+                                .map(|(v, _)| v)
+                                .unwrap_or_else(|v| v);
+                            match self.constants.remove(&v.id) {
+                                Some(c) => {
+                                    vec![TypedStatement::Definition(v.clone().into(), c)]
+                                }
+                                None => vec![],
+                            }
+                        });
+
+                        invalidations.chain(std::iter::once(def)).collect()
+                    }
                 };
 
-                Ok(expression_list)
+                Ok(statements)
             }
             s @ TypedStatement::PushCallLog(..) => Ok(vec![s]),
             s @ TypedStatement::PopCallLog => Ok(vec![s]),
@@ -755,40 +799,28 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             },
             UExpressionInner::RightShift(box e, box by) => {
                 let e = self.fold_uint_expression(e)?;
-                let by = self.fold_field_expression(by)?;
-                match (e.into_inner(), by) {
-                    (UExpressionInner::Value(v), FieldElementExpression::Number(by)) => {
-                        let by_as_usize = by.to_dec_string().parse::<usize>().unwrap();
-                        UExpressionInner::Value(v >> by_as_usize)
+                let by = self.fold_uint_expression(by)?;
+                match (e.into_inner(), by.into_inner()) {
+                    (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
+                        UExpressionInner::Value(v >> by)
                     }
-                    (e, FieldElementExpression::Number(by)) => UExpressionInner::RightShift(
+                    (e, by) => UExpressionInner::RightShift(
                         box e.annotate(bitwidth),
-                        box FieldElementExpression::Number(by),
+                        box by.annotate(UBitwidth::B32),
                     ),
-                    (_, e2) => unreachable!(format!(
-                        "non-constant shift {} detected during static analysis",
-                        e2
-                    )),
                 }
             }
             UExpressionInner::LeftShift(box e, box by) => {
                 let e = self.fold_uint_expression(e)?;
-                let by = self.fold_field_expression(by)?;
-                match (e.into_inner(), by) {
-                    (UExpressionInner::Value(v), FieldElementExpression::Number(by)) => {
-                        let by_as_usize = by.to_dec_string().parse::<usize>().unwrap();
-                        UExpressionInner::Value(
-                            (v << by_as_usize) & (2_u128.pow(bitwidth as u32) - 1),
-                        )
+                let by = self.fold_uint_expression(by)?;
+                match (e.into_inner(), by.into_inner()) {
+                    (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
+                        UExpressionInner::Value((v << by) & (2_u128.pow(bitwidth as u32) - 1))
                     }
-                    (e, FieldElementExpression::Number(by)) => UExpressionInner::LeftShift(
+                    (e, by) => UExpressionInner::LeftShift(
                         box e.annotate(bitwidth),
-                        box FieldElementExpression::Number(by),
+                        box by.annotate(UBitwidth::B32),
                     ),
-                    (_, e2) => unreachable!(format!(
-                        "non-constant shift {} detected during static analysis",
-                        e2
-                    )),
                 }
             }
             UExpressionInner::Xor(box e1, box e2) => match (

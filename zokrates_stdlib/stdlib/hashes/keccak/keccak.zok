@@ -1,6 +1,6 @@
 // based on keccak-f[1600] permutation
 
-def rho() -> field[24]:
+def rho() -> u32[24]:
     return [
         1,  3,  6,  10, 15, 21, 28, 36, 45, 55, 2,  14,
         27, 41, 56, 8,  25, 43, 62, 18, 39, 61, 20, 44
@@ -24,12 +24,13 @@ def rc() -> u64[24]:
         0x8000000000008080, 0x0000000080000001, 0x8000000080008008
     ]
 
-// left rotation, should optimize?
-def rotl64(u64 x, field n) -> u64:
+// left rotation
+def rotl64(u64 x, u32 n) -> u64:
     return ((x << n) | (x >> (64 - n)))
 
 // compression function
 def keccakf(u64[25] st) -> u64[25]:
+    u32[24] rotc = rho()
     u32[24] piln = pi()
     u64[24] rndc = rc()
 
@@ -49,7 +50,6 @@ def keccakf(u64[25] st) -> u64[25]:
             endfor
         endfor
 
-        field[24] rotc = rho()
         t = st[1]
 
         // rho pi

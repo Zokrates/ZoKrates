@@ -576,13 +576,13 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
         }
         UExpressionInner::LeftShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_field_expression(by);
+            let by = f.fold_uint_expression(by);
 
             UExpressionInner::LeftShift(box e, box by)
         }
         UExpressionInner::RightShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_field_expression(by);
+            let by = f.fold_uint_expression(by);
 
             UExpressionInner::RightShift(box e, box by)
         }
@@ -660,6 +660,17 @@ pub fn fold_expression_list<'ast, T: Field, F: Folder<'ast, T>>(
                     .into_iter()
                     .map(|g| g.map(|g| f.fold_uint_expression(g)))
                     .collect(),
+                arguments
+                    .into_iter()
+                    .map(|a| f.fold_expression(a))
+                    .collect(),
+                types.into_iter().map(|t| f.fold_type(t)).collect(),
+            )
+        }
+        TypedExpressionList::EmbedCall(embed, generics, arguments, types) => {
+            TypedExpressionList::EmbedCall(
+                embed,
+                generics,
                 arguments
                     .into_iter()
                     .map(|a| f.fold_expression(a))
