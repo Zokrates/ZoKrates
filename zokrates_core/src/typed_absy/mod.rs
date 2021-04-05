@@ -144,7 +144,7 @@ pub struct TypedModule<'ast, T> {
     /// Functions of the module
     pub functions: TypedFunctionSymbols<'ast, T>,
     /// Constants defined in module
-    pub constants: TypedConstants<'ast, T>,
+    pub constants: Option<TypedConstants<'ast, T>>,
 }
 
 #[derive(Clone, PartialEq)]

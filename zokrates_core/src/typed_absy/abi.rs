@@ -69,7 +69,7 @@ mod tests {
             "main".into(),
             TypedModule {
                 functions,
-                constants: Default::default(),
+                constants: None,
             },
         );
 

@@ -701,7 +701,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 Some(TypedModule {
                     functions: checked_functions,
-                    constants: checked_constants,
+                    constants: Some(checked_constants).filter(|m| !m.is_empty()),
                 })
             }
         };
@@ -3152,7 +3152,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Default::default()
+                    constants: None
                 })
             );
         }
