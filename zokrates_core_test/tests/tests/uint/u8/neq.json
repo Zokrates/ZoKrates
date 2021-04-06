@@ -1,0 +1,26 @@
+{
+  "entry_point": "./tests/tests/uint/u8/neq.zok",
+  "max_constraint_count": 21,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x02", "0x02"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x02", "0x04"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["1"]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "entry_point": "./tests/tests/uint/u64/not.zok",
+  "max_constraint_count": 66,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x0000000000000001"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0xfffffffffffffffe"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0xffffffffffffffff"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0x0000000000000000"]
+        }
+      }
+    }
+  ]
+}

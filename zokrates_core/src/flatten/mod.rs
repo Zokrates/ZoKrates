@@ -1133,7 +1133,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let _ = self.get_bits(
             FlatUExpression::with_field(FlatExpression::Add(
                 box FlatExpression::Sub(box r.into(), box d.clone()),
-                box FlatExpression::Number(T::from(2usize.pow(target_bitwidth.to_usize() as u32))),
+                box FlatExpression::Number(T::from(2_u128.pow(target_bitwidth.to_usize() as u32))),
             )),
             target_bitwidth.to_usize(),
             target_bitwidth,

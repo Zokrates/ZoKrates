@@ -117,7 +117,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
         let range = e.bitwidth.to_usize();
 
-        let range_max: T = (2_usize.pow(range as u32) - 1).into();
+        let range_max: T = (2_u128.pow(range as u32) - 1).into();
 
         assert!(range < max_bitwidth / 2);
 
@@ -319,7 +319,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let e = self.fold_uint_expression(e);
                 let by = self.fold_uint_expression(by);
 
-                let by_max: usize = by
+                let by_max: u128 = by
                     .metadata
                     .clone()
                     .unwrap()
@@ -327,7 +327,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .to_dec_string()
                     .parse()
                     .unwrap();
-                let e_max: usize = e
+                let e_max: u128 = e
                     .metadata
                     .clone()
                     .unwrap()
@@ -336,7 +336,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .parse()
                     .unwrap();
 
-                let max = T::from((e_max << by_max) & (2_usize.pow(range as u32) - 1));
+                let max = T::from((e_max << by_max) & (2_u128.pow(range as u32) - 1));
 
                 UExpression::left_shift(force_reduce(e), force_reduce(by)).with_max(max)
             }
@@ -351,7 +351,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     _ => 0,
                 };
 
-                let e_max: usize = e
+                let e_max: u128 = e
                     .metadata
                     .clone()
                     .unwrap()
@@ -360,7 +360,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .parse()
                     .unwrap();
 
-                let max = (e_max & (2_usize.pow(range as u32) - 1)) >> by_u;
+                let max = (e_max & (2_u128.pow(range as u32) - 1)) >> by_u;
 
                 let max = T::from(max);
 

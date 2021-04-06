@@ -2,9 +2,13 @@
 extern crate serde_derive;
 
 use std::fs::File;
+use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
+
+use zokrates_core::compile::{compile, CompileConfig};
 use zokrates_core::ir;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_fs_resolver::FileSystemResolver;
 
 #[derive(Serialize, Deserialize, Clone)]
 enum Curve {
@@ -46,15 +50,8 @@ struct Output {
 type Val = String;
 
 fn parse_val<T: Field>(s: String) -> T {
-    let s = if s.starts_with("0x") {
-        u32::from_str_radix(s.trim_start_matches("0x"), 16)
-            .unwrap()
-            .to_string()
-    } else {
-        s
-    };
-
-    T::try_from_dec_str(&s).unwrap()
+    let radix = if s.starts_with("0x") { 16 } else { 10 };
+    T::try_from_str(s.trim_start_matches("0x"), radix).unwrap()
 }
 
 impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
@@ -84,10 +81,6 @@ fn compare<T: Field>(result: ir::ExecutionResult<T>, expected: TestResult) -> Re
 
     Ok(())
 }
-
-use std::io::{BufReader, Read};
-use zokrates_core::compile::{compile, CompileConfig};
-use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn test_inner(test_path: &str) {
     let t: Tests =
