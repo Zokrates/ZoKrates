@@ -1,4 +1,5 @@
 pub mod gm17;
+pub mod marlin;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
 use ark_gm17::Proof;

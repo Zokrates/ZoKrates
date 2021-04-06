@@ -1,5 +1,7 @@
 #![feature(box_patterns, box_syntax)]
 
+use ark_marlin;
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "bellman")] {
         extern crate bellman_ce as bellman;
