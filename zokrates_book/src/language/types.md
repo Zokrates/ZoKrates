@@ -22,7 +22,7 @@ Note that for field elements, the division operation multiplies the numerator wi
 
 Booleans are available in ZoKrates. When a boolean is used as a parameter of the main function, the program is constrained to only accept `0` or `1` for that parameter. A boolean can be asserted to be true using an `assert(bool)` statement.
 
-### `u8/u16/u32`
+### `u8/u16/u32/u64`
 
 Unsigned integers represent positive numbers of the interval `[0, 2 ** bitwidth[`, where `bitwidth` is specified in the type's name, e.g., 32 bits in the case of u32. Their arithmetics are defined modulo `2 ** bitwidth`.
 
@@ -34,9 +34,9 @@ The division operation calculates the standard floor division for integers. The 
 
 ### Numeric inference
 
-In the case of decimal literals like `42`, the compiler tries to find the appropriate type (`field`, `u8`, `u16` or `u32`) depending on the context. If it cannot converge to a single option, an error is returned. This means that there is no default type for decimal literals.
+In the case of decimal literals like `42`, the compiler tries to find the appropriate type (`field`, `u8`, `u16`, `u32` or `u64`) depending on the context. If it cannot converge to a single option, an error is returned. This means that there is no default type for decimal literals.
 
-All operations between literals have the semantics of the infered type.
+All operations between literals have the semantics of the inferred type.
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/numeric_inference.zok}}
