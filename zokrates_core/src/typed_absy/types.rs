@@ -387,6 +387,8 @@ pub enum UBitwidth {
     B16 = 16,
     #[serde(rename = "32")]
     B32 = 32,
+    #[serde(rename = "64")]
+    B64 = 64,
 }
 
 impl UBitwidth {
@@ -401,6 +403,7 @@ impl From<usize> for UBitwidth {
             8 => UBitwidth::B8,
             16 => UBitwidth::B16,
             32 => UBitwidth::B32,
+            64 => UBitwidth::B64,
             _ => unreachable!(),
         }
     }
@@ -512,6 +515,7 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
             "u8" => strict_type(mapping, GType::Uint(UBitwidth::B8)),
             "u16" => strict_type(mapping, GType::Uint(UBitwidth::B16)),
             "u32" => strict_type(mapping, GType::Uint(UBitwidth::B32)),
+            "u64" => strict_type(mapping, GType::Uint(UBitwidth::B64)),
             t => Err(D::Error::custom(format!("invalid type `{}`", t))),
         }
     }

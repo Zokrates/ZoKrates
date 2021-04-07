@@ -438,6 +438,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match embed {
                                     FlatEmbed::U32ToField => None, // todo
+                                    FlatEmbed::U64FromBits => Some(process_u_from_bits(
+                                        assignees.clone(),
+                                        arguments.clone(),
+                                        UBitwidth::B64,
+                                    )),
                                     FlatEmbed::U32FromBits => Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
@@ -452,6 +457,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B8,
+                                    )),
+                                    FlatEmbed::U64ToBits => Some(process_u_to_bits(
+                                        assignees.clone(),
+                                        arguments.clone(),
+                                        UBitwidth::B64,
                                     )),
                                     FlatEmbed::U32ToBits => Some(process_u_to_bits(
                                         assignees.clone(),

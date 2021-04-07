@@ -1,0 +1,2 @@
+def main(u16 x, u16 y) -> u16:
+    return x | y

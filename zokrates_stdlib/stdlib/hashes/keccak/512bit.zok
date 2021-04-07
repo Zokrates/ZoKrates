@@ -1,0 +1,4 @@
+import "hashes/keccak/keccak" as keccak
+
+def main<N>(u64[N] input) -> u64[8]:
+    return keccak::<N, 512>(input, 0x0000000000000001)[..8]

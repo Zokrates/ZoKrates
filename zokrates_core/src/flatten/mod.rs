@@ -857,6 +857,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         param_expressions: Vec<ZirExpression<'ast, T>>,
     ) -> Vec<FlatUExpression<T>> {
         match embed {
+            crate::embed::FlatEmbed::U64ToBits => self.flatten_u_to_bits(
+                statements_flattened,
+                param_expressions[0].clone(),
+                64.into(),
+            ),
             crate::embed::FlatEmbed::U32ToBits => self.flatten_u_to_bits(
                 statements_flattened,
                 param_expressions[0].clone(),
@@ -869,6 +874,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             ),
             crate::embed::FlatEmbed::U8ToBits => {
                 self.flatten_u_to_bits(statements_flattened, param_expressions[0].clone(), 8.into())
+            }
+            crate::embed::FlatEmbed::U64FromBits => {
+                vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 64.into())]
             }
             crate::embed::FlatEmbed::U32FromBits => {
                 vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 32.into())]
@@ -1125,7 +1133,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let _ = self.get_bits(
             FlatUExpression::with_field(FlatExpression::Add(
                 box FlatExpression::Sub(box r.into(), box d.clone()),
-                box FlatExpression::Number(T::from(2usize.pow(target_bitwidth.to_usize() as u32))),
+                box FlatExpression::Number(T::from(2_u128.pow(target_bitwidth.to_usize() as u32))),
             )),
             target_bitwidth.to_usize(),
             target_bitwidth,
@@ -2077,7 +2085,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .collect();
 
                         match embed {
-                            FlatEmbed::U32FromBits
+                            FlatEmbed::U64FromBits
+                            | FlatEmbed::U32FromBits
                             | FlatEmbed::U16FromBits
                             | FlatEmbed::U8FromBits => {
                                 let bits = exprs

@@ -179,6 +179,17 @@ impl Importer {
                             .start_end(pos.0, pos.1),
                         );
                     }
+                    "EMBED/u64_to_bits" => {
+                        let alias = alias.unwrap_or("u64_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U64ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
                     "EMBED/u32_to_bits" => {
                         let alias = alias.unwrap_or("u32_to_bits");
 
@@ -208,6 +219,17 @@ impl Importer {
                             SymbolDeclaration {
                                 id: &alias,
                                 symbol: Symbol::Flat(FlatEmbed::U8ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u64_from_bits" => {
+                        let alias = alias.unwrap_or("u64_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U64FromBits),
                             }
                             .start_end(pos.0, pos.1),
                         );

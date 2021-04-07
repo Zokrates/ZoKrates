@@ -1,0 +1,1 @@
+Introduce u64 type, add keccak{256,384,512} and sha3{256,384,512} hash functions to stdlib

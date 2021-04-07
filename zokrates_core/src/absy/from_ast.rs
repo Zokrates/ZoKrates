@@ -583,6 +583,9 @@ impl<'ast> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'
                 pest::DecimalSuffix::Field(_) => absy::Expression::FieldConstant(
                     BigUint::parse_bytes(&expression.value.span.as_str().as_bytes(), 10).unwrap(),
                 ),
+                pest::DecimalSuffix::U64(_) => {
+                    absy::Expression::U64Constant(expression.value.span.as_str().parse().unwrap())
+                }
                 pest::DecimalSuffix::U32(_) => {
                     absy::Expression::U32Constant(expression.value.span.as_str().parse().unwrap())
                 }
@@ -607,6 +610,9 @@ impl<'ast> From<pest::HexLiteralExpression<'ast>> for absy::ExpressionNode<'ast>
         use crate::absy::NodeValue;
 
         match expression.value {
+            pest::HexNumberExpression::U64(e) => {
+                absy::Expression::U64Constant(u64::from_str_radix(&e.span.as_str(), 16).unwrap())
+            }
             pest::HexNumberExpression::U32(e) => {
                 absy::Expression::U32Constant(u32::from_str_radix(&e.span.as_str(), 16).unwrap())
             }
@@ -683,6 +689,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                 pest::BasicType::U8(t) => UnresolvedType::Uint(8).span(t.span),
                 pest::BasicType::U16(t) => UnresolvedType::Uint(16).span(t.span),
                 pest::BasicType::U32(t) => UnresolvedType::Uint(32).span(t.span),
+                pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
@@ -692,6 +699,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                         pest::BasicType::U8(t) => UnresolvedType::Uint(8).span(t.span),
                         pest::BasicType::U16(t) => UnresolvedType::Uint(16).span(t.span),
                         pest::BasicType::U32(t) => UnresolvedType::Uint(32).span(t.span),
+                        pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
                     },
                     pest::BasicOrStructType::Struct(t) => {
                         UnresolvedType::User(t.span.as_str().to_string()).span(t.span)

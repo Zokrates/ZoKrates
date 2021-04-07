@@ -215,6 +215,7 @@ mod ast {
         U8(U8Type<'ast>),
         U16(U16Type<'ast>),
         U32(U32Type<'ast>),
+        U64(U64Type<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -264,6 +265,13 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_u32))]
     pub struct U32Type<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_u64))]
+    pub struct U64Type<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -796,6 +804,7 @@ mod ast {
         U8(U8Suffix<'ast>),
         U16(U16Suffix<'ast>),
         U32(U32Suffix<'ast>),
+        U64(U64Suffix<'ast>),
         Field(FieldSuffix<'ast>),
     }
 
@@ -816,6 +825,13 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::decimal_suffix_u32))]
     pub struct U32Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_u64))]
+    pub struct U64Suffix<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -866,6 +882,7 @@ mod ast {
         U8(U8NumberExpression<'ast>),
         U16(U16NumberExpression<'ast>),
         U32(U32NumberExpression<'ast>),
+        U64(U64NumberExpression<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -889,6 +906,15 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::hex_number_u32))]
     pub struct U32NumberExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_u64))]
+    pub struct U64NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
         #[pest_ast(outer())]

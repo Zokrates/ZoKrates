@@ -1840,6 +1840,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
+            Expression::U64Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(64).into()),
             Expression::FunctionCall(fun_id, generics, arguments) => {
                 // check the generic arguments, if any
                 let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
