@@ -1,0 +1,5 @@
+def foo<N>() -> field[N]:
+   return [42; N]
+
+def main() -> field[2]:
+   return foo::<2>()

@@ -1021,10 +1021,27 @@ pub mod signature {
 
         pub fn get_output_types<T: Clone + PartialEq + fmt::Debug>(
             &self,
+            generics: Vec<Option<UExpression<'ast, T>>>,
             inputs: Vec<Type<'ast, T>>,
         ) -> Result<Vec<Type<'ast, T>>, GenericIdentifier<'ast>> {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = GenericsAssignment::default();
+
+            // initialise the map with the explicitly provided generics
+            constants
+                .0
+                .extend(self.generics.iter().zip(generics).filter_map(|(g, v)| {
+                    // only add to the map when there's indeed a generic value being provided
+                    v.map(|v| {
+                        (
+                            match g.clone().unwrap() {
+                                Constant::Generic(g) => g,
+                                _ => unreachable!(),
+                            },
+                            v,
+                        )
+                    })
+                }));
 
             // fill the map with the inputs
             let _ = self

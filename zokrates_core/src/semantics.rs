@@ -1862,15 +1862,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
 
-                        let output_types = signature.get_output_types(arguments_checked.iter().map(|a| a.get_type()).collect()).map_err(|e| ErrorInner {
+                        let generics_checked = generics_checked.unwrap_or_else(|| vec![None; signature.generics.len()]);
+
+                        let output_types = signature.get_output_types(
+                            generics_checked.clone(),
+                            arguments_checked.iter().map(|a| a.get_type()).collect()
+                        ).map_err(|e| ErrorInner {
                             pos: Some(pos),
                             message: format!(
-                                "Failed to infer value for generic parameter `{}`, try being more explicit by using an intermediate variable",
+                                "Failed to infer value for generic parameter `{}`, try providing an explicit value",
                                 e,
                             ),
                         })?;
-
-                        let generics_checked = generics_checked.unwrap_or_else(|| vec![None; signature.generics.len()]);
 
                         // the return count has to be 1
                         match output_types.len() {
