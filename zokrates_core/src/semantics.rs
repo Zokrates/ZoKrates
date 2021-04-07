@@ -1733,6 +1733,44 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }
             }
+            Expression::Neg(box e) => {
+                let e = self.check_expression(e, module_id, &types)?;
+
+                match e {
+                    TypedExpression::Int(e) => Ok(IntExpression::Neg(box e).into()),
+                    TypedExpression::FieldElement(e) => {
+                        Ok(FieldElementExpression::Neg(box e).into())
+                    }
+                    TypedExpression::Uint(e) => Ok((-e).into()),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Unary operator `-` cannot be applied to {} of type {}",
+                            e,
+                            e.get_type()
+                        ),
+                    }),
+                }
+            }
+            Expression::Pos(box e) => {
+                let e = self.check_expression(e, module_id, &types)?;
+
+                match e {
+                    TypedExpression::Int(e) => Ok(IntExpression::Pos(box e).into()),
+                    TypedExpression::FieldElement(e) => {
+                        Ok(FieldElementExpression::Pos(box e).into())
+                    }
+                    TypedExpression::Uint(e) => Ok(UExpression::pos(e).into()),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Unary operator `+` cannot be applied to {} of type {}",
+                            e,
+                            e.get_type()
+                        ),
+                    }),
+                }
+            }
             Expression::IfElse(box condition, box consequence, box alternative) => {
                 let condition_checked = self.check_expression(condition, module_id, &types)?;
                 let consequence_checked = self.check_expression(consequence, module_id, &types)?;

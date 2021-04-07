@@ -862,6 +862,23 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     e => UExpressionInner::Not(box e.annotate(bitwidth)),
                 }
             }
+            UExpressionInner::Neg(box e) => {
+                let e = self.fold_uint_expression(e)?.into_inner();
+                match e {
+                    UExpressionInner::Value(v) => UExpressionInner::Value(
+                        (0u128.wrapping_sub(v))
+                            % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                    ),
+                    e => UExpressionInner::Neg(box e.annotate(bitwidth)),
+                }
+            }
+            UExpressionInner::Pos(box e) => {
+                let e = self.fold_uint_expression(e)?.into_inner();
+                match e {
+                    UExpressionInner::Value(v) => UExpressionInner::Value(v),
+                    e => UExpressionInner::Pos(box e.annotate(bitwidth)),
+                }
+            }
             UExpressionInner::Select(box array, box index) => {
                 let array = self.fold_array_expression(array)?;
                 let index = self.fold_uint_expression(index)?;
@@ -979,6 +996,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     FieldElementExpression::Number(n1 / n2)
                 }
                 (e1, e2) => FieldElementExpression::Div(box e1, box e2),
+            },
+            FieldElementExpression::Neg(box e) => match self.fold_field_expression(e)? {
+                FieldElementExpression::Number(n) => FieldElementExpression::Number(T::zero() - n),
+                e => FieldElementExpression::Neg(box e),
+            },
+            FieldElementExpression::Pos(box e) => match self.fold_field_expression(e)? {
+                FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
+                e => FieldElementExpression::Pos(box e),
             },
             FieldElementExpression::Pow(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1)?;
@@ -1361,8 +1386,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 let e2 = self.fold_uint_expression(e2)?;
 
                 match (e1.as_inner(), e2.as_inner()) {
-                    (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                        BooleanExpression::Value(v1 == v2)
+                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
+                        BooleanExpression::Value(n1 == n2)
                     }
                     _ => BooleanExpression::UintEq(box e1, box e2),
                 }
