@@ -70,6 +70,7 @@ branches:
     # release tags
     - /^\d+\.\d+\.\d+.*$/
     - master
+    - add-apple-m1
 
 notifications:
   email:
