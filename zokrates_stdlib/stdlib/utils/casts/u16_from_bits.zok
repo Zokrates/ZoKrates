@@ -1,0 +1,4 @@
+import "EMBED/u16_from_bits" as from_bits
+
+def main(bool[16] a) -> u16:
+    return from_bits(a)

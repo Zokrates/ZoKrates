@@ -1,0 +1,4 @@
+import "EMBED/u8_from_bits" as from_bits
+
+def main(bool[8] a) -> u8:
+    return from_bits(a)
