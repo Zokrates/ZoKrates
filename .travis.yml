@@ -25,6 +25,8 @@ matrix:
     #   os: osx
     - env: TARGET=x86_64-apple-darwin
       os: osx
+    - env: TARGET=aarch64-apple-darwin
+      os: osx
 
     # *BSD
     # - env: TARGET=x86_64-unknown-freebsd
