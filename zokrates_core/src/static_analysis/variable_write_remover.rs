@@ -37,33 +37,31 @@ impl<'ast> VariableWriteRemover {
                     let inner_ty = base.inner_type();
                     let size = base.size();
 
+                    let size = match size.as_inner() {
+                        UExpressionInner::Value(v) => *v as u32,
+                        _ => unreachable!(),
+                    };
+
                     let head = indices.remove(0);
                     let tail = indices;
 
                     match head {
                         Access::Select(head) => {
                             statements.insert(TypedStatement::Assertion(
-                                BooleanExpression::Lt(
-                                    box head.clone(),
-                                    box FieldElementExpression::Number(T::from(size)),
-                                )
-                                .into(),
+                                BooleanExpression::UintLt(box head.clone(), box size.into()),
                             ));
 
                             ArrayExpressionInner::Value(
                                 (0..size)
                                     .map(|i| match inner_ty {
+                                        Type::Int => unreachable!(),
                                         Type::Array(..) => ArrayExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
+                                            BooleanExpression::UintEq(
+                                                box i.into(),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
-                                                ArrayExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
+                                                ArrayExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -74,23 +72,16 @@ impl<'ast> VariableWriteRemover {
                                             e.get_type()
                                         ),
                                             },
-                                            ArrayExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
+                                            ArrayExpression::select(base.clone(), i),
                                         )
                                         .into(),
                                         Type::Struct(..) => StructExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
+                                            BooleanExpression::UintEq(
+                                                box i.into(),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
-                                                StructExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
+                                                StructExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -101,23 +92,17 @@ impl<'ast> VariableWriteRemover {
                                             e.get_type()
                                         ),
                                             },
-                                            StructExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
+                                            StructExpression::select(base.clone(), i),
                                         )
                                         .into(),
                                         Type::FieldElement => FieldElementExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
+                                            BooleanExpression::UintEq(
+                                                box i.into(),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
-                                                FieldElementExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
+                                                FieldElementExpression::select(base.clone(), i)
+                                                    .into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -128,23 +113,16 @@ impl<'ast> VariableWriteRemover {
                                             e.get_type()
                                         ),
                                             },
-                                            FieldElementExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
+                                            FieldElementExpression::select(base.clone(), i),
                                         )
                                         .into(),
                                         Type::Boolean => BooleanExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
+                                            BooleanExpression::UintEq(
+                                                box i.into(),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
-                                                BooleanExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
+                                                BooleanExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -155,23 +133,16 @@ impl<'ast> VariableWriteRemover {
                                             e.get_type()
                                         ),
                                             },
-                                            BooleanExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
+                                            BooleanExpression::select(base.clone(), i),
                                         )
                                         .into(),
                                         Type::Uint(..) => UExpression::if_else(
-                                            BooleanExpression::FieldEq(
-                                                box FieldElementExpression::Number(T::from(i)),
+                                            BooleanExpression::UintEq(
+                                                box i.into(),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
-                                                UExpression::select(
-                                                    base.clone(),
-                                                    FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into(),
+                                                UExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -182,14 +153,12 @@ impl<'ast> VariableWriteRemover {
                                             e.get_type()
                                         ),
                                             },
-                                            UExpression::select(
-                                                base.clone(),
-                                                FieldElementExpression::Number(T::from(i)),
-                                            ),
+                                            UExpression::select(base.clone(), i),
                                         )
                                         .into(),
                                     })
-                                    .collect(),
+                                    .collect::<Vec<_>>()
+                                    .into(),
                             )
                             .annotate(inner_ty.clone(), size)
                             .into()
@@ -212,6 +181,7 @@ impl<'ast> VariableWriteRemover {
                                 .clone()
                                 .into_iter()
                                 .map(|member| match *member.ty {
+                                    Type::Int => unreachable!(),
                                     Type::FieldElement => {
                                         if member.id == head {
                                             Self::choose_many(
@@ -225,11 +195,8 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            FieldElementExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            FieldElementExpression::member(base.clone(), member.id)
+                                                .into()
                                         }
                                     }
                                     Type::Uint(..) => {
@@ -242,8 +209,7 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            UExpression::member(base.clone(), member.id.clone())
-                                                .into()
+                                            UExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                     Type::Boolean => {
@@ -259,11 +225,8 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            BooleanExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            BooleanExpression::member(base.clone(), member.id)
+                                                .into()
                                         }
                                     }
                                     Type::Array(..) => {
@@ -276,8 +239,7 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            ArrayExpression::member(base.clone(), member.id.clone())
-                                                .into()
+                                            ArrayExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                     Type::Struct(..) => {
@@ -293,11 +255,7 @@ impl<'ast> VariableWriteRemover {
                                                 statements,
                                             )
                                         } else {
-                                            StructExpression::member(
-                                                base.clone(),
-                                                member.id.clone(),
-                                            )
-                                            .into()
+                                            StructExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                 })
@@ -316,12 +274,12 @@ impl<'ast> VariableWriteRemover {
 
 #[derive(Clone, Debug)]
 enum Access<'ast, T: Field> {
-    Select(FieldElementExpression<'ast, T>),
+    Select(UExpression<'ast, T>),
     Member(MemberId),
 }
 /// Turn an assignee into its representation as a base variable and a list accesses
 /// a[2][3][4] -> (a, [2, 3, 4])
-fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable, Vec<Access<'ast, T>>) {
+fn linear<T: Field>(a: TypedAssignee<T>) -> (Variable<T>, Vec<Access<T>>) {
     match a {
         TypedAssignee::Identifier(v) => (v, vec![]),
         TypedAssignee::Select(box array, box index) => {
@@ -337,11 +295,11 @@ fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable, Vec<Access<'a
     }
 }
 
-fn is_constant<'ast, T>(assignee: &TypedAssignee<'ast, T>) -> bool {
+fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
     match assignee {
         TypedAssignee::Identifier(_) => true,
-        TypedAssignee::Select(box assignee, box index) => match index {
-            FieldElementExpression::Number(_) => is_constant(assignee),
+        TypedAssignee::Select(box assignee, box index) => match index.as_inner() {
+            UExpressionInner::Value(_) => is_constant(assignee),
             _ => false,
         },
         TypedAssignee::Member(box assignee, _) => is_constant(assignee),
@@ -362,24 +320,21 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                     let (variable, indices) = linear(assignee);
 
                     let base = match variable.get_type() {
+                        Type::Int => unreachable!(),
                         Type::FieldElement => {
-                            FieldElementExpression::Identifier(variable.id.clone().into()).into()
+                            FieldElementExpression::Identifier(variable.id.clone()).into()
                         }
-                        Type::Boolean => {
-                            BooleanExpression::Identifier(variable.id.clone().into()).into()
-                        }
-                        Type::Uint(bitwidth) => {
-                            UExpressionInner::Identifier(variable.id.clone().into())
-                                .annotate(bitwidth)
-                                .into()
-                        }
+                        Type::Boolean => BooleanExpression::Identifier(variable.id.clone()).into(),
+                        Type::Uint(bitwidth) => UExpressionInner::Identifier(variable.id.clone())
+                            .annotate(bitwidth)
+                            .into(),
                         Type::Array(array_type) => {
-                            ArrayExpressionInner::Identifier(variable.id.clone().into())
+                            ArrayExpressionInner::Identifier(variable.id.clone())
                                 .annotate(*array_type.ty, array_type.size)
                                 .into()
                         }
                         Type::Struct(members) => {
-                            StructExpressionInner::Identifier(variable.id.clone().into())
+                            StructExpressionInner::Identifier(variable.id.clone())
                                 .annotate(members)
                                 .into()
                         }
@@ -390,7 +345,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                     let indices = indices
                         .into_iter()
                         .map(|a| match a {
-                            Access::Select(i) => Access::Select(self.fold_field_expression(i)),
+                            Access::Select(i) => Access::Select(self.fold_uint_expression(i)),
                             a => a,
                         })
                         .collect();

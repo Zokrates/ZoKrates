@@ -8,7 +8,7 @@ ZoKrates currently exposes two primitive types and two complex types:
 
 This is the most basic type in ZoKrates, and it represents a field element with positive integer values in `[0,  p - 1]` where `p` is a (large) prime number. Standard arithmetic operations are supported; note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
 
-As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](/reference/proving_schemes.html#alt_bn128) curve supported by Ethereum.
+As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](/toolbox/proving_schemes.html#alt_bn128) curve supported by Ethereum.
 
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2, so that we have:
 
@@ -22,7 +22,7 @@ Note that for field elements, the division operation multiplies the numerator wi
 
 Booleans are available in ZoKrates. When a boolean is used as a parameter of the main function, the program is constrained to only accept `0` or `1` for that parameter. A boolean can be asserted to be true using an `assert(bool)` statement.
 
-### `u8/u16/u32`
+### `u8/u16/u32/u64`
 
 Unsigned integers represent positive numbers of the interval `[0, 2 ** bitwidth[`, where `bitwidth` is specified in the type's name, e.g., 32 bits in the case of u32. Their arithmetics are defined modulo `2 ** bitwidth`.
 
@@ -32,13 +32,23 @@ Similarly to booleans, unsigned integer inputs of the main function only accept 
 
 The division operation calculates the standard floor division for integers. The `%` operand can be used to obtain the remainder.
 
+### Numeric inference
+
+In the case of decimal literals like `42`, the compiler tries to find the appropriate type (`field`, `u8`, `u16`, `u32` or `u64`) depending on the context. If it cannot converge to a single option, an error is returned. This means that there is no default type for decimal literals.
+
+All operations between literals have the semantics of the inferred type.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/numeric_inference.zok}}
+```
+
 ## Complex Types
 
 ZoKrates provides two complex types: arrays and structs.
 
 ### Arrays
 
-ZoKrates supports static arrays, i.e., whose length needs to be known at compile time.
+ZoKrates supports static arrays, i.e., whose length needs to be known at compile time. For more details on generic array sizes, see [constant generics](/language/generics.html)
 Arrays can contain elements of any type and have arbitrary dimensions.
 
 The following example code shows examples of how to use arrays:

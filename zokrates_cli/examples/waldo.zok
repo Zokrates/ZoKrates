@@ -10,6 +10,6 @@ def isWaldo(field a, field p, field q) -> bool:
   return a == p * q
 
 // define all
-def main(field[3] a, private field index, private field p, private field q) -> bool:
+def main(field[3] a, private u32 index, private field p, private field q) -> bool:
   // prover provides the index of Waldo
   return isWaldo(a[index], p, q)

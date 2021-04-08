@@ -19,6 +19,7 @@ lazy_static! {
         .unwrap();
 }
 
+#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 pub const BACKENDS: &[&str] = if cfg!(feature = "libsnark") {
     if cfg!(feature = "ark") {
         if cfg!(feature = "bellman") {
@@ -26,27 +27,21 @@ pub const BACKENDS: &[&str] = if cfg!(feature = "libsnark") {
         } else {
             &[LIBSNARK, ARK]
         }
+    } else if cfg!(feature = "bellman") {
+        &[BELLMAN, LIBSNARK]
     } else {
-        if cfg!(feature = "bellman") {
-            &[BELLMAN, LIBSNARK]
-        } else {
-            &[LIBSNARK]
-        }
+        &[LIBSNARK]
     }
+} else if cfg!(feature = "ark") {
+    if cfg!(feature = "bellman") {
+        &[BELLMAN, ARK]
+    } else {
+        &[ARK]
+    }
+} else if cfg!(feature = "bellman") {
+    &[BELLMAN]
 } else {
-    if cfg!(feature = "ark") {
-        if cfg!(feature = "bellman") {
-            &[BELLMAN, ARK]
-        } else {
-            &[ARK]
-        }
-    } else {
-        if cfg!(feature = "bellman") {
-            &[BELLMAN]
-        } else {
-            &[]
-        }
-    }
+    &[]
 };
 
 pub const BN128: &str = "bn128";

@@ -1,0 +1,15 @@
+def main(field x, field y, u8 z, u8 t) -> (field[4], u8[4]):
+    field a = -y // should parse to neg
+    field b = x - y // should parse to sub
+    field c = x + - y // should parse to add(neg)
+    field d = x - + y // should parse to sub(pos)
+
+    u8 e = -t // should parse to neg
+    u8 f = z - t // should parse to sub
+    u8 g = z + - t // should parse to add(neg)
+    u8 h = z - + t // should parse to sub(pos)
+
+    assert(-0x00 == 0x00)
+    assert(-0f == 0)
+
+    return [a, b, c, d], [e, f, g, h]

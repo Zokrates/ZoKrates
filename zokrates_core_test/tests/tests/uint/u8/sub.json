@@ -1,0 +1,26 @@
+{
+  "entry_point": "./tests/tests/uint/u8/sub.zok",
+  "max_constraint_count": 29,
+  "tests": [
+    {
+      "input": {
+        "values": ["0xff", "0x01"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0xfe"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x00", "0x01"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0xff"]
+        }
+      }
+    }
+  ]
+}

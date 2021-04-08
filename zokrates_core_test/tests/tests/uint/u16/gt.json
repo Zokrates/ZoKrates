@@ -1,0 +1,26 @@
+{
+  "entry_point": "./tests/tests/uint/u16/gt.zok",
+  "max_constraint_count": 697,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x0004", "0x0002"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["1"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x0002", "0x0002"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0"]
+        }
+      }
+    }
+  ]
+}

@@ -19,7 +19,7 @@ impl fmt::Display for Error {
     }
 }
 
-pub fn process_macros<'ast, T: Field>(file: File<'ast>) -> Result<File<'ast>, Error> {
+pub fn process_macros<T: Field>(file: File) -> Result<File, Error> {
     match &file.pragma {
         Some(pragma) => {
             if T::name() != pragma.curve.name {

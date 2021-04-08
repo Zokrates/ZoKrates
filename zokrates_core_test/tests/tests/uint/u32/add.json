@@ -1,0 +1,36 @@
+{
+  "entry_point": "./tests/tests/uint/u32/add.zok",
+  "max_constraint_count": 101,
+  "tests": [
+    {
+      "input": {
+        "values": ["0xffffffff", "0x00000001"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0x00000000"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x10000000", "0x10000000"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0x20000000"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0xffffffff", "0xffffffff"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0xfffffffe"]
+        }
+      }
+    }
+  ]
+}

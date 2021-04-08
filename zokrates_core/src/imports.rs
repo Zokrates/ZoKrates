@@ -42,7 +42,7 @@ impl fmt::Display for Error {
         let location = self
             .pos
             .map(|p| format!("{}", p.0))
-            .unwrap_or("?".to_string());
+            .unwrap_or_else(|| "?".to_string());
         write!(f, "{}\n\t{}", location, self.message)
     }
 }
@@ -125,19 +125,14 @@ impl<'ast> fmt::Debug for Import<'ast> {
     }
 }
 
-pub struct Importer {}
+pub struct Importer;
 
 impl Importer {
-    pub fn new() -> Importer {
-        Importer {}
-    }
-
     pub fn apply_imports<'ast, T: Field, E: Into<Error>>(
-        &self,
         destination: Module<'ast>,
         location: PathBuf,
         resolver: Option<&dyn Resolver<E>>,
-        modules: &mut HashMap<ModuleId, Module<'ast>>,
+        modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
         arena: &'ast Arena<String>,
     ) -> Result<Module<'ast>, CompileErrors> {
         let mut symbols: Vec<_> = vec![];
@@ -179,7 +174,18 @@ impl Importer {
                         symbols.push(
                             SymbolDeclaration {
                                 id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Unpack(T::get_required_bits())),
+                                symbol: Symbol::Flat(FlatEmbed::Unpack),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u64_to_bits" => {
+                        let alias = alias.unwrap_or("u64_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U64ToBits),
                             }
                             .start_end(pos.0, pos.1),
                         );
@@ -213,6 +219,17 @@ impl Importer {
                             SymbolDeclaration {
                                 id: &alias,
                                 symbol: Symbol::Flat(FlatEmbed::U8ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u64_from_bits" => {
+                        let alias = alias.unwrap_or("u64_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U64FromBits),
                             }
                             .start_end(pos.0, pos.1),
                         );
@@ -267,13 +284,15 @@ impl Importer {
                             let alias = import.alias.unwrap_or(
                                 std::path::Path::new(import.source)
                                     .file_stem()
-                                    .ok_or(CompileErrors::from(
-                                        CompileErrorInner::ImportError(Error::new(format!(
-                                            "Could not determine alias for import {}",
-                                            import.source.display()
-                                        )))
-                                        .in_file(&location),
-                                    ))?
+                                    .ok_or_else(|| {
+                                        CompileErrors::from(
+                                            CompileErrorInner::ImportError(Error::new(format!(
+                                                "Could not determine alias for import {}",
+                                                import.source.display()
+                                            )))
+                                            .in_file(&location),
+                                        )
+                                    })?
                                     .to_str()
                                     .unwrap(),
                             );
@@ -335,7 +354,6 @@ impl Importer {
         Ok(Module {
             imports: vec![],
             symbols,
-            ..destination
         })
     }
 }

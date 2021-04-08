@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)] // we allow uppercase acronyms because the pest derive generates WHITESPACE and COMMENT which have special meaning in pest
+
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
@@ -53,6 +55,9 @@ mod tests {
 
     mod rules {
         use super::*;
+
+        // TODO: uncomment these tests once https://github.com/pest-parser/pest/pull/493 is resolved
+
         // #[test]
         // fn parse_valid_identifier() {
         //     parses_to! {
@@ -69,39 +74,54 @@ mod tests {
         // fn parse_parameter_list() {
         //     parses_to! {
         //         parser: ZoKratesParser,
-        //         input: "def foo(field a) -> (field, field): return 1
+        //         input: "def foo<P, Q>(field[P] a) -> (field, field): return 1
         //         ",
         //         rule: Rule::function_definition,
         //         tokens: [
-        //             function_definition(0, 45, [
+        //             function_definition(0, 54, [
         //                 identifier(4, 7),
+        //                 identifier(8, 9),
+        //                 identifier(11, 12),
         //                 // parameter_list is not created (silent rule)
-        //                 parameter(8, 15, [
-        //                     ty(8, 13, [
-        //                         ty_basic(8, 13, [
-        //                             ty_field(8, 13)
+        //                 parameter(14, 24, [
+        //                     ty(14, 23, [
+        //                         ty_array(14, 23, [
+        //                             ty_basic_or_struct(14, 19, [
+        //                                 ty_basic(14, 19, [
+        //                                     ty_field(14, 19)
+        //                                 ])
+        //                             ]),
+        //                             expression(20, 21, [
+        //                                 term(20, 21, [
+        //                                     primary_expression(20, 21, [
+        //                                         identifier(20, 21)
+        //                                     ])
+        //                                 ])
+        //                             ])
         //                         ])
         //                     ]),
-        //                     identifier(14, 15)
+        //                     identifier(23, 24)
         //                 ]),
         //                 // type_list is not created (silent rule)
-        //                 ty(21, 26, [
-        //                     ty_basic(21, 26, [
-        //                         ty_field(21, 26)
+        //                 ty(30, 35, [
+        //                     ty_basic(30, 35, [
+        //                         ty_field(30, 35)
         //                     ])
         //                 ]),
-        //                 ty(28, 33, [
-        //                     ty_basic(28, 33, [
-        //                         ty_field(28, 33)
+        //                 ty(37, 42, [
+        //                     ty_basic(37, 42, [
+        //                         ty_field(37, 42)
         //                     ])
         //                 ]),
-        //                 statement(36, 45, [
-        //                     return_statement(36, 44, [
-        //                         expression(43, 44, [
-        //                             term(43, 44, [
-        //                                 primary_expression(43, 44, [
-        //                                     constant(43, 44, [
-        //                                         decimal_number(43, 44)
+        //                 statement(45, 54, [
+        //                     return_statement(45, 53, [
+        //                         expression(52, 53, [
+        //                             term(52, 53, [
+        //                                 primary_expression(52, 53, [
+        //                                     literal(52, 53, [
+        //                                         decimal_literal(52, 53, [
+        //                                             decimal_number(52, 53)
+        //                                         ])
         //                                     ])
         //                                 ])
         //                             ])
@@ -117,23 +137,38 @@ mod tests {
         // fn parse_single_def_to_multi() {
         //     parses_to! {
         //         parser: ZoKratesParser,
-        //         input: r#"a = foo()
+        //         input: r#"a = foo::<_>(x)
         //     "#,
         //         rule: Rule::statement,
         //         tokens: [
-        //             statement(0, 22, [
-        //                 definition_statement(0, 9, [
+        //             statement(0, 28, [
+        //                 definition_statement(0, 15, [
         //                     optionally_typed_assignee(0, 2, [
         //                         assignee(0, 2, [
         //                             identifier(0, 1)
         //                         ])
         //                     ]),
-        //                     expression(4, 9, [
-        //                         term(4, 9, [
-        //                             postfix_expression(4, 9, [
+        //                     expression(4, 15, [
+        //                         term(4, 15, [
+        //                             postfix_expression(4, 15, [
         //                                 identifier(4, 7),
-        //                                 access(7, 9, [
-        //                                     call_access(7, 9)
+        //                                 access(7, 15, [
+        //                                     call_access(7, 15, [
+        //                                         explicit_generics(7, 12, [
+        //                                             constant_generics_value(10, 11, [
+        //                                                 underscore(10, 11)
+        //                                             ])
+        //                                         ]),
+        //                                         arguments(13, 14, [
+        //                                             expression(13, 14, [
+        //                                                 term(13, 14, [
+        //                                                     primary_expression(13, 14, [
+        //                                                         identifier(13, 14)
+        //                                                     ])
+        //                                                 ])
+        //                                             ])
+        //                                         ])
+        //                                     ])
         //                                 ])
         //                             ])
         //                         ])
@@ -169,7 +204,9 @@ mod tests {
         //                             postfix_expression(10, 15, [
         //                                 identifier(10, 13),
         //                                 access(13, 15, [
-        //                                     call_access(13, 15)
+        //                                     call_access(13, 15, [
+        //                                         arguments(14, 14)
+        //                                     ])
         //                                 ])
         //                             ])
         //                         ])
@@ -205,7 +242,9 @@ mod tests {
         //                             postfix_expression(8, 13, [
         //                                 identifier(8, 11),
         //                                 access(11, 13, [
-        //                                     call_access(11, 13)
+        //                                     call_access(11, 13, [
+        //                                         arguments(12, 12)
+        //                                     ])
         //                                 ])
         //                             ])
         //                         ])
@@ -257,8 +296,10 @@ mod tests {
         //                             expression(30, 31, [
         //                                 term(30, 31, [
         //                                     primary_expression(30, 31, [
-        //                                         constant(30, 31, [
-        //                                             decimal_number(30, 31)
+        //                                         literal(30, 31, [
+        //                                             decimal_literal(30, 31, [
+        //                                                 decimal_number(30, 31)
+        //                                             ])
         //                                         ])
         //                                     ])
         //                                 ])
