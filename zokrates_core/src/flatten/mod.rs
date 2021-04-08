@@ -457,12 +457,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         )));
 
         // bitness checks
-        for i in 0..bit_width {
+        for bit in e_bits_be.iter().take(bit_width) {
             statements_flattened.push(FlatStatement::Condition(
-                FlatExpression::Identifier(e_bits_be[i]),
+                FlatExpression::Identifier(*bit),
                 FlatExpression::Mult(
-                    box FlatExpression::Identifier(e_bits_be[i]),
-                    box FlatExpression::Identifier(e_bits_be[i]),
+                    box FlatExpression::Identifier(*bit),
+                    box FlatExpression::Identifier(*bit),
                 ),
             ));
         }
@@ -470,11 +470,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // bit decomposition check
         let mut e_sum = FlatExpression::Number(T::from(0));
 
-        for i in 0..bit_width {
+        for (i, bit) in e_bits_be.iter().take(bit_width).enumerate() {
             e_sum = FlatExpression::Add(
                 box e_sum,
                 box FlatExpression::Mult(
-                    box FlatExpression::Identifier(e_bits_be[i]),
+                    box FlatExpression::Identifier(*bit),
                     box FlatExpression::Number(T::from(2).pow(bit_width - i - 1)),
                 ),
             );
@@ -575,12 +575,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             ));
 
                             // bitness checks
-                            for i in 0..safe_width {
+                            for bit in lhs_bits_be.iter().take(safe_width) {
                                 statements_flattened.push(FlatStatement::Condition(
-                                    FlatExpression::Identifier(lhs_bits_be[i]),
+                                    FlatExpression::Identifier(*bit),
                                     FlatExpression::Mult(
-                                        box FlatExpression::Identifier(lhs_bits_be[i]),
-                                        box FlatExpression::Identifier(lhs_bits_be[i]),
+                                        box FlatExpression::Identifier(*bit),
+                                        box FlatExpression::Identifier(*bit),
                                     ),
                                 ));
                             }
@@ -588,11 +588,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             // bit decomposition check
                             let mut lhs_sum = FlatExpression::Number(T::from(0));
 
-                            for i in 0..safe_width {
+                            for (i, bit) in lhs_bits_be.iter().take(safe_width).enumerate() {
                                 lhs_sum = FlatExpression::Add(
                                     box lhs_sum,
                                     box FlatExpression::Mult(
-                                        box FlatExpression::Identifier(lhs_bits_be[i]),
+                                        box FlatExpression::Identifier(*bit),
                                         box FlatExpression::Number(
                                             T::from(2).pow(safe_width - i - 1),
                                         ),
@@ -625,12 +625,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             ));
 
                             // bitness checks
-                            for i in 0..safe_width {
+                            for bit in rhs_bits_be.iter().take(safe_width) {
                                 statements_flattened.push(FlatStatement::Condition(
-                                    FlatExpression::Identifier(rhs_bits_be[i]),
+                                    FlatExpression::Identifier(*bit),
                                     FlatExpression::Mult(
-                                        box FlatExpression::Identifier(rhs_bits_be[i]),
-                                        box FlatExpression::Identifier(rhs_bits_be[i]),
+                                        box FlatExpression::Identifier(*bit),
+                                        box FlatExpression::Identifier(*bit),
                                     ),
                                 ));
                             }
@@ -638,11 +638,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             // bit decomposition check
                             let mut rhs_sum = FlatExpression::Number(T::from(0));
 
-                            for i in 0..safe_width {
+                            for (i, bit) in rhs_bits_be.iter().take(safe_width).enumerate() {
                                 rhs_sum = FlatExpression::Add(
                                     box rhs_sum,
                                     box FlatExpression::Mult(
-                                        box FlatExpression::Identifier(rhs_bits_be[i]),
+                                        box FlatExpression::Identifier(*bit),
                                         box FlatExpression::Number(
                                             T::from(2).pow(safe_width - i - 1),
                                         ),
@@ -680,12 +680,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         )));
 
                         // bitness checks
-                        for i in 0..bit_width {
+                        for bit in sub_bits_be.iter().take(bit_width) {
                             statements_flattened.push(FlatStatement::Condition(
-                                FlatExpression::Identifier(sub_bits_be[i]),
+                                FlatExpression::Identifier(*bit),
                                 FlatExpression::Mult(
-                                    box FlatExpression::Identifier(sub_bits_be[i]),
-                                    box FlatExpression::Identifier(sub_bits_be[i]),
+                                    box FlatExpression::Identifier(*bit),
+                                    box FlatExpression::Identifier(*bit),
                                 ),
                             ));
                         }
@@ -700,11 +700,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         // sum(sym_b{i} * 2**i)
                         let mut expr = FlatExpression::Number(T::from(0));
 
-                        for i in 0..bit_width {
+                        for (i, bit) in sub_bits_be.iter().take(bit_width).enumerate() {
                             expr = FlatExpression::Add(
                                 box expr,
                                 box FlatExpression::Mult(
-                                    box FlatExpression::Identifier(sub_bits_be[i]),
+                                    box FlatExpression::Identifier(*bit),
                                     box FlatExpression::Number(T::from(2).pow(bit_width - i - 1)),
                                 ),
                             );
