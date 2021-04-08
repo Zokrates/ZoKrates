@@ -1,0 +1,9 @@
+struct Foo {
+    field a
+    field b
+}
+
+const Foo FOO = Foo { a: 2, b: 2 }
+
+def main() -> field:
+    return FOO.a + FOO.b

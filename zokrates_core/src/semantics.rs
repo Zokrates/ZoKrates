@@ -407,7 +407,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
         functions: &mut HashMap<DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
-        constants: &mut HashMap<identifier::Identifier<'ast>, TypedConstant<'ast, T>>,
+        constants: &mut HashMap<ConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>,
         symbol_unifier: &mut SymbolUnifier<'ast>,
     ) -> Result<(), Vec<Error>> {
         let mut errors: Vec<Error> = vec![];
@@ -470,8 +470,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 ),
                                 true => {}
                             };
-                            constants
-                                .insert(identifier::Identifier::from(declaration.id), c.clone());
+                            constants.insert(declaration.id, TypedConstantSymbol::Here(c.clone()));
                             self.insert_into_scope(Variable::with_id_and_type(c.id, c.ty), true);
                         }
                         Err(e) => {
@@ -549,8 +548,21 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .get(import.symbol_id)
                             .cloned();
 
-                        match (function_candidates.len(), type_candidate) {
-                            (0, Some(t)) => {
+                        // find constant definition candidate
+                        let const_candidate = state
+                            .typed_modules
+                            .get(&import.module_id)
+                            .unwrap()
+                            .constants
+                            .as_ref()
+                            .and_then(|tc| tc.get(import.symbol_id))
+                            .and_then(|sym| match sym {
+                                TypedConstantSymbol::Here(tc) => Some(tc),
+                                _ => None,
+                            });
+
+                        match (function_candidates.len(), type_candidate, const_candidate) {
+                            (0, Some(t), None) => {
 
                                 // rename the type to the declared symbol
                                 let t = match t {
@@ -585,7 +597,26 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .or_default()
                                     .insert(declaration.id.to_string(), t);
                             }
-                            (0, None) => {
+                            (0, None, Some(c)) => {
+                                match symbol_unifier.insert_symbol(declaration.id, SymbolType::Constant) {
+                                    false => {
+                                        errors.push(Error {
+                                            module_id: module_id.to_path_buf(),
+                                            inner: ErrorInner {
+                                                pos: Some(pos),
+                                                message: format!(
+                                                    "{} conflicts with another symbol",
+                                                    declaration.id,
+                                                ),
+                                            }});
+                                    }
+                                    true => {
+                                        constants.insert(declaration.id, TypedConstantSymbol::There(import.module_id, declaration.id));
+                                        self.insert_into_scope(Variable::with_id_and_type(c.id.clone(), c.ty.clone()), true);
+                                    }
+                                };
+                            }
+                            (0, None, None) => {
                                 errors.push(ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
@@ -594,7 +625,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     ),
                                 }.in_file(module_id));
                             }
-                            (_, Some(_)) => unreachable!("collision in module we're importing from should have been caught when checking it"),
+                            (_, Some(_), Some(_)) => unreachable!("collision in module we're importing from should have been caught when checking it"),
                             _ => {
                                 for candidate in function_candidates {
 

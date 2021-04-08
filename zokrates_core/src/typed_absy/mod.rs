@@ -61,8 +61,17 @@ pub type TypedModules<'ast, T> = HashMap<OwnedTypedModuleId, TypedModule<'ast, T
 pub type TypedFunctionSymbols<'ast, T> =
     HashMap<DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
 
-/// A collection of `TypedConstant`s
-pub type TypedConstants<'ast, T> = HashMap<Identifier<'ast>, TypedConstant<'ast, T>>;
+pub type ConstantIdentifier<'ast> = &'ast str;
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TypedConstantSymbol<'ast, T> {
+    Here(TypedConstant<'ast, T>),
+    There(OwnedTypedModuleId, ConstantIdentifier<'ast>),
+}
+
+/// A collection of `TypedConstantSymbol`s
+pub type TypedConstantSymbols<'ast, T> =
+    HashMap<ConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>;
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug, Clone)]
@@ -144,7 +153,7 @@ pub struct TypedModule<'ast, T> {
     /// Functions of the module
     pub functions: TypedFunctionSymbols<'ast, T>,
     /// Constants defined in module
-    pub constants: Option<TypedConstants<'ast, T>>,
+    pub constants: Option<TypedConstantSymbols<'ast, T>>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -320,7 +329,11 @@ pub struct TypedConstant<'ast, T> {
 
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "TypedConstant({:?}, {:?}, ...)", self.id, self.ty)
+        write!(
+            f,
+            "TypedConstant({:?}, {:?}, {:?})",
+            self.id, self.ty, self.expression
+        )
     }
 }
 

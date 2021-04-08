@@ -1,0 +1,4 @@
+const field ONE = 1
+
+def main() -> field:
+    return ONE

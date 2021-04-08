@@ -1,0 +1,5 @@
+const field ONE = 1
+const field TWO = ONE + ONE
+
+def main() -> field:
+    return TWO
