@@ -1,0 +1,19 @@
+import "utils/casts/field_to_u64"
+import "utils/casts/field_to_u32"
+import "utils/casts/field_to_u16"
+import "utils/casts/field_to_u8"
+
+def main(field[4] a, field[4] b, field[4] c, field[4] d) -> (u64[4], u32[4], u16[4], u8[4]):
+    u64[4] e = [0; 4]
+    u32[4] f = [0; 4]
+    u16[4] g = [0; 4]
+    u8[4] h = [0; 4]
+
+    for u32 i in 0..4 do
+        e[i] = field_to_u64(a[i])
+        f[i] = field_to_u32(b[i])
+        g[i] = field_to_u16(c[i])
+        h[i] = field_to_u8(d[i])
+    endfor
+
+    return e, f, g, h

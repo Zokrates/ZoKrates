@@ -1,5 +1,5 @@
 {
-    "entry_point": "./tests/tests/utils/casts/to_field.zok",
+    "entry_point": "./tests/tests/utils/casts/field_to_uint.zok",
     "curves": ["Bn128"],
     "tests": [
         {

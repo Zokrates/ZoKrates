@@ -1,0 +1,6 @@
+import "EMBED/unpack" as unpack
+import "EMBED/u8_from_bits" as from_bits
+
+def main(field i) -> u8:
+    bool[8] bits = unpack(i)
+    return from_bits(bits)
