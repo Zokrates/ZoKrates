@@ -15,16 +15,16 @@ env:
 matrix:
   include:
     # Linux
-    - env: TARGET=aarch64-unknown-linux-gnu
-    - env: TARGET=arm-unknown-linux-gnueabi
-    #- env: TARGET=i686-unknown-linux-gnu
-    - env: TARGET=x86_64-unknown-linux-gnu
+    # - env: TARGET=aarch64-unknown-linux-gnu
+    # - env: TARGET=arm-unknown-linux-gnueabi
+    # #- env: TARGET=i686-unknown-linux-gnu
+    # - env: TARGET=x86_64-unknown-linux-gnu
 
     # OSX
     # - env: TARGET=i686-apple-darwin
     #   os: osx
-    - env: TARGET=x86_64-apple-darwin
-      os: osx
+    # - env: TARGET=x86_64-apple-darwin
+    #   os: osx
     - env: TARGET=aarch64-apple-darwin
       os: osx
       osx_image: xcode12.2
@@ -33,7 +33,7 @@ matrix:
     # - env: TARGET=x86_64-unknown-freebsd
 
     # Windows
-    - env: TARGET=x86_64-pc-windows-gnu
+    # - env: TARGET=x86_64-pc-windows-gnu
 
 before_install:
   - set -e
