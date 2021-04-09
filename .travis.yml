@@ -11,6 +11,7 @@ sudo: required
 env:
   global:
     - CRATE_NAME=zokrates
+    
 
 matrix:
   include:
