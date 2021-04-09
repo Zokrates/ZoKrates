@@ -1,0 +1,47 @@
+// https://eprint.iacr.org/2019/458.pdf
+
+def ark<N, C>(field[N] state, field[C] c, u32 it) -> field[N]:
+    for u32 i in 0..N do
+        state[i] = state[i] + c[it + i]
+    endfor
+    return state
+
+def sbox<N>(field[N] state, u32 f, u32 p, u32 r) -> field[N]:
+    state[0] = state[0]**5
+    for u32 i in 1..N do
+        state[i] = if ((r < f/2) || (r >= f/2 + p)) then state[i]**5 else state[i] fi
+    endfor
+    return state
+
+def mix<N>(field[N] state, field[N][N] m) -> field[N]:
+    field[N] out = [0; N]
+    for u32 i in 0..N do
+        field acc = 0
+        for u32 j in 0..N do 
+            acc = acc + (state[j] * m[i][j])
+        endfor
+        out[i] = acc
+    endfor
+    return out
+
+def main<N, C, M>(field[N] inputs, field[C] c, field[M][M] m) -> field:
+    assert(N > 0 && N <= 6)
+
+    u32 t = N + 1
+    u32[8] rounds_p = [56, 57, 56, 60, 60, 63, 64, 63]
+
+    u32 f = 8
+    u32 p = rounds_p[(t - 2)]
+
+    field[t] state = [0; t]
+    for u32 i in 1..t do
+        state[i] = inputs[i - 1]
+    endfor
+
+    for u32 r in 0..f+p do
+        state = ark(state, c, r * t)
+        state = sbox(state, f, p, r)
+        state = mix(state, m)
+    endfor
+
+    return state[0]
