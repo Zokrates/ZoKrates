@@ -67,7 +67,7 @@ branches:
   only:
     # release tags
     - /^\d+\.\d+\.\d+.*$/
-    - master
+    - deploy
 
 notifications:
   email:
