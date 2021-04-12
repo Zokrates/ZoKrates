@@ -106,7 +106,7 @@ identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"
 
 literal = { hex_literal | decimal_literal | boolean_literal }
 
-decimal_literal = ${ decimal_number ~ decimal_suffix? }
+decimal_literal = ${ decimal_number ~ ("_"? ~ decimal_suffix)? }
 decimal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 decimal_suffix = { decimal_suffix_u8 | decimal_suffix_u16 | decimal_suffix_u32 | decimal_suffix_u64 | decimal_suffix_field }
 decimal_suffix_u8 = { "u8" }
