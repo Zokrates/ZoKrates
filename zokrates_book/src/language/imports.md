@@ -13,6 +13,12 @@ from "./path/to/my/module" import MySymbol
 // `MySymbol` is now in scope.
 ```
 
+To import multiple modules with a single import statement, separate the module names with commas:
+
+```zokrates
+from "./path/to/my/module" import MySymbol, MyOtherSymbol
+```
+
 #### Aliasing
 
 The `as` keyword enables renaming symbols:
