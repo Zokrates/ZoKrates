@@ -56,6 +56,25 @@ impl From<io::Error> for Error {
     }
 }
 
+#[derive(PartialEq, Clone)]
+pub enum ImportKind<'ast> {
+    Single(ImportNode<'ast>),
+    Multiple(Vec<ImportNode<'ast>>),
+}
+
+impl<'ast> IntoIterator for ImportKind<'ast> {
+    type Item = ImportNode<'ast>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let vec = match self {
+            ImportKind::Single(v) => vec![v],
+            ImportKind::Multiple(v) => v,
+        };
+        vec.into_iter()
+    }
+}
+
 type ImportPath<'ast> = &'ast Path;
 
 #[derive(PartialEq, Clone)]

@@ -13,9 +13,9 @@ pub use ast::{
     CallAccess, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber, DecimalSuffix,
     DefinitionStatement, ExplicitGenerics, Expression, FieldType, File, FromExpression, Function,
     HexLiteralExpression, HexNumberExpression, IdentifierExpression, ImportDirective, ImportSource,
-    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
-    LiteralExpression, OptionallyTypedAssignee, Parameter, PostfixExpression, Range,
-    RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
+    ImportSymbol, InlineArrayExpression, InlineStructExpression, InlineStructMember,
+    IterationStatement, LiteralExpression, OptionallyTypedAssignee, Parameter, PostfixExpression,
+    Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
     StructDefinition, StructField, TernaryExpression, ToExpression, Type, UnaryExpression,
     UnaryOperator, Underscore, Visibility,
 };
@@ -181,11 +181,19 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::import_symbol))]
+    pub struct ImportSymbol<'ast> {
+        pub symbol: IdentifierExpression<'ast>,
+        pub alias: Option<IdentifierExpression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::from_import_directive))]
     pub struct FromImportDirective<'ast> {
         pub source: ImportSource<'ast>,
-        pub symbol: IdentifierExpression<'ast>,
-        pub alias: Option<IdentifierExpression<'ast>>,
+        pub symbols: Vec<ImportSymbol<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
