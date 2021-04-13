@@ -4,6 +4,7 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+mod canonicalizer;
 mod directive;
 mod duplicate;
 mod redefinition;
@@ -26,7 +27,6 @@ impl<T: Field> Prog<T> {
         // // deduplicate directives which take the same input
         let r = DirectiveOptimizer::optimize(r);
         // remove duplicate constraints
-        let r = DuplicateOptimizer::optimize(r);
-        r
+        DuplicateOptimizer::optimize(r)
     }
 }

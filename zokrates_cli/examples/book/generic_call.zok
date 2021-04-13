@@ -1,0 +1,7 @@
+def foo<N, P>() -> field[P]:
+    return [42; P]
+
+def main() -> field[2]:
+    // `P` is inferred from the declaration of `res`, while `N` is provided explicitly
+    field[2] res = foo::<3, _>()
+    return res

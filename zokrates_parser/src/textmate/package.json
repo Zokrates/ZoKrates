@@ -1,0 +1,27 @@
+{
+    "name": "zokrates",
+    "displayName": "zokrates",
+    "description": "Syntax highlighting for the ZoKrates language",
+    "publisher": "zokrates",
+    "repository": "https://github.com/ZoKrates/ZoKrates",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.53.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "zokrates",
+            "aliases": ["ZoKrates", "zokrates"],
+            "extensions": [".zok"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "zokrates",
+            "scopeName": "source.zok",
+            "path": "./syntaxes/zokrates.tmLanguage.json"
+        }]
+    }
+}

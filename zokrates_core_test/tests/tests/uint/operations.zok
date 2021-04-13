@@ -69,8 +69,8 @@ def main(u32 e, u32 f, u32[4] terms):
 	assert((e ^ f) == 0x1317131f)
 
 	// shift
-	assert(e >> 12 == 0x00012345)
-	assert(e << 12 == 0x45678000)
+	assert(e >> 0x0000000c == 0x00012345)
+	assert(e << 0x0000000c == 0x45678000)
 
 	// not
 	assert(!e == 0xedcba987)

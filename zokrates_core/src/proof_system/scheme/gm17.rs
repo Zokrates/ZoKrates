@@ -14,6 +14,7 @@ impl NotBw6_761Field for Bls12_377Field {}
 impl NotBw6_761Field for Bls12_381Field {}
 impl NotBw6_761Field for Bn128Field {}
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct GM17;
 
 #[derive(Serialize, Deserialize)]

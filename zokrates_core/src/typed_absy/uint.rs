@@ -1,40 +1,84 @@
-use crate::typed_absy::types::{FunctionKey, UBitwidth};
+use crate::typed_absy::types::UBitwidth;
 use crate::typed_absy::*;
+use std::ops::{Add, Div, Mul, Neg, Not, Rem, Sub};
 use zokrates_field::Field;
 
 type Bitwidth = usize;
 
-impl<'ast, T: Field> UExpression<'ast, T> {
-    pub fn add(self, other: Self) -> UExpression<'ast, T> {
+impl<'ast, T> Add for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn add(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
-        UExpressionInner::Add(box self, box other).annotate(bitwidth)
-    }
 
-    pub fn sub(self, other: Self) -> UExpression<'ast, T> {
+        match (self.as_inner(), other.as_inner()) {
+            (UExpressionInner::Value(0), _) => other,
+            (_, UExpressionInner::Value(0)) => self,
+            _ => UExpressionInner::Add(box self, box other).annotate(bitwidth),
+        }
+    }
+}
+
+impl<'ast, T> Sub for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Sub(box self, box other).annotate(bitwidth)
     }
+}
 
-    pub fn mult(self, other: Self) -> UExpression<'ast, T> {
+impl<'ast, T> Mul for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Mult(box self, box other).annotate(bitwidth)
     }
+}
 
-    pub fn div(self, other: Self) -> UExpression<'ast, T> {
+impl<'ast, T> Div for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn div(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Div(box self, box other).annotate(bitwidth)
     }
+}
 
-    pub fn rem(self, other: Self) -> UExpression<'ast, T> {
+impl<'ast, T> Rem for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn rem(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Rem(box self, box other).annotate(bitwidth)
     }
+}
 
+impl<'ast, T> Not for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn not(self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        UExpressionInner::Not(box self).annotate(bitwidth)
+    }
+}
+
+impl<'ast, T> Neg for UExpression<'ast, T> {
+    type Output = Self;
+
+    fn neg(self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        UExpressionInner::Neg(box self).annotate(bitwidth)
+    }
+}
+
+impl<'ast, T: Field> UExpression<'ast, T> {
     pub fn xor(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
@@ -53,19 +97,27 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::And(box self, box other).annotate(bitwidth)
     }
 
-    pub fn not(self) -> UExpression<'ast, T> {
+    pub fn pos(self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
-        UExpressionInner::Not(box self).annotate(bitwidth)
+        UExpressionInner::Pos(box self).annotate(bitwidth)
     }
 
-    pub fn left_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
+    pub fn left_shift(self, by: UExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
+        assert_eq!(by.bitwidth, UBitwidth::B32);
         UExpressionInner::LeftShift(box self, box by).annotate(bitwidth)
     }
 
-    pub fn right_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
+    pub fn right_shift(self, by: UExpression<'ast, T>) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
+        assert_eq!(by.bitwidth, UBitwidth::B32);
         UExpressionInner::RightShift(box self, box by).annotate(bitwidth)
+    }
+
+    pub fn floor_sub(self, other: Self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        assert_eq!(bitwidth, other.bitwidth);
+        UExpressionInner::FloorSub(box self, box other).annotate(bitwidth)
     }
 }
 
@@ -94,12 +146,40 @@ pub struct UExpression<'ast, T> {
     pub inner: UExpressionInner<'ast, T>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+impl<'ast, T> From<u32> for UExpression<'ast, T> {
+    fn from(u: u32) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B32)
+    }
+}
+
+impl<'ast, T> From<u16> for UExpression<'ast, T> {
+    fn from(u: u16) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B16)
+    }
+}
+
+impl<'ast, T> From<u8> for UExpression<'ast, T> {
+    fn from(u: u8) -> Self {
+        UExpressionInner::Value(u as u128).annotate(UBitwidth::B8)
+    }
+}
+
+impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
+    fn eq(&self, other: &usize) -> bool {
+        match self.as_inner() {
+            UExpressionInner::Value(v) => *v == *other as u128,
+            _ => true,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(u128),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    FloorSub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Div(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Rem(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
@@ -107,25 +187,22 @@ pub enum UExpressionInner<'ast, T> {
     And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Not(Box<UExpression<'ast, T>>),
-    LeftShift(
-        Box<UExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
+    Neg(Box<UExpression<'ast, T>>),
+    Pos(Box<UExpression<'ast, T>>),
+    FunctionCall(
+        DeclarationFunctionKey<'ast>,
+        Vec<Option<UExpression<'ast, T>>>,
+        Vec<TypedExpression<'ast, T>>,
     ),
-    RightShift(
-        Box<UExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
-    FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
+    LeftShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    RightShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {
@@ -151,7 +228,7 @@ pub fn bitwidth(a: u128) -> Bitwidth {
     (128 - a.leading_zeros()) as Bitwidth
 }
 
-impl<'ast, T: Field> UExpression<'ast, T> {
+impl<'ast, T> UExpression<'ast, T> {
     pub fn bitwidth(&self) -> UBitwidth {
         self.bitwidth
     }

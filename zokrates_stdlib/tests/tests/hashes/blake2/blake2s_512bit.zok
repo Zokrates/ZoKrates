@@ -1,0 +1,6 @@
+import "hashes/blake2/blake2s"
+
+def main():
+    u32[8] h = blake2s::<1>([[0; 16]])
+    assert(h == [0x7CDB09AE, 0xB4424FD5, 0xB609EF90, 0xF61A54BC, 0x9B95E488, 0x353FC5B8, 0xE3566F9A, 0xA354B48A])
+    return

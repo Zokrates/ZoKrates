@@ -1,14 +1,9 @@
-import "./IVconstants" as IVconstants
-import "./shaRound" as sha256
+import "./sha256" as sha256
 
 // A function that takes 4 u32[8] arrays as inputs, concatenates them,
 // and returns their sha256 compression as a u32[8].
 // Note: no padding is applied
 
 def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d) -> u32[8]:
-
-    u32[8] IV =  IVconstants()
-    u32[8] digest1 =  sha256([...a, ...b], IV)
-    u32[8] digest2 =  sha256([...c, ...d], digest1)
-
-	return digest2
+	u32[8] res = sha256([[...a, ...b], [...c, ...d]])
+	return res

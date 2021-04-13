@@ -29,41 +29,50 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
     fn select<U: Select<'ast, T> + IfElse<'ast, T>>(
         &mut self,
         a: ArrayExpression<'ast, T>,
-        i: FieldElementExpression<'ast, T>,
+        i: UExpression<'ast, T>,
     ) -> U {
-        match i {
-            FieldElementExpression::Number(i) => U::select(a, FieldElementExpression::Number(i)),
+        match i.into_inner() {
+            UExpressionInner::Value(i) => {
+                U::select(a, UExpressionInner::Value(i).annotate(UBitwidth::B32))
+            }
             i => {
                 let size = match a.get_type().clone() {
-                    Type::Array(array_ty) => array_ty.size,
+                    Type::Array(array_ty) => match array_ty.size.into_inner() {
+                        UExpressionInner::Value(size) => size as u32,
+                        _ => unreachable!(),
+                    },
                     _ => unreachable!(),
                 };
 
                 self.statements.push(TypedStatement::Assertion(
                     (0..size)
                         .map(|index| {
-                            BooleanExpression::FieldEq(
-                                box i.clone(),
-                                box FieldElementExpression::Number(index.into()).into(),
+                            BooleanExpression::UintEq(
+                                box i.clone().annotate(UBitwidth::B32),
+                                box index.into(),
                             )
                         })
                         .fold(None, |acc, e| match acc {
                             Some(acc) => Some(BooleanExpression::Or(box acc, box e)),
                             None => Some(e),
                         })
-                        .unwrap()
-                        .into(),
+                        .unwrap(),
                 ));
 
                 (0..size)
-                    .map(|i| U::select(a.clone(), FieldElementExpression::Number(i.into())))
+                    .map(|i| {
+                        U::select(
+                            a.clone(),
+                            UExpressionInner::Value(i.into()).annotate(UBitwidth::B32),
+                        )
+                    })
                     .enumerate()
                     .rev()
                     .fold(None, |acc, (index, res)| match acc {
                         Some(acc) => Some(U::if_else(
-                            BooleanExpression::FieldEq(
-                                box i.clone(),
-                                box FieldElementExpression::Number(index.into()),
+                            BooleanExpression::UintEq(
+                                box i.clone().annotate(UBitwidth::B32),
+                                box (index as u32).into(),
                             ),
                             res,
                             acc,
@@ -99,21 +108,20 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &Type,
-        size: usize,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
             ArrayExpressionInner::Select(box a, box i) => {
                 self.select::<ArrayExpression<'ast, T>>(a, i).into_inner()
             }
-            e => fold_array_expression_inner(self, ty, size, e),
+            e => fold_array_expression_inner(self, ty, e),
         }
     }
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &StructType,
+        ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
@@ -160,8 +168,8 @@ mod tests {
         let access: TypedStatement<Bn128Field> = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_element("b")),
             FieldElementExpression::Select(
-                box ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 2),
-                box FieldElementExpression::Identifier("i".into()),
+                box ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 2u32),
+                box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
             )
             .into(),
         );
@@ -169,35 +177,32 @@ mod tests {
         assert_eq!(
             VariableReadRemover::new().fold_statement(access),
             vec![
-                TypedStatement::Assertion(
-                    BooleanExpression::Or(
-                        box BooleanExpression::FieldEq(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Number(0.into())
-                        ),
-                        box BooleanExpression::FieldEq(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Number(1.into())
-                        )
+                TypedStatement::Assertion(BooleanExpression::Or(
+                    box BooleanExpression::UintEq(
+                        box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                        box UExpressionInner::Value(0).annotate(UBitwidth::B32)
+                    ),
+                    box BooleanExpression::UintEq(
+                        box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                        box UExpressionInner::Value(1).annotate(UBitwidth::B32)
                     )
-                    .into(),
-                ),
+                )),
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::if_else(
-                        BooleanExpression::FieldEq(
-                            box FieldElementExpression::Identifier("i".into()),
-                            box FieldElementExpression::Number(0.into())
+                        BooleanExpression::UintEq(
+                            box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+                            box UExpressionInner::Value(0).annotate(UBitwidth::B32)
                         ),
                         FieldElementExpression::Select(
                             box ArrayExpressionInner::Identifier("a".into())
-                                .annotate(Type::FieldElement, 2),
-                            box FieldElementExpression::Number(0.into()),
+                                .annotate(Type::FieldElement, 2u32),
+                            box 0u32.into(),
                         ),
                         FieldElementExpression::Select(
                             box ArrayExpressionInner::Identifier("a".into())
-                                .annotate(Type::FieldElement, 2),
-                            box FieldElementExpression::Number(1.into()),
+                                .annotate(Type::FieldElement, 2u32),
+                            box 1u32.into(),
                         )
                     )
                     .into()

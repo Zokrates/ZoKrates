@@ -8,14 +8,16 @@ use zokrates_parser::Rule;
 extern crate lazy_static;
 
 pub use ast::{
-    Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
-    AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
-    ConstantExpression, DecimalNumberExpression, DefinitionStatement, Expression, FieldType, File,
-    FromExpression, Function, IdentifierExpression, ImportDirective, ImportSource,
+    Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement,
+    Assignee, AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
+    CallAccess, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber, DecimalSuffix,
+    DefinitionStatement, ExplicitGenerics, Expression, FieldType, File, FromExpression, Function,
+    HexLiteralExpression, HexNumberExpression, IdentifierExpression, ImportDirective, ImportSource,
     InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
-    OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
-    TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
+    LiteralExpression, OptionallyTypedAssignee, Parameter, PostfixExpression, Range,
+    RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
+    StructDefinition, StructField, TernaryExpression, ToExpression, Type, UnaryExpression,
+    UnaryOperator, Underscore, Visibility,
 };
 
 mod ast {
@@ -52,7 +54,6 @@ mod ast {
             Operator::new(Rule::op_mul, Assoc::Left)
                 | Operator::new(Rule::op_div, Assoc::Left)
                 | Operator::new(Rule::op_rem, Assoc::Left),
-            Operator::new(Rule::op_pow, Assoc::Left),
         ])
     }
 
@@ -74,7 +75,6 @@ mod ast {
             Rule::op_mul => Expression::binary(BinaryOperator::Mul, lhs, rhs, span),
             Rule::op_div => Expression::binary(BinaryOperator::Div, lhs, rhs, span),
             Rule::op_rem => Expression::binary(BinaryOperator::Rem, lhs, rhs, span),
-            Rule::op_pow => Expression::binary(BinaryOperator::Pow, lhs, rhs, span),
             Rule::op_equal => Expression::binary(BinaryOperator::Eq, lhs, rhs, span),
             Rule::op_not_equal => Expression::binary(BinaryOperator::NotEq, lhs, rhs, span),
             Rule::op_lte => Expression::binary(BinaryOperator::Lte, lhs, rhs, span),
@@ -97,74 +97,12 @@ mod ast {
         PREC_CLIMBER.climb(pair.into_inner(), build_factor, infix_rule)
     }
 
-    // Create an Expression from a `term`.
-    // Precondition: `pair` MUST be a term
+    // Create an Expression from a `unaried_term`.
+    // Precondition: `pair` MUST be a `unaried_term`
     fn build_factor(pair: Pair<Rule>) -> Box<Expression> {
-        Box::new(match pair.as_rule() {
-            Rule::term => {
-                // clone the pair to peek into what we should create
-                let clone = pair.clone();
-                // define the child pair
-                let next = clone.into_inner().next().unwrap();
-                match next.as_rule() {
-                    // this happens when we have an expression in parentheses: it needs to be processed as another sequence of terms and operators
-                    Rule::expression => Expression::from_pest(&mut pair.into_inner()).unwrap(),
-                    Rule::conditional_expression => Expression::Ternary(
-                        TernaryExpression::from_pest(&mut pair.into_inner()).unwrap(),
-                    ),
-                    Rule::primary_expression => {
-                        // maybe this could be simplified
-                        let next = next.into_inner().next().unwrap();
-                        match next.as_rule() {
-                            Rule::constant => Expression::Constant(
-                                ConstantExpression::from_pest(
-                                    &mut pair.into_inner().next().unwrap().into_inner(),
-                                )
-                                .unwrap(),
-                            ),
-                            Rule::identifier => Expression::Identifier(
-                                IdentifierExpression::from_pest(
-                                    &mut pair.into_inner().next().unwrap().into_inner(),
-                                )
-                                .unwrap(),
-                            ),
-                            r => unreachable!("`primary_expression` should contain one of [`constant`, `identifier`], found {:#?}", r),
-                        }
-                    }
-                    Rule::postfix_expression => Expression::Postfix(
-                        PostfixExpression::from_pest(&mut pair.into_inner()).unwrap(),
-                    ),
-                    Rule::inline_struct_expression => Expression::InlineStruct(
-                        InlineStructExpression::from_pest(&mut pair.into_inner()).unwrap(),
-                    ),
-                    Rule::inline_array_expression => Expression::InlineArray(
-                        InlineArrayExpression::from_pest(&mut pair.into_inner()).unwrap(),
-                    ),
-                    Rule::array_initializer_expression => Expression::ArrayInitializer(
-                        ArrayInitializerExpression::from_pest(&mut pair.into_inner()).unwrap()
-                    ),
-                    Rule::unary_expression => {
-                        let span = next.as_span();
-                        let mut inner = next.into_inner();
-                        let op = match inner.next().unwrap().as_rule() {
-                            Rule::op_unary => UnaryOperator::from_pest(&mut pair.into_inner().next().unwrap().into_inner()).unwrap(),
-                            r => unreachable!("`unary_expression` should yield `op_unary`, found {:#?}", r)
-                        };
-                        let expression = build_factor(inner.next().unwrap());
-                        Expression::Unary(UnaryExpression {
-                            op,
-                            expression,
-                            span
-                        })
-                    },
-                    r => unreachable!("`term` should contain one of [`expression`, `conditional_expression`, `primary_expression`, `postfix_expression`, `inline_array_expression`, `unary_expression`, `array_initializer_expression`], found {:#?}", r)
-                }
-            }
-            r => unreachable!(
-                "`build_factor` can only be called on `term`, found {:#?}",
-                r
-            ),
-        })
+        Box::new(Expression::from(
+            UnariedTerm::from_pest(&mut Pairs::single(pair)).unwrap(),
+        ))
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -218,6 +156,7 @@ mod ast {
     #[pest_ast(rule(Rule::function_definition))]
     pub struct Function<'ast> {
         pub id: IdentifierExpression<'ast>,
+        pub generics: Vec<IdentifierExpression<'ast>>,
         pub parameters: Vec<Parameter<'ast>>,
         pub returns: Vec<Type<'ast>>,
         pub statements: Vec<Statement<'ast>>,
@@ -276,6 +215,7 @@ mod ast {
         U8(U8Type<'ast>),
         U16(U16Type<'ast>),
         U32(U32Type<'ast>),
+        U64(U64Type<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -330,6 +270,13 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_u64))]
+    pub struct U64Type<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_struct))]
     pub struct StructType<'ast> {
         pub id: IdentifierExpression<'ast>,
@@ -362,6 +309,7 @@ mod ast {
     #[pest_ast(rule(Rule::vis_private))]
     pub struct PrivateVisibility {}
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::statement))]
     pub enum Statement<'ast> {
@@ -431,30 +379,149 @@ mod ast {
         Pow,
     }
 
-    #[derive(Debug, PartialEq, FromPest, Clone)]
-    #[pest_ast(rule(Rule::op_unary))]
-    pub enum UnaryOperator<'ast> {
-        Not(Not<'ast>),
-    }
-
-    #[derive(Debug, PartialEq, FromPest, Clone)]
-    #[pest_ast(rule(Rule::op_not))]
-    pub struct Not<'ast> {
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
     #[derive(Debug, PartialEq, Clone)]
     pub enum Expression<'ast> {
         Ternary(TernaryExpression<'ast>),
         Binary(BinaryExpression<'ast>),
+        Unary(UnaryExpression<'ast>),
         Postfix(PostfixExpression<'ast>),
         Identifier(IdentifierExpression<'ast>),
-        Constant(ConstantExpression<'ast>),
+        Literal(LiteralExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
-        Unary(UnaryExpression<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::term))]
+    pub enum Term<'ast> {
+        Expression(Expression<'ast>),
+        InlineStruct(InlineStructExpression<'ast>),
+        Ternary(TernaryExpression<'ast>),
+        Postfix(PostfixExpression<'ast>),
+        Primary(PrimaryExpression<'ast>),
+        InlineArray(InlineArrayExpression<'ast>),
+        ArrayInitializer(ArrayInitializerExpression<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::powered_term))]
+    struct PoweredTerm<'ast> {
+        base: Term<'ast>,
+        op: Option<PowOperator>,
+        exponent: Option<ExponentExpression<'ast>>,
+        #[pest_ast(outer())]
+        span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_pow))]
+    struct PowOperator;
+
+    impl<'ast> From<PoweredTerm<'ast>> for Expression<'ast> {
+        fn from(t: PoweredTerm<'ast>) -> Self {
+            let base = Expression::from(t.base);
+
+            match t.exponent {
+                Some(exponent) => Expression::Binary(BinaryExpression {
+                    op: BinaryOperator::Pow,
+                    left: Box::new(base),
+                    right: Box::new(exponent.into()),
+                    span: t.span,
+                }),
+                None => base,
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::unaried_term))]
+    struct UnariedTerm<'ast> {
+        op: Option<UnaryOperator>,
+        expression: PoweredTerm<'ast>,
+        #[pest_ast(outer())]
+        span: Span<'ast>,
+    }
+
+    impl<'ast> From<UnariedTerm<'ast>> for Expression<'ast> {
+        fn from(t: UnariedTerm<'ast>) -> Self {
+            let expression = Expression::from(t.expression);
+
+            match t.op {
+                Some(sign) => Expression::Unary(UnaryExpression {
+                    op: sign,
+                    expression: Box::new(expression),
+                    span: t.span,
+                }),
+                None => expression,
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_unary))]
+    pub enum UnaryOperator {
+        Pos(PosOperator),
+        Neg(NegOperator),
+        Not(NotOperator),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_pos))]
+    pub struct PosOperator;
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_neg))]
+    pub struct NegOperator;
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::op_not))]
+    pub struct NotOperator;
+
+    impl<'ast> From<Term<'ast>> for Expression<'ast> {
+        fn from(t: Term<'ast>) -> Self {
+            match t {
+                Term::Expression(e) => e,
+                Term::Ternary(e) => Expression::Ternary(e),
+                Term::Postfix(e) => Expression::Postfix(e),
+                Term::Primary(e) => e.into(),
+                Term::InlineArray(e) => Expression::InlineArray(e),
+                Term::InlineStruct(e) => Expression::InlineStruct(e),
+                Term::ArrayInitializer(e) => Expression::ArrayInitializer(e),
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::primary_expression))]
+    pub enum PrimaryExpression<'ast> {
+        Identifier(IdentifierExpression<'ast>),
+        Literal(LiteralExpression<'ast>),
+    }
+
+    impl<'ast> From<PrimaryExpression<'ast>> for Expression<'ast> {
+        fn from(e: PrimaryExpression<'ast>) -> Self {
+            match e {
+                PrimaryExpression::Literal(c) => Expression::Literal(c),
+                PrimaryExpression::Identifier(i) => Expression::Identifier(i),
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::exponent_expression))]
+    pub enum ExponentExpression<'ast> {
+        Expression(Expression<'ast>),
+        Primary(PrimaryExpression<'ast>),
+    }
+
+    impl<'ast> From<ExponentExpression<'ast>> for Expression<'ast> {
+        fn from(e: ExponentExpression<'ast>) -> Self {
+            match e {
+                ExponentExpression::Expression(e) => e,
+                ExponentExpression::Primary(e) => e.into(),
+            }
+        }
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -506,15 +573,6 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::unary_expression))]
-    pub struct UnaryExpression<'ast> {
-        pub op: UnaryOperator<'ast>,
-        pub expression: Box<Expression<'ast>>,
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::inline_array_expression))]
     pub struct InlineArrayExpression<'ast> {
         pub expressions: Vec<SpreadOrExpression<'ast>>,
@@ -544,7 +602,7 @@ mod ast {
     #[pest_ast(rule(Rule::array_initializer_expression))]
     pub struct ArrayInitializerExpression<'ast> {
         pub value: Box<Expression<'ast>>,
-        pub count: ConstantExpression<'ast>,
+        pub count: Box<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -558,6 +616,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::access))]
     pub enum Access<'ast> {
@@ -576,6 +635,38 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::call_access))]
     pub struct CallAccess<'ast> {
+        pub explicit_generics: Option<ExplicitGenerics<'ast>>,
+        pub arguments: Arguments<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::explicit_generics))]
+    pub struct ExplicitGenerics<'ast> {
+        pub values: Vec<ConstantGenericValue<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::constant_generics_value))]
+    pub enum ConstantGenericValue<'ast> {
+        Value(LiteralExpression<'ast>),
+        Identifier(IdentifierExpression<'ast>),
+        Underscore(Underscore<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::underscore))]
+    pub struct Underscore<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::arguments))]
+    pub struct Arguments<'ast> {
         pub expressions: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -602,6 +693,13 @@ mod ast {
         pub op: BinaryOperator,
         pub left: Box<Expression<'ast>>,
         pub right: Box<Expression<'ast>>,
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, PartialEq, Clone)]
+    pub struct UnaryExpression<'ast> {
+        pub op: UnaryOperator,
+        pub expression: Box<Expression<'ast>>,
         pub span: Span<'ast>,
     }
 
@@ -648,7 +746,7 @@ mod ast {
             match self {
                 Expression::Binary(b) => &b.span,
                 Expression::Identifier(i) => &i.span,
-                Expression::Constant(c) => &c.span(),
+                Expression::Literal(c) => &c.span(),
                 Expression::Ternary(t) => &t.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
@@ -683,32 +781,80 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::constant))]
-    pub enum ConstantExpression<'ast> {
-        DecimalNumber(DecimalNumberExpression<'ast>),
+    #[pest_ast(rule(Rule::literal))]
+    pub enum LiteralExpression<'ast> {
+        DecimalLiteral(DecimalLiteralExpression<'ast>),
         BooleanLiteral(BooleanLiteralExpression<'ast>),
-        U8(U8NumberExpression<'ast>),
-        U16(U16NumberExpression<'ast>),
-        U32(U32NumberExpression<'ast>),
+        HexLiteral(HexLiteralExpression<'ast>),
     }
 
-    impl<'ast> ConstantExpression<'ast> {
+    impl<'ast> LiteralExpression<'ast> {
         pub fn span(&self) -> &Span<'ast> {
             match self {
-                ConstantExpression::DecimalNumber(n) => &n.span,
-                ConstantExpression::BooleanLiteral(c) => &c.span,
-                ConstantExpression::U8(c) => &c.span,
-                ConstantExpression::U16(c) => &c.span,
-                ConstantExpression::U32(c) => &c.span,
+                LiteralExpression::DecimalLiteral(n) => &n.span,
+                LiteralExpression::BooleanLiteral(c) => &c.span,
+                LiteralExpression::HexLiteral(h) => &h.span,
             }
         }
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix))]
+    pub enum DecimalSuffix<'ast> {
+        U8(U8Suffix<'ast>),
+        U16(U16Suffix<'ast>),
+        U32(U32Suffix<'ast>),
+        U64(U64Suffix<'ast>),
+        Field(FieldSuffix<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_u8))]
+    pub struct U8Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_u16))]
+    pub struct U16Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_u32))]
+    pub struct U32Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_u64))]
+    pub struct U64Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_field))]
+    pub struct FieldSuffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::decimal_number))]
-    pub struct DecimalNumberExpression<'ast> {
-        #[pest_ast(outer(with(span_into_str)))]
-        pub value: String,
+    pub struct DecimalNumber<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_literal))]
+    pub struct DecimalLiteralExpression<'ast> {
+        pub value: DecimalNumber<'ast>,
+        pub suffix: Option<DecimalSuffix<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -723,7 +869,24 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::hex_number_8))]
+    #[pest_ast(rule(Rule::hex_literal))]
+    pub struct HexLiteralExpression<'ast> {
+        pub value: HexNumberExpression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number))]
+    pub enum HexNumberExpression<'ast> {
+        U8(U8NumberExpression<'ast>),
+        U16(U16NumberExpression<'ast>),
+        U32(U32NumberExpression<'ast>),
+        U64(U64NumberExpression<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_u8))]
     pub struct U8NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
@@ -732,7 +895,7 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::hex_number_16))]
+    #[pest_ast(rule(Rule::hex_number_u16))]
     pub struct U16NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
@@ -741,8 +904,17 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::hex_number_32))]
+    #[pest_ast(rule(Rule::hex_number_u32))]
     pub struct U32NumberExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_u64))]
+    pub struct U64NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
         #[pest_ast(outer())]
@@ -773,6 +945,7 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::EOI))]
+    #[allow(clippy::upper_case_acronyms)]
     pub struct EOI;
 }
 
@@ -794,7 +967,7 @@ impl fmt::Display for Error {
 }
 
 pub fn generate_ast(input: &str) -> Result<ast::File, Error> {
-    let parse_tree = parse(input).map_err(|e| Error(e))?;
+    let parse_tree = parse(input).map_err(Error)?;
     Ok(Prog::from(parse_tree).0)
 }
 
@@ -867,6 +1040,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
@@ -877,15 +1051,21 @@ mod tests {
                     }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
-                                    value: String::from("1"),
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 59, 60).unwrap()
+                                    },
+                                    suffix: None,
                                     span: Span::new(&source, 59, 60).unwrap()
                                 }
                             )),
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
-                                    value: String::from("1"),
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 63, 64).unwrap()
+                                    },
+                                    suffix: None,
                                     span: Span::new(&source, 63, 64).unwrap()
                                 }
                             )),
@@ -920,6 +1100,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
@@ -930,29 +1111,41 @@ mod tests {
                     }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
-                                    value: String::from("1"),
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    suffix: None,
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 59, 60).unwrap()
+                                    },
                                     span: Span::new(&source, 59, 60).unwrap()
                                 }
                             )),
                             Expression::mul(
-                                Expression::Constant(ConstantExpression::DecimalNumber(
-                                    DecimalNumberExpression {
-                                        value: String::from("2"),
+                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                    DecimalLiteralExpression {
+                                        suffix: None,
+                                        value: DecimalNumber {
+                                            span: Span::new(&source, 63, 64).unwrap()
+                                        },
                                         span: Span::new(&source, 63, 64).unwrap()
                                     }
                                 )),
                                 Expression::pow(
-                                    Expression::Constant(ConstantExpression::DecimalNumber(
-                                        DecimalNumberExpression {
-                                            value: String::from("3"),
+                                    Expression::Literal(LiteralExpression::DecimalLiteral(
+                                        DecimalLiteralExpression {
+                                            suffix: None,
+                                            value: DecimalNumber {
+                                                span: Span::new(&source, 67, 68).unwrap()
+                                            },
                                             span: Span::new(&source, 67, 68).unwrap()
                                         }
                                     )),
-                                    Expression::Constant(ConstantExpression::DecimalNumber(
-                                        DecimalNumberExpression {
-                                            value: String::from("4"),
+                                    Expression::Literal(LiteralExpression::DecimalLiteral(
+                                        DecimalLiteralExpression {
+                                            suffix: None,
+                                            value: DecimalNumber {
+                                                span: Span::new(&source, 72, 73).unwrap()
+                                            },
                                             span: Span::new(&source, 72, 73).unwrap()
                                         }
                                     )),
@@ -991,6 +1184,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
@@ -1001,21 +1195,30 @@ mod tests {
                     }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::if_else(
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
-                                    value: String::from("1"),
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    suffix: None,
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 62, 63).unwrap()
+                                    },
                                     span: Span::new(&source, 62, 63).unwrap()
                                 }
                             )),
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
-                                    value: String::from("2"),
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    suffix: None,
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 69, 70).unwrap()
+                                    },
                                     span: Span::new(&source, 69, 70).unwrap()
                                 }
                             )),
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
-                                    value: String::from("3"),
+                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                DecimalLiteralExpression {
+                                    suffix: None,
+                                    value: DecimalNumber {
+                                        span: Span::new(&source, 76, 77).unwrap()
+                                    },
                                     span: Span::new(&source, 76, 77).unwrap()
                                 }
                             )),
@@ -1049,6 +1252,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 4, 8).unwrap()
@@ -1058,9 +1262,12 @@ mod tests {
                         span: Span::new(&source, 15, 20).unwrap()
                     }))],
                     statements: vec![Statement::Return(ReturnStatement {
-                        expressions: vec![Expression::Constant(ConstantExpression::DecimalNumber(
-                            DecimalNumberExpression {
-                                value: String::from("1"),
+                        expressions: vec![Expression::Literal(LiteralExpression::DecimalLiteral(
+                            DecimalLiteralExpression {
+                                suffix: None,
+                                value: DecimalNumber {
+                                    span: Span::new(&source, 31, 32).unwrap()
+                                },
                                 span: Span::new(&source, 31, 32).unwrap()
                             }
                         ))],
@@ -1085,6 +1292,7 @@ mod tests {
                 pragma: None,
                 structs: vec![],
                 functions: vec![Function {
+                    generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 4, 8).unwrap()
@@ -1128,29 +1336,42 @@ mod tests {
                                 span: Span::new(&source, 36, 39).unwrap()
                             },
                             accesses: vec![Access::Call(CallAccess {
-                                expressions: vec![
-                                    Expression::Constant(ConstantExpression::DecimalNumber(
-                                        DecimalNumberExpression {
-                                            value: String::from("1"),
-                                            span: Span::new(&source, 40, 41).unwrap()
-                                        }
-                                    )),
-                                    Expression::add(
-                                        Expression::Constant(ConstantExpression::DecimalNumber(
-                                            DecimalNumberExpression {
-                                                value: String::from("2"),
-                                                span: Span::new(&source, 43, 44).unwrap()
+                                explicit_generics: None,
+                                arguments: Arguments {
+                                    expressions: vec![
+                                        Expression::Literal(LiteralExpression::DecimalLiteral(
+                                            DecimalLiteralExpression {
+                                                suffix: None,
+                                                value: DecimalNumber {
+                                                    span: Span::new(&source, 40, 41).unwrap()
+                                                },
+                                                span: Span::new(&source, 40, 41).unwrap()
                                             }
                                         )),
-                                        Expression::Constant(ConstantExpression::DecimalNumber(
-                                            DecimalNumberExpression {
-                                                value: String::from("3"),
-                                                span: Span::new(&source, 47, 48).unwrap()
-                                            }
-                                        )),
-                                        Span::new(&source, 43, 48).unwrap()
-                                    ),
-                                ],
+                                        Expression::add(
+                                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                                DecimalLiteralExpression {
+                                                    suffix: None,
+                                                    value: DecimalNumber {
+                                                        span: Span::new(&source, 43, 44).unwrap()
+                                                    },
+                                                    span: Span::new(&source, 43, 44).unwrap()
+                                                }
+                                            )),
+                                            Expression::Literal(LiteralExpression::DecimalLiteral(
+                                                DecimalLiteralExpression {
+                                                    suffix: None,
+                                                    value: DecimalNumber {
+                                                        span: Span::new(&source, 47, 48).unwrap()
+                                                    },
+                                                    span: Span::new(&source, 47, 48).unwrap()
+                                                }
+                                            )),
+                                            Span::new(&source, 43, 48).unwrap()
+                                        ),
+                                    ],
+                                    span: Span::new(&source, 40, 48).unwrap()
+                                },
                                 span: Span::new(&source, 39, 49).unwrap()
                             })],
                             span: Span::new(&source, 36, 49).unwrap(),
@@ -1168,16 +1389,16 @@ mod tests {
 
     #[test]
     fn playground() {
-        let source = r#"import "heyman" as yo
+        let source = r#"import "foo" as bar
 
         struct Foo {
             field[2] foo
             Bar bar
         }
 
-        def main(private field[23] a) -> (bool[234 + 6]):
+        def main<P>(private field[Q] a) -> (bool[234 + 6]):
         field a = 1
-        a[32 + x][55] = y
+        a[32 + x][55] = foo::<a, _>(y)
         for field i in 0..3 do
                assert(a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3)
         endfor

@@ -12,10 +12,10 @@
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::*;
 use crate::ir::*;
+use crate::optimizer::canonicalizer::Canonicalizer;
 use crate::solvers::Solver;
 use std::collections::hash_map::{Entry, HashMap};
 use zokrates_field::Field;
-
 #[derive(Debug)]
 pub struct DirectiveOptimizer<T: Field> {
     calls: HashMap<(Solver, Vec<QuadComb<T>>), Vec<FlatVariable>>,
@@ -37,6 +37,23 @@ impl<T: Field> DirectiveOptimizer<T> {
 }
 
 impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
+    fn fold_function(&mut self, f: Function<T>) -> Function<T> {
+        // in order to correcty identify duplicates, we need to first canonicalize the statements
+
+        let mut canonicalizer = Canonicalizer;
+
+        let f = Function {
+            statements: f
+                .statements
+                .into_iter()
+                .flat_map(|s| canonicalizer.fold_statement(s))
+                .collect(),
+            ..f
+        };
+
+        fold_function(self, f)
+    }
+
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         match s {
             Statement::Directive(d) => {
@@ -49,7 +66,7 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
                     }
                     Entry::Occupied(e) => {
                         self.substitution
-                            .extend(d.outputs.into_iter().zip(e.get().into_iter().cloned()));
+                            .extend(d.outputs.into_iter().zip(e.get().iter().cloned()));
                         vec![]
                     }
                 }

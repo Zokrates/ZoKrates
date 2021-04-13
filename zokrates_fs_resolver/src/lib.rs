@@ -37,14 +37,12 @@ impl<'a> Resolver<io::Error> for FileSystemResolver<'a> {
         // other paths `abc/def` are interpreted relative to the standard library root path
         let base = match source.components().next() {
             Some(Component::CurDir) | Some(Component::ParentDir) => {
-                PathBuf::from(current_location).parent().unwrap().into()
+                current_location.parent().unwrap().into()
             }
             _ => PathBuf::from(self.stdlib_root_path.unwrap_or("")),
         };
 
-        let path_owned = base
-            .join(PathBuf::from(import_location.clone()))
-            .with_extension("zok");
+        let path_owned = base.join(import_location.clone()).with_extension("zok");
 
         if !path_owned.is_file() {
             return Err(io::Error::new(
@@ -96,7 +94,7 @@ mod tests {
         // create a source folder with a zok file
         let folder = tempfile::tempdir().unwrap();
         let dir_path = folder.path().join("dir");
-        std::fs::create_dir(dir_path.clone()).unwrap();
+        std::fs::create_dir(dir_path).unwrap();
 
         let fs_resolver = FileSystemResolver::default();
         let res = fs_resolver.resolve(".".into(), "./dir/".into());
@@ -155,7 +153,7 @@ mod tests {
 
         let stdlib_root_path = temp_dir.path().to_owned();
         let fs_resolver = FileSystemResolver::with_stdlib_root(stdlib_root_path.to_str().unwrap());
-        let result = fs_resolver.resolve(file_path.clone(), "bar.zok".into());
+        let result = fs_resolver.resolve(file_path, "bar.zok".into());
         assert!(result.is_ok());
         // the imported file should be the user's
         assert_eq!(result.unwrap().0, String::from("<stdlib code>\n"));

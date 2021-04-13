@@ -1,0 +1,2 @@
+def main(u32 x) -> u32:
+    return x >> 1
