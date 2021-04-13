@@ -1,7 +1,5 @@
-from "hashes/poseidon/constants" import poseidon_c_6
-from "hashes/poseidon/constants" import poseidon_m_6
 import "hashes/poseidon/poseidon" as poseidon
 
 def main(field[6] i) -> field:
-    field output = poseidon(i, poseidon_c_6(), poseidon_m_6())
+    field output = poseidon(i)
     return output

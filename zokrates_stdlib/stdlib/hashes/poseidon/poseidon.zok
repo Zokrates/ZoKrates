@@ -1,6 +1,9 @@
 // https://eprint.iacr.org/2019/458.pdf
 
-def ark<N, C>(field[N] state, field[C] c, u32 it) -> field[N]:
+from "./constants.zok" import poseidon_c
+from "./constants.zok" import poseidon_m
+
+def ark<N>(field[N] state, field[497] c, u32 it) -> field[N]:
     for u32 i in 0..N do
         state[i] = state[i] + c[it + i]
     endfor
@@ -13,7 +16,7 @@ def sbox<N>(field[N] state, u32 f, u32 p, u32 r) -> field[N]:
     endfor
     return state
 
-def mix<N>(field[N] state, field[N][N] m) -> field[N]:
+def mix<N>(field[N] state, field[7][7] m) -> field[N]:
     field[N] out = [0; N]
     for u32 i in 0..N do
         field acc = 0
@@ -24,14 +27,17 @@ def mix<N>(field[N] state, field[N][N] m) -> field[N]:
     endfor
     return out
 
-def main<N, C, M>(field[N] inputs, field[C] c, field[M][M] m) -> field:
-    assert(N > 0 && N <= 6)
+def main<N>(field[N] inputs) -> field:
+    assert(N > 0 && N <= 6) // max 6 inputs
 
     u32 t = N + 1
     u32[8] rounds_p = [56, 57, 56, 60, 60, 63, 64, 63]
 
     u32 f = 8
     u32 p = rounds_p[(t - 2)]
+
+    field[497]  c = poseidon_c()[t - 2]
+    field[7][7] m = poseidon_m()[t - 2]
 
     field[t] state = [0; t]
     for u32 i in 1..t do
