@@ -36,6 +36,12 @@ def main<N>(field[N] inputs) -> field:
     u32 f = 8
     u32 p = rounds_p[(t - 2)]
 
+    // Constants are padded with zeroes to the maximum value calculated by
+    // t * (f + p) = 497, where `t` (number of inputs + 1) is a max of 7.
+    // This is done to keep the function generic, as resulting array size depends on `t`
+    // and we do not want callers passing down constants.
+    // This should be revisited once compiler limitations are gone.
+
     field[497]  c = poseidon_c()[t - 2]
     field[7][7] m = poseidon_m()[t - 2]
 
