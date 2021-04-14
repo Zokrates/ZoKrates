@@ -17,22 +17,27 @@ pub enum Constant<'ast> {
     Concrete(u32),
 }
 
-// At this stage we want all constants to be equal
 impl<'ast> PartialEq for Constant<'ast> {
-    fn eq(&self, _: &Self) -> bool {
-        true
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Constant::Generic(_), _) | (_, Constant::Generic(_)) => true,
+            (Constant::Concrete(a), Constant::Concrete(b)) => a == b,
+        }
     }
 }
 
 impl<'ast> PartialOrd for Constant<'ast> {
-    fn partial_cmp(&self, _: &Self) -> std::option::Option<std::cmp::Ordering> {
-        Some(std::cmp::Ordering::Equal)
+    fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
 impl<'ast> Ord for Constant<'ast> {
-    fn cmp(&self, _: &Self) -> std::cmp::Ordering {
-        std::cmp::Ordering::Equal
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Constant::Concrete(a), Constant::Concrete(b)) => a.cmp(b),
+            _ => std::cmp::Ordering::Equal,
+        }
     }
 }
 
@@ -662,7 +667,21 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
         } else {
             match (self, other) {
                 (Int, FieldElement) | (Int, Uint(..)) => true,
-                (Array(l), Array(r)) => l.ty.can_be_specialized_to(&r.ty),
+                (Array(l), Array(r)) => {
+                    match l.ty.can_be_specialized_to(&r.ty) {
+                        true => {
+                            // check the size if types match
+                            match (&l.size.as_inner(), &r.size) {
+                                // compare the sizes for concrete ones
+                                (UExpressionInner::Value(v), Constant::Concrete(c)) => {
+                                    (*v as u32).eq(c)
+                                }
+                                _ => true,
+                            }
+                        }
+                        _ => false,
+                    }
+                }
                 // types do not come into play for Struct equality, only the canonical location. Hence no inference
                 // can change anything
                 (Struct(_), Struct(_)) => false,

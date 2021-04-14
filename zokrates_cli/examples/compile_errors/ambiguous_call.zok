@@ -1,0 +1,9 @@
+def func() -> field[2]:
+    return [1, 2]
+
+def func<N>() -> field[N]:
+    return [0; N]
+
+def main() -> field[2]:
+    field[2] f = func() // ambiguous call to overloaded function
+    return f

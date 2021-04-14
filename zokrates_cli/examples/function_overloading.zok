@@ -1,0 +1,9 @@
+def func() -> field[2]:
+    return [1, 2]
+
+def func() -> field[3]:
+    return [1, 2, 3]
+
+def main() -> field[2]:
+    field[2] f = func()
+    return f
