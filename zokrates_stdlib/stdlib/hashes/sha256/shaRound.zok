@@ -1,7 +1,7 @@
 import "./IVconstants.zok"
 
 def rotr32<N>(u32 x) -> u32:
-    return (x >> N) ^ (x << (32 - N))
+    return (x >> N) | (x << (32 - N))
 
 def extend(u32[64] w, u32 i) -> u32:
     u32 s0 = rotr32::<7>(w[i-15]) ^ rotr32::<18>(w[i-15]) ^ (w[i-15] >> 3)
