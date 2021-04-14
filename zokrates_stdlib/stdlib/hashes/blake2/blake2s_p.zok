@@ -3,9 +3,8 @@
 import "EMBED/u32_to_bits" as to_bits
 import "EMBED/u32_from_bits" as from_bits
 
-def right_rotate<N>(u32 e) -> u32:
-    bool[32] b = to_bits(e)
-    return from_bits([...b[32 - N..], ...b[..32 - N]])
+def rotr32<N>(u32 e) -> u32:
+    return (x >> N) ^ (x << (32 - N))
 
 def blake2s_iv() -> (u32[8]):
     return [
@@ -29,13 +28,13 @@ def blake2s_sigma() -> (u32[10][16]):
 
 def mixing_g(u32[16] v, u32 a, u32 b, u32 c, u32 d, u32 x, u32 y) -> (u32[16]):
     v[a] = (v[a] + v[b] + x)
-    v[d] = right_rotate::<16>(v[d] ^ v[a])
+    v[d] = rotr32::<16>(v[d] ^ v[a])
     v[c] = (v[c] + v[d])
-    v[b] = right_rotate::<12>(v[b] ^ v[c])
+    v[b] = rotr32::<12>(v[b] ^ v[c])
     v[a] = (v[a] + v[b] + y)
-    v[d] = right_rotate::<8>(v[d] ^ v[a])
+    v[d] = rotr32::<8>(v[d] ^ v[a])
     v[c] = (v[c] + v[d])
-    v[b] = right_rotate::<7>(v[b] ^ v[c])
+    v[b] = rotr32::<7>(v[b] ^ v[c])
     return v
 
 def blake2s_compression(u32[8] h, u32[16] m, u32[2] t, bool last) -> (u32[8]):
