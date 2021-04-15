@@ -11,40 +11,10 @@ pub type GenericIdentifier<'ast> = &'ast str;
 #[derive(Debug)]
 pub struct SpecializationError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Constant<'ast> {
     Generic(GenericIdentifier<'ast>),
     Concrete(u32),
-}
-
-// At this stage we want all constants to be equal
-impl<'ast> PartialEq for Constant<'ast> {
-    fn eq(&self, _: &Self) -> bool {
-        true
-    }
-}
-
-impl<'ast> PartialOrd for Constant<'ast> {
-    fn partial_cmp(&self, _: &Self) -> std::option::Option<std::cmp::Ordering> {
-        Some(std::cmp::Ordering::Equal)
-    }
-}
-
-impl<'ast> Ord for Constant<'ast> {
-    fn cmp(&self, _: &Self) -> std::cmp::Ordering {
-        std::cmp::Ordering::Equal
-    }
-}
-
-impl<'ast> Eq for Constant<'ast> {}
-
-impl<'ast> Hash for Constant<'ast> {
-    fn hash<H>(&self, _: &mut H)
-    where
-        H: Hasher,
-    {
-        // we do not hash anything, as we want all constant to hash to the same thing
-    }
 }
 
 impl<'ast> From<u32> for Constant<'ast> {
@@ -849,40 +819,11 @@ pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, Serialize, Deserialize, Eq)]
+    #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct GSignature<S> {
         pub generics: Vec<Option<S>>,
         pub inputs: Vec<GType<S>>,
         pub outputs: Vec<GType<S>>,
-    }
-
-    impl<S: PartialOrd> PartialOrd for GSignature<S> {
-        fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
-            match self.inputs.partial_cmp(&other.inputs) {
-                Some(std::cmp::Ordering::Equal) => self.outputs.partial_cmp(&other.outputs),
-                r => r,
-            }
-        }
-    }
-
-    impl<S: PartialOrd + Eq> Ord for GSignature<S> {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            self.partial_cmp(&other).unwrap()
-        }
-    }
-
-    impl<S: Hash> Hash for GSignature<S> {
-        fn hash<H: Hasher>(&self, state: &mut H) {
-            self.inputs.hash(state);
-            self.outputs.hash(state);
-        }
-    }
-
-    impl<S: PartialEq> PartialEq for GSignature<S> {
-        fn eq(&self, other: &GSignature<S>) -> bool {
-            // we ignore generics as we want a generic function to conflict with its specialized (generics free) version
-            self.inputs == other.inputs && self.outputs == other.outputs
-        }
     }
 
     impl<S> Default for GSignature<S> {
