@@ -57,19 +57,19 @@ impl From<io::Error> for Error {
 }
 
 #[derive(PartialEq, Clone)]
-pub enum ImportKind<'ast> {
-    Single(ImportNode<'ast>),
-    Multiple(Vec<ImportNode<'ast>>),
+pub enum ImportDirective<'ast> {
+    Main(ImportNode<'ast>),
+    From(Vec<ImportNode<'ast>>),
 }
 
-impl<'ast> IntoIterator for ImportKind<'ast> {
+impl<'ast> IntoIterator for ImportDirective<'ast> {
     type Item = ImportNode<'ast>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         let vec = match self {
-            ImportKind::Single(v) => vec![v],
-            ImportKind::Multiple(v) => v,
+            ImportDirective::Main(v) => vec![v],
+            ImportDirective::From(v) => v,
         };
         vec.into_iter()
     }

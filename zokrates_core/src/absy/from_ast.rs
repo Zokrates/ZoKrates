@@ -19,23 +19,23 @@ impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
         .imports(
             prog.imports
                 .into_iter()
-                .map(absy::ImportKind::from)
+                .map(absy::ImportDirective::from)
                 .flatten(),
         )
     }
 }
 
-impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportKind<'ast> {
-    fn from(import: pest::ImportDirective<'ast>) -> absy::ImportKind<'ast> {
+impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportDirective<'ast> {
+    fn from(import: pest::ImportDirective<'ast>) -> absy::ImportDirective<'ast> {
         use crate::absy::NodeValue;
 
         match import {
-            pest::ImportDirective::Main(import) => absy::ImportKind::Single(
+            pest::ImportDirective::Main(import) => absy::ImportDirective::Main(
                 imports::Import::new(None, std::path::Path::new(import.source.span.as_str()))
                     .alias(import.alias.map(|a| a.span.as_str()))
                     .span(import.span),
             ),
-            pest::ImportDirective::From(import) => absy::ImportKind::Multiple(
+            pest::ImportDirective::From(import) => absy::ImportDirective::From(
                 import
                     .symbols
                     .iter()

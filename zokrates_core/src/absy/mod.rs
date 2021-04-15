@@ -18,7 +18,7 @@ pub use crate::absy::variable::{Variable, VariableNode};
 use crate::embed::FlatEmbed;
 use std::path::{Path, PathBuf};
 
-use crate::imports::ImportKind;
+use crate::imports::ImportDirective;
 use crate::imports::ImportNode;
 use std::fmt;
 
