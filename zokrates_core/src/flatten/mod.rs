@@ -411,6 +411,20 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    fn constant_lt_check(
+        &mut self,
+        statements_flattened: &mut FlatStatements<T>,
+        e: FlatExpression<T>,
+        c: T,
+    ) -> FlatExpression<T> {
+        if c == T::zero() {
+            // this is the case c == 0, we return 0, aka false
+            return T::zero().into();
+        }
+
+        self.constant_le_check(statements_flattened, e, c - T::one())
+    }
+
     /// Compute a range check against a constant
     ///
     /// # Arguments
@@ -420,23 +434,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `c` - the constant upper bound of the range
     ///
     /// # Returns
-    /// * a `FlatExpression` which evaluates to `1` if `0 <= e < c`, and to `0` otherwise
-    fn constant_range_check(
+    /// * a `FlatExpression` which evaluates to `1` if `0 <= e <= c`, and to `0` otherwise
+    fn constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         e: FlatExpression<T>,
         c: T,
     ) -> FlatExpression<T> {
-        // we make use of constant `<=` checks in this function, therefore we rely on the fact that:
-        // `a < c <=> (a <= c - 1 if c !=0, false if c == 0)`
-
-        if c == T::zero() {
-            // this is the case c == 0, we return 0, aka false
-            return T::zero().into();
-        }
-
-        let c = c - T::one();
-
         let bit_width = T::get_required_bits();
         // decompose e to bits
         let e_id = self.define(e, statements_flattened);
@@ -534,10 +538,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 match (lhs_flattened, rhs_flattened) {
                     (x, FlatExpression::Number(constant)) => {
-                        self.constant_range_check(statements_flattened, x, constant)
+                        println!("yo");
+                        self.constant_lt_check(statements_flattened, x, constant)
                     }
                     // (c < x <= p - 1) <=> (0 <= p - 1 - x < p - 1 - c)
-                    (FlatExpression::Number(constant), x) => self.constant_range_check(
+                    (FlatExpression::Number(constant), x) => self.constant_lt_check(
                         statements_flattened,
                         FlatExpression::Sub(box T::max_value().into(), box x),
                         T::max_value() - constant,
