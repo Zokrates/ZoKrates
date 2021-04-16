@@ -1,0 +1,2 @@
+def main(u64 a, u64 b) -> bool:
+    return a == b

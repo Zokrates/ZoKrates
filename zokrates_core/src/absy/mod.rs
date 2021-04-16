@@ -18,6 +18,7 @@ pub use crate::absy::variable::{Variable, VariableNode};
 use crate::embed::FlatEmbed;
 use std::path::{Path, PathBuf};
 
+use crate::imports::ImportDirective;
 use crate::imports::ImportNode;
 use std::fmt;
 
@@ -538,6 +539,7 @@ pub enum Expression<'ast> {
     U8Constant(u8),
     U16Constant(u16),
     U32Constant(u32),
+    U64Constant(u64),
     Identifier(Identifier<'ast>),
     Add(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Sub(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
@@ -545,6 +547,8 @@ pub enum Expression<'ast> {
     Div(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Rem(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Pow(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
+    Neg(Box<ExpressionNode<'ast>>),
+    Pos(Box<ExpressionNode<'ast>>),
     IfElse(
         Box<ExpressionNode<'ast>>,
         Box<ExpressionNode<'ast>>,
@@ -584,6 +588,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::U8Constant(ref i) => write!(f, "{}", i),
             Expression::U16Constant(ref i) => write!(f, "{}", i),
             Expression::U32Constant(ref i) => write!(f, "{}", i),
+            Expression::U64Constant(ref i) => write!(f, "{}", i),
             Expression::IntConstant(ref i) => write!(f, "{}", i),
             Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
@@ -592,6 +597,8 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             Expression::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "({}**{})", lhs, rhs),
+            Expression::Neg(ref e) => write!(f, "(-{})", e),
+            Expression::Pos(ref e) => write!(f, "(+{})", e),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
@@ -667,6 +674,7 @@ impl<'ast> fmt::Debug for Expression<'ast> {
             Expression::U8Constant(ref i) => write!(f, "U8({:x})", i),
             Expression::U16Constant(ref i) => write!(f, "U16({:x})", i),
             Expression::U32Constant(ref i) => write!(f, "U32({:x})", i),
+            Expression::U64Constant(ref i) => write!(f, "U64({:x})", i),
             Expression::FieldConstant(ref i) => write!(f, "Field({:?})", i),
             Expression::IntConstant(ref i) => write!(f, "Int({:?})", i),
             Expression::Identifier(ref var) => write!(f, "Ide({})", var),
@@ -676,6 +684,8 @@ impl<'ast> fmt::Debug for Expression<'ast> {
             Expression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
             Expression::Rem(ref lhs, ref rhs) => write!(f, "Rem({:?}, {:?})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
+            Expression::Neg(ref e) => write!(f, "Neg({:?})", e),
+            Expression::Pos(ref e) => write!(f, "Pos({:?})", e),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,

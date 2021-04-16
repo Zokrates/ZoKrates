@@ -1,0 +1,4 @@
+def main() -> field:
+    field a = 1f
+    field b = 1_f // allow underscore between the literal and the suffix
+    return a + b

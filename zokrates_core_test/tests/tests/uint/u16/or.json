@@ -1,0 +1,36 @@
+{
+    "entry_point": "./tests/tests/uint/u16/or.zok",
+    "max_constraint_count": 51,
+    "tests": [
+        {
+            "input": {
+                "values": ["0xffff", "0xffff"]
+            },
+            "output": {
+                "Ok": {
+                    "values": ["0xffff"]
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0xffff", "0x0000"]
+            },
+            "output": {
+                "Ok": {
+                    "values": ["0xffff"]
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0x1234", "0x5678"]
+            },
+            "output": {
+                "Ok": {
+                    "values": ["0x567c"]
+                }
+            }
+        }
+    ]
+}

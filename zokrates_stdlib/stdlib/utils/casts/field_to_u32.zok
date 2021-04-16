@@ -1,0 +1,6 @@
+import "EMBED/unpack" as unpack
+import "EMBED/u32_from_bits" as from_bits
+
+def main(field i) -> u32:
+    bool[32] bits = unpack(i)
+    return from_bits(bits)

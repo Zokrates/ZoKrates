@@ -5,4 +5,4 @@ import "./foo" as f
 def main() -> field:
     field foo = f()
     assert(foo == bar() + baz())
-	return foo
+    return foo

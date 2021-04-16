@@ -1,0 +1,4 @@
+import "EMBED/u64_from_bits" as from_bits
+
+def main(bool[64] a) -> u64:
+    return from_bits(a)

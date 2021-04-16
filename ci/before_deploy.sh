@@ -28,7 +28,14 @@ main() {
 
     test -f Cargo.lock || cargo generate-lockfile
 
-    cross build --bin zokrates --target $TARGET --release
+    case $TRAVIS_OS_NAME in
+        linux)
+            cross build --bin zokrates --package zokrates_cli --features="libsnark" --target $TARGET --release
+            ;;
+        *)
+            cross build --bin zokrates --package zokrates_cli --target $TARGET --release
+            ;;
+    esac
 
     # Package artifacts
     # Binary

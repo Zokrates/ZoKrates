@@ -29,9 +29,11 @@ pub enum FlatEmbed {
     U8ToBits,
     U16ToBits,
     U32ToBits,
+    U64ToBits,
     U8FromBits,
     U16FromBits,
     U32FromBits,
+    U64FromBits,
 }
 
 impl FlatEmbed {
@@ -65,6 +67,12 @@ impl FlatEmbed {
                     DeclarationType::Boolean,
                     32usize,
                 ))]),
+            FlatEmbed::U64ToBits => DeclarationSignature::new()
+                .inputs(vec![DeclarationType::uint(64)])
+                .outputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    64usize,
+                ))]),
             FlatEmbed::U8FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(8)])
                 .inputs(vec![DeclarationType::array((
@@ -82,6 +90,12 @@ impl FlatEmbed {
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
                     32usize,
+                ))]),
+            FlatEmbed::U64FromBits => DeclarationSignature::new()
+                .outputs(vec![DeclarationType::uint(64)])
+                .inputs(vec![DeclarationType::array((
+                    DeclarationType::Boolean,
+                    64usize,
                 ))]),
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => DeclarationSignature::new()
@@ -120,9 +134,11 @@ impl FlatEmbed {
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
             FlatEmbed::U32ToBits => "_U32_TO_BITS",
+            FlatEmbed::U64ToBits => "_U64_TO_BITS",
             FlatEmbed::U8FromBits => "_U8_FROM_BITS",
             FlatEmbed::U16FromBits => "_U16_FROM_BITS",
             FlatEmbed::U32FromBits => "_U32_FROM_BITS",
+            FlatEmbed::U64FromBits => "_U64_FROM_BITS",
         }
     }
 

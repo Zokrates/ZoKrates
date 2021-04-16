@@ -18,6 +18,8 @@ pub enum UBitwidth {
     B16 = 16,
     #[serde(rename = "32")]
     B32 = 32,
+    #[serde(rename = "64")]
+    B64 = 64,
 }
 
 impl UBitwidth {
@@ -26,6 +28,7 @@ impl UBitwidth {
             UBitwidth::B8 => 8,
             UBitwidth::B16 => 16,
             UBitwidth::B32 => 32,
+            UBitwidth::B64 => 64,
         }
     }
 }
@@ -36,6 +39,7 @@ impl From<usize> for UBitwidth {
             8 => UBitwidth::B8,
             16 => UBitwidth::B16,
             32 => UBitwidth::B32,
+            64 => UBitwidth::B64,
             _ => unreachable!(),
         }
     }

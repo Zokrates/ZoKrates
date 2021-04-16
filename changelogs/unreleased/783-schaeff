@@ -1,1 +1,0 @@
-Change left `<<` and right `>>` shifts to take `u32` as a second parameter

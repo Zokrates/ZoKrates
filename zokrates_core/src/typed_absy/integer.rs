@@ -8,7 +8,7 @@ use crate::typed_absy::{
 use num_bigint::BigUint;
 use std::convert::TryFrom;
 use std::fmt;
-use std::ops::{Add, Div, Mul, Not, Rem, Sub};
+use std::ops::{Add, Div, Mul, Neg, Not, Rem, Sub};
 use zokrates_field::Field;
 
 type TypedExpressionPair<'ast, T> = (TypedExpression<'ast, T>, TypedExpression<'ast, T>);
@@ -134,6 +134,8 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum IntExpression<'ast, T> {
     Value(BigUint),
+    Pos(Box<IntExpression<'ast, T>>),
+    Neg(Box<IntExpression<'ast, T>>),
     Add(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Sub(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Mult(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
@@ -202,6 +204,14 @@ impl<'ast, T> Not for IntExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> Neg for IntExpression<'ast, T> {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        IntExpression::Neg(box self)
+    }
+}
+
 impl<'ast, T> IntExpression<'ast, T> {
     pub fn pow(self, other: Self) -> Self {
         IntExpression::Pow(box self, box other)
@@ -226,12 +236,18 @@ impl<'ast, T> IntExpression<'ast, T> {
     pub fn right_shift(self, by: UExpression<'ast, T>) -> Self {
         IntExpression::RightShift(box self, box by)
     }
+
+    pub fn pos(self) -> Self {
+        IntExpression::Pos(box self)
+    }
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             IntExpression::Value(ref v) => write!(f, "{}", v),
+            IntExpression::Pos(ref e) => write!(f, "(+{})", e),
+            IntExpression::Neg(ref e) => write!(f, "(-{})", e),
             IntExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             IntExpression::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             IntExpression::Pow(ref lhs, ref rhs) => write!(f, "({} ** {})", lhs, rhs),
@@ -297,6 +313,8 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                 box Self::try_from_int(e1)?,
                 box Self::try_from_int(e2)?,
             )),
+            IntExpression::Pos(box e) => Ok(Self::Pos(box Self::try_from_int(e)?)),
+            IntExpression::Neg(box e) => Ok(Self::Neg(box Self::try_from_int(e)?)),
             IntExpression::IfElse(box condition, box consequence, box alternative) => {
                 Ok(Self::IfElse(
                     box condition,
@@ -374,6 +392,8 @@ impl<'ast, T: Field> UExpression<'ast, T> {
             Add(box e1, box e2) => {
                 Ok(Self::try_from_int(e1, bitwidth)? + Self::try_from_int(e2, bitwidth)?)
             }
+            Pos(box e) => Ok(Self::pos(Self::try_from_int(e, bitwidth)?)),
+            Neg(box e) => Ok(Self::neg(Self::try_from_int(e, bitwidth)?)),
             Sub(box e1, box e2) => {
                 Ok(Self::try_from_int(e1, bitwidth)? - Self::try_from_int(e2, bitwidth)?)
             }

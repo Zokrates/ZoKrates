@@ -1,0 +1,36 @@
+{
+    "entry_point": "./tests/tests/uint/u8/rem.zok",
+    "max_constraint_count": 48,
+    "tests": [
+        {
+            "input": {
+                "values": ["0x02", "0x04"]
+            },
+            "output": {
+                "Ok": {
+                    "values": ["0x02"]
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0xff", "0x01"]
+            },
+            "output": {
+                "Ok": {
+                    "values": ["0x00"]
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0x2a", "0x0a"]
+            },
+            "output": {
+                "Ok": {
+                    "values": ["0x02"]
+                }
+            }
+        }
+    ]
+}
