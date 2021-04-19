@@ -6,7 +6,46 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
-pub type GenericIdentifier<'ast> = &'ast str;
+#[derive(Debug, Clone, Eq, Ord)]
+pub struct GenericIdentifier<'ast> {
+    pub name: &'ast str,
+    pub index: usize,
+}
+
+impl<'ast> GenericIdentifier<'ast> {
+    pub fn with_name(name: &'ast str) -> Self {
+        Self { name, index: 0 }
+    }
+
+    pub fn index(mut self, index: usize) -> Self {
+        self.index = index;
+        self
+    }
+}
+
+impl<'ast> PartialEq for GenericIdentifier<'ast> {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index
+    }
+}
+
+impl<'ast> PartialOrd for GenericIdentifier<'ast> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.index.partial_cmp(&other.index)
+    }
+}
+
+impl<'ast> Hash for GenericIdentifier<'ast> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
+    }
+}
+
+impl<'ast> fmt::Display for GenericIdentifier<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
 
 #[derive(Debug)]
 pub struct SpecializationError;
@@ -53,7 +92,9 @@ impl<'ast, T> From<usize> for UExpression<'ast, T> {
 impl<'ast, T> From<Constant<'ast>> for UExpression<'ast, T> {
     fn from(c: Constant<'ast>) -> Self {
         match c {
-            Constant::Generic(i) => UExpressionInner::Identifier(i.into()).annotate(UBitwidth::B32),
+            Constant::Generic(i) => {
+                UExpressionInner::Identifier(i.name.into()).annotate(UBitwidth::B32)
+            }
             Constant::Concrete(v) => UExpressionInner::Value(v as u128).annotate(UBitwidth::B32),
         }
     }
@@ -819,11 +860,39 @@ pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Clone, Serialize, Deserialize, Eq)]
     pub struct GSignature<S> {
         pub generics: Vec<Option<S>>,
         pub inputs: Vec<GType<S>>,
         pub outputs: Vec<GType<S>>,
+    }
+
+    impl<S: PartialEq> PartialEq for GSignature<S> {
+        fn eq(&self, other: &Self) -> bool {
+            self.inputs == other.inputs && self.outputs == other.outputs
+        }
+    }
+
+    impl<S: PartialOrd> PartialOrd for GSignature<S> {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            self.inputs
+                .partial_cmp(&other.inputs)
+                .map(|c| self.outputs.partial_cmp(&other.outputs).map(|d| c.then(d)))
+                .unwrap()
+        }
+    }
+
+    impl<S: Ord> Ord for GSignature<S> {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.partial_cmp(&other).unwrap()
+        }
+    }
+
+    impl<S: Hash> Hash for GSignature<S> {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.inputs.hash(state);
+            self.outputs.hash(state);
+        }
     }
 
     impl<S> Default for GSignature<S> {
@@ -853,17 +922,17 @@ pub mod signature {
 
                 // both the inner type and the size must match
                 check_type(&t0.ty, &t1.ty, constants)
-                    && match t0.size {
+                    && match &t0.size {
                         // if the declared size is an identifier, we insert into the map, or check if the concrete size
                         // matches if this identifier is already in the map
-                        Constant::Generic(id) => match constants.0.entry(id) {
+                        Constant::Generic(id) => match constants.0.entry(id.clone()) {
                             Entry::Occupied(e) => *e.get() == s1,
                             Entry::Vacant(e) => {
                                 e.insert(s1);
                                 true
                             }
                         },
-                        Constant::Concrete(s0) => s1 == s0 as usize,
+                        Constant::Concrete(s0) => s1 == *s0 as usize,
                     }
             }
             (DeclarationType::FieldElement, GType::FieldElement)
@@ -1169,34 +1238,61 @@ pub mod signature {
 
         #[test]
         fn signature_equivalence() {
-            let generic = DeclarationSignature::new()
-                .generics(vec![Some("P".into())])
+            // check equivalence of:
+            // <P>(field[P])
+            // <Q>(field[Q])
+
+            let generic1 = DeclarationSignature::new()
+                .generics(vec![Some(
+                    GenericIdentifier {
+                        name: "P",
+                        index: 0,
+                    }
+                    .into(),
+                )])
                 .inputs(vec![DeclarationType::array(DeclarationArrayType::new(
                     DeclarationType::FieldElement,
-                    "P".into(),
+                    GenericIdentifier {
+                        name: "P",
+                        index: 0,
+                    }
+                    .into(),
                 ))]);
-            let specialized = DeclarationSignature::new().inputs(vec![DeclarationType::array(
-                DeclarationArrayType::new(DeclarationType::FieldElement, 3u32.into()),
-            )]);
+            let generic2 = DeclarationSignature::new()
+                .generics(vec![Some(
+                    GenericIdentifier {
+                        name: "Q",
+                        index: 0,
+                    }
+                    .into(),
+                )])
+                .inputs(vec![DeclarationType::array(DeclarationArrayType::new(
+                    DeclarationType::FieldElement,
+                    GenericIdentifier {
+                        name: "Q",
+                        index: 0,
+                    }
+                    .into(),
+                ))]);
 
-            assert_eq!(generic, specialized);
+            assert_eq!(generic1, generic2);
             assert_eq!(
                 {
                     let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                    generic.hash(&mut hasher);
+                    generic1.hash(&mut hasher);
                     hasher.finish()
                 },
                 {
                     let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                    specialized.hash(&mut hasher);
+                    generic2.hash(&mut hasher);
                     hasher.finish()
                 }
             );
             assert_eq!(
-                generic.partial_cmp(&specialized),
+                generic1.partial_cmp(&generic2),
                 Some(std::cmp::Ordering::Equal)
             );
-            assert_eq!(generic.cmp(&specialized), std::cmp::Ordering::Equal);
+            assert_eq!(generic1.cmp(&generic2), std::cmp::Ordering::Equal);
         }
 
         #[test]

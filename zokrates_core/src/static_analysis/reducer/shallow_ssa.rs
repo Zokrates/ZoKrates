@@ -105,7 +105,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
             .map(|(g, v)| {
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::with_id_and_type(
-                        *g,
+                        g.name,
                         Type::Uint(UBitwidth::B32),
                     )),
                     UExpression::from(*v as u32).into(),
@@ -731,7 +731,9 @@ mod tests {
                     ]),
                 ],
                 signature: DeclarationSignature::new()
-                    .generics(vec![Some("K".into())])
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("K").index(0).into(),
+                    )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
             };
@@ -740,7 +742,11 @@ mod tests {
 
             let ssa = ShallowTransformer::transform(
                 f,
-                &GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
+                &GGenericsAssignment(
+                    vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                        .into_iter()
+                        .collect(),
+                ),
                 &mut versions,
             );
 
@@ -805,7 +811,9 @@ mod tests {
                     .into()]),
                 ],
                 signature: DeclarationSignature::new()
-                    .generics(vec![Some("K".into())])
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("K").index(0).into(),
+                    )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
             };
@@ -912,7 +920,9 @@ mod tests {
                     ]),
                 ],
                 signature: DeclarationSignature::new()
-                    .generics(vec![Some("K".into())])
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("K").index(0).into(),
+                    )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
             };
@@ -921,7 +931,11 @@ mod tests {
 
             let ssa = ShallowTransformer::transform(
                 f,
-                &GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
+                &GGenericsAssignment(
+                    vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                        .into_iter()
+                        .collect(),
+                ),
                 &mut versions,
             );
 
@@ -989,7 +1003,9 @@ mod tests {
                     .into()]),
                 ],
                 signature: DeclarationSignature::new()
-                    .generics(vec![Some("K".into())])
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("K").index(0).into(),
+                    )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
             };
