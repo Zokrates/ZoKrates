@@ -784,7 +784,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast>,
     ) -> Result<TypedFunction<'ast, T>, Vec<ErrorInner>> {
-        // assert!(self.scope.is_empty());
         assert!(self.return_types.is_none());
 
         self.enter_scope();
@@ -911,7 +910,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         self.return_types = None;
-        // assert!(self.scope.is_empty());
 
         Ok(TypedFunction {
             arguments: arguments_checked,
