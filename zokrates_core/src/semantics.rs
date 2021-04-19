@@ -3061,13 +3061,17 @@ mod tests {
                         GenericIdentifier::with_name("K").index(0)
                     ))])
             ));
-            // a `bar` function with a different signature, but which could conflict with the previous one
+            // a `bar` function with an equivalent signature, just renaming generic parameters
             assert!(!unifier.insert_function(
                 "bar",
-                DeclarationSignature::new().inputs(vec![DeclarationType::array((
-                    DeclarationType::FieldElement,
-                    42u32
-                ))])
+                DeclarationSignature::new()
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("L").index(0).into()
+                    )])
+                    .inputs(vec![DeclarationType::array((
+                        DeclarationType::FieldElement,
+                        GenericIdentifier::with_name("L").index(0)
+                    ))])
             ));
             // a `bar` type isn't allowed as the name is already taken by at least one function
             assert!(!unifier.insert_type("bar"));
@@ -3176,7 +3180,7 @@ mod tests {
             // def foo(private field[3] a):
             //   return
             //
-            // should fail as P could be equal to 3
+            // should succeed as P could be different from 3
 
             let mut f0 = function0();
 
@@ -3238,12 +3242,7 @@ mod tests {
             let mut state = State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
             let mut checker: Checker<Bn128Field> = Checker::new();
-            assert_eq!(
-                checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
-                    .inner
-                    .message,
-                "foo conflicts with another symbol"
-            );
+            assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
         }
 
         mod generics {

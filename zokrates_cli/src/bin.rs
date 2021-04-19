@@ -95,11 +95,11 @@ mod tests {
                         continue;
                     }
 
+                    println!("Testing {:?}", path);
+
                     assert!(path.extension().expect("extension expected") == "zok");
 
                     let should_error = path.to_str().unwrap().contains("compile_errors");
-
-                    println!("Testing {:?}", path);
 
                     let file = File::open(path.clone()).unwrap();
 

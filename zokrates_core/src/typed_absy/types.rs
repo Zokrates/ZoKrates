@@ -673,9 +673,19 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
         } else {
             match (self, other) {
                 (Int, FieldElement) | (Int, Uint(..)) => true,
-                (Array(l), Array(r)) => l.ty.can_be_specialized_to(&r.ty),
-                // types do not come into play for Struct equality, only the canonical location. Hence no inference
-                // can change anything
+                (Array(l), Array(r)) => match l.ty.can_be_specialized_to(&r.ty) {
+                    true => {
+                        // check the size if types match
+                        match (&l.size.as_inner(), &r.size) {
+                            // compare the sizes for concrete ones
+                            (UExpressionInner::Value(v), Constant::Concrete(c)) => {
+                                (*v as u32) == *c
+                            }
+                            _ => true,
+                        }
+                    }
+                    _ => false,
+                },
                 (Struct(_), Struct(_)) => false,
                 _ => false,
             }
