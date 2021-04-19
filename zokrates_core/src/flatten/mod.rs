@@ -1263,18 +1263,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     box FlatExpression::Sub(box new_left, box new_right),
                 ))
             }
-            UExpressionInner::LeftShift(box e, box by) => {
-                assert_eq!(by.bitwidth(), UBitwidth::B32);
-
-                let by = match by.into_inner() {
-                    UExpressionInner::Value(n) => n,
-                    by => unimplemented!(
-                        "Variable shifts are unimplemented, found {} << {}",
-                        e,
-                        by.annotate(UBitwidth::B32)
-                    ),
-                };
-
+            UExpressionInner::LeftShift(box e, by) => {
                 let e = self.flatten_uint_expression(statements_flattened, e);
 
                 let e_bits = e.bits.unwrap();
@@ -1292,18 +1281,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .collect::<Vec<_>>(),
                 )
             }
-            UExpressionInner::RightShift(box e, box by) => {
-                assert_eq!(by.bitwidth(), UBitwidth::B32);
-
-                let by = match by.into_inner() {
-                    UExpressionInner::Value(n) => n,
-                    by => unimplemented!(
-                        "Variable shifts are unimplemented, found {} >> {}",
-                        e,
-                        by.annotate(UBitwidth::B32)
-                    ),
-                };
-
+            UExpressionInner::RightShift(box e, by) => {
                 let e = self.flatten_uint_expression(statements_flattened, e);
 
                 let e_bits = e.bits.unwrap();
