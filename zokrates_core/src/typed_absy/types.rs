@@ -993,6 +993,8 @@ pub mod signature {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = ConcreteGenericsAssignment::default();
 
+            assert_eq!(self.inputs.len(), signature.inputs.len());
+            assert_eq!(self.outputs.len(), signature.outputs.len());
             assert_eq!(self.generics.len(), values.len());
 
             let decl_generics = self.generics.iter().map(|g| match g.clone().unwrap() {
