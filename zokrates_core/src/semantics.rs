@@ -142,18 +142,15 @@ struct FunctionQuery<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for FunctionQuery<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.generics_count {
-            Some(count) => {
-                write!(
-                    f,
-                    "<{}>",
-                    (0..count)
-                        .map(|_| String::from("_"))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )?;
-            }
-            None => {}
+        if let Some(count) = self.generics_count {
+            write!(
+                f,
+                "<{}>",
+                (0..count)
+                    .map(|_| String::from("_"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?
         }
 
         write!(f, "(")?;
