@@ -20,7 +20,8 @@ use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
 use crate::typed_absy::types::{
     ArrayType, Constant, DeclarationArrayType, DeclarationFunctionKey, DeclarationSignature,
-    DeclarationStructMember, DeclarationStructType, DeclarationType, StructLocation,
+    DeclarationStructMember, DeclarationStructType, DeclarationType, GenericIdentifier,
+    StructLocation,
 };
 use std::hash::{Hash, Hasher};
 
@@ -341,7 +342,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         for field in s.fields {
             let member_id = field.value.id.to_string();
             match self
-                .check_declaration_type(field.value.ty, module_id, &types, &HashSet::new())
+                .check_declaration_type(field.value.ty, module_id, &types, &HashMap::new())
                 .map(|t| (member_id, t))
             {
                 Ok(f) => match fields_set.insert(f.0.clone()) {
@@ -712,7 +713,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let v = Variable::with_id_and_type(
                         match generic {
-                            Constant::Generic(g) => g,
+                            Constant::Generic(g) => g.name,
                             _ => unreachable!(),
                         },
                         Type::Uint(UBitwidth::B32),
@@ -834,12 +835,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let mut outputs = vec![];
         let mut generics = vec![];
 
-        let mut constants = HashSet::new();
+        let mut generics_map = HashMap::new();
 
-        for g in signature.generics {
-            match constants.insert(g.value) {
+        for (index, g) in signature.generics.iter().enumerate() {
+            match generics_map.insert(g.value, index).is_none() {
                 true => {
-                    generics.push(Some(Constant::Generic(g.value)));
+                    generics.push(Some(Constant::Generic(GenericIdentifier {
+                        name: g.value,
+                        index,
+                    })));
                 }
                 false => {
                     errors.push(ErrorInner {
@@ -851,7 +855,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.inputs {
-            match self.check_declaration_type(t, module_id, types, &constants) {
+            match self.check_declaration_type(t, module_id, types, &generics_map) {
                 Ok(t) => {
                     inputs.push(t);
                 }
@@ -862,7 +866,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.outputs {
-            match self.check_declaration_type(t, module_id, types, &constants) {
+            match self.check_declaration_type(t, module_id, types, &generics_map) {
                 Ok(t) => {
                     outputs.push(t);
                 }
@@ -952,6 +956,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn check_generic_expression(
         &mut self,
         expr: ExpressionNode<'ast>,
+        generics_map: &HashMap<Identifier<'ast>, usize>,
     ) -> Result<Constant<'ast>, ErrorInner> {
         let pos = expr.pos();
 
@@ -972,7 +977,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     })
                 }
             }
-            Expression::Identifier(name) => Ok(Constant::Generic(name)),
+            Expression::Identifier(name) => {
+                // check that this generic parameter is defined
+                match generics_map.get(&name) {
+                    Some(index) => Ok(Constant::Generic(GenericIdentifier {name, index: *index})),
+                    None => Err(ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!("Undeclared generic parameter in function definition: `{}` isn\'t declared as a generic constant", name)
+                                })
+                }
+            }
             e => Err(ErrorInner {
                 pos: Some(pos),
                 message: format!(
@@ -988,7 +1002,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         ty: UnresolvedTypeNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap<'ast>,
-        constants: &HashSet<Identifier<'ast>>,
+        generics_map: &HashMap<Identifier<'ast>, usize>,
     ) -> Result<DeclarationType<'ast>, ErrorInner> {
         let pos = ty.pos();
         let ty = ty.value;
@@ -998,19 +1012,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
             UnresolvedType::Boolean => Ok(DeclarationType::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(DeclarationType::uint(bitwidth)),
             UnresolvedType::Array(t, size) => {
-                let checked_size = self.check_generic_expression(size.clone())?;
-
-                if let Constant::Generic(g) = checked_size {
-                    if !constants.contains(g) {
-                        return Err(ErrorInner {
-                            pos: Some(pos),
-                            message: format!("Undeclared generic parameter in function definition: `{}` isn\'t declared as a generic constant", g)
-                        });
-                    }
-                };
+                let checked_size = self.check_generic_expression(size.clone(), &generics_map)?;
 
                 Ok(DeclarationType::Array(DeclarationArrayType::new(
-                    self.check_declaration_type(*t, module_id, types, constants)?,
+                    self.check_declaration_type(*t, module_id, types, generics_map)?,
                     checked_size,
                 )))
             }
@@ -3039,26 +3044,34 @@ mod tests {
             assert!(!unifier.insert_function(
                 "bar",
                 DeclarationSignature::new()
-                    .generics(vec![Some("K".into())])
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("K").index(0).into()
+                    )])
                     .inputs(vec![DeclarationType::FieldElement])
             ));
             // a `bar` function with a different signature
             assert!(unifier.insert_function(
                 "bar",
                 DeclarationSignature::new()
-                    .generics(vec![Some("K".into())])
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("K").index(0).into()
+                    )])
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::FieldElement,
-                        "K"
+                        GenericIdentifier::with_name("K").index(0)
                     ))])
             ));
-            // a `bar` function with a different signature, but which could conflict with the previous one
+            // a `bar` function with an equivalent signature, just renaming generic parameters
             assert!(!unifier.insert_function(
                 "bar",
-                DeclarationSignature::new().inputs(vec![DeclarationType::array((
-                    DeclarationType::FieldElement,
-                    42u32
-                ))])
+                DeclarationSignature::new()
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("L").index(0).into()
+                    )])
+                    .inputs(vec![DeclarationType::array((
+                        DeclarationType::FieldElement,
+                        GenericIdentifier::with_name("L").index(0)
+                    ))])
             ));
             // a `bar` type isn't allowed as the name is already taken by at least one function
             assert!(!unifier.insert_type("bar"));
@@ -3167,7 +3180,7 @@ mod tests {
             // def foo(private field[3] a):
             //   return
             //
-            // should fail as P could be equal to 3
+            // should succeed as P could be different from 3
 
             let mut f0 = function0();
 
@@ -3229,12 +3242,7 @@ mod tests {
             let mut state = State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
             let mut checker: Checker<Bn128Field> = Checker::new();
-            assert_eq!(
-                checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
-                    .inner
-                    .message,
-                "foo conflicts with another symbol"
-            );
+            assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
         }
 
         mod generics {
@@ -3626,12 +3634,18 @@ mod tests {
                 ),
                 Ok(DeclarationSignature::new()
                     .inputs(vec![DeclarationType::array((
-                        DeclarationType::array((DeclarationType::FieldElement, "K")),
-                        "L"
+                        DeclarationType::array((
+                            DeclarationType::FieldElement,
+                            GenericIdentifier::with_name("K").index(0)
+                        )),
+                        GenericIdentifier::with_name("L").index(1)
                     ))])
                     .outputs(vec![DeclarationType::array((
-                        DeclarationType::array((DeclarationType::FieldElement, "L")),
-                        "K"
+                        DeclarationType::array((
+                            DeclarationType::FieldElement,
+                            GenericIdentifier::with_name("L").index(1)
+                        )),
+                        GenericIdentifier::with_name("K").index(0)
                     ))]))
             );
         }
