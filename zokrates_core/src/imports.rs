@@ -56,6 +56,25 @@ impl From<io::Error> for Error {
     }
 }
 
+#[derive(PartialEq, Clone)]
+pub enum ImportDirective<'ast> {
+    Main(ImportNode<'ast>),
+    From(Vec<ImportNode<'ast>>),
+}
+
+impl<'ast> IntoIterator for ImportDirective<'ast> {
+    type Item = ImportNode<'ast>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let vec = match self {
+            ImportDirective::Main(v) => vec![v],
+            ImportDirective::From(v) => v,
+        };
+        vec.into_iter()
+    }
+}
+
 type ImportPath<'ast> = &'ast Path;
 
 #[derive(PartialEq, Clone)]
@@ -179,6 +198,17 @@ impl Importer {
                             .start_end(pos.0, pos.1),
                         );
                     }
+                    "EMBED/u64_to_bits" => {
+                        let alias = alias.unwrap_or("u64_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U64ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
                     "EMBED/u32_to_bits" => {
                         let alias = alias.unwrap_or("u32_to_bits");
 
@@ -208,6 +238,17 @@ impl Importer {
                             SymbolDeclaration {
                                 id: &alias,
                                 symbol: Symbol::Flat(FlatEmbed::U8ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u64_from_bits" => {
+                        let alias = alias.unwrap_or("u64_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U64FromBits),
                             }
                             .start_end(pos.0, pos.1),
                         );

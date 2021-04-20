@@ -10,6 +10,7 @@ mod flatten_complex_types;
 mod propagation;
 mod redefinition;
 mod reducer;
+mod shift_checker;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod variable_read_remover;
@@ -20,6 +21,7 @@ use self::flatten_complex_types::Flattener;
 use self::propagation::Propagator;
 use self::redefinition::RedefinitionOptimizer;
 use self::reducer::reduce_program;
+use self::shift_checker::ShiftChecker;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_read_remover::VariableReadRemover;
@@ -85,6 +87,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = VariableReadRemover::apply(r);
         // check array accesses are in bounds
         let r = BoundsChecker::check(r).map_err(Error::from)?;
+        // detect non constant shifts
+        let r = ShiftChecker::check(r).map_err(Error::from)?;
         // convert to zir, removing complex types
         let zir = Flattener::flatten(r);
         // optimize uint expressions

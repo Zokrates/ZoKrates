@@ -2,7 +2,7 @@
   "name": "zokrates-js",
   "main": "index.js",
   "author": "Darko Macesic <darem966@gmail.com>",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "keywords": [
     "zokrates",
     "wasm-bindgen",

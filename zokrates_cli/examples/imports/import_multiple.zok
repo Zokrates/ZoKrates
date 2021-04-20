@@ -1,0 +1,5 @@
+from "./bar" import Bar, main as f
+
+def main() -> field:
+    Bar bar = Bar {}
+    return f()

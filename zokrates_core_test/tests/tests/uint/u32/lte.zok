@@ -1,0 +1,2 @@
+def main(u32 a, u32 b) -> bool:
+    return a <= b

@@ -117,7 +117,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
         let range = e.bitwidth.to_usize();
 
-        let range_max: T = (2_usize.pow(range as u32) - 1).into();
+        let range_max: T = (2_u128.pow(range as u32) - 1).into();
 
         assert!(range < max_bitwidth / 2);
 
@@ -314,20 +314,11 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .annotate(range)
                     .with_max(range_max)
             }
-            LeftShift(box e, box by) => {
+            LeftShift(box e, by) => {
                 // reduce both terms
                 let e = self.fold_uint_expression(e);
-                let by = self.fold_uint_expression(by);
 
-                let by_max: usize = by
-                    .metadata
-                    .clone()
-                    .unwrap()
-                    .max
-                    .to_dec_string()
-                    .parse()
-                    .unwrap();
-                let e_max: usize = e
+                let e_max: u128 = e
                     .metadata
                     .clone()
                     .unwrap()
@@ -336,22 +327,15 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .parse()
                     .unwrap();
 
-                let max = T::from((e_max << by_max) & (2_usize.pow(range as u32) - 1));
+                let max = T::from((e_max << by) & (2_u128.pow(range as u32) - 1));
 
-                UExpression::left_shift(force_reduce(e), force_reduce(by)).with_max(max)
+                UExpression::left_shift(force_reduce(e), by).with_max(max)
             }
-            RightShift(box e, box by) => {
+            RightShift(box e, by) => {
                 // reduce both terms
                 let e = self.fold_uint_expression(e);
-                let by = self.fold_uint_expression(by);
 
-                // if we don't know the amount by which we shift, the most conservative case (which leads to the biggest value) is 0
-                let by_u = match by.as_inner() {
-                    UExpressionInner::Value(by) => *by,
-                    _ => 0,
-                };
-
-                let e_max: usize = e
+                let e_max: u128 = e
                     .metadata
                     .clone()
                     .unwrap()
@@ -360,11 +344,11 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .parse()
                     .unwrap();
 
-                let max = (e_max & (2_usize.pow(range as u32) - 1)) >> by_u;
+                let max = (e_max & (2_u128.pow(range as u32) - 1)) >> by;
 
                 let max = T::from(max);
 
-                UExpression::right_shift(force_reduce(e), force_reduce(by)).with_max(max)
+                UExpression::right_shift(force_reduce(e), by).with_max(max)
             }
             IfElse(box condition, box consequence, box alternative) => {
                 let condition = self.fold_boolean_expression(condition);
@@ -423,6 +407,21 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
             )],
             ZirStatement::MultipleDefinition(lhs, rhs) => match rhs {
                 ZirExpressionList::EmbedCall(embed, generics, arguments) => match embed {
+                    FlatEmbed::U64FromBits => {
+                        assert_eq!(lhs.len(), 1);
+                        self.register(
+                            lhs[0].clone(),
+                            UMetadata {
+                                max: T::from(2).pow(64) - T::from(1),
+                                should_reduce: ShouldReduce::False,
+                            },
+                        );
+
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::EmbedCall(embed, generics, arguments),
+                        )]
+                    }
                     FlatEmbed::U32FromBits => {
                         assert_eq!(lhs.len(), 1);
                         self.register(
@@ -679,30 +678,14 @@ mod tests {
 
     #[test]
     fn right_shift() {
-        // left argument in range, we reduce (no effect) and the max is the original max, as we could be shifting by 0
-        uint_test!(0xff_u32, true, 2, true, right_shift, 0xff_u32);
-        uint_test!(2, true, 2, true, right_shift, 2_u32);
-
-        // left argument out of range, we reduce and the max is the type max, shifted
-        uint_test!(
-            0xffffffffffff_u128,
-            true,
-            2,
-            true,
-            right_shift,
-            0xffffffff_u32
-        );
-
         fn right_shift_test(e_max: u128, by: u32, output_max: u32) {
             let left = e_with_max(e_max);
 
-            let right = UExpressionInner::Value(by as u128)
-                .annotate(crate::zir::types::UBitwidth::B32)
-                .with_max(by);
+            let right = by;
 
             let left_expected = force_reduce(left.clone());
 
-            let right_expected = force_reduce(right.clone());
+            let right_expected = right;
 
             assert_eq!(
                 UintOptimizer::new()
@@ -718,25 +701,25 @@ mod tests {
 
     #[test]
     fn left_shift() {
-        uint_test!(0xff_u32, true, 2, true, left_shift, 0xff_u32 << 2);
-        uint_test!(
-            0xffffffff_u32,
-            true,
-            2,
-            true,
-            left_shift,
-            0xffffffff_u32 << 2
-        );
+        fn left_shift_test(e_max: u128, by: u32, output_max: u32) {
+            let left = e_with_max(e_max);
 
-        // left argument out of range, we reduce and the max is the type max, shifted
-        uint_test!(
-            0xffffffffffff_u128,
-            true,
-            2,
-            true,
-            left_shift,
-            0xffffffff_u32 << 2
-        )
+            let right = by;
+
+            let left_expected = force_reduce(left.clone());
+
+            let right_expected = right;
+
+            assert_eq!(
+                UintOptimizer::new()
+                    .fold_uint_expression(UExpression::left_shift(left.clone(), right.clone())),
+                UExpression::left_shift(left_expected, right_expected).with_max(output_max)
+            );
+        }
+
+        left_shift_test(0xff_u128, 2, 0xff << 2);
+        left_shift_test(2, 2, 2 << 2);
+        left_shift_test(0xffffffffffff_u128, 2, 0xffffffff << 2);
     }
 
     #[test]

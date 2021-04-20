@@ -1,0 +1,26 @@
+{
+  "entry_point": "./tests/tests/uint/u64/gt.zok",
+  "max_constraint_count": 793,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x0000000000000004", "0x0000000000000002"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["1"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x0000000000000002", "0x0000000000000002"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0"]
+        }
+      }
+    }
+  ]
+}

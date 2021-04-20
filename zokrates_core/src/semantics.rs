@@ -134,6 +134,7 @@ impl fmt::Display for ErrorInner {
 #[derive(Debug)]
 struct FunctionQuery<'ast, T> {
     id: Identifier<'ast>,
+    generics_count: Option<usize>,
     inputs: Vec<Type<'ast, T>>,
     /// Output types are optional as we try to infer them
     outputs: Vec<Option<Type<'ast, T>>>,
@@ -141,6 +142,17 @@ struct FunctionQuery<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for FunctionQuery<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(count) = self.generics_count {
+            write!(
+                f,
+                "<{}>",
+                (0..count)
+                    .map(|_| String::from("_"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?
+        }
+
         write!(f, "(")?;
         for (i, t) in self.inputs.iter().enumerate() {
             write!(f, "{}", t)?;
@@ -181,11 +193,13 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
     /// Create a new query.
     fn new(
         id: Identifier<'ast>,
+        generics: &Option<Vec<Option<UExpression<'ast, T>>>>,
         inputs: &[Type<'ast, T>],
         outputs: &[Option<Type<'ast, T>>],
     ) -> Self {
         FunctionQuery {
             id,
+            generics_count: generics.as_ref().map(|g| g.len()),
             inputs: inputs.to_owned(),
             outputs: outputs.to_owned(),
         }
@@ -194,6 +208,8 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
     /// match a `FunctionKey` against this `FunctionQuery`
     fn match_func(&self, func: &DeclarationFunctionKey<'ast>) -> bool {
         self.id == func.id
+            && self.generics_count.map(|count| count == func.signature.generics.len()).unwrap_or(true) // we do not look at the values here, this will be checked when inlining anyway
+            && self.inputs.len() == func.signature.inputs.len()
             && self
                 .inputs
                 .iter()
@@ -1340,7 +1356,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let arguments_types: Vec<_> =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
-                        let query = FunctionQuery::new(&fun_id, &arguments_types, &assignee_types);
+                        let query = FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &assignee_types);
 
                         let functions = self.find_functions(&query);
 
@@ -1733,6 +1749,44 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }
             }
+            Expression::Neg(box e) => {
+                let e = self.check_expression(e, module_id, &types)?;
+
+                match e {
+                    TypedExpression::Int(e) => Ok(IntExpression::Neg(box e).into()),
+                    TypedExpression::FieldElement(e) => {
+                        Ok(FieldElementExpression::Neg(box e).into())
+                    }
+                    TypedExpression::Uint(e) => Ok((-e).into()),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Unary operator `-` cannot be applied to {} of type {}",
+                            e,
+                            e.get_type()
+                        ),
+                    }),
+                }
+            }
+            Expression::Pos(box e) => {
+                let e = self.check_expression(e, module_id, &types)?;
+
+                match e {
+                    TypedExpression::Int(e) => Ok(IntExpression::Pos(box e).into()),
+                    TypedExpression::FieldElement(e) => {
+                        Ok(FieldElementExpression::Pos(box e).into())
+                    }
+                    TypedExpression::Uint(e) => Ok(UExpression::pos(e).into()),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Unary operator `+` cannot be applied to {} of type {}",
+                            e,
+                            e.get_type()
+                        ),
+                    }),
+                }
+            }
             Expression::IfElse(box condition, box consequence, box alternative) => {
                 let condition_checked = self.check_expression(condition, module_id, &types)?;
                 let consequence_checked = self.check_expression(consequence, module_id, &types)?;
@@ -1802,6 +1856,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
+            Expression::U64Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(64).into()),
             Expression::FunctionCall(fun_id, generics, arguments) => {
                 // check the generic arguments, if any
                 let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
@@ -1844,7 +1899,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 // outside of multidef, function calls must have a single return value
                 // we use type inference to determine the type of the return, so we don't specify it
-                let query = FunctionQuery::new(&fun_id, &arguments_types, &[None]);
+                let query =
+                    FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &[None]);
 
                 let functions = self.find_functions(&query);
 

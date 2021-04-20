@@ -562,6 +562,15 @@ pub fn fold_field_expression<'ast, T: Field>(
             let e2 = f.fold_uint_expression(e2);
             zir::FieldElementExpression::Pow(box e1, box e2)
         }
+        typed_absy::FieldElementExpression::Neg(box e) => {
+            let e = f.fold_field_expression(e);
+
+            zir::FieldElementExpression::Sub(
+                box zir::FieldElementExpression::Number(T::zero()),
+                box e,
+            )
+        }
+        typed_absy::FieldElementExpression::Pos(box e) => f.fold_field_expression(e),
         typed_absy::FieldElementExpression::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);
             let cons = f.fold_field_expression(cons);
@@ -846,20 +855,40 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
         }
         typed_absy::UExpressionInner::LeftShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_uint_expression(by);
 
-            zir::UExpressionInner::LeftShift(box e, box by)
+            let by = match by.as_inner() {
+                typed_absy::UExpressionInner::Value(by) => by,
+                _ => unreachable!("static analysis should have made sure that this is constant"),
+            };
+
+            zir::UExpressionInner::LeftShift(box e, *by as u32)
         }
         typed_absy::UExpressionInner::RightShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_uint_expression(by);
 
-            zir::UExpressionInner::RightShift(box e, box by)
+            let by = match by.as_inner() {
+                typed_absy::UExpressionInner::Value(by) => by,
+                _ => unreachable!("static analysis should have made sure that this is constant"),
+            };
+
+            zir::UExpressionInner::RightShift(box e, *by as u32)
         }
         typed_absy::UExpressionInner::Not(box e) => {
             let e = f.fold_uint_expression(e);
 
             zir::UExpressionInner::Not(box e)
+        }
+        typed_absy::UExpressionInner::Neg(box e) => {
+            let bitwidth = e.bitwidth();
+
+            f.fold_uint_expression(typed_absy::UExpressionInner::Value(0).annotate(bitwidth) - e)
+                .into_inner()
+        }
+
+        typed_absy::UExpressionInner::Pos(box e) => {
+            let e = f.fold_uint_expression(e);
+
+            e.into_inner()
         }
         typed_absy::UExpressionInner::FunctionCall(..) => {
             unreachable!("function calls should have been removed")

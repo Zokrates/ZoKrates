@@ -1,0 +1,5 @@
+import "hashes/poseidon/poseidon" as poseidon
+
+def main(field i) -> field:
+    field output = poseidon([i])
+    return output

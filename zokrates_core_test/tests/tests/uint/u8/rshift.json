@@ -1,0 +1,26 @@
+{
+  "entry_point": "./tests/tests/uint/u8/rshift.zok",
+  "max_constraint_count": 10,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x02"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0x01"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0xff"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0x7f"]
+        }
+      }
+    }
+  ]
+}
