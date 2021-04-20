@@ -2507,7 +2507,7 @@ mod tests {
                 ZirStatement::Assertion(BooleanExpression::FieldEq(
                     box FieldElementExpression::Add(
                         box FieldElementExpression::Identifier("x".into()),
-                        box FieldElementExpression::Number(Bn128Field::from(1)).into(),
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
                     ),
                     box FieldElementExpression::Identifier("y".into()),
                 )),

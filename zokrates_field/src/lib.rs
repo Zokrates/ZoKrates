@@ -132,14 +132,12 @@ pub trait Field:
         let field_bits_be = bytes_to_bits(&field_bytes_be);
 
         let field_bits_be: Vec<_> = (0..Self::get_required_bits()
-            .checked_sub(field_bits_be.len())
-            .unwrap_or(0))
+            .saturating_sub(field_bits_be.len()))
             .map(|_| &false)
             .chain(
                 &field_bits_be[field_bits_be
                     .len()
-                    .checked_sub(Self::get_required_bits())
-                    .unwrap_or(0)..],
+                    .saturating_sub(Self::get_required_bits())..],
             )
             .cloned()
             .collect();
