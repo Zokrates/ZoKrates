@@ -855,15 +855,23 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
         }
         typed_absy::UExpressionInner::LeftShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_uint_expression(by);
 
-            zir::UExpressionInner::LeftShift(box e, box by)
+            let by = match by.as_inner() {
+                typed_absy::UExpressionInner::Value(by) => by,
+                _ => unreachable!("static analysis should have made sure that this is constant"),
+            };
+
+            zir::UExpressionInner::LeftShift(box e, *by as u32)
         }
         typed_absy::UExpressionInner::RightShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
-            let by = f.fold_uint_expression(by);
 
-            zir::UExpressionInner::RightShift(box e, box by)
+            let by = match by.as_inner() {
+                typed_absy::UExpressionInner::Value(by) => by,
+                _ => unreachable!("static analysis should have made sure that this is constant"),
+            };
+
+            zir::UExpressionInner::RightShift(box e, *by as u32)
         }
         typed_absy::UExpressionInner::Not(box e) => {
             let e = f.fold_uint_expression(e);

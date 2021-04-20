@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/uint/if_else.zok",
-	"max_constraint_count": 28,
+	"max_constraint_count": 31,
 	"tests": [
 		{
 			"input": {
