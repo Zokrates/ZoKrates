@@ -31,10 +31,10 @@ def le(u32 a, u32 c) -> bool:
 
     return le(a_bits, c_bits)
 
-def main(field a, field c) -> bool:
+def main(field a) -> bool:
 
     u32 N = 254
-    //field c = 42
+    field c = 42
 
     //u32 d = 42
 

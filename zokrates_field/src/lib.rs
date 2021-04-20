@@ -125,7 +125,7 @@ pub trait Field:
                 .collect()
         }
 
-        let field_bytes_le = Self::to_byte_vector(&Self::max_value());
+        let field_bytes_le = self.to_byte_vector();
 
         // reverse for big-endianess
         let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();

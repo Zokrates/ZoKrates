@@ -204,7 +204,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     // # Returns
     //
     // * a vector of FlatExpression which all evaluate to 1 if a <= b and 0 otherwise
-    fn strict_le_check(
+    fn constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         a: &[FlatVariable],
@@ -216,6 +216,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let mut is_not_smaller_run = vec![];
         let mut size_unknown = vec![];
+
+        println!("B {:?}", b);
 
         for _ in 0..len {
             is_not_smaller_run.push(self.use_sym());
@@ -326,14 +328,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         res
     }
 
-    fn enforce_strict_le_check(
+    fn enforce_constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         a: &[FlatVariable],
         b: &[bool],
     ) {
         let statements: Vec<_> = self
-            .strict_le_check(statements_flattened, a, b)
+            .constant_le_check(statements_flattened, a, b)
             .into_iter()
             .map(|c| FlatStatement::Condition(FlatExpression::Number(T::from(1)), c))
             .collect();
@@ -422,7 +424,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             return T::zero().into();
         }
 
-        self.constant_le_check(statements_flattened, e, c - T::one())
+        self.constant_field_le_check(statements_flattened, e, c - T::one())
     }
 
     /// Compute a range check against a constant
@@ -435,7 +437,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Returns
     /// * a `FlatExpression` which evaluates to `1` if `0 <= e <= c`, and to `0` otherwise
-    fn constant_le_check(
+    fn constant_field_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         e: FlatExpression<T>,
@@ -485,13 +487,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         ));
 
         // check that this decomposition does not overflow the field
-        self.enforce_strict_le_check(
+        self.enforce_constant_le_check(
             statements_flattened,
             &e_bits_be,
             &T::max_value().bit_vector_be(),
         );
 
-        let conditions = self.strict_le_check(statements_flattened, &e_bits_be, &c.bit_vector_be());
+        println!("YOOOOOO");
+        let conditions =
+            self.constant_le_check(statements_flattened, &e_bits_be, &c.bit_vector_be());
 
         // return `len(conditions) == sum(conditions)`
         self.eq_check(
@@ -521,6 +525,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         expression: BooleanExpression<'ast, T>,
     ) -> FlatExpression<T> {
+        println!("{}", expression);
+
         // those will be booleans in the future
         match expression {
             BooleanExpression::Identifier(x) => {
@@ -538,7 +544,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 match (lhs_flattened, rhs_flattened) {
                     (x, FlatExpression::Number(constant)) => {
-                        println!("yo");
+                        println!("yo {} < {}", x, constant);
                         self.constant_lt_check(statements_flattened, x, constant)
                     }
                     // (c < x <= p - 1) <=> (0 <= p - 1 - x < p - 1 - c)
@@ -687,7 +693,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         }
 
                         // check that the decomposition is in the field with a strict `< p` checks
-                        self.enforce_strict_le_check(
+                        self.enforce_constant_le_check(
                             statements_flattened,
                             &sub_bits_be,
                             &T::max_value().bit_vector_be(),
@@ -840,7 +846,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
 
                 // check that the decomposition is in the field with a strict `< p` checks
-                self.strict_le_check(
+                self.constant_le_check(
                     statements_flattened,
                     &sub_bits_be,
                     &T::max_value().bit_vector_be(),
