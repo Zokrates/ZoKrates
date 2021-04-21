@@ -39,14 +39,13 @@ impl<'ast, T: Field> ConstantInliner<'ast, T> {
             .get(&self.location)
             .unwrap()
             .constants
-            .as_ref()
-            .and_then(|c| c.get(id.clone().try_into().unwrap()))
+            .get(id.clone().try_into().unwrap())
             .cloned()
             .and_then(|tc| {
                 let symbol = self.fold_constant_symbol(tc);
                 match symbol {
                     TypedConstantSymbol::Here(tc) => Some(tc),
-                    _ => None,
+                    _ => unreachable!(),
                 }
             })
     }
@@ -67,6 +66,21 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         }
     }
 
+    fn fold_module(&mut self, p: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
+        TypedModule {
+            constants: p
+                .constants
+                .into_iter()
+                .map(|(key, tc)| (key, self.fold_constant_symbol(tc)))
+                .collect(),
+            functions: p
+                .functions
+                .into_iter()
+                .map(|(key, fun)| (key, self.fold_function_symbol(fun)))
+                .collect(),
+        }
+    }
+
     fn fold_constant_symbol(
         &mut self,
         p: TypedConstantSymbol<'ast, T>,
@@ -74,13 +88,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         match p {
             TypedConstantSymbol::There(module_id, id) => {
                 let location = self.change_location(module_id);
-                let symbol = self
-                    .module()
-                    .constants
-                    .as_ref()
-                    .and_then(|c| c.get(id))
-                    .unwrap()
-                    .to_owned();
+                let symbol = self.module().constants.get(id).cloned().unwrap();
 
                 let symbol = self.fold_constant_symbol(symbol);
                 let _ = self.change_location(location);
@@ -196,7 +204,6 @@ mod tests {
         let constants: TypedConstantSymbols<_> = vec![(
             const_id,
             TypedConstantSymbol::Here(TypedConstant {
-                id: Identifier::from(const_id),
                 ty: GType::FieldElement,
                 expression: (TypedExpression::FieldElement(FieldElementExpression::Number(
                     Bn128Field::from(1),
@@ -221,7 +228,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(constants.clone()),
+                    constants: constants.clone(),
                 },
             )]
             .into_iter()
@@ -255,7 +262,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(constants),
+                    constants,
                 },
             )]
             .into_iter()
@@ -287,7 +294,6 @@ mod tests {
         let constants: TypedConstantSymbols<_> = vec![(
             const_id,
             TypedConstantSymbol::Here(TypedConstant {
-                id: Identifier::from(const_id),
                 ty: GType::Boolean,
                 expression: (TypedExpression::Boolean(BooleanExpression::Value(true))),
             }),
@@ -310,7 +316,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(constants.clone()),
+                    constants: constants.clone(),
                 },
             )]
             .into_iter()
@@ -344,7 +350,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(constants),
+                    constants,
                 },
             )]
             .into_iter()
@@ -377,7 +383,6 @@ mod tests {
         let constants: TypedConstantSymbols<_> = vec![(
             const_id,
             TypedConstantSymbol::Here(TypedConstant {
-                id: Identifier::from(const_id),
                 ty: GType::Uint(UBitwidth::B32),
                 expression: (UExpressionInner::Value(1u128)
                     .annotate(UBitwidth::B32)
@@ -402,7 +407,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(constants.clone()),
+                    constants: constants.clone(),
                 },
             )]
             .into_iter()
@@ -436,7 +441,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(constants),
+                    constants,
                 },
             )]
             .into_iter()
@@ -479,7 +484,6 @@ mod tests {
         let constants: TypedConstantSymbols<_> = vec![(
             const_id,
             TypedConstantSymbol::Here(TypedConstant {
-                id: Identifier::from(const_id),
                 ty: GType::FieldElement,
                 expression: TypedExpression::Array(
                     ArrayExpressionInner::Value(
@@ -511,7 +515,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(constants.clone()),
+                    constants: constants.clone(),
                 },
             )]
             .into_iter()
@@ -569,7 +573,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(constants),
+                    constants,
                 },
             )]
             .into_iter()
@@ -615,37 +619,33 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(
-                        vec![
-                            (
-                                const_a_id,
-                                TypedConstantSymbol::Here(TypedConstant {
-                                    id: Identifier::from(const_a_id),
-                                    ty: GType::FieldElement,
-                                    expression: (TypedExpression::FieldElement(
-                                        FieldElementExpression::Number(Bn128Field::from(1)),
-                                    )),
-                                }),
-                            ),
-                            (
-                                const_b_id,
-                                TypedConstantSymbol::Here(TypedConstant {
-                                    id: Identifier::from(const_b_id),
-                                    ty: GType::FieldElement,
-                                    expression: (TypedExpression::FieldElement(
-                                        FieldElementExpression::Add(
-                                            box FieldElementExpression::Identifier(
-                                                Identifier::from(const_a_id),
-                                            ),
-                                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                                        ),
-                                    )),
-                                }),
-                            ),
-                        ]
-                        .into_iter()
-                        .collect(),
-                    ),
+                    constants: vec![
+                        (
+                            const_a_id,
+                            TypedConstantSymbol::Here(TypedConstant {
+                                ty: GType::FieldElement,
+                                expression: (TypedExpression::FieldElement(
+                                    FieldElementExpression::Number(Bn128Field::from(1)),
+                                )),
+                            }),
+                        ),
+                        (
+                            const_b_id,
+                            TypedConstantSymbol::Here(TypedConstant {
+                                ty: GType::FieldElement,
+                                expression: (TypedExpression::FieldElement(
+                                    FieldElementExpression::Add(
+                                        box FieldElementExpression::Identifier(Identifier::from(
+                                            const_a_id,
+                                        )),
+                                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                                    ),
+                                )),
+                            }),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
             )]
             .into_iter()
@@ -681,35 +681,31 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: Some(
-                        vec![
-                            (
-                                const_a_id,
-                                TypedConstantSymbol::Here(TypedConstant {
-                                    id: Identifier::from(const_a_id),
-                                    ty: GType::FieldElement,
-                                    expression: (TypedExpression::FieldElement(
-                                        FieldElementExpression::Number(Bn128Field::from(1)),
-                                    )),
-                                }),
-                            ),
-                            (
-                                const_b_id,
-                                TypedConstantSymbol::Here(TypedConstant {
-                                    id: Identifier::from(const_b_id),
-                                    ty: GType::FieldElement,
-                                    expression: (TypedExpression::FieldElement(
-                                        FieldElementExpression::Add(
-                                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                                            box FieldElementExpression::Number(Bn128Field::from(1)),
-                                        ),
-                                    )),
-                                }),
-                            ),
-                        ]
-                        .into_iter()
-                        .collect(),
-                    ),
+                    constants: vec![
+                        (
+                            const_a_id,
+                            TypedConstantSymbol::Here(TypedConstant {
+                                ty: GType::FieldElement,
+                                expression: (TypedExpression::FieldElement(
+                                    FieldElementExpression::Number(Bn128Field::from(1)),
+                                )),
+                            }),
+                        ),
+                        (
+                            const_b_id,
+                            TypedConstantSymbol::Here(TypedConstant {
+                                ty: GType::FieldElement,
+                                expression: (TypedExpression::FieldElement(
+                                    FieldElementExpression::Add(
+                                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                                        box FieldElementExpression::Number(Bn128Field::from(1)),
+                                    ),
+                                )),
+                            }),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
             )]
             .into_iter()
@@ -750,20 +746,17 @@ mod tests {
             )]
             .into_iter()
             .collect(),
-            constants: Some(
-                vec![(
-                    foo_const_id,
-                    TypedConstantSymbol::Here(TypedConstant {
-                        id: Identifier::from(foo_const_id),
-                        ty: GType::FieldElement,
-                        expression: (TypedExpression::FieldElement(
-                            FieldElementExpression::Number(Bn128Field::from(42)),
-                        )),
-                    }),
-                )]
-                .into_iter()
-                .collect(),
-            ),
+            constants: vec![(
+                foo_const_id,
+                TypedConstantSymbol::Here(TypedConstant {
+                    ty: GType::FieldElement,
+                    expression: (TypedExpression::FieldElement(FieldElementExpression::Number(
+                        Bn128Field::from(42),
+                    ))),
+                }),
+            )]
+            .into_iter()
+            .collect(),
         };
 
         let main_module = TypedModule {
@@ -785,14 +778,12 @@ mod tests {
             )]
             .into_iter()
             .collect(),
-            constants: Some(
-                vec![(
-                    foo_const_id,
-                    TypedConstantSymbol::There(OwnedTypedModuleId::from("foo"), foo_const_id),
-                )]
-                .into_iter()
-                .collect(),
-            ),
+            constants: vec![(
+                foo_const_id,
+                TypedConstantSymbol::There(OwnedTypedModuleId::from("foo"), foo_const_id),
+            )]
+            .into_iter()
+            .collect(),
         };
 
         let program = TypedProgram {
@@ -825,20 +816,17 @@ mod tests {
             )]
             .into_iter()
             .collect(),
-            constants: Some(
-                vec![(
-                    foo_const_id,
-                    TypedConstantSymbol::Here(TypedConstant {
-                        id: Identifier::from(foo_const_id),
-                        ty: GType::FieldElement,
-                        expression: (TypedExpression::FieldElement(
-                            FieldElementExpression::Number(Bn128Field::from(42)),
-                        )),
-                    }),
-                )]
-                .into_iter()
-                .collect(),
-            ),
+            constants: vec![(
+                foo_const_id,
+                TypedConstantSymbol::Here(TypedConstant {
+                    ty: GType::FieldElement,
+                    expression: (TypedExpression::FieldElement(FieldElementExpression::Number(
+                        Bn128Field::from(42),
+                    ))),
+                }),
+            )]
+            .into_iter()
+            .collect(),
         };
 
         let expected_program: TypedProgram<Bn128Field> = TypedProgram {

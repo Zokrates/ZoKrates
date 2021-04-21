@@ -200,16 +200,12 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
     p: TypedModule<'ast, T>,
 ) -> TypedModule<'ast, T> {
     TypedModule {
-        constants: p.constants.map(|tc| {
-            tc.into_iter()
-                .map(|(key, tc)| (key, f.fold_constant_symbol(tc)))
-                .collect()
-        }),
         functions: p
             .functions
             .into_iter()
             .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
             .collect(),
+        ..p
     }
 }
 

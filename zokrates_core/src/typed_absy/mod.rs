@@ -153,7 +153,7 @@ pub struct TypedModule<'ast, T> {
     /// Functions of the module
     pub functions: TypedFunctionSymbols<'ast, T>,
     /// Constants defined in module
-    pub constants: Option<TypedConstantSymbols<'ast, T>>,
+    pub constants: TypedConstantSymbols<'ast, T>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -322,24 +322,19 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedFunction<'ast, T> {
 
 #[derive(Clone, PartialEq)]
 pub struct TypedConstant<'ast, T> {
-    pub id: Identifier<'ast>,
     pub ty: Type<'ast, T>,
     pub expression: TypedExpression<'ast, T>,
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for TypedConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "TypedConstant({:?}, {:?}, {:?})",
-            self.id, self.ty, self.expression
-        )
+        write!(f, "TypedConstant({:?}, {:?})", self.ty, self.expression)
     }
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "const {} {} = {}", self.ty, self.id, self.expression)
+        write!(f, "const {}({})", self.ty, self.expression)
     }
 }
 

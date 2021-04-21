@@ -21,6 +21,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_module(self, p)
     }
 
+    fn fold_constant_symbol(
+        &mut self,
+        s: TypedConstantSymbol<'ast, T>,
+    ) -> Result<TypedConstantSymbol<'ast, T>, Self::Error> {
+        fold_constant_symbol(self, s)
+    }
+
     fn fold_function_symbol(
         &mut self,
         s: TypedFunctionSymbol<'ast, T>,
@@ -793,6 +800,19 @@ pub fn fold_struct_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
+pub fn fold_constant_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: TypedConstantSymbol<'ast, T>,
+) -> Result<TypedConstantSymbol<'ast, T>, F::Error> {
+    match s {
+        TypedConstantSymbol::Here(tc) => Ok(TypedConstantSymbol::Here(TypedConstant {
+            expression: f.fold_expression(tc.expression)?,
+            ..tc
+        })),
+        there => Ok(there),
+    }
+}
+
 pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: TypedFunctionSymbol<'ast, T>,
@@ -813,7 +833,7 @@ pub fn fold_module<'ast, T: Field, F: ResultFolder<'ast, T>>(
             .into_iter()
             .map(|(key, fun)| f.fold_function_symbol(fun).map(|f| (key, f)))
             .collect::<Result<_, _>>()?,
-        constants: p.constants,
+        ..p
     })
 }
 

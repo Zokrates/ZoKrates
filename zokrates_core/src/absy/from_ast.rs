@@ -112,7 +112,6 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<
         let id = definition.id.span.as_str();
 
         let ty = absy::ConstantDefinition {
-            id,
             ty: definition.ty.into(),
             expression: definition.expression.into(),
         }

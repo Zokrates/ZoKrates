@@ -90,7 +90,11 @@ impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
         match self.symbol {
             Symbol::Here(ref kind) => match kind {
                 SymbolDefinition::Struct(t) => write!(f, "struct {} {}", self.id, t),
-                SymbolDefinition::Constant(c) => write!(f, "{}", c),
+                SymbolDefinition::Constant(c) => write!(
+                    f,
+                    "const {} {} = {}",
+                    c.value.ty, self.id, c.value.expression
+                ),
                 SymbolDefinition::Function(func) => write!(f, "def {}{}", self.id, func),
             },
             Symbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
@@ -166,7 +170,6 @@ type StructDefinitionFieldNode<'ast> = Node<StructDefinitionField<'ast>>;
 
 #[derive(Clone, PartialEq)]
 pub struct ConstantDefinition<'ast> {
-    pub id: Identifier<'ast>,
     pub ty: UnresolvedTypeNode<'ast>,
     pub expression: ExpressionNode<'ast>,
 }
@@ -175,7 +178,7 @@ pub type ConstantDefinitionNode<'ast> = Node<ConstantDefinition<'ast>>;
 
 impl<'ast> fmt::Display for ConstantDefinition<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "const {} {} = {}", self.ty, self.id, self.expression)
+        write!(f, "const {}({})", self.ty, self.expression)
     }
 }
 
@@ -183,8 +186,8 @@ impl<'ast> fmt::Debug for ConstantDefinition<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "ConstantDefinition({:?}, {:?}, {:?})",
-            self.ty, self.id, self.expression
+            "ConstantDefinition({:?}, {:?})",
+            self.ty, self.expression
         )
     }
 }

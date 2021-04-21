@@ -46,6 +46,7 @@ impl ErrorInner {
 }
 
 type TypeMap<'ast> = HashMap<OwnedModuleId, HashMap<UserTypeId, DeclarationType<'ast>>>;
+type ConstantMap<'ast, T> = HashMap<OwnedModuleId, TypedConstantSymbols<'ast, T>>;
 
 /// The global state of the program during semantic checks
 #[derive(Debug)]
@@ -56,6 +57,8 @@ struct State<'ast, T> {
     typed_modules: TypedModules<'ast, T>,
     /// The user-defined types, which we keep track at this phase only. In later phases, we rely only on basic types and combinations thereof
     types: TypeMap<'ast>,
+    // The user-defined constants
+    constants: ConstantMap<'ast, T>,
 }
 
 /// A symbol for a given name: either a type or a group of functions. Not both!
@@ -73,14 +76,27 @@ struct SymbolUnifier<'ast> {
 }
 
 impl<'ast> SymbolUnifier<'ast> {
-    fn insert_symbol<S: Into<String>>(&mut self, id: S, ty: SymbolType<'ast>) -> bool {
-        let s_type = self.symbols.entry(id.into());
-        match s_type {
-            // if anything is already called `id`, we cannot introduce this type
+    fn insert_type<S: Into<String>>(&mut self, id: S) -> bool {
+        let e = self.symbols.entry(id.into());
+        match e {
+            // if anything is already called `id`, we cannot introduce the symbol
             Entry::Occupied(..) => false,
             // otherwise, we can!
             Entry::Vacant(v) => {
-                v.insert(ty);
+                v.insert(SymbolType::Type);
+                true
+            }
+        }
+    }
+
+    fn insert_constant<S: Into<String>>(&mut self, id: S) -> bool {
+        let e = self.symbols.entry(id.into());
+        match e {
+            // if anything is already called `id`, we cannot introduce this constant
+            Entry::Occupied(..) => false,
+            // otherwise, we can!
+            Entry::Vacant(v) => {
+                v.insert(SymbolType::Constant);
                 true
             }
         }
@@ -117,6 +133,7 @@ impl<'ast, T: Field> State<'ast, T> {
             modules,
             typed_modules: HashMap::new(),
             types: HashMap::new(),
+            constants: HashMap::new(),
         }
     }
 }
@@ -230,7 +247,12 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
 pub struct ScopedVariable<'ast, T> {
     id: Variable<'ast, T>,
     level: usize,
-    constant: bool,
+}
+
+impl<'ast, T> ScopedVariable<'ast, T> {
+    fn is_constant(&self) -> bool {
+        self.level == 0
+    }
 }
 
 /// Identifiers of different `ScopedVariable`s should not conflict, so we define them as equivalent
@@ -312,6 +334,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
     fn check_constant_definition(
         &mut self,
+        id: &'ast str,
         c: ConstantDefinitionNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap<'ast>,
@@ -320,7 +343,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let ty = self.check_type(c.value.ty.clone(), module_id, &types)?;
         let checked_expr = self.check_expression(c.value.expression.clone(), module_id, types)?;
 
-        match ty.clone() {
+        match ty {
             Type::FieldElement => {
                 FieldElementExpression::try_from_typed(checked_expr).map(TypedExpression::from)
             }
@@ -330,10 +353,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Type::Uint(bitwidth) => {
                 UExpression::try_from_typed(checked_expr, bitwidth).map(TypedExpression::from)
             }
-            Type::Array(array_ty) => ArrayExpression::try_from_typed(checked_expr, *array_ty.ty)
-                .map(TypedExpression::from),
-            Type::Struct(struct_ty) => {
-                StructExpression::try_from_typed(checked_expr, struct_ty).map(TypedExpression::from)
+            Type::Array(ref array_ty) => {
+                ArrayExpression::try_from_typed(checked_expr, *array_ty.ty.clone())
+                    .map(TypedExpression::from)
+            }
+            Type::Struct(ref struct_ty) => {
+                StructExpression::try_from_typed(checked_expr, struct_ty.clone())
+                    .map(TypedExpression::from)
             }
             Type::Int => Err(checked_expr), // Integers cannot be assigned
         }
@@ -343,15 +369,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 "Expression `{}` of type `{}` cannot be assigned to constant `{}` of type `{}`",
                 e,
                 e.get_type(),
-                c.value.id,
+                id,
                 ty
             ),
         })
-        .map(|e| TypedConstant {
-            id: identifier::Identifier::from(c.value.id),
-            ty,
-            expression: e,
-        })
+        .map(|e| TypedConstant { ty, expression: e })
     }
 
     fn check_struct_type_declaration(
@@ -425,7 +447,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         &state.types,
                     ) {
                         Ok(ty) => {
-                            match symbol_unifier.insert_symbol(declaration.id, SymbolType::Type) {
+                            match symbol_unifier.insert_type(declaration.id) {
                                 false => errors.push(
                                     ErrorInner {
                                         pos: Some(pos),
@@ -454,10 +476,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                 }
                 SymbolDefinition::Constant(box c) => {
-                    match self.check_constant_definition(c, module_id, &state.types) {
+                    match self.check_constant_definition(declaration.id, c, module_id, &state.types)
+                    {
                         Ok(c) => {
-                            match symbol_unifier.insert_symbol(declaration.id, SymbolType::Constant)
-                            {
+                            match symbol_unifier.insert_constant(declaration.id) {
                                 false => errors.push(
                                     ErrorInner {
                                         pos: Some(pos),
@@ -468,10 +490,23 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     }
                                     .in_file(module_id),
                                 ),
-                                true => {}
+                                true => {
+                                    constants.insert(
+                                        declaration.id,
+                                        TypedConstantSymbol::Here(c.clone()),
+                                    );
+                                    self.insert_into_scope(Variable::with_id_and_type(
+                                        declaration.id,
+                                        c.ty.clone(),
+                                    ));
+                                    assert!(state
+                                        .constants
+                                        .entry(module_id.to_path_buf())
+                                        .or_default()
+                                        .insert(declaration.id, TypedConstantSymbol::Here(c))
+                                        .is_none());
+                                }
                             };
-                            constants.insert(declaration.id, TypedConstantSymbol::Here(c.clone()));
-                            self.insert_into_scope(Variable::with_id_and_type(c.id, c.ty), true);
                         }
                         Err(e) => {
                             errors.push(e.in_file(module_id));
@@ -550,16 +585,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         // find constant definition candidate
                         let const_candidate = state
-                            .typed_modules
-                            .get(&import.module_id)
-                            .unwrap()
                             .constants
-                            .as_ref()
-                            .and_then(|tc| tc.get(import.symbol_id))
+                            .entry(import.module_id.to_path_buf())
+                            .or_default()
+                            .get(import.symbol_id)
                             .and_then(|sym| match sym {
                                 TypedConstantSymbol::Here(tc) => Some(tc),
                                 _ => None,
-                            });
+                            })
+                            .cloned();
 
                         match (function_candidates.len(), type_candidate, const_candidate) {
                             (0, Some(t), None) => {
@@ -577,7 +611,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 };
 
                                 // we imported a type, so the symbol it gets bound to should not already exist
-                                match symbol_unifier.insert_symbol(declaration.id, SymbolType::Type) {
+                                match symbol_unifier.insert_type(declaration.id) {
                                     false => {
                                         errors.push(Error {
                                             module_id: module_id.to_path_buf(),
@@ -598,7 +632,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .insert(declaration.id.to_string(), t);
                             }
                             (0, None, Some(c)) => {
-                                match symbol_unifier.insert_symbol(declaration.id, SymbolType::Constant) {
+                                match symbol_unifier.insert_constant(declaration.id) {
                                     false => {
                                         errors.push(Error {
                                             module_id: module_id.to_path_buf(),
@@ -612,7 +646,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     }
                                     true => {
                                         constants.insert(declaration.id, TypedConstantSymbol::There(import.module_id, declaration.id));
-                                        self.insert_into_scope(Variable::with_id_and_type(c.id.clone(), c.ty.clone()), true);
+                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, c.ty.clone()));
+
+                                        state
+                                            .constants
+                                            .entry(module_id.to_path_buf())
+                                            .or_default()
+                                            .insert(declaration.id, TypedConstantSymbol::Here(c)); // we insert as `Here` to avoid later recursive search
                                     }
                                 };
                             }
@@ -732,7 +772,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 Some(TypedModule {
                     functions: checked_functions,
-                    constants: Some(checked_constants).filter(|m| !m.is_empty()),
+                    constants: checked_constants,
                 })
             }
         };
@@ -814,7 +854,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Type::Uint(UBitwidth::B32),
                     );
                     // we don't have to check for conflicts here, because this was done when checking the signature
-                    self.insert_into_scope(v.clone(), false);
+                    self.insert_into_scope(v.clone());
                 }
 
                 for (arg, decl_ty) in funct.arguments.into_iter().zip(s.inputs.iter()) {
@@ -825,7 +865,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v =
                         DeclarationVariable::with_id_and_type(arg.id.value.id, decl_ty.clone());
 
-                    match self.insert_into_scope(decl_v.clone(), false) {
+                    match self.insert_into_scope(decl_v.clone()) {
                         true => {}
                         false => {
                             errors.push(ErrorInner {
@@ -1216,7 +1256,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
         .map_err(|e| vec![e])?;
 
-        self.insert_into_scope(var.clone(), false);
+        self.insert_into_scope(var.clone());
 
         let mut checked_statements = vec![];
 
@@ -1315,7 +1355,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
             Statement::Declaration(var) => {
                 let var = self.check_variable(var, module_id, types)?;
-                match self.insert_into_scope(var.clone(), false) {
+                match self.insert_into_scope(var.clone()) {
                     true => Ok(TypedStatement::Declaration(var)),
                     false => Err(ErrorInner {
                         pos: Some(pos),
@@ -1498,15 +1538,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
         // check that the assignee is declared
         match assignee.value {
             Assignee::Identifier(variable_name) => match self.get_scope(&variable_name) {
-                Some(var) => match var.constant {
-                    false => Ok(TypedAssignee::Identifier(Variable::with_id_and_type(
-                        variable_name,
-                        var.id._type.clone(),
-                    ))),
+                Some(var) => match var.is_constant() {
                     true => Err(ErrorInner {
                         pos: Some(assignee.pos()),
                         message: format!("Assignment to constant variable `{}`", variable_name),
                     }),
+                    false => Ok(TypedAssignee::Identifier(Variable::with_id_and_type(
+                        variable_name,
+                        var.id._type.clone(),
+                    ))),
                 },
                 None => Err(ErrorInner {
                     pos: Some(assignee.pos()),
@@ -2919,15 +2959,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 Type::FieldElement,
             ),
             level: 0,
-            constant: false,
         })
     }
 
-    fn insert_into_scope<U: Into<Variable<'ast, T>>>(&mut self, v: U, constant: bool) -> bool {
+    fn insert_into_scope<U: Into<Variable<'ast, T>>>(&mut self, v: U) -> bool {
         self.scope.insert(ScopedVariable {
             id: v.into(),
             level: self.level,
-            constant,
         })
     }
 
@@ -3123,9 +3161,9 @@ mod tests {
             let mut unifier = SymbolUnifier::default();
 
             // the `foo` type
-            assert!(unifier.insert_symbol("foo", SymbolType::Type));
+            assert!(unifier.insert_type("foo"));
             // the `foo` type annot be declared a second time
-            assert!(!unifier.insert_symbol("foo", SymbolType::Type));
+            assert!(!unifier.insert_type("foo"));
             // the `foo` function cannot be declared as the name is already taken by a type
             assert!(!unifier.insert_function("foo", DeclarationSignature::new()));
             // the `bar` type
@@ -3163,7 +3201,7 @@ mod tests {
                 ))])
             ));
             // a `bar` type isn't allowed as the name is already taken by at least one function
-            assert!(!unifier.insert_symbol("bar", SymbolType::Type));
+            assert!(!unifier.insert_type("bar"));
         }
 
         #[test]
@@ -3220,7 +3258,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    constants: None
+                    constants: TypedConstantSymbols::default()
                 })
             );
         }
@@ -3755,6 +3793,8 @@ mod tests {
         let types = HashMap::new();
 
         let mut checker: Checker<Bn128Field> = Checker::new();
+        checker.enter_scope();
+
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &types),
             Err(vec![ErrorInner {
@@ -3779,14 +3819,13 @@ mod tests {
         let mut scope = HashSet::new();
         scope.insert(ScopedVariable {
             id: Variable::field_element("a"),
-            level: 0,
-            constant: false,
+            level: 1,
         });
         scope.insert(ScopedVariable {
             id: Variable::field_element("b"),
-            level: 0,
-            constant: false,
+            level: 1,
         });
+
         let mut checker: Checker<Bn128Field> = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &types),
@@ -5770,6 +5809,7 @@ mod tests {
             let types = HashMap::new();
 
             let mut checker: Checker<Bn128Field> = Checker::new();
+            checker.enter_scope();
 
             checker
                 .check_statement(
@@ -5803,6 +5843,8 @@ mod tests {
             let types = HashMap::new();
 
             let mut checker: Checker<Bn128Field> = Checker::new();
+            checker.enter_scope();
+
             checker
                 .check_statement(
                     Statement::Declaration(
@@ -5853,6 +5895,8 @@ mod tests {
             let types = HashMap::new();
 
             let mut checker: Checker<Bn128Field> = Checker::new();
+            checker.enter_scope();
+
             checker
                 .check_statement(
                     Statement::Declaration(
