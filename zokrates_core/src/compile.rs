@@ -167,8 +167,6 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
-    println!("{}", typed_ast);
-
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast, config);
 

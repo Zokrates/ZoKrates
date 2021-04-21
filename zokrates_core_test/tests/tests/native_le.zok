@@ -19,8 +19,14 @@ def le<N>(bool[N] a_bits, bool[N] c_bits) -> bool:
 
 // this instanciates comparison starting from field elements
 def le<N>(field a, field c) -> bool:
+
+    field MAX = 21888242871839275222246405745257275088548364400416034343698204186575808495616
+    bool[N] MAX_BITS = unpack::<N>(MAX)
+
     bool[N] a_bits = unpack(a)
+    assert(le(a_bits, MAX_BITS))
     bool[N] c_bits = unpack(c)
+    assert(le(c_bits, MAX_BITS))
 
     return le(a_bits, c_bits)
 
@@ -31,11 +37,11 @@ def le(u32 a, u32 c) -> bool:
 
     return le(a_bits, c_bits)
 
-def main(field a) -> bool:
+def main(field a, u32 b) -> (bool, bool):
 
     u32 N = 254
     field c = 42
 
-    //u32 d = 42
+    u32 d = 42
 
-    return le::<N>(a, c)
+    return le::<N>(a, c), le(b, d)

@@ -1,8 +1,0 @@
-def main(field a) -> bool:
-
-    //u32 N = 254
-    field c = 42
-
-    //u32 d = 42
-
-    return a < c

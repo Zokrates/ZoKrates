@@ -217,8 +217,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let mut is_not_smaller_run = vec![];
         let mut size_unknown = vec![];
 
-        println!("B {:?}", b);
-
         for _ in 0..len {
             is_not_smaller_run.push(self.use_sym());
             size_unknown.push(self.use_sym());
@@ -493,7 +491,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             &T::max_value().bit_vector_be(),
         );
 
-        println!("YOOOOOO");
         let conditions =
             self.constant_le_check(statements_flattened, &e_bits_be, &c.bit_vector_be());
 
@@ -525,8 +522,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         expression: BooleanExpression<'ast, T>,
     ) -> FlatExpression<T> {
-        println!("{}", expression);
-
         // those will be booleans in the future
         match expression {
             BooleanExpression::Identifier(x) => {
@@ -544,7 +539,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 match (lhs_flattened, rhs_flattened) {
                     (x, FlatExpression::Number(constant)) => {
-                        println!("yo {} < {}", x, constant);
                         self.constant_lt_check(statements_flattened, x, constant)
                     }
                     // (c < x <= p - 1) <=> (0 <= p - 1 - x < p - 1 - c)
@@ -2132,8 +2126,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
             }
             ZirStatement::Assertion(e) => {
-                println!("assertion {}", e);
-
                 match e {
                     BooleanExpression::And(..) => {
                         for boolean in e.into_conjunction_iterator() {
@@ -2144,8 +2136,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         }
                     }
                     BooleanExpression::FieldEq(box lhs, box rhs) => {
-                        println!("field eq assertion");
-
                         let lhs = self.flatten_field_expression(statements_flattened, lhs);
                         let rhs = self.flatten_field_expression(statements_flattened, rhs);
 
@@ -2293,8 +2283,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         lhs: FlatExpression<T>,
         rhs: FlatExpression<T>,
     ) {
-        println!("{} {}", lhs, rhs);
-
         let (lhs, rhs) = match (lhs, rhs) {
             (FlatExpression::Mult(box x, box y), z) | (z, FlatExpression::Mult(box x, box y)) => (
                 self.identify_expression(z, statements_flattened),
