@@ -1,0 +1,1 @@
+Add a custom panic hook to handle internal compiler errors more gracefully
