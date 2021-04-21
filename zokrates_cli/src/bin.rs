@@ -96,7 +96,7 @@ fn panic_hook(pi: &std::panic::PanicInfo) {
         }
     }
 
-    println!("If you think this is a bug, please submit a full bug report at https://github.com/Zokrates/ZoKrates/issues");
+    println!("This is unexpected, please submit a full bug report at https://github.com/Zokrates/ZoKrates/issues");
 }
 
 #[cfg(test)]
