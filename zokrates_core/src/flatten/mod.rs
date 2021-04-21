@@ -178,32 +178,42 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    // Let's assume b = [1, 1, 1, 0]
-    //
-    // 1. Init `sizeUnknown = true`
-    //    As long as `sizeUnknown` is `true` we don't yet know if a is <= than b.
-    // 2. Loop over `b`:
-    //     * b[0] = 1
-    //       when `b` is 1 we check wether `a` is 0 in that particular run and update
-    //       `sizeUnknown` accordingly:
-    //       `sizeUnknown = sizeUnknown && a[0]`
-    //     * b[1] = 1
-    //       `sizeUnknown = sizeUnknown && a[1]`
-    //     * b[2] = 1
-    //       `sizeUnknown = sizeUnknown && a[2]`
-    //     * b[3] = 0
-    //       we need to enforce that `a` is 0 in case `sizeUnknown`is still `true`,
-    //       otherwise `a` can be {0,1}:
-    //      `true == (!sizeUnknown || !a[3])`
-    //      ```
-    //                     **true => a -> 0
-    //         sizeUnkown *
-    //                     **false => a -> {0,1}
-    //      ```
-    //
-    // # Returns
-    //
-    // * a vector of FlatExpression which all evaluate to 1 if a <= b and 0 otherwise
+    /// Compute a range check between the bid endian decomposition of an expression and the
+    /// big endian decomposition of a constant
+    ///
+    /// # Arguments
+    /// * `a` - the big-endian bit decomposition of the expression to check against the range
+    /// * `b` - the big-endian bit decomposition of the upper bound we're checking against
+    ///
+    /// # Returns
+    /// * a vector of FlatExpression which all evaluate to `1` if `a <= b` and `0` otherwise
+    ///
+    /// # Notes
+    ///
+    /// Algorithm from [the sapling spec](https://github.com/zcash/zips/blob/master/protocol/sapling.pdf) A.3.2.2
+    ///
+    /// Let's assume b = [1, 1, 1, 0]
+    ///
+    /// 1. Init `sizeUnknown = true`
+    ///    As long as `sizeUnknown` is `true` we don't yet know if a is <= than b.
+    /// 2. Loop over `b`:
+    ///     * b[0] = 1
+    ///       when `b` is 1 we check wether `a` is 0 in that particular run and update
+    ///       `sizeUnknown` accordingly:
+    ///       `sizeUnknown = sizeUnknown && a[0]`
+    ///     * b[1] = 1
+    ///       `sizeUnknown = sizeUnknown && a[1]`
+    ///     * b[2] = 1
+    ///       `sizeUnknown = sizeUnknown && a[2]`
+    ///     * b[3] = 0
+    ///       we need to enforce that `a` is 0 in case `sizeUnknown`is still `true`,
+    ///       otherwise `a` can be {0,1}:
+    ///      `true == (!sizeUnknown || !a[3])`
+    ///      ```
+    ///                     **true => a -> 0
+    ///         sizeUnkown *
+    ///                     **false => a -> {0,1}
+    ///      ```
     fn constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
@@ -282,6 +292,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         res
     }
 
+    /// Compute an equality check between two expressions
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `left - the first `FlatExpression`
+    /// * `right` - the second `FlatExpression`
+    ///
+    /// # Returns
+    /// * A FlatExpression which evaluates to `1` if `left == right`, `0` otherwise
     fn eq_check(
         &mut self,
         statements_flattened: &mut Vec<FlatStatement<T>>,
@@ -326,18 +346,32 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         res
     }
 
+    /// Enforce a range check against a constant: the range check isn't verified iff a constraint will fail
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `e` - the `FlatExpression` that's being checked against the range.
+    /// * `c` - the constant upper bound of the range
     fn enforce_constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         a: &[FlatVariable],
         b: &[bool],
     ) {
-        let statements: Vec<_> = self
-            .constant_le_check(statements_flattened, a, b)
+        let conditions = self.constant_le_check(statements_flattened, a, b);
+
+        let conditions_count = conditions.len();
+
+        let conditions_sum = conditions
             .into_iter()
-            .map(|c| FlatStatement::Condition(FlatExpression::Number(T::from(1)), c))
-            .collect();
-        statements_flattened.extend(statements);
+            .fold(FlatExpression::from(T::zero()), |acc, e| {
+                FlatExpression::Add(box acc, box e)
+            });
+        statements_flattened.push(FlatStatement::Condition(
+            FlatExpression::Number(T::from(0)),
+            FlatExpression::Sub(box conditions_sum, box T::from(conditions_count).into()),
+        ));
     }
 
     /// Flatten an if/else expression
@@ -411,6 +445,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Compute a strict check against a constant
+    /// # Arguments
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `e` - the `FlatExpression` that's being checked against the range.
+    /// * `c` - the constant strict upper bound of the range
+    ///
+    /// # Returns
+    /// * a `FlatExpression` which evaluates to `1` if `0 <= e < c`, and to `0` otherwise
     fn constant_lt_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
