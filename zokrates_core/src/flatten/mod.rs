@@ -209,11 +209,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///       we need to enforce that `a` is 0 in case `sizeUnknown`is still `true`,
     ///       otherwise `a` can be {0,1}:
     ///      `true == (!sizeUnknown || !a[3])`
-    ///      ```
-    ///                     **true => a -> 0
-    ///         sizeUnkown *
-    ///                     **false => a -> {0,1}
-    ///      ```
+    ///                   **true => a -> 0
+    ///      sizeUnkown *
+    ///                   **false => a -> {0,1}
     fn constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
