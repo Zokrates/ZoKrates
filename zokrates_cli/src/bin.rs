@@ -73,12 +73,12 @@ fn panic_hook(pi: &std::panic::PanicInfo) {
     let location = pi
         .location()
         .map(|l| format!("({})", l))
-        .unwrap_or(String::default());
+        .unwrap_or_default();
 
-    let message = pi.message().map(|m| format!("{}", m)).or(pi
-        .payload()
-        .downcast_ref::<&str>()
-        .map(|p| format!("{}", p)));
+    let message = pi
+        .message()
+        .map(|m| format!("{}", m))
+        .or_else(|| pi.payload().downcast_ref::<&str>().map(|p| p.to_string()));
 
     if let Some(s) = message {
         println!("{} {}", s, location);
@@ -90,10 +90,10 @@ fn panic_hook(pi: &std::panic::PanicInfo) {
     {
         use std::backtrace::{Backtrace, BacktraceStatus};
         let backtrace = Backtrace::capture();
-        match backtrace.status() {
-            BacktraceStatus::Captured => println!("rust backtrace:\n{}", backtrace),
-            _ => {}
-        };
+
+        if backtrace.status() == BacktraceStatus::Captured {
+            println!("rust backtrace:\n{}", backtrace);
+        }
     }
 
     println!("If you think this is a bug, please submit a full bug report at https://github.com/Zokrates/ZoKrates/issues");
