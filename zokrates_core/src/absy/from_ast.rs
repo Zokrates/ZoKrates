@@ -119,7 +119,7 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<
 
         absy::SymbolDeclaration {
             id,
-            symbol: absy::Symbol::Here(SymbolDefinition::Constant(box ty)),
+            symbol: absy::Symbol::Here(SymbolDefinition::Constant(ty)),
         }
         .span(span)
     }

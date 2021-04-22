@@ -51,10 +51,11 @@ pub struct SymbolDeclaration<'ast> {
     pub symbol: Symbol<'ast>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(PartialEq, Clone)]
 pub enum SymbolDefinition<'ast> {
     Struct(StructDefinitionNode<'ast>),
-    Constant(Box<ConstantDefinitionNode<'ast>>),
+    Constant(ConstantDefinitionNode<'ast>),
     Function(FunctionNode<'ast>),
 }
 

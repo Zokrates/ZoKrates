@@ -17,37 +17,50 @@ impl<'ast, T: Field> ConstantInliner<'ast, T> {
     }
 
     pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        // initialize an inliner over all modules, starting from the main module
         let mut inliner =
             ConstantInliner::with_modules_and_location(p.modules.clone(), p.main.clone());
 
         inliner.fold_program(p)
     }
 
-    pub fn module(&self) -> &TypedModule<'ast, T> {
+    fn module(&self) -> &TypedModule<'ast, T> {
         self.modules.get(&self.location).unwrap()
     }
 
-    pub fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
+    fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
         let prev = self.location.clone();
         self.location = location;
         prev
     }
 
-    pub fn get_constant(&mut self, id: &Identifier) -> Option<TypedConstant<'ast, T>> {
+    fn get_constant(&mut self, id: &Identifier) -> Option<TypedConstant<'ast, T>> {
         self.modules
             .get(&self.location)
             .unwrap()
             .constants
             .get(id.clone().try_into().unwrap())
             .cloned()
-            .and_then(|tc| {
-                let symbol = self.fold_constant_symbol(tc);
-                match symbol {
-                    TypedConstantSymbol::Here(tc) => Some(tc),
-                    _ => unreachable!(),
-                }
-            })
+            .map(|symbol| self.get_canonical_constant(symbol))
+    }
+
+    fn get_canonical_constant(
+        &mut self,
+        symbol: TypedConstantSymbol<'ast, T>,
+    ) -> TypedConstant<'ast, T> {
+        match symbol {
+            TypedConstantSymbol::There(module_id, id) => {
+                let location = self.change_location(module_id);
+                let symbol = self.module().constants.get(id).cloned().unwrap();
+
+                let symbol = self.get_canonical_constant(symbol);
+                let _ = self.change_location(location);
+                symbol
+            }
+            TypedConstantSymbol::Here(tc) => TypedConstant {
+                expression: self.fold_expression(tc.expression),
+                ..tc
+            },
+        }
     }
 }
 
@@ -85,17 +98,8 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         &mut self,
         p: TypedConstantSymbol<'ast, T>,
     ) -> TypedConstantSymbol<'ast, T> {
-        match p {
-            TypedConstantSymbol::There(module_id, id) => {
-                let location = self.change_location(module_id);
-                let symbol = self.module().constants.get(id).cloned().unwrap();
-
-                let symbol = self.fold_constant_symbol(symbol);
-                let _ = self.change_location(location);
-                symbol
-            }
-            _ => fold_constant_symbol(self, p),
-        }
+        let tc = self.get_canonical_constant(p);
+        TypedConstantSymbol::Here(tc)
     }
 
     fn fold_field_expression(

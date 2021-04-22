@@ -46,7 +46,8 @@ impl ErrorInner {
 }
 
 type TypeMap<'ast> = HashMap<OwnedModuleId, HashMap<UserTypeId, DeclarationType<'ast>>>;
-type ConstantMap<'ast, T> = HashMap<OwnedModuleId, TypedConstantSymbols<'ast, T>>;
+type ConstantMap<'ast, T> =
+    HashMap<OwnedModuleId, HashMap<ConstantIdentifier<'ast>, Type<'ast, T>>>;
 
 /// The global state of the program during semantic checks
 #[derive(Debug)]
@@ -475,7 +476,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         })),
                     }
                 }
-                SymbolDefinition::Constant(box c) => {
+                SymbolDefinition::Constant(c) => {
                     match self.check_constant_definition(declaration.id, c, module_id, &state.types)
                     {
                         Ok(c) => {
@@ -503,7 +504,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         .constants
                                         .entry(module_id.to_path_buf())
                                         .or_default()
-                                        .insert(declaration.id, TypedConstantSymbol::Here(c))
+                                        .insert(declaration.id, c.ty)
                                         .is_none());
                                 }
                             };
@@ -589,10 +590,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .entry(import.module_id.to_path_buf())
                             .or_default()
                             .get(import.symbol_id)
-                            .and_then(|sym| match sym {
-                                TypedConstantSymbol::Here(tc) => Some(tc),
-                                _ => None,
-                            })
                             .cloned();
 
                         match (function_candidates.len(), type_candidate, const_candidate) {
@@ -631,7 +628,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .or_default()
                                     .insert(declaration.id.to_string(), t);
                             }
-                            (0, None, Some(c)) => {
+                            (0, None, Some(ty)) => {
                                 match symbol_unifier.insert_constant(declaration.id) {
                                     false => {
                                         errors.push(Error {
@@ -646,13 +643,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     }
                                     true => {
                                         constants.insert(declaration.id, TypedConstantSymbol::There(import.module_id, declaration.id));
-                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, c.ty.clone()));
+                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, ty.clone()));
 
                                         state
                                             .constants
                                             .entry(module_id.to_path_buf())
                                             .or_default()
-                                            .insert(declaration.id, TypedConstantSymbol::Here(c)); // we insert as `Here` to avoid later recursive search
+                                            .insert(declaration.id, ty);
                                     }
                                 };
                             }
