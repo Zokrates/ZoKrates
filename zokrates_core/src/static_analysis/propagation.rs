@@ -88,9 +88,9 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                                     }
                                     _ => unreachable!(),
                                 },
-                                _ => unreachable!(),
+                                _ => unreachable!("should be an array value"),
                             },
-                            _ => unreachable!(),
+                            _ => unreachable!("should be an array expression"),
                         },
                         _ => Err(variable),
                     },
@@ -107,15 +107,15 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                             .iter()
                             .position(|member| *m == member.id)
                             .unwrap(),
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a struct type"),
                     };
 
                     match c {
                         TypedExpression::Struct(a) => match a.as_inner_mut() {
                             StructExpressionInner::Value(value) => Ok((v, &mut value[index])),
-                            _ => unreachable!(),
+                            _ => unreachable!("should be a struct value"),
                         },
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a struct expression"),
                     }
                 }
                 e => e,
@@ -182,17 +182,17 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
                 ArrayExpressionInner::Slice(box a, box from, box to) => {
                     let from = match from.into_inner() {
                         UExpressionInner::Value(from) => from as usize,
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a uint value"),
                     };
 
                     let to = match to.into_inner() {
                         UExpressionInner::Value(to) => to as usize,
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a uint value"),
                     };
 
                     let v = match a.into_inner() {
                         ArrayExpressionInner::Value(v) => v,
-                        _ => unreachable!(),
+                        _ => unreachable!("should be an array value"),
                     };
 
                     ArrayExpressionInner::Value(
@@ -211,7 +211,7 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
                 ArrayExpressionInner::Repeat(box e, box count) => {
                     let count = match count.into_inner() {
                         UExpressionInner::Value(from) => from as usize,
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a uint value"),
                     };
 
                     let e = remove_spreads(e);
@@ -405,7 +405,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     )
                                     .annotate(bitwidth)
                                     .into(),
-                                v => unreachable!("should be an array value, found {}", v),
+                                _ => unreachable!("should be an array value"),
                             }
                         }
 
@@ -965,9 +965,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                 .unwrap()
                                                 .into_inner())
                                             }
-                                            _ => unreachable!(),
+                                            _ => unreachable!("should be an array value"),
                                         },
-                                        _ => unreachable!(""),
+                                        _ => unreachable!("should be an array expression"),
                                     },
                                     None => Ok(UExpressionInner::Select(
                                         box ArrayExpressionInner::Identifier(id)
@@ -1067,10 +1067,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         box e1,
                         box UExpressionInner::Value(n2).annotate(UBitwidth::B32),
                     )),
-                    (_, e2) => Err(Error::NonConstantExponent(format!(
-                        "{}",
-                        e2.annotate(UBitwidth::B32)
-                    ))),
+                    (_, e2) => Err(Error::NonConstantExponent(
+                        e2.annotate(UBitwidth::B32).to_string(),
+                    )),
                 }
             }
             FieldElementExpression::IfElse(box condition, box consequence, box alternative) => {
@@ -1123,9 +1122,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                 )
                                                 .unwrap())
                                             }
-                                            _ => unreachable!(),
+                                            _ => unreachable!("should be an array value"),
                                         },
-                                        _ => unreachable!(""),
+                                        _ => unreachable!("should be an array expression"),
                                     },
                                     None => Ok(FieldElementExpression::Select(
                                         box ArrayExpressionInner::Identifier(id)
@@ -1151,7 +1150,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!("???"),
+                    _ => unreachable!("should be a struct type"),
                 };
 
                 match s.into_inner() {
@@ -1164,7 +1163,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             .1
                         {
                             TypedExpression::FieldElement(s) => Ok(s),
-                            _ => unreachable!("????"),
+                            _ => unreachable!("should be a field element expression"),
                         }
                     }
                     inner => Ok(FieldElementExpression::Member(
@@ -1228,9 +1227,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                             .unwrap()
                                             .into_inner())
                                         }
-                                        _ => unreachable!(),
+                                        _ => unreachable!("should be an array value"),
                                     },
-                                    _ => unreachable!(""),
+                                    _ => unreachable!("should be an array expression"),
                                 },
                                 None => Ok(ArrayExpressionInner::Select(
                                     box ArrayExpressionInner::Identifier(id)
@@ -1269,7 +1268,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let members = match struc.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct"),
+                    _ => unreachable!("should be a struct type"),
                 };
 
                 match struc.into_inner() {
@@ -1282,7 +1281,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             .1
                         {
                             TypedExpression::Array(a) => Ok(a.into_inner()),
-                            _ => unreachable!("should be an array"),
+                            _ => unreachable!("should be an array expression"),
                         }
                     }
                     inner => Ok(ArrayExpressionInner::Member(
@@ -1346,9 +1345,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                             .unwrap()
                                             .into_inner())
                                         }
-                                        _ => unreachable!(),
+                                        _ => unreachable!("should be an array value"),
                                     },
-                                    _ => unreachable!(""),
+                                    _ => unreachable!("should be an array expression"),
                                 },
                                 None => Ok(StructExpressionInner::Select(
                                     box ArrayExpressionInner::Identifier(id)
@@ -1387,7 +1386,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct"),
+                    _ => unreachable!("should be a struct type"),
                 };
 
                 match s.into_inner() {
@@ -1400,7 +1399,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             .1
                         {
                             TypedExpression::Struct(s) => Ok(s.into_inner()),
-                            _ => unreachable!("should be a struct"),
+                            _ => unreachable!("should be a struct expression"),
                         }
                     }
                     inner => Ok(StructExpressionInner::Member(
@@ -1662,9 +1661,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                             )
                                             .unwrap())
                                         }
-                                        _ => unreachable!(),
+                                        _ => unreachable!("should be an array value"),
                                     },
-                                    _ => unreachable!(""),
+                                    _ => unreachable!("should be an array expression"),
                                 },
                                 None => Ok(BooleanExpression::Select(
                                     box ArrayExpressionInner::Identifier(id)
@@ -1689,7 +1688,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct"),
+                    _ => unreachable!("should be a struct type"),
                 };
 
                 match s.into_inner() {
@@ -1702,7 +1701,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             .1
                         {
                             TypedExpression::Boolean(s) => Ok(s),
-                            _ => unreachable!("should be a boolean"),
+                            _ => unreachable!("should be a boolean expression"),
                         }
                     }
                     inner => Ok(BooleanExpression::Member(box inner.annotate(members), m)),
