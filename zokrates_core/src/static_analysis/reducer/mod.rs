@@ -607,11 +607,7 @@ fn reduce_function<'ast, T: Field>(
 
                         let new_f = Propagator::with_constants(&mut constants)
                             .fold_function(new_f)
-                            .map_err(|e| match e {
-                                crate::static_analysis::propagation::Error::Type(e) => {
-                                    Error::Incompatible(e)
-                                }
-                            })?;
+                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
 
                         break Ok(new_f);
                     }
@@ -622,11 +618,7 @@ fn reduce_function<'ast, T: Field>(
 
                         f = Propagator::with_constants(&mut constants)
                             .fold_function(new_f)
-                            .map_err(|e| match e {
-                                crate::static_analysis::propagation::Error::Type(e) => {
-                                    Error::Incompatible(e)
-                                }
-                            })?;
+                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
 
                         let new_hash = Some(compute_hash(&f));
 
