@@ -199,10 +199,10 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
             .constants
             .iter()
             .map(|(key, symbol)| match symbol {
-                TypedConstantSymbol::Here(tc) => {
+                TypedConstantSymbol::Here(ref tc) => {
                     format!("const {} {} = {}", tc.ty, key, tc.expression)
                 }
-                TypedConstantSymbol::There(module_id, id) => {
+                TypedConstantSymbol::There(ref module_id, ref id) => {
                     format!("from \"{}\" import {} as {}", module_id.display(), id, key)
                 }
             })

@@ -9,8 +9,8 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_program(self, p)
     }
 
-    fn fold_module(&mut self, p: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
-        fold_module(self, p)
+    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
+        fold_module(self, m)
     }
 
     fn fold_constant(&mut self, c: TypedConstant<'ast, T>) -> TypedConstant<'ast, T> {
@@ -201,15 +201,15 @@ pub trait Folder<'ast, T: Field>: Sized {
 
 pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    p: TypedModule<'ast, T>,
+    m: TypedModule<'ast, T>,
 ) -> TypedModule<'ast, T> {
     TypedModule {
-        functions: p
+        functions: m
             .functions
             .into_iter()
             .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
             .collect(),
-        ..p
+        ..m
     }
 }
 
@@ -728,8 +728,8 @@ pub fn fold_constant<'ast, T: Field, F: Folder<'ast, T>>(
     c: TypedConstant<'ast, T>,
 ) -> TypedConstant<'ast, T> {
     TypedConstant {
+        ty: f.fold_type(c.ty),
         expression: f.fold_expression(c.expression),
-        ..c
     }
 }
 
