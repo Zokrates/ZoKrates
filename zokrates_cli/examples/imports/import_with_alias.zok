@@ -1,8 +1,8 @@
 from "./bar" import main as bar
-from "./baz" import main as baz
+from "./baz" import BAZ as baz
 import "./foo" as f
 
 def main() -> field:
     field foo = f()
-    assert(foo == bar() + baz())
+    assert(foo == bar() + baz)
     return foo

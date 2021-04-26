@@ -374,7 +374,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 ty
             ),
         })
-        .map(|e| TypedConstant { ty, expression: e })
+        .map(|e| TypedConstant::new(ty, e))
     }
 
     fn check_struct_type_declaration(
@@ -498,13 +498,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     );
                                     self.insert_into_scope(Variable::with_id_and_type(
                                         declaration.id,
-                                        c.ty.clone(),
+                                        c.get_type(),
                                     ));
                                     assert!(state
                                         .constants
                                         .entry(module_id.to_path_buf())
                                         .or_default()
-                                        .insert(declaration.id, c.ty)
+                                        .insert(declaration.id, c.get_type())
                                         .is_none());
                                 }
                             };
@@ -642,7 +642,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             }});
                                     }
                                     true => {
-                                        constants.insert(declaration.id, TypedConstantSymbol::There(import.module_id, declaration.id));
+                                        constants.insert(declaration.id, TypedConstantSymbol::There(import.module_id, import.symbol_id));
                                         self.insert_into_scope(Variable::with_id_and_type(declaration.id, ty.clone()));
 
                                         state
