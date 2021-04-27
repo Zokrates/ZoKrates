@@ -18,9 +18,22 @@ jobs:
     executor: << parameters.os >>
     steps:
       - checkout
-      - run: |
-          rustup default nightly
-          cross build --target << parameters.target >> --release
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v1-cargo-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
+      - run:
+          no_output_timeout: "30m"
+          command: cross build --target << parameters.target >> --release
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/<< parameters.target >>/.fingerprint
+            - target/<< parameters.target >>/build
+            - target/<< parameters.target >>/deps
+          key: v1-cargo-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
 
 #  build:
 #    docker:
@@ -153,39 +166,46 @@ jobs:
 #          name: "Publish Release on GitHub"
 #          command: ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ./artifacts/
 
+commands:
+  install_rust:
+    description: "Install Rust nightly"
+    steps:
+      - run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y
+          source $HOME/.cargo/env
+  install_cross:
+    description: "Install cross"
+    steps:
+      - run: cargo install --git https://github.com/rust-embedded/cross
+
 workflows:
   build-test-and-deploy:
     jobs:
       - cross_build:
           pre-steps:
-            - run:
-                command: |
-                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-                  source $HOME/.cargo/env
-                  cargo install --git https://github.com/rust-embedded/cross
+            - install_rust
+            - install_cross
           matrix:
             parameters:
               os:
                 - linux
-                - macos
               target:
                 - aarch64-unknown-linux-gnu
                 - arm-unknown-linux-gnueabi
                 - x86_64-unknown-linux-gnu
                 - x86_64-pc-windows-gnu
+      - cross_build:
+          pre-steps:
+            - install_rust
+            - install_cross
+            - run: rustup target add aarch64-apple-darwin
+          matrix:
+            parameters:
+              os:
+                - macos
+              target:
                 - aarch64-apple-darwin
                 - x86_64-apple-darwin
-            exclude:
-              - os: linux
-                target:
-                  - aarch64-apple-darwin
-                  - x86_64-apple-darwin
-              - os: macos
-                target:
-                  - x86_64-unknown-linux-gnu
-                  - arm-unknown-linux-gnueabi
-                  - x86_64-unknown-linux-gnu
-                  - x86_64-pc-windows-gnu
 #      - build
 #      - test
 #      - cpp_format
