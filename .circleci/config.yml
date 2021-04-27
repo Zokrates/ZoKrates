@@ -2,28 +2,25 @@ version: 2.1
 
 executors:
   linux:
-    docker:
-      - image: cimg/rust:1.51.0
+    machine:
+      image: ubuntu-2004:202101-01
   macos:
     macos:
       xcode: 12.2.0
 
 jobs:
-  build_artifacts:
+  cross_build:
     parameters:
       os:
         type: executor
       target:
         type: string
     executor: << parameters.os >>
-    environment:
-      CROSS_DOCKER_IN_DOCKER: "true"
     steps:
       - checkout
-      - setup_remote_docker
       - run: |
           rustup default nightly
-          cross build -v --target << parameters.target >> --release
+          cross build --target << parameters.target >> --release
 
 #  build:
 #    docker:
@@ -159,20 +156,36 @@ jobs:
 workflows:
   build-test-and-deploy:
     jobs:
-      - build_artifacts:
+      - cross_build:
           pre-steps:
             - run:
                 command: |
+                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+                  source $HOME/.cargo/env
                   cargo install --git https://github.com/rust-embedded/cross
           matrix:
             parameters:
               os:
                 - linux
+                - macos
               target:
-#                - aarch64-unknown-linux-gnu
-#                - arm-unknown-linux-gnueabi
+                - aarch64-unknown-linux-gnu
+                - arm-unknown-linux-gnueabi
                 - x86_64-unknown-linux-gnu
-#                - x86_64-pc-windows-gnu
+                - x86_64-pc-windows-gnu
+                - aarch64-apple-darwin
+                - x86_64-apple-darwin
+            exclude:
+              - os: linux
+                target:
+                  - aarch64-apple-darwin
+                  - x86_64-apple-darwin
+              - os: macos
+                target:
+                  - x86_64-unknown-linux-gnu
+                  - arm-unknown-linux-gnueabi
+                  - x86_64-unknown-linux-gnu
+                  - x86_64-pc-windows-gnu
 #      - build
 #      - test
 #      - cpp_format
