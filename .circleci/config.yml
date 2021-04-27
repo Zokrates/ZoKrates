@@ -3,7 +3,7 @@ version: 2.1
 executors:
   linux:
     docker:
-      - image: zokrates/env:latest
+      - image: cimg/rust:1.51.0
   macos:
     macos:
       xcode: 12.2.0
@@ -16,11 +16,14 @@ jobs:
       target:
         type: string
     executor: << parameters.os >>
+    environment:
+      CROSS_DOCKER_IN_DOCKER: "true"
     steps:
       - checkout
       - setup_remote_docker
       - run: |
-          cross build --bin zokrates --package zokrates_cli --target << parameters.target >> --release
+          rustup default nightly
+          cross build -v --target << parameters.target >> --release
 
 #  build:
 #    docker:
@@ -159,16 +162,17 @@ workflows:
       - build_artifacts:
           pre-steps:
             - run:
-                command: cargo install cross
+                command: |
+                  cargo install --git https://github.com/rust-embedded/cross
           matrix:
             parameters:
               os:
                 - linux
               target:
-                - aarch64-unknown-linux-gnu
-                - arm-unknown-linux-gnueabi
+#                - aarch64-unknown-linux-gnu
+#                - arm-unknown-linux-gnueabi
                 - x86_64-unknown-linux-gnu
-                - x86_64-pc-windows-gnu
+#                - x86_64-pc-windows-gnu
 #      - build
 #      - test
 #      - cpp_format
