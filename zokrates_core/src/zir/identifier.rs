@@ -6,7 +6,6 @@ use crate::typed_absy::Identifier as CoreIdentifier;
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub enum Identifier<'ast> {
     Source(SourceIdentifier<'ast>),
-    Internal(&'static str, usize),
 }
 
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
@@ -30,7 +29,6 @@ impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Identifier::Source(s) => write!(f, "{}", s),
-            Identifier::Internal(s, i) => write!(f, "#INTERNAL#_{}_{}", s, i),
         }
     }
 }
