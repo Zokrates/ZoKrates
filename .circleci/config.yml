@@ -6,7 +6,7 @@ executors:
       image: ubuntu-2004:202101-01
   macos:
     macos:
-      xcode: 12.2.0
+      xcode: 12.4.0
 
 jobs:
   cross_build:
@@ -27,12 +27,15 @@ jobs:
       - run:
           no_output_timeout: "30m"
           command: cross build --target << parameters.target >> --release
+      - upload_artifacts:
+          tag: test
+          target: << parameters.target >>
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/<< parameters.target >>/.fingerprint
-            - target/<< parameters.target >>/build
-            - target/<< parameters.target >>/deps
+            - target/<< parameters.target >>/release/.fingerprint
+            - target/<< parameters.target >>/release/build
+            - target/<< parameters.target >>/release/deps
           key: v1-cargo-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
 
 #  build:
@@ -177,6 +180,22 @@ commands:
     description: "Install cross"
     steps:
       - run: cargo install --git https://github.com/rust-embedded/cross
+  upload_artifacts:
+    parameters:
+      tag:
+        type: string
+      target:
+        type: string
+    description: "Store build artifacts in CircleCI"
+    steps:
+      - run: |
+          mkdir -p /tmp/artifacts
+          cp target/<< parameters.target >>/release/zokrates?(.exe) /tmp/artifacts
+          cp -r zokrates_stdlib/stdlib /tmp/artifacts/
+          cd /tmp/artifacts/
+          tar czf zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz *
+      - store_artifacts:
+          path: /tmp/artifacts/zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz
 
 workflows:
   build-test-and-deploy:
@@ -198,13 +217,11 @@ workflows:
           pre-steps:
             - install_rust
             - install_cross
-            - run: rustup target add aarch64-apple-darwin
           matrix:
             parameters:
               os:
                 - macos
               target:
-                - aarch64-apple-darwin
                 - x86_64-apple-darwin
 #      - build
 #      - test
