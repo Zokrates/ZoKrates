@@ -153,10 +153,8 @@ fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
 
     // deserialize witness
     let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
-    let witness_file = match File::open(&witness_path) {
-        Ok(file) => file,
-        Err(why) => panic!("Could not open {}: {}", witness_path.display(), why),
-    };
+    let witness_file = File::open(&witness_path)
+        .map_err(|why| format!("Could not open {}: {}", witness_path.display(), why))?;
 
     let witness = ir::Witness::read(witness_file)
         .map_err(|why| format!("Could not load witness: {:?}", why))?;

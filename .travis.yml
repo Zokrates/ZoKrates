@@ -11,6 +11,7 @@ sudo: required
 env:
   global:
     - CRATE_NAME=zokrates
+    
 
 matrix:
   include:
@@ -67,7 +68,7 @@ branches:
   only:
     # release tags
     - /^\d+\.\d+\.\d+.*$/
-    - master
+    - deploy
 
 notifications:
   email:

@@ -16,30 +16,45 @@ impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
                         .map(absy::SymbolDeclarationNode::from),
                 ),
         )
-        .imports(prog.imports.into_iter().map(absy::ImportNode::from))
+        .imports(
+            prog.imports
+                .into_iter()
+                .map(absy::ImportDirective::from)
+                .flatten(),
+        )
     }
 }
 
-impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
-    fn from(import: pest::ImportDirective<'ast>) -> absy::ImportNode<'ast> {
+impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportDirective<'ast> {
+    fn from(import: pest::ImportDirective<'ast>) -> absy::ImportDirective<'ast> {
         use crate::absy::NodeValue;
 
         match import {
-            pest::ImportDirective::Main(import) => {
+            pest::ImportDirective::Main(import) => absy::ImportDirective::Main(
                 imports::Import::new(None, std::path::Path::new(import.source.span.as_str()))
                     .alias(import.alias.map(|a| a.span.as_str()))
-                    .span(import.span)
-            }
-            pest::ImportDirective::From(import) => {
-                let symbol_str = import.symbol.span.as_str();
-
-                imports::Import::new(
-                    Some(import.symbol.span.as_str()),
-                    std::path::Path::new(import.source.span.as_str()),
-                )
-                .alias(import.alias.map(|a| a.span.as_str()).or(Some(symbol_str)))
-                .span(import.span)
-            }
+                    .span(import.span),
+            ),
+            pest::ImportDirective::From(import) => absy::ImportDirective::From(
+                import
+                    .symbols
+                    .iter()
+                    .map(|symbol| {
+                        imports::Import::new(
+                            Some(symbol.symbol.span.as_str()),
+                            std::path::Path::new(import.source.span.as_str()),
+                        )
+                        .alias(
+                            symbol
+                                .alias
+                                .as_ref()
+                                .map(|a| a.span.as_str())
+                                .or_else(|| Some(symbol.symbol.span.as_str())),
+                        )
+                        .span(symbol.span.clone())
+                    })
+                    .collect(),
+            ),
         }
     }
 }
@@ -513,10 +528,12 @@ impl<'ast> From<pest::UnaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(unary: pest::UnaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
         use crate::absy::NodeValue;
 
+        let expression = Box::new(absy::ExpressionNode::from(*unary.expression));
+
         match unary.op {
-            pest::UnaryOperator::Not(_) => {
-                absy::Expression::Not(Box::new(absy::ExpressionNode::from(*unary.expression)))
-            }
+            pest::UnaryOperator::Not(..) => absy::Expression::Not(expression),
+            pest::UnaryOperator::Neg(..) => absy::Expression::Neg(expression),
+            pest::UnaryOperator::Pos(..) => absy::Expression::Pos(expression),
         }
         .span(unary.span)
     }
@@ -581,6 +598,9 @@ impl<'ast> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'
                 pest::DecimalSuffix::Field(_) => absy::Expression::FieldConstant(
                     BigUint::parse_bytes(&expression.value.span.as_str().as_bytes(), 10).unwrap(),
                 ),
+                pest::DecimalSuffix::U64(_) => {
+                    absy::Expression::U64Constant(expression.value.span.as_str().parse().unwrap())
+                }
                 pest::DecimalSuffix::U32(_) => {
                     absy::Expression::U32Constant(expression.value.span.as_str().parse().unwrap())
                 }
@@ -605,6 +625,9 @@ impl<'ast> From<pest::HexLiteralExpression<'ast>> for absy::ExpressionNode<'ast>
         use crate::absy::NodeValue;
 
         match expression.value {
+            pest::HexNumberExpression::U64(e) => {
+                absy::Expression::U64Constant(u64::from_str_radix(&e.span.as_str(), 16).unwrap())
+            }
             pest::HexNumberExpression::U32(e) => {
                 absy::Expression::U32Constant(u32::from_str_radix(&e.span.as_str(), 16).unwrap())
             }
@@ -681,6 +704,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                 pest::BasicType::U8(t) => UnresolvedType::Uint(8).span(t.span),
                 pest::BasicType::U16(t) => UnresolvedType::Uint(16).span(t.span),
                 pest::BasicType::U32(t) => UnresolvedType::Uint(32).span(t.span),
+                pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
@@ -690,6 +714,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                         pest::BasicType::U8(t) => UnresolvedType::Uint(8).span(t.span),
                         pest::BasicType::U16(t) => UnresolvedType::Uint(16).span(t.span),
                         pest::BasicType::U32(t) => UnresolvedType::Uint(32).span(t.span),
+                        pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
                     },
                     pest::BasicOrStructType::Struct(t) => {
                         UnresolvedType::User(t.span.as_str().to_string()).span(t.span)

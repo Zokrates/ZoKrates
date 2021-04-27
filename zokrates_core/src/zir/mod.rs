@@ -434,6 +434,7 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
+            BooleanExpression::Value(b) => write!(f, "{}", b),
             BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
@@ -448,7 +449,6 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
-            BooleanExpression::Value(b) => write!(f, "{}", b),
             BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "if {} then {} else {} fi",
@@ -460,7 +460,51 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
 
 impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        match *self {
+            BooleanExpression::Identifier(ref var) => write!(f, "Ide({:?})", var),
+            BooleanExpression::Value(b) => write!(f, "Value({})", b),
+            BooleanExpression::FieldLt(ref lhs, ref rhs) => {
+                write!(f, "FieldLt({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::FieldLe(ref lhs, ref rhs) => {
+                write!(f, "FieldLe({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::FieldGe(ref lhs, ref rhs) => {
+                write!(f, "FieldGe({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::FieldGt(ref lhs, ref rhs) => {
+                write!(f, "FieldGt({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintLt(ref lhs, ref rhs) => {
+                write!(f, "UintLt({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintLe(ref lhs, ref rhs) => {
+                write!(f, "UintLe({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintGe(ref lhs, ref rhs) => {
+                write!(f, "UintGe({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintGt(ref lhs, ref rhs) => {
+                write!(f, "UintGt({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::FieldEq(ref lhs, ref rhs) => {
+                write!(f, "FieldEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::BoolEq(ref lhs, ref rhs) => {
+                write!(f, "BoolEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintEq(ref lhs, ref rhs) => {
+                write!(f, "UintEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "Or({:?}, {:?})", lhs, rhs),
+            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),
+            BooleanExpression::Not(ref exp) => write!(f, "Not({:?})", exp),
+            BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "IfElse({:?}, {:?}, {:?})",
+                condition, consequent, alternative
+            ),
+        }
     }
 }
 

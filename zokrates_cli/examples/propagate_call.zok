@@ -1,5 +1,5 @@
 def foo(field a, field b) -> (field, field):
-	assert(a == b + 2)
+	assert(a == b)
 	return a, b
 
 def main() -> field:

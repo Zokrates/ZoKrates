@@ -105,7 +105,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let fmt_error = |e: &CompileError| {
         let file = e.file().canonicalize().unwrap();
         format!(
-            "{}: {}",
+            "{}:{}",
             file.strip_prefix(std::env::current_dir().unwrap())
                 .unwrap_or_else(|_| file.as_path())
                 .display(),

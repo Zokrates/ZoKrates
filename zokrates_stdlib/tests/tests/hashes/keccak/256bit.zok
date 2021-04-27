@@ -1,0 +1,6 @@
+import "hashes/keccak/256bit" as keccak256
+
+def main():
+    u64[4] h = keccak256::<20>([42; 20])
+    assert(h == [0x09330DD35B609CA9, 0xDACFC1598C95602C, 0xACD911013FB018F3, 0x17233D68F05E0826])
+    return

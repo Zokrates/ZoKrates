@@ -20,7 +20,8 @@ use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
 use crate::typed_absy::types::{
     ArrayType, Constant, DeclarationArrayType, DeclarationFunctionKey, DeclarationSignature,
-    DeclarationStructMember, DeclarationStructType, DeclarationType, StructLocation,
+    DeclarationStructMember, DeclarationStructType, DeclarationType, GenericIdentifier,
+    StructLocation,
 };
 use std::hash::{Hash, Hasher};
 
@@ -134,6 +135,7 @@ impl fmt::Display for ErrorInner {
 #[derive(Debug)]
 struct FunctionQuery<'ast, T> {
     id: Identifier<'ast>,
+    generics_count: Option<usize>,
     inputs: Vec<Type<'ast, T>>,
     /// Output types are optional as we try to infer them
     outputs: Vec<Option<Type<'ast, T>>>,
@@ -141,6 +143,17 @@ struct FunctionQuery<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for FunctionQuery<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(count) = self.generics_count {
+            write!(
+                f,
+                "<{}>",
+                (0..count)
+                    .map(|_| String::from("_"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?
+        }
+
         write!(f, "(")?;
         for (i, t) in self.inputs.iter().enumerate() {
             write!(f, "{}", t)?;
@@ -181,11 +194,13 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
     /// Create a new query.
     fn new(
         id: Identifier<'ast>,
+        generics: &Option<Vec<Option<UExpression<'ast, T>>>>,
         inputs: &[Type<'ast, T>],
         outputs: &[Option<Type<'ast, T>>],
     ) -> Self {
         FunctionQuery {
             id,
+            generics_count: generics.as_ref().map(|g| g.len()),
             inputs: inputs.to_owned(),
             outputs: outputs.to_owned(),
         }
@@ -194,6 +209,8 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
     /// match a `FunctionKey` against this `FunctionQuery`
     fn match_func(&self, func: &DeclarationFunctionKey<'ast>) -> bool {
         self.id == func.id
+            && self.generics_count.map(|count| count == func.signature.generics.len()).unwrap_or(true) // we do not look at the values here, this will be checked when inlining anyway
+            && self.inputs.len() == func.signature.inputs.len()
             && self
                 .inputs
                 .iter()
@@ -325,7 +342,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         for field in s.fields {
             let member_id = field.value.id.to_string();
             match self
-                .check_declaration_type(field.value.ty, module_id, &types, &HashSet::new())
+                .check_declaration_type(field.value.ty, module_id, &types, &HashMap::new())
                 .map(|t| (member_id, t))
             {
                 Ok(f) => match fields_set.insert(f.0.clone()) {
@@ -696,7 +713,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let v = Variable::with_id_and_type(
                         match generic {
-                            Constant::Generic(g) => g,
+                            Constant::Generic(g) => g.name,
                             _ => unreachable!(),
                         },
                         Type::Uint(UBitwidth::B32),
@@ -818,12 +835,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let mut outputs = vec![];
         let mut generics = vec![];
 
-        let mut constants = HashSet::new();
+        let mut generics_map = HashMap::new();
 
-        for g in signature.generics {
-            match constants.insert(g.value) {
+        for (index, g) in signature.generics.iter().enumerate() {
+            match generics_map.insert(g.value, index).is_none() {
                 true => {
-                    generics.push(Some(Constant::Generic(g.value)));
+                    generics.push(Some(Constant::Generic(GenericIdentifier {
+                        name: g.value,
+                        index,
+                    })));
                 }
                 false => {
                     errors.push(ErrorInner {
@@ -835,7 +855,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.inputs {
-            match self.check_declaration_type(t, module_id, types, &constants) {
+            match self.check_declaration_type(t, module_id, types, &generics_map) {
                 Ok(t) => {
                     inputs.push(t);
                 }
@@ -846,7 +866,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.outputs {
-            match self.check_declaration_type(t, module_id, types, &constants) {
+            match self.check_declaration_type(t, module_id, types, &generics_map) {
                 Ok(t) => {
                     outputs.push(t);
                 }
@@ -936,6 +956,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn check_generic_expression(
         &mut self,
         expr: ExpressionNode<'ast>,
+        generics_map: &HashMap<Identifier<'ast>, usize>,
     ) -> Result<Constant<'ast>, ErrorInner> {
         let pos = expr.pos();
 
@@ -956,7 +977,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     })
                 }
             }
-            Expression::Identifier(name) => Ok(Constant::Generic(name)),
+            Expression::Identifier(name) => {
+                // check that this generic parameter is defined
+                match generics_map.get(&name) {
+                    Some(index) => Ok(Constant::Generic(GenericIdentifier {name, index: *index})),
+                    None => Err(ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!("Undeclared generic parameter in function definition: `{}` isn\'t declared as a generic constant", name)
+                                })
+                }
+            }
             e => Err(ErrorInner {
                 pos: Some(pos),
                 message: format!(
@@ -972,7 +1002,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         ty: UnresolvedTypeNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap<'ast>,
-        constants: &HashSet<Identifier<'ast>>,
+        generics_map: &HashMap<Identifier<'ast>, usize>,
     ) -> Result<DeclarationType<'ast>, ErrorInner> {
         let pos = ty.pos();
         let ty = ty.value;
@@ -982,19 +1012,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
             UnresolvedType::Boolean => Ok(DeclarationType::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(DeclarationType::uint(bitwidth)),
             UnresolvedType::Array(t, size) => {
-                let checked_size = self.check_generic_expression(size.clone())?;
-
-                if let Constant::Generic(g) = checked_size {
-                    if !constants.contains(g) {
-                        return Err(ErrorInner {
-                            pos: Some(pos),
-                            message: format!("Undeclared generic parameter in function definition: `{}` isn\'t declared as a generic constant", g)
-                        });
-                    }
-                };
+                let checked_size = self.check_generic_expression(size.clone(), &generics_map)?;
 
                 Ok(DeclarationType::Array(DeclarationArrayType::new(
-                    self.check_declaration_type(*t, module_id, types, constants)?,
+                    self.check_declaration_type(*t, module_id, types, generics_map)?,
                     checked_size,
                 )))
             }
@@ -1340,7 +1361,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let arguments_types: Vec<_> =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
-                        let query = FunctionQuery::new(&fun_id, &arguments_types, &assignee_types);
+                        let query = FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &assignee_types);
 
                         let functions = self.find_functions(&query);
 
@@ -1733,6 +1754,44 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }
             }
+            Expression::Neg(box e) => {
+                let e = self.check_expression(e, module_id, &types)?;
+
+                match e {
+                    TypedExpression::Int(e) => Ok(IntExpression::Neg(box e).into()),
+                    TypedExpression::FieldElement(e) => {
+                        Ok(FieldElementExpression::Neg(box e).into())
+                    }
+                    TypedExpression::Uint(e) => Ok((-e).into()),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Unary operator `-` cannot be applied to {} of type {}",
+                            e,
+                            e.get_type()
+                        ),
+                    }),
+                }
+            }
+            Expression::Pos(box e) => {
+                let e = self.check_expression(e, module_id, &types)?;
+
+                match e {
+                    TypedExpression::Int(e) => Ok(IntExpression::Pos(box e).into()),
+                    TypedExpression::FieldElement(e) => {
+                        Ok(FieldElementExpression::Pos(box e).into())
+                    }
+                    TypedExpression::Uint(e) => Ok(UExpression::pos(e).into()),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Unary operator `+` cannot be applied to {} of type {}",
+                            e,
+                            e.get_type()
+                        ),
+                    }),
+                }
+            }
             Expression::IfElse(box condition, box consequence, box alternative) => {
                 let condition_checked = self.check_expression(condition, module_id, &types)?;
                 let consequence_checked = self.check_expression(consequence, module_id, &types)?;
@@ -1802,6 +1861,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
+            Expression::U64Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(64).into()),
             Expression::FunctionCall(fun_id, generics, arguments) => {
                 // check the generic arguments, if any
                 let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
@@ -1844,7 +1904,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 // outside of multidef, function calls must have a single return value
                 // we use type inference to determine the type of the return, so we don't specify it
-                let query = FunctionQuery::new(&fun_id, &arguments_types, &[None]);
+                let query =
+                    FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &[None]);
 
                 let functions = self.find_functions(&query);
 
@@ -1862,15 +1923,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
 
-                        let output_types = signature.get_output_types(arguments_checked.iter().map(|a| a.get_type()).collect()).map_err(|e| ErrorInner {
+                        let generics_checked = generics_checked.unwrap_or_else(|| vec![None; signature.generics.len()]);
+
+                        let output_types = signature.get_output_types(
+                            generics_checked.clone(),
+                            arguments_checked.iter().map(|a| a.get_type()).collect()
+                        ).map_err(|e| ErrorInner {
                             pos: Some(pos),
                             message: format!(
-                                "Failed to infer value for generic parameter `{}`, try being more explicit by using an intermediate variable",
+                                "Failed to infer value for generic parameter `{}`, try providing an explicit value",
                                 e,
                             ),
                         })?;
-
-                        let generics_checked = generics_checked.unwrap_or_else(|| vec![None; signature.generics.len()]);
 
                         // the return count has to be 1
                         match output_types.len() {
@@ -2983,26 +3047,34 @@ mod tests {
             assert!(!unifier.insert_function(
                 "bar",
                 DeclarationSignature::new()
-                    .generics(vec![Some("K".into())])
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("K").index(0).into()
+                    )])
                     .inputs(vec![DeclarationType::FieldElement])
             ));
             // a `bar` function with a different signature
             assert!(unifier.insert_function(
                 "bar",
                 DeclarationSignature::new()
-                    .generics(vec![Some("K".into())])
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("K").index(0).into()
+                    )])
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::FieldElement,
-                        "K"
+                        GenericIdentifier::with_name("K").index(0)
                     ))])
             ));
-            // a `bar` function with a different signature, but which could conflict with the previous one
+            // a `bar` function with an equivalent signature, just renaming generic parameters
             assert!(!unifier.insert_function(
                 "bar",
-                DeclarationSignature::new().inputs(vec![DeclarationType::array((
-                    DeclarationType::FieldElement,
-                    42u32
-                ))])
+                DeclarationSignature::new()
+                    .generics(vec![Some(
+                        GenericIdentifier::with_name("L").index(0).into()
+                    )])
+                    .inputs(vec![DeclarationType::array((
+                        DeclarationType::FieldElement,
+                        GenericIdentifier::with_name("L").index(0)
+                    ))])
             ));
             // a `bar` type isn't allowed as the name is already taken by at least one function
             assert!(!unifier.insert_type("bar"));
@@ -3111,7 +3183,7 @@ mod tests {
             // def foo(private field[3] a):
             //   return
             //
-            // should fail as P could be equal to 3
+            // should succeed as P could be different from 3
 
             let mut f0 = function0();
 
@@ -3173,12 +3245,7 @@ mod tests {
             let mut state = State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
             let mut checker: Checker<Bn128Field> = Checker::new();
-            assert_eq!(
-                checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
-                    .inner
-                    .message,
-                "foo conflicts with another symbol"
-            );
+            assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
         }
 
         mod generics {
@@ -3570,12 +3637,18 @@ mod tests {
                 ),
                 Ok(DeclarationSignature::new()
                     .inputs(vec![DeclarationType::array((
-                        DeclarationType::array((DeclarationType::FieldElement, "K")),
-                        "L"
+                        DeclarationType::array((
+                            DeclarationType::FieldElement,
+                            GenericIdentifier::with_name("K").index(0)
+                        )),
+                        GenericIdentifier::with_name("L").index(1)
                     ))])
                     .outputs(vec![DeclarationType::array((
-                        DeclarationType::array((DeclarationType::FieldElement, "L")),
-                        "K"
+                        DeclarationType::array((
+                            DeclarationType::FieldElement,
+                            GenericIdentifier::with_name("L").index(1)
+                        )),
+                        GenericIdentifier::with_name("K").index(0)
                     ))]))
             );
         }
