@@ -349,8 +349,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// # Arguments
     ///
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `e` - the `FlatExpression` that's being checked against the range.
-    /// * `c` - the constant upper bound of the range
+    /// * `a` - the big-endian bit decomposition of the expression we enforce to be in range
+    /// * `b` - the big-endian bit decomposition of the upper bound of the range
     fn enforce_constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
