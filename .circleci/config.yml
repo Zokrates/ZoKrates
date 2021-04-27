@@ -189,13 +189,13 @@ commands:
     description: "Store build artifacts in CircleCI"
     steps:
       - run: |
-          mkdir -p /tmp/artifacts
-          cp target/<< parameters.target >>/release/zokrates?(.exe) /tmp/artifacts
-          cp -r zokrates_stdlib/stdlib /tmp/artifacts/
-          cd /tmp/artifacts/
+          mkdir -p /build
+          find target/<< parameters.target >>/release -maxdepth 1 -type f | grep -E "zokrates(\.exe)?$" | xargs -i cp {} /build/
+          cp -r zokrates_stdlib/stdlib /build/
+          cd /build
           tar czf zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz *
       - store_artifacts:
-          path: /tmp/artifacts/zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz
+          path: /build/zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz
 
 workflows:
   build-test-and-deploy:
