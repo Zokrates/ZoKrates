@@ -842,12 +842,16 @@ pub fn fold_module<'ast, T: Field, F: ResultFolder<'ast, T>>(
     m: TypedModule<'ast, T>,
 ) -> Result<TypedModule<'ast, T>, F::Error> {
     Ok(TypedModule {
+        constants: m
+            .constants
+            .into_iter()
+            .map(|(key, tc)| f.fold_constant_symbol(tc).map(|tc| (key, tc)))
+            .collect::<Result<_, _>>()?,
         functions: m
             .functions
             .into_iter()
             .map(|(key, fun)| f.fold_function_symbol(fun).map(|f| (key, f)))
             .collect::<Result<_, _>>()?,
-        ..m
     })
 }
 

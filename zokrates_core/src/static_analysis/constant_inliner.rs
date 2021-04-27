@@ -71,21 +71,6 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         }
     }
 
-    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
-        TypedModule {
-            constants: m
-                .constants
-                .into_iter()
-                .map(|(key, tc)| (key, self.fold_constant_symbol(tc)))
-                .collect(),
-            functions: m
-                .functions
-                .into_iter()
-                .map(|(key, fun)| (key, self.fold_function_symbol(fun)))
-                .collect(),
-        }
-    }
-
     fn fold_constant_symbol(
         &mut self,
         s: TypedConstantSymbol<'ast, T>,
