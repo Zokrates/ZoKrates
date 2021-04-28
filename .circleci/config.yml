@@ -192,7 +192,8 @@ commands:
             find target/<< parameters.target >>/release -maxdepth 1 -type f | grep -E "zokrates(\.exe)?$" | xargs -I {} cp {} /tmp/artifacts/
             cp -r zokrates_stdlib/stdlib /tmp/artifacts/
             cd /tmp/artifacts
-            tar -czvf zokrates-${CIRCLE_TAG}-<< parameters.target >>.tar.gz * | xargs -I {} rm -rf {}
+            tar czf zokrates-${CIRCLE_TAG}-<< parameters.target >>.tar.gz *
+            ls | grep -v *.tar.gz | xargs rm -rf
       - store_artifacts:
           path: /tmp/artifacts
       - persist_to_workspace:
