@@ -159,6 +159,11 @@ jobs:
           name: "Publish artifacts on GitHub"
           command: |
             go get github.com/github-release/github-release
+            github-release release \
+                -s ${GH_TOKEN} \
+                -u ${CIRCLE_PROJECT_USERNAME} \
+                -r ${CIRCLE_PROJECT_REPONAME} \
+                -t ${CIRCLE_TAG} || true
             find /tmp/artifacts -type f -name *.tar.gz -exec basename {} \; | xargs -I {} github-release upload \
               -s ${GH_TOKEN} \
               -u ${CIRCLE_PROJECT_USERNAME} \
@@ -206,19 +211,18 @@ tag-only: &tag-only
     branches:
       ignore: /.*/
     tags:
-      only: testing
-#      only: /^\d+\.\d+\.\d+$/
+      only: /^\d+\.\d+\.\d+$/
 
 workflows:
   build-test-and-deploy:
     jobs:
-#      - build
-#      - test
-#      - cpp_format
-#      - wasm_test
-#      - integration_test
-#      - zokrates_js_build
-#      - zokrates_js_test
+      - build
+      - test
+      - cpp_format
+      - wasm_test
+      - integration_test
+      - zokrates_js_build
+      - zokrates_js_test
       - cross_build:
           <<: *tag-only
           pre-steps:
@@ -251,16 +255,16 @@ workflows:
           requires:
             - cross-build-linux
             - cross-build-macos
-#      - deploy:
-#          filters:
-#            branches:
-#              only:
-#                - deploy
-#          requires:
-#            - build
-#            - test
-#            - cpp_format
-#            - wasm_test
-#            - integration_test
-#            - zokrates_js_build
-#            - zokrates_js_test
+      - deploy:
+          filters:
+            branches:
+              only:
+                - deploy
+          requires:
+            - build
+            - test
+            - cpp_format
+            - wasm_test
+            - integration_test
+            - zokrates_js_build
+            - zokrates_js_test
