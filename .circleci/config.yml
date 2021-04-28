@@ -151,7 +151,6 @@ jobs:
           no_output_timeout: "30m"
           command: cross build --target << parameters.target >> --release
       - tar_artifacts:
-          tag: ${CIRCLE_TAG}
           target: << parameters.target >>
       - save_cache:
           paths:
@@ -193,8 +192,6 @@ commands:
           command: cargo install --git https://github.com/rust-embedded/cross
   tar_artifacts:
     parameters:
-      tag:
-        type: string
       target:
         type: string
     steps:
@@ -205,13 +202,13 @@ commands:
             find target/<< parameters.target >>/release -maxdepth 1 -type f | grep -E "zokrates(\.exe)?$" | xargs -I {} cp {} /tmp/artifacts/
             cp -r zokrates_stdlib/stdlib /tmp/artifacts/
             cd /tmp/artifacts
-            tar czf zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz *
+            tar czf zokrates-${CIRCLE_TAG}-<< parameters.target >>.tar.gz *
       - store_artifacts:
-          path: /tmp/artifacts/zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz
+          path: /tmp/artifacts
       - persist_to_workspace:
           root: ~/artifacts
           paths:
-            - zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz
+            - zokrates-*-<< parameters.target >>.tar.gz
 
 tag-only: &tag-only
   filters:
