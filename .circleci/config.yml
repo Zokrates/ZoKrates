@@ -9,6 +9,129 @@ executors:
       xcode: 12.4.0
 
 jobs:
+  build:
+    docker:
+      - image: zokrates/env:latest
+    resource_class: large
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Build
+          command: RUSTFLAGS="-D warnings" cargo build --features="libsnark"
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+  test:
+    docker:
+      - image: zokrates/env:latest
+    resource_class: large
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Check format
+          command: cargo fmt --all -- --check
+      - run:
+          name: Run clippy
+          command: cargo clippy -- -D warnings
+      - run:
+          name: Run tests
+          command: RUSTFLAGS="-D warnings" cargo test --release --features="libsnark"
+      # - run:
+      #     name: Generate code coverage report
+      #     command: ./scripts/cov.sh
+  cpp_format:
+    docker:
+      - image: zokrates/env:latest
+    steps:
+      - checkout
+      - run:
+          name: Check cpp format (clang-format)
+          command: run-clang-format.py -r $(pwd)/zokrates_core/lib
+  wasm_test:
+    docker:
+      - image: zokrates/env:latest
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Test on firefox
+          command: |
+            cd zokrates_core
+            wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
+  integration_test:
+    docker:
+      - image: zokrates/env:latest
+      - image: trufflesuite/ganache-cli:next
+    resource_class: large
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Run integration tests
+          command: RUSTFLAGS="-D warnings" cargo test --release --features="libsnark" -- --ignored
+  deploy:
+    docker:
+      - image: circleci/python:latest-node
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Release
+          command: ./scripts/release.sh
+  zokrates_js_build:
+    docker:
+      - image: zokrates/env:latest
+    steps:
+      - checkout
+      - run:
+          name: Build
+          command: cd zokrates_js && npm run build:dev
+  zokrates_js_test:
+    docker:
+      - image: zokrates/env:latest
+    steps:
+      - checkout
+      - run:
+          command: cd zokrates_js && npm run test
   cross_build:
     parameters:
       os:
@@ -23,12 +146,12 @@ jobs:
           command: cargo generate-lockfile
       - restore_cache:
           keys:
-            - v1-cargo-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
+            - v1-cross-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
       - run:
           no_output_timeout: "30m"
           command: cross build --target << parameters.target >> --release
-      - upload_artifacts:
-          tag: test
+      - tar_artifacts:
+          tag: ${CIRCLE_TAG}
           target: << parameters.target >>
       - save_cache:
           paths:
@@ -36,171 +159,79 @@ jobs:
             - target/<< parameters.target >>/release/.fingerprint
             - target/<< parameters.target >>/release/build
             - target/<< parameters.target >>/release/deps
-          key: v1-cargo-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
-
-#  build:
-#    docker:
-#      - image: zokrates/env:latest
-#    resource_class: large
-#    steps:
-#      - checkout
-#      - run:
-#          name: Version information
-#          command: rustc --version; cargo --version; rustup --version
-#      - run:
-#          name: Calculate dependencies
-#          command: cargo generate-lockfile
-#      - restore_cache:
-#          keys:
-#            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-#      - run:
-#          name: Build
-#          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
-#      - save_cache:
-#          paths:
-#            - /usr/local/cargo/registry
-#            - target/debug/.fingerprint
-#            - target/debug/build
-#            - target/debug/deps
-#          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-#  test:
-#    docker:
-#      - image: zokrates/env:latest
-#    resource_class: large
-#    steps:
-#      - checkout
-#      - run:
-#          name: Version information
-#          command: rustc --version; cargo --version; rustup --version
-#      - run:
-#          name: Calculate dependencies
-#          command: cargo generate-lockfile
-#      - restore_cache:
-#          keys:
-#            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-#      - run:
-#          name: Check format
-#          command: cargo fmt --all -- --check
-#      - run:
-#          name: Run clippy
-#          command: cargo clippy -- -D warnings
-#      - run:
-#          name: Run tests
-#          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
-#      # - run:
-#      #     name: Generate code coverage report
-#      #     command: ./scripts/cov.sh
-#  cpp_format:
-#    docker:
-#      - image: zokrates/env:latest
-#    steps:
-#      - checkout
-#      - run:
-#          name: Check cpp format (clang-format)
-#          command: run-clang-format.py -r $(pwd)/zokrates_core/lib
-#  wasm_test:
-#    docker:
-#      - image: zokrates/env:latest
-#    steps:
-#      - checkout
-#      - run:
-#          name: Version information
-#          command: rustc --version; cargo --version; rustup --version
-#      - run:
-#          name: Calculate dependencies
-#          command: cargo generate-lockfile
-#      - restore_cache:
-#          keys:
-#            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-#      - run:
-#          name: Test on firefox
-#          command: cd zokrates_core && wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
-#  integration_test:
-#    docker:
-#      - image: zokrates/env:latest
-#      - image: trufflesuite/ganache-cli:next
-#    resource_class: large
-#    steps:
-#      - checkout
-#      - run:
-#          name: Version information
-#          command: rustc --version; cargo --version; rustup --version
-#      - run:
-#          name: Calculate dependencies
-#          command: cargo generate-lockfile
-#      - restore_cache:
-#          keys:
-#            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-#      - run:
-#          name: Run integration tests
-#          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
-#  deploy:
-#    docker:
-#      - image: circleci/python:latest-node
-#    steps:
-#      - checkout
-#      - setup_remote_docker:
-#          docker_layer_caching: true
-#      - run:
-#          name: Release
-#          command: ./scripts/release.sh
-#  zokrates_js_build:
-#    docker:
-#      - image: zokrates/env:latest
-#    steps:
-#      - checkout
-#      - run:
-#          name: Build
-#          command: cd zokrates_js && npm run build:dev
-#  zokrates_js_test:
-#    docker:
-#      - image: zokrates/env:latest
-#    steps:
-#      - checkout
-#      - run:
-#          command: cd zokrates_js && npm run test
-#  publish_artifacts:
-#    docker:
-#      - image: cibuilds/github:0.10
-#    steps:
-#      - attach_workspace:
-#          at: ./artifacts
-#      - run:
-#          name: "Publish Release on GitHub"
-#          command: ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ./artifacts/
+          key: v1-cross-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
+  publish_artifacts:
+    docker:
+      - image: circleci/golang
+    steps:
+      - attach_workspace:
+          at: ~/artifacts
+      - run:
+          name: "Publish artifacts on GitHub"
+          command: |
+            go get github.com/github-release/github-release
+            find ~/artifacts -type f -name *.tar.gz -exec basename {} \; | xargs -I {} github-release upload \
+              -s ${GH_TOKEN} \
+              -u ${CIRCLE_PROJECT_USERNAME} \
+              -r ${CIRCLE_PROJECT_REPONAME} \
+              -t ${CIRCLE_TAG} \
+              -n "{}" \
+              -f ~/artifacts/{}
 
 commands:
   install_rust:
-    description: "Install Rust nightly"
     steps:
-      - run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y
-          source $HOME/.cargo/env
+      - run:
+          name: Install Rust nightly
+          command: |
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y
+            source $HOME/.cargo/env
   install_cross:
-    description: "Install cross"
     steps:
-      - run: cargo install --git https://github.com/rust-embedded/cross
-  upload_artifacts:
+      - run:
+          name: Install rust-embedded/cross
+          command: cargo install --git https://github.com/rust-embedded/cross
+  tar_artifacts:
     parameters:
       tag:
         type: string
       target:
         type: string
-    description: "Store build artifacts in CircleCI"
     steps:
-      - run: |
-          mkdir -p /tmp/artifacts
-          find target/<< parameters.target >>/release -maxdepth 1 -type f | grep -E "zokrates(\.exe)?$" | xargs -I {} cp {} /tmp/artifacts/
-          cp -r zokrates_stdlib/stdlib /tmp/artifacts/
-          cd /tmp/artifacts
-          tar czf zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz *
+      - run:
+          name: Store build artifacts
+          command: |
+            mkdir -p /tmp/artifacts
+            find target/<< parameters.target >>/release -maxdepth 1 -type f | grep -E "zokrates(\.exe)?$" | xargs -I {} cp {} /tmp/artifacts/
+            cp -r zokrates_stdlib/stdlib /tmp/artifacts/
+            cd /tmp/artifacts
+            tar czf zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz *
       - store_artifacts:
           path: /tmp/artifacts/zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz
+      - persist_to_workspace:
+          root: ~/artifacts
+          paths:
+            - zokrates-<< parameters.tag >>-<< parameters.target >>.tar.gz
+
+tag-only: &tag-only
+  filters:
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^\d+\.\d+\.\d+$/
 
 workflows:
   build-test-and-deploy:
     jobs:
+      - build
+      - test
+      - cpp_format
+      - wasm_test
+      - integration_test
+      - zokrates_js_build
+      - zokrates_js_test
       - cross_build:
+          <<: *tag-only
           pre-steps:
             - install_rust
             - install_cross
@@ -214,6 +245,7 @@ workflows:
                 - x86_64-unknown-linux-gnu
                 - x86_64-pc-windows-gnu
       - cross_build:
+          <<: *tag-only
           pre-steps:
             - install_rust
             - install_cross
@@ -223,23 +255,20 @@ workflows:
                 - macos
               target:
                 - x86_64-apple-darwin
-#      - build
-#      - test
-#      - cpp_format
-#      - wasm_test
-#      - integration_test
-#      - zokrates_js_build
-#      - zokrates_js_test
-#      - deploy:
-#          filters:
-#            branches:
-#              only:
-#                - deploy
-#          requires:
-#            - build
-#            - test
-#            - cpp_format
-#            - wasm_test
-#            - integration_test
-#            - zokrates_js_build
-#            - zokrates_js_test
+      - publish_artifacts:
+          <<: *tag-only
+          requires:
+            - cross_build
+      - deploy:
+          filters:
+            branches:
+              only:
+                - deploy
+          requires:
+            - build
+            - test
+            - cpp_format
+            - wasm_test
+            - integration_test
+            - zokrates_js_build
+            - zokrates_js_test
