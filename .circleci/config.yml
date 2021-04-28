@@ -144,21 +144,11 @@ jobs:
       - run:
           name: Calculate dependencies
           command: cargo generate-lockfile
-      - restore_cache:
-          keys:
-            - v1-cross-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
       - run:
           no_output_timeout: "30m"
           command: cross build --target << parameters.target >> --release
       - tar_artifacts:
           target: << parameters.target >>
-      - save_cache:
-          paths:
-            - /usr/local/cargo/registry
-            - target/<< parameters.target >>/release/.fingerprint
-            - target/<< parameters.target >>/release/build
-            - target/<< parameters.target >>/release/deps
-          key: v1-cross-cache-<< parameters.target >>-{{ checksum "Cargo.lock" }}
   publish_artifacts:
     docker:
       - image: circleci/golang
@@ -202,7 +192,7 @@ commands:
             find target/<< parameters.target >>/release -maxdepth 1 -type f | grep -E "zokrates(\.exe)?$" | xargs -I {} cp {} /tmp/artifacts/
             cp -r zokrates_stdlib/stdlib /tmp/artifacts/
             cd /tmp/artifacts
-            tar cvzf zokrates-${CIRCLE_TAG}-<< parameters.target >>.tar.gz * | xargs rm -rf
+            tar -czvf zokrates-${CIRCLE_TAG}-<< parameters.target >>.tar.gz * | xargs -I {} rm -rf {}
       - store_artifacts:
           path: /tmp/artifacts
       - persist_to_workspace:
