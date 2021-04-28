@@ -26,7 +26,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build
-          command: RUSTFLAGS="-D warnings" cargo build --features="libsnark"
+          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -57,7 +57,7 @@ jobs:
           command: cargo clippy -- -D warnings
       - run:
           name: Run tests
-          command: RUSTFLAGS="-D warnings" cargo test --release --features="libsnark"
+          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
       # - run:
       #     name: Generate code coverage report
       #     command: ./scripts/cov.sh
@@ -106,7 +106,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run integration tests
-          command: RUSTFLAGS="-D warnings" cargo test --release --features="libsnark" -- --ignored
+          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
   deploy:
     docker:
       - image: circleci/python:latest-node
