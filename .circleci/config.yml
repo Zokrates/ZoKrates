@@ -164,18 +164,18 @@ jobs:
       - image: circleci/golang
     steps:
       - attach_workspace:
-          at: ~/artifacts
+          at: /tmp/artifacts
       - run:
           name: "Publish artifacts on GitHub"
           command: |
             go get github.com/github-release/github-release
-            find ~/artifacts -type f -name *.tar.gz -exec basename {} \; | xargs -I {} github-release upload \
+            find /tmp/artifacts -type f -name *.tar.gz -exec basename {} \; | xargs -I {} github-release upload \
               -s ${GH_TOKEN} \
               -u ${CIRCLE_PROJECT_USERNAME} \
               -r ${CIRCLE_PROJECT_REPONAME} \
               -t ${CIRCLE_TAG} \
               -n "{}" \
-              -f ~/artifacts/{}
+              -f /tmp/artifacts/{}
 
 commands:
   install_rust:
@@ -202,11 +202,11 @@ commands:
             find target/<< parameters.target >>/release -maxdepth 1 -type f | grep -E "zokrates(\.exe)?$" | xargs -I {} cp {} /tmp/artifacts/
             cp -r zokrates_stdlib/stdlib /tmp/artifacts/
             cd /tmp/artifacts
-            tar czf zokrates-${CIRCLE_TAG}-<< parameters.target >>.tar.gz *
+            tar czf zokrates-${CIRCLE_TAG}-<< parameters.target >>.tar.gz * --remove-files
       - store_artifacts:
           path: /tmp/artifacts
       - persist_to_workspace:
-          root: ~/artifacts
+          root: /tmp/artifacts
           paths:
             - zokrates-*-<< parameters.target >>.tar.gz
 
