@@ -182,9 +182,9 @@ commands:
   install_rust:
     steps:
       - run:
-          name: Install Rust nightly
+          name: Install Rust
           command: |
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             source $HOME/.cargo/env
   install_cross:
     steps:
@@ -218,18 +218,19 @@ tag-only: &tag-only
     branches:
       ignore: /.*/
     tags:
-      only: /^\d+\.\d+\.\d+$/
+      only: testing
+#      only: /^\d+\.\d+\.\d+$/
 
 workflows:
   build-test-and-deploy:
     jobs:
-      - build
-      - test
-      - cpp_format
-      - wasm_test
-      - integration_test
-      - zokrates_js_build
-      - zokrates_js_test
+#      - build
+#      - test
+#      - cpp_format
+#      - wasm_test
+#      - integration_test
+#      - zokrates_js_build
+#      - zokrates_js_test
       - cross_build:
           <<: *tag-only
           pre-steps:
@@ -262,16 +263,16 @@ workflows:
           requires:
             - cross-build-linux
             - cross-build-macos
-      - deploy:
-          filters:
-            branches:
-              only:
-                - deploy
-          requires:
-            - build
-            - test
-            - cpp_format
-            - wasm_test
-            - integration_test
-            - zokrates_js_build
-            - zokrates_js_test
+#      - deploy:
+#          filters:
+#            branches:
+#              only:
+#                - deploy
+#          requires:
+#            - build
+#            - test
+#            - cpp_format
+#            - wasm_test
+#            - integration_test
+#            - zokrates_js_build
+#            - zokrates_js_test
