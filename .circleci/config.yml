@@ -236,6 +236,7 @@ workflows:
             - install_rust
             - install_cross
           matrix:
+            alias: cross-build-linux
             parameters:
               os:
                 - linux
@@ -250,6 +251,7 @@ workflows:
             - install_rust
             - install_cross
           matrix:
+            alias: cross-build-macos
             parameters:
               os:
                 - macos
@@ -258,7 +260,8 @@ workflows:
       - publish_artifacts:
           <<: *tag-only
           requires:
-            - cross_build
+            - cross-build-linux
+            - cross-build-macos
       - deploy:
           filters:
             branches:
