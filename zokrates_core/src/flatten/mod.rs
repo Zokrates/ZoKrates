@@ -228,7 +228,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             if *b {
                 statements_flattened.push(FlatStatement::Definition(
                     is_not_smaller_run[i],
-                    a[i].clone().into(),
+                    a[i].into(),
                 ));
 
                 // don't need to update size_unknown in the last round
@@ -254,12 +254,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let or_left = FlatExpression::Sub(
                     box FlatExpression::Number(T::from(1)),
-                    box size_unknown[i].clone().into(),
+                    box size_unknown[i].into(),
                 );
-                let or_right: FlatExpression<_> = FlatExpression::Sub(
-                    box FlatExpression::Number(T::from(1)),
-                    box a[i].clone().into(),
-                );
+                let or_right: FlatExpression<_> =
+                    FlatExpression::Sub(box FlatExpression::Number(T::from(1)), box a[i].into());
 
                 let and_name = self.use_sym();
                 let and = FlatExpression::Mult(box or_left.clone(), box or_right.clone());
@@ -316,7 +314,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push(FlatStatement::Definition(
             term0_id,
             FlatExpression::Mult(
-                box condition_id.clone().into(),
+                box condition_id.into(),
                 box FlatExpression::from(consequence_id),
             ),
         ));
@@ -770,7 +768,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened.push(FlatStatement::Condition(
                     FlatExpression::Add(
                         box x.clone(),
-                        box FlatExpression::Sub(box y.clone(), box name_x_or_y.clone().into()),
+                        box FlatExpression::Sub(box y.clone(), box name_x_or_y.into()),
                     ),
                     FlatExpression::Mult(box x.clone(), box y.clone()),
                 ));
@@ -1042,7 +1040,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         FlatStatement::Condition(
                             FlatExpression::Add(
                                 box x.clone(),
-                                box FlatExpression::Sub(box y.clone(), box name.clone().into()),
+                                box FlatExpression::Sub(box y.clone(), box name.into()),
                             ),
                             FlatExpression::Mult(
                                 box FlatExpression::Add(box x.clone(), box x.clone()),
@@ -1443,7 +1441,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                     vec![a.clone(), b.clone(), c.clone()],
                                                 )),
                                                 FlatStatement::Condition(
-                                                    bc.clone().into(),
+                                                    bc.into(),
                                                     FlatExpression::Mult(
                                                         box b.clone(),
                                                         box c.clone(),
@@ -1451,14 +1449,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                 ),
                                                 FlatStatement::Condition(
                                                     FlatExpression::Sub(
-                                                        box bc.clone().into(),
+                                                        box bc.into(),
                                                         box maj.into(),
                                                     ),
                                                     FlatExpression::Mult(
                                                         box FlatExpression::Sub(
                                                             box FlatExpression::Add(
-                                                                box bc.clone().into(),
-                                                                box bc.clone().into(),
+                                                                box bc.into(),
+                                                                box bc.into(),
                                                             ),
                                                             box FlatExpression::Add(box b, box c),
                                                         ),
@@ -1582,10 +1580,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 FlatStatement::Condition(
                                     FlatExpression::Add(
                                         box x.clone(),
-                                        box FlatExpression::Sub(
-                                            box y.clone(),
-                                            box name.clone().into(),
-                                        ),
+                                        box FlatExpression::Sub(box y.clone(), box name.into()),
                                     ),
                                     FlatExpression::Mult(box x, box y),
                                 ),
@@ -2074,7 +2069,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                             .get_field_unchecked()
                                     })
                                     .collect();
-                                self.bits_cache.insert(vars[0].clone().into(), bits);
+                                self.bits_cache.insert(vars[0].into(), bits);
                             }
                             _ => {}
                         }

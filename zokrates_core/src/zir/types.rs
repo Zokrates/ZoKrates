@@ -23,7 +23,7 @@ pub enum UBitwidth {
 }
 
 impl UBitwidth {
-    pub fn to_usize(&self) -> usize {
+    pub fn to_usize(self) -> usize {
         match self {
             UBitwidth::B8 => 8,
             UBitwidth::B16 => 16,
