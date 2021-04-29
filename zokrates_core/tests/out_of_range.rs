@@ -14,8 +14,8 @@ use zokrates_field::Bn128Field;
 #[test]
 fn out_of_range() {
     let source = r#"
-		def main(private field a) -> field:
-	        field x = if a < 5555 then 3333 else 4444 fi
+		def main(private field a, private field b) -> field:
+	        field x = if a < b then 3333 else 4444 fi
 	        assert(x == 3333)
 			return 1
 	"#
@@ -36,6 +36,9 @@ fn out_of_range() {
     let interpreter = Interpreter::try_out_of_range();
 
     assert!(interpreter
-        .execute(&res.prog(), &[Bn128Field::from(10000)])
+        .execute(
+            &res.prog(),
+            &[Bn128Field::from(10000), Bn128Field::from(5555)]
+        )
         .is_err());
 }
