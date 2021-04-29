@@ -147,7 +147,7 @@ fn register<'ast>(
 ) {
     for (id, key, value) in substitute
         .iter()
-        .filter_map(|(id, version)| with.get(&id).clone().map(|to| (id, version, to)))
+        .filter_map(|(id, version)| with.get(&id).map(|to| (id, version, to)))
         .filter(|(_, key, value)| key != value)
     {
         let sub = substitutions.0.entry(id.clone()).or_default();

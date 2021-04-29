@@ -403,8 +403,8 @@ pub enum UBitwidth {
 }
 
 impl UBitwidth {
-    pub fn to_usize(&self) -> usize {
-        *self as u32 as usize
+    pub fn to_usize(self) -> usize {
+        self as u32 as usize
     }
 }
 
