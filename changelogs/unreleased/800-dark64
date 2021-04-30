@@ -1,1 +1,0 @@
-Allow optional underscore before type suffix (e.g. `42_u32`)
