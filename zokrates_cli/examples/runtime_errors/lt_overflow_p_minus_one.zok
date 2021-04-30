@@ -4,4 +4,4 @@
 def main(field a) -> bool:
   field p = 21888242871839275222246405745257275088548364400416034343698204186575808495616 + a
   // we added a = 0 to prevent the condition to be evaluated at compile time
-  return 0 < p
+  return a < p

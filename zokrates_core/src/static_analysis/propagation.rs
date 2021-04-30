@@ -21,12 +21,26 @@ type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;
 #[derive(Debug, PartialEq)]
 pub enum Error {
     Type(String),
+    AssertionFailed(String),
+    OutOfBounds(u128, u128),
+    NonConstantExponent(String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Type(s) => write!(f, "{}", s),
+            Error::AssertionFailed(s) => write!(f, "{}", s),
+            Error::OutOfBounds(index, size) => write!(
+                f,
+                "Out of bounds index ({} >= {}) found during static analysis",
+                index, size
+            ),
+            Error::NonConstantExponent(s) => write!(
+                f,
+                "Non-constant exponent `{}` detected during static analysis",
+                s
+            ),
         }
     }
 }
@@ -74,9 +88,9 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                                     }
                                     _ => unreachable!(),
                                 },
-                                _ => unreachable!(),
+                                _ => unreachable!("should be an array value"),
                             },
-                            _ => unreachable!(),
+                            _ => unreachable!("should be an array expression"),
                         },
                         _ => Err(variable),
                     },
@@ -93,15 +107,15 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                             .iter()
                             .position(|member| *m == member.id)
                             .unwrap(),
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a struct type"),
                     };
 
                     match c {
                         TypedExpression::Struct(a) => match a.as_inner_mut() {
                             StructExpressionInner::Value(value) => Ok((v, &mut value[index])),
-                            _ => unreachable!(),
+                            _ => unreachable!("should be a struct value"),
                         },
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a struct expression"),
                     }
                 }
                 e => e,
@@ -168,17 +182,17 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
                 ArrayExpressionInner::Slice(box a, box from, box to) => {
                     let from = match from.into_inner() {
                         UExpressionInner::Value(from) => from as usize,
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a uint value"),
                     };
 
                     let to = match to.into_inner() {
                         UExpressionInner::Value(to) => to as usize,
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a uint value"),
                     };
 
                     let v = match a.into_inner() {
                         ArrayExpressionInner::Value(v) => v,
-                        _ => unreachable!(),
+                        _ => unreachable!("should be an array value"),
                     };
 
                     ArrayExpressionInner::Value(
@@ -197,7 +211,7 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
                 ArrayExpressionInner::Repeat(box e, box count) => {
                     let count = match count.into_inner() {
                         UExpressionInner::Value(from) => from as usize,
-                        _ => unreachable!(),
+                        _ => unreachable!("should be a uint value"),
                     };
 
                     let e = remove_spreads(e);
@@ -250,6 +264,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     }
                 })
                 .collect::<Result<_, _>>()?,
+            ..m
         })
     }
 
@@ -391,7 +406,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     )
                                     .annotate(bitwidth)
                                     .into(),
-                                v => unreachable!("should be an array value, found {}", v),
+                                _ => unreachable!("should be an array value"),
                             }
                         }
 
@@ -657,6 +672,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 Ok(statements)
             }
+            TypedStatement::Assertion(e) => {
+                let e_str = e.to_string();
+                let expr = self.fold_boolean_expression(e)?;
+                match expr {
+                    BooleanExpression::Value(v) if !v => Err(Error::AssertionFailed(format!(
+                        "Assertion failed on expression `{}`",
+                        e_str
+                    ))),
+                    _ => Ok(vec![TypedStatement::Assertion(expr)]),
+                }
+            }
             s @ TypedStatement::PushCallLog(..) => Ok(vec![s]),
             s @ TypedStatement::PopCallLog => Ok(vec![s]),
             s => fold_statement(self, s),
@@ -668,159 +694,165 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> Result<UExpressionInner<'ast, T>, Error> {
-        Ok(match e {
+        match e {
             UExpressionInner::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
-                    TypedExpression::Uint(e) => e.as_inner().clone(),
+                    TypedExpression::Uint(e) => Ok(e.as_inner().clone()),
                     _ => unreachable!("constant stored for a uint should be a uint"),
                 },
-                None => UExpressionInner::Identifier(id),
+                None => Ok(UExpressionInner::Identifier(id)),
             },
             UExpressionInner::Add(box e1, box e2) => match (
                 self.fold_uint_expression(e1)?.into_inner(),
                 self.fold_uint_expression(e2)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    UExpressionInner::Value(
+                    Ok(UExpressionInner::Value(
                         (v1 + v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
-                    )
+                    ))
                 }
                 (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
-                    0 => e,
-                    _ => UExpressionInner::Add(
+                    0 => Ok(e),
+                    _ => Ok(UExpressionInner::Add(
                         box e.annotate(bitwidth),
                         box UExpressionInner::Value(v).annotate(bitwidth),
-                    ),
+                    )),
                 },
-                (e1, e2) => {
-                    UExpressionInner::Add(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
-                }
+                (e1, e2) => Ok(UExpressionInner::Add(
+                    box e1.annotate(bitwidth),
+                    box e2.annotate(bitwidth),
+                )),
             },
             UExpressionInner::Sub(box e1, box e2) => match (
                 self.fold_uint_expression(e1)?.into_inner(),
                 self.fold_uint_expression(e2)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    UExpressionInner::Value(
+                    Ok(UExpressionInner::Value(
                         (v1.wrapping_sub(v2)) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
-                    )
+                    ))
                 }
                 (e, UExpressionInner::Value(v)) => match v {
-                    0 => e,
-                    _ => UExpressionInner::Sub(
+                    0 => Ok(e),
+                    _ => Ok(UExpressionInner::Sub(
                         box e.annotate(bitwidth),
                         box UExpressionInner::Value(v).annotate(bitwidth),
-                    ),
+                    )),
                 },
-                (e1, e2) => {
-                    UExpressionInner::Sub(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
-                }
+                (e1, e2) => Ok(UExpressionInner::Sub(
+                    box e1.annotate(bitwidth),
+                    box e2.annotate(bitwidth),
+                )),
             },
             UExpressionInner::FloorSub(box e1, box e2) => match (
                 self.fold_uint_expression(e1)?.into_inner(),
                 self.fold_uint_expression(e2)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    UExpressionInner::Value(
+                    Ok(UExpressionInner::Value(
                         v1.saturating_sub(v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
-                    )
+                    ))
                 }
                 (e, UExpressionInner::Value(v)) => match v {
-                    0 => e,
-                    _ => UExpressionInner::FloorSub(
+                    0 => Ok(e),
+                    _ => Ok(UExpressionInner::FloorSub(
                         box e.annotate(bitwidth),
                         box UExpressionInner::Value(v).annotate(bitwidth),
-                    ),
+                    )),
                 },
-                (e1, e2) => {
-                    UExpressionInner::Sub(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
-                }
+                (e1, e2) => Ok(UExpressionInner::Sub(
+                    box e1.annotate(bitwidth),
+                    box e2.annotate(bitwidth),
+                )),
             },
             UExpressionInner::Mult(box e1, box e2) => match (
                 self.fold_uint_expression(e1)?.into_inner(),
                 self.fold_uint_expression(e2)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    UExpressionInner::Value(
+                    Ok(UExpressionInner::Value(
                         (v1 * v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
-                    )
+                    ))
                 }
                 (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
-                    0 => UExpressionInner::Value(0),
-                    1 => e,
-                    _ => UExpressionInner::Mult(
+                    0 => Ok(UExpressionInner::Value(0)),
+                    1 => Ok(e),
+                    _ => Ok(UExpressionInner::Mult(
                         box e.annotate(bitwidth),
                         box UExpressionInner::Value(v).annotate(bitwidth),
-                    ),
+                    )),
                 },
-                (e1, e2) => {
-                    UExpressionInner::Mult(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
-                }
+                (e1, e2) => Ok(UExpressionInner::Mult(
+                    box e1.annotate(bitwidth),
+                    box e2.annotate(bitwidth),
+                )),
             },
             UExpressionInner::Div(box e1, box e2) => match (
                 self.fold_uint_expression(e1)?.into_inner(),
                 self.fold_uint_expression(e2)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    UExpressionInner::Value(
+                    Ok(UExpressionInner::Value(
                         (v1 / v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
-                    )
+                    ))
                 }
                 (e, UExpressionInner::Value(v)) => match v {
-                    1 => e,
-                    _ => UExpressionInner::Div(
+                    1 => Ok(e),
+                    _ => Ok(UExpressionInner::Div(
                         box e.annotate(bitwidth),
                         box UExpressionInner::Value(v).annotate(bitwidth),
-                    ),
+                    )),
                 },
-                (e1, e2) => {
-                    UExpressionInner::Div(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
-                }
+                (e1, e2) => Ok(UExpressionInner::Div(
+                    box e1.annotate(bitwidth),
+                    box e2.annotate(bitwidth),
+                )),
             },
             UExpressionInner::Rem(box e1, box e2) => match (
                 self.fold_uint_expression(e1)?.into_inner(),
                 self.fold_uint_expression(e2)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    UExpressionInner::Value(
+                    Ok(UExpressionInner::Value(
                         (v1 % v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
-                    )
+                    ))
                 }
                 (e, UExpressionInner::Value(v)) => match v {
-                    1 => UExpressionInner::Value(0),
-                    _ => UExpressionInner::Rem(
+                    1 => Ok(UExpressionInner::Value(0)),
+                    _ => Ok(UExpressionInner::Rem(
                         box e.annotate(bitwidth),
                         box UExpressionInner::Value(v).annotate(bitwidth),
-                    ),
+                    )),
                 },
-                (e1, e2) => {
-                    UExpressionInner::Rem(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
-                }
+                (e1, e2) => Ok(UExpressionInner::Rem(
+                    box e1.annotate(bitwidth),
+                    box e2.annotate(bitwidth),
+                )),
             },
             UExpressionInner::RightShift(box e, box by) => {
                 let e = self.fold_uint_expression(e)?;
                 let by = self.fold_uint_expression(by)?;
                 match (e.into_inner(), by.into_inner()) {
                     (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
-                        UExpressionInner::Value(v >> by)
+                        Ok(UExpressionInner::Value(v >> by))
                     }
-                    (e, by) => UExpressionInner::RightShift(
+                    (e, by) => Ok(UExpressionInner::RightShift(
                         box e.annotate(bitwidth),
                         box by.annotate(UBitwidth::B32),
-                    ),
+                    )),
                 }
             }
             UExpressionInner::LeftShift(box e, box by) => {
                 let e = self.fold_uint_expression(e)?;
                 let by = self.fold_uint_expression(by)?;
                 match (e.into_inner(), by.into_inner()) {
-                    (UExpressionInner::Value(v), UExpressionInner::Value(by)) => {
-                        UExpressionInner::Value((v << by) & (2_u128.pow(bitwidth as u32) - 1))
-                    }
-                    (e, by) => UExpressionInner::LeftShift(
+                    (UExpressionInner::Value(v), UExpressionInner::Value(by)) => Ok(
+                        UExpressionInner::Value((v << by) & (2_u128.pow(bitwidth as u32) - 1)),
+                    ),
+                    (e, by) => Ok(UExpressionInner::LeftShift(
                         box e.annotate(bitwidth),
                         box by.annotate(UBitwidth::B32),
-                    ),
+                    )),
                 }
             }
             UExpressionInner::Xor(box e1, box e2) => match (
@@ -828,15 +860,18 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 self.fold_uint_expression(e2)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    UExpressionInner::Value(v1 ^ v2)
+                    Ok(UExpressionInner::Value(v1 ^ v2))
                 }
-                (UExpressionInner::Value(0), e2) => e2,
-                (e1, UExpressionInner::Value(0)) => e1,
+                (UExpressionInner::Value(0), e2) => Ok(e2),
+                (e1, UExpressionInner::Value(0)) => Ok(e1),
                 (e1, e2) => {
                     if e1 == e2 {
-                        UExpressionInner::Value(0)
+                        Ok(UExpressionInner::Value(0))
                     } else {
-                        UExpressionInner::Xor(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                        Ok(UExpressionInner::Xor(
+                            box e1.annotate(bitwidth),
+                            box e2.annotate(bitwidth),
+                        ))
                     }
                 }
             },
@@ -845,48 +880,53 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 self.fold_uint_expression(e2)?.into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    UExpressionInner::Value(v1 & v2)
+                    Ok(UExpressionInner::Value(v1 & v2))
                 }
                 (UExpressionInner::Value(0), _) | (_, UExpressionInner::Value(0)) => {
-                    UExpressionInner::Value(0)
+                    Ok(UExpressionInner::Value(0))
                 }
-                (e1, e2) => {
-                    UExpressionInner::And(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
-                }
+                (e1, e2) => Ok(UExpressionInner::And(
+                    box e1.annotate(bitwidth),
+                    box e2.annotate(bitwidth),
+                )),
             },
             UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_uint_expression(consequence)?;
                 let alternative = self.fold_uint_expression(alternative)?;
                 match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => consequence.into_inner(),
-                    BooleanExpression::Value(false) => alternative.into_inner(),
-                    c => UExpressionInner::IfElse(box c, box consequence, box alternative),
+                    BooleanExpression::Value(true) => Ok(consequence.into_inner()),
+                    BooleanExpression::Value(false) => Ok(alternative.into_inner()),
+                    c => Ok(UExpressionInner::IfElse(
+                        box c,
+                        box consequence,
+                        box alternative,
+                    )),
                 }
             }
             UExpressionInner::Not(box e) => {
                 let e = self.fold_uint_expression(e)?.into_inner();
                 match e {
-                    UExpressionInner::Value(v) => {
-                        UExpressionInner::Value((!v) & (2_u128.pow(bitwidth as u32) - 1))
-                    }
-                    e => UExpressionInner::Not(box e.annotate(bitwidth)),
+                    UExpressionInner::Value(v) => Ok(UExpressionInner::Value(
+                        (!v) & (2_u128.pow(bitwidth as u32) - 1),
+                    )),
+                    e => Ok(UExpressionInner::Not(box e.annotate(bitwidth))),
                 }
             }
             UExpressionInner::Neg(box e) => {
                 let e = self.fold_uint_expression(e)?.into_inner();
                 match e {
-                    UExpressionInner::Value(v) => UExpressionInner::Value(
+                    UExpressionInner::Value(v) => Ok(UExpressionInner::Value(
                         (0u128.wrapping_sub(v))
                             % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
-                    ),
-                    e => UExpressionInner::Neg(box e.annotate(bitwidth)),
+                    )),
+                    e => Ok(UExpressionInner::Neg(box e.annotate(bitwidth))),
                 }
             }
             UExpressionInner::Pos(box e) => {
                 let e = self.fold_uint_expression(e)?.into_inner();
                 match e {
-                    UExpressionInner::Value(v) => UExpressionInner::Value(v),
-                    e => UExpressionInner::Pos(box e.annotate(bitwidth)),
+                    UExpressionInner::Value(v) => Ok(UExpressionInner::Value(v)),
+                    e => Ok(UExpressionInner::Pos(box e.annotate(bitwidth))),
                 }
             }
             UExpressionInner::Select(box array, box index) => {
@@ -901,18 +941,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         match (array.into_inner(), index.into_inner()) {
                             (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                                 if n < size {
-                                    UExpression::try_from(
+                                    Ok(UExpression::try_from(
                                         v.expression_at::<UExpression<'ast, T>>(n as usize)
                                             .unwrap()
                                             .clone(),
                                     )
                                     .unwrap()
-                                    .into_inner()
+                                    .into_inner())
                                 } else {
-                                    unreachable!(
-                                        "out of bounds index ({} >= {}) found during static analysis",
-                                        n, size
-                                    );
+                                    Err(Error::OutOfBounds(n, size))
                                 }
                             }
                             (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
@@ -920,118 +957,119 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     Some(a) => match a {
                                         TypedExpression::Array(a) => match a.as_inner() {
                                             ArrayExpressionInner::Value(v) => {
-                                                UExpression::try_from(
+                                                Ok(UExpression::try_from(
                                                     TypedExpression::try_from(
                                                         v.0[n as usize].clone(),
                                                     )
                                                     .unwrap(),
                                                 )
                                                 .unwrap()
-                                                .into_inner()
+                                                .into_inner())
                                             }
-                                            _ => unreachable!(),
+                                            _ => unreachable!("should be an array value"),
                                         },
-                                        _ => unreachable!(""),
+                                        _ => unreachable!("should be an array expression"),
                                     },
-                                    None => UExpressionInner::Select(
+                                    None => Ok(UExpressionInner::Select(
                                         box ArrayExpressionInner::Identifier(id)
                                             .annotate(inner_type, size as u32),
                                         box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                    ),
+                                    )),
                                 }
                             }
-                            (a, i) => UExpressionInner::Select(
+                            (a, i) => Ok(UExpressionInner::Select(
                                 box a.annotate(inner_type, size as u32),
                                 box i.annotate(UBitwidth::B32),
-                            ),
+                            )),
                         }
                     }
                     _ => fold_uint_expression_inner(
                         self,
                         bitwidth,
                         UExpressionInner::Select(box array, box index),
-                    )?,
+                    ),
                 }
             }
-            e => fold_uint_expression_inner(self, bitwidth, e)?,
-        })
+            e => fold_uint_expression_inner(self, bitwidth, e),
+        }
     }
 
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Error> {
-        Ok(match e {
+        match e {
             FieldElementExpression::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
-                    TypedExpression::FieldElement(e) => e.clone(),
+                    TypedExpression::FieldElement(e) => Ok(e.clone()),
                     _ => unreachable!(
                         "constant stored for a field element should be a field element"
                     ),
                 },
-                None => FieldElementExpression::Identifier(id),
+                None => Ok(FieldElementExpression::Identifier(id)),
             },
             FieldElementExpression::Add(box e1, box e2) => match (
                 self.fold_field_expression(e1)?,
                 self.fold_field_expression(e2)?,
             ) {
                 (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                    FieldElementExpression::Number(n1 + n2)
+                    Ok(FieldElementExpression::Number(n1 + n2))
                 }
-                (e1, e2) => FieldElementExpression::Add(box e1, box e2),
+                (e1, e2) => Ok(FieldElementExpression::Add(box e1, box e2)),
             },
             FieldElementExpression::Sub(box e1, box e2) => match (
                 self.fold_field_expression(e1)?,
                 self.fold_field_expression(e2)?,
             ) {
                 (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                    FieldElementExpression::Number(n1 - n2)
+                    Ok(FieldElementExpression::Number(n1 - n2))
                 }
-                (e1, e2) => FieldElementExpression::Sub(box e1, box e2),
+                (e1, e2) => Ok(FieldElementExpression::Sub(box e1, box e2)),
             },
             FieldElementExpression::Mult(box e1, box e2) => match (
                 self.fold_field_expression(e1)?,
                 self.fold_field_expression(e2)?,
             ) {
                 (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                    FieldElementExpression::Number(n1 * n2)
+                    Ok(FieldElementExpression::Number(n1 * n2))
                 }
-                (e1, e2) => FieldElementExpression::Mult(box e1, box e2),
+                (e1, e2) => Ok(FieldElementExpression::Mult(box e1, box e2)),
             },
             FieldElementExpression::Div(box e1, box e2) => match (
                 self.fold_field_expression(e1)?,
                 self.fold_field_expression(e2)?,
             ) {
                 (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                    FieldElementExpression::Number(n1 / n2)
+                    Ok(FieldElementExpression::Number(n1 / n2))
                 }
-                (e1, e2) => FieldElementExpression::Div(box e1, box e2),
+                (e1, e2) => Ok(FieldElementExpression::Div(box e1, box e2)),
             },
             FieldElementExpression::Neg(box e) => match self.fold_field_expression(e)? {
-                FieldElementExpression::Number(n) => FieldElementExpression::Number(T::zero() - n),
-                e => FieldElementExpression::Neg(box e),
+                FieldElementExpression::Number(n) => {
+                    Ok(FieldElementExpression::Number(T::zero() - n))
+                }
+                e => Ok(FieldElementExpression::Neg(box e)),
             },
             FieldElementExpression::Pos(box e) => match self.fold_field_expression(e)? {
-                FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
-                e => FieldElementExpression::Pos(box e),
+                FieldElementExpression::Number(n) => Ok(FieldElementExpression::Number(n)),
+                e => Ok(FieldElementExpression::Pos(box e)),
             },
             FieldElementExpression::Pow(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1)?;
                 let e2 = self.fold_uint_expression(e2)?;
                 match (e1, e2.into_inner()) {
                     (_, UExpressionInner::Value(ref n2)) if *n2 == 0 => {
-                        FieldElementExpression::Number(T::from(1))
+                        Ok(FieldElementExpression::Number(T::from(1)))
                     }
                     (FieldElementExpression::Number(n1), UExpressionInner::Value(n2)) => {
-                        FieldElementExpression::Number(n1.pow(n2 as usize))
+                        Ok(FieldElementExpression::Number(n1.pow(n2 as usize)))
                     }
-                    (e1, UExpressionInner::Value(n2)) => FieldElementExpression::Pow(
+                    (e1, UExpressionInner::Value(n2)) => Ok(FieldElementExpression::Pow(
                         box e1,
                         box UExpressionInner::Value(n2).annotate(UBitwidth::B32),
-                    ),
-                    (_, e2) => unreachable!(format!(
-                        "non-constant exponent {} detected during static analysis",
-                        e2.annotate(UBitwidth::B32)
+                    )),
+                    (_, e2) => Err(Error::NonConstantExponent(
+                        e2.annotate(UBitwidth::B32).to_string(),
                     )),
                 }
             }
@@ -1039,9 +1077,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 let consequence = self.fold_field_expression(consequence)?;
                 let alternative = self.fold_field_expression(alternative)?;
                 match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => consequence,
-                    BooleanExpression::Value(false) => alternative,
-                    c => FieldElementExpression::IfElse(box c, box consequence, box alternative),
+                    BooleanExpression::Value(true) => Ok(consequence),
+                    BooleanExpression::Value(false) => Ok(alternative),
+                    c => Ok(FieldElementExpression::IfElse(
+                        box c,
+                        box consequence,
+                        box alternative,
+                    )),
                 }
             }
             FieldElementExpression::Select(box array, box index) => {
@@ -1056,19 +1098,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         match (array.into_inner(), index.into_inner()) {
                             (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                                 if n < size {
-                                    FieldElementExpression::try_from(
+                                    Ok(FieldElementExpression::try_from(
                                         v.expression_at::<FieldElementExpression<'ast, T>>(
                                             n as usize,
                                         )
                                         .unwrap()
                                         .clone(),
                                     )
-                                    .unwrap()
+                                    .unwrap())
                                 } else {
-                                    unreachable!(
-                                        "out of bounds index ({} >= {}) found during static analysis",
-                                        n, size
-                                    );
+                                    Err(Error::OutOfBounds(n, size))
                                 }
                             }
                             (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
@@ -1076,35 +1115,35 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     Some(a) => match a {
                                         TypedExpression::Array(a) => match a.as_inner() {
                                             ArrayExpressionInner::Value(v) => {
-                                                FieldElementExpression::try_from(
+                                                Ok(FieldElementExpression::try_from(
                                                     TypedExpression::try_from(
                                                         v.0[n as usize].clone(),
                                                     )
                                                     .unwrap(),
                                                 )
-                                                .unwrap()
+                                                .unwrap())
                                             }
-                                            _ => unreachable!(),
+                                            _ => unreachable!("should be an array value"),
                                         },
-                                        _ => unreachable!(""),
+                                        _ => unreachable!("should be an array expression"),
                                     },
-                                    None => FieldElementExpression::Select(
+                                    None => Ok(FieldElementExpression::Select(
                                         box ArrayExpressionInner::Identifier(id)
                                             .annotate(inner_type, size as u32),
                                         box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                    ),
+                                    )),
                                 }
                             }
-                            (a, i) => FieldElementExpression::Select(
+                            (a, i) => Ok(FieldElementExpression::Select(
                                 box a.annotate(inner_type, size as u32),
                                 box i.annotate(UBitwidth::B32),
-                            ),
+                            )),
                         }
                     }
                     _ => fold_field_expression(
                         self,
                         FieldElementExpression::Select(box array, box index),
-                    )?,
+                    ),
                 }
             }
             FieldElementExpression::Member(box s, m) => {
@@ -1112,7 +1151,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!("???"),
+                    _ => unreachable!("should be a struct type"),
                 };
 
                 match s.into_inner() {
@@ -1124,15 +1163,18 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             .unwrap()
                             .1
                         {
-                            TypedExpression::FieldElement(s) => s,
-                            _ => unreachable!("????"),
+                            TypedExpression::FieldElement(s) => Ok(s),
+                            _ => unreachable!("should be a field element expression"),
                         }
                     }
-                    inner => FieldElementExpression::Member(box inner.annotate(members), m),
+                    inner => Ok(FieldElementExpression::Member(
+                        box inner.annotate(members),
+                        m,
+                    )),
                 }
             }
-            e => fold_field_expression(self, e)?,
-        })
+            e => fold_field_expression(self, e),
+        }
     }
 
     fn fold_array_expression_inner(
@@ -1140,13 +1182,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Error> {
-        Ok(match e {
+        match e {
             ArrayExpressionInner::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
-                    TypedExpression::Array(e) => e.as_inner().clone(),
+                    TypedExpression::Array(e) => Ok(e.as_inner().clone()),
                     _ => panic!("constant stored for an array should be an array"),
                 },
-                None => ArrayExpressionInner::Identifier(id),
+                None => Ok(ArrayExpressionInner::Identifier(id)),
             },
             ArrayExpressionInner::Select(box array, box index) => {
                 let array = self.fold_array_expression(array)?;
@@ -1160,18 +1202,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     {
                         (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                             if n < size {
-                                ArrayExpression::try_from(
+                                Ok(ArrayExpression::try_from(
                                     v.expression_at::<ArrayExpression<'ast, T>>(n as usize)
                                         .unwrap()
                                         .clone(),
                                 )
                                 .unwrap()
-                                .into_inner()
+                                .into_inner())
                             } else {
-                                unreachable!(
-                                    "out of bounds index ({} >= {}) found during static analysis",
-                                    n, size
-                                );
+                                Err(Error::OutOfBounds(n, size))
                             }
                         }
                         (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
@@ -1179,7 +1218,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 Some(a) => match a {
                                     TypedExpression::Array(a) => match a.as_inner() {
                                         ArrayExpressionInner::Value(v) => {
-                                            ArrayExpression::try_from(
+                                            Ok(ArrayExpression::try_from(
                                                 v.expression_at::<ArrayExpression<'ast, T>>(
                                                     n as usize,
                                                 )
@@ -1187,38 +1226,42 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                 .clone(),
                                             )
                                             .unwrap()
-                                            .into_inner()
+                                            .into_inner())
                                         }
-                                        _ => unreachable!(),
+                                        _ => unreachable!("should be an array value"),
                                     },
-                                    _ => unreachable!(""),
+                                    _ => unreachable!("should be an array expression"),
                                 },
-                                None => ArrayExpressionInner::Select(
+                                None => Ok(ArrayExpressionInner::Select(
                                     box ArrayExpressionInner::Identifier(id)
                                         .annotate(inner_type, size as u32),
                                     box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                ),
+                                )),
                             }
                         }
-                        (a, i) => ArrayExpressionInner::Select(
+                        (a, i) => Ok(ArrayExpressionInner::Select(
                             box a.annotate(inner_type, size as u32),
                             box i.annotate(UBitwidth::B32),
-                        ),
+                        )),
                     },
                     _ => fold_array_expression_inner(
                         self,
                         ty,
                         ArrayExpressionInner::Select(box array, box index),
-                    )?,
+                    ),
                 }
             }
             ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_array_expression(consequence)?;
                 let alternative = self.fold_array_expression(alternative)?;
                 match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => consequence.into_inner(),
-                    BooleanExpression::Value(false) => alternative.into_inner(),
-                    c => ArrayExpressionInner::IfElse(box c, box consequence, box alternative),
+                    BooleanExpression::Value(true) => Ok(consequence.into_inner()),
+                    BooleanExpression::Value(false) => Ok(alternative.into_inner()),
+                    c => Ok(ArrayExpressionInner::IfElse(
+                        box c,
+                        box consequence,
+                        box alternative,
+                    )),
                 }
             }
             ArrayExpressionInner::Member(box struc, id) => {
@@ -1226,7 +1269,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let members = match struc.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct"),
+                    _ => unreachable!("should be a struct type"),
                 };
 
                 match struc.into_inner() {
@@ -1238,15 +1281,18 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             .unwrap()
                             .1
                         {
-                            TypedExpression::Array(a) => a.into_inner(),
-                            _ => unreachable!("should be an array"),
+                            TypedExpression::Array(a) => Ok(a.into_inner()),
+                            _ => unreachable!("should be an array expression"),
                         }
                     }
-                    inner => ArrayExpressionInner::Member(box inner.annotate(members), id),
+                    inner => Ok(ArrayExpressionInner::Member(
+                        box inner.annotate(members),
+                        id,
+                    )),
                 }
             }
-            e => fold_array_expression_inner(self, ty, e)?,
-        })
+            e => fold_array_expression_inner(self, ty, e),
+        }
     }
 
     fn fold_struct_expression_inner(
@@ -1254,13 +1300,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> Result<StructExpressionInner<'ast, T>, Error> {
-        Ok(match e {
+        match e {
             StructExpressionInner::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
-                    TypedExpression::Struct(e) => e.as_inner().clone(),
+                    TypedExpression::Struct(e) => Ok(e.as_inner().clone()),
                     _ => panic!("constant stored for an array should be an array"),
                 },
-                None => StructExpressionInner::Identifier(id),
+                None => Ok(StructExpressionInner::Identifier(id)),
             },
             StructExpressionInner::Select(box array, box index) => {
                 let array = self.fold_array_expression(array)?;
@@ -1274,18 +1320,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     {
                         (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                             if n < size {
-                                StructExpression::try_from(
+                                Ok(StructExpression::try_from(
                                     v.expression_at::<StructExpression<'ast, T>>(n as usize)
                                         .unwrap()
                                         .clone(),
                                 )
                                 .unwrap()
-                                .into_inner()
+                                .into_inner())
                             } else {
-                                unreachable!(
-                                    "out of bounds index ({} >= {}) found during static analysis",
-                                    n, size
-                                );
+                                Err(Error::OutOfBounds(n, size))
                             }
                         }
                         (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
@@ -1293,7 +1336,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 Some(a) => match a {
                                     TypedExpression::Array(a) => match a.as_inner() {
                                         ArrayExpressionInner::Value(v) => {
-                                            StructExpression::try_from(
+                                            Ok(StructExpression::try_from(
                                                 v.expression_at::<StructExpression<'ast, T>>(
                                                     n as usize,
                                                 )
@@ -1301,38 +1344,42 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                 .clone(),
                                             )
                                             .unwrap()
-                                            .into_inner()
+                                            .into_inner())
                                         }
-                                        _ => unreachable!(),
+                                        _ => unreachable!("should be an array value"),
                                     },
-                                    _ => unreachable!(""),
+                                    _ => unreachable!("should be an array expression"),
                                 },
-                                None => StructExpressionInner::Select(
+                                None => Ok(StructExpressionInner::Select(
                                     box ArrayExpressionInner::Identifier(id)
                                         .annotate(inner_type, size as u32),
                                     box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                ),
+                                )),
                             }
                         }
-                        (a, i) => StructExpressionInner::Select(
+                        (a, i) => Ok(StructExpressionInner::Select(
                             box a.annotate(inner_type, size as u32),
                             box i.annotate(UBitwidth::B32),
-                        ),
+                        )),
                     },
                     _ => fold_struct_expression_inner(
                         self,
                         ty,
                         StructExpressionInner::Select(box array, box index),
-                    )?,
+                    ),
                 }
             }
             StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_struct_expression(consequence)?;
                 let alternative = self.fold_struct_expression(alternative)?;
                 match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => consequence.into_inner(),
-                    BooleanExpression::Value(false) => alternative.into_inner(),
-                    c => StructExpressionInner::IfElse(box c, box consequence, box alternative),
+                    BooleanExpression::Value(true) => Ok(consequence.into_inner()),
+                    BooleanExpression::Value(false) => Ok(alternative.into_inner()),
+                    c => Ok(StructExpressionInner::IfElse(
+                        box c,
+                        box consequence,
+                        box alternative,
+                    )),
                 }
             }
             StructExpressionInner::Member(box s, m) => {
@@ -1340,7 +1387,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct"),
+                    _ => unreachable!("should be a struct type"),
                 };
 
                 match s.into_inner() {
@@ -1352,15 +1399,18 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             .unwrap()
                             .1
                         {
-                            TypedExpression::Struct(s) => s.into_inner(),
-                            _ => unreachable!("should be a struct"),
+                            TypedExpression::Struct(s) => Ok(s.into_inner()),
+                            _ => unreachable!("should be a struct expression"),
                         }
                     }
-                    inner => StructExpressionInner::Member(box inner.annotate(members), m),
+                    inner => Ok(StructExpressionInner::Member(
+                        box inner.annotate(members),
+                        m,
+                    )),
                 }
             }
-            e => fold_struct_expression_inner(self, ty, e)?,
-        })
+            e => fold_struct_expression_inner(self, ty, e),
+        }
     }
 
     fn fold_boolean_expression(
@@ -1372,13 +1422,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         // For example, `2 * a` is equivalent to `a + a`, but our notion of equality would not detect that here
         // These kind of reduction rules are easier to apply later in the process, when we have canonical representations
         // of expressions, ie `a + a` would always be written `2 * a`
-        Ok(match e {
+        match e {
             BooleanExpression::Identifier(id) => match self.constants.get(&id) {
                 Some(e) => match e {
-                    TypedExpression::Boolean(e) => e.clone(),
+                    TypedExpression::Boolean(e) => Ok(e.clone()),
                     _ => panic!("constant stored for a boolean should be a boolean"),
                 },
-                None => BooleanExpression::Identifier(id),
+                None => Ok(BooleanExpression::Identifier(id)),
             },
             BooleanExpression::FieldEq(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1)?;
@@ -1386,9 +1436,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        BooleanExpression::Value(n1 == n2)
+                        Ok(BooleanExpression::Value(n1 == n2))
                     }
-                    (e1, e2) => BooleanExpression::FieldEq(box e1, box e2),
+                    (e1, e2) => Ok(BooleanExpression::FieldEq(box e1, box e2)),
                 }
             }
             BooleanExpression::UintEq(box e1, box e2) => {
@@ -1397,9 +1447,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        BooleanExpression::Value(n1 == n2)
+                        Ok(BooleanExpression::Value(n1 == n2))
                     }
-                    _ => BooleanExpression::UintEq(box e1, box e2),
+                    _ => Ok(BooleanExpression::UintEq(box e1, box e2)),
                 }
             }
             BooleanExpression::BoolEq(box e1, box e2) => {
@@ -1408,9 +1458,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1, e2) {
                     (BooleanExpression::Value(n1), BooleanExpression::Value(n2)) => {
-                        BooleanExpression::Value(n1 == n2)
+                        Ok(BooleanExpression::Value(n1 == n2))
                     }
-                    (e1, e2) => BooleanExpression::BoolEq(box e1, box e2),
+                    (e1, e2) => Ok(BooleanExpression::BoolEq(box e1, box e2)),
                 }
             }
             BooleanExpression::ArrayEq(box e1, box e2) => {
@@ -1429,7 +1479,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     }
                 };
 
-                BooleanExpression::ArrayEq(box e1, box e2)
+                Ok(BooleanExpression::ArrayEq(box e1, box e2))
             }
             BooleanExpression::FieldLt(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1)?;
@@ -1437,9 +1487,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        BooleanExpression::Value(n1 < n2)
+                        Ok(BooleanExpression::Value(n1 < n2))
                     }
-                    (e1, e2) => BooleanExpression::FieldLt(box e1, box e2),
+                    (e1, e2) => Ok(BooleanExpression::FieldLt(box e1, box e2)),
                 }
             }
             BooleanExpression::FieldLe(box e1, box e2) => {
@@ -1448,9 +1498,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        BooleanExpression::Value(n1 <= n2)
+                        Ok(BooleanExpression::Value(n1 <= n2))
                     }
-                    (e1, e2) => BooleanExpression::FieldLe(box e1, box e2),
+                    (e1, e2) => Ok(BooleanExpression::FieldLe(box e1, box e2)),
                 }
             }
             BooleanExpression::FieldGt(box e1, box e2) => {
@@ -1459,9 +1509,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        BooleanExpression::Value(n1 > n2)
+                        Ok(BooleanExpression::Value(n1 > n2))
                     }
-                    (e1, e2) => BooleanExpression::FieldGt(box e1, box e2),
+                    (e1, e2) => Ok(BooleanExpression::FieldGt(box e1, box e2)),
                 }
             }
             BooleanExpression::FieldGe(box e1, box e2) => {
@@ -1470,9 +1520,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1, e2) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        BooleanExpression::Value(n1 >= n2)
+                        Ok(BooleanExpression::Value(n1 >= n2))
                     }
-                    (e1, e2) => BooleanExpression::FieldGe(box e1, box e2),
+                    (e1, e2) => Ok(BooleanExpression::FieldGe(box e1, box e2)),
                 }
             }
             BooleanExpression::UintLt(box e1, box e2) => {
@@ -1481,9 +1531,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        BooleanExpression::Value(n1 < n2)
+                        Ok(BooleanExpression::Value(n1 < n2))
                     }
-                    _ => BooleanExpression::UintLt(box e1, box e2),
+                    _ => Ok(BooleanExpression::UintLt(box e1, box e2)),
                 }
             }
             BooleanExpression::UintLe(box e1, box e2) => {
@@ -1492,9 +1542,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        BooleanExpression::Value(n1 <= n2)
+                        Ok(BooleanExpression::Value(n1 <= n2))
                     }
-                    _ => BooleanExpression::UintLe(box e1, box e2),
+                    _ => Ok(BooleanExpression::UintLe(box e1, box e2)),
                 }
             }
             BooleanExpression::UintGt(box e1, box e2) => {
@@ -1503,9 +1553,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        BooleanExpression::Value(n1 > n2)
+                        Ok(BooleanExpression::Value(n1 > n2))
                     }
-                    _ => BooleanExpression::UintGt(box e1, box e2),
+                    _ => Ok(BooleanExpression::UintGt(box e1, box e2)),
                 }
             }
             BooleanExpression::UintGe(box e1, box e2) => {
@@ -1514,9 +1564,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 match (e1.as_inner(), e2.as_inner()) {
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        BooleanExpression::Value(n1 >= n2)
+                        Ok(BooleanExpression::Value(n1 >= n2))
                     }
-                    _ => BooleanExpression::UintGe(box e1, box e2),
+                    _ => Ok(BooleanExpression::UintGe(box e1, box e2)),
                 }
             }
             BooleanExpression::Or(box e1, box e2) => {
@@ -1526,17 +1576,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 match (e1, e2) {
                     // reduction of constants
                     (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
-                        BooleanExpression::Value(v1 || v2)
+                        Ok(BooleanExpression::Value(v1 || v2))
                     }
                     // x || true == true
                     (_, BooleanExpression::Value(true)) | (BooleanExpression::Value(true), _) => {
-                        BooleanExpression::Value(true)
+                        Ok(BooleanExpression::Value(true))
                     }
                     // x || false == x
                     (e, BooleanExpression::Value(false)) | (BooleanExpression::Value(false), e) => {
-                        e
+                        Ok(e)
                     }
-                    (e1, e2) => BooleanExpression::Or(box e1, box e2),
+                    (e1, e2) => Ok(BooleanExpression::Or(box e1, box e2)),
                 }
             }
             BooleanExpression::And(box e1, box e2) => {
@@ -1546,31 +1596,37 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 match (e1, e2) {
                     // reduction of constants
                     (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
-                        BooleanExpression::Value(v1 && v2)
+                        Ok(BooleanExpression::Value(v1 && v2))
                     }
                     // x && true == x
-                    (e, BooleanExpression::Value(true)) | (BooleanExpression::Value(true), e) => e,
+                    (e, BooleanExpression::Value(true)) | (BooleanExpression::Value(true), e) => {
+                        Ok(e)
+                    }
                     // x && false == false
                     (_, BooleanExpression::Value(false)) | (BooleanExpression::Value(false), _) => {
-                        BooleanExpression::Value(false)
+                        Ok(BooleanExpression::Value(false))
                     }
-                    (e1, e2) => BooleanExpression::And(box e1, box e2),
+                    (e1, e2) => Ok(BooleanExpression::And(box e1, box e2)),
                 }
             }
             BooleanExpression::Not(box e) => {
                 let e = self.fold_boolean_expression(e)?;
                 match e {
-                    BooleanExpression::Value(v) => BooleanExpression::Value(!v),
-                    e => BooleanExpression::Not(box e),
+                    BooleanExpression::Value(v) => Ok(BooleanExpression::Value(!v)),
+                    e => Ok(BooleanExpression::Not(box e)),
                 }
             }
             BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_boolean_expression(consequence)?;
                 let alternative = self.fold_boolean_expression(alternative)?;
                 match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => consequence,
-                    BooleanExpression::Value(false) => alternative,
-                    c => BooleanExpression::IfElse(box c, box consequence, box alternative),
+                    BooleanExpression::Value(true) => Ok(consequence),
+                    BooleanExpression::Value(false) => Ok(alternative),
+                    c => Ok(BooleanExpression::IfElse(
+                        box c,
+                        box consequence,
+                        box alternative,
+                    )),
                 }
             }
             BooleanExpression::Select(box array, box index) => {
@@ -1585,17 +1641,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     {
                         (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                             if n < size {
-                                BooleanExpression::try_from(
+                                Ok(BooleanExpression::try_from(
                                     v.expression_at::<BooleanExpression<'ast, T>>(n as usize)
                                         .unwrap()
                                         .clone(),
                                 )
-                                .unwrap()
+                                .unwrap())
                             } else {
-                                unreachable!(
-                                    "out of bounds index ({} >= {}) found during static analysis",
-                                    n, size
-                                );
+                                Err(Error::OutOfBounds(n, size))
                             }
                         }
                         (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
@@ -1603,32 +1656,32 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 Some(a) => match a {
                                     TypedExpression::Array(a) => match a.as_inner() {
                                         ArrayExpressionInner::Value(v) => {
-                                            BooleanExpression::try_from(
+                                            Ok(BooleanExpression::try_from(
                                                 TypedExpression::try_from(v.0[n as usize].clone())
                                                     .unwrap(),
                                             )
-                                            .unwrap()
+                                            .unwrap())
                                         }
-                                        _ => unreachable!(),
+                                        _ => unreachable!("should be an array value"),
                                     },
-                                    _ => unreachable!(""),
+                                    _ => unreachable!("should be an array expression"),
                                 },
-                                None => BooleanExpression::Select(
+                                None => Ok(BooleanExpression::Select(
                                     box ArrayExpressionInner::Identifier(id)
                                         .annotate(inner_type, size as u32),
                                     box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                ),
+                                )),
                             }
                         }
-                        (a, i) => BooleanExpression::Select(
+                        (a, i) => Ok(BooleanExpression::Select(
                             box a.annotate(inner_type, size as u32),
                             box i.annotate(UBitwidth::B32),
-                        ),
+                        )),
                     },
                     _ => fold_boolean_expression(
                         self,
                         BooleanExpression::Select(box array, box index),
-                    )?,
+                    ),
                 }
             }
             BooleanExpression::Member(box s, m) => {
@@ -1636,7 +1689,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct"),
+                    _ => unreachable!("should be a struct type"),
                 };
 
                 match s.into_inner() {
@@ -1648,15 +1701,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             .unwrap()
                             .1
                         {
-                            TypedExpression::Boolean(s) => s,
-                            _ => unreachable!("should be a boolean"),
+                            TypedExpression::Boolean(s) => Ok(s),
+                            _ => unreachable!("should be a boolean expression"),
                         }
                     }
-                    inner => BooleanExpression::Member(box inner.annotate(members), m),
+                    inner => Ok(BooleanExpression::Member(box inner.annotate(members), m)),
                 }
             }
-            e => fold_boolean_expression(self, e)?,
-        })
+            e => fold_boolean_expression(self, e),
+        }
     }
 }
 

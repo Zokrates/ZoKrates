@@ -18,6 +18,7 @@ pub use crate::absy::variable::{Variable, VariableNode};
 use crate::embed::FlatEmbed;
 use std::path::{Path, PathBuf};
 
+use crate::imports::ImportDirective;
 use crate::imports::ImportNode;
 use std::fmt;
 
@@ -50,10 +51,27 @@ pub struct SymbolDeclaration<'ast> {
     pub symbol: Symbol<'ast>,
 }
 
+#[allow(clippy::large_enum_variant)]
+#[derive(PartialEq, Clone)]
+pub enum SymbolDefinition<'ast> {
+    Struct(StructDefinitionNode<'ast>),
+    Constant(ConstantDefinitionNode<'ast>),
+    Function(FunctionNode<'ast>),
+}
+
+impl<'ast> fmt::Debug for SymbolDefinition<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SymbolDefinition::Struct(s) => write!(f, "Struct({:?})", s),
+            SymbolDefinition::Constant(c) => write!(f, "Constant({:?})", c),
+            SymbolDefinition::Function(func) => write!(f, "Function({:?})", func),
+        }
+    }
+}
+
 #[derive(PartialEq, Clone)]
 pub enum Symbol<'ast> {
-    HereType(StructDefinitionNode<'ast>),
-    HereFunction(FunctionNode<'ast>),
+    Here(SymbolDefinition<'ast>),
     There(SymbolImportNode<'ast>),
     Flat(FlatEmbed),
 }
@@ -61,9 +79,8 @@ pub enum Symbol<'ast> {
 impl<'ast> fmt::Debug for Symbol<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Symbol::HereType(t) => write!(f, "HereType({:?})", t),
-            Symbol::HereFunction(fun) => write!(f, "HereFunction({:?})", fun),
-            Symbol::There(t) => write!(f, "There({:?})", t),
+            Symbol::Here(k) => write!(f, "Here({:?})", k),
+            Symbol::There(i) => write!(f, "There({:?})", i),
             Symbol::Flat(flat) => write!(f, "Flat({:?})", flat),
         }
     }
@@ -72,8 +89,15 @@ impl<'ast> fmt::Debug for Symbol<'ast> {
 impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.symbol {
-            Symbol::HereType(ref t) => write!(f, "struct {} {}", self.id, t),
-            Symbol::HereFunction(ref fun) => write!(f, "def {}{}", self.id, fun),
+            Symbol::Here(ref kind) => match kind {
+                SymbolDefinition::Struct(t) => write!(f, "struct {} {}", self.id, t),
+                SymbolDefinition::Constant(c) => write!(
+                    f,
+                    "const {} {} = {}",
+                    c.value.ty, self.id, c.value.expression
+                ),
+                SymbolDefinition::Function(func) => write!(f, "def {}{}", self.id, func),
+            },
             Symbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
             Symbol::Flat(ref flat_fun) => {
                 write!(f, "def {}{}:\n\t// hidden", self.id, flat_fun.signature())
@@ -144,6 +168,30 @@ impl<'ast> fmt::Display for StructDefinitionField<'ast> {
 }
 
 type StructDefinitionFieldNode<'ast> = Node<StructDefinitionField<'ast>>;
+
+#[derive(Clone, PartialEq)]
+pub struct ConstantDefinition<'ast> {
+    pub ty: UnresolvedTypeNode<'ast>,
+    pub expression: ExpressionNode<'ast>,
+}
+
+pub type ConstantDefinitionNode<'ast> = Node<ConstantDefinition<'ast>>;
+
+impl<'ast> fmt::Display for ConstantDefinition<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "const {}({})", self.ty, self.expression)
+    }
+}
+
+impl<'ast> fmt::Debug for ConstantDefinition<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "ConstantDefinition({:?}, {:?})",
+            self.ty, self.expression
+        )
+    }
+}
 
 /// An import
 #[derive(Debug, Clone, PartialEq)]

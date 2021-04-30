@@ -147,7 +147,7 @@ fn register<'ast>(
 ) {
     for (id, key, value) in substitute
         .iter()
-        .filter_map(|(id, version)| with.get(&id).clone().map(|to| (id, version, to)))
+        .filter_map(|(id, version)| with.get(&id).map(|to| (id, version, to)))
         .filter(|(_, key, value)| key != value)
     {
         let sub = substitutions.0.entry(id.clone()).or_default();
@@ -547,6 +547,7 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
                         )]
                         .into_iter()
                         .collect(),
+                        constants: Default::default(),
                     },
                 )]
                 .into_iter()
@@ -607,11 +608,7 @@ fn reduce_function<'ast, T: Field>(
 
                         let new_f = Propagator::with_constants(&mut constants)
                             .fold_function(new_f)
-                            .map_err(|e| match e {
-                                crate::static_analysis::propagation::Error::Type(e) => {
-                                    Error::Incompatible(e)
-                                }
-                            })?;
+                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
 
                         break Ok(new_f);
                     }
@@ -622,11 +619,7 @@ fn reduce_function<'ast, T: Field>(
 
                         f = Propagator::with_constants(&mut constants)
                             .fold_function(new_f)
-                            .map_err(|e| match e {
-                                crate::static_analysis::propagation::Error::Type(e) => {
-                                    Error::Incompatible(e)
-                                }
-                            })?;
+                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
 
                         let new_hash = Some(compute_hash(&f));
 
@@ -657,8 +650,9 @@ mod tests {
     use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
         ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
-        FieldElementExpression, Identifier, OwnedTypedModuleId, Select, Type, TypedExpression,
-        TypedExpressionList, TypedExpressionOrSpread, UBitwidth, UExpressionInner, Variable,
+        FieldElementExpression, GenericIdentifier, Identifier, OwnedTypedModuleId, Select, Type,
+        TypedExpression, TypedExpressionList, TypedExpressionOrSpread, UBitwidth, UExpressionInner,
+        Variable,
     };
     use zokrates_field::Bn128Field;
 
@@ -768,6 +762,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -833,6 +828,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -865,20 +861,25 @@ mod tests {
         //      return a_2 + b_1[0]
 
         let foo_signature = DeclarationSignature::new()
-            .generics(vec![Some("K".into())])
+            .generics(vec![Some(
+                GenericIdentifier::with_name("K").index(0).into(),
+            )])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
-            arguments: vec![
-                DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
-            ],
+            arguments: vec![DeclarationVariable::array(
+                "a",
+                DeclarationType::FieldElement,
+                GenericIdentifier::with_name("K").index(0),
+            )
+            .into()],
             statements: vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
@@ -961,6 +962,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -983,7 +985,11 @@ mod tests {
                 TypedStatement::PushCallLog(
                     DeclarationFunctionKey::with_location("main", "foo")
                         .signature(foo_signature.clone()),
-                    GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
+                    GGenericsAssignment(
+                        vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                            .into_iter()
+                            .collect(),
+                    ),
                 ),
                 TypedStatement::Definition(
                     Variable::array(Identifier::from("a").version(1), Type::FieldElement, 1u32)
@@ -1041,6 +1047,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1073,20 +1080,25 @@ mod tests {
         //      return a_2 + b_1[0]
 
         let foo_signature = DeclarationSignature::new()
-            .generics(vec![Some("K".into())])
+            .generics(vec![Some(
+                GenericIdentifier::with_name("K").index(0).into(),
+            )])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
-            arguments: vec![
-                DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
-            ],
+            arguments: vec![DeclarationVariable::array(
+                "a",
+                DeclarationType::FieldElement,
+                GenericIdentifier::with_name("K").index(0),
+            )
+            .into()],
             statements: vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
@@ -1178,6 +1190,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1200,7 +1213,11 @@ mod tests {
                 TypedStatement::PushCallLog(
                     DeclarationFunctionKey::with_location("main", "foo")
                         .signature(foo_signature.clone()),
-                    GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
+                    GGenericsAssignment(
+                        vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                            .into_iter()
+                            .collect(),
+                    ),
                 ),
                 TypedStatement::Definition(
                     Variable::array(Identifier::from("a").version(1), Type::FieldElement, 1u32)
@@ -1258,6 +1275,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1299,19 +1317,21 @@ mod tests {
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
-            .generics(vec![Some("K".into())]);
+            .generics(vec![Some(
+                GenericIdentifier::with_name("K").index(0).into(),
+            )]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
             )
             .into()],
             statements: vec![
@@ -1375,7 +1395,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
             )
             .into()],
             statements: vec![TypedStatement::Return(vec![
@@ -1434,6 +1454,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1448,12 +1469,20 @@ mod tests {
                 TypedStatement::PushCallLog(
                     DeclarationFunctionKey::with_location("main", "foo")
                         .signature(foo_signature.clone()),
-                    GGenericsAssignment(vec![("K", 1)].into_iter().collect()),
+                    GGenericsAssignment(
+                        vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                            .into_iter()
+                            .collect(),
+                    ),
                 ),
                 TypedStatement::PushCallLog(
                     DeclarationFunctionKey::with_location("main", "bar")
                         .signature(foo_signature.clone()),
-                    GGenericsAssignment(vec![("K", 2)].into_iter().collect()),
+                    GGenericsAssignment(
+                        vec![(GenericIdentifier::with_name("K").index(0), 2)]
+                            .into_iter()
+                            .collect(),
+                    ),
                 ),
                 TypedStatement::Definition(
                     Variable::array(Identifier::from("a").version(1), Type::FieldElement, 2u32)
@@ -1537,6 +1566,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1558,20 +1588,25 @@ mod tests {
         // Error: Incompatible
 
         let foo_signature = DeclarationSignature::new()
-            .generics(vec![Some("K".into())])
+            .generics(vec![Some(
+                GenericIdentifier::with_name("K").index(0).into(),
+            )])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                GenericIdentifier::with_name("K").index(0),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic("K"),
+                GenericIdentifier::with_name("K").index(0),
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
-            arguments: vec![
-                DeclarationVariable::array("a", DeclarationType::FieldElement, "K").into(),
-            ],
+            arguments: vec![DeclarationVariable::array(
+                "a",
+                DeclarationType::FieldElement,
+                GenericIdentifier::with_name("K").index(0),
+            )
+            .into()],
             statements: vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
@@ -1620,6 +1655,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()

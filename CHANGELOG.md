@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.1] - 2021-04-30
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.1
+
+### Changes
+- Fix integer inference on repeat operators (#834, @schaeff)
+- Introduce constant definitions to the language (`const` keyword) (#792, @dark64)
+- Introduce constant range checks for checks of the form `x < c` where `p` is a compile-time constant, also for other comparison operators. This works for any `x` and `p`, unlike dynamic `x < y` comparison (#761, @schaeff)
+- Handle errors more gracefully in propagation step where applicable (#832, @dark64)
+- Add interactive prompt before overwriting existing files in the `one_liner.sh` script (#831, @dark64)
+- Add a custom panic hook to handle internal compiler errors more gracefully (#829, @dark64)
+- Make command line errors compatible with editor cmd+click (#828, @schaeff)
+- Make function definitions more permissive, and move ambiguity checks to call sites and improve them (#826, @schaeff)
+- Detect assertion failures at compile time on constant expressions (#823, @dark64)
+- Make function selection stricter in function calls (#822, @schaeff)
+- Add the ability to import multiple symbols in a single import statement (#809, @dark64)
+- Add [poseidon](https://www.poseidon-hash.info/) zk-friendly hashing algorithm to stdlib (#806, @dark64)
+- Allow optional underscore before type suffix (e.g. `42_u32`) (#800, @dark64)
+- Accept explicit generic parameters outside of definitions (#798, @schaeff)
+
 ## [0.7.0] - 2021-04-09
 
 ### Release

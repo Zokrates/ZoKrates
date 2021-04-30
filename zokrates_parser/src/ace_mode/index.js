@@ -37,7 +37,7 @@ ace.define("ace/mode/zokrates_highlight_rules",["require","exports","module","ac
     var ZoKratesHighlightRules = function () {
 
         var keywords = (
-            "assert|as|bool|byte|def|do|else|endfor|export|false|field|for|if|then|fi|import|from|in|private|public|return|struct|true|u8|u16|u32|u64"
+            "assert|as|bool|byte|const|def|do|else|endfor|export|false|field|for|if|then|fi|import|from|in|private|public|return|struct|true|u8|u16|u32|u64"
         );
 
         var keywordMapper = this.createKeywordMapper({
@@ -45,8 +45,9 @@ ace.define("ace/mode/zokrates_highlight_rules",["require","exports","module","ac
         }, "identifier");
 
         var decimalInteger = "(?:(?:[1-9]\\d*)|(?:0))";
+        var decimalSuffix = "(?:_?(?:f|u(?:8|16|32|64)))?";
         var hexInteger = "(?:0[xX][\\dA-Fa-f]+)";
-        var integer = "(?:" + decimalInteger + "|" + hexInteger + ")\\b";
+        var integer = "(?:" + decimalInteger + decimalSuffix "|" + hexInteger + ")\\b";
 
         this.$rules = {
             "start": [

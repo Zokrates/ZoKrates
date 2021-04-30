@@ -1,3 +1,5 @@
+#![feature(panic_info_message)]
+#![feature(backtrace)]
 //
 // @file bin.rs
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
@@ -15,6 +17,9 @@ use clap::{App, AppSettings, Arg};
 use ops::*;
 
 fn main() {
+    // set a custom panic hook
+    std::panic::set_hook(Box::new(panic_hook));
+
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
@@ -49,21 +54,49 @@ fn cli() -> Result<(), String> {
         .get_matches();
 
     match matches.subcommand() {
-        ("compile", Some(sub_matches)) => compile::exec(sub_matches)?,
-        ("check", Some(sub_matches)) => check::exec(sub_matches)?,
-        ("compute-witness", Some(sub_matches)) => compute_witness::exec(sub_matches)?,
+        ("compile", Some(sub_matches)) => compile::exec(sub_matches),
+        ("check", Some(sub_matches)) => check::exec(sub_matches),
+        ("compute-witness", Some(sub_matches)) => compute_witness::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-        ("setup", Some(sub_matches)) => setup::exec(sub_matches)?,
-        ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches)?,
+        ("setup", Some(sub_matches)) => setup::exec(sub_matches),
+        ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-        ("generate-proof", Some(sub_matches)) => generate_proof::exec(sub_matches)?,
-        ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches)?,
+        ("generate-proof", Some(sub_matches)) => generate_proof::exec(sub_matches),
+        ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-        ("verify", Some(sub_matches)) => verify::exec(sub_matches)?,
+        ("verify", Some(sub_matches)) => verify::exec(sub_matches),
         _ => unreachable!(),
-    };
+    }
+}
 
-    Ok(())
+fn panic_hook(pi: &std::panic::PanicInfo) {
+    let location = pi
+        .location()
+        .map(|l| format!("({})", l))
+        .unwrap_or_default();
+
+    let message = pi
+        .message()
+        .map(|m| format!("{}", m))
+        .or_else(|| pi.payload().downcast_ref::<&str>().map(|p| p.to_string()));
+
+    if let Some(s) = message {
+        println!("{} {}", s, location);
+    } else {
+        println!("The compiler unexpectedly panicked {}", location);
+    }
+
+    #[cfg(debug_assertions)]
+    {
+        use std::backtrace::{Backtrace, BacktraceStatus};
+        let backtrace = Backtrace::capture();
+
+        if backtrace.status() == BacktraceStatus::Captured {
+            println!("rust backtrace:\n{}", backtrace);
+        }
+    }
+
+    println!("This is unexpected, please submit a full bug report at https://github.com/Zokrates/ZoKrates/issues");
 }
 
 #[cfg(test)]
@@ -95,11 +128,11 @@ mod tests {
                         continue;
                     }
 
+                    println!("Testing {:?}", path);
+
                     assert!(path.extension().expect("extension expected") == "zok");
 
                     let should_error = path.to_str().unwrap().contains("compile_errors");
-
-                    println!("Testing {:?}", path);
 
                     let file = File::open(path.clone()).unwrap();
 

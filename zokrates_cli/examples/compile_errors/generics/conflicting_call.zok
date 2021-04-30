@@ -1,0 +1,11 @@
+def foo<N, P>(field[N] a) -> field[P]:
+    return a
+
+def foo<P, N>(field[P] a) -> field[N]:
+    return a
+
+def bar<Q>(field[Q] a) -> field[Q]:
+    return foo(a)
+
+def main() -> field[1]:
+    return bar([1])

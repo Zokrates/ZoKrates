@@ -4,7 +4,7 @@ use crate::flat_absy::{
 };
 use crate::solvers::Solver;
 use crate::typed_absy::types::{
-    ConcreteGenericsAssignment, Constant, DeclarationSignature, DeclarationType,
+    ConcreteGenericsAssignment, Constant, DeclarationSignature, DeclarationType, GenericIdentifier,
 };
 use std::collections::HashMap;
 use zokrates_field::{Bn128Field, Field};
@@ -43,11 +43,17 @@ impl FlatEmbed {
                 .inputs(vec![DeclarationType::uint(32)])
                 .outputs(vec![DeclarationType::FieldElement]),
             FlatEmbed::Unpack => DeclarationSignature::new()
-                .generics(vec![Some(Constant::Generic("N"))])
+                .generics(vec![Some(Constant::Generic(GenericIdentifier {
+                    name: "N",
+                    index: 0,
+                }))])
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    "N",
+                    GenericIdentifier {
+                        name: "N",
+                        index: 0,
+                    },
                 ))]),
             FlatEmbed::U8ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(8)])
@@ -121,8 +127,7 @@ impl FlatEmbed {
             });
 
         assert_eq!(gen.len(), assignment.0.len());
-        gen.map(|g| *assignment.0.get(&g).clone().unwrap() as u32)
-            .collect()
+        gen.map(|g| *assignment.0.get(&g).unwrap() as u32).collect()
     }
 
     pub fn id(&self) -> &'static str {

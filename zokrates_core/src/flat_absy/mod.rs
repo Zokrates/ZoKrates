@@ -208,6 +208,12 @@ pub enum FlatExpression<T> {
     Mult(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
 }
 
+impl<T> From<T> for FlatExpression<T> {
+    fn from(other: T) -> Self {
+        Self::Number(other)
+    }
+}
+
 impl<T: Field> FlatExpression<T> {
     pub fn apply_substitution(
         self,

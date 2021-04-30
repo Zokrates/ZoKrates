@@ -4,7 +4,6 @@ use std::fmt;
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub enum CoreIdentifier<'ast> {
     Source(&'ast str),
-    Internal(&'static str, usize),
     Call(usize),
 }
 
@@ -12,7 +11,6 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CoreIdentifier::Source(s) => write!(f, "{}", s),
-            CoreIdentifier::Internal(s, i) => write!(f, "#INTERNAL#_{}_{}", s, i),
             CoreIdentifier::Call(i) => write!(f, "#CALL_RETURN_AT_INDEX_{}", i),
         }
     }

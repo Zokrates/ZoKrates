@@ -1,4 +1,12 @@
-version: 2
+version: 2.1
+
+executors:
+  linux:
+    machine:
+      image: ubuntu-2004:202101-01
+  macos:
+    macos:
+      xcode: 12.4.0
 
 jobs:
   build:
@@ -48,9 +56,6 @@ jobs:
           name: Run clippy
           command: cargo clippy -- -D warnings
       - run:
-          name: Build
-          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
-      - run:
           name: Run tests
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
       # - run:
@@ -80,7 +85,9 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Test on firefox
-          command: cd zokrates_core && wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
+          command: |
+            cd zokrates_core
+            wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
   integration_test:
     docker:
       - image: zokrates/env:latest
@@ -125,8 +132,88 @@ jobs:
       - checkout
       - run:
           command: cd zokrates_js && npm run test
+  cross_build:
+    parameters:
+      os:
+        type: executor
+      target:
+        type: string
+    executor: << parameters.os >>
+    steps:
+      - checkout
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - run:
+          no_output_timeout: "30m"
+          command: cross build --target << parameters.target >> --release
+      - tar_artifacts:
+          target: << parameters.target >>
+  publish_artifacts:
+    docker:
+      - image: circleci/golang
+    steps:
+      - attach_workspace:
+          at: /tmp/artifacts
+      - run:
+          name: "Publish artifacts on GitHub"
+          command: |
+            go get github.com/github-release/github-release
+            github-release release \
+                -s ${GH_TOKEN} \
+                -u ${CIRCLE_PROJECT_USERNAME} \
+                -r ${CIRCLE_PROJECT_REPONAME} \
+                -t ${CIRCLE_TAG} || true
+            find /tmp/artifacts -type f -name *.tar.gz -exec basename {} \; | xargs -I {} github-release upload \
+              -s ${GH_TOKEN} \
+              -u ${CIRCLE_PROJECT_USERNAME} \
+              -r ${CIRCLE_PROJECT_REPONAME} \
+              -t ${CIRCLE_TAG} \
+              -n "{}" \
+              -f /tmp/artifacts/{}
+
+commands:
+  install_rust:
+    steps:
+      - run:
+          name: Install Rust
+          command: |
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source $HOME/.cargo/env
+  install_cross:
+    steps:
+      - run:
+          name: Install rust-embedded/cross
+          command: cargo install --git https://github.com/rust-embedded/cross
+  tar_artifacts:
+    parameters:
+      target:
+        type: string
+    steps:
+      - run:
+          name: Store build artifacts
+          command: |
+            mkdir -p /tmp/artifacts
+            find target/<< parameters.target >>/release -maxdepth 1 -type f | grep -E "zokrates(\.exe)?$" | xargs -I {} cp {} /tmp/artifacts/
+            cp -r zokrates_stdlib/stdlib /tmp/artifacts/
+            cd /tmp/artifacts
+            tar czf zokrates-${CIRCLE_TAG}-<< parameters.target >>.tar.gz *
+            ls | grep -v *.tar.gz | xargs rm -rf
+      - store_artifacts:
+          path: /tmp/artifacts
+      - persist_to_workspace:
+          root: /tmp/artifacts
+          paths:
+            - zokrates-*-<< parameters.target >>.tar.gz
+
+tag-only: &tag-only
+  filters:
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^\d+\.\d+\.\d+$/
+
 workflows:
-  version: 2
   build-test-and-deploy:
     jobs:
       - build
@@ -136,6 +223,38 @@ workflows:
       - integration_test
       - zokrates_js_build
       - zokrates_js_test
+      - cross_build:
+          <<: *tag-only
+          pre-steps:
+            - install_rust
+            - install_cross
+          matrix:
+            alias: cross-build-linux
+            parameters:
+              os:
+                - linux
+              target:
+                - aarch64-unknown-linux-gnu
+                - arm-unknown-linux-gnueabi
+                - x86_64-unknown-linux-gnu
+                - x86_64-pc-windows-gnu
+      - cross_build:
+          <<: *tag-only
+          pre-steps:
+            - install_rust
+            - install_cross
+          matrix:
+            alias: cross-build-macos
+            parameters:
+              os:
+                - macos
+              target:
+                - x86_64-apple-darwin
+      - publish_artifacts:
+          <<: *tag-only
+          requires:
+            - cross-build-linux
+            - cross-build-macos
       - deploy:
           filters:
             branches:

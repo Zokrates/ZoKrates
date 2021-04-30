@@ -1,0 +1,4 @@
+const field[2] ARRAY = [1, 2]
+
+def main() -> field[2]:
+    return ARRAY

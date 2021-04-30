@@ -1,6 +1,6 @@
 {
   "entry_point": "./tests/tests/uint/u8/gte.zok",
-  "max_constraint_count": 681,
+  "max_constraint_count": 683,
   "tests": [
     {
       "input": {

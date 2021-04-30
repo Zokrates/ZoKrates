@@ -286,36 +286,35 @@ main() {
 
     # Fetch archive
     url="$url/download/$tag/zokrates-$tag-$arch.$ext"
-
     say_err "Fetching: $url"
 
     td=$(mktemp -d || mktemp -d -t tmp)
     curl -sLf --show-error $url | tar -C $td -xzf -
 
-    # install ZoKrates
-    for f in $(ls $td); do
-        # put folders into $dest
-        if [ -d $td/$f ]; then
-            if [ -e "$dest/$f" ] && [ $force = false ]; then
-                err "$f already exists in $dest, use --force to overwrite"
-            else
-                mkdir -p $dest
-                cp -rf $td/$f $dest
-                rm -rf $td/$f
-            fi
-        fi
+    if [ -d $dest ]; then
+      if [ $force = true ]; then
+        rm -rf $dest/*
+        cp -r $td/* $dest
+      else
+        read -p "ZoKrates is already installed, overwrite (y/n)? " answer
+        case ${answer:0:1} in
+            y|Y )
+                rm -rf $dest/*
+                cp -r $td/* $dest
+            ;;
+            * )
+                rm -rf $td
+                exit 1
+            ;;
+        esac
+      fi
+    else
+      mkdir -p $dest
+      cp -r $td/* $dest
+    fi
 
-        # put executables into $dest/bin
-        if [ -x $td/$f ]; then
-            if [ -e "$dest/$f" ] && [ $force = false ]; then
-                err "$f already exists in $dest, use --force to overwrite"
-            else
-                mkdir -p $dest/bin
-                install -m 755 $td/$f $dest/bin
-            fi
-        fi
-    done
-
+    mkdir -p $dest/bin
+    mv $dest/zokrates* $dest/bin && chmod 755 $dest/bin/*
     rm -rf $td
 
     abspath=$(cd "$(dirname "$dest")" && pwd)/$(basename "$dest")

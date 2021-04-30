@@ -56,6 +56,25 @@ impl From<io::Error> for Error {
     }
 }
 
+#[derive(PartialEq, Clone)]
+pub enum ImportDirective<'ast> {
+    Main(ImportNode<'ast>),
+    From(Vec<ImportNode<'ast>>),
+}
+
+impl<'ast> IntoIterator for ImportDirective<'ast> {
+    type Item = ImportNode<'ast>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let vec = match self {
+            ImportDirective::Main(v) => vec![v],
+            ImportDirective::From(v) => v,
+        };
+        vec.into_iter()
+    }
+}
+
 type ImportPath<'ast> = &'ast Path;
 
 #[derive(PartialEq, Clone)]

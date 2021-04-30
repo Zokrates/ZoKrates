@@ -16,9 +16,23 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
 
     fn fold_module(
         &mut self,
-        p: TypedModule<'ast, T>,
+        m: TypedModule<'ast, T>,
     ) -> Result<TypedModule<'ast, T>, Self::Error> {
-        fold_module(self, p)
+        fold_module(self, m)
+    }
+
+    fn fold_constant(
+        &mut self,
+        c: TypedConstant<'ast, T>,
+    ) -> Result<TypedConstant<'ast, T>, Self::Error> {
+        fold_constant(self, c)
+    }
+
+    fn fold_constant_symbol(
+        &mut self,
+        s: TypedConstantSymbol<'ast, T>,
+    ) -> Result<TypedConstantSymbol<'ast, T>, Self::Error> {
+        fold_constant_symbol(self, s)
     }
 
     fn fold_function_symbol(
@@ -793,6 +807,26 @@ pub fn fold_struct_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
+pub fn fold_constant<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    c: TypedConstant<'ast, T>,
+) -> Result<TypedConstant<'ast, T>, F::Error> {
+    Ok(TypedConstant {
+        ty: f.fold_type(c.ty)?,
+        expression: f.fold_expression(c.expression)?,
+    })
+}
+
+pub fn fold_constant_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: TypedConstantSymbol<'ast, T>,
+) -> Result<TypedConstantSymbol<'ast, T>, F::Error> {
+    match s {
+        TypedConstantSymbol::Here(tc) => Ok(TypedConstantSymbol::Here(f.fold_constant(tc)?)),
+        there => Ok(there),
+    }
+}
+
 pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     s: TypedFunctionSymbol<'ast, T>,
@@ -805,10 +839,15 @@ pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
 pub fn fold_module<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    p: TypedModule<'ast, T>,
+    m: TypedModule<'ast, T>,
 ) -> Result<TypedModule<'ast, T>, F::Error> {
     Ok(TypedModule {
-        functions: p
+        constants: m
+            .constants
+            .into_iter()
+            .map(|(key, tc)| f.fold_constant_symbol(tc).map(|tc| (key, tc)))
+            .collect::<Result<_, _>>()?,
+        functions: m
             .functions
             .into_iter()
             .map(|(key, fun)| f.fold_function_symbol(fun).map(|f| (key, f)))
