@@ -476,7 +476,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
         }
     }
 
-    // precondition: `array` is only made of inline arrays unless it does not contain the Integer type
+    // precondition: `array` is only made of inline arrays and repeat constructs unless it does not contain the Integer type
     pub fn try_from_int(
         array: Self,
         target_inner_ty: Type<'ast, T>,
@@ -515,11 +515,13 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                 match target_inner_ty.clone() {
                     Type::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
                         .annotate(Type::Int, array_ty.size)),
-                    // try to convert the repeated element to the target type
+                    // try to align the repeated element to the target type
                     t => TypedExpression::align_to_type(e, t)
                         .map(|e| {
+                            let ty = e.get_type().clone();
+
                             ArrayExpressionInner::Repeat(box e, box count)
-                                .annotate(target_inner_ty, array_ty.size)
+                                .annotate(ty, array_ty.size)
                         })
                         .map_err(|(e, _)| e),
                 }
