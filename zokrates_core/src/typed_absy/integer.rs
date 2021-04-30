@@ -515,7 +515,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                 match target_inner_ty.clone() {
                     Type::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
                         .annotate(Type::Int, array_ty.size)),
-                    // try to convert the repeated element to the target type
+                    // try to align the repeated element to the target type
                     t => TypedExpression::align_to_type(e, t)
                         .map(|e| {
                             let ty = e.get_type().clone();
