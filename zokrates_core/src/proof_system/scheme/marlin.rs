@@ -18,30 +18,23 @@ impl NotBw6_761Field for Bn128Field {}
 pub struct Marlin;
 
 #[derive(Serialize, Deserialize)]
-pub struct ProofPoints<G1, G2> {
-    pub a: G1,
-    pub b: G2,
-    pub c: G1,
+pub struct ProofPoints {
+    pub raw: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct VerificationKey<G1, G2> {
-    pub h: G2,
-    pub g_alpha: G1,
-    pub h_beta: G2,
-    pub g_gamma: G1,
-    pub h_gamma: G2,
-    pub query: Vec<G1>,
+pub struct VerificationKey {
+    pub raw: Vec<u8>,
 }
 
 impl<T: Field + NotBw6_761Field> Scheme<T> for Marlin {
-    type VerificationKey = VerificationKey<G1Affine, G2Affine>;
-    type ProofPoints = ProofPoints<G1Affine, G2Affine>;
+    type VerificationKey = VerificationKey;
+    type ProofPoints = ProofPoints;
 }
 
 impl Scheme<Bw6_761Field> for Marlin {
-    type VerificationKey = VerificationKey<G1Affine, G2AffineFq>;
-    type ProofPoints = ProofPoints<G1Affine, G2AffineFq>;
+    type VerificationKey = VerificationKey;
+    type ProofPoints = ProofPoints;
 }
 
 impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for Marlin {
@@ -49,108 +42,110 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
         vk: <Marlin as Scheme<T>>::VerificationKey,
         abi: SolidityAbi,
     ) -> String {
-        let (mut template_text, solidity_pairing_lib) = match abi {
-            SolidityAbi::V1 => (
-                String::from(CONTRACT_TEMPLATE),
-                String::from(SOLIDITY_PAIRING_LIB),
-            ),
-            SolidityAbi::V2 => (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            ),
-        };
+        unimplemented!("no solidity verifier for marlin");
 
-        // replace things in template
-        let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
-        let vk_query_len_regex = Regex::new(r#"(<%vk_query_length%>)"#).unwrap();
-        let vk_query_repeat_regex = Regex::new(r#"(<%vk_query_pts%>)"#).unwrap();
-        let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
-        let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
-        let input_argument = Regex::new(r#"(<%input_argument%>)"#).unwrap();
+        // let (mut template_text, solidity_pairing_lib) = match abi {
+        //     SolidityAbi::V1 => (
+        //         String::from(CONTRACT_TEMPLATE),
+        //         String::from(SOLIDITY_PAIRING_LIB),
+        //     ),
+        //     SolidityAbi::V2 => (
+        //         String::from(CONTRACT_TEMPLATE_V2),
+        //         String::from(SOLIDITY_PAIRING_LIB_V2),
+        //     ),
+        // };
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.h.to_string().as_str())
-            .into_owned();
+        // // replace things in template
+        // let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
+        // let vk_query_len_regex = Regex::new(r#"(<%vk_query_length%>)"#).unwrap();
+        // let vk_query_repeat_regex = Regex::new(r#"(<%vk_query_pts%>)"#).unwrap();
+        // let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
+        // let input_loop = Regex::new(r#"(<%input_loop%>)"#).unwrap();
+        // let input_argument = Regex::new(r#"(<%input_argument%>)"#).unwrap();
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.g_alpha.to_string().as_str())
-            .into_owned();
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.h.to_string().as_str())
+        //     .into_owned();
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.h_beta.to_string().as_str())
-            .into_owned();
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.g_alpha.to_string().as_str())
+        //     .into_owned();
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.g_gamma.to_string().as_str())
-            .into_owned();
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.h_beta.to_string().as_str())
+        //     .into_owned();
 
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.h_gamma.to_string().as_str())
-            .into_owned();
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.g_gamma.to_string().as_str())
+        //     .into_owned();
 
-        let query_count: usize = vk.query.len();
-        template_text = vk_query_len_regex
-            .replace(template_text.as_str(), format!("{}", query_count).as_str())
-            .into_owned();
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.h_gamma.to_string().as_str())
+        //     .into_owned();
 
-        template_text = vk_input_len_regex
-            .replace(
-                template_text.as_str(),
-                format!("{}", query_count - 1).as_str(),
-            )
-            .into_owned();
+        // let query_count: usize = vk.query.len();
+        // template_text = vk_query_len_regex
+        //     .replace(template_text.as_str(), format!("{}", query_count).as_str())
+        //     .into_owned();
 
-        // feed input values only if there are any
-        template_text = if query_count > 1 {
-            input_loop.replace(
-                template_text.as_str(),
-                r#"
-        for(uint i = 0; i < input.length; i++){
-            inputValues[i] = input[i];
-        }"#,
-            )
-        } else {
-            input_loop.replace(template_text.as_str(), "")
-        }
-        .to_string();
+        // template_text = vk_input_len_regex
+        //     .replace(
+        //         template_text.as_str(),
+        //         format!("{}", query_count - 1).as_str(),
+        //     )
+        //     .into_owned();
 
-        // take input values as argument only if there are any
-        template_text = if query_count > 1 {
-            input_argument.replace(
-                template_text.as_str(),
-                format!(", uint[{}] memory input", query_count - 1).as_str(),
-            )
-        } else {
-            input_argument.replace(template_text.as_str(), "")
-        }
-        .to_string();
+        // // feed input values only if there are any
+        // template_text = if query_count > 1 {
+        //     input_loop.replace(
+        //         template_text.as_str(),
+        //         r#"
+        // for(uint i = 0; i < input.length; i++){
+        //     inputValues[i] = input[i];
+        // }"#,
+        //     )
+        // } else {
+        //     input_loop.replace(template_text.as_str(), "")
+        // }
+        // .to_string();
 
-        let mut query_repeat_text = String::new();
-        for (i, g1) in vk.query.iter().enumerate() {
-            query_repeat_text.push_str(
-                format!(
-                    "vk.query[{}] = Pairing.G1Point({});",
-                    i,
-                    g1.to_string().as_str()
-                )
-                .as_str(),
-            );
-            if i < query_count - 1 {
-                query_repeat_text.push_str("\n        ");
-            }
-        }
+        // // take input values as argument only if there are any
+        // template_text = if query_count > 1 {
+        //     input_argument.replace(
+        //         template_text.as_str(),
+        //         format!(", uint[{}] memory input", query_count - 1).as_str(),
+        //     )
+        // } else {
+        //     input_argument.replace(template_text.as_str(), "")
+        // }
+        // .to_string();
 
-        template_text = vk_query_repeat_regex
-            .replace(template_text.as_str(), query_repeat_text.as_str())
-            .into_owned();
+        // let mut query_repeat_text = String::new();
+        // for (i, g1) in vk.query.iter().enumerate() {
+        //     query_repeat_text.push_str(
+        //         format!(
+        //             "vk.query[{}] = Pairing.G1Point({});",
+        //             i,
+        //             g1.to_string().as_str()
+        //         )
+        //         .as_str(),
+        //     );
+        //     if i < query_count - 1 {
+        //         query_repeat_text.push_str("\n        ");
+        //     }
+        // }
 
-        let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
-        template_text = re.replace_all(&template_text, "uint256($v)").to_string();
+        // template_text = vk_query_repeat_regex
+        //     .replace(template_text.as_str(), query_repeat_text.as_str())
+        //     .into_owned();
 
-        format!(
-            "{}{}{}",
-            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
-        )
+        // let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
+        // template_text = re.replace_all(&template_text, "uint256($v)").to_string();
+
+        // format!(
+        //     "{}{}{}",
+        //     SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
+        // )
     }
 }
 

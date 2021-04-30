@@ -89,6 +89,10 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
             cli_verify::<Bn128Field, GM17, Ark>(sub_matches)
         }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
+            cli_verify::<Bls12_377Field, Marlin, Ark>(sub_matches)
+        }
         #[cfg(feature = "libsnark")]
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
             cli_verify::<Bn128Field, GM17, Libsnark>(sub_matches)

@@ -118,9 +118,9 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
-            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, MARLIN, Ark>(p, sub_matches),
-            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, MARLIN, Ark>(p, sub_matches),
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, MARLIN, Ark>(p, sub_matches),
+            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
+            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
             _ => unreachable!(),
         },
         #[cfg(feature = "libsnark")]

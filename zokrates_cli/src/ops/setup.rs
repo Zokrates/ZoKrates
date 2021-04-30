@@ -106,6 +106,11 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
             _ => unreachable!(),
         },
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
+            ProgEnum::Bls12_377Program(p) => cli_setup::<_, Marlin, Ark>(p, sub_matches),
+            _ => unreachable!(),
+        },
         #[cfg(feature = "libsnark")]
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
             match prog {
