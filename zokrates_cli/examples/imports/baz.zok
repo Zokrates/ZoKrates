@@ -1,5 +1,6 @@
-struct Baz {
-}
+struct Baz {}
+
+const field BAZ = 123
 
 def main() -> field:
-	return 123
+    return BAZ

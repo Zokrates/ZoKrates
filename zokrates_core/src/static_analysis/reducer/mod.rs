@@ -547,6 +547,7 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
                         )]
                         .into_iter()
                         .collect(),
+                        constants: Default::default(),
                     },
                 )]
                 .into_iter()
@@ -761,6 +762,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -826,6 +828,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -959,6 +962,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1043,6 +1047,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1185,6 +1190,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1269,6 +1275,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1447,6 +1454,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1558,6 +1566,7 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()
@@ -1646,6 +1655,7 @@ mod tests {
                     ]
                     .into_iter()
                     .collect(),
+                    constants: Default::default(),
                 },
             )]
             .into_iter()

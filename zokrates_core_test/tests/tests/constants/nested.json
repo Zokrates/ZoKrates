@@ -1,0 +1,16 @@
+{
+  "entry_point": "./tests/tests/constants/nested.zok",
+  "max_constraint_count": 1,
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "values": ["8"]
+        }
+      }
+    }
+  ]
+}

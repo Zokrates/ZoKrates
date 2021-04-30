@@ -264,6 +264,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     }
                 })
                 .collect::<Result<_, _>>()?,
+            ..m
         })
     }
 

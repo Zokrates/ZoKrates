@@ -84,6 +84,7 @@ impl<'ast> NodeValue for SymbolDeclaration<'ast> {}
 impl<'ast> NodeValue for UnresolvedType<'ast> {}
 impl<'ast> NodeValue for StructDefinition<'ast> {}
 impl<'ast> NodeValue for StructDefinitionField<'ast> {}
+impl<'ast> NodeValue for ConstantDefinition<'ast> {}
 impl<'ast> NodeValue for Function<'ast> {}
 impl<'ast> NodeValue for Module<'ast> {}
 impl<'ast> NodeValue for SymbolImport<'ast> {}

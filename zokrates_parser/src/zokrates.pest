@@ -1,5 +1,5 @@
 
-file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
+file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ const_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
 
 pragma = { "#pragma" ~ "curve" ~ curve }
 curve = @{ (ASCII_ALPHANUMERIC | "_") * }
@@ -11,6 +11,7 @@ import_source = @{(!"\"" ~ ANY)*}
 import_symbol = { identifier ~ ("as" ~ identifier)? }
 import_symbol_list = _{ import_symbol ~ ("," ~ import_symbol)* }
 function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
+const_definition = {"const" ~ ty ~ identifier ~ "=" ~ expression ~ NEWLINE*}
 return_types = _{ ( "->" ~ ( "(" ~ type_list ~ ")" | ty ))? }
 constant_generics_declaration = _{ "<" ~ constant_generics_list ~ ">" }
 constant_generics_list = _{ identifier ~ ("," ~ identifier)* }
@@ -144,7 +145,7 @@ op_sub = {"-"}
 op_mul = {"*"}
 op_div = {"/"}
 op_rem = {"%"}
-op_pow = @{"**"} 
+op_pow = @{"**"}
 op_not = {"!"}
 op_neg = {"-"}
 op_pos = {"+"}
@@ -159,6 +160,6 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
 // the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly
 // accepted
-keyword = @{"assert"|"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
+keyword = @{"assert"|"as"|"bool"|"byte"|"const"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
             "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
             }

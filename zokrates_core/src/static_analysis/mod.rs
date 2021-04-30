@@ -5,6 +5,7 @@
 //! @date 2018
 
 mod bounds_checker;
+mod constant_inliner;
 mod flat_propagation;
 mod flatten_complex_types;
 mod propagation;
@@ -28,6 +29,7 @@ use self::variable_read_remover::VariableReadRemover;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
+use crate::static_analysis::constant_inliner::ConstantInliner;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;
 use std::fmt;
@@ -73,8 +75,11 @@ impl fmt::Display for Error {
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
-        let r = reduce_program(self).map_err(Error::from)?;
-
+        // inline user-defined constants
+        let r = ConstantInliner::inline(self);
+        // reduce the program to a single function
+        let r = reduce_program(r).map_err(Error::from)?;
+        // generate abi
         let abi = r.abi();
 
         // propagate

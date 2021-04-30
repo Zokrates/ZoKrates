@@ -10,14 +10,14 @@ extern crate lazy_static;
 pub use ast::{
     Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement,
     Assignee, AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
-    CallAccess, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber, DecimalSuffix,
-    DefinitionStatement, ExplicitGenerics, Expression, FieldType, File, FromExpression, Function,
-    HexLiteralExpression, HexNumberExpression, IdentifierExpression, ImportDirective, ImportSource,
-    ImportSymbol, InlineArrayExpression, InlineStructExpression, InlineStructMember,
-    IterationStatement, LiteralExpression, OptionallyTypedAssignee, Parameter, PostfixExpression,
-    Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
-    StructDefinition, StructField, TernaryExpression, ToExpression, Type, UnaryExpression,
-    UnaryOperator, Underscore, Visibility,
+    CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber,
+    DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
+    FromExpression, Function, HexLiteralExpression, HexNumberExpression, IdentifierExpression,
+    ImportDirective, ImportSource, ImportSymbol, InlineArrayExpression, InlineStructExpression,
+    InlineStructMember, IterationStatement, LiteralExpression, OptionallyTypedAssignee, Parameter,
+    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
+    Statement, StructDefinition, StructField, TernaryExpression, ToExpression, Type,
+    UnaryExpression, UnaryOperator, Underscore, Visibility,
 };
 
 mod ast {
@@ -111,6 +111,7 @@ mod ast {
         pub pragma: Option<Pragma<'ast>>,
         pub imports: Vec<ImportDirective<'ast>>,
         pub structs: Vec<StructDefinition<'ast>>,
+        pub constants: Vec<ConstantDefinition<'ast>>,
         pub functions: Vec<Function<'ast>>,
         pub eoi: EOI,
         #[pest_ast(outer())]
@@ -160,6 +161,16 @@ mod ast {
         pub parameters: Vec<Parameter<'ast>>,
         pub returns: Vec<Type<'ast>>,
         pub statements: Vec<Statement<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::const_definition))]
+    pub struct ConstantDefinition<'ast> {
+        pub ty: Type<'ast>,
+        pub id: IdentifierExpression<'ast>,
+        pub expression: Expression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -1047,6 +1058,7 @@ mod tests {
             Ok(File {
                 pragma: None,
                 structs: vec![],
+                constants: vec![],
                 functions: vec![Function {
                     generics: vec![],
                     id: IdentifierExpression {
@@ -1107,6 +1119,7 @@ mod tests {
             Ok(File {
                 pragma: None,
                 structs: vec![],
+                constants: vec![],
                 functions: vec![Function {
                     generics: vec![],
                     id: IdentifierExpression {
@@ -1191,6 +1204,7 @@ mod tests {
             Ok(File {
                 pragma: None,
                 structs: vec![],
+                constants: vec![],
                 functions: vec![Function {
                     generics: vec![],
                     id: IdentifierExpression {
@@ -1259,6 +1273,7 @@ mod tests {
             Ok(File {
                 pragma: None,
                 structs: vec![],
+                constants: vec![],
                 functions: vec![Function {
                     generics: vec![],
                     id: IdentifierExpression {
@@ -1299,6 +1314,7 @@ mod tests {
             Ok(File {
                 pragma: None,
                 structs: vec![],
+                constants: vec![],
                 functions: vec![Function {
                     generics: vec![],
                     id: IdentifierExpression {

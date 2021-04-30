@@ -61,6 +61,18 @@ pub type TypedModules<'ast, T> = HashMap<OwnedTypedModuleId, TypedModule<'ast, T
 pub type TypedFunctionSymbols<'ast, T> =
     HashMap<DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
 
+pub type ConstantIdentifier<'ast> = &'ast str;
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TypedConstantSymbol<'ast, T> {
+    Here(TypedConstant<'ast, T>),
+    There(OwnedTypedModuleId, ConstantIdentifier<'ast>),
+}
+
+/// A collection of `TypedConstantSymbol`s
+pub type TypedConstantSymbols<'ast, T> =
+    HashMap<ConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>;
+
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypedProgram<'ast, T> {
@@ -135,11 +147,13 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
     }
 }
 
-/// A typed program as a collection of functions. Types have been resolved during semantic checking.
+/// A typed module as a collection of functions. Types have been resolved during semantic checking.
 #[derive(PartialEq, Clone)]
 pub struct TypedModule<'ast, T> {
-    /// Functions of the program
+    /// Functions of the module
     pub functions: TypedFunctionSymbols<'ast, T>,
+    /// Constants defined in module
+    pub constants: TypedConstantSymbols<'ast, T>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -182,22 +196,31 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = self
-            .functions
+            .constants
             .iter()
             .map(|(key, symbol)| match symbol {
+                TypedConstantSymbol::Here(ref tc) => {
+                    format!("const {} {} = {}", tc.ty, key, tc.expression)
+                }
+                TypedConstantSymbol::There(ref module_id, ref id) => {
+                    format!("from \"{}\" import {} as {}", module_id.display(), id, key)
+                }
+            })
+            .chain(self.functions.iter().map(|(key, symbol)| match symbol {
                 TypedFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
                 TypedFunctionSymbol::There(ref fun_key) => format!(
-                    "import {} from \"{}\" as {} // with signature {}",
-                    fun_key.id,
+                    "from \"{}\" import {} as {} // with signature {}",
                     fun_key.module.display(),
+                    fun_key.id,
                     key.id,
                     key.signature
                 ),
                 TypedFunctionSymbol::Flat(ref flat_fun) => {
                     format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature())
                 }
-            })
+            }))
             .collect::<Vec<_>>();
+
         write!(f, "{}", res.join("\n"))
     }
 }
@@ -206,8 +229,13 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "module(\n\tfunctions:\n\t\t{:?}\n)",
+            "TypedModule(\n\tFunctions:\n\t\t{:?}\n\tConstants:\n\t\t{:?}\n)",
             self.functions
+                .iter()
+                .map(|x| format!("{:?}", x))
+                .collect::<Vec<_>>()
+                .join("\n\t\t"),
+            self.constants
                 .iter()
                 .map(|x| format!("{:?}", x))
                 .collect::<Vec<_>>()
@@ -303,6 +331,36 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedFunction<'ast, T> {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct TypedConstant<'ast, T> {
+    ty: Type<'ast, T>,
+    expression: TypedExpression<'ast, T>,
+}
+
+impl<'ast, T> TypedConstant<'ast, T> {
+    pub fn new(ty: Type<'ast, T>, expression: TypedExpression<'ast, T>) -> Self {
+        TypedConstant { ty, expression }
+    }
+}
+
+impl<'ast, T: fmt::Debug> fmt::Debug for TypedConstant<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TypedConstant({:?}, {:?})", self.ty, self.expression)
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "const {}({})", self.ty, self.expression)
+    }
+}
+
+impl<'ast, T: Clone> Typed<'ast, T> for TypedConstant<'ast, T> {
+    fn get_type(&self) -> Type<'ast, T> {
+        self.ty.clone()
     }
 }
 
@@ -1221,6 +1279,56 @@ impl<'ast, T> TryFrom<TypedExpression<'ast, T>> for StructExpression<'ast, T> {
             TypedExpression::Struct(e) => Ok(e),
             _ => Err(()),
         }
+    }
+}
+
+impl<'ast, T> TryFrom<TypedConstant<'ast, T>> for FieldElementExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(
+        tc: TypedConstant<'ast, T>,
+    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+        tc.expression.try_into()
+    }
+}
+
+impl<'ast, T> TryFrom<TypedConstant<'ast, T>> for BooleanExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(tc: TypedConstant<'ast, T>) -> Result<BooleanExpression<'ast, T>, Self::Error> {
+        tc.expression.try_into()
+    }
+}
+
+impl<'ast, T> TryFrom<TypedConstant<'ast, T>> for UExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(tc: TypedConstant<'ast, T>) -> Result<UExpression<'ast, T>, Self::Error> {
+        tc.expression.try_into()
+    }
+}
+
+impl<'ast, T> TryFrom<TypedConstant<'ast, T>> for ArrayExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(tc: TypedConstant<'ast, T>) -> Result<ArrayExpression<'ast, T>, Self::Error> {
+        tc.expression.try_into()
+    }
+}
+
+impl<'ast, T> TryFrom<TypedConstant<'ast, T>> for StructExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(tc: TypedConstant<'ast, T>) -> Result<StructExpression<'ast, T>, Self::Error> {
+        tc.expression.try_into()
+    }
+}
+
+impl<'ast, T> TryFrom<TypedConstant<'ast, T>> for IntExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(tc: TypedConstant<'ast, T>) -> Result<IntExpression<'ast, T>, Self::Error> {
+        tc.expression.try_into()
     }
 }
 
