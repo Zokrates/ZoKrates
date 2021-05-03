@@ -4,7 +4,6 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-mod bounds_checker;
 mod constant_inliner;
 mod flat_propagation;
 mod flatten_complex_types;
@@ -17,7 +16,6 @@ mod unconstrained_vars;
 mod variable_read_remover;
 mod variable_write_remover;
 
-use self::bounds_checker::BoundsChecker;
 use self::flatten_complex_types::Flattener;
 use self::propagation::Propagator;
 use self::redefinition::RedefinitionOptimizer;
@@ -90,8 +88,6 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = VariableWriteRemover::apply(r);
         // remove variable access to complex types
         let r = VariableReadRemover::apply(r);
-        // check array accesses are in bounds
-        let r = BoundsChecker::check(r).map_err(Error::from)?;
         // detect non constant shifts
         let r = ShiftChecker::check(r).map_err(Error::from)?;
         // convert to zir, removing complex types
