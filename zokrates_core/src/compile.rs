@@ -140,12 +140,12 @@ impl From<static_analysis::Error> for CompileErrorInner {
 impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CompileErrorInner::ParserError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::MacroError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::ParserError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::MacroError(ref e) => write!(f, "\n\t{}", e),
             CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::AnalysisError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::ReadError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::ImportError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::AnalysisError(ref e) => write!(f, "\n\t{}", e),
         }
     }
 }
