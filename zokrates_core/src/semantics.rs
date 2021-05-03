@@ -38,6 +38,14 @@ pub struct Error {
 }
 
 impl ErrorInner {
+    pub fn pos(&self) -> &Option<(Position, Position)> {
+        &self.pos
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
     fn in_file(self, id: &ModuleId) -> Error {
         Error {
             inner: self,
@@ -137,16 +145,6 @@ impl<'ast, T: Field> State<'ast, T> {
             types: HashMap::new(),
             constants: HashMap::new(),
         }
-    }
-}
-
-impl fmt::Display for ErrorInner {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let location = self
-            .pos
-            .map(|p| format!("{}", p.0))
-            .unwrap_or_else(|| "?".to_string());
-        write!(f, "{}\n\t{}", location, self.message)
     }
 }
 
