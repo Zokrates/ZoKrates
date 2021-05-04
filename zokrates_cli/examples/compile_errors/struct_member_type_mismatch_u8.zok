@@ -9,7 +9,7 @@ struct Bar {
 
 def main():
 	Bar s = Bar {
-		foo: Foo { values: [1] },
+		foo: Foo { values: [1] }, // notice the size mismatch here
 		bar: 0,
 	}
     u8 b = s.bar
