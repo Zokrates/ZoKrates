@@ -9,6 +9,7 @@ mod constant_inliner;
 mod flat_propagation;
 mod flatten_complex_types;
 mod propagation;
+mod public_packer;
 mod redefinition;
 mod reducer;
 mod shift_checker;
@@ -20,6 +21,7 @@ mod variable_write_remover;
 use self::bounds_checker::BoundsChecker;
 use self::flatten_complex_types::Flattener;
 use self::propagation::Propagator;
+use self::public_packer::PublicPacker;
 use self::redefinition::RedefinitionOptimizer;
 use self::reducer::reduce_program;
 use self::shift_checker::ShiftChecker;
@@ -98,6 +100,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let zir = Flattener::flatten(r);
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);
+        // pack public inputs
+        let zir = PublicPacker::pack(zir);
 
         Ok((zir, abi))
     }
