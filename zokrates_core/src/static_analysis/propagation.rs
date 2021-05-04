@@ -1409,6 +1409,22 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     )),
                 }
             }
+            StructExpressionInner::Value(v) => {
+                let v = v.into_iter().zip(ty.iter()).map(|(v, member)|
+                    match self.fold_expression(v) {
+                        Ok(v) => match (ConcreteType::try_from(v.get_type().clone()), ConcreteType::try_from(*member.ty.clone())) {
+                            (Ok(t1), Ok(t2)) => if t1 == t2 { Ok(v) } else { Err(Error::Type(format!(
+                                "Struct member `{}` in struct `{}/{}` expected to have type `{}`, found type `{}`",
+                                member.id, ty.canonical_location.clone().module.display(), ty.canonical_location.clone().name, t2, t1
+                            ))) },
+                            _ => Ok(v)
+                        }
+                        e => e
+                    }
+                ).collect::<Result<_, _>>()?;
+
+                Ok(StructExpressionInner::Value(v))
+            }
             e => fold_struct_expression_inner(self, ty, e),
         }
     }
