@@ -479,22 +479,19 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 .collect()
         }
         typed_absy::StructExpressionInner::Member(box s, id) => {
-            let members = s.ty().clone();
+            // get the concrete struct type, which must be available now
+            let struct_ty: typed_absy::types::ConcreteStructType =
+                s.ty().clone().try_into().unwrap();
 
-            let s = f.fold_struct_expression(s);
-
-            let offset: usize = members
+            // get the offset at which this member starts
+            let offset: usize = struct_ty
                 .iter()
                 .take_while(|member| member.id != id)
-                .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
-                        .unwrap()
-                        .get_primitive_count()
-                })
+                .map(|member| member.ty.get_primitive_count())
                 .sum();
 
-            // we also need the size of this member
-            let size = ty
+            // get the size of this member
+            let size = struct_ty
                 .iter()
                 .find(|member| member.id == id)
                 .cloned()
@@ -502,6 +499,10 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 .ty
                 .get_primitive_count();
 
+            // flatten the full struct
+            let s = f.fold_struct_expression(s);
+
+            // extract the member
             s[offset..offset + size].to_vec()
         }
         typed_absy::StructExpressionInner::Select(box array, box index) => {

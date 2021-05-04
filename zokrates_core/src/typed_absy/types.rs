@@ -179,7 +179,7 @@ impl<'ast, T> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GArrayType<S> {
     pub size: S,
     #[serde(flatten)]
@@ -426,7 +426,7 @@ impl fmt::Display for UBitwidth {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum GType<S> {
     FieldElement,
     Boolean,
@@ -623,29 +623,6 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}", array_type),
             GType::Struct(ref struct_type) => write!(f, "{}", struct_type.name(),),
-        }
-    }
-}
-
-impl<S: fmt::Debug> fmt::Debug for GType<S> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            GType::FieldElement => write!(f, "field"),
-            GType::Boolean => write!(f, "bool"),
-            GType::Int => write!(f, "integer"),
-            GType::Uint(ref bitwidth) => write!(f, "u{:?}", bitwidth),
-            GType::Array(ref array_type) => write!(f, "{:?}[{:?}]", array_type.ty, array_type.size),
-            GType::Struct(ref struct_type) => write!(
-                f,
-                "{:?} {{{:?}}}",
-                struct_type.name(),
-                struct_type
-                    .members
-                    .iter()
-                    .map(|member| format!("{:?}: {:?}", member.id, member.ty))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
         }
     }
 }
@@ -870,7 +847,7 @@ pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, Serialize, Deserialize, Eq)]
+    #[derive(Clone, Serialize, Deserialize, Eq, Debug)]
     pub struct GSignature<S> {
         pub generics: Vec<Option<S>>,
         pub inputs: Vec<GType<S>>,
@@ -1133,16 +1110,6 @@ pub mod signature {
     impl<'ast, T> From<DeclarationSignature<'ast>> for Signature<'ast, T> {
         fn from(s: DeclarationSignature<'ast>) -> Self {
             try_from_g_signature(s).unwrap()
-        }
-    }
-
-    impl<S: fmt::Debug> fmt::Debug for GSignature<S> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(
-                f,
-                "Signature(generics: {:?}, inputs: {:?}, outputs: {:?})",
-                self.generics, self.inputs, self.outputs
-            )
         }
     }
 
