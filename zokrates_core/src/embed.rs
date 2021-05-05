@@ -14,7 +14,7 @@ cfg_if::cfg_if! {
         use pairing_ce::bn256::Bn256;
         use pairing_ce::ff::{PrimeField, PrimeFieldRepr};
         use pairing_ce::Engine;
-        use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
+        use zokrates_embed::{bellman::generate_sha256_round_constraints, Constraint};
     }
 }
 
@@ -184,14 +184,12 @@ fn flat_expression_from_vec<T: Field, E: Engine>(v: &[(usize, E::Fr)]) -> FlatEx
 }
 
 #[cfg(feature = "bellman")]
-impl<T: Field, E: Engine> From<BellmanConstraint<E>> for FlatStatement<T> {
-    fn from(c: BellmanConstraint<E>) -> FlatStatement<T> {
-        let rhs_a = flat_expression_from_vec::<T, E>(&c.a);
-        let rhs_b = flat_expression_from_vec::<T, E>(&c.b);
-        let lhs = flat_expression_from_vec::<T, E>(&c.c);
+fn flat_statement_from_constraint<T: Field, E: Engine>(c: Constraint<E::Fr>) -> FlatStatement<T> {
+    let rhs_a = flat_expression_from_vec::<T, E>(&c.a);
+    let rhs_b = flat_expression_from_vec::<T, E>(&c.b);
+    let lhs = flat_expression_from_vec::<T, E>(&c.c);
 
-        FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
-    }
+    FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
 }
 
 /// Returns a flat function which computes a sha256 round
@@ -251,7 +249,10 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         )
     });
     // insert flattened statements to represent constraints
-    let constraint_statements = r1cs.constraints.into_iter().map(|c| c.into());
+    let constraint_statements = r1cs
+        .constraints
+        .into_iter()
+        .map(|c| flat_statement_from_constraint::<T, Bn256>(c));
     // define which subset of the witness is returned
     let outputs: Vec<FlatExpression<T>> = output_indices
         .map(|o| FlatExpression::Identifier(FlatVariable::new(o)))

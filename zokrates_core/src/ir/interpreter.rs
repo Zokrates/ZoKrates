@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 #[cfg(feature = "bellman")]
-use zokrates_embed::generate_sha256_round_witness;
+use zokrates_embed::bellman::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
