@@ -1,0 +1,16 @@
+{
+	"entry_point": "./tests/tests/structs/mutate_argument.zok",
+	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+	"tests": [
+		{
+			"input": {
+				"values": ["1"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["2", "1"]
+				}
+			}
+		}
+	]
+}
