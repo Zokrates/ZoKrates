@@ -26,7 +26,7 @@ In this example, the ABI specification is:
             "members":[
                {
                   "name":"a",
-                  "type":"field"
+                  "type":"u8"
                },
                {
                   "name":"b",
@@ -75,7 +75,7 @@ When executing a program, arguments can be passed as a JSON object of the follow
 ```json
 [
    {
-      "a":"42",
+      "a":"0x2a",
       "b":{
          "a":"42"
       }
@@ -89,5 +89,6 @@ When executing a program, arguments can be passed as a JSON object of the follow
 ```
 
 Note the following:
-- Field elements are passed as JSON strings in order to support arbitrary large numbers.
+- Field elements are passed as JSON strings in order to support arbitrary large numbers
+- Unsigned integers are passed as JSON strings containing their hexadecimal representation
 - Structs are passed as JSON objects, ignoring the struct name

@@ -3,7 +3,7 @@ struct Bar {
 }
 
 struct Foo {
-    field a
+    u8 a
     Bar b
 }
 
