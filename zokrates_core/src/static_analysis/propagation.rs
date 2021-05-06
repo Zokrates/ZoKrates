@@ -88,7 +88,7 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                                     }
                                     _ => unreachable!(),
                                 },
-                                e => unreachable!("should be an array value, found {}", e),
+                                _ => unreachable!("should be an array value"),
                             },
                             _ => unreachable!("should be an array expression"),
                         },
