@@ -1396,9 +1396,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             UExpressionInner::Sub(box left, box right) => {
                 // see uint optimizer for the reasoning here
-                let aux = FlatExpression::Number(
-                    T::from(2).pow(right.metadata.clone().unwrap().bitwidth() as usize),
-                );
+                let offset = FlatExpression::Number(T::from(2).pow(std::cmp::max(
+                    right.metadata.clone().unwrap().bitwidth() as usize,
+                    target_bitwidth as usize,
+                )));
 
                 let left_flattened = self
                     .flatten_uint_expression(statements_flattened, left)
@@ -1422,7 +1423,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 };
 
                 FlatUExpression::with_field(FlatExpression::Add(
-                    box aux,
+                    box offset,
                     box FlatExpression::Sub(box new_left, box new_right),
                 ))
             }
