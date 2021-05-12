@@ -402,6 +402,14 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: FieldElementExpression<'ast, T>,
 ) -> Result<FieldElementExpression<'ast, T>, F::Error> {
     let e = match e {
+        FieldElementExpression::Block(statements, box value) => FieldElementExpression::Block(
+            statements
+                .into_iter()
+                .map(|s| f.fold_statement(s))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|r| r.into_iter().flatten().collect())?,
+            box f.fold_field_expression(value)?,
+        ),
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
             FieldElementExpression::Identifier(f.fold_name(id)?)

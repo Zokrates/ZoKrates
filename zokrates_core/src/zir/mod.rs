@@ -239,6 +239,10 @@ pub enum ZirExpressionList<'ast, T> {
 /// An expression of type `field`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementExpression<'ast, T> {
+    Block(
+        Vec<ZirStatement<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
     Number(T),
     Identifier(Identifier<'ast>),
     Add(
@@ -387,6 +391,16 @@ impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            FieldElementExpression::Block(ref statements, ref value) => write!(
+                f,
+                "{{{}}}",
+                statements
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(std::iter::once(value.to_string()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
             FieldElementExpression::Number(ref i) => write!(f, "{}", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
@@ -511,6 +525,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            FieldElementExpression::Block(ref statements, ref value) => {
+                write!(f, "Block({:?}, {:?})", statements, value)
+            }
             FieldElementExpression::Number(ref i) => write!(f, "Num({:?})", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "Ide({:?})", var),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),

@@ -344,6 +344,13 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: FieldElementExpression<'ast, T>,
 ) -> FieldElementExpression<'ast, T> {
     match e {
+        FieldElementExpression::Block(statements, box value) => FieldElementExpression::Block(
+            statements
+                .into_iter()
+                .flat_map(|s| f.fold_statement(s))
+                .collect(),
+            box f.fold_field_expression(value),
+        ),
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
             FieldElementExpression::Identifier(f.fold_name(id))

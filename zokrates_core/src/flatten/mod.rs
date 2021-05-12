@@ -25,6 +25,45 @@ use zokrates_field::Field;
 
 type FlatStatements<T> = Vec<FlatStatement<T>>;
 
+struct Fallible<'ast, T, U> {
+    pub inner: U,
+    pub success: BooleanExpression<'ast, T>
+}
+
+impl<'ast, U, T: Field> From<U> for Fallible<'ast, T, U> {
+    fn from(e: U) -> Self {
+        Fallible {
+            inner: e,
+            success: BooleanExpression::Value(true)
+        }
+    }
+}
+
+impl<'ast, U, T> Fallible<'ast, T, U> {
+    fn split(self) -> (U, BooleanExpression<'ast, T>) {
+        (self.inner, self.success)
+    }
+}
+
+impl<'ast, U, T: Field> Fallible<'ast, T, U> {
+    fn unwrap(self) -> U {
+        let (res, success) = self.split();
+        assert_eq!(success, BooleanExpression::Value(true));
+        return res
+    }
+}
+
+impl<'ast, T: Field> Fallible<'ast, T, FlatUExpression<T>> {
+    fn get_field_unchecked(self) -> Fallible<'ast, T, FlatExpression<T>> {
+        let (res, success) = self.split();
+        Fallible {
+            inner: res.get_field_unchecked(),
+            success
+        }
+    }
+}
+
+
 /// Flattener, computes flattened program.
 #[derive(Debug)]
 pub struct Flattener<'ast, T: Field> {
@@ -53,6 +92,12 @@ impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
     }
 }
 
+impl<'ast, T: Field, U: FlattenOutput<T> + Clone> FlattenOutput<T> for Fallible<'ast, T, U> {
+    fn flat(&self) -> FlatExpression<T> {
+        self.inner.clone().flat()
+    }
+}
+
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
 trait Flatten<'ast, T: Field>: TryFrom<ZirExpression<'ast, T>, Error = ()> + IfElse<'ast, T> {
@@ -66,7 +111,7 @@ trait Flatten<'ast, T: Field>: TryFrom<ZirExpression<'ast, T>, Error = ()> + IfE
 }
 
 impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
-    type Output = FlatExpression<T>;
+    type Output = Fallible<'ast, T, FlatExpression<T>>;
 
     fn flatten(
         self,
@@ -370,6 +415,56 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         ));
     }
 
+    fn make_conditional(
+        &mut self,
+        statements: Vec<FlatStatement<T>>,
+        condition: FlatExpression<T>,
+    ) -> Vec<FlatStatement<T>> {
+        statements
+            .into_iter()
+            .flat_map(|s| match s {
+                FlatStatement::Condition(left, right) => {
+                    let mut output = vec![];
+
+                    // we transform (a == b) into (c => (a == b)) which is (!c || (a == b))
+
+                    // let's introduce new variables to make sure everything is linear
+                    let name_left = self.define(left, &mut output);
+                    let name_right = self.define(right, &mut output);
+
+                    // let's introduce an expression which is 1 iff `a == b`
+                    let y = FlatExpression::Add(
+                        box FlatExpression::Sub(box name_left.into(), box name_right.into()),
+                        box T::one().into(),
+                    );
+                    // let's introduce !c
+                    let x = FlatExpression::Sub(box T::one().into(), box condition.clone());
+
+                    assert!(x.is_linear() && y.is_linear());
+                    let name_x_or_y = self.use_sym();
+                    output.push(FlatStatement::Directive(FlatDirective {
+                        solver: Solver::Or,
+                        outputs: vec![name_x_or_y],
+                        inputs: vec![x.clone(), y.clone()],
+                    }));
+                    output.push(FlatStatement::Condition(
+                        FlatExpression::Add(
+                            box x.clone(),
+                            box FlatExpression::Sub(box y.clone(), box name_x_or_y.into()),
+                        ),
+                        FlatExpression::Mult(box x.clone(), box y.clone()),
+                    ));
+                    output.push(FlatStatement::Condition(
+                        name_x_or_y.into(),
+                        T::one().into(),
+                    ));
+                    output
+                }
+                s => vec![s],
+            })
+            .collect()
+    }
+
     /// Flatten an if/else expression
     ///
     /// # Arguments
@@ -386,15 +481,50 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: U,
         alternative: U,
-    ) -> FlatUExpression<T> {
+    ) -> Fallible<'ast, T, FlatUExpression<T>> {
         let condition = self.flatten_boolean_expression(statements_flattened, condition);
 
-        let consequence = consequence.flatten(self, statements_flattened);
+        let mut consequence_statements = vec![];
 
-        let alternative = alternative.flatten(self, statements_flattened);
+        let consequence = consequence.flatten(self, &mut consequence_statements);
+
+        let mut alternative_statements = vec![];
+
+        let alternative = alternative.flatten(self, &mut alternative_statements);
 
         let condition_id = self.use_sym();
         statements_flattened.push(FlatStatement::Definition(condition_id, condition));
+
+        println!(
+            "BEFORE\n {}\n",
+            alternative_statements
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+
+        // let consequence_statements =
+        //     self.make_conditional(consequence_statements, condition_id.into());
+        // let alternative_statements = self.make_conditional(
+        //     alternative_statements,
+        //     FlatExpression::Sub(
+        //         box FlatExpression::Number(T::one()),
+        //         box condition_id.into(),
+        //     ),
+        // );
+
+        println!(
+            "AFTER\n {}\n",
+            alternative_statements
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+
+        statements_flattened.extend(consequence_statements);
+        statements_flattened.extend(alternative_statements);
 
         let consequence = consequence.flat();
         let alternative = alternative.flat();
@@ -438,7 +568,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         FlatUExpression {
             field: Some(FlatExpression::Identifier(res)),
             bits: None,
-        }
+        }.into()
     }
 
     /// Compute a strict check against a constant
@@ -572,8 +702,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // We know from semantic checking that lhs and rhs have the same type
                 // What the expression will flatten to depends on that type
 
-                let lhs_flattened = self.flatten_field_expression(statements_flattened, lhs);
-                let rhs_flattened = self.flatten_field_expression(statements_flattened, rhs);
+                let (lhs_flattened, lhs_success) = self.flatten_field_expression(statements_flattened, lhs).split();
+                let (rhs_flattened, rhs_success) = self.flatten_field_expression(statements_flattened, rhs).split();
 
                 match (lhs_flattened, rhs_flattened) {
                     (x, FlatExpression::Number(constant)) => {
@@ -788,7 +918,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let rhs = self.flatten_field_expression(statements_flattened, rhs);
 
-                self.eq_check(statements_flattened, lhs, rhs)
+                unimplemented!()
+                // self.eq_check(statements_flattened, lhs, rhs)
             }
             BooleanExpression::UintEq(box lhs, box rhs) => {
                 // We reduce each side into range and apply the same approach as for field elements
@@ -967,6 +1098,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     consequence,
                     alternative,
                 )
+                .unwrap()
                 .get_field_unchecked(),
         }
     }
@@ -997,6 +1129,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .into_iter()
             .map(|p| {
                 self.flatten_expression(statements_flattened, p)
+                    .unwrap()    
                     .get_field_unchecked()
             })
             .collect();
@@ -1064,7 +1197,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .into_iter()
                     .map(|param_expr| self.flatten_expression(statements_flattened, param_expr))
                     .into_iter()
-                    .map(|x| x.get_field_unchecked())
+                    .map(|x| x.unwrap().get_field_unchecked())
                     .collect::<Vec<_>>();
 
                 for (concrete_argument, formal_argument) in
@@ -1147,15 +1280,22 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         expr: ZirExpression<'ast, T>,
-    ) -> FlatUExpression<T> {
+    ) -> Fallible<'ast, T, FlatUExpression<T>> {
         match expr {
             ZirExpression::FieldElement(e) => {
-                FlatUExpression::with_field(self.flatten_field_expression(statements_flattened, e))
+                let (e, s) = self.flatten_field_expression(statements_flattened, e).split();
+                
+                Fallible {
+                    inner: FlatUExpression::with_field(e),
+                    success: s
+                }
             }
-            ZirExpression::Boolean(e) => FlatUExpression::with_field(
-                self.flatten_boolean_expression(statements_flattened, e),
-            ),
-            ZirExpression::Uint(e) => self.flatten_uint_expression(statements_flattened, e),
+            ZirExpression::Boolean(e) => {
+                let e = self.flatten_boolean_expression(statements_flattened, e);
+                
+                FlatUExpression::with_field(e).into()
+            },
+            ZirExpression::Uint(e) => self.flatten_uint_expression(statements_flattened, e).into(),
         }
     }
 
@@ -1510,7 +1650,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     condition,
                     consequence,
                     alternative,
-                ),
+                ).unwrap(),
             UExpressionInner::Xor(box left, box right) => {
                 let left_metadata = left.metadata.clone().unwrap();
                 let right_metadata = right.metadata.clone().unwrap();
@@ -1888,15 +2028,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         expr: FieldElementExpression<'ast, T>,
-    ) -> FlatExpression<T> {
+    ) -> Fallible<'ast, T, FlatExpression<T>> {
         match expr {
-            FieldElementExpression::Number(x) => FlatExpression::Number(x), // force to be a field element
+            FieldElementExpression::Block(statements, value) => todo!("flatten block with or without extracting panics depending on whether we're in a branch"),
+            FieldElementExpression::Number(x) => FlatExpression::Number(x).into(), // force to be a field element
             FieldElementExpression::Identifier(x) => {
-                FlatExpression::Identifier(*self.layout.get(&x).unwrap_or_else(|| panic!("{}", x)))
+                FlatExpression::Identifier(*self.layout.get(&x).unwrap_or_else(|| panic!("{}", x))).into()
             }
             FieldElementExpression::Add(box left, box right) => {
-                let left_flattened = self.flatten_field_expression(statements_flattened, left);
-                let right_flattened = self.flatten_field_expression(statements_flattened, right);
+                let (left_flattened, left_success) = self.flatten_field_expression(statements_flattened, left).split();
+                let (right_flattened, right_success) = self.flatten_field_expression(statements_flattened, right).split();
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
@@ -1911,11 +2052,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened.push(FlatStatement::Definition(id, right_flattened));
                     FlatExpression::Identifier(id)
                 };
-                FlatExpression::Add(box new_left, box new_right)
+                FlatExpression::Add(box new_left, box new_right).into()
             }
             FieldElementExpression::Sub(box left, box right) => {
-                let left_flattened = self.flatten_field_expression(statements_flattened, left);
-                let right_flattened = self.flatten_field_expression(statements_flattened, right);
+                let (left_flattened, left_success) = self.flatten_field_expression(statements_flattened, left).split();
+                let (right_flattened, right_success) = self.flatten_field_expression(statements_flattened, right).split();
 
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
@@ -1932,11 +2073,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     FlatExpression::Identifier(id)
                 };
 
-                FlatExpression::Sub(box new_left, box new_right)
+                FlatExpression::Sub(box new_left, box new_right).into()
             }
             FieldElementExpression::Mult(box left, box right) => {
-                let left_flattened = self.flatten_field_expression(statements_flattened, left);
-                let right_flattened = self.flatten_field_expression(statements_flattened, right);
+                let (left_flattened, left_success) = self.flatten_field_expression(statements_flattened, left).split();
+                let (right_flattened, right_success) = self.flatten_field_expression(statements_flattened, right).split();
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
@@ -1951,11 +2092,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened.push(FlatStatement::Definition(id, right_flattened));
                     FlatExpression::Identifier(id)
                 };
-                FlatExpression::Mult(box new_left, box new_right)
+                FlatExpression::Mult(box new_left, box new_right).into()
             }
             FieldElementExpression::Div(box left, box right) => {
-                let left_flattened = self.flatten_field_expression(statements_flattened, left);
-                let right_flattened = self.flatten_field_expression(statements_flattened, right);
+                let (left_flattened, left_success) = self.flatten_field_expression(statements_flattened, left).split();
+                let (right_flattened, right_success) = self.flatten_field_expression(statements_flattened, right).split();
                 let new_left: FlatExpression<T> = {
                     let id = self.use_sym();
                     statements_flattened.push(FlatStatement::Definition(id, left_flattened));
@@ -1996,14 +2137,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     FlatExpression::Mult(box new_right, box inverse.into()),
                 ));
 
-                inverse.into()
+                FlatExpression::from(inverse).into()
             }
             FieldElementExpression::Pow(box base, box exponent) => {
                 match exponent.into_inner() {
                     UExpressionInner::Value(ref e) => {
                         // flatten the base expression
-                        let base_flattened =
-                            self.flatten_field_expression(statements_flattened, base.clone());
+                        let (base_flattened, base_success) = self.flatten_field_expression(statements_flattened, base).split();
 
                         // we require from the base to be linear
                         // TODO change that
@@ -2067,7 +2207,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 }
                                 false => acc, // this bit is false, keep the previous result
                             },
-                        )
+                        ).into()
                     }
                     _ => panic!("Expected number as pow exponent"),
                 }
@@ -2099,7 +2239,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let flat_expressions = exprs
                     .into_iter()
                     .map(|expr| self.flatten_expression(statements_flattened, expr))
-                    .map(|x| x.get_field_unchecked())
+                    .map(|x| x.unwrap().get_field_unchecked())
                     .collect::<Vec<_>>();
 
                 statements_flattened.push(FlatStatement::Return(FlatExpressionList {
@@ -2113,7 +2253,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // define n variables with n the number of primitive types for v_type
                 // assign them to the n primitive types for expr
 
-                let rhs = self.flatten_expression(statements_flattened, expr);
+                let (rhs, rhs_success) = self.flatten_expression(statements_flattened, expr).split();
 
                 let bits = rhs.bits.clone();
 

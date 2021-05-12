@@ -606,6 +606,15 @@ pub fn fold_field_expression<'ast, T: Field>(
                 _ => unreachable!(""),
             }
         }
+        typed_absy::FieldElementExpression::Block(statements, box value) => {
+            zir::FieldElementExpression::Block(
+                statements
+                    .into_iter()
+                    .flat_map(|s| f.fold_statement(s))
+                    .collect(),
+                box f.fold_field_expression(value),
+            )
+        }
     }
 }
 

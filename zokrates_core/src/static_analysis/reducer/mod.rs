@@ -222,14 +222,12 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         );
 
         match res {
-            Ok(Output::Complete((statements, expressions))) => {
+            Ok(Output::Complete(expressions)) => {
                 self.complete &= true;
-                self.statement_buffer.extend(statements);
                 Ok(expressions[0].clone().try_into().unwrap())
             }
-            Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
+            Ok(Output::Incomplete(expressions, delta_for_loop_versions)) => {
                 self.complete = false;
-                self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
                 Ok(expressions[0].clone().try_into().unwrap())
             }
@@ -301,33 +299,25 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     &self.program,
                     &mut self.versions,
                 ) {
-                    Ok(Output::Complete((statements, expressions))) => {
+                    Ok(Output::Complete(expressions)) => {
                         assert_eq!(v.len(), expressions.len());
 
                         self.complete &= true;
 
-                        Ok(statements
-                            .into_iter()
-                            .chain(
-                                v.into_iter()
-                                    .zip(expressions)
-                                    .map(|(v, e)| TypedStatement::Definition(v, e)),
-                            )
+                        Ok(v.into_iter()
+                            .zip(expressions)
+                            .map(|(v, e)| TypedStatement::Definition(v, e))
                             .collect())
                     }
-                    Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
+                    Ok(Output::Incomplete(expressions, delta_for_loop_versions)) => {
                         assert_eq!(v.len(), expressions.len());
 
                         self.complete = false;
                         self.for_loop_versions_after.extend(delta_for_loop_versions);
 
-                        Ok(statements
-                            .into_iter()
-                            .chain(
-                                v.into_iter()
-                                    .zip(expressions)
-                                    .map(|(v, e)| TypedStatement::Definition(v, e)),
-                            )
+                        Ok(v.into_iter()
+                            .zip(expressions)
+                            .map(|(v, e)| TypedStatement::Definition(v, e))
                             .collect())
                     }
                     Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
