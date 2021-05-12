@@ -1,66 +1,68 @@
 use crate::absy;
-use crate::imports;
 
-use crate::absy::SymbolDefinition;
 use num_bigint::BigUint;
+use std::path::Path;
 use zokrates_pest_ast as pest;
 
 impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
-    fn from(prog: pest::File<'ast>) -> absy::Module<'ast> {
-        absy::Module::with_symbols(
-            prog.structs
-                .into_iter()
-                .map(absy::SymbolDeclarationNode::from)
-                .chain(
-                    prog.constants
-                        .into_iter()
-                        .map(absy::SymbolDeclarationNode::from),
-                )
-                .chain(
-                    prog.functions
-                        .into_iter()
-                        .map(absy::SymbolDeclarationNode::from),
-                ),
-        )
-        .imports(
-            prog.imports
-                .into_iter()
-                .map(absy::ImportDirective::from)
-                .flatten(),
-        )
+    fn from(file: pest::File<'ast>) -> absy::Module<'ast> {
+        absy::Module::with_symbols(file.declarations.into_iter().map(|d| match d {
+            pest::SymbolDeclaration::Import(i) => i.into(),
+            pest::SymbolDeclaration::Constant(c) => c.into(),
+            pest::SymbolDeclaration::Struct(s) => s.into(),
+            pest::SymbolDeclaration::Function(f) => f.into(),
+        }))
     }
 }
 
-impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportDirective<'ast> {
-    fn from(import: pest::ImportDirective<'ast>) -> absy::ImportDirective<'ast> {
+impl<'ast> From<pest::ImportDirective<'ast>> for absy::SymbolDeclarationNode<'ast> {
+    fn from(import: pest::ImportDirective<'ast>) -> absy::SymbolDeclarationNode<'ast> {
         use crate::absy::NodeValue;
 
         match import {
-            pest::ImportDirective::Main(import) => absy::ImportDirective::Main(
-                imports::Import::new(None, std::path::Path::new(import.source.span.as_str()))
-                    .alias(import.alias.map(|a| a.span.as_str()))
-                    .span(import.span),
-            ),
-            pest::ImportDirective::From(import) => absy::ImportDirective::From(
-                import
-                    .symbols
-                    .iter()
-                    .map(|symbol| {
-                        imports::Import::new(
-                            Some(symbol.symbol.span.as_str()),
-                            std::path::Path::new(import.source.span.as_str()),
-                        )
-                        .alias(
-                            symbol
-                                .alias
-                                .as_ref()
-                                .map(|a| a.span.as_str())
-                                .or_else(|| Some(symbol.symbol.span.as_str())),
-                        )
-                        .span(symbol.span.clone())
-                    })
-                    .collect(),
-            ),
+            pest::ImportDirective::Main(import) => {
+                let span = import.span;
+                let source = Path::new(import.source.span.as_str());
+
+                let import = absy::MainImport {
+                    source,
+                    alias: import.alias.map(|a| a.span.as_str()),
+                }
+                .span(span.clone());
+
+                absy::SymbolDeclaration {
+                    id: None,
+                    symbol: absy::Symbol::Here(absy::SymbolDefinition::Import(
+                        absy::ImportDirective::Main(import),
+                    )),
+                }
+                .span(span)
+            }
+            pest::ImportDirective::From(import) => {
+                let span = import.span;
+                let source = Path::new(import.source.span.as_str());
+
+                let import = absy::FromImport {
+                    source,
+                    symbols: import
+                        .symbols
+                        .into_iter()
+                        .map(|symbol| absy::SymbolIdentifier {
+                            id: symbol.id.span.as_str(),
+                            alias: symbol.alias.map(|a| a.span.as_str()),
+                        })
+                        .collect(),
+                }
+                .span(span.clone());
+
+                absy::SymbolDeclaration {
+                    id: None,
+                    symbol: absy::Symbol::Here(absy::SymbolDefinition::Import(
+                        absy::ImportDirective::From(import),
+                    )),
+                }
+                .span(span)
+            }
         }
     }
 }
@@ -83,8 +85,8 @@ impl<'ast> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'a
         .span(span.clone());
 
         absy::SymbolDeclaration {
-            id,
-            symbol: absy::Symbol::Here(SymbolDefinition::Struct(ty)),
+            id: Some(id),
+            symbol: absy::Symbol::Here(absy::SymbolDefinition::Struct(ty)),
         }
         .span(span)
     }
@@ -118,15 +120,15 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<
         .span(span.clone());
 
         absy::SymbolDeclaration {
-            id,
-            symbol: absy::Symbol::Here(SymbolDefinition::Constant(ty)),
+            id: Some(id),
+            symbol: absy::Symbol::Here(absy::SymbolDefinition::Constant(ty)),
         }
         .span(span)
     }
 }
 
-impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
-    fn from(function: pest::Function<'ast>) -> absy::SymbolDeclarationNode<'ast> {
+impl<'ast> From<pest::FunctionDefinition<'ast>> for absy::SymbolDeclarationNode<'ast> {
+    fn from(function: pest::FunctionDefinition<'ast>) -> absy::SymbolDeclarationNode<'ast> {
         use crate::absy::NodeValue;
 
         let span = function.span;
@@ -174,8 +176,8 @@ impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
         .span(span.clone());
 
         absy::SymbolDeclaration {
-            id,
-            symbol: absy::Symbol::Here(SymbolDefinition::Function(function)),
+            id: Some(id),
+            symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(function)),
         }
         .span(span)
     }
@@ -780,8 +782,8 @@ mod tests {
         let ast = pest::generate_ast(&source).unwrap();
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
-                id: &source[4..8],
-                symbol: absy::Symbol::Here(SymbolDefinition::Function(
+                id: Some(&source[4..8]),
+                symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
@@ -801,7 +803,6 @@ mod tests {
                 )),
             }
             .into()],
-            imports: vec![],
         };
         assert_eq!(absy::Module::from(ast), expected);
     }
@@ -812,8 +813,8 @@ mod tests {
         let ast = pest::generate_ast(&source).unwrap();
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
-                id: &source[4..8],
-                symbol: absy::Symbol::Here(SymbolDefinition::Function(
+                id: Some(&source[4..8]),
+                symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
@@ -831,7 +832,6 @@ mod tests {
                 )),
             }
             .into()],
-            imports: vec![],
         };
         assert_eq!(absy::Module::from(ast), expected);
     }
@@ -843,8 +843,8 @@ mod tests {
 
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
-                id: &source[4..8],
-                symbol: absy::Symbol::Here(SymbolDefinition::Function(
+                id: Some(&source[4..8]),
+                symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![
                             absy::Parameter::private(
@@ -884,7 +884,6 @@ mod tests {
                 )),
             }
             .into()],
-            imports: vec![],
         };
 
         assert_eq!(absy::Module::from(ast), expected);
@@ -897,8 +896,8 @@ mod tests {
         fn wrap(ty: UnresolvedType<'static>) -> absy::Module<'static> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
-                    id: "main",
-                    symbol: absy::Symbol::Here(SymbolDefinition::Function(
+                    id: Some("main"),
+                    symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![absy::Parameter::private(
                                 absy::Variable::new("a", ty.clone().mock()).into(),
@@ -917,7 +916,6 @@ mod tests {
                     )),
                 }
                 .into()],
-                imports: vec![],
             }
         }
 
@@ -971,8 +969,8 @@ mod tests {
         fn wrap(expression: absy::Expression<'static>) -> absy::Module {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
-                    id: "main",
-                    symbol: absy::Symbol::Here(SymbolDefinition::Function(
+                    id: Some("main"),
+                    symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![],
                             statements: vec![absy::Statement::Return(
@@ -988,7 +986,6 @@ mod tests {
                     )),
                 }
                 .into()],
-                imports: vec![],
             }
         }
 

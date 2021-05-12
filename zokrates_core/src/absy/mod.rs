@@ -18,8 +18,6 @@ pub use crate::absy::variable::{Variable, VariableNode};
 use crate::embed::FlatEmbed;
 use std::path::{Path, PathBuf};
 
-use crate::imports::ImportDirective;
-use crate::imports::ImportNode;
 use std::fmt;
 
 use num_bigint::BigUint;
@@ -44,63 +42,173 @@ pub struct Program<'ast> {
     pub main: OwnedModuleId,
 }
 
-/// A declaration of a `FunctionSymbol`, be it from an import or a function definition
-#[derive(PartialEq, Clone, Debug)]
-pub struct SymbolDeclaration<'ast> {
+#[derive(Debug, PartialEq, Clone)]
+pub struct SymbolIdentifier<'ast> {
     pub id: Identifier<'ast>,
+    pub alias: Option<Identifier<'ast>>,
+}
+
+impl<'ast> From<Identifier<'ast>> for SymbolIdentifier<'ast> {
+    fn from(id: &'ast str) -> Self {
+        SymbolIdentifier { id, alias: None }
+    }
+}
+
+impl<'ast> SymbolIdentifier<'ast> {
+    pub fn alias(mut self, alias: Option<Identifier<'ast>>) -> Self {
+        self.alias = alias;
+        self
+    }
+    pub fn get_alias(&self) -> Identifier<'ast> {
+        self.alias.unwrap_or(self.id)
+    }
+}
+
+impl<'ast> fmt::Display for SymbolIdentifier<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}{}",
+            self.id,
+            self.alias.map(|a| format!(" as {}", a)).unwrap_or_default()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MainImport<'ast> {
+    pub source: &'ast Path,
+    pub alias: Option<Identifier<'ast>>,
+}
+
+pub type MainImportNode<'ast> = Node<MainImport<'ast>>;
+
+impl<'ast> fmt::Display for MainImport<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.alias {
+            Some(ref alias) => write!(f, "import \"{}\" as {}", self.source.display(), alias),
+            None => write!(f, "import \"{}\"", self.source.display()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FromImport<'ast> {
+    pub source: &'ast Path,
+    pub symbols: Vec<SymbolIdentifier<'ast>>,
+}
+
+pub type FromImportNode<'ast> = Node<FromImport<'ast>>;
+
+impl<'ast> fmt::Display for FromImport<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "from \"{}\" import {}",
+            self.source.display(),
+            self.symbols
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ImportDirective<'ast> {
+    Main(MainImportNode<'ast>),
+    From(FromImportNode<'ast>),
+}
+
+impl<'ast> fmt::Display for ImportDirective<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ImportDirective::Main(main) => write!(f, "{}", main),
+            ImportDirective::From(from) => write!(f, "{}", from),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SymbolImport<'ast> {
+    pub module_id: OwnedModuleId,
+    pub symbol_id: SymbolIdentifier<'ast>,
+}
+
+pub type SymbolImportNode<'ast> = Node<SymbolImport<'ast>>;
+
+impl<'ast> SymbolImport<'ast> {
+    pub fn with_id_in_module<S: Into<SymbolIdentifier<'ast>>, U: Into<OwnedModuleId>>(
+        symbol_id: S,
+        module_id: U,
+    ) -> Self {
+        SymbolImport {
+            symbol_id: symbol_id.into(),
+            module_id: module_id.into(),
+        }
+    }
+}
+
+impl<'ast> fmt::Display for SymbolImport<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "from \"{}\" import {}",
+            self.module_id.display(),
+            self.symbol_id
+        )
+    }
+}
+
+/// A declaration of a symbol
+#[derive(Debug, PartialEq, Clone)]
+pub struct SymbolDeclaration<'ast> {
+    pub id: Option<Identifier<'ast>>,
     pub symbol: Symbol<'ast>,
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SymbolDefinition<'ast> {
+    Import(ImportDirective<'ast>),
     Struct(StructDefinitionNode<'ast>),
     Constant(ConstantDefinitionNode<'ast>),
     Function(FunctionNode<'ast>),
 }
 
-impl<'ast> fmt::Debug for SymbolDefinition<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            SymbolDefinition::Struct(s) => write!(f, "Struct({:?})", s),
-            SymbolDefinition::Constant(c) => write!(f, "Constant({:?})", c),
-            SymbolDefinition::Function(func) => write!(f, "Function({:?})", func),
-        }
-    }
-}
-
-#[derive(PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Symbol<'ast> {
     Here(SymbolDefinition<'ast>),
     There(SymbolImportNode<'ast>),
     Flat(FlatEmbed),
 }
 
-impl<'ast> fmt::Debug for Symbol<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Symbol::Here(k) => write!(f, "Here({:?})", k),
-            Symbol::There(i) => write!(f, "There({:?})", i),
-            Symbol::Flat(flat) => write!(f, "Flat({:?})", flat),
-        }
-    }
-}
-
 impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.symbol {
-            Symbol::Here(ref kind) => match kind {
-                SymbolDefinition::Struct(t) => write!(f, "struct {} {}", self.id, t),
-                SymbolDefinition::Constant(c) => write!(
+        match &self.symbol {
+            Symbol::Here(ref symbol) => match symbol {
+                SymbolDefinition::Import(ref i) => write!(f, "{}", i),
+                SymbolDefinition::Struct(ref t) => write!(f, "struct {} {}", self.id.unwrap(), t),
+                SymbolDefinition::Constant(ref c) => write!(
                     f,
                     "const {} {} = {}",
-                    c.value.ty, self.id, c.value.expression
+                    c.value.ty,
+                    self.id.unwrap(),
+                    c.value.expression
                 ),
-                SymbolDefinition::Function(func) => write!(f, "def {}{}", self.id, func),
+                SymbolDefinition::Function(ref func) => {
+                    write!(f, "def {}{}", self.id.unwrap(), func)
+                }
             },
-            Symbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
+            Symbol::There(ref i) => write!(f, "{}", i),
             Symbol::Flat(ref flat_fun) => {
-                write!(f, "def {}{}:\n\t// hidden", self.id, flat_fun.signature())
+                write!(
+                    f,
+                    "def {}{}:\n\t// hidden",
+                    self.id.unwrap(),
+                    flat_fun.signature()
+                )
             }
         }
     }
@@ -109,24 +217,17 @@ impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
 pub type SymbolDeclarationNode<'ast> = Node<SymbolDeclaration<'ast>>;
 
 /// A module as a collection of `FunctionDeclaration`s
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Module<'ast> {
     /// Symbols of the module
     pub symbols: Declarations<'ast>,
-    pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
 }
 
 impl<'ast> Module<'ast> {
     pub fn with_symbols<I: IntoIterator<Item = SymbolDeclarationNode<'ast>>>(i: I) -> Self {
         Module {
             symbols: i.into_iter().collect(),
-            imports: vec![],
         }
-    }
-
-    pub fn imports<I: IntoIterator<Item = ImportNode<'ast>>>(mut self, i: I) -> Self {
-        self.imports = i.into_iter().collect();
-        self
     }
 }
 
@@ -169,7 +270,7 @@ impl<'ast> fmt::Display for StructDefinitionField<'ast> {
 
 type StructDefinitionFieldNode<'ast> = Node<StructDefinitionField<'ast>>;
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConstantDefinition<'ast> {
     pub ty: UnresolvedTypeNode<'ast>,
     pub expression: ExpressionNode<'ast>,
@@ -183,92 +284,55 @@ impl<'ast> fmt::Display for ConstantDefinition<'ast> {
     }
 }
 
-impl<'ast> fmt::Debug for ConstantDefinition<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "ConstantDefinition({:?}, {:?})",
-            self.ty, self.expression
-        )
-    }
-}
-
-/// An import
-#[derive(Debug, Clone, PartialEq)]
-pub struct SymbolImport<'ast> {
-    /// the id of the symbol in the target module. Note: there may be many candidates as imports statements do not specify the signature. In that case they must all be functions however.
-    pub symbol_id: Identifier<'ast>,
-    /// the id of the module to import from
-    pub module_id: OwnedModuleId,
-}
-
-type SymbolImportNode<'ast> = Node<SymbolImport<'ast>>;
-
-impl<'ast> SymbolImport<'ast> {
-    pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<OwnedModuleId>>(
-        symbol_id: S,
-        module_id: U,
-    ) -> Self {
-        SymbolImport {
-            symbol_id: symbol_id.into(),
-            module_id: module_id.into(),
-        }
-    }
-}
-
-impl<'ast> fmt::Display for SymbolImport<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} from {}",
-            self.symbol_id,
-            self.module_id.display().to_string()
-        )
-    }
-}
+// /// An import
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct SymbolImport<'ast> {
+//     /// the id of the symbol in the target module. Note: there may be many candidates as imports statements do not specify the signature. In that case they must all be functions however.
+//     pub symbol_id: Identifier<'ast>,
+//     /// the id of the module to import from
+//     pub module_id: OwnedModuleId,
+// }
+//
+// type SymbolImportNode<'ast> = Node<SymbolImport<'ast>>;
+//
+// impl<'ast> SymbolImport<'ast> {
+//     pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<OwnedModuleId>>(
+//         symbol_id: S,
+//         module_id: U,
+//     ) -> Self {
+//         SymbolImport {
+//             symbol_id: symbol_id.into(),
+//             module_id: module_id.into(),
+//         }
+//     }
+// }
+//
+// impl<'ast> fmt::Display for SymbolImport<'ast> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(
+//             f,
+//             "from {} import {}",
+//             self.module_id.display().to_string(),
+//             self.symbol_id,
+//         )
+//     }
+// }
 
 impl<'ast> fmt::Display for Module<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut res = vec![];
-        res.extend(
-            self.imports
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
-        res.extend(
-            self.symbols
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
+        let res = self
+            .symbols
+            .iter()
+            .map(|x| format!("{}", x))
+            .collect::<Vec<_>>();
         write!(f, "{}", res.join("\n"))
-    }
-}
-
-impl<'ast> fmt::Debug for Module<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "module(\n\timports:\n\t\t{}\n\tsymbols:\n\t\t{}\n)",
-            self.imports
-                .iter()
-                .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.symbols
-                .iter()
-                .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t")
-        )
     }
 }
 
 pub type ConstantGenericNode<'ast> = Node<Identifier<'ast>>;
 
 /// A function defined locally
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Function<'ast> {
     /// Arguments of the function
     pub arguments: Vec<ParameterNode<'ast>>,
@@ -312,23 +376,8 @@ impl<'ast> fmt::Display for Function<'ast> {
     }
 }
 
-impl<'ast> fmt::Debug for Function<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Function(arguments: {:?}, ...):\n{}",
-            self.arguments,
-            self.statements
-                .iter()
-                .map(|x| format!("\t{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
-    }
-}
-
 /// Something that we can assign to
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Assignee<'ast> {
     Identifier(Identifier<'ast>),
     Select(Box<AssigneeNode<'ast>>, Box<RangeOrExpression<'ast>>),
@@ -336,16 +385,6 @@ pub enum Assignee<'ast> {
 }
 
 pub type AssigneeNode<'ast> = Node<Assignee<'ast>>;
-
-impl<'ast> fmt::Debug for Assignee<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Assignee::Identifier(ref s) => write!(f, "Identifier({:?})", s),
-            Assignee::Select(ref a, ref e) => write!(f, "Select({:?}[{:?}])", a, e),
-            Assignee::Member(ref s, ref m) => write!(f, "Member({:?}.{:?})", s, m),
-        }
-    }
-}
 
 impl<'ast> fmt::Display for Assignee<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -359,7 +398,7 @@ impl<'ast> fmt::Display for Assignee<'ast> {
 
 /// A statement in a `Function`
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'ast> {
     Return(ExpressionListNode<'ast>),
     Declaration(VariableNode<'ast>),
@@ -403,31 +442,8 @@ impl<'ast> fmt::Display for Statement<'ast> {
     }
 }
 
-impl<'ast> fmt::Debug for Statement<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Statement::Return(ref expr) => write!(f, "Return({:?})", expr),
-            Statement::Declaration(ref var) => write!(f, "Declaration({:?})", var),
-            Statement::Definition(ref lhs, ref rhs) => {
-                write!(f, "Definition({:?}, {:?})", lhs, rhs)
-            }
-            Statement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
-            Statement::For(ref var, ref start, ref stop, ref list) => {
-                writeln!(f, "for {:?} in {:?}..{:?} do", var, start, stop)?;
-                for l in list {
-                    writeln!(f, "\t\t{:?}", l)?;
-                }
-                write!(f, "\tendfor")
-            }
-            Statement::MultipleDefinition(ref lhs, ref rhs) => {
-                write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
-            }
-        }
-    }
-}
-
 /// An element of an inline array, can be a spread `...a` or an expression `a`
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SpreadOrExpression<'ast> {
     Spread(SpreadNode<'ast>),
     Expression(ExpressionNode<'ast>),
@@ -448,17 +464,8 @@ impl<'ast> fmt::Display for SpreadOrExpression<'ast> {
     }
 }
 
-impl<'ast> fmt::Debug for SpreadOrExpression<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            SpreadOrExpression::Spread(ref s) => write!(f, "{:?}", s),
-            SpreadOrExpression::Expression(ref e) => write!(f, "{:?}", e),
-        }
-    }
-}
-
 /// The index in an array selector. Can be a range or an expression.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RangeOrExpression<'ast> {
     Range(RangeNode<'ast>),
     Expression(ExpressionNode<'ast>),
@@ -473,13 +480,10 @@ impl<'ast> fmt::Display for RangeOrExpression<'ast> {
     }
 }
 
-impl<'ast> fmt::Debug for RangeOrExpression<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            RangeOrExpression::Range(ref s) => write!(f, "{:?}", s),
-            RangeOrExpression::Expression(ref e) => write!(f, "{:?}", e),
-        }
-    }
+/// A spread
+#[derive(Debug, Clone, PartialEq)]
+pub struct Spread<'ast> {
+    pub expression: ExpressionNode<'ast>,
 }
 
 pub type SpreadNode<'ast> = Node<Spread<'ast>>;
@@ -490,20 +494,8 @@ impl<'ast> fmt::Display for Spread<'ast> {
     }
 }
 
-impl<'ast> fmt::Debug for Spread<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Spread({:?})", self.expression)
-    }
-}
-
-/// A spread
-#[derive(Clone, PartialEq)]
-pub struct Spread<'ast> {
-    pub expression: ExpressionNode<'ast>,
-}
-
 /// A range
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Range<'ast> {
     pub from: Option<ExpressionNode<'ast>>,
     pub to: Option<ExpressionNode<'ast>>,
@@ -528,14 +520,8 @@ impl<'ast> fmt::Display for Range<'ast> {
     }
 }
 
-impl<'ast> fmt::Debug for Range<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Range({:?}, {:?})", self.from, self.to)
-    }
-}
-
 /// An expression
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'ast> {
     IntConstant(BigUint),
     FieldConstant(BigUint),
@@ -672,73 +658,8 @@ impl<'ast> fmt::Display for Expression<'ast> {
     }
 }
 
-impl<'ast> fmt::Debug for Expression<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Expression::U8Constant(ref i) => write!(f, "U8({:x})", i),
-            Expression::U16Constant(ref i) => write!(f, "U16({:x})", i),
-            Expression::U32Constant(ref i) => write!(f, "U32({:x})", i),
-            Expression::U64Constant(ref i) => write!(f, "U64({:x})", i),
-            Expression::FieldConstant(ref i) => write!(f, "Field({:?})", i),
-            Expression::IntConstant(ref i) => write!(f, "Int({:?})", i),
-            Expression::Identifier(ref var) => write!(f, "Ide({})", var),
-            Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
-            Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
-            Expression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
-            Expression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
-            Expression::Rem(ref lhs, ref rhs) => write!(f, "Rem({:?}, {:?})", lhs, rhs),
-            Expression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
-            Expression::Neg(ref e) => write!(f, "Neg({:?})", e),
-            Expression::Pos(ref e) => write!(f, "Pos({:?})", e),
-            Expression::BooleanConstant(b) => write!(f, "{}", b),
-            Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "IfElse({:?}, {:?}, {:?})",
-                condition, consequent, alternative
-            ),
-            Expression::FunctionCall(ref g, ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, {:?}, (", g, i)?;
-                f.debug_list().entries(p.iter()).finish()?;
-                write!(f, ")")
-            }
-            Expression::Lt(ref lhs, ref rhs) => write!(f, "Lt({:?}, {:?})", lhs, rhs),
-            Expression::Le(ref lhs, ref rhs) => write!(f, "Le({:?}, {:?})", lhs, rhs),
-            Expression::Eq(ref lhs, ref rhs) => write!(f, "Eq({:?}, {:?})", lhs, rhs),
-            Expression::Ge(ref lhs, ref rhs) => write!(f, "Ge({:?}, {:?})", lhs, rhs),
-            Expression::Gt(ref lhs, ref rhs) => write!(f, "Gt({:?}, {:?})", lhs, rhs),
-            Expression::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),
-            Expression::Not(ref exp) => write!(f, "Not({:?})", exp),
-            Expression::InlineArray(ref exprs) => {
-                write!(f, "InlineArray([")?;
-                f.debug_list().entries(exprs.iter()).finish()?;
-                write!(f, "]")
-            }
-            Expression::ArrayInitializer(ref e, ref count) => {
-                write!(f, "ArrayInitializer({:?}, {:?})", e, count)
-            }
-            Expression::InlineStruct(ref id, ref members) => {
-                write!(f, "InlineStruct({:?}, [", id)?;
-                f.debug_list().entries(members.iter()).finish()?;
-                write!(f, "]")
-            }
-            Expression::Select(ref array, ref index) => {
-                write!(f, "Select({:?}, {:?})", array, index)
-            }
-            Expression::Member(ref struc, ref id) => write!(f, "Member({:?}, {:?})", struc, id),
-            Expression::Or(ref lhs, ref rhs) => write!(f, "Or({:?}, {:?})", lhs, rhs),
-            Expression::BitXor(ref lhs, ref rhs) => write!(f, "BitXor({:?}, {:?})", lhs, rhs),
-            Expression::BitAnd(ref lhs, ref rhs) => write!(f, "BitAnd({:?}, {:?})", lhs, rhs),
-            Expression::BitOr(ref lhs, ref rhs) => write!(f, "BitOr({:?}, {:?})", lhs, rhs),
-            Expression::LeftShift(ref lhs, ref rhs) => write!(f, "LeftShift({:?}, {:?})", lhs, rhs),
-            Expression::RightShift(ref lhs, ref rhs) => {
-                write!(f, "RightShift({:?}, {:?})", lhs, rhs)
-            }
-        }
-    }
-}
-
 /// A list of expressions, used in return statements
-#[derive(Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ExpressionList<'ast> {
     pub expressions: Vec<ExpressionNode<'ast>>,
 }
@@ -754,11 +675,5 @@ impl<'ast> fmt::Display for ExpressionList<'ast> {
             }
         }
         write!(f, "")
-    }
-}
-
-impl<'ast> fmt::Debug for ExpressionList<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ExpressionList({:?})", self.expressions)
     }
 }
