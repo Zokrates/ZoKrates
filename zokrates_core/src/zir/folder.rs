@@ -169,6 +169,13 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: BooleanExpression<'ast, T>,
 ) -> BooleanExpression<'ast, T> {
     match e {
+        BooleanExpression::Block(statements, box value) => BooleanExpression::Block(
+            statements
+                .into_iter()
+                .flat_map(|s| f.fold_statement(s))
+                .collect(),
+            box f.fold_boolean_expression(value),
+        ),
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)),
         BooleanExpression::FieldEq(box e1, box e2) => {
@@ -265,6 +272,13 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     e: UExpressionInner<'ast, T>,
 ) -> UExpressionInner<'ast, T> {
     match e {
+        UExpressionInner::Block(statements, box value) => UExpressionInner::Block(
+            statements
+                .into_iter()
+                .flat_map(|s| f.fold_statement(s))
+                .collect(),
+            box f.fold_uint_expression(value),
+        ),
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),
         UExpressionInner::Add(box left, box right) => {

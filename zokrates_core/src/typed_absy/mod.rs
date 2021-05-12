@@ -591,6 +591,16 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for StructExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
+            StructExpressionInner::Block(ref statements, ref value) => write!(
+                f,
+                "{{{}}}",
+                statements
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(std::iter::once(value.to_string()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
             StructExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             StructExpressionInner::Value(ref values) => write!(
                 f,
@@ -805,6 +815,10 @@ impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub enum BooleanExpression<'ast, T> {
+    Block(
+        Vec<TypedStatement<'ast, T>>,
+        Box<BooleanExpression<'ast, T>>,
+    ),
     Identifier(Identifier<'ast>),
     Value(bool),
     FieldLt(
@@ -961,6 +975,7 @@ impl<'ast, T> std::iter::FromIterator<TypedExpressionOrSpread<'ast, T>> for Arra
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub enum ArrayExpressionInner<'ast, T> {
+    Block(Vec<TypedStatement<'ast, T>>, Box<ArrayExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
     Value(ArrayValue<'ast, T>),
     FunctionCall(
@@ -1069,6 +1084,7 @@ impl<'ast, T> StructExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub enum StructExpressionInner<'ast, T> {
+    Block(Vec<TypedStatement<'ast, T>>, Box<StructExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
     Value(Vec<TypedExpression<'ast, T>>),
     FunctionCall(
@@ -1276,6 +1292,16 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
+            UExpressionInner::Block(ref statements, ref value) => write!(
+                f,
+                "{{{}}}",
+                statements
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(std::iter::once(value.to_string()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
@@ -1333,6 +1359,16 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            BooleanExpression::Block(ref statements, ref value) => write!(
+                f,
+                "{{{}}}",
+                statements
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(std::iter::once(value.to_string()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
@@ -1390,6 +1426,16 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            ArrayExpressionInner::Block(ref statements, ref value) => write!(
+                f,
+                "{{{}}}",
+                statements
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(std::iter::once(value.to_string()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
             ArrayExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             ArrayExpressionInner::Value(ref values) => write!(
                 f,
@@ -1807,5 +1853,78 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
         };
 
         StructExpressionInner::FunctionCall(key, generics, arguments).annotate(struct_ty)
+    }
+}
+
+pub trait Block<'ast, T> {
+    fn block(
+        statements: Vec<TypedStatement<'ast, T>>,
+        value: Self,
+        output_type: Type<'ast, T>,
+    ) -> Self;
+}
+
+impl<'ast, T: Field> Block<'ast, T> for FieldElementExpression<'ast, T> {
+    fn block(
+        statements: Vec<TypedStatement<'ast, T>>,
+        value: Self,
+        output_type: Type<'ast, T>,
+    ) -> Self {
+        assert_eq!(output_type, Type::FieldElement);
+        FieldElementExpression::Block(statements, box value)
+    }
+}
+
+impl<'ast, T: Field> Block<'ast, T> for BooleanExpression<'ast, T> {
+    fn block(
+        statements: Vec<TypedStatement<'ast, T>>,
+        value: Self,
+        output_type: Type<'ast, T>,
+    ) -> Self {
+        assert_eq!(output_type, Type::Boolean);
+        BooleanExpression::Block(statements, box value)
+    }
+}
+
+impl<'ast, T: Field> Block<'ast, T> for UExpression<'ast, T> {
+    fn block(
+        statements: Vec<TypedStatement<'ast, T>>,
+        value: Self,
+        output_type: Type<'ast, T>,
+    ) -> Self {
+        let bitwidth = match output_type {
+            Type::Uint(bitwidth) => bitwidth,
+            _ => unreachable!(),
+        };
+        UExpressionInner::Block(statements, box value).annotate(bitwidth)
+    }
+}
+
+impl<'ast, T: Field> Block<'ast, T> for ArrayExpression<'ast, T> {
+    fn block(
+        statements: Vec<TypedStatement<'ast, T>>,
+        value: Self,
+        output_type: Type<'ast, T>,
+    ) -> Self {
+        let array_ty = match output_type {
+            Type::Array(array_ty) => array_ty,
+            _ => unreachable!(),
+        };
+        ArrayExpressionInner::Block(statements, box value).annotate(*array_ty.ty, array_ty.size)
+    }
+}
+
+impl<'ast, T: Field> Block<'ast, T> for StructExpression<'ast, T> {
+    fn block(
+        statements: Vec<TypedStatement<'ast, T>>,
+        value: Self,
+        output_type: Type<'ast, T>,
+    ) -> Self {
+        let struct_ty = match output_type {
+            Type::Struct(struct_ty) => struct_ty,
+            _ => unreachable!(),
+        };
+
+        StructExpressionInner::Block(statements, box value).annotate(struct_ty)
     }
 }

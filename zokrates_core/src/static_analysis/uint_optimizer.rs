@@ -126,6 +126,9 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         use self::UExpressionInner::*;
 
         let res = match inner {
+            b @ Block(..) => force_no_reduce(
+                fold_uint_expression_inner(self, e.bitwidth, b).annotate(e.bitwidth),
+            ),
             Value(v) => Value(v).annotate(range).with_max(v),
             Identifier(id) => Identifier(id.clone()).annotate(range).metadata(
                 self.ids

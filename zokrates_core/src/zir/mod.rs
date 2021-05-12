@@ -275,6 +275,7 @@ pub enum FieldElementExpression<'ast, T> {
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum BooleanExpression<'ast, T> {
+    Block(Vec<ZirStatement<'ast, T>>, Box<BooleanExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
     Value(bool),
     FieldLt(
@@ -422,6 +423,16 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
+            UExpressionInner::Block(ref statements, ref value) => write!(
+                f,
+                "{{{}}}",
+                statements
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(std::iter::once(value.to_string()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
@@ -447,6 +458,16 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            BooleanExpression::Block(ref statements, ref value) => write!(
+                f,
+                "{{{}}}",
+                statements
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(std::iter::once(value.to_string()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::Value(b) => write!(f, "{}", b),
             BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
@@ -475,6 +496,9 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            BooleanExpression::Block(ref statements, ref value) => {
+                write!(f, "Block({:?}, {:?})", statements, value)
+            }
             BooleanExpression::Identifier(ref var) => write!(f, "Ide({:?})", var),
             BooleanExpression::Value(b) => write!(f, "Value({})", b),
             BooleanExpression::FieldLt(ref lhs, ref rhs) => {

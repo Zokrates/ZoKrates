@@ -1,6 +1,6 @@
 use crate::zir::identifier::Identifier;
 use crate::zir::types::UBitwidth;
-use crate::zir::BooleanExpression;
+use crate::zir::{BooleanExpression, ZirStatement};
 use zokrates_field::Field;
 
 impl<'ast, T: Field> UExpression<'ast, T> {
@@ -158,6 +158,7 @@ pub struct UExpression<'ast, T> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UExpressionInner<'ast, T> {
+    Block(Vec<ZirStatement<'ast, T>>, Box<UExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
     Value(u128),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),

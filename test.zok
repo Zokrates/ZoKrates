@@ -1,10 +1,21 @@
-def zero(field x) -> field:
-    assert(x == 0)
-    return 0
+// def zero(field x) -> field:
+//     assert(x == 0)
+//     return 0
 
-def inverse(field x) -> field:
-    assert(x != 0)
+// def inverse(field x) -> field:
+//     assert(x != 0)
+//     return 1/x
+
+// def main(field x) -> field:
+//     return if x == 0 then zero(x) else inverse(x) fi
+
+def yes(bool x) -> bool:
+    assert(x)
     return x
 
-def main(field x) -> field:
-    return if x == 0 then zero(x) else inverse(x) fi
+def no(bool x) -> bool:
+    assert(!x)
+    return !x
+
+def main(bool x) -> bool:
+    return if x then yes(x) else no(x) fi

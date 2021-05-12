@@ -22,7 +22,7 @@ use crate::typed_absy::Folder;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
+    ArrayExpression, ArrayExpressionInner, ArrayType, Block, BooleanExpression, CoreIdentifier,
     DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier, StructExpression,
     StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList, TypedFunction,
     TypedFunctionSymbol, TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
@@ -197,10 +197,13 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         key: DeclarationFunctionKey<'ast>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
-        output_types: Vec<Type<'ast, T>>,
+        output_type: Type<'ast, T>,
     ) -> Result<E, Error>
     where
-        E: FunctionCall<'ast, T> + TryFrom<TypedExpression<'ast, T>, Error = ()> + std::fmt::Debug,
+        E: Block<'ast, T>
+            + FunctionCall<'ast, T>
+            + TryFrom<TypedExpression<'ast, T>, Error = ()>
+            + std::fmt::Debug,
     {
         let generics = generics
             .into_iter()
@@ -216,18 +219,23 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             key.clone(),
             generics,
             arguments,
-            output_types,
+            vec![output_type.clone()],
             &self.program,
             &mut self.versions,
         );
 
         match res {
-            Ok(Output::Complete(expressions)) => {
+            Ok(Output::Complete((statements, mut expressions))) => {
                 self.complete &= true;
-                Ok(expressions[0].clone().try_into().unwrap())
+                Ok(E::block(
+                    statements,
+                    expressions.pop().unwrap().try_into().unwrap(),
+                    output_type,
+                ))
             }
-            Ok(Output::Incomplete(expressions, delta_for_loop_versions)) => {
+            Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                 self.complete = false;
+                self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
                 Ok(expressions[0].clone().try_into().unwrap())
             }
@@ -246,7 +254,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                     output_types.pop().unwrap(),
                 ))
             }
-            Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
+            Err(InlineError::Flat(embed, generics, arguments, mut output_types)) => {
                 let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
                     *self
                         .versions
@@ -254,7 +262,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                         .and_modify(|e| *e += 1) // if it was already declared, we increment
                         .or_insert(0),
                 );
-                let var = Variable::with_id_and_type(identifier, output_types[0].clone());
+                let var = Variable::with_id_and_type(identifier, output_types.pop().unwrap());
 
                 let v = vec![var.clone().into()];
 
@@ -291,6 +299,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     .map(|a| self.fold_expression(a))
                     .collect::<Result<_, _>>()?;
 
+                unimplemented!("multi def needs to be put in blocks");
+
                 match inline_call(
                     key,
                     generics,
@@ -299,25 +309,33 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     &self.program,
                     &mut self.versions,
                 ) {
-                    Ok(Output::Complete(expressions)) => {
+                    Ok(Output::Complete((statements, expressions))) => {
                         assert_eq!(v.len(), expressions.len());
 
                         self.complete &= true;
 
-                        Ok(v.into_iter()
-                            .zip(expressions)
-                            .map(|(v, e)| TypedStatement::Definition(v, e))
+                        Ok(statements
+                            .into_iter()
+                            .chain(
+                                v.into_iter()
+                                    .zip(expressions)
+                                    .map(|(v, e)| TypedStatement::Definition(v, e)),
+                            )
                             .collect())
                     }
-                    Ok(Output::Incomplete(expressions, delta_for_loop_versions)) => {
+                    Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                         assert_eq!(v.len(), expressions.len());
 
                         self.complete = false;
                         self.for_loop_versions_after.extend(delta_for_loop_versions);
 
-                        Ok(v.into_iter()
-                            .zip(expressions)
-                            .map(|(v, e)| TypedStatement::Definition(v, e))
+                        Ok(statements
+                            .into_iter()
+                            .chain(
+                                v.into_iter()
+                                    .zip(expressions)
+                                    .map(|(v, e)| TypedStatement::Definition(v, e)),
+                            )
                             .collect())
                     }
                     Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
@@ -425,7 +443,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
         match e {
             BooleanExpression::FunctionCall(key, generics, arguments) => {
-                self.fold_function_call(key, generics, arguments, vec![Type::Boolean])
+                self.fold_function_call(key, generics, arguments, Type::Boolean)
             }
             e => fold_boolean_expression(self, e),
         }
@@ -440,7 +458,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 key.clone(),
                 generics.clone(),
                 arguments.clone(),
-                vec![e.get_type()],
+                e.get_type(),
             ),
             _ => fold_uint_expression(self, e),
         }
@@ -452,7 +470,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
         match e {
             FieldElementExpression::FunctionCall(key, generic, arguments) => {
-                self.fold_function_call(key, generic, arguments, vec![Type::FieldElement])
+                self.fold_function_call(key, generic, arguments, Type::FieldElement)
             }
             e => fold_field_expression(self, e),
         }
@@ -469,7 +487,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     key.clone(),
                     generics,
                     arguments.clone(),
-                    vec![Type::array(ty.clone())],
+                    Type::array(ty.clone()),
                 )
                 .map(|e| e.into_inner()),
             ArrayExpressionInner::Slice(box array, box from, box to) => {
@@ -501,7 +519,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     key.clone(),
                     generics.clone(),
                     arguments.clone(),
-                    vec![e.get_type()],
+                    e.get_type(),
                 ),
             _ => fold_struct_expression(self, e),
         }

@@ -299,6 +299,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
     array: typed_absy::ArrayExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match array {
+        typed_absy::ArrayExpressionInner::Block(statements, box value) => unimplemented!(),
         typed_absy::ArrayExpressionInner::Identifier(id) => {
             let variables = flatten_identifier_rec(
                 f.fold_name(id),
@@ -427,6 +428,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
     struc: typed_absy::StructExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match struc {
+        typed_absy::StructExpressionInner::Block(statements, box value) => unimplemented!(),
         typed_absy::StructExpressionInner::Identifier(id) => {
             let variables = flatten_identifier_rec(
                 f.fold_name(id),
@@ -623,6 +625,15 @@ pub fn fold_boolean_expression<'ast, T: Field>(
     e: typed_absy::BooleanExpression<'ast, T>,
 ) -> zir::BooleanExpression<'ast, T> {
     match e {
+        typed_absy::BooleanExpression::Block(statements, box value) => {
+            zir::BooleanExpression::Block(
+                statements
+                    .into_iter()
+                    .flat_map(|s| f.fold_statement(s))
+                    .collect(),
+                box f.fold_boolean_expression(value),
+            )
+        }
         typed_absy::BooleanExpression::Value(v) => zir::BooleanExpression::Value(v),
         typed_absy::BooleanExpression::Identifier(id) => zir::BooleanExpression::Identifier(
             flatten_identifier_rec(f.fold_name(id), &typed_absy::types::ConcreteType::Boolean)[0]
@@ -805,6 +816,13 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
     e: typed_absy::UExpressionInner<'ast, T>,
 ) -> zir::UExpressionInner<'ast, T> {
     match e {
+        typed_absy::UExpressionInner::Block(statements, box value) => zir::UExpressionInner::Block(
+            statements
+                .into_iter()
+                .flat_map(|s| f.fold_statement(s))
+                .collect(),
+            box f.fold_uint_expression(value),
+        ),
         typed_absy::UExpressionInner::Value(v) => zir::UExpressionInner::Value(v),
         typed_absy::UExpressionInner::Identifier(id) => zir::UExpressionInner::Identifier(
             flatten_identifier_rec(

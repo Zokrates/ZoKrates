@@ -74,8 +74,10 @@ fn get_canonical_function<'ast, T: Field>(
     }
 }
 
-type InlineResult<'ast, T> =
-    Result<Output<Vec<TypedExpression<'ast, T>>, Vec<Versions<'ast>>>, InlineError<'ast, T>>;
+type InlineResult<'ast, T> = Result<
+    Output<(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>), Vec<Versions<'ast>>>,
+    InlineError<'ast, T>,
+>;
 
 pub fn inline_call<'a, 'ast, T: Field>(
     k: DeclarationFunctionKey<'ast>,
@@ -227,14 +229,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
         .chain(std::iter::once(pop_log))
         .collect();
 
-    let e = match expressions[0].clone() {
-        TypedExpression::FieldElement(e) => e,
-        _ => unreachable!(),
-    };
-
-    let res = crate::typed_absy::FieldElementExpression::Block(statements, box e);
-
     Ok(incomplete_data
-        .map(|d| Output::Incomplete(vec![res.clone().into()], d))
-        .unwrap_or_else(|| Output::Complete(vec![res.into()])))
+        .map(|d| Output::Incomplete((statements.clone(), expressions.clone()), d))
+        .unwrap_or_else(|| Output::Complete((statements, expressions))))
 }
