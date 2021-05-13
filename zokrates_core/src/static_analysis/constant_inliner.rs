@@ -1,20 +1,26 @@
+use crate::static_analysis::propagation::Propagator;
 use crate::typed_absy::folder::*;
+use crate::typed_absy::result_folder::ResultFolder;
+use crate::typed_absy::types::{Constant, DeclarationStructType, GStructMember};
 use crate::typed_absy::*;
+use std::collections::HashMap;
 use std::convert::TryInto;
 use zokrates_field::Field;
 
-pub struct ConstantInliner<'ast, T: Field> {
+pub struct ConstantInliner<'ast, 'a, T: Field> {
     modules: TypedModules<'ast, T>,
     location: OwnedTypedModuleId,
+    propagator: Propagator<'ast, 'a, T>,
 }
 
-impl<'ast, T: Field> ConstantInliner<'ast, T> {
-    pub fn new(modules: TypedModules<'ast, T>, location: OwnedTypedModuleId) -> Self {
-        ConstantInliner { modules, location }
-    }
-
+impl<'ast, 'a, T: Field> ConstantInliner<'ast, 'a, T> {
     pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        let mut inliner = ConstantInliner::new(p.modules.clone(), p.main.clone());
+        let mut constants = HashMap::new();
+        let mut inliner = ConstantInliner {
+            modules: p.modules.clone(),
+            location: p.main.clone(),
+            propagator: Propagator::with_constants(&mut constants),
+        };
         inliner.fold_program(p)
     }
 
@@ -51,12 +57,18 @@ impl<'ast, T: Field> ConstantInliner<'ast, T> {
                 let _ = self.change_location(location);
                 symbol
             }
-            TypedConstantSymbol::Here(tc) => self.fold_constant(tc),
+            TypedConstantSymbol::Here(tc) => {
+                let tc: TypedConstant<T> = self.fold_constant(tc);
+                TypedConstant {
+                    expression: self.propagator.fold_expression(tc.expression).unwrap(),
+                    ..tc
+                }
+            }
         }
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
+impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         TypedProgram {
             modules: p
@@ -68,6 +80,50 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
                 })
                 .collect(),
             main: p.main,
+        }
+    }
+
+    fn fold_signature(&mut self, s: DeclarationSignature<'ast>) -> DeclarationSignature<'ast> {
+        DeclarationSignature {
+            generics: s.generics,
+            inputs: s
+                .inputs
+                .into_iter()
+                .map(|ty| self.fold_declaration_type(ty))
+                .collect(),
+            outputs: s
+                .outputs
+                .into_iter()
+                .map(|ty| self.fold_declaration_type(ty))
+                .collect(),
+        }
+    }
+
+    fn fold_declaration_type(&mut self, t: DeclarationType<'ast>) -> DeclarationType<'ast> {
+        match t {
+            DeclarationType::Array(ref array_ty) => match array_ty.size {
+                Constant::Identifier(name, _) => {
+                    let tc = self.get_constant(&name.into()).unwrap();
+                    let expression: UExpression<'ast, T> = tc.expression.try_into().unwrap();
+                    match expression.inner {
+                        UExpressionInner::Value(v) => DeclarationType::array((
+                            *array_ty.ty.clone(),
+                            Constant::Concrete(v as u32),
+                        )),
+                        _ => unreachable!("expected u32 value"),
+                    }
+                }
+                _ => t,
+            },
+            DeclarationType::Struct(struct_ty) => DeclarationType::struc(DeclarationStructType {
+                members: struct_ty
+                    .members
+                    .into_iter()
+                    .map(|m| GStructMember::new(m.id, self.fold_declaration_type(*m.ty)))
+                    .collect(),
+                ..struct_ty
+            }),
+            _ => t,
         }
     }
 

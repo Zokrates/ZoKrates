@@ -1,9 +1,11 @@
-struct Foo {
-    field a
+const u32 A_SIZE = 2
+
+struct State {
+    field[A_SIZE] a
     field b
 }
 
-const Foo FOO = Foo { a: 2, b: 2 }
+const State STATE = State { a: [1, 1], b: 2 }
 
 def main() -> field:
-    return FOO.a + FOO.b
+    return STATE.a[0] + STATE.a[1] + STATE.b

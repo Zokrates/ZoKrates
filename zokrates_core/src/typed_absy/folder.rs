@@ -35,6 +35,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_function(self, f)
     }
 
+    fn fold_signature(&mut self, s: DeclarationSignature<'ast>) -> DeclarationSignature<'ast> {
+        s
+    }
+
     fn fold_parameter(&mut self, p: DeclarationParameter<'ast>) -> DeclarationParameter<'ast> {
         DeclarationParameter {
             id: self.fold_declaration_variable(p.id),
@@ -668,7 +672,7 @@ pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        ..fun
+        signature: f.fold_signature(fun.signature),
     }
 }
 
