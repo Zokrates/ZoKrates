@@ -107,7 +107,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
                     let expression: UExpression<'ast, T> = tc.expression.try_into().unwrap();
                     match expression.inner {
                         UExpressionInner::Value(v) => DeclarationType::array((
-                            *array_ty.ty.clone(),
+                            self.fold_declaration_type(*array_ty.ty.clone()),
                             Constant::Concrete(v as u32),
                         )),
                         _ => unreachable!("expected u32 value"),
@@ -692,11 +692,9 @@ mod tests {
 
         let expected_main = TypedFunction {
             arguments: vec![],
-            statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
-                box FieldElementExpression::Number(Bn128Field::from(1)),
-                box FieldElementExpression::Number(Bn128Field::from(1)),
-            )
-            .into()])],
+            statements: vec![TypedStatement::Return(vec![
+                FieldElementExpression::Number(Bn128Field::from(2)).into(),
+            ])],
             signature: DeclarationSignature::new()
                 .inputs(vec![])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -731,9 +729,8 @@ mod tests {
                             const_b_id,
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 GType::FieldElement,
-                                TypedExpression::FieldElement(FieldElementExpression::Add(
-                                    box FieldElementExpression::Number(Bn128Field::from(1)),
-                                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                                TypedExpression::FieldElement(FieldElementExpression::Number(
+                                    Bn128Field::from(2),
                                 )),
                             )),
                         ),

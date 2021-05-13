@@ -983,8 +983,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         for (index, g) in signature.generics.iter().enumerate() {
             if let Some((key, _)) = state
                 .constants
-                .get(module_id)
-                .unwrap()
+                .entry(module_id.to_path_buf())
+                .or_default()
                 .get_key_value(g.value)
             {
                 errors.push(ErrorInner {
@@ -3053,11 +3053,12 @@ mod tests {
         fn field_in_range() {
             // The value of `P - 1` is a valid field literal
 
-            let types = HashMap::new();
+            let modules = Modules::new();
+            let state = State::new(modules);
 
             let expr = Expression::FieldConstant(Bn128Field::max_value().to_biguint()).mock();
             assert!(Checker::<Bn128Field>::new()
-                .check_expression(expr, &*MODULE_ID, &types)
+                .check_expression(expr, &*MODULE_ID, &state)
                 .is_ok());
         }
 
@@ -3065,13 +3066,14 @@ mod tests {
         fn field_overflow() {
             // the value of `P` is an invalid field literal
 
-            let types = HashMap::new();
+            let modules = Modules::new();
+            let state = State::new(modules);
 
             let value = Bn128Field::max_value().to_biguint().add(1u32);
             let expr = Expression::FieldConstant(value).mock();
 
             assert!(Checker::<Bn128Field>::new()
-                .check_expression(expr, &*MODULE_ID, &types)
+                .check_expression(expr, &*MODULE_ID, &state)
                 .is_err());
         }
     }
@@ -3086,7 +3088,9 @@ mod tests {
             // in the case of arrays, lengths do *not* have to match, as at this point they can be
             // generic, so we cannot tell yet
 
-            let types = HashMap::new();
+            let modules = Modules::new();
+            let state = State::new(modules);
+
             // [3, true]
             let a = Expression::InlineArray(vec![
                 Expression::IntConstant(3usize.into()).mock().into(),
@@ -3094,7 +3098,7 @@ mod tests {
             ])
             .mock();
             assert!(Checker::<Bn128Field>::new()
-                .check_expression(a, &*MODULE_ID, &types)
+                .check_expression(a, &*MODULE_ID, &state)
                 .is_err());
 
             // [[0f], [0f, 0f]]
@@ -3114,7 +3118,7 @@ mod tests {
             ])
             .mock();
             assert!(Checker::<Bn128Field>::new()
-                .check_expression(a, &*MODULE_ID, &types)
+                .check_expression(a, &*MODULE_ID, &state)
                 .is_ok());
 
             // [[0f], true]
@@ -3130,7 +3134,7 @@ mod tests {
             ])
             .mock();
             assert!(Checker::<Bn128Field>::new()
-                .check_expression(a, &*MODULE_ID, &types)
+                .check_expression(a, &*MODULE_ID, &state)
                 .is_err());
         }
     }
@@ -3513,12 +3517,10 @@ mod tests {
 
                 let mut checker: Checker<Bn128Field> = Checker::new();
                 assert_eq!(
-                    checker
-                        .check_module(&*MODULE_ID, &mut state)
-                        .unwrap_err()[0]
+                    checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                         .inner
                         .message,
-                    "Undeclared generic parameter in function definition: `P` isn\'t declared as a generic constant"
+                    "Undeclared symbol `P` in function definition"
                 );
             }
         }
@@ -3766,20 +3768,28 @@ mod tests {
 
         #[test]
         fn undeclared_generic() {
+            let modules = Modules::new();
+            let mut state = State::new(modules);
+
             let signature = UnresolvedSignature::new().inputs(vec![UnresolvedType::Array(
                 box UnresolvedType::FieldElement.mock(),
                 Expression::Identifier("K").mock(),
             )
             .mock()]);
-            assert_eq!(Checker::<Bn128Field>::new().check_signature(signature, &*MODULE_ID, &TypeMap::default()), Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
-                message: "Undeclared generic parameter in function definition: `K` isn\'t declared as a generic constant".to_string()
-            }]));
+            assert_eq!(
+                Checker::<Bn128Field>::new().check_signature(signature, &*MODULE_ID, &mut state),
+                Err(vec![ErrorInner {
+                    pos: Some((Position::mock(), Position::mock())),
+                    message: "Undeclared symbol `K` in function definition".to_string()
+                }])
+            );
         }
 
         #[test]
         fn success() {
             // <K, L, M>(field[L][K]) -> field[L][K]
+            let modules = Modules::new();
+            let mut state = State::new(modules);
 
             let signature = UnresolvedSignature::new()
                 .generics(vec!["K".mock(), "L".mock(), "M".mock()])
@@ -3802,11 +3812,7 @@ mod tests {
                 )
                 .mock()]);
             assert_eq!(
-                Checker::<Bn128Field>::new().check_signature(
-                    signature,
-                    &*MODULE_ID,
-                    &TypeMap::default()
-                ),
+                Checker::<Bn128Field>::new().check_signature(signature, &*MODULE_ID, &mut state),
                 Ok(DeclarationSignature::new()
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::array((
@@ -3836,13 +3842,14 @@ mod tests {
         )
         .mock();
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = Checker::new();
         checker.enter_scope();
 
         assert_eq!(
-            checker.check_statement(statement, &*MODULE_ID, &types),
+            checker.check_statement(statement, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"b\" is undefined".into()
@@ -3860,7 +3867,8 @@ mod tests {
         )
         .mock();
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let state = State::new(modules);
 
         let mut scope = HashSet::new();
         scope.insert(ScopedVariable {
@@ -3874,7 +3882,7 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
-            checker.check_statement(statement, &*MODULE_ID, &types),
+            checker.check_statement(statement, &*MODULE_ID, &state),
             Ok(TypedStatement::Definition(
                 TypedAssignee::Identifier(typed_absy::Variable::field_element("a")),
                 FieldElementExpression::Identifier("b".into()).into()
@@ -4104,11 +4112,12 @@ mod tests {
         }
         .mock();
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let mut state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = Checker::new();
         assert_eq!(
-            checker.check_function(foo, &*MODULE_ID, &types),
+            checker.check_function(foo, &*MODULE_ID, &mut state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"i\" is undefined".into()
@@ -4187,11 +4196,12 @@ mod tests {
             signature: DeclarationSignature::default(),
         };
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let mut state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = Checker::new();
         assert_eq!(
-            checker.check_function(foo, &*MODULE_ID, &types),
+            checker.check_function(foo, &*MODULE_ID, &mut state),
             Ok(foo_checked)
         );
     }
@@ -4240,11 +4250,12 @@ mod tests {
         }
         .mock();
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let mut state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &types),
+            checker.check_function(bar, &*MODULE_ID, &mut state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message:
@@ -4298,11 +4309,12 @@ mod tests {
         }
         .mock();
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let mut state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &types),
+            checker.check_function(bar, &*MODULE_ID, &mut state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Function definition for function foo with signature () -> _ not found."
@@ -4343,11 +4355,12 @@ mod tests {
         }
         .mock();
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let mut state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &types),
+            checker.check_function(bar, &*MODULE_ID, &mut state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -4685,11 +4698,12 @@ mod tests {
         }
         .mock();
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let mut state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &types),
+            checker.check_function(bar, &*MODULE_ID, &mut state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -4725,11 +4739,12 @@ mod tests {
         }
         .mock();
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let mut state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &types),
+            checker.check_function(bar, &*MODULE_ID, &mut state),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"a\" is undefined".into()
@@ -4832,11 +4847,12 @@ mod tests {
                 .outputs(vec![DeclarationType::FieldElement]),
         };
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let mut state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function(bar, &*MODULE_ID, &types),
+            checker.check_function(bar, &*MODULE_ID, &mut state),
             Ok(bar_checked)
         );
     }
@@ -4864,10 +4880,13 @@ mod tests {
             UnresolvedType::Boolean.mock(),
         ]);
 
+        let modules = Modules::new();
+        let mut state = State::new(modules);
+
         let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker
-                .check_function(f, &*MODULE_ID, &HashMap::new())
+                .check_function(f, &*MODULE_ID, &mut state)
                 .unwrap_err()[0]
                 .message,
             "Duplicate name in function definition: `a` was previously declared as an argument or a generic constant"
@@ -4966,7 +4985,9 @@ mod tests {
         //
         // should fail
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let state = State::new(modules);
+
         let mut checker: Checker<Bn128Field> = Checker::new();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
@@ -4974,7 +4995,7 @@ mod tests {
             )
             .mock(),
             &*MODULE_ID,
-            &types,
+            &state,
         );
         let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
             .check_statement(
@@ -4983,7 +5004,7 @@ mod tests {
                 )
                 .mock(),
                 &*MODULE_ID,
-                &types,
+                &state,
             );
         assert_eq!(
             s2_checked,
@@ -5001,7 +5022,8 @@ mod tests {
         //
         // should fail
 
-        let types = HashMap::new();
+        let modules = Modules::new();
+        let state = State::new(modules);
 
         let mut checker: Checker<Bn128Field> = Checker::new();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
@@ -5010,7 +5032,7 @@ mod tests {
             )
             .mock(),
             &*MODULE_ID,
-            &types,
+            &state,
         );
         let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
             .check_statement(
@@ -5019,7 +5041,7 @@ mod tests {
                 )
                 .mock(),
                 &*MODULE_ID,
-                &types,
+                &state,
             );
         assert_eq!(
             s2_checked,
@@ -5064,7 +5086,9 @@ mod tests {
             #[test]
             fn empty_def() {
                 // an empty struct should be allowed to be defined
-                let types = HashMap::new();
+                let modules = Modules::new();
+                let mut state = State::new(modules);
+
                 let declaration: StructDefinitionNode = StructDefinition { fields: vec![] }.mock();
 
                 let expected_type = DeclarationType::Struct(DeclarationStructType::new(
@@ -5078,7 +5102,7 @@ mod tests {
                         "Foo".into(),
                         declaration,
                         &*MODULE_ID,
-                        &types
+                        &mut state
                     ),
                     Ok(expected_type)
                 );
@@ -5087,7 +5111,9 @@ mod tests {
             #[test]
             fn valid_def() {
                 // a valid struct should be allowed to be defined
-                let types = HashMap::new();
+                let modules = Modules::new();
+                let mut state = State::new(modules);
+
                 let declaration: StructDefinitionNode = StructDefinition {
                     fields: vec![
                         StructDefinitionField {
@@ -5118,7 +5144,7 @@ mod tests {
                         "Foo".into(),
                         declaration,
                         &*MODULE_ID,
-                        &types
+                        &mut state
                     ),
                     Ok(expected_type)
                 );
@@ -5127,7 +5153,8 @@ mod tests {
             #[test]
             fn duplicate_member_def() {
                 // definition of a struct with a duplicate member should be rejected
-                let types = HashMap::new();
+                let modules = Modules::new();
+                let mut state = State::new(modules);
 
                 let declaration: StructDefinitionNode = StructDefinition {
                     fields: vec![
@@ -5151,7 +5178,7 @@ mod tests {
                             "Foo".into(),
                             declaration,
                             &*MODULE_ID,
-                            &types
+                            &mut state
                         )
                         .unwrap_err()[0]
                         .message,
@@ -5356,7 +5383,7 @@ mod tests {
                 // an undefined type cannot be checked
                 // Bar
 
-                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, mut state) = create_module_with_foo(StructDefinition {
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -5368,7 +5395,7 @@ mod tests {
                     checker.check_type(
                         UnresolvedType::User("Foo".into()).mock(),
                         &*MODULE_ID,
-                        &state.types
+                        &mut state
                     ),
                     Ok(Type::Struct(StructType::new(
                         "".into(),
@@ -5382,7 +5409,7 @@ mod tests {
                         .check_type(
                             UnresolvedType::User("Bar".into()).mock(),
                             &*MODULE_ID,
-                            &state.types
+                            &mut state
                         )
                         .unwrap_err()
                         .message,
@@ -5402,7 +5429,7 @@ mod tests {
                 // struct Foo = { foo: field }
                 // Foo { foo: 42 }.foo
 
-                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, mut state) = create_module_with_foo(StructDefinition {
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -5422,7 +5449,7 @@ mod tests {
                         )
                         .mock(),
                         &*MODULE_ID,
-                        &state.types
+                        &mut state
                     ),
                     Ok(FieldElementExpression::Member(
                         box StructExpressionInner::Value(vec![FieldElementExpression::Number(
@@ -5447,7 +5474,7 @@ mod tests {
                 // struct Foo = { foo: field }
                 // Foo { foo: 42 }.bar
 
-                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, mut state) = create_module_with_foo(StructDefinition {
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -5468,7 +5495,7 @@ mod tests {
                             )
                             .mock(),
                             &*MODULE_ID,
-                            &state.types
+                            &mut state
                         )
                         .unwrap_err()
                         .message,
@@ -5485,7 +5512,7 @@ mod tests {
             fn wrong_name() {
                 // a A value cannot be defined with B as id, even if A and B have the same members
 
-                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, mut state) = create_module_with_foo(StructDefinition {
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -5502,7 +5529,7 @@ mod tests {
                             )
                             .mock(),
                             &*MODULE_ID,
-                            &state.types
+                            &mut state
                         )
                         .unwrap_err()
                         .message,
@@ -5517,7 +5544,7 @@ mod tests {
                 // struct Foo = { foo: field, bar: bool }
                 // Foo foo = Foo { foo: 42, bar: true }
 
-                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, mut state) = create_module_with_foo(StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5543,7 +5570,7 @@ mod tests {
                         )
                         .mock(),
                         &*MODULE_ID,
-                        &state.types
+                        &mut state
                     ),
                     Ok(StructExpressionInner::Value(vec![
                         FieldElementExpression::Number(Bn128Field::from(42u32)).into(),
@@ -5568,7 +5595,7 @@ mod tests {
                 // struct Foo = { foo: field, bar: bool }
                 // Foo foo = Foo { bar: true, foo: 42 }
 
-                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, mut state) = create_module_with_foo(StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5594,7 +5621,7 @@ mod tests {
                         )
                         .mock(),
                         &*MODULE_ID,
-                        &state.types
+                        &mut state
                     ),
                     Ok(StructExpressionInner::Value(vec![
                         FieldElementExpression::Number(Bn128Field::from(42u32)).into(),
@@ -5619,7 +5646,7 @@ mod tests {
                 // struct Foo = { foo: field, bar: bool }
                 // Foo foo = Foo { foo: 42 }
 
-                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, mut state) = create_module_with_foo(StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5643,7 +5670,7 @@ mod tests {
                             )
                             .mock(),
                             &*MODULE_ID,
-                            &state.types
+                            &mut state
                         )
                         .unwrap_err()
                         .message,
@@ -5660,7 +5687,7 @@ mod tests {
                 // Foo { foo: 42, baz: bool } // error
                 // Foo { foo: 42, baz: 42 } // error
 
-                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                let (mut checker, mut state) = create_module_with_foo(StructDefinition {
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5690,7 +5717,7 @@ mod tests {
                             )
                             .mock(),
                             &*MODULE_ID,
-                            &state.types
+                            &mut state
                         ).unwrap_err()
                         .message,
                     "Member bar of struct Foo {foo: field, bar: bool} not found in value Foo {baz: true, foo: 42}"
@@ -5708,7 +5735,7 @@ mod tests {
                             )
                             .mock(),
                             &*MODULE_ID,
-                            &state.types
+                            &mut state
                         )
                         .unwrap_err()
                         .message,
@@ -5835,7 +5862,8 @@ mod tests {
             // a = 42
             let a = Assignee::Identifier("a").mock();
 
-            let types = HashMap::new();
+            let modules = Modules::new();
+            let state = State::new(modules);
 
             let mut checker: Checker<Bn128Field> = Checker::new();
             checker.enter_scope();
@@ -5847,12 +5875,12 @@ mod tests {
                     )
                     .mock(),
                     &*MODULE_ID,
-                    &types,
+                    &state,
                 )
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a, &*MODULE_ID, &types),
+                checker.check_assignee(a, &*MODULE_ID, &state),
                 Ok(TypedAssignee::Identifier(
                     typed_absy::Variable::field_element("a")
                 ))
@@ -5869,7 +5897,8 @@ mod tests {
             )
             .mock();
 
-            let types = HashMap::new();
+            let modules = Modules::new();
+            let state = State::new(modules);
 
             let mut checker: Checker<Bn128Field> = Checker::new();
             checker.enter_scope();
@@ -5889,12 +5918,12 @@ mod tests {
                     )
                     .mock(),
                     &*MODULE_ID,
-                    &types,
+                    &state,
                 )
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a, &*MODULE_ID, &types),
+                checker.check_assignee(a, &*MODULE_ID, &state),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array(
                         "a",
@@ -5921,7 +5950,8 @@ mod tests {
             )
             .mock();
 
-            let types = HashMap::new();
+            let modules = Modules::new();
+            let state = State::new(modules);
 
             let mut checker: Checker<Bn128Field> = Checker::new();
             checker.enter_scope();
@@ -5945,12 +5975,12 @@ mod tests {
                     )
                     .mock(),
                     &*MODULE_ID,
-                    &types,
+                    &state,
                 )
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a, &*MODULE_ID, &types),
+                checker.check_assignee(a, &*MODULE_ID, &state),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Select(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(
