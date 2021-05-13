@@ -397,7 +397,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         id: String,
         s: StructDefinitionNode<'ast>,
         module_id: &ModuleId,
-        state: &State<'ast, T>,
+        state: &mut State<'ast, T>,
     ) -> Result<DeclarationType<'ast>, Vec<ErrorInner>> {
         let pos = s.pos();
         let s = s.value;
@@ -831,7 +831,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         funct_node: FunctionNode<'ast>,
         module_id: &ModuleId,
-        state: &State<'ast, T>,
+        state: &mut State<'ast, T>,
     ) -> Result<TypedFunction<'ast, T>, Vec<ErrorInner>> {
         assert!(self.return_types.is_none());
 
@@ -971,7 +971,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         signature: UnresolvedSignature<'ast>,
         module_id: &ModuleId,
-        state: &State<'ast, T>,
+        state: &mut State<'ast, T>,
     ) -> Result<DeclarationSignature<'ast>, Vec<ErrorInner>> {
         let mut errors = vec![];
         let mut inputs = vec![];
@@ -1154,7 +1154,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (None, Some(index)) => Ok(Constant::Generic(GenericIdentifier { name, index: *index })),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
-                        message: format!("Undeclared generic parameter in function definition: `{}` isn\'t declared as a generic constant", name)
+                        message: format!("Undeclared symbol `{}` in function definition", name)
                     })
                 }
             }
@@ -1172,7 +1172,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         ty: UnresolvedTypeNode<'ast>,
         module_id: &ModuleId,
-        state: &State<'ast, T>,
+        state: &mut State<'ast, T>,
         generics_map: &HashMap<Identifier<'ast>, usize>,
     ) -> Result<DeclarationType<'ast>, ErrorInner> {
         let pos = ty.pos();
@@ -1185,7 +1185,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             UnresolvedType::Array(t, size) => {
                 let checked_size = self.check_generic_expression(
                     size.clone(),
-                    state.constants.get(module_id).unwrap(),
+                    state.constants.entry(module_id.to_path_buf()).or_default(),
                     generics_map,
                 )?;
 
