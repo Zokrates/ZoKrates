@@ -1,11 +1,14 @@
-const u32 A_SIZE = 2
+const u32 N = 2
 
 struct State {
-    field[A_SIZE] a
-    field b
+    field[N] a
+    field[N][N] b
 }
 
-const State STATE = State { a: [1, 1], b: 2 }
+const State STATE = State {
+    a: [1, 2],
+    b: [[3, 4], [5, 6]]
+}
 
-def main() -> field:
-    return STATE.a[0] + STATE.a[1] + STATE.b
+def main() -> State:
+    return STATE

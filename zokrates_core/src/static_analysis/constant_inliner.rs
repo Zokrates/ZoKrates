@@ -127,6 +127,34 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
         }
     }
 
+    fn fold_type(&mut self, t: Type<'ast, T>) -> Type<'ast, T> {
+        use self::GType::*;
+        match t {
+            Array(ref array_type) => match &array_type.size.inner {
+                UExpressionInner::Identifier(v) => match self.get_constant(v) {
+                    Some(tc) => {
+                        let expression: UExpression<'ast, T> = tc.expression.try_into().unwrap();
+                        Type::array(GArrayType::new(
+                            self.fold_type(*array_type.ty.clone()),
+                            expression,
+                        ))
+                    }
+                    None => t,
+                },
+                _ => t,
+            },
+            Struct(struct_type) => Type::struc(GStructType {
+                members: struct_type
+                    .members
+                    .into_iter()
+                    .map(|m| GStructMember::new(m.id, self.fold_type(*m.ty)))
+                    .collect(),
+                ..struct_type
+            }),
+            _ => t,
+        }
+    }
+
     fn fold_constant_symbol(
         &mut self,
         s: TypedConstantSymbol<'ast, T>,

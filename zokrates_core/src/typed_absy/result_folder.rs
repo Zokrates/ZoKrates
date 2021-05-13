@@ -42,6 +42,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_function_symbol(self, s)
     }
 
+    fn fold_declaration_function_key(
+        &mut self,
+        key: DeclarationFunctionKey<'ast>,
+    ) -> Result<DeclarationFunctionKey<'ast>, Self::Error> {
+        fold_declaration_function_key(self, key)
+    }
+
     fn fold_function(
         &mut self,
         f: TypedFunction<'ast, T>,
@@ -730,6 +737,16 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     Ok(e)
 }
 
+pub fn fold_declaration_function_key<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    key: DeclarationFunctionKey<'ast>,
+) -> Result<DeclarationFunctionKey<'ast>, F::Error> {
+    Ok(DeclarationFunctionKey {
+        signature: f.fold_signature(key.signature)?,
+        ..key
+    })
+}
+
 pub fn fold_function<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     fun: TypedFunction<'ast, T>,
@@ -808,9 +825,10 @@ pub fn fold_struct_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: StructExpression<'ast, T>,
 ) -> Result<StructExpression<'ast, T>, F::Error> {
+    let ty = f.fold_struct_type(e.ty)?;
     Ok(StructExpression {
-        inner: f.fold_struct_expression_inner(&e.ty, e.inner)?,
-        ..e
+        inner: f.fold_struct_expression_inner(&ty, e.inner)?,
+        ty,
     })
 }
 
