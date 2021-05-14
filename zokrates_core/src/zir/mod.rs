@@ -90,7 +90,11 @@ pub type ZirAssignee<'ast> = Variable<'ast>;
 pub enum ZirStatement<'ast, T> {
     Return(Vec<ZirExpression<'ast, T>>),
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
-    Declaration(Variable<'ast>),
+    IfElse(
+        BooleanExpression<'ast, T>,
+        Vec<ZirStatement<'ast, T>>,
+        Vec<ZirStatement<'ast, T>>,
+    ),
     Assertion(BooleanExpression<'ast, T>),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
 }
@@ -108,9 +112,11 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {
                 }
                 write!(f, ")")
             }
-            ZirStatement::Declaration(ref var) => write!(f, "Declaration({:?})", var),
-            ZirStatement::Definition(ref lhs, ref rhs) => {
-                write!(f, "Definition({:?}, {:?})", lhs, rhs)
+            ZirStatement::Definition(ref consequence, ref alternative) => {
+                write!(f, "Definition({:?}, {:?})", consequence, alternative)
+            }
+            ZirStatement::IfElse(ref condition, ref lhs, ref rhs) => {
+                write!(f, "IfElse({:?}, {:?}, {:?})", condition, lhs, rhs)
             }
             ZirStatement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             ZirStatement::MultipleDefinition(ref lhs, ref rhs) => {
@@ -133,9 +139,25 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                 }
                 write!(f, "")
             }
-            ZirStatement::Declaration(ref var) => write!(f, "assert({})", var),
             ZirStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            ZirStatement::Assertion(ref e) => write!(f, "{}", e),
+            ZirStatement::IfElse(ref condition, ref consequence, ref alternative) => {
+                write!(
+                    f,
+                    "if {} then {{{}}} else {{{}}} fi",
+                    condition,
+                    consequence
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    alternative
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
+            }
+            ZirStatement::Assertion(ref e) => write!(f, "assert({})", e),
             ZirStatement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
                     write!(f, "{}", id)?;
@@ -239,10 +261,6 @@ pub enum ZirExpressionList<'ast, T> {
 /// An expression of type `field`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementExpression<'ast, T> {
-    Block(
-        Vec<ZirStatement<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
     Number(T),
     Identifier(Identifier<'ast>),
     Add(
@@ -275,7 +293,6 @@ pub enum FieldElementExpression<'ast, T> {
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum BooleanExpression<'ast, T> {
-    Block(Vec<ZirStatement<'ast, T>>, Box<BooleanExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
     Value(bool),
     FieldLt(
@@ -392,16 +409,6 @@ impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FieldElementExpression::Block(ref statements, ref value) => write!(
-                f,
-                "{{{}}}",
-                statements
-                    .iter()
-                    .map(|s| s.to_string())
-                    .chain(std::iter::once(value.to_string()))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            ),
             FieldElementExpression::Number(ref i) => write!(f, "{}", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
@@ -423,16 +430,6 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
-            UExpressionInner::Block(ref statements, ref value) => write!(
-                f,
-                "{{{}}}",
-                statements
-                    .iter()
-                    .map(|s| s.to_string())
-                    .chain(std::iter::once(value.to_string()))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            ),
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
@@ -458,16 +455,6 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            BooleanExpression::Block(ref statements, ref value) => write!(
-                f,
-                "{{{}}}",
-                statements
-                    .iter()
-                    .map(|s| s.to_string())
-                    .chain(std::iter::once(value.to_string()))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            ),
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::Value(b) => write!(f, "{}", b),
             BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
@@ -496,9 +483,6 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            BooleanExpression::Block(ref statements, ref value) => {
-                write!(f, "Block({:?}, {:?})", statements, value)
-            }
             BooleanExpression::Identifier(ref var) => write!(f, "Ide({:?})", var),
             BooleanExpression::Value(b) => write!(f, "Value({})", b),
             BooleanExpression::FieldLt(ref lhs, ref rhs) => {
@@ -549,9 +533,6 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FieldElementExpression::Block(ref statements, ref value) => {
-                write!(f, "Block({:?}, {:?})", statements, value)
-            }
             FieldElementExpression::Number(ref i) => write!(f, "Num({:?})", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "Ide({:?})", var),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),

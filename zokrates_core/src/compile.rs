@@ -178,6 +178,8 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast, config);
 
+    println!("{}", program_flattened);
+
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
 

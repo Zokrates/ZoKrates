@@ -749,6 +749,13 @@ pub fn fold_expression_list<'ast, T: Field, F: Folder<'ast, T>>(
                 types.into_iter().map(|t| f.fold_type(t)).collect(),
             )
         }
+        TypedExpressionList::Block(statements, values) => TypedExpressionList::Block(
+            statements
+                .into_iter()
+                .flat_map(|s| f.fold_statement(s))
+                .collect(),
+            values.into_iter().map(|v| f.fold_expression(v)).collect(),
+        ),
     }
 }
 

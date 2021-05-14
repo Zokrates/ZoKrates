@@ -696,7 +696,7 @@ impl<'ast, T: Clone> Typed<'ast, T> for BooleanExpression<'ast, T> {
 }
 
 pub trait MultiTyped<'ast, T> {
-    fn get_types(&self) -> &Vec<Type<'ast, T>>;
+    fn get_types(&self) -> Vec<Type<'ast, T>>;
 }
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
@@ -713,13 +713,17 @@ pub enum TypedExpressionList<'ast, T> {
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
+    Block(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>),
 }
 
-impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
-    fn get_types(&self) -> &Vec<Type<'ast, T>> {
+impl<'ast, T: Field> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
+    fn get_types(&self) -> Vec<Type<'ast, T>> {
         match *self {
-            TypedExpressionList::FunctionCall(_, _, _, ref types) => types,
-            TypedExpressionList::EmbedCall(_, _, _, ref types) => types,
+            TypedExpressionList::FunctionCall(_, _, _, ref types) => types.clone(),
+            TypedExpressionList::EmbedCall(_, _, _, ref types) => types.clone(),
+            TypedExpressionList::Block(_, ref values) => {
+                values.iter().map(|v| v.get_type()).collect()
+            }
         }
     }
 }
@@ -1538,6 +1542,22 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
                 }
                 write!(f, ")")
             }
+            TypedExpressionList::Block(ref statements, ref values) => write!(
+                f,
+                "{{{}}}",
+                statements
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(std::iter::once(
+                        values
+                            .iter()
+                            .map(|v| v.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
         }
     }
 }

@@ -647,12 +647,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatExpression<T> {
         // those will be booleans in the future
         match expression {
-            BooleanExpression::Block(statements, box value) => {
-                for s in statements {
-                    self.flatten_statement(statements_flattened, s);
-                }
-                self.flatten_boolean_expression(statements_flattened, value)
-            }
             BooleanExpression::Identifier(x) => {
                 FlatExpression::Identifier(*self.layout.get(&x).unwrap())
             }
@@ -1428,12 +1422,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let should_reduce = should_reduce.to_bool();
 
         let res = match expr.into_inner() {
-            UExpressionInner::Block(statements, box value) => {
-                for s in statements {
-                    self.flatten_statement(statements_flattened, s);
-                }
-                self.flatten_uint_expression(statements_flattened, value)
-            }
             UExpressionInner::Value(x) => {
                 FlatUExpression::with_field(FlatExpression::Number(T::from(x as usize)))
             } // force to be a field element
@@ -1987,12 +1975,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         expr: FieldElementExpression<'ast, T>,
     ) -> FlatExpression<T> {
         match expr {
-            FieldElementExpression::Block(statements, box value) => {
-                for s in statements {
-                    self.flatten_statement(statements_flattened, s);
-                }
-                self.flatten_field_expression(statements_flattened, value)
-            }
             FieldElementExpression::Number(x) => FlatExpression::Number(x), // force to be a field element
             FieldElementExpression::Identifier(x) => {
                 FlatExpression::Identifier(*self.layout.get(&x).unwrap_or_else(|| panic!("{}", x)))
@@ -2209,8 +2191,28 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     expressions: flat_expressions,
                 }));
             }
-            ZirStatement::Declaration(_) => {
-                // declarations have already been checked
+            ZirStatement::IfElse(condition, consequence, alternative) => {
+                let condition = self.flatten_boolean_expression(statements_flattened, condition);
+
+                let mut consequence_statements = vec![];
+                let mut alternative_statements = vec![];
+
+                consequence
+                    .into_iter()
+                    .for_each(|s| self.flatten_statement(&mut consequence_statements, s));
+                alternative
+                    .into_iter()
+                    .for_each(|s| self.flatten_statement(&mut alternative_statements, s));
+
+                let consequence_statements =
+                    self.make_conditional(consequence_statements, condition.clone());
+                let alternative_statements = self.make_conditional(
+                    alternative_statements,
+                    FlatExpression::Sub(box FlatExpression::Number(T::one()), box condition),
+                );
+
+                statements_flattened.extend(consequence_statements);
+                statements_flattened.extend(alternative_statements);
             }
             ZirStatement::Definition(assignee, expr) => {
                 // define n variables with n the number of primitive types for v_type

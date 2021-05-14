@@ -126,9 +126,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         use self::UExpressionInner::*;
 
         let res = match inner {
-            b @ Block(..) => force_no_reduce(
-                fold_uint_expression_inner(self, e.bitwidth, b).annotate(e.bitwidth),
-            ),
             Value(v) => Value(v).annotate(range).with_max(v),
             Identifier(id) => Identifier(id.clone()).annotate(range).metadata(
                 self.ids
@@ -408,78 +405,79 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     })
                     .collect(),
             )],
-            ZirStatement::MultipleDefinition(lhs, rhs) => match rhs {
-                ZirExpressionList::EmbedCall(embed, generics, arguments) => match embed {
-                    FlatEmbed::U64FromBits => {
-                        assert_eq!(lhs.len(), 1);
-                        self.register(
-                            lhs[0].clone(),
-                            UMetadata {
-                                max: T::from(2).pow(64) - T::from(1),
-                                should_reduce: ShouldReduce::False,
-                            },
-                        );
+            ZirStatement::MultipleDefinition(
+                lhs,
+                ZirExpressionList::EmbedCall(embed, generics, arguments),
+            ) => match embed {
+                FlatEmbed::U64FromBits => {
+                    assert_eq!(lhs.len(), 1);
+                    self.register(
+                        lhs[0].clone(),
+                        UMetadata {
+                            max: T::from(2).pow(64) - T::from(1),
+                            should_reduce: ShouldReduce::False,
+                        },
+                    );
 
-                        vec![ZirStatement::MultipleDefinition(
-                            lhs,
-                            ZirExpressionList::EmbedCall(embed, generics, arguments),
-                        )]
-                    }
-                    FlatEmbed::U32FromBits => {
-                        assert_eq!(lhs.len(), 1);
-                        self.register(
-                            lhs[0].clone(),
-                            UMetadata {
-                                max: T::from(2).pow(32) - T::from(1),
-                                should_reduce: ShouldReduce::False,
-                            },
-                        );
-
-                        vec![ZirStatement::MultipleDefinition(
-                            lhs,
-                            ZirExpressionList::EmbedCall(embed, generics, arguments),
-                        )]
-                    }
-                    FlatEmbed::U16FromBits => {
-                        assert_eq!(lhs.len(), 1);
-                        self.register(
-                            lhs[0].clone(),
-                            UMetadata {
-                                max: T::from(2).pow(16) - T::from(1),
-                                should_reduce: ShouldReduce::False,
-                            },
-                        );
-                        vec![ZirStatement::MultipleDefinition(
-                            lhs,
-                            ZirExpressionList::EmbedCall(embed, generics, arguments),
-                        )]
-                    }
-                    FlatEmbed::U8FromBits => {
-                        assert_eq!(lhs.len(), 1);
-                        self.register(
-                            lhs[0].clone(),
-                            UMetadata {
-                                max: T::from(2).pow(8) - T::from(1),
-                                should_reduce: ShouldReduce::False,
-                            },
-                        );
-                        vec![ZirStatement::MultipleDefinition(
-                            lhs,
-                            ZirExpressionList::EmbedCall(embed, generics, arguments),
-                        )]
-                    }
-                    _ => vec![ZirStatement::MultipleDefinition(
+                    vec![ZirStatement::MultipleDefinition(
                         lhs,
-                        ZirExpressionList::EmbedCall(
-                            embed,
-                            generics,
-                            arguments
-                                .into_iter()
-                                .map(|e| self.fold_expression(e))
-                                .collect(),
-                        ),
-                    )],
-                },
+                        ZirExpressionList::EmbedCall(embed, generics, arguments),
+                    )]
+                }
+                FlatEmbed::U32FromBits => {
+                    assert_eq!(lhs.len(), 1);
+                    self.register(
+                        lhs[0].clone(),
+                        UMetadata {
+                            max: T::from(2).pow(32) - T::from(1),
+                            should_reduce: ShouldReduce::False,
+                        },
+                    );
+
+                    vec![ZirStatement::MultipleDefinition(
+                        lhs,
+                        ZirExpressionList::EmbedCall(embed, generics, arguments),
+                    )]
+                }
+                FlatEmbed::U16FromBits => {
+                    assert_eq!(lhs.len(), 1);
+                    self.register(
+                        lhs[0].clone(),
+                        UMetadata {
+                            max: T::from(2).pow(16) - T::from(1),
+                            should_reduce: ShouldReduce::False,
+                        },
+                    );
+                    vec![ZirStatement::MultipleDefinition(
+                        lhs,
+                        ZirExpressionList::EmbedCall(embed, generics, arguments),
+                    )]
+                }
+                FlatEmbed::U8FromBits => {
+                    assert_eq!(lhs.len(), 1);
+                    self.register(
+                        lhs[0].clone(),
+                        UMetadata {
+                            max: T::from(2).pow(8) - T::from(1),
+                            should_reduce: ShouldReduce::False,
+                        },
+                    );
+                    vec![ZirStatement::MultipleDefinition(
+                        lhs,
+                        ZirExpressionList::EmbedCall(embed, generics, arguments),
+                    )]
+                }
+                _ => vec![ZirStatement::MultipleDefinition(
+                    lhs,
+                    ZirExpressionList::EmbedCall(
+                        embed,
+                        generics,
+                        arguments
+                            .into_iter()
+                            .map(|e| self.fold_expression(e))
+                            .collect(),
+                    ),
+                )],
             },
             ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right)) => {
                 let left = self.fold_uint_expression(left);

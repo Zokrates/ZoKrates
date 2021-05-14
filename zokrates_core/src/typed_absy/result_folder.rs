@@ -834,6 +834,17 @@ pub fn fold_expression_list<'ast, T: Field, F: ResultFolder<'ast, T>>(
                     .collect::<Result<_, _>>()?,
             ))
         }
+        TypedExpressionList::Block(statements, values) => Ok(TypedExpressionList::Block(
+            statements
+                .into_iter()
+                .map(|s| f.fold_statement(s))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|v| v.into_iter().flatten().collect())?,
+            values
+                .into_iter()
+                .map(|v| f.fold_expression(v))
+                .collect::<Result<_, _>>()?,
+        )),
     }
 }
 

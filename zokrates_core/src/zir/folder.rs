@@ -104,7 +104,17 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
         ZirStatement::Definition(a, e) => {
             ZirStatement::Definition(f.fold_assignee(a), f.fold_expression(e))
         }
-        ZirStatement::Declaration(v) => ZirStatement::Declaration(f.fold_variable(v)),
+        ZirStatement::IfElse(condition, consequence, alternative) => ZirStatement::IfElse(
+            f.fold_boolean_expression(condition),
+            consequence
+                .into_iter()
+                .flat_map(|e| f.fold_statement(e))
+                .collect(),
+            alternative
+                .into_iter()
+                .flat_map(|e| f.fold_statement(e))
+                .collect(),
+        ),
         ZirStatement::Assertion(e) => ZirStatement::Assertion(f.fold_boolean_expression(e)),
         ZirStatement::MultipleDefinition(variables, elist) => ZirStatement::MultipleDefinition(
             variables.into_iter().map(|v| f.fold_variable(v)).collect(),
@@ -119,13 +129,6 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: FieldElementExpression<'ast, T>,
 ) -> FieldElementExpression<'ast, T> {
     match e {
-        FieldElementExpression::Block(statements, box value) => FieldElementExpression::Block(
-            statements
-                .into_iter()
-                .flat_map(|s| f.fold_statement(s))
-                .collect(),
-            box f.fold_field_expression(value),
-        ),
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
             FieldElementExpression::Identifier(f.fold_name(id))
@@ -169,13 +172,6 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: BooleanExpression<'ast, T>,
 ) -> BooleanExpression<'ast, T> {
     match e {
-        BooleanExpression::Block(statements, box value) => BooleanExpression::Block(
-            statements
-                .into_iter()
-                .flat_map(|s| f.fold_statement(s))
-                .collect(),
-            box f.fold_boolean_expression(value),
-        ),
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)),
         BooleanExpression::FieldEq(box e1, box e2) => {
@@ -272,13 +268,6 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     e: UExpressionInner<'ast, T>,
 ) -> UExpressionInner<'ast, T> {
     match e {
-        UExpressionInner::Block(statements, box value) => UExpressionInner::Block(
-            statements
-                .into_iter()
-                .flat_map(|s| f.fold_statement(s))
-                .collect(),
-            box f.fold_uint_expression(value),
-        ),
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),
         UExpressionInner::Add(box left, box right) => {

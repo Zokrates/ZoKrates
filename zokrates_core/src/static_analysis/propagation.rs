@@ -352,7 +352,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     .collect::<Result<_, _>>()?;
                 let expression_list = self.fold_expression_list(expression_list)?;
 
-                let statements = match expression_list {
+                match expression_list {
+                    l @ TypedExpressionList::Block(..) => fold_expression_list(self, l)
+                        .map(|l| vec![TypedStatement::MultipleDefinition(assignees, l)]),
                     TypedExpressionList::EmbedCall(embed, generics, arguments, types) => {
                         let arguments: Vec<_> = arguments
                             .into_iter()
@@ -544,16 +546,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                         match assignees.pop().unwrap() {
                                             TypedAssignee::Identifier(var) => {
                                                 self.constants.insert(var.id, expr);
-                                                vec![]
+                                                Ok(vec![])
                                             }
                                             assignee => {
                                                 match self.try_get_constant_mut(&assignee) {
                                                     Ok((_, c)) => {
                                                         *c = expr;
-                                                        vec![]
+                                                        Ok(vec![])
                                                     }
                                                     Err(v) => match self.constants.remove(&v.id) {
-                                                        Some(c) => vec![
+                                                        Some(c) => Ok(vec![
                                                             TypedStatement::Definition(
                                                                 v.clone().into(),
                                                                 c,
@@ -561,10 +563,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                             TypedStatement::Definition(
                                                                 assignee, expr,
                                                             ),
-                                                        ],
-                                                        None => vec![TypedStatement::Definition(
-                                                            assignee, expr,
-                                                        )],
+                                                        ]),
+                                                        None => {
+                                                            Ok(vec![TypedStatement::Definition(
+                                                                assignee, expr,
+                                                            )])
+                                                        }
                                                     },
                                                 }
                                             }
@@ -583,7 +587,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                             .unwrap_or_else(|v| v);
 
                                         match self.constants.remove(&v.id) {
-                                            Some(c) => vec![
+                                            Some(c) => Ok(vec![
                                                 TypedStatement::Definition(v.clone().into(), c),
                                                 TypedStatement::MultipleDefinition(
                                                     vec![assignee],
@@ -591,13 +595,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                         embed, generics, arguments, types,
                                                     ),
                                                 ),
-                                            ],
-                                            None => vec![TypedStatement::MultipleDefinition(
+                                            ]),
+                                            None => Ok(vec![TypedStatement::MultipleDefinition(
                                                 vec![assignee],
                                                 TypedExpressionList::EmbedCall(
                                                     embed, generics, arguments, types,
                                                 ),
-                                            )],
+                                            )]),
                                         }
                                     }
                                 }
@@ -626,7 +630,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     }
                                 });
 
-                                invalidations.chain(std::iter::once(def)).collect()
+                                Ok(invalidations.chain(std::iter::once(def)).collect())
                             }
                         }
                     }
@@ -666,11 +670,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             }
                         });
 
-                        invalidations.chain(std::iter::once(def)).collect()
+                        Ok(invalidations.chain(std::iter::once(def)).collect())
                     }
-                };
-
-                Ok(statements)
+                }
             }
             TypedStatement::Assertion(e) => {
                 let e_str = e.to_string();
