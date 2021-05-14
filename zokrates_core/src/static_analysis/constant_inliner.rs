@@ -14,13 +14,24 @@ pub struct ConstantInliner<'ast, 'a, T: Field> {
 }
 
 impl<'ast, 'a, T: Field> ConstantInliner<'ast, 'a, T> {
+    pub fn new(
+        modules: TypedModules<'ast, T>,
+        location: OwnedTypedModuleId,
+        propagator: Propagator<'ast, 'a, T>,
+    ) -> Self {
+        ConstantInliner {
+            modules,
+            location,
+            propagator,
+        }
+    }
     pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         let mut constants = HashMap::new();
-        let mut inliner = ConstantInliner {
-            modules: p.modules.clone(),
-            location: p.main.clone(),
-            propagator: Propagator::with_constants(&mut constants),
-        };
+        let mut inliner = ConstantInliner::new(
+            p.modules.clone(),
+            p.main.clone(),
+            Propagator::with_constants(&mut constants),
+        );
         inliner.fold_program(p)
     }
 
@@ -80,22 +91,6 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
                 })
                 .collect(),
             main: p.main,
-        }
-    }
-
-    fn fold_signature(&mut self, s: DeclarationSignature<'ast>) -> DeclarationSignature<'ast> {
-        DeclarationSignature {
-            generics: s.generics,
-            inputs: s
-                .inputs
-                .into_iter()
-                .map(|ty| self.fold_declaration_type(ty))
-                .collect(),
-            outputs: s
-                .outputs
-                .into_iter()
-                .map(|ty| self.fold_declaration_type(ty))
-                .collect(),
         }
     }
 

@@ -60,7 +60,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         s: DeclarationSignature<'ast>,
     ) -> Result<DeclarationSignature<'ast>, Self::Error> {
-        Ok(s)
+        fold_signature(self, s)
     }
 
     fn fold_parameter(
@@ -766,6 +766,25 @@ pub fn fold_function<'ast, T: Field, F: ResultFolder<'ast, T>>(
             .flatten()
             .collect(),
         signature: f.fold_signature(fun.signature)?,
+    })
+}
+
+fn fold_signature<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    s: DeclarationSignature<'ast>,
+) -> Result<DeclarationSignature<'ast>, F::Error> {
+    Ok(DeclarationSignature {
+        generics: s.generics,
+        inputs: s
+            .inputs
+            .into_iter()
+            .map(|o| f.fold_declaration_type(o))
+            .collect::<Result<_, _>>()?,
+        outputs: s
+            .outputs
+            .into_iter()
+            .map(|o| f.fold_declaration_type(o))
+            .collect::<Result<_, _>>()?,
     })
 }
 
