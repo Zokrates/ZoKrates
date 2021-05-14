@@ -1,6 +1,6 @@
 use crate::zir::identifier::Identifier;
 use crate::zir::types::UBitwidth;
-use crate::zir::{BooleanExpression, ZirStatement};
+use crate::zir::BooleanExpression;
 use zokrates_field::Field;
 
 impl<'ast, T: Field> UExpression<'ast, T> {
