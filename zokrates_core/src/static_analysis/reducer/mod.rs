@@ -619,14 +619,7 @@ fn reduce_function<'ast, T: Field>(
                     statements: f
                         .statements
                         .into_iter()
-                        .map(|s| {
-                            let res = reducer.fold_statement(s)?;
-                            Ok(reducer
-                                .statement_buffer
-                                .drain(..)
-                                .chain(res)
-                                .collect::<Vec<_>>())
-                        })
+                        .map(|s| reducer.fold_statement(s))
                         .collect::<Result<Vec<_>, _>>()?
                         .into_iter()
                         .flatten()
