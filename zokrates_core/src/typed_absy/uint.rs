@@ -175,7 +175,7 @@ impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum UExpressionInner<'ast, T> {
-    Block(Vec<TypedStatement<'ast, T>>, Box<UExpression<'ast, T>>),
+    Block(BlockExpression<'ast, T, UExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
     Value(u128),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),

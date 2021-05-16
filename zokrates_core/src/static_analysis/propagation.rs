@@ -150,8 +150,8 @@ fn is_constant<T: Field>(e: &TypedExpression<T>) -> bool {
         TypedExpression::Uint(a) => {
             matches!(a.as_inner(), UExpressionInner::Value(..))
                 || match a.as_inner() {
-                    UExpressionInner::Block(_, e) => {
-                        is_constant(&TypedExpression::from(*e.clone()))
+                    UExpressionInner::Block(block) => {
+                        is_constant(&TypedExpression::from(*block.value.clone()))
                     }
                     _ => false,
                 }

@@ -14,6 +14,30 @@ impl<'ast, T: Field> ResultFold<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> ResultFold<'ast, T> for BooleanExpression<'ast, T> {
+    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+        f.fold_boolean_expression(self)
+    }
+}
+
+impl<'ast, T: Field> ResultFold<'ast, T> for UExpression<'ast, T> {
+    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+        f.fold_uint_expression(self)
+    }
+}
+
+impl<'ast, T: Field> ResultFold<'ast, T> for ArrayExpression<'ast, T> {
+    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+        f.fold_array_expression(self)
+    }
+}
+
+impl<'ast, T: Field> ResultFold<'ast, T> for StructExpression<'ast, T> {
+    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+        f.fold_struct_expression(self)
+    }
+}
+
 pub trait ResultFolder<'ast, T: Field>: Sized {
     type Error;
 
@@ -319,14 +343,9 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: ArrayExpressionInner<'ast, T>,
 ) -> Result<ArrayExpressionInner<'ast, T>, F::Error> {
     let e = match e {
-        ArrayExpressionInner::Block(statements, box value) => ArrayExpressionInner::Block(
-            statements
-                .into_iter()
-                .map(|s| f.fold_statement(s))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|r| r.into_iter().flatten().collect())?,
-            box f.fold_array_expression(value)?,
-        ),
+        ArrayExpressionInner::Block(block) => {
+            ArrayExpressionInner::Block(f.fold_block_expression(block)?)
+        }
         ArrayExpressionInner::Identifier(id) => ArrayExpressionInner::Identifier(f.fold_name(id)?),
         ArrayExpressionInner::Value(exprs) => ArrayExpressionInner::Value(
             exprs
@@ -382,14 +401,9 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: StructExpressionInner<'ast, T>,
 ) -> Result<StructExpressionInner<'ast, T>, F::Error> {
     let e = match e {
-        StructExpressionInner::Block(statements, box value) => StructExpressionInner::Block(
-            statements
-                .into_iter()
-                .map(|s| f.fold_statement(s))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|r| r.into_iter().flatten().collect())?,
-            box f.fold_struct_expression(value)?,
-        ),
+        StructExpressionInner::Block(block) => {
+            StructExpressionInner::Block(f.fold_block_expression(block)?)
+        }
         StructExpressionInner::Identifier(id) => {
             StructExpressionInner::Identifier(f.fold_name(id)?)
         }
@@ -536,14 +550,9 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: BooleanExpression<'ast, T>,
 ) -> Result<BooleanExpression<'ast, T>, F::Error> {
     let e = match e {
-        BooleanExpression::Block(statements, box value) => BooleanExpression::Block(
-            statements
-                .into_iter()
-                .map(|s| f.fold_statement(s))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|r| r.into_iter().flatten().collect())?,
-            box f.fold_boolean_expression(value)?,
-        ),
+        BooleanExpression::Block(block) => {
+            BooleanExpression::Block(f.fold_block_expression(block)?)
+        }
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)?),
         BooleanExpression::FieldEq(box e1, box e2) => {
@@ -671,14 +680,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: UExpressionInner<'ast, T>,
 ) -> Result<UExpressionInner<'ast, T>, F::Error> {
     let e = match e {
-        UExpressionInner::Block(statements, box value) => UExpressionInner::Block(
-            statements
-                .into_iter()
-                .map(|s| f.fold_statement(s))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|r| r.into_iter().flatten().collect())?,
-            box f.fold_uint_expression(value)?,
-        ),
+        UExpressionInner::Block(block) => UExpressionInner::Block(f.fold_block_expression(block)?),
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)?),
         UExpressionInner::Add(box left, box right) => {
