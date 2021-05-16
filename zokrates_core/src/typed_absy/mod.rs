@@ -1870,55 +1870,37 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
 }
 
 pub trait Block<'ast, T> {
-    fn block(
-        statements: Vec<TypedStatement<'ast, T>>,
-        value: Self,
-    ) -> Self;
+    fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self;
 }
 
 impl<'ast, T: Field> Block<'ast, T> for FieldElementExpression<'ast, T> {
-    fn block(
-        statements: Vec<TypedStatement<'ast, T>>,
-        value: Self,
-    ) -> Self {
+    fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
         FieldElementExpression::Block(BlockExpression::new(statements, value))
     }
 }
 
 impl<'ast, T: Field> Block<'ast, T> for BooleanExpression<'ast, T> {
-    fn block(
-        statements: Vec<TypedStatement<'ast, T>>,
-        value: Self,
-    ) -> Self {
+    fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
         BooleanExpression::Block(statements, box value)
     }
 }
 
 impl<'ast, T: Field> Block<'ast, T> for UExpression<'ast, T> {
-    fn block(
-        statements: Vec<TypedStatement<'ast, T>>,
-        value: Self,
-    ) -> Self {
+    fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
         let bitwidth = value.bitwidth();
         UExpressionInner::Block(statements, box value).annotate(bitwidth)
     }
 }
 
 impl<'ast, T: Field> Block<'ast, T> for ArrayExpression<'ast, T> {
-    fn block(
-        statements: Vec<TypedStatement<'ast, T>>,
-        value: Self,
-    ) -> Self {
+    fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
         let array_ty = value.ty();
         ArrayExpressionInner::Block(statements, box value).annotate(*array_ty.ty, array_ty.size)
     }
 }
 
 impl<'ast, T: Field> Block<'ast, T> for StructExpression<'ast, T> {
-    fn block(
-        statements: Vec<TypedStatement<'ast, T>>,
-        value: Self,
-    ) -> Self {
+    fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
         let struct_ty = value.ty().clone();
 
         StructExpressionInner::Block(statements, box value).annotate(struct_ty)

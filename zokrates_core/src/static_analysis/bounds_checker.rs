@@ -52,11 +52,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for BoundsChecker {
                 let from = self.fold_uint_expression(from)?;
                 let to = self.fold_uint_expression(to)?;
 
-                match (
-                    array.ty().size.as_inner(),
-                    from.as_inner(),
-                    to.as_inner(),
-                ) {
+                match (array.ty().size.as_inner(), from.as_inner(), to.as_inner()) {
                     (
                         UExpressionInner::Value(size),
                         UExpressionInner::Value(from),

@@ -1,0 +1,1 @@
+Isolate branch panics: only panic in a branch if it's being logically executed
