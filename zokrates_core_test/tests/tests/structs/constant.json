@@ -1,0 +1,5 @@
+{
+	"entry_point": "./tests/tests/structs/constant.zok",
+	"curves": ["Bn128"],
+	"tests": []
+}

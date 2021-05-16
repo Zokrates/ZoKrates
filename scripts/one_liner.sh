@@ -150,7 +150,7 @@ get_architecture() {
             fi
             ;;
 
-        aarch64)
+        aarch64 | arm64)
             _cputype=aarch64
             ;;
 
