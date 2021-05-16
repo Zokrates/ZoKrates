@@ -1963,7 +1963,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     TypedExpression::Boolean(condition) => {
                         match (consequence_checked, alternative_checked) {
                             (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
-                                Ok(FieldElementExpression::IfElse(box condition, box FieldElementExpression::Block(vec![], box consequence), box FieldElementExpression::Block(vec![], box alternative)).into())
+                                Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
                             },
                             (TypedExpression::Boolean(consequence), TypedExpression::Boolean(alternative)) => {
                                 Ok(BooleanExpression::IfElse(box condition, box consequence, box alternative).into())

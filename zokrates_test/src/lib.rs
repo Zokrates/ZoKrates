@@ -163,8 +163,9 @@ fn compile_and_run<T: Field>(t: Tests) {
             let mut s = String::new();
             code.read_to_string(&mut s).unwrap();
             let context = format!(
-                "\n{}\nCalled with input ({})\n",
+                "\n{}\nCalled on curve {} with input ({})\n",
                 s,
+                T::name(),
                 input
                     .iter()
                     .map(|i| i.to_string())

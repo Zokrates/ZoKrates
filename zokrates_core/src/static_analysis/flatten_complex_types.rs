@@ -683,11 +683,12 @@ pub fn fold_field_expression<'ast, T: Field>(
                 _ => unreachable!(""),
             }
         }
-        typed_absy::FieldElementExpression::Block(statements, box value) => {
-            statements
+        typed_absy::FieldElementExpression::Block(block) => {
+            block
+                .statements
                 .into_iter()
                 .for_each(|s| f.fold_statement(statements_buffer, s));
-            f.fold_field_expression(statements_buffer, value)
+            f.fold_field_expression(statements_buffer, *block.value)
         }
     }
 }

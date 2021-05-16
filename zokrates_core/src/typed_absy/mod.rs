@@ -489,13 +489,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
-            TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
-                for l in list {
-                    writeln!(f, "\t\t{}", l)?;
-                }
-                write!(f, "\tendfor")
-            }
+            TypedStatement::For(..) => unreachable!("fmt_indented should be called instead"),
             TypedStatement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
                     write!(f, "{}", id)?;
@@ -713,7 +707,6 @@ pub enum TypedExpressionList<'ast, T> {
         Vec<TypedExpression<'ast, T>>,
         Vec<Type<'ast, T>>,
     ),
-    Block(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>),
 }
 
 impl<'ast, T: Field> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
@@ -721,9 +714,22 @@ impl<'ast, T: Field> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
         match *self {
             TypedExpressionList::FunctionCall(_, _, _, ref types) => types.clone(),
             TypedExpressionList::EmbedCall(_, _, _, ref types) => types.clone(),
-            TypedExpressionList::Block(_, ref values) => {
-                values.iter().map(|v| v.get_type()).collect()
-            }
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+// a block expression which returns an `E`
+pub struct BlockExpression<'ast, T, E> {
+    pub statements: Vec<TypedStatement<'ast, T>>,
+    pub value: Box<E>,
+}
+
+impl<'ast, T, E> BlockExpression<'ast, T, E> {
+    pub fn new(statements: Vec<TypedStatement<'ast, T>>, value: E) -> Self {
+        BlockExpression {
+            statements,
+            value: box value,
         }
     }
 }
@@ -731,10 +737,7 @@ impl<'ast, T: Field> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
 /// An expression of type `field`
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub enum FieldElementExpression<'ast, T> {
-    Block(
-        Vec<TypedStatement<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Block(BlockExpression<'ast, T, Self>),
     Number(T),
     Identifier(Identifier<'ast>),
     Add(
@@ -925,7 +928,7 @@ impl<'ast, T: Clone> ArrayValue<'ast, T> {
             TypedExpressionOrSpread::Expression(e) => vec![Some(e.clone())],
             TypedExpressionOrSpread::Spread(s) => match s.array.size().into_inner() {
                 UExpressionInner::Value(size) => {
-                    let array_ty = s.array.get_array_type().clone();
+                    let array_ty = s.array.ty().clone();
 
                     match s.array.into_inner() {
                         ArrayExpressionInner::Value(v) => v
@@ -1036,7 +1039,7 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
         self.inner
     }
 
-    pub fn get_array_type(&self) -> ArrayType<'ast, T> {
+    pub fn ty(&self) -> ArrayType<'ast, T> {
         ArrayType {
             size: self.size(),
             ty: box self.inner_type().clone(),
@@ -1233,19 +1236,25 @@ impl<'ast, T> TryFrom<TypedConstant<'ast, T>> for IntExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for BlockExpression<'ast, T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{{\n{}\n}}",
+            self.statements
+                .iter()
+                .map(|s| s.to_string())
+                .chain(std::iter::once(self.value.to_string()))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
+}
+
 impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FieldElementExpression::Block(ref statements, ref value) => write!(
-                f,
-                "{{{}}}",
-                statements
-                    .iter()
-                    .map(|s| s.to_string())
-                    .chain(std::iter::once(value.to_string()))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            ),
+            FieldElementExpression::Block(ref block) => write!(f, "{}", block),
             FieldElementExpression::Number(ref i) => write!(f, "{}f", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
@@ -1542,22 +1551,6 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
                 }
                 write!(f, ")")
             }
-            TypedExpressionList::Block(ref statements, ref values) => write!(
-                f,
-                "{{{}}}",
-                statements
-                    .iter()
-                    .map(|s| s.to_string())
-                    .chain(std::iter::once(
-                        values
-                            .iter()
-                            .map(|v| v.to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            ),
         }
     }
 }
@@ -1676,7 +1669,7 @@ impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
 
 impl<'ast, T: Clone> Select<'ast, T> for TypedExpression<'ast, T> {
     fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
-        match *array.get_array_type().ty {
+        match *array.ty().ty {
             Type::Array(..) => ArrayExpression::select(array, index).into(),
             Type::Struct(..) => StructExpression::select(array, index).into(),
             Type::FieldElement => FieldElementExpression::select(array, index).into(),
@@ -1880,7 +1873,6 @@ pub trait Block<'ast, T> {
     fn block(
         statements: Vec<TypedStatement<'ast, T>>,
         value: Self,
-        output_type: Type<'ast, T>,
     ) -> Self;
 }
 
@@ -1888,10 +1880,8 @@ impl<'ast, T: Field> Block<'ast, T> for FieldElementExpression<'ast, T> {
     fn block(
         statements: Vec<TypedStatement<'ast, T>>,
         value: Self,
-        output_type: Type<'ast, T>,
     ) -> Self {
-        assert_eq!(output_type, Type::FieldElement);
-        FieldElementExpression::Block(statements, box value)
+        FieldElementExpression::Block(BlockExpression::new(statements, value))
     }
 }
 
@@ -1899,9 +1889,7 @@ impl<'ast, T: Field> Block<'ast, T> for BooleanExpression<'ast, T> {
     fn block(
         statements: Vec<TypedStatement<'ast, T>>,
         value: Self,
-        output_type: Type<'ast, T>,
     ) -> Self {
-        assert_eq!(output_type, Type::Boolean);
         BooleanExpression::Block(statements, box value)
     }
 }
@@ -1910,12 +1898,8 @@ impl<'ast, T: Field> Block<'ast, T> for UExpression<'ast, T> {
     fn block(
         statements: Vec<TypedStatement<'ast, T>>,
         value: Self,
-        output_type: Type<'ast, T>,
     ) -> Self {
-        let bitwidth = match output_type {
-            Type::Uint(bitwidth) => bitwidth,
-            _ => unreachable!(),
-        };
+        let bitwidth = value.bitwidth();
         UExpressionInner::Block(statements, box value).annotate(bitwidth)
     }
 }
@@ -1924,12 +1908,8 @@ impl<'ast, T: Field> Block<'ast, T> for ArrayExpression<'ast, T> {
     fn block(
         statements: Vec<TypedStatement<'ast, T>>,
         value: Self,
-        output_type: Type<'ast, T>,
     ) -> Self {
-        let array_ty = match output_type {
-            Type::Array(array_ty) => array_ty,
-            _ => unreachable!(),
-        };
+        let array_ty = value.ty();
         ArrayExpressionInner::Block(statements, box value).annotate(*array_ty.ty, array_ty.size)
     }
 }
@@ -1938,12 +1918,8 @@ impl<'ast, T: Field> Block<'ast, T> for StructExpression<'ast, T> {
     fn block(
         statements: Vec<TypedStatement<'ast, T>>,
         value: Self,
-        output_type: Type<'ast, T>,
     ) -> Self {
-        let struct_ty = match output_type {
-            Type::Struct(struct_ty) => struct_ty,
-            _ => unreachable!(),
-        };
+        let struct_ty = value.ty().clone();
 
         StructExpressionInner::Block(statements, box value).annotate(struct_ty)
     }

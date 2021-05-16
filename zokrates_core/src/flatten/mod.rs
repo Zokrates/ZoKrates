@@ -450,15 +450,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let condition_id = self.use_sym();
         statements_flattened.push(FlatStatement::Definition(condition_id, condition));
 
-        println!(
-            "BEFORE\n {}\n",
-            alternative_statements
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
-
         let consequence_statements =
             self.make_conditional(consequence_statements, condition_id.into());
         let alternative_statements = self.make_conditional(
@@ -467,15 +458,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 box FlatExpression::Number(T::one()),
                 box condition_id.into(),
             ),
-        );
-
-        println!(
-            "AFTER\n {}\n",
-            alternative_statements
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .join("\n")
         );
 
         statements_flattened.extend(consequence_statements);

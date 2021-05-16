@@ -1,0 +1,9 @@
+def throwing_bound(u32 x) -> u32:
+    assert(x == 1)
+	return 1
+
+// Even if the bound is constant at compile time, it can throw at runtime
+def main(u32 x):
+  for u32 i in 0..throwing_bound(x) do
+  endfor
+  return

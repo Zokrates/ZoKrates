@@ -19,7 +19,7 @@ impl BoundsChecker {
         let array = self.fold_array_expression(array)?;
         let index = self.fold_uint_expression(index)?;
 
-        match (array.get_array_type().size.as_inner(), index.as_inner()) {
+        match (array.ty().size.as_inner(), index.as_inner()) {
             (UExpressionInner::Value(size), UExpressionInner::Value(index)) => {
                 if index >= size {
                     return Err(format!(
@@ -53,7 +53,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for BoundsChecker {
                 let to = self.fold_uint_expression(to)?;
 
                 match (
-                    array.get_array_type().size.as_inner(),
+                    array.ty().size.as_inner(),
                     from.as_inner(),
                     to.as_inner(),
                 ) {

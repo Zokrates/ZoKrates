@@ -22,11 +22,11 @@ use crate::typed_absy::Folder;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, ArrayType, Block, BooleanExpression, CoreIdentifier,
-    DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier, StructExpression,
-    StructExpressionInner, Type, Typed, TypedExpression, TypedExpressionList, TypedFunction,
-    TypedFunctionSymbol, TypedModule, TypedProgram, TypedStatement, UExpression, UExpressionInner,
-    Variable,
+    ArrayExpression, ArrayExpressionInner, ArrayType, BlockExpression, BooleanExpression,
+    CoreIdentifier, DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier,
+    StructExpression, StructExpressionInner, StructType, Type, TypedExpression,
+    TypedExpressionList, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
+    TypedStatement, UBitwidth, UExpression, UExpressionInner, Variable,
 };
 
 use std::convert::{TryFrom, TryInto};
@@ -200,10 +200,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         output_type: Type<'ast, T>,
     ) -> Result<E, Error>
     where
-        E: Block<'ast, T>
-            + FunctionCall<'ast, T>
-            + TryFrom<TypedExpression<'ast, T>, Error = ()>
-            + std::fmt::Debug,
+        E: FunctionCall<'ast, T> + TryFrom<TypedExpression<'ast, T>, Error = ()> + std::fmt::Debug,
     {
         let generics = generics
             .into_iter()
@@ -227,11 +224,8 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         match res {
             Ok(Output::Complete((statements, mut expressions))) => {
                 self.complete &= true;
-                Ok(E::block(
-                    statements,
-                    expressions.pop().unwrap().try_into().unwrap(),
-                    output_type,
-                ))
+                self.statement_buffer.extend(statements);
+                Ok(expressions.pop().unwrap().try_into().unwrap())
             }
             Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                 self.complete = false;
@@ -279,6 +273,29 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
 
 impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     type Error = Error;
+
+    fn fold_block_expression<E: ResultFold<'ast, T>>(
+        &mut self,
+        b: BlockExpression<'ast, T, E>,
+    ) -> Result<BlockExpression<'ast, T, E>, Self::Error> {
+        // backup the statements and continue with a fresh state
+        let statement_buffer = std::mem::take(&mut self.statement_buffer);
+
+        let block = fold_block_expression(self, b)?;
+
+        // put the original statements back and extract the statements created by visiting the block
+        let extra_statements = std::mem::replace(&mut self.statement_buffer, statement_buffer);
+
+        // return the visited block, augmented with the statements created while visiting it
+        Ok(BlockExpression {
+            statements: block
+                .statements
+                .into_iter()
+                .chain(extra_statements)
+                .collect(),
+            ..block
+        })
+    }
 
     fn fold_statement(
         &mut self,
@@ -433,7 +450,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             s => fold_statement(self, s),
         };
 
-        res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
+        //res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
+        res
     }
 
     fn fold_boolean_expression(
@@ -448,18 +466,21 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         }
     }
 
-    fn fold_uint_expression(
+    fn fold_uint_expression_inner(
         &mut self,
-        e: UExpression<'ast, T>,
-    ) -> Result<UExpression<'ast, T>, Self::Error> {
-        match e.as_inner() {
-            UExpressionInner::FunctionCall(key, generics, arguments) => self.fold_function_call(
-                key.clone(),
-                generics.clone(),
-                arguments.clone(),
-                e.get_type(),
-            ),
-            _ => fold_uint_expression(self, e),
+        bitwidth: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
+        match e {
+            UExpressionInner::FunctionCall(key, generics, arguments) => self
+                .fold_function_call::<UExpression<'ast, T>>(
+                    key,
+                    generics,
+                    arguments,
+                    Type::Uint(bitwidth),
+                )
+                .map(|e| e.into_inner()),
+            e => fold_uint_expression_inner(self, bitwidth, e),
         }
     }
 
@@ -477,7 +498,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: &ArrayType<'ast, T>,
+        array_ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
@@ -486,7 +507,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     key.clone(),
                     generics,
                     arguments.clone(),
-                    Type::array(ty.clone()),
+                    Type::array(array_ty.clone()),
                 )
                 .map(|e| e.into_inner()),
             ArrayExpressionInner::Slice(box array, box from, box to) => {
@@ -504,23 +525,25 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                 }
             }
-            _ => fold_array_expression_inner(self, &ty, e),
+            _ => fold_array_expression_inner(self, &array_ty, e),
         }
     }
 
-    fn fold_struct_expression(
+    fn fold_struct_expression_inner(
         &mut self,
-        e: StructExpression<'ast, T>,
-    ) -> Result<StructExpression<'ast, T>, Self::Error> {
-        match e.as_inner() {
+        struct_ty: &StructType<'ast, T>,
+        e: StructExpressionInner<'ast, T>,
+    ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
+        match e {
             StructExpressionInner::FunctionCall(key, generics, arguments) => self
-                .fold_function_call(
-                    key.clone(),
-                    generics.clone(),
-                    arguments.clone(),
-                    e.get_type(),
-                ),
-            _ => fold_struct_expression(self, e),
+                .fold_function_call::<StructExpression<'ast, T>>(
+                    key,
+                    generics,
+                    arguments,
+                    Type::Struct(struct_ty.clone()),
+                )
+                .map(|e| e.into_inner()),
+            _ => fold_struct_expression_inner(self, struct_ty, e),
         }
     }
 }
@@ -597,7 +620,14 @@ fn reduce_function<'ast, T: Field>(
                     statements: f
                         .statements
                         .into_iter()
-                        .map(|s| reducer.fold_statement(s))
+                        .map(|s| {
+                            let res = reducer.fold_statement(s)?;
+                            Ok(reducer
+                                .statement_buffer
+                                .drain(..)
+                                .chain(res)
+                                .collect::<Vec<_>>())
+                        })
                         .collect::<Result<Vec<_>, _>>()?
                         .into_iter()
                         .flatten()

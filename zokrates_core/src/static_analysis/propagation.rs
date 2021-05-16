@@ -147,7 +147,15 @@ fn is_constant<T: Field>(e: &TypedExpression<T>) -> bool {
             StructExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
             _ => false,
         },
-        TypedExpression::Uint(a) => matches!(a.as_inner(), UExpressionInner::Value(..)),
+        TypedExpression::Uint(a) => {
+            matches!(a.as_inner(), UExpressionInner::Value(..))
+                || match a.as_inner() {
+                    UExpressionInner::Block(_, e) => {
+                        is_constant(&TypedExpression::from(*e.clone()))
+                    }
+                    _ => false,
+                }
+        }
         _ => false,
     }
 }
@@ -167,7 +175,7 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
 
     match e {
         TypedExpression::Array(a) => {
-            let array_ty = a.get_array_type();
+            let array_ty = a.ty();
 
             match a.into_inner() {
                 ArrayExpressionInner::Value(v) => ArrayExpressionInner::Value(
@@ -353,8 +361,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 let expression_list = self.fold_expression_list(expression_list)?;
 
                 match expression_list {
-                    l @ TypedExpressionList::Block(..) => fold_expression_list(self, l)
-                        .map(|l| vec![TypedStatement::MultipleDefinition(assignees, l)]),
                     TypedExpressionList::EmbedCall(embed, generics, arguments, types) => {
                         let arguments: Vec<_> = arguments
                             .into_iter()

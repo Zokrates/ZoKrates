@@ -1,0 +1,33 @@
+{
+    "entry_point": "./tests/tests/panics/loop_bound.zok",
+    "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+	"tests": [
+        {
+            "input": {
+                "values": [
+                    "0"
+                ]
+            },
+            "output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "0",
+						"right": "1"
+					}
+				}
+            }
+        },
+        {
+            "input": {
+                "values": [
+                    "1"
+                ]
+            },
+            "output": {
+				"Ok": {
+					"values": [] 
+				}
+            }
+        }
+    ]
+}

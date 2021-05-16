@@ -4,6 +4,16 @@ use crate::typed_absy::types::{ArrayType, StructMember, StructType};
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
+pub trait Fold<'ast, T: Field>: Sized {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self;
+}
+
+impl<'ast, T: Field> Fold<'ast, T> for FieldElementExpression<'ast, T> {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+        f.fold_field_expression(self)
+    }
+}
+
 pub trait Folder<'ast, T: Field>: Sized {
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         fold_program(self, p)
@@ -135,6 +145,13 @@ pub trait Folder<'ast, T: Field>: Sized {
             TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
             TypedExpression::Int(e) => self.fold_int_expression(e).into(),
         }
+    }
+
+    fn fold_block_expression<E: Fold<'ast, T>>(
+        &mut self,
+        block: BlockExpression<'ast, T, E>,
+    ) -> BlockExpression<'ast, T, E> {
+        fold_block_expression(self, block)
     }
 
     fn fold_array_expression(&mut self, e: ArrayExpression<'ast, T>) -> ArrayExpression<'ast, T> {
@@ -358,13 +375,9 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: FieldElementExpression<'ast, T>,
 ) -> FieldElementExpression<'ast, T> {
     match e {
-        FieldElementExpression::Block(statements, box value) => FieldElementExpression::Block(
-            statements
-                .into_iter()
-                .flat_map(|s| f.fold_statement(s))
-                .collect(),
-            box f.fold_field_expression(value),
-        ),
+        FieldElementExpression::Block(block) => {
+            FieldElementExpression::Block(f.fold_block_expression(block))
+        }
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
             FieldElementExpression::Identifier(f.fold_name(id))
@@ -688,6 +701,20 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
+pub fn fold_block_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T>>(
+    f: &mut F,
+    block: BlockExpression<'ast, T, E>,
+) -> BlockExpression<'ast, T, E> {
+    BlockExpression {
+        statements: block
+            .statements
+            .into_iter()
+            .flat_map(|s| f.fold_statement(s))
+            .collect(),
+        value: box block.value.fold(f),
+    }
+}
+
 pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     fun: TypedFunction<'ast, T>,
@@ -749,13 +776,6 @@ pub fn fold_expression_list<'ast, T: Field, F: Folder<'ast, T>>(
                 types.into_iter().map(|t| f.fold_type(t)).collect(),
             )
         }
-        TypedExpressionList::Block(statements, values) => TypedExpressionList::Block(
-            statements
-                .into_iter()
-                .flat_map(|s| f.fold_statement(s))
-                .collect(),
-            values.into_iter().map(|v| f.fold_expression(v)).collect(),
-        ),
     }
 }
 

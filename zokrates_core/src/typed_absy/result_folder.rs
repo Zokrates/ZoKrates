@@ -4,6 +4,16 @@ use crate::typed_absy::types::{ArrayType, StructMember, StructType};
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
+pub trait ResultFold<'ast, T: Field>: Sized {
+    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error>;
+}
+
+impl<'ast, T: Field> ResultFold<'ast, T> for FieldElementExpression<'ast, T> {
+    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+        f.fold_field_expression(self)
+    }
+}
+
 pub trait ResultFolder<'ast, T: Field>: Sized {
     type Error;
 
@@ -88,6 +98,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
             Struct(struct_type) => Ok(Struct(self.fold_struct_type(struct_type)?)),
             t => Ok(t),
         }
+    }
+
+    fn fold_block_expression<E: ResultFold<'ast, T>>(
+        &mut self,
+        block: BlockExpression<'ast, T, E>,
+    ) -> Result<BlockExpression<'ast, T, E>, Self::Error> {
+        fold_block_expression(self, block)
     }
 
     fn fold_array_type(
@@ -418,14 +435,9 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     e: FieldElementExpression<'ast, T>,
 ) -> Result<FieldElementExpression<'ast, T>, F::Error> {
     let e = match e {
-        FieldElementExpression::Block(statements, box value) => FieldElementExpression::Block(
-            statements
-                .into_iter()
-                .map(|s| f.fold_statement(s))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|r| r.into_iter().flatten().collect())?,
-            box f.fold_field_expression(value)?,
-        ),
+        FieldElementExpression::Block(block) => {
+            FieldElementExpression::Block(f.fold_block_expression(block)?)
+        }
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
             FieldElementExpression::Identifier(f.fold_name(id)?)
@@ -500,6 +512,23 @@ pub fn fold_int_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     _: IntExpression<'ast, T>,
 ) -> Result<IntExpression<'ast, T>, F::Error> {
     unreachable!()
+}
+
+pub fn fold_block_expression<'ast, T: Field, E: ResultFold<'ast, T>, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    block: BlockExpression<'ast, T, E>,
+) -> Result<BlockExpression<'ast, T, E>, F::Error> {
+    Ok(BlockExpression {
+        statements: block
+            .statements
+            .into_iter()
+            .map(|s| f.fold_statement(s))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect(),
+        value: box block.value.fold(f)?,
+    })
 }
 
 pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
@@ -834,17 +863,6 @@ pub fn fold_expression_list<'ast, T: Field, F: ResultFolder<'ast, T>>(
                     .collect::<Result<_, _>>()?,
             ))
         }
-        TypedExpressionList::Block(statements, values) => Ok(TypedExpressionList::Block(
-            statements
-                .into_iter()
-                .map(|s| f.fold_statement(s))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|v| v.into_iter().flatten().collect())?,
-            values
-                .into_iter()
-                .map(|v| f.fold_expression(v))
-                .collect::<Result<_, _>>()?,
-        )),
     }
 }
 
