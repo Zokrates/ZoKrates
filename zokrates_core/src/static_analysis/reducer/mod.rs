@@ -450,8 +450,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             s => fold_statement(self, s),
         };
 
-        //res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
-        res
+        res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
     }
 
     fn fold_boolean_expression(

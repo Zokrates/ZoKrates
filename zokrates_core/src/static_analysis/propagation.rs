@@ -147,15 +147,7 @@ fn is_constant<T: Field>(e: &TypedExpression<T>) -> bool {
             StructExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
             _ => false,
         },
-        TypedExpression::Uint(a) => {
-            matches!(a.as_inner(), UExpressionInner::Value(..))
-                || match a.as_inner() {
-                    UExpressionInner::Block(block) => {
-                        is_constant(&TypedExpression::from(*block.value.clone()))
-                    }
-                    _ => false,
-                }
-        }
+        TypedExpression::Uint(a) => matches!(a.as_inner(), UExpressionInner::Value(..)),
         _ => false,
     }
 }
@@ -360,7 +352,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     .collect::<Result<_, _>>()?;
                 let expression_list = self.fold_expression_list(expression_list)?;
 
-                match expression_list {
+                let statements = match expression_list {
                     TypedExpressionList::EmbedCall(embed, generics, arguments, types) => {
                         let arguments: Vec<_> = arguments
                             .into_iter()
@@ -552,16 +544,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                         match assignees.pop().unwrap() {
                                             TypedAssignee::Identifier(var) => {
                                                 self.constants.insert(var.id, expr);
-                                                Ok(vec![])
+                                                vec![]
                                             }
                                             assignee => {
                                                 match self.try_get_constant_mut(&assignee) {
                                                     Ok((_, c)) => {
                                                         *c = expr;
-                                                        Ok(vec![])
+                                                        vec![]
                                                     }
                                                     Err(v) => match self.constants.remove(&v.id) {
-                                                        Some(c) => Ok(vec![
+                                                        Some(c) => vec![
                                                             TypedStatement::Definition(
                                                                 v.clone().into(),
                                                                 c,
@@ -569,12 +561,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                             TypedStatement::Definition(
                                                                 assignee, expr,
                                                             ),
-                                                        ]),
-                                                        None => {
-                                                            Ok(vec![TypedStatement::Definition(
-                                                                assignee, expr,
-                                                            )])
-                                                        }
+                                                        ],
+                                                        None => vec![TypedStatement::Definition(
+                                                            assignee, expr,
+                                                        )],
                                                     },
                                                 }
                                             }
@@ -593,7 +583,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                             .unwrap_or_else(|v| v);
 
                                         match self.constants.remove(&v.id) {
-                                            Some(c) => Ok(vec![
+                                            Some(c) => vec![
                                                 TypedStatement::Definition(v.clone().into(), c),
                                                 TypedStatement::MultipleDefinition(
                                                     vec![assignee],
@@ -601,13 +591,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                         embed, generics, arguments, types,
                                                     ),
                                                 ),
-                                            ]),
-                                            None => Ok(vec![TypedStatement::MultipleDefinition(
+                                            ],
+                                            None => vec![TypedStatement::MultipleDefinition(
                                                 vec![assignee],
                                                 TypedExpressionList::EmbedCall(
                                                     embed, generics, arguments, types,
                                                 ),
-                                            )]),
+                                            )],
                                         }
                                     }
                                 }
@@ -636,7 +626,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     }
                                 });
 
-                                Ok(invalidations.chain(std::iter::once(def)).collect())
+                                invalidations.chain(std::iter::once(def)).collect()
                             }
                         }
                     }
@@ -676,9 +666,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             }
                         });
 
-                        Ok(invalidations.chain(std::iter::once(def)).collect())
+                        invalidations.chain(std::iter::once(def)).collect()
                     }
-                }
+                };
+
+                Ok(statements)
             }
             TypedStatement::Assertion(e) => {
                 let e_str = e.to_string();

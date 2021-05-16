@@ -489,7 +489,13 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
-            TypedStatement::For(..) => unreachable!("fmt_indented should be called instead"),
+            TypedStatement::For(ref var, ref start, ref stop, ref list) => {
+                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
+                for l in list {
+                    writeln!(f, "\t\t{}", l)?;
+                }
+                write!(f, "\tendfor")
+            }
             TypedStatement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
                     write!(f, "{}", id)?;
@@ -681,7 +687,7 @@ impl<'ast, T: Clone> Typed<'ast, T> for BooleanExpression<'ast, T> {
 }
 
 pub trait MultiTyped<'ast, T> {
-    fn get_types(&self) -> Vec<Type<'ast, T>>;
+    fn get_types(&self) -> &Vec<Type<'ast, T>>;
 }
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
@@ -700,11 +706,11 @@ pub enum TypedExpressionList<'ast, T> {
     ),
 }
 
-impl<'ast, T: Field> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
-    fn get_types(&self) -> Vec<Type<'ast, T>> {
+impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
+    fn get_types(&self) -> &Vec<Type<'ast, T>> {
         match *self {
-            TypedExpressionList::FunctionCall(_, _, _, ref types) => types.clone(),
-            TypedExpressionList::EmbedCall(_, _, _, ref types) => types.clone(),
+            TypedExpressionList::FunctionCall(_, _, _, ref types) => types,
+            TypedExpressionList::EmbedCall(_, _, _, ref types) => types,
         }
     }
 }
