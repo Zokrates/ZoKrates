@@ -2177,25 +2177,34 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             ZirStatement::IfElse(condition, consequence, alternative) => {
                 let condition = self.flatten_boolean_expression(statements_flattened, condition);
 
-                let mut consequence_statements = vec![];
-                let mut alternative_statements = vec![];
+                if self.config.isolate_branches {
+                    let mut consequence_statements = vec![];
+                    let mut alternative_statements = vec![];
 
-                consequence
-                    .into_iter()
-                    .for_each(|s| self.flatten_statement(&mut consequence_statements, s));
-                alternative
-                    .into_iter()
-                    .for_each(|s| self.flatten_statement(&mut alternative_statements, s));
+                    consequence
+                        .into_iter()
+                        .for_each(|s| self.flatten_statement(&mut consequence_statements, s));
+                    alternative
+                        .into_iter()
+                        .for_each(|s| self.flatten_statement(&mut alternative_statements, s));
 
-                let consequence_statements =
-                    self.make_conditional(consequence_statements, condition.clone());
-                let alternative_statements = self.make_conditional(
-                    alternative_statements,
-                    FlatExpression::Sub(box FlatExpression::Number(T::one()), box condition),
-                );
+                    let consequence_statements =
+                        self.make_conditional(consequence_statements, condition.clone());
+                    let alternative_statements = self.make_conditional(
+                        alternative_statements,
+                        FlatExpression::Sub(box FlatExpression::Number(T::one()), box condition),
+                    );
 
-                statements_flattened.extend(consequence_statements);
-                statements_flattened.extend(alternative_statements);
+                    statements_flattened.extend(consequence_statements);
+                    statements_flattened.extend(alternative_statements);
+                } else {
+                    consequence
+                        .into_iter()
+                        .for_each(|s| self.flatten_statement(statements_flattened, s));
+                    alternative
+                        .into_iter()
+                        .for_each(|s| self.flatten_statement(statements_flattened, s));
+                }
             }
             ZirStatement::Definition(assignee, expr) => {
                 // define n variables with n the number of primitive types for v_type
