@@ -1,4 +1,4 @@
-use crate::typed_absy::{OwnedTypedModuleId, UExpression, UExpressionInner};
+use crate::typed_absy::{Identifier, OwnedTypedModuleId, UExpression, UExpressionInner};
 use crate::typed_absy::{TryFrom, TryInto};
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
@@ -54,6 +54,7 @@ pub struct SpecializationError;
 pub enum Constant<'ast> {
     Generic(GenericIdentifier<'ast>),
     Concrete(u32),
+    Identifier(&'ast str, usize),
 }
 
 impl<'ast> From<u32> for Constant<'ast> {
@@ -79,6 +80,7 @@ impl<'ast> fmt::Display for Constant<'ast> {
         match self {
             Constant::Generic(i) => write!(f, "{}", i),
             Constant::Concrete(v) => write!(f, "{}", v),
+            Constant::Identifier(v, _) => write!(f, "{}", v),
         }
     }
 }
@@ -96,6 +98,9 @@ impl<'ast, T> From<Constant<'ast>> for UExpression<'ast, T> {
                 UExpressionInner::Identifier(i.name.into()).annotate(UBitwidth::B32)
             }
             Constant::Concrete(v) => UExpressionInner::Value(v as u128).annotate(UBitwidth::B32),
+            Constant::Identifier(v, size) => {
+                UExpressionInner::Identifier(Identifier::from(v)).annotate(UBitwidth::from(size))
+            }
         }
     }
 }
@@ -920,6 +925,7 @@ pub mod signature {
                             }
                         },
                         Constant::Concrete(s0) => s1 == *s0 as usize,
+                        Constant::Identifier(_, s0) => s1 == *s0,
                     }
             }
             (DeclarationType::FieldElement, GType::FieldElement)
@@ -945,6 +951,7 @@ pub mod signature {
                 let size = match t0.size {
                     Constant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
                     Constant::Concrete(s) => Ok(s.into()),
+                    Constant::Identifier(_, s) => Ok((s as u32).into()),
                 }?;
 
                 GType::Array(GArrayType { size, ty })

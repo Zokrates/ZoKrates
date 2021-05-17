@@ -290,8 +290,8 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedConstant<'ast, T> {
-    ty: Type<'ast, T>,
-    expression: TypedExpression<'ast, T>,
+    pub ty: Type<'ast, T>,
+    pub expression: TypedExpression<'ast, T>,
 }
 
 impl<'ast, T> TypedConstant<'ast, T> {
