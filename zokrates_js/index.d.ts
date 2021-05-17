@@ -11,7 +11,8 @@ declare module 'zokrates-js' {
   export type ResolveCallback = (location: string, path: string) => ResolverResult;
 
    export interface CompileConfig {
-      allow_unconstrained_variables?: boolean
+      allow_unconstrained_variables?: boolean,
+      isolate_branches?: boolean
    }
 
   export interface CompileOptions {
