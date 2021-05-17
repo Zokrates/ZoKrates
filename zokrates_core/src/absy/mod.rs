@@ -76,57 +76,16 @@ impl<'ast> fmt::Display for SymbolIdentifier<'ast> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MainImport<'ast> {
+pub struct CanonicalImport<'ast> {
     pub source: &'ast Path,
-    pub alias: Option<Identifier<'ast>>,
+    pub id: SymbolIdentifier<'ast>,
 }
 
-pub type MainImportNode<'ast> = Node<MainImport<'ast>>;
+pub type CanonicalImportNode<'ast> = Node<CanonicalImport<'ast>>;
 
-impl<'ast> fmt::Display for MainImport<'ast> {
+impl<'ast> fmt::Display for CanonicalImport<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.alias {
-            Some(ref alias) => write!(f, "import \"{}\" as {}", self.source.display(), alias),
-            None => write!(f, "import \"{}\"", self.source.display()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FromImport<'ast> {
-    pub source: &'ast Path,
-    pub symbols: Vec<SymbolIdentifier<'ast>>,
-}
-
-pub type FromImportNode<'ast> = Node<FromImport<'ast>>;
-
-impl<'ast> fmt::Display for FromImport<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "from \"{}\" import {}",
-            self.source.display(),
-            self.symbols
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ImportDirective<'ast> {
-    Main(MainImportNode<'ast>),
-    From(FromImportNode<'ast>),
-}
-
-impl<'ast> fmt::Display for ImportDirective<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ImportDirective::Main(main) => write!(f, "{}", main),
-            ImportDirective::From(from) => write!(f, "{}", from),
-        }
+        write!(f, "from \"{}\" import {}", self.source.display(), self.id)
     }
 }
 
@@ -164,14 +123,14 @@ impl<'ast> fmt::Display for SymbolImport<'ast> {
 /// A declaration of a symbol
 #[derive(Debug, PartialEq, Clone)]
 pub struct SymbolDeclaration<'ast> {
-    pub id: Option<Identifier<'ast>>,
+    pub id: Identifier<'ast>,
     pub symbol: Symbol<'ast>,
 }
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum SymbolDefinition<'ast> {
-    Import(ImportDirective<'ast>),
+    Import(CanonicalImportNode<'ast>),
     Struct(StructDefinitionNode<'ast>),
     Constant(ConstantDefinitionNode<'ast>),
     Function(FunctionNode<'ast>),
@@ -189,26 +148,19 @@ impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
         match &self.symbol {
             Symbol::Here(ref symbol) => match symbol {
                 SymbolDefinition::Import(ref i) => write!(f, "{}", i),
-                SymbolDefinition::Struct(ref t) => write!(f, "struct {} {}", self.id.unwrap(), t),
+                SymbolDefinition::Struct(ref t) => write!(f, "struct {} {}", self.id, t),
                 SymbolDefinition::Constant(ref c) => write!(
                     f,
                     "const {} {} = {}",
-                    c.value.ty,
-                    self.id.unwrap(),
-                    c.value.expression
+                    c.value.ty, self.id, c.value.expression
                 ),
                 SymbolDefinition::Function(ref func) => {
-                    write!(f, "def {}{}", self.id.unwrap(), func)
+                    write!(f, "def {}{}", self.id, func)
                 }
             },
             Symbol::There(ref i) => write!(f, "{}", i),
             Symbol::Flat(ref flat_fun) => {
-                write!(
-                    f,
-                    "def {}{}:\n\t// hidden",
-                    self.id.unwrap(),
-                    flat_fun.signature()
-                )
+                write!(f, "def {}{}:\n\t// hidden", self.id, flat_fun.signature())
             }
         }
     }
@@ -283,40 +235,6 @@ impl<'ast> fmt::Display for ConstantDefinition<'ast> {
         write!(f, "const {}({})", self.ty, self.expression)
     }
 }
-
-// /// An import
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct SymbolImport<'ast> {
-//     /// the id of the symbol in the target module. Note: there may be many candidates as imports statements do not specify the signature. In that case they must all be functions however.
-//     pub symbol_id: Identifier<'ast>,
-//     /// the id of the module to import from
-//     pub module_id: OwnedModuleId,
-// }
-//
-// type SymbolImportNode<'ast> = Node<SymbolImport<'ast>>;
-//
-// impl<'ast> SymbolImport<'ast> {
-//     pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<OwnedModuleId>>(
-//         symbol_id: S,
-//         module_id: U,
-//     ) -> Self {
-//         SymbolImport {
-//             symbol_id: symbol_id.into(),
-//             module_id: module_id.into(),
-//         }
-//     }
-// }
-//
-// impl<'ast> fmt::Display for SymbolImport<'ast> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(
-//             f,
-//             "from {} import {}",
-//             self.module_id.display().to_string(),
-//             self.symbol_id,
-//         )
-//     }
-// }
 
 impl<'ast> fmt::Display for Module<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
