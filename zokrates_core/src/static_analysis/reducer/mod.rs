@@ -316,7 +316,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     .map(|a| self.fold_expression(a))
                     .collect::<Result<_, _>>()?;
 
-                // multidef inlined calls do not need to be put into a block, because they are always executed
                 match inline_call(
                     key,
                     generics,
