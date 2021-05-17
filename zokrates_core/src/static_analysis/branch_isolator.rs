@@ -25,8 +25,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
             FieldElementExpression::IfElse(box condition, box consequence, box alternative) => {
                 FieldElementExpression::IfElse(
                     box self.fold_boolean_expression(condition),
-                    box FieldElementExpression::block(vec![], consequence),
-                    box FieldElementExpression::block(vec![], alternative),
+                    box FieldElementExpression::block(vec![], consequence.fold(self)),
+                    box FieldElementExpression::block(vec![], alternative.fold(self)),
                 )
             }
             e => fold_field_expression(self, e),
@@ -41,8 +41,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
             BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
                 BooleanExpression::IfElse(
                     box self.fold_boolean_expression(condition),
-                    box BooleanExpression::block(vec![], consequence),
-                    box BooleanExpression::block(vec![], alternative),
+                    box BooleanExpression::block(vec![], consequence.fold(self)),
+                    box BooleanExpression::block(vec![], alternative.fold(self)),
                 )
             }
             e => fold_boolean_expression(self, e),
@@ -58,8 +58,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
             UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 UExpressionInner::IfElse(
                     box self.fold_boolean_expression(condition),
-                    box UExpression::block(vec![], consequence),
-                    box UExpression::block(vec![], alternative),
+                    box UExpression::block(vec![], consequence.fold(self)),
+                    box UExpression::block(vec![], alternative.fold(self)),
                 )
             }
             e => fold_uint_expression_inner(self, bitwidth, e),
@@ -75,8 +75,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
             ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 ArrayExpressionInner::IfElse(
                     box self.fold_boolean_expression(condition),
-                    box ArrayExpression::block(vec![], consequence),
-                    box ArrayExpression::block(vec![], alternative),
+                    box ArrayExpression::block(vec![], consequence.fold(self)),
+                    box ArrayExpression::block(vec![], alternative.fold(self)),
                 )
             }
             e => fold_array_expression_inner(self, array_ty, e),
@@ -92,8 +92,8 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
             StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 StructExpressionInner::IfElse(
                     box self.fold_boolean_expression(condition),
-                    box StructExpression::block(vec![], consequence),
-                    box StructExpression::block(vec![], alternative),
+                    box StructExpression::block(vec![], consequence.fold(self)),
+                    box StructExpression::block(vec![], alternative.fold(self)),
                 )
             }
             e => fold_struct_expression_inner(self, struct_ty, e),
