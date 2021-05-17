@@ -1,0 +1,4 @@
+const u8 SIZE = 0x02
+
+def main(field[SIZE] n):
+    return

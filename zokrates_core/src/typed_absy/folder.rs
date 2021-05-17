@@ -65,8 +65,19 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_function_symbol(self, s)
     }
 
+    fn fold_declaration_function_key(
+        &mut self,
+        key: DeclarationFunctionKey<'ast>,
+    ) -> DeclarationFunctionKey<'ast> {
+        fold_declaration_function_key(self, key)
+    }
+
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         fold_function(self, f)
+    }
+
+    fn fold_signature(&mut self, s: DeclarationSignature<'ast>) -> DeclarationSignature<'ast> {
+        fold_signature(self, s)
     }
 
     fn fold_parameter(&mut self, p: DeclarationParameter<'ast>) -> DeclarationParameter<'ast> {
@@ -231,6 +242,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> ArrayExpressionInner<'ast, T> {
         fold_array_expression_inner(self, ty, e)
     }
+
     fn fold_struct_expression_inner(
         &mut self,
         ty: &StructType<'ast, T>,
@@ -253,7 +265,12 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
         functions: m
             .functions
             .into_iter()
-            .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
+            .map(|(key, fun)| {
+                (
+                    f.fold_declaration_function_key(key),
+                    f.fold_function_symbol(fun),
+                )
+            })
             .collect(),
     }
 }
@@ -719,6 +736,16 @@ pub fn fold_block_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T
     }
 }
 
+pub fn fold_declaration_function_key<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    key: DeclarationFunctionKey<'ast>,
+) -> DeclarationFunctionKey<'ast> {
+    DeclarationFunctionKey {
+        signature: f.fold_signature(key.signature),
+        ..key
+    }
+}
+
 pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     fun: TypedFunction<'ast, T>,
@@ -734,7 +761,26 @@ pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        ..fun
+        signature: f.fold_signature(fun.signature),
+    }
+}
+
+fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: DeclarationSignature<'ast>,
+) -> DeclarationSignature<'ast> {
+    DeclarationSignature {
+        generics: s.generics,
+        inputs: s
+            .inputs
+            .into_iter()
+            .map(|o| f.fold_declaration_type(o))
+            .collect(),
+        outputs: s
+            .outputs
+            .into_iter()
+            .map(|o| f.fold_declaration_type(o))
+            .collect(),
     }
 }
 
@@ -787,9 +833,10 @@ pub fn fold_struct_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: StructExpression<'ast, T>,
 ) -> StructExpression<'ast, T> {
+    let ty = f.fold_struct_type(e.ty);
     StructExpression {
-        inner: f.fold_struct_expression_inner(&e.ty, e.inner),
-        ..e
+        inner: f.fold_struct_expression_inner(&ty, e.inner),
+        ty,
     }
 }
 

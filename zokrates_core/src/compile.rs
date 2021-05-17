@@ -290,7 +290,7 @@ mod test {
         assert!(res.unwrap_err().0[0]
             .value()
             .to_string()
-            .contains(&"Can't resolve import without a resolver"));
+            .contains(&"Cannot resolve import without a resolver"));
     }
 
     #[test]
