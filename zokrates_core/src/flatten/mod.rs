@@ -439,29 +439,38 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatUExpression<T> {
         let condition = self.flatten_boolean_expression(statements_flattened, condition);
 
-        let mut consequence_statements = vec![];
-
-        let consequence = consequence.flatten(self, &mut consequence_statements);
-
-        let mut alternative_statements = vec![];
-
-        let alternative = alternative.flatten(self, &mut alternative_statements);
-
         let condition_id = self.use_sym();
         statements_flattened.push(FlatStatement::Definition(condition_id, condition));
 
-        let consequence_statements =
-            self.make_conditional(consequence_statements, condition_id.into());
-        let alternative_statements = self.make_conditional(
-            alternative_statements,
-            FlatExpression::Sub(
-                box FlatExpression::Number(T::one()),
-                box condition_id.into(),
-            ),
-        );
+        let (consequence, alternative) = if self.config.isolate_branches {
+            let mut consequence_statements = vec![];
 
-        statements_flattened.extend(consequence_statements);
-        statements_flattened.extend(alternative_statements);
+            let consequence = consequence.flatten(self, &mut consequence_statements);
+
+            let mut alternative_statements = vec![];
+
+            let alternative = alternative.flatten(self, &mut alternative_statements);
+
+            let consequence_statements =
+                self.make_conditional(consequence_statements, condition_id.into());
+            let alternative_statements = self.make_conditional(
+                alternative_statements,
+                FlatExpression::Sub(
+                    box FlatExpression::Number(T::one()),
+                    box condition_id.into(),
+                ),
+            );
+
+            statements_flattened.extend(consequence_statements);
+            statements_flattened.extend(alternative_statements);
+
+            (consequence, alternative)
+        } else {
+            (
+                consequence.flatten(self, statements_flattened),
+                alternative.flatten(self, statements_flattened),
+            )
+        };
 
         let consequence = consequence.flat();
         let alternative = alternative.flat();
