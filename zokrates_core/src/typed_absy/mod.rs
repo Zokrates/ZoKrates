@@ -714,9 +714,7 @@ impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
         }
     }
 }
-
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
-// a block expression which returns an `E`
 pub struct BlockExpression<'ast, T, E> {
     pub statements: Vec<TypedStatement<'ast, T>>,
     pub value: Box<E>,
