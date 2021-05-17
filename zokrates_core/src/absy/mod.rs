@@ -92,13 +92,13 @@ impl<'ast> fmt::Display for CanonicalImport<'ast> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SymbolImport<'ast> {
     pub module_id: OwnedModuleId,
-    pub symbol_id: SymbolIdentifier<'ast>,
+    pub symbol_id: Identifier<'ast>,
 }
 
 pub type SymbolImportNode<'ast> = Node<SymbolImport<'ast>>;
 
 impl<'ast> SymbolImport<'ast> {
-    pub fn with_id_in_module<S: Into<SymbolIdentifier<'ast>>, U: Into<OwnedModuleId>>(
+    pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<OwnedModuleId>>(
         symbol_id: S,
         module_id: U,
     ) -> Self {
@@ -147,7 +147,12 @@ impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.symbol {
             Symbol::Here(ref symbol) => match symbol {
-                SymbolDefinition::Import(ref i) => write!(f, "{}", i),
+                SymbolDefinition::Import(ref i) => write!(
+                    f,
+                    "from \"{}\" import {}",
+                    i.value.source.display(),
+                    i.value.id
+                ),
                 SymbolDefinition::Struct(ref t) => write!(f, "struct {} {}", self.id, t),
                 SymbolDefinition::Constant(ref c) => write!(
                     f,
@@ -158,7 +163,13 @@ impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
                     write!(f, "def {}{}", self.id, func)
                 }
             },
-            Symbol::There(ref i) => write!(f, "{}", i),
+            Symbol::There(ref i) => write!(
+                f,
+                "from \"{}\" import {} as {}",
+                i.value.module_id.display(),
+                i.value.symbol_id,
+                self.id
+            ),
             Symbol::Flat(ref flat_fun) => {
                 write!(f, "def {}{}:\n\t// hidden", self.id, flat_fun.signature())
             }

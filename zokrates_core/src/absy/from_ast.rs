@@ -25,15 +25,16 @@ fn import_directive_to_symbol_vec(
             let span = import.span;
             let source = Path::new(import.source.span.as_str());
             let id = "main";
+            let alias = import.alias.map(|a| a.span.as_str());
 
             let import = absy::CanonicalImport {
                 source,
-                id: absy::SymbolIdentifier::from(id).alias(import.alias.map(|a| a.span.as_str())),
+                id: absy::SymbolIdentifier::from(id).alias(alias),
             }
             .span(span.clone());
 
             vec![absy::SymbolDeclaration {
-                id,
+                id: alias.unwrap_or(id),
                 symbol: absy::Symbol::Here(absy::SymbolDefinition::Import(import)),
             }
             .span(span.clone())]

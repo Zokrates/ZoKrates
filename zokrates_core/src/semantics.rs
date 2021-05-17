@@ -572,8 +572,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match Checker::new().check_module(&import.module_id, state) {
                     Ok(()) => {
-                        let symbol_id = import.symbol_id.get_alias();
-
                         // find candidates in the checked module
                         let function_candidates: Vec<_> = state
                             .typed_modules
@@ -581,10 +579,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .unwrap()
                             .functions
                             .iter()
-                            .filter(|(k, _)| k.id == symbol_id)
+                            .filter(|(k, _)| k.id == import.symbol_id)
                             .map(|(_, v)| DeclarationFunctionKey {
                                 module: import.module_id.to_path_buf(),
-                                id: symbol_id,
+                                id: import.symbol_id,
                                 signature: v.signature(&state.typed_modules).clone(),
                             })
                             .collect();
@@ -594,7 +592,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .types
                             .entry(import.module_id.to_path_buf())
                             .or_default()
-                            .get(symbol_id)
+                            .get(import.symbol_id)
                             .cloned();
 
                         // find constant definition candidate
@@ -602,7 +600,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .constants
                             .entry(import.module_id.to_path_buf())
                             .or_default()
-                            .get(symbol_id)
+                            .get(import.symbol_id)
                             .cloned();
 
                         match (function_candidates.len(), type_candidate, const_candidate) {
@@ -655,7 +653,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             }});
                                     }
                                     true => {
-                                        constants.insert(declaration.id, TypedConstantSymbol::There(import.module_id.to_path_buf(), symbol_id));
+                                        constants.insert(declaration.id, TypedConstantSymbol::There(import.module_id.to_path_buf(), import.symbol_id));
                                         self.insert_into_scope(Variable::with_id_and_type(declaration.id, ty.clone()));
 
                                         state
@@ -671,7 +669,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     pos: Some(pos),
                                     message: format!(
                                         "Could not find symbol {} in module {}",
-                                        symbol_id, import.module_id.display(),
+                                        import.symbol_id, import.module_id.display(),
                                     ),
                                 }.in_file(module_id));
                             }

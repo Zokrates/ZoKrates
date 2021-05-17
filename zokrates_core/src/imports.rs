@@ -66,16 +66,16 @@ impl Importer {
         modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
         arena: &'ast Arena<String>,
     ) -> Result<Module<'ast>, CompileErrors> {
-        let mut symbols: Vec<_> = vec![];
-
-        for symbol in destination.symbols {
-            match symbol.value.symbol {
-                Symbol::Here(SymbolDefinition::Import(import)) => symbols.push(
-                    Importer::resolve::<T, E>(import, &location, resolver, modules, arena)?,
-                ),
-                _ => symbols.push(symbol),
-            }
-        }
+        let symbols: Vec<_> = destination
+            .symbols
+            .into_iter()
+            .map(|s| match s.value.symbol {
+                Symbol::Here(SymbolDefinition::Import(import)) => {
+                    Importer::resolve::<T, E>(import, &location, resolver, modules, arena)
+                }
+                _ => Ok(s),
+            })
+            .collect::<Result<_, _>>()?;
 
         Ok(Module::with_symbols(symbols))
     }
