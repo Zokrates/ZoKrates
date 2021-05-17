@@ -6,7 +6,7 @@ def expensive(field x) -> field:
 
 def main(field x) -> field:
     return if x == 1 then\
-        cheap(x)\ // executed
+        cheap(x)\// executed
         else\
-        expensive(x)\ // also executed
+        expensive(x)\// also executed
     fi

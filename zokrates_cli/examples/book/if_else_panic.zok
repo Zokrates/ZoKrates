@@ -1,6 +1,6 @@
-def main(field x) -> bool:
+def main(field x) -> field:
     return if x == 0 then\
         0\
         else\
-        1/x\ // executed even for x := 0, which leads to the execution failing
+        1/x\// executed even for x := 0, which leads to the execution failing
     fi

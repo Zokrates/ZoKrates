@@ -31,7 +31,7 @@ There are two important caveats when it comes to conditional expressions. Before
 - for an execution of the program, *a logically executed branch* is a branch which is "chosen" by the condition of an if-expression. This is the more intuitive notion of execution, and there is only one for each if-expression.
 
 Now the two caveats:
-- **Both branches are always executed**. Therefore, the complexity of a program in terms of the number of constraints it compiles down to is the *sum* of the cost of all branches.
+- **Both branches are always executed**. No short-circuiting happens based on the value of the condition. Therefore, the complexity of a program in terms of the number of constraints it compiles down to is the *sum* of the cost of all branches.
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/if_else_expensive.zok}}
 ```
