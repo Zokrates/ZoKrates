@@ -481,7 +481,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
         array: Self,
         target_inner_ty: Type<'ast, T>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
-        let array_ty = array.get_array_type();
+        let array_ty = array.ty();
 
         // elements must fit in the target type
         match array.into_inner() {

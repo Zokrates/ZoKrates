@@ -56,6 +56,10 @@ pub fn subcommand() -> App<'static, 'static> {
         .long("allow-unconstrained-variables")
         .help("Allow unconstrained variables by inserting dummy constraints")
         .required(false)
+    ).arg(Arg::with_name("isolate-branches")
+        .long("isolate-branches")
+        .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")
+        .required(false)
     ).arg(Arg::with_name("ztf")
         .long("ztf")
         .help("Write human readable output (ztf)")
@@ -124,6 +128,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let config = CompileConfig {
         allow_unconstrained_variables: sub_matches.is_present("allow-unconstrained-variables"),
+        isolate_branches: sub_matches.is_present("isolate-branches"),
     };
 
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);

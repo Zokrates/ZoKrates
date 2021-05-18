@@ -1,5 +1,5 @@
 
-<img src="http://www.redaktion.tu-berlin.de/fileadmin/fg308/icons/projekte/logos/ZoKrates_logo.svg" width="100%" height="180">
+<img src="zokrates_logo.svg" width="100%" height="180">
 
 # ZoKrates
 

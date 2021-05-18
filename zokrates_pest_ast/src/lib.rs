@@ -12,12 +12,13 @@ pub use ast::{
     Assignee, AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
     CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber,
     DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
-    FromExpression, Function, HexLiteralExpression, HexNumberExpression, IdentifierExpression,
-    ImportDirective, ImportSource, ImportSymbol, InlineArrayExpression, InlineStructExpression,
-    InlineStructMember, IterationStatement, LiteralExpression, OptionallyTypedAssignee, Parameter,
-    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
-    Statement, StructDefinition, StructField, TernaryExpression, ToExpression, Type,
-    UnaryExpression, UnaryOperator, Underscore, Visibility,
+    FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
+    IdentifierExpression, ImportDirective, ImportSource, ImportSymbol, InlineArrayExpression,
+    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression,
+    OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
+    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
+    SymbolDeclaration, TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator,
+    Underscore, Visibility,
 };
 
 mod ast {
@@ -109,10 +110,7 @@ mod ast {
     #[pest_ast(rule(Rule::file))]
     pub struct File<'ast> {
         pub pragma: Option<Pragma<'ast>>,
-        pub imports: Vec<ImportDirective<'ast>>,
-        pub structs: Vec<StructDefinition<'ast>>,
-        pub constants: Vec<ConstantDefinition<'ast>>,
-        pub functions: Vec<Function<'ast>>,
+        pub declarations: Vec<SymbolDeclaration<'ast>>,
         pub eoi: EOI,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -135,6 +133,16 @@ mod ast {
         pub span: Span<'ast>,
     }
 
+    #[allow(clippy::large_enum_variant)]
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::symbol_declaration))]
+    pub enum SymbolDeclaration<'ast> {
+        Import(ImportDirective<'ast>),
+        Constant(ConstantDefinition<'ast>),
+        Struct(StructDefinition<'ast>),
+        Function(FunctionDefinition<'ast>),
+    }
+
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_struct_definition))]
     pub struct StructDefinition<'ast> {
@@ -155,7 +163,7 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::function_definition))]
-    pub struct Function<'ast> {
+    pub struct FunctionDefinition<'ast> {
         pub id: IdentifierExpression<'ast>,
         pub generics: Vec<IdentifierExpression<'ast>>,
         pub parameters: Vec<Parameter<'ast>>,
@@ -194,7 +202,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::import_symbol))]
     pub struct ImportSymbol<'ast> {
-        pub symbol: IdentifierExpression<'ast>,
+        pub id: IdentifierExpression<'ast>,
         pub alias: Option<IdentifierExpression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -1057,52 +1065,52 @@ mod tests {
             generate_ast(&source),
             Ok(File {
                 pragma: None,
-                structs: vec![],
-                constants: vec![],
-                functions: vec![Function {
-                    generics: vec![],
-                    id: IdentifierExpression {
-                        value: String::from("main"),
-                        span: Span::new(&source, 33, 37).unwrap()
-                    },
-                    parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {
-                        span: Span::new(&source, 44, 49).unwrap()
-                    }))],
-                    statements: vec![Statement::Return(ReturnStatement {
-                        expressions: vec![Expression::add(
-                            Expression::Literal(LiteralExpression::DecimalLiteral(
-                                DecimalLiteralExpression {
-                                    value: DecimalNumber {
+                declarations: vec![
+                    SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
+                        source: ImportSource {
+                            value: String::from("foo"),
+                            span: Span::new(&source, 8, 11).unwrap()
+                        },
+                        alias: None,
+                        span: Span::new(&source, 0, 29).unwrap()
+                    })),
+                    SymbolDeclaration::Function(FunctionDefinition {
+                        generics: vec![],
+                        id: IdentifierExpression {
+                            value: String::from("main"),
+                            span: Span::new(&source, 33, 37).unwrap()
+                        },
+                        parameters: vec![],
+                        returns: vec![Type::Basic(BasicType::Field(FieldType {
+                            span: Span::new(&source, 44, 49).unwrap()
+                        }))],
+                        statements: vec![Statement::Return(ReturnStatement {
+                            expressions: vec![Expression::add(
+                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                    DecimalLiteralExpression {
+                                        value: DecimalNumber {
+                                            span: Span::new(&source, 59, 60).unwrap()
+                                        },
+                                        suffix: None,
                                         span: Span::new(&source, 59, 60).unwrap()
-                                    },
-                                    suffix: None,
-                                    span: Span::new(&source, 59, 60).unwrap()
-                                }
-                            )),
-                            Expression::Literal(LiteralExpression::DecimalLiteral(
-                                DecimalLiteralExpression {
-                                    value: DecimalNumber {
+                                    }
+                                )),
+                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                    DecimalLiteralExpression {
+                                        value: DecimalNumber {
+                                            span: Span::new(&source, 63, 64).unwrap()
+                                        },
+                                        suffix: None,
                                         span: Span::new(&source, 63, 64).unwrap()
-                                    },
-                                    suffix: None,
-                                    span: Span::new(&source, 63, 64).unwrap()
-                                }
-                            )),
-                            Span::new(&source, 59, 64).unwrap()
-                        )],
-                        span: Span::new(&source, 52, 64).unwrap(),
-                    })],
-                    span: Span::new(&source, 29, source.len()).unwrap(),
-                }],
-                imports: vec![ImportDirective::Main(MainImportDirective {
-                    source: ImportSource {
-                        value: String::from("foo"),
-                        span: Span::new(&source, 8, 11).unwrap()
-                    },
-                    alias: None,
-                    span: Span::new(&source, 0, 29).unwrap()
-                })],
+                                    }
+                                )),
+                                Span::new(&source, 59, 64).unwrap()
+                            )],
+                            span: Span::new(&source, 52, 64).unwrap(),
+                        })],
+                        span: Span::new(&source, 29, source.len()).unwrap(),
+                    })
+                ],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 65).unwrap()
             })
@@ -1118,76 +1126,76 @@ mod tests {
             generate_ast(&source),
             Ok(File {
                 pragma: None,
-                structs: vec![],
-                constants: vec![],
-                functions: vec![Function {
-                    generics: vec![],
-                    id: IdentifierExpression {
-                        value: String::from("main"),
-                        span: Span::new(&source, 33, 37).unwrap()
-                    },
-                    parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {
-                        span: Span::new(&source, 44, 49).unwrap()
-                    }))],
-                    statements: vec![Statement::Return(ReturnStatement {
-                        expressions: vec![Expression::add(
-                            Expression::Literal(LiteralExpression::DecimalLiteral(
-                                DecimalLiteralExpression {
-                                    suffix: None,
-                                    value: DecimalNumber {
-                                        span: Span::new(&source, 59, 60).unwrap()
-                                    },
-                                    span: Span::new(&source, 59, 60).unwrap()
-                                }
-                            )),
-                            Expression::mul(
+                declarations: vec![
+                    SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
+                        source: ImportSource {
+                            value: String::from("foo"),
+                            span: Span::new(&source, 8, 11).unwrap()
+                        },
+                        alias: None,
+                        span: Span::new(&source, 0, 29).unwrap()
+                    })),
+                    SymbolDeclaration::Function(FunctionDefinition {
+                        generics: vec![],
+                        id: IdentifierExpression {
+                            value: String::from("main"),
+                            span: Span::new(&source, 33, 37).unwrap()
+                        },
+                        parameters: vec![],
+                        returns: vec![Type::Basic(BasicType::Field(FieldType {
+                            span: Span::new(&source, 44, 49).unwrap()
+                        }))],
+                        statements: vec![Statement::Return(ReturnStatement {
+                            expressions: vec![Expression::add(
                                 Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         suffix: None,
                                         value: DecimalNumber {
-                                            span: Span::new(&source, 63, 64).unwrap()
+                                            span: Span::new(&source, 59, 60).unwrap()
                                         },
-                                        span: Span::new(&source, 63, 64).unwrap()
+                                        span: Span::new(&source, 59, 60).unwrap()
                                     }
                                 )),
-                                Expression::pow(
+                                Expression::mul(
                                     Expression::Literal(LiteralExpression::DecimalLiteral(
                                         DecimalLiteralExpression {
                                             suffix: None,
                                             value: DecimalNumber {
+                                                span: Span::new(&source, 63, 64).unwrap()
+                                            },
+                                            span: Span::new(&source, 63, 64).unwrap()
+                                        }
+                                    )),
+                                    Expression::pow(
+                                        Expression::Literal(LiteralExpression::DecimalLiteral(
+                                            DecimalLiteralExpression {
+                                                suffix: None,
+                                                value: DecimalNumber {
+                                                    span: Span::new(&source, 67, 68).unwrap()
+                                                },
                                                 span: Span::new(&source, 67, 68).unwrap()
-                                            },
-                                            span: Span::new(&source, 67, 68).unwrap()
-                                        }
-                                    )),
-                                    Expression::Literal(LiteralExpression::DecimalLiteral(
-                                        DecimalLiteralExpression {
-                                            suffix: None,
-                                            value: DecimalNumber {
+                                            }
+                                        )),
+                                        Expression::Literal(LiteralExpression::DecimalLiteral(
+                                            DecimalLiteralExpression {
+                                                suffix: None,
+                                                value: DecimalNumber {
+                                                    span: Span::new(&source, 72, 73).unwrap()
+                                                },
                                                 span: Span::new(&source, 72, 73).unwrap()
-                                            },
-                                            span: Span::new(&source, 72, 73).unwrap()
-                                        }
-                                    )),
-                                    Span::new(&source, 67, 73).unwrap()
+                                            }
+                                        )),
+                                        Span::new(&source, 67, 73).unwrap()
+                                    ),
+                                    Span::new(&source, 63, 73).unwrap()
                                 ),
-                                Span::new(&source, 63, 73).unwrap()
-                            ),
-                            Span::new(&source, 59, 73).unwrap()
-                        )],
-                        span: Span::new(&source, 52, 73).unwrap(),
-                    })],
-                    span: Span::new(&source, 29, 74).unwrap(),
-                }],
-                imports: vec![ImportDirective::Main(MainImportDirective {
-                    source: ImportSource {
-                        value: String::from("foo"),
-                        span: Span::new(&source, 8, 11).unwrap()
-                    },
-                    alias: None,
-                    span: Span::new(&source, 0, 29).unwrap()
-                })],
+                                Span::new(&source, 59, 73).unwrap()
+                            )],
+                            span: Span::new(&source, 52, 73).unwrap(),
+                        })],
+                        span: Span::new(&source, 29, 74).unwrap(),
+                    })
+                ],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 74).unwrap()
             })
@@ -1203,61 +1211,61 @@ mod tests {
             generate_ast(&source),
             Ok(File {
                 pragma: None,
-                structs: vec![],
-                constants: vec![],
-                functions: vec![Function {
-                    generics: vec![],
-                    id: IdentifierExpression {
-                        value: String::from("main"),
-                        span: Span::new(&source, 33, 37).unwrap()
-                    },
-                    parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {
-                        span: Span::new(&source, 44, 49).unwrap()
-                    }))],
-                    statements: vec![Statement::Return(ReturnStatement {
-                        expressions: vec![Expression::if_else(
-                            Expression::Literal(LiteralExpression::DecimalLiteral(
-                                DecimalLiteralExpression {
-                                    suffix: None,
-                                    value: DecimalNumber {
+                declarations: vec![
+                    SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
+                        source: ImportSource {
+                            value: String::from("foo"),
+                            span: Span::new(&source, 8, 11).unwrap()
+                        },
+                        alias: None,
+                        span: Span::new(&source, 0, 29).unwrap()
+                    })),
+                    SymbolDeclaration::Function(FunctionDefinition {
+                        generics: vec![],
+                        id: IdentifierExpression {
+                            value: String::from("main"),
+                            span: Span::new(&source, 33, 37).unwrap()
+                        },
+                        parameters: vec![],
+                        returns: vec![Type::Basic(BasicType::Field(FieldType {
+                            span: Span::new(&source, 44, 49).unwrap()
+                        }))],
+                        statements: vec![Statement::Return(ReturnStatement {
+                            expressions: vec![Expression::if_else(
+                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                    DecimalLiteralExpression {
+                                        suffix: None,
+                                        value: DecimalNumber {
+                                            span: Span::new(&source, 62, 63).unwrap()
+                                        },
                                         span: Span::new(&source, 62, 63).unwrap()
-                                    },
-                                    span: Span::new(&source, 62, 63).unwrap()
-                                }
-                            )),
-                            Expression::Literal(LiteralExpression::DecimalLiteral(
-                                DecimalLiteralExpression {
-                                    suffix: None,
-                                    value: DecimalNumber {
+                                    }
+                                )),
+                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                    DecimalLiteralExpression {
+                                        suffix: None,
+                                        value: DecimalNumber {
+                                            span: Span::new(&source, 69, 70).unwrap()
+                                        },
                                         span: Span::new(&source, 69, 70).unwrap()
-                                    },
-                                    span: Span::new(&source, 69, 70).unwrap()
-                                }
-                            )),
-                            Expression::Literal(LiteralExpression::DecimalLiteral(
-                                DecimalLiteralExpression {
-                                    suffix: None,
-                                    value: DecimalNumber {
+                                    }
+                                )),
+                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                    DecimalLiteralExpression {
+                                        suffix: None,
+                                        value: DecimalNumber {
+                                            span: Span::new(&source, 76, 77).unwrap()
+                                        },
                                         span: Span::new(&source, 76, 77).unwrap()
-                                    },
-                                    span: Span::new(&source, 76, 77).unwrap()
-                                }
-                            )),
-                            Span::new(&source, 59, 80).unwrap()
-                        )],
-                        span: Span::new(&source, 52, 80).unwrap(),
-                    })],
-                    span: Span::new(&source, 29, 81).unwrap(),
-                }],
-                imports: vec![ImportDirective::Main(MainImportDirective {
-                    source: ImportSource {
-                        value: String::from("foo"),
-                        span: Span::new(&source, 8, 11).unwrap()
-                    },
-                    alias: None,
-                    span: Span::new(&source, 0, 29).unwrap()
-                })],
+                                    }
+                                )),
+                                Span::new(&source, 59, 80).unwrap()
+                            )],
+                            span: Span::new(&source, 52, 80).unwrap(),
+                        })],
+                        span: Span::new(&source, 29, 81).unwrap(),
+                    })
+                ],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 81).unwrap()
             })
@@ -1272,9 +1280,7 @@ mod tests {
             generate_ast(&source),
             Ok(File {
                 pragma: None,
-                structs: vec![],
-                constants: vec![],
-                functions: vec![Function {
+                declarations: vec![SymbolDeclaration::Function(FunctionDefinition {
                     generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
@@ -1297,8 +1303,7 @@ mod tests {
                         span: Span::new(&source, 23, 33).unwrap(),
                     })],
                     span: Span::new(&source, 0, 34).unwrap(),
-                }],
-                imports: vec![],
+                })],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 34).unwrap()
             })
@@ -1313,9 +1318,7 @@ mod tests {
             generate_ast(&source),
             Ok(File {
                 pragma: None,
-                structs: vec![],
-                constants: vec![],
-                functions: vec![Function {
+                declarations: vec![SymbolDeclaration::Function(FunctionDefinition {
                     generics: vec![],
                     id: IdentifierExpression {
                         value: String::from("main"),
@@ -1403,8 +1406,7 @@ mod tests {
                         span: Span::new(&source, 23, 49).unwrap()
                     })],
                     span: Span::new(&source, 0, 50).unwrap(),
-                }],
-                imports: vec![],
+                })],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 50).unwrap()
             })

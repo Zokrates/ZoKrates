@@ -1,8 +1,10 @@
 
-file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ const_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
+file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ symbol_declaration* ~ EOI }
 
 pragma = { "#pragma" ~ "curve" ~ curve }
 curve = @{ (ASCII_ALPHANUMERIC | "_") * }
+
+symbol_declaration = { (import_directive | ty_struct_definition | const_definition | function_definition) ~ NEWLINE* }
 
 import_directive = { main_import_directive | from_import_directive }
 from_import_directive = { "from" ~ "\"" ~ import_source ~ "\"" ~ "import" ~ import_symbol_list ~ NEWLINE* }
@@ -155,7 +157,7 @@ op_right_shift = @{">>"}
 op_binary = _ { op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div | op_rem }
 op_unary = { op_pos | op_neg | op_not }
 
-WHITESPACE = _{ " " | "\t" | "\\" ~ NEWLINE}
+WHITESPACE = _{ " " | "\t" | "\\" ~ COMMENT? ~ NEWLINE}
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
 // the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly

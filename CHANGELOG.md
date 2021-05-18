@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.2] - 2021-05-18
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.2
+
+### Changes
+- Isolate branch panics: only panic in a branch if it's being logically executed (#865, @schaeff)
+- Support the use of constants in struct and function declarations (#864, @dark64)
+- Relax ordering of symbol declarations (#863, @dark64)
+- Update `one_liner.sh` script to support arm64 architecture (#861, @dark64)
+- Fix crash when updating a constant struct member to another constant (#855, @schaeff)
+- Fix treatment of uint subtraction involving constants (bug) (#852, @schaeff)
+- Add uint to abi docs (#848, @schaeff)
+- Remove side effects on complex types (bug) (#847, @schaeff)
+- Fix crash on struct member type mismatch (#846, @schaeff)
+- Fix nested struct access crash (#845, @schaeff)
+- Make error formatting consistent (#843, @schaeff)
+
 ## [0.7.1] - 2021-04-30
 
 ### Release

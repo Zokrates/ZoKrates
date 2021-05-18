@@ -140,19 +140,32 @@ impl From<static_analysis::Error> for CompileErrorInner {
 impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CompileErrorInner::ParserError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::MacroError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::AnalysisError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::ParserError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::MacroError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::SemanticError(ref e) => {
+                let location = e
+                    .pos()
+                    .map(|p| format!("{}", p.0))
+                    .unwrap_or_else(|| "".to_string());
+                write!(f, "{}\n\t{}", location, e.message())
+            }
+            CompileErrorInner::ReadError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::ImportError(ref e) => {
+                let location = e
+                    .pos()
+                    .map(|p| format!("{}", p.0))
+                    .unwrap_or_else(|| "".to_string());
+                write!(f, "{}\n\t{}", location, e.message())
+            }
+            CompileErrorInner::AnalysisError(ref e) => write!(f, "\n\t{}", e),
         }
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct CompileConfig {
     pub allow_unconstrained_variables: bool,
+    pub isolate_branches: bool,
 }
 
 type FilePath = PathBuf;
@@ -283,7 +296,7 @@ mod test {
         assert!(res.unwrap_err().0[0]
             .value()
             .to_string()
-            .contains(&"Can't resolve import without a resolver"));
+            .contains(&"Cannot resolve import without a resolver"));
     }
 
     #[test]

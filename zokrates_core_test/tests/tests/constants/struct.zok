@@ -1,9 +1,14 @@
-struct Foo {
-    field a
-    field b
+const u32 N = 2
+
+struct State {
+    field[N] a
+    field[N][N] b
 }
 
-const Foo FOO = Foo { a: 2, b: 2 }
+const State STATE = State {
+    a: [1, 2],
+    b: [[3, 4], [5, 6]]
+}
 
-def main() -> field:
-    return FOO.a + FOO.b
+def main() -> State:
+    return STATE

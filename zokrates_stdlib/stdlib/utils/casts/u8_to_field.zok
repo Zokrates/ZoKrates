@@ -1,7 +1,7 @@
-import "EMBED/u8_to_bits" as to_bits
+from "EMBED" import u8_to_bits
 
 def main(u8 i) -> field:
-    bool[8] bits = to_bits(i)
+    bool[8] bits = u8_to_bits(i)
     field res = 0
     for u32 j in 0..8 do
         u32 exponent = 8 - j - 1

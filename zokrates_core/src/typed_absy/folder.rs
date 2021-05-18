@@ -4,6 +4,40 @@ use crate::typed_absy::types::{ArrayType, StructMember, StructType};
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
+pub trait Fold<'ast, T: Field>: Sized {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self;
+}
+
+impl<'ast, T: Field> Fold<'ast, T> for FieldElementExpression<'ast, T> {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+        f.fold_field_expression(self)
+    }
+}
+
+impl<'ast, T: Field> Fold<'ast, T> for BooleanExpression<'ast, T> {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+        f.fold_boolean_expression(self)
+    }
+}
+
+impl<'ast, T: Field> Fold<'ast, T> for UExpression<'ast, T> {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+        f.fold_uint_expression(self)
+    }
+}
+
+impl<'ast, T: Field> Fold<'ast, T> for StructExpression<'ast, T> {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+        f.fold_struct_expression(self)
+    }
+}
+
+impl<'ast, T: Field> Fold<'ast, T> for ArrayExpression<'ast, T> {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+        f.fold_array_expression(self)
+    }
+}
+
 pub trait Folder<'ast, T: Field>: Sized {
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         fold_program(self, p)
@@ -31,8 +65,19 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_function_symbol(self, s)
     }
 
+    fn fold_declaration_function_key(
+        &mut self,
+        key: DeclarationFunctionKey<'ast>,
+    ) -> DeclarationFunctionKey<'ast> {
+        fold_declaration_function_key(self, key)
+    }
+
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         fold_function(self, f)
+    }
+
+    fn fold_signature(&mut self, s: DeclarationSignature<'ast>) -> DeclarationSignature<'ast> {
+        fold_signature(self, s)
     }
 
     fn fold_parameter(&mut self, p: DeclarationParameter<'ast>) -> DeclarationParameter<'ast> {
@@ -137,6 +182,13 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
+    fn fold_block_expression<E: Fold<'ast, T>>(
+        &mut self,
+        block: BlockExpression<'ast, T, E>,
+    ) -> BlockExpression<'ast, T, E> {
+        fold_block_expression(self, block)
+    }
+
     fn fold_array_expression(&mut self, e: ArrayExpression<'ast, T>) -> ArrayExpression<'ast, T> {
         fold_array_expression(self, e)
     }
@@ -190,6 +242,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> ArrayExpressionInner<'ast, T> {
         fold_array_expression_inner(self, ty, e)
     }
+
     fn fold_struct_expression_inner(
         &mut self,
         ty: &StructType<'ast, T>,
@@ -212,7 +265,12 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
         functions: m
             .functions
             .into_iter()
-            .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
+            .map(|(key, fun)| {
+                (
+                    f.fold_declaration_function_key(key),
+                    f.fold_function_symbol(fun),
+                )
+            })
             .collect(),
     }
 }
@@ -257,6 +315,9 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     e: ArrayExpressionInner<'ast, T>,
 ) -> ArrayExpressionInner<'ast, T> {
     match e {
+        ArrayExpressionInner::Block(block) => {
+            ArrayExpressionInner::Block(f.fold_block_expression(block))
+        }
         ArrayExpressionInner::Identifier(id) => ArrayExpressionInner::Identifier(f.fold_name(id)),
         ArrayExpressionInner::Value(exprs) => ArrayExpressionInner::Value(
             exprs
@@ -308,6 +369,9 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     e: StructExpressionInner<'ast, T>,
 ) -> StructExpressionInner<'ast, T> {
     match e {
+        StructExpressionInner::Block(block) => {
+            StructExpressionInner::Block(f.fold_block_expression(block))
+        }
         StructExpressionInner::Identifier(id) => StructExpressionInner::Identifier(f.fold_name(id)),
         StructExpressionInner::Value(exprs) => {
             StructExpressionInner::Value(exprs.into_iter().map(|e| f.fold_expression(e)).collect())
@@ -344,6 +408,9 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: FieldElementExpression<'ast, T>,
 ) -> FieldElementExpression<'ast, T> {
     match e {
+        FieldElementExpression::Block(block) => {
+            FieldElementExpression::Block(f.fold_block_expression(block))
+        }
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
             FieldElementExpression::Identifier(f.fold_name(id))
@@ -421,6 +488,7 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     e: BooleanExpression<'ast, T>,
 ) -> BooleanExpression<'ast, T> {
     match e {
+        BooleanExpression::Block(block) => BooleanExpression::Block(f.fold_block_expression(block)),
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)),
         BooleanExpression::FieldEq(box e1, box e2) => {
@@ -544,6 +612,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     e: UExpressionInner<'ast, T>,
 ) -> UExpressionInner<'ast, T> {
     match e {
+        UExpressionInner::Block(block) => UExpressionInner::Block(f.fold_block_expression(block)),
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),
         UExpressionInner::Add(box left, box right) => {
@@ -653,6 +722,30 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
+pub fn fold_block_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T>>(
+    f: &mut F,
+    block: BlockExpression<'ast, T, E>,
+) -> BlockExpression<'ast, T, E> {
+    BlockExpression {
+        statements: block
+            .statements
+            .into_iter()
+            .flat_map(|s| f.fold_statement(s))
+            .collect(),
+        value: box block.value.fold(f),
+    }
+}
+
+pub fn fold_declaration_function_key<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    key: DeclarationFunctionKey<'ast>,
+) -> DeclarationFunctionKey<'ast> {
+    DeclarationFunctionKey {
+        signature: f.fold_signature(key.signature),
+        ..key
+    }
+}
+
 pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     fun: TypedFunction<'ast, T>,
@@ -668,7 +761,26 @@ pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        ..fun
+        signature: f.fold_signature(fun.signature),
+    }
+}
+
+fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: DeclarationSignature<'ast>,
+) -> DeclarationSignature<'ast> {
+    DeclarationSignature {
+        generics: s.generics,
+        inputs: s
+            .inputs
+            .into_iter()
+            .map(|o| f.fold_declaration_type(o))
+            .collect(),
+        outputs: s
+            .outputs
+            .into_iter()
+            .map(|o| f.fold_declaration_type(o))
+            .collect(),
     }
 }
 
@@ -721,9 +833,10 @@ pub fn fold_struct_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: StructExpression<'ast, T>,
 ) -> StructExpression<'ast, T> {
+    let ty = f.fold_struct_type(e.ty);
     StructExpression {
-        inner: f.fold_struct_expression_inner(&e.ty, e.inner),
-        ..e
+        inner: f.fold_struct_expression_inner(&ty, e.inner),
+        ty,
     }
 }
 
