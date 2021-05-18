@@ -1,1 +1,0 @@
-Fix crash when updating a constant struct member to another constant
