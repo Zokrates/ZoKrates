@@ -1729,7 +1729,7 @@ impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
             Some(crate::typed_absy::types::StructMember {
                 ty: box Type::Uint(bitwidth),
                 ..
-            }) => bitwidth.clone(),
+            }) => *bitwidth,
             _ => unreachable!(),
         };
         UExpressionInner::Member(MemberExpression::new(s, id)).annotate(bitwidth)
