@@ -32,6 +32,14 @@ impl Error {
         }
     }
 
+    pub fn pos(&self) -> &Option<(Position, Position)> {
+        &self.pos
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
     fn with_pos(self, pos: Option<(Position, Position)>) -> Error {
         Error { pos, ..self }
     }
