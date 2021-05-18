@@ -150,7 +150,13 @@ impl fmt::Display for CompileErrorInner {
                 write!(f, "{}\n\t{}", location, e.message())
             }
             CompileErrorInner::ReadError(ref e) => write!(f, "\n\t{}", e),
-            CompileErrorInner::ImportError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::ImportError(ref e) => {
+                let location = e
+                    .pos()
+                    .map(|p| format!("{}", p.0))
+                    .unwrap_or_else(|| "".to_string());
+                write!(f, "{}\n\t{}", location, e.message())
+            }
             CompileErrorInner::AnalysisError(ref e) => write!(f, "\n\t{}", e),
         }
     }
