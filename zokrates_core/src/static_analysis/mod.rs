@@ -5,6 +5,7 @@
 //! @date 2018
 
 mod bounds_checker;
+mod branch_isolator;
 mod constant_inliner;
 mod flat_propagation;
 mod flatten_complex_types;
@@ -17,6 +18,7 @@ mod variable_read_remover;
 mod variable_write_remover;
 
 use self::bounds_checker::BoundsChecker;
+use self::branch_isolator::Isolator;
 use self::flatten_complex_types::Flattener;
 use self::propagation::Propagator;
 use self::reducer::reduce_program;
@@ -75,6 +77,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         // inline user-defined constants
         let r = ConstantInliner::inline(self);
+        // isolate branches
+        let r = Isolator::isolate(r);
         // reduce the program to a single function
         let r = reduce_program(r).map_err(Error::from)?;
         // generate abi

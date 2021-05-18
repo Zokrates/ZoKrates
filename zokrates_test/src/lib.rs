@@ -23,6 +23,7 @@ struct Tests {
     pub entry_point: Option<PathBuf>,
     pub curves: Option<Vec<Curve>>,
     pub max_constraint_count: Option<usize>,
+    pub config: Option<CompileConfig>,
     pub tests: Vec<Test>,
 }
 
@@ -119,18 +120,14 @@ pub fn test_inner(test_path: &str) {
 fn compile_and_run<T: Field>(t: Tests) {
     let entry_point = t.entry_point.unwrap();
 
+    let config = t.config.unwrap_or_default();
+
     let code = std::fs::read_to_string(&entry_point).unwrap();
 
     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
-    let artifacts = compile::<T, _>(
-        code,
-        entry_point.clone(),
-        Some(&resolver),
-        &CompileConfig::default(),
-    )
-    .unwrap();
+    let artifacts = compile::<T, _>(code, entry_point.clone(), Some(&resolver), &config).unwrap();
 
     let bin = artifacts.prog();
 
@@ -163,8 +160,9 @@ fn compile_and_run<T: Field>(t: Tests) {
             let mut s = String::new();
             code.read_to_string(&mut s).unwrap();
             let context = format!(
-                "\n{}\nCalled with input ({})\n",
+                "\n{}\nCalled on curve {} with input ({})\n",
                 s,
+                T::name(),
                 input
                     .iter()
                     .map(|i| i.to_string())

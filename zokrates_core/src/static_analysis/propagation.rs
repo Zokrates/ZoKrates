@@ -170,7 +170,7 @@ fn to_canonical_constant<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> 
 
     match e {
         TypedExpression::Array(a) => {
-            let array_ty = a.get_array_type();
+            let array_ty = a.ty();
 
             match a.into_inner() {
                 ArrayExpressionInner::Value(v) => ArrayExpressionInner::Value(

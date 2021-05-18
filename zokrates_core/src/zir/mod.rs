@@ -90,7 +90,11 @@ pub type ZirAssignee<'ast> = Variable<'ast>;
 pub enum ZirStatement<'ast, T> {
     Return(Vec<ZirExpression<'ast, T>>),
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
-    Declaration(Variable<'ast>),
+    IfElse(
+        BooleanExpression<'ast, T>,
+        Vec<ZirStatement<'ast, T>>,
+        Vec<ZirStatement<'ast, T>>,
+    ),
     Assertion(BooleanExpression<'ast, T>),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
 }
@@ -108,9 +112,11 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {
                 }
                 write!(f, ")")
             }
-            ZirStatement::Declaration(ref var) => write!(f, "Declaration({:?})", var),
-            ZirStatement::Definition(ref lhs, ref rhs) => {
-                write!(f, "Definition({:?}, {:?})", lhs, rhs)
+            ZirStatement::Definition(ref consequence, ref alternative) => {
+                write!(f, "Definition({:?}, {:?})", consequence, alternative)
+            }
+            ZirStatement::IfElse(ref condition, ref lhs, ref rhs) => {
+                write!(f, "IfElse({:?}, {:?}, {:?})", condition, lhs, rhs)
             }
             ZirStatement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             ZirStatement::MultipleDefinition(ref lhs, ref rhs) => {
@@ -133,9 +139,25 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                 }
                 write!(f, "")
             }
-            ZirStatement::Declaration(ref var) => write!(f, "assert({})", var),
             ZirStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            ZirStatement::Assertion(ref e) => write!(f, "{}", e),
+            ZirStatement::IfElse(ref condition, ref consequence, ref alternative) => {
+                write!(
+                    f,
+                    "if {} then {{{}}} else {{{}}} fi",
+                    condition,
+                    consequence
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    alternative
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
+            }
+            ZirStatement::Assertion(ref e) => write!(f, "assert({})", e),
             ZirStatement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
                     write!(f, "{}", id)?;

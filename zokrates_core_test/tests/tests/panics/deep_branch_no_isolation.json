@@ -1,0 +1,21 @@
+{
+    "entry_point": "./tests/tests/panics/deep_branch.zok",
+    "curves": ["Bn128"],
+	"tests": [
+        {
+            "input": {
+                "values": [
+                    "0", "0", "0"
+                ]
+            },
+            "output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "0",
+						"right": "1"
+					}
+				}
+            }
+        }
+    ]
+}

@@ -156,9 +156,10 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct CompileConfig {
     pub allow_unconstrained_variables: bool,
+    pub isolate_branches: bool,
 }
 
 type FilePath = PathBuf;

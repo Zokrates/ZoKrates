@@ -370,6 +370,56 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         ));
     }
 
+    fn make_conditional(
+        &mut self,
+        statements: Vec<FlatStatement<T>>,
+        condition: FlatExpression<T>,
+    ) -> Vec<FlatStatement<T>> {
+        statements
+            .into_iter()
+            .flat_map(|s| match s {
+                FlatStatement::Condition(left, right) => {
+                    let mut output = vec![];
+
+                    // we transform (a == b) into (c => (a == b)) which is (!c || (a == b))
+
+                    // let's introduce new variables to make sure everything is linear
+                    let name_left = self.define(left, &mut output);
+                    let name_right = self.define(right, &mut output);
+
+                    // let's introduce an expression which is 1 iff `a == b`
+                    let y = FlatExpression::Add(
+                        box FlatExpression::Sub(box name_left.into(), box name_right.into()),
+                        box T::one().into(),
+                    );
+                    // let's introduce !c
+                    let x = FlatExpression::Sub(box T::one().into(), box condition.clone());
+
+                    assert!(x.is_linear() && y.is_linear());
+                    let name_x_or_y = self.use_sym();
+                    output.push(FlatStatement::Directive(FlatDirective {
+                        solver: Solver::Or,
+                        outputs: vec![name_x_or_y],
+                        inputs: vec![x.clone(), y.clone()],
+                    }));
+                    output.push(FlatStatement::Condition(
+                        FlatExpression::Add(
+                            box x.clone(),
+                            box FlatExpression::Sub(box y.clone(), box name_x_or_y.into()),
+                        ),
+                        FlatExpression::Mult(box x.clone(), box y.clone()),
+                    ));
+                    output.push(FlatStatement::Condition(
+                        name_x_or_y.into(),
+                        T::one().into(),
+                    ));
+                    output
+                }
+                s => vec![s],
+            })
+            .collect()
+    }
+
     /// Flatten an if/else expression
     ///
     /// # Arguments
@@ -389,12 +439,38 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatUExpression<T> {
         let condition = self.flatten_boolean_expression(statements_flattened, condition);
 
-        let consequence = consequence.flatten(self, statements_flattened);
-
-        let alternative = alternative.flatten(self, statements_flattened);
-
         let condition_id = self.use_sym();
         statements_flattened.push(FlatStatement::Definition(condition_id, condition));
+
+        let (consequence, alternative) = if self.config.isolate_branches {
+            let mut consequence_statements = vec![];
+
+            let consequence = consequence.flatten(self, &mut consequence_statements);
+
+            let mut alternative_statements = vec![];
+
+            let alternative = alternative.flatten(self, &mut alternative_statements);
+
+            let consequence_statements =
+                self.make_conditional(consequence_statements, condition_id.into());
+            let alternative_statements = self.make_conditional(
+                alternative_statements,
+                FlatExpression::Sub(
+                    box FlatExpression::Number(T::one()),
+                    box condition_id.into(),
+                ),
+            );
+
+            statements_flattened.extend(consequence_statements);
+            statements_flattened.extend(alternative_statements);
+
+            (consequence, alternative)
+        } else {
+            (
+                consequence.flatten(self, statements_flattened),
+                alternative.flatten(self, statements_flattened),
+            )
+        };
 
         let consequence = consequence.flat();
         let alternative = alternative.flat();
@@ -2107,8 +2183,37 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     expressions: flat_expressions,
                 }));
             }
-            ZirStatement::Declaration(_) => {
-                // declarations have already been checked
+            ZirStatement::IfElse(condition, consequence, alternative) => {
+                let condition = self.flatten_boolean_expression(statements_flattened, condition);
+
+                if self.config.isolate_branches {
+                    let mut consequence_statements = vec![];
+                    let mut alternative_statements = vec![];
+
+                    consequence
+                        .into_iter()
+                        .for_each(|s| self.flatten_statement(&mut consequence_statements, s));
+                    alternative
+                        .into_iter()
+                        .for_each(|s| self.flatten_statement(&mut alternative_statements, s));
+
+                    let consequence_statements =
+                        self.make_conditional(consequence_statements, condition.clone());
+                    let alternative_statements = self.make_conditional(
+                        alternative_statements,
+                        FlatExpression::Sub(box FlatExpression::Number(T::one()), box condition),
+                    );
+
+                    statements_flattened.extend(consequence_statements);
+                    statements_flattened.extend(alternative_statements);
+                } else {
+                    consequence
+                        .into_iter()
+                        .for_each(|s| self.flatten_statement(statements_flattened, s));
+                    alternative
+                        .into_iter()
+                        .for_each(|s| self.flatten_statement(statements_flattened, s));
+                }
             }
             ZirStatement::Definition(assignee, expr) => {
                 // define n variables with n the number of primitive types for v_type
