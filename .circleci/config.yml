@@ -116,6 +116,7 @@ jobs:
           docker_layer_caching: true
       - run:
           name: Release
+          no_output_timeout: "30m"
           command: ./scripts/release.sh
   zokrates_js_build:
     docker:
