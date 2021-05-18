@@ -523,16 +523,16 @@ mod tests {
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
-                FieldElementExpression::Select(
-                    box ArrayExpressionInner::Identifier(Identifier::from(const_id))
+                FieldElementExpression::select(
+                    ArrayExpressionInner::Identifier(Identifier::from(const_id))
                         .annotate(GType::FieldElement, 2usize),
-                    box UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
+                    UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
                 )
                 .into(),
-                FieldElementExpression::Select(
-                    box ArrayExpressionInner::Identifier(Identifier::from(const_id))
+                FieldElementExpression::select(
+                    ArrayExpressionInner::Identifier(Identifier::from(const_id))
                         .annotate(GType::FieldElement, 2usize),
-                    box UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
+                    UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
                 )
                 .into(),
             )
@@ -588,8 +588,8 @@ mod tests {
         let expected_main = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
-                FieldElementExpression::Select(
-                    box ArrayExpressionInner::Value(
+                FieldElementExpression::select(
+                    ArrayExpressionInner::Value(
                         vec![
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
@@ -597,11 +597,11 @@ mod tests {
                         .into(),
                     )
                     .annotate(GType::FieldElement, 2usize),
-                    box UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
+                    UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
                 )
                 .into(),
-                FieldElementExpression::Select(
-                    box ArrayExpressionInner::Value(
+                FieldElementExpression::select(
+                    ArrayExpressionInner::Value(
                         vec![
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
@@ -609,7 +609,7 @@ mod tests {
                         .into(),
                     )
                     .annotate(GType::FieldElement, 2usize),
-                    box UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
+                    UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
                 )
                 .into(),
             )

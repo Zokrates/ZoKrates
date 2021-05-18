@@ -671,7 +671,7 @@ impl<'ast, T: fmt::Display> fmt::Display for StructExpression<'ast, T> {
                 )
             }
             StructExpressionInner::Member(ref m) => write!(f, "{}", m),
-            StructExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            StructExpressionInner::Select(ref select) => write!(f, "{}", select),
         }
     }
 }
@@ -785,6 +785,29 @@ impl<'ast, T: fmt::Display, E> fmt::Display for MemberExpression<'ast, T, E> {
     }
 }
 
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+pub struct SelectExpression<'ast, T, E> {
+    pub array: Box<ArrayExpression<'ast, T>>,
+    pub index: Box<UExpression<'ast, T>>,
+    ty: PhantomData<E>,
+}
+
+impl<'ast, T, E> SelectExpression<'ast, T, E> {
+    pub fn new(array: ArrayExpression<'ast, T>, index: UExpression<'ast, T>) -> Self {
+        SelectExpression {
+            array: box array,
+            index: box index,
+            ty: PhantomData,
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display, E> fmt::Display for SelectExpression<'ast, T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}[{}]", self.array, self.index)
+    }
+}
+
 /// An expression of type `field`
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub enum FieldElementExpression<'ast, T> {
@@ -824,7 +847,7 @@ pub enum FieldElementExpression<'ast, T> {
         Vec<TypedExpression<'ast, T>>,
     ),
     Member(MemberExpression<'ast, T, Self>),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, Self>),
 }
 impl<'ast, T> Add for FieldElementExpression<'ast, T> {
     type Output = Self;
@@ -930,7 +953,7 @@ pub enum BooleanExpression<'ast, T> {
         Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
     ),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, Self>),
 }
 
 impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
@@ -1044,7 +1067,7 @@ pub enum ArrayExpressionInner<'ast, T> {
         Box<ArrayExpression<'ast, T>>,
     ),
     Member(MemberExpression<'ast, T, ArrayExpression<'ast, T>>),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, ArrayExpression<'ast, T>>),
     Slice(
         Box<ArrayExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
@@ -1153,7 +1176,7 @@ pub enum StructExpressionInner<'ast, T> {
         Box<StructExpression<'ast, T>>,
     ),
     Member(MemberExpression<'ast, T, StructExpression<'ast, T>>),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, StructExpression<'ast, T>>),
 }
 
 impl<'ast, T> StructExpressionInner<'ast, T> {
@@ -1317,7 +1340,7 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
                 write!(f, ")")
             }
             FieldElementExpression::Member(ref m) => write!(f, "{}", m),
-            FieldElementExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            FieldElementExpression::Select(ref select) => write!(f, "{}", select),
         }
     }
 }
@@ -1344,7 +1367,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
             UExpressionInner::Neg(ref e) => write!(f, "(-{})", e),
             UExpressionInner::Pos(ref e) => write!(f, "(+{})", e),
-            UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            UExpressionInner::Select(ref select) => write!(f, "{}", select),
             UExpressionInner::FunctionCall(ref k, ref generics, ref p) => {
                 write!(f, "{}", k.id,)?;
                 if !generics.is_empty() {
@@ -1433,7 +1456,7 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
                 condition, consequent, alternative
             ),
             BooleanExpression::Member(ref m) => write!(f, "{}", m),
-            BooleanExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            BooleanExpression::Select(ref select) => write!(f, "{}", select),
         }
     }
 }
@@ -1483,7 +1506,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
                 condition, consequent, alternative
             ),
             ArrayExpressionInner::Member(ref m) => write!(f, "{}", m),
-            ArrayExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            ArrayExpressionInner::Select(ref select) => write!(f, "{}", select),
             ArrayExpressionInner::Slice(ref a, ref from, ref to) => {
                 write!(f, "{}[{}..{}]", a, from, to)
             }
@@ -1644,19 +1667,19 @@ pub trait Select<'ast, T> {
 
 impl<'ast, T> Select<'ast, T> for FieldElementExpression<'ast, T> {
     fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
-        FieldElementExpression::Select(box array, box index.into())
+        FieldElementExpression::Select(SelectExpression::new(array, index.into()))
     }
 }
 
 impl<'ast, T> Select<'ast, T> for IntExpression<'ast, T> {
     fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
-        IntExpression::Select(box array, box index.into())
+        IntExpression::Select(SelectExpression::new(array, index.into()))
     }
 }
 
 impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
     fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
-        BooleanExpression::Select(box array, box index.into())
+        BooleanExpression::Select(SelectExpression::new(array, index.into()))
     }
 }
 
@@ -1680,7 +1703,7 @@ impl<'ast, T: Clone> Select<'ast, T> for UExpression<'ast, T> {
             _ => unreachable!(),
         };
 
-        UExpressionInner::Select(box array, box index.into()).annotate(bitwidth)
+        UExpressionInner::Select(SelectExpression::new(array, index.into())).annotate(bitwidth)
     }
 }
 
@@ -1691,7 +1714,7 @@ impl<'ast, T: Clone> Select<'ast, T> for ArrayExpression<'ast, T> {
             _ => unreachable!(),
         };
 
-        ArrayExpressionInner::Select(box array, box index.into()).annotate(*ty, size)
+        ArrayExpressionInner::Select(SelectExpression::new(array, index.into())).annotate(*ty, size)
     }
 }
 
@@ -1702,7 +1725,7 @@ impl<'ast, T: Clone> Select<'ast, T> for StructExpression<'ast, T> {
             _ => unreachable!(),
         };
 
-        StructExpressionInner::Select(box array, box index.into()).annotate(members)
+        StructExpressionInner::Select(SelectExpression::new(array, index.into())).annotate(members)
     }
 }
 

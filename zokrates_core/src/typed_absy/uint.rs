@@ -203,7 +203,7 @@ pub enum UExpressionInner<'ast, T> {
         Box<UExpression<'ast, T>>,
     ),
     Member(MemberExpression<'ast, T, UExpression<'ast, T>>),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {
