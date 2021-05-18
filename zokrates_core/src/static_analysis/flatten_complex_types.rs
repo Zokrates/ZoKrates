@@ -223,6 +223,14 @@ impl<'ast, T: Field> Flattener<T> {
         }
     }
 
+    pub fn fold_member_expression<E>(
+        &mut self,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+        m: typed_absy::MemberExpression<'ast, T, E>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        fold_member_expression(self, statements_buffer, m)
+    }
+
     fn fold_field_expression(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
@@ -399,25 +407,8 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 })
                 .collect()
         }
-        typed_absy::ArrayExpressionInner::Member(box s, id) => {
-            let members = s.ty().clone();
-
-            let s = f.fold_struct_expression(statements_buffer, s);
-
-            let offset: usize = members
-                .iter()
-                .take_while(|member| member.id != id)
-                .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
-                        .unwrap()
-                        .get_primitive_count()
-                })
-                .sum();
-
-            // we also need the size of this member
-            let size = ty.get_primitive_count() * size;
-
-            s[offset..offset + size].to_vec()
+        typed_absy::ArrayExpressionInner::Member(m) => {
+            f.fold_member_expression(statements_buffer, m)
         }
         typed_absy::ArrayExpressionInner::Select(box array, box index) => {
             let array = f.fold_array_expression(statements_buffer, array);
@@ -538,32 +529,8 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 })
                 .collect()
         }
-        typed_absy::StructExpressionInner::Member(box s, id) => {
-            // get the concrete struct type, which must be available now
-            let struct_ty: typed_absy::types::ConcreteStructType =
-                s.ty().clone().try_into().unwrap();
-
-            // get the offset at which this member starts
-            let offset: usize = struct_ty
-                .iter()
-                .take_while(|member| member.id != id)
-                .map(|member| member.ty.get_primitive_count())
-                .sum();
-
-            // get the size of this member
-            let size = struct_ty
-                .iter()
-                .find(|member| member.id == id)
-                .cloned()
-                .unwrap()
-                .ty
-                .get_primitive_count();
-
-            // flatten the full struct
-            let s = f.fold_struct_expression(statements_buffer, s);
-
-            // extract the member
-            s[offset..offset + size].to_vec()
+        typed_absy::StructExpressionInner::Member(m) => {
+            f.fold_member_expression(statements_buffer, m)
         }
         typed_absy::StructExpressionInner::Select(box array, box index) => {
             let array = f.fold_array_expression(statements_buffer, array);
@@ -580,6 +547,42 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
             }
         }
     }
+}
+
+pub fn fold_member_expression<'ast, T: Field, E>(
+    f: &mut Flattener<T>,
+    statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    m: typed_absy::MemberExpression<'ast, T, E>,
+) -> Vec<zir::ZirExpression<'ast, T>> {
+    let s = *m.struc;
+    let id = m.id;
+
+    let members = s.ty().clone();
+
+    let s = f.fold_struct_expression(statements_buffer, s);
+
+    let size = typed_absy::types::ConcreteType::try_from(
+        *members
+            .iter()
+            .find(|member| member.id == id)
+            .unwrap()
+            .ty
+            .clone(),
+    )
+    .unwrap()
+    .get_primitive_count();
+
+    let offset: usize = members
+        .iter()
+        .take_while(|member| member.id != id)
+        .map(|member| {
+            typed_absy::types::ConcreteType::try_from(*member.ty.clone())
+                .unwrap()
+                .get_primitive_count()
+        })
+        .sum();
+
+    s[offset..offset + size].to_vec()
 }
 
 pub fn fold_field_expression<'ast, T: Field>(
@@ -656,7 +659,10 @@ pub fn fold_field_expression<'ast, T: Field>(
             zir::FieldElementExpression::IfElse(box condition, box consequence, box alternative)
         }
         typed_absy::FieldElementExpression::FunctionCall(..) => unreachable!(""),
-        typed_absy::FieldElementExpression::Member(box s, id) => {
+        typed_absy::FieldElementExpression::Member(m) => {
+            let s = *m.struc;
+            let id = m.id;
+
             let members = s.ty().clone();
 
             let s = f.fold_struct_expression(statements_buffer, s);
@@ -855,23 +861,11 @@ pub fn fold_boolean_expression<'ast, T: Field>(
             zir::BooleanExpression::IfElse(box condition, box consequence, box alternative)
         }
         typed_absy::BooleanExpression::FunctionCall(..) => unreachable!(),
-        typed_absy::BooleanExpression::Member(box s, id) => {
-            let members = s.ty().clone();
-
-            let s = f.fold_struct_expression(statements_buffer, s);
-
-            let offset: usize = members
-                .iter()
-                .take_while(|member| member.id != id)
-                .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
-                        .unwrap()
-                        .get_primitive_count()
-                })
-                .sum();
-
-            s[offset].clone().try_into().unwrap()
-        }
+        typed_absy::BooleanExpression::Member(m) => f.fold_member_expression(statements_buffer, m)
+            [0]
+        .clone()
+        .try_into()
+        .unwrap(),
         typed_absy::BooleanExpression::Select(box array, box index) => {
             let array = f.fold_array_expression(statements_buffer, array);
             let index = f.fold_uint_expression(statements_buffer, index);
@@ -1021,24 +1015,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
                 _ => unreachable!(),
             }
         }
-        typed_absy::UExpressionInner::Member(box s, id) => {
-            let members = s.ty().clone();
-
-            let s = f.fold_struct_expression(statements_buffer, s);
-
-            let offset: usize = members
-                .iter()
-                .take_while(|member| member.id != id)
-                .map(|member| {
-                    typed_absy::types::ConcreteType::try_from(*member.ty.clone())
-                        .unwrap()
-                        .get_primitive_count()
-                })
-                .sum();
-
-            let res: zir::UExpression<'ast, T> = s[offset].clone().try_into().unwrap();
-
-            res.into_inner()
+        typed_absy::UExpressionInner::Member(m) => {
+            zir::UExpression::try_from(f.fold_member_expression(statements_buffer, m)[0].clone())
+                .unwrap()
+                .into_inner()
         }
         typed_absy::UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
             let mut consequence_statements = vec![];

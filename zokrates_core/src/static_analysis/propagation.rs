@@ -1161,34 +1161,30 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     ),
                 }
             }
-            FieldElementExpression::Member(box s, m) => {
-                let s = self.fold_struct_expression(s)?;
-
-                let members = match s.get_type() {
-                    Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct type"),
-                };
-
-                match s.into_inner() {
-                    StructExpressionInner::Value(v) => {
-                        match members
-                            .iter()
-                            .zip(v)
-                            .find(|(member, _)| member.id == m)
-                            .unwrap()
-                            .1
-                        {
-                            TypedExpression::FieldElement(s) => Ok(s),
-                            _ => unreachable!("should be a field element expression"),
-                        }
-                    }
-                    inner => Ok(FieldElementExpression::Member(
-                        box inner.annotate(members),
-                        m,
-                    )),
-                }
-            }
             e => fold_field_expression(self, e),
+        }
+    }
+
+    fn fold_member_expression<E: Member<'ast, T> + From<TypedExpression<'ast, T>>>(
+        &mut self,
+        m: MemberExpression<'ast, T, E>,
+    ) -> Result<E, Self::Error> {
+        let id = m.id;
+
+        let struc = self.fold_struct_expression(*m.struc)?;
+
+        let ty = struc.ty().clone();
+
+        match struc.into_inner() {
+            StructExpressionInner::Value(v) => Ok(ty
+                .members
+                .iter()
+                .zip(v)
+                .find(|(member, _)| member.id == id)
+                .unwrap()
+                .1
+                .into()),
+            inner => Ok(E::member(inner.annotate(ty), id)),
         }
     }
 
@@ -1276,33 +1272,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         box c,
                         box consequence,
                         box alternative,
-                    )),
-                }
-            }
-            ArrayExpressionInner::Member(box struc, id) => {
-                let struc = self.fold_struct_expression(struc)?;
-
-                let members = match struc.get_type() {
-                    Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct type"),
-                };
-
-                match struc.into_inner() {
-                    StructExpressionInner::Value(v) => {
-                        match members
-                            .iter()
-                            .zip(v)
-                            .find(|(member, _)| member.id == id)
-                            .unwrap()
-                            .1
-                        {
-                            TypedExpression::Array(a) => Ok(a.into_inner()),
-                            _ => unreachable!("should be an array expression"),
-                        }
-                    }
-                    inner => Ok(ArrayExpressionInner::Member(
-                        box inner.annotate(members),
-                        id,
                     )),
                 }
             }
@@ -1394,33 +1363,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         box c,
                         box consequence,
                         box alternative,
-                    )),
-                }
-            }
-            StructExpressionInner::Member(box s, m) => {
-                let s = self.fold_struct_expression(s)?;
-
-                let members = match s.get_type() {
-                    Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct type"),
-                };
-
-                match s.into_inner() {
-                    StructExpressionInner::Value(v) => {
-                        match members
-                            .iter()
-                            .zip(v)
-                            .find(|(member, _)| member.id == m)
-                            .unwrap()
-                            .1
-                        {
-                            TypedExpression::Struct(s) => Ok(s.into_inner()),
-                            _ => unreachable!("should be a struct expression"),
-                        }
-                    }
-                    inner => Ok(StructExpressionInner::Member(
-                        box inner.annotate(members),
-                        m,
                     )),
                 }
             }
@@ -1713,30 +1655,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         self,
                         BooleanExpression::Select(box array, box index),
                     ),
-                }
-            }
-            BooleanExpression::Member(box s, m) => {
-                let s = self.fold_struct_expression(s)?;
-
-                let members = match s.get_type() {
-                    Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct type"),
-                };
-
-                match s.into_inner() {
-                    StructExpressionInner::Value(v) => {
-                        match members
-                            .iter()
-                            .zip(v)
-                            .find(|(member, _)| member.id == m)
-                            .unwrap()
-                            .1
-                        {
-                            TypedExpression::Boolean(s) => Ok(s),
-                            _ => unreachable!("should be a boolean expression"),
-                        }
-                    }
-                    inner => Ok(BooleanExpression::Member(box inner.annotate(members), m)),
                 }
             }
             e => fold_boolean_expression(self, e),

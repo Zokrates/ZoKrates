@@ -2564,13 +2564,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     Ok(BooleanExpression::member(s, id.to_string()).into())
                                 }
                                 Type::Uint(..) => Ok(UExpression::member(s, id.to_string()).into()),
-                                Type::Array(array_type) => {
-                                    Ok(ArrayExpressionInner::Member(box s.clone(), id.to_string())
-                                        .annotate(*array_type.ty.clone(), array_type.size)
-                                        .into())
+                                Type::Array(..) => {
+                                    Ok(ArrayExpression::member(s, id.to_string()).into())
                                 }
                                 Type::Struct(..) => {
-                                    Ok(StructExpression::member(s.clone(), id.to_string()).into())
+                                    Ok(StructExpression::member(s, id.to_string()).into())
                                 }
                             },
                             None => Err(ErrorInner {
@@ -5426,8 +5424,8 @@ mod tests {
                         &*MODULE_ID,
                         &state.types
                     ),
-                    Ok(FieldElementExpression::Member(
-                        box StructExpressionInner::Value(vec![FieldElementExpression::Number(
+                    Ok(FieldElementExpression::member(
+                        StructExpressionInner::Value(vec![FieldElementExpression::Number(
                             Bn128Field::from(42u32)
                         )
                         .into()])
