@@ -5,7 +5,7 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
-use zokrates_core::compile::{check, CompileError};
+use zokrates_core::compile::{check, CompileConfig, CompileError};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -40,6 +40,11 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(false)
                 .possible_values(constants::CURVES)
                 .default_value(constants::BN128),
+        )
+        .arg(Arg::with_name("isolate-branches")
+            .long("isolate-branches")
+            .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")
+            .required(false)
         )
 }
 
@@ -84,8 +89,11 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )),
     }?;
 
+    let config =
+        CompileConfig::default().isolate_branches(sub_matches.is_present("isolate-branches"));
+
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
-    let _ = check::<T, _>(source, path, Some(&resolver)).map_err(|e| {
+    let _ = check::<T, _>(source, path, Some(&resolver), &config).map_err(|e| {
         format!(
             "Check failed:\n\n{}",
             e.0.iter()
