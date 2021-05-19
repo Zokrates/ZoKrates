@@ -1,0 +1,2 @@
+Remove substitution in `one_liner.sh` script which caused `Bad substitution` error with `sh`/`dash`
+Put branch isolator behind a compilation flag in the static analyzer
