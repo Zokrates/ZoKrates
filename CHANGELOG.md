@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.3] - 2021-05-19
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.3
+
+### Changes
+- Remove substitution in `one_liner.sh` script which caused `Bad substitution` error with `sh`/`dash` (#877, @dark64)
+- Put branch isolator behind a compilation flag in the static analyzer (#877, @dark64)
+
 ## [0.7.2] - 2021-05-18
 
 ### Release

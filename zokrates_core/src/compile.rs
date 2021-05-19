@@ -168,6 +168,17 @@ pub struct CompileConfig {
     pub isolate_branches: bool,
 }
 
+impl CompileConfig {
+    pub fn allow_unconstrained_variables(mut self, flag: bool) -> Self {
+        self.allow_unconstrained_variables = flag;
+        self
+    }
+    pub fn isolate_branches(mut self, flag: bool) -> Self {
+        self.isolate_branches = flag;
+        self
+    }
+}
+
 type FilePath = PathBuf;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
@@ -178,7 +189,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
+    let (typed_ast, abi) = check_with_arena(source, location, resolver, config, &arena)?;
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast, config);
@@ -205,16 +216,18 @@ pub fn check<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
+    config: &CompileConfig,
 ) -> Result<(), CompileErrors> {
     let arena = Arena::new();
 
-    check_with_arena::<T, _>(source, location, resolver, &arena).map(|_| ())
+    check_with_arena::<T, _>(source, location, resolver, config, &arena).map(|_| ())
 }
 
 fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
+    config: &CompileConfig,
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
@@ -228,7 +241,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
 
     // analyse (unroll and constant propagation)
     typed_ast
-        .analyse()
+        .analyse(config)
         .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
 }
 
