@@ -126,10 +126,9 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )),
     }?;
 
-    let config = CompileConfig {
-        allow_unconstrained_variables: sub_matches.is_present("allow-unconstrained-variables"),
-        isolate_branches: sub_matches.is_present("isolate-branches"),
-    };
+    let config = CompileConfig::default()
+        .allow_unconstrained_variables(sub_matches.is_present("allow-unconstrained-variables"))
+        .isolate_branches(sub_matches.is_present("isolate-branches"));
 
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
     let artifacts: CompilationArtifacts<T> = compile(source, path, Some(&resolver), &config)
