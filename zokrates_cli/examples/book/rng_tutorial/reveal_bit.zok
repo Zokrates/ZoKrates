@@ -7,13 +7,12 @@ import "utils/casts/u32_to_bits" as u32_to_bits
 // WARNING, once enough bits have been revealed it is possible to brute force
 // the remaining preimage bits.
 
-def main(private u32[16] preimage, field bitNum) -> (u32[8], bool):
-                                                                                                                       
+def main(private u32[16] preimage, u32 bitNum) -> (u32[8], bool):
   // Convert the preimage to bits
   bool[512] preimageBits = [false; 512]
-  for field i in 0..16 do
+  for u32 i in 0..16 do
     bool[32] val = u32_to_bits(preimage[i])
-    for field bit in 0..32 do
+    for u32 bit in 0..32 do
       preimageBits[i*32+bit] = val[bit]
     endfor
   endfor
