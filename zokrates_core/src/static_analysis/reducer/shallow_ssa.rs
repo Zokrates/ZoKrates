@@ -174,88 +174,15 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         res
     }
 
-    fn fold_field_expression(
+    fn fold_function_call_expression<E: Expr<'ast, T> + FunctionCall<'ast, T>>(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
-        if let FieldElementExpression::FunctionCall(ref k, _, _) = e {
-            if !k.id.starts_with('_') {
-                self.blocked = true;
-            }
+        c: FunctionCallExpression<'ast, T, E>,
+    ) -> FunctionCallExpression<'ast, T, E> {
+        if !c.function_key.id.starts_with('_') {
+            self.blocked = true;
         }
 
-        fold_field_expression(self, e)
-    }
-
-    fn fold_boolean_expression(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> BooleanExpression<'ast, T> {
-        if let BooleanExpression::FunctionCall(ref k, _, _) = e {
-            if !k.id.starts_with('_') {
-                self.blocked = true;
-            }
-        };
-
-        fold_boolean_expression(self, e)
-    }
-
-    fn fold_uint_expression_inner(
-        &mut self,
-        b: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
-        if let UExpressionInner::FunctionCall(ref k, _, _) = e {
-            if !k.id.starts_with('_') {
-                self.blocked = true;
-            }
-        };
-
-        fold_uint_expression_inner(self, b, e)
-    }
-
-    fn fold_array_expression_inner(
-        &mut self,
-        ty: &ArrayType<'ast, T>,
-        e: ArrayExpressionInner<'ast, T>,
-    ) -> ArrayExpressionInner<'ast, T> {
-        if let ArrayExpressionInner::FunctionCall(ref k, _, _) = e {
-            if !k.id.starts_with('_') {
-                self.blocked = true;
-            }
-        };
-
-        fold_array_expression_inner(self, ty, e)
-    }
-
-    fn fold_struct_expression_inner(
-        &mut self,
-        ty: &StructType<'ast, T>,
-        e: StructExpressionInner<'ast, T>,
-    ) -> StructExpressionInner<'ast, T> {
-        if let StructExpressionInner::FunctionCall(ref k, _, _) = e {
-            if !k.id.starts_with('_') {
-                self.blocked = true;
-            }
-        };
-
-        fold_struct_expression_inner(self, ty, e)
-    }
-
-    fn fold_expression_list(
-        &mut self,
-        e: TypedExpressionList<'ast, T>,
-    ) -> TypedExpressionList<'ast, T> {
-        match e {
-            TypedExpressionList::FunctionCall(ref k, _, _, _) => {
-                if !k.id.starts_with('_') {
-                    self.blocked = true;
-                }
-            }
-            _ => unreachable!(),
-        };
-
-        fold_expression_list(self, e)
+        fold_function_call_expression(self, e)
     }
 }
 
