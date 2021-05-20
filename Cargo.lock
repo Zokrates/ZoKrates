@@ -2269,7 +2269,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "assert_cli",
  "bincode",
@@ -2294,7 +2294,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "ark-bls12-377",
  "ark-bn254",
