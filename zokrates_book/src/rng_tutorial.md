@@ -133,7 +133,7 @@ A Zokrates function can return multiple values. In this case, it returns the has
 value of the bit being revealed.
 
 ```javascript
-def main(private u32[16] preimage, field bitNum) -> (u32[8], bool):
+def main(private u32[16] preimage, u32 bitNum) -> (u32[8], bool):
 ```
 
 &nbsp;
@@ -152,10 +152,10 @@ when it is declared.
 &nbsp;
 
 This is a [for loop](https://zokrates.github.io/language/control_flow.html#for-loops). For loops 
-have to have an index of type `field`, and their bounds need to be known at compile time.
+have to have an index of type `u32`, and their bounds need to be known at compile time.
 In this case, we go over each of the sixteen 32 bit words.
 ```javascript
-  for field i in 0..16 do
+  for u32 i in 0..16 do
 ```
 
 The function we imported, `u32_to_bits`, converts a `u32` value to an array of bits.
@@ -169,7 +169,7 @@ The function we imported, `u32_to_bits`, converts a `u32` value to an array of b
 The inner loop copies the bits from `val` to `preimageBits`, the bit array for the preimage.
 
 ```javascript
-    for field bit in 0..32 do
+    for u32 bit in 0..32 do
       preimageBits[i*32+bit] = val[bit]
     endfor
   endfor
