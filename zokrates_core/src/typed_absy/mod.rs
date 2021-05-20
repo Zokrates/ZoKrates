@@ -1567,6 +1567,90 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 
 // Common behaviour across expressions
 
+pub trait Expr<'ast, T> {
+    type Inner;
+
+    fn into_inner(self) -> Self::Inner;
+
+    fn as_inner(&self) -> &Self::Inner;
+}
+
+impl<'ast, T> Expr<'ast, T> for FieldElementExpression<'ast, T> {
+    type Inner = Self;
+
+    fn into_inner(self) -> Self::Inner {
+        self
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self
+    }
+}
+
+impl<'ast, T> Expr<'ast, T> for BooleanExpression<'ast, T> {
+    type Inner = Self;
+
+    fn into_inner(self) -> Self::Inner {
+        self
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self
+    }
+}
+
+impl<'ast, T> Expr<'ast, T> for UExpression<'ast, T> {
+    type Inner = UExpressionInner<'ast, T>;
+
+    fn into_inner(self) -> Self::Inner {
+        self.inner
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self.inner
+    }
+}
+
+impl<'ast, T> Expr<'ast, T> for StructExpression<'ast, T> {
+    type Inner = StructExpressionInner<'ast, T>;
+
+    fn into_inner(self) -> Self::Inner {
+        self.inner
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self.inner
+    }
+}
+
+impl<'ast, T> Expr<'ast, T> for ArrayExpression<'ast, T> {
+    type Inner = ArrayExpressionInner<'ast, T>;
+
+    fn into_inner(self) -> Self::Inner {
+        self.inner
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self.inner
+    }
+}
+
+impl<'ast, T> Expr<'ast, T> for IntExpression<'ast, T> {
+    type Inner = Self;
+
+    fn into_inner(self) -> Self::Inner {
+        self
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self
+    }
+}
+pub enum ThisOrUncle<S, U> {
+    This(S),
+    Uncle(U),
+}
+
 pub trait IfElse<'ast, T> {
     fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
         -> Self;

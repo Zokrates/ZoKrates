@@ -1165,10 +1165,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
-    fn fold_member_expression<E: Member<'ast, T> + From<TypedExpression<'ast, T>>>(
+    fn fold_member_expression<
+        E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
         &mut self,
         m: MemberExpression<'ast, T, E>,
-    ) -> Result<E, Self::Error> {
+    ) -> Result<ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner>, Self::Error> {
         let id = m.id;
 
         let struc = self.fold_struct_expression(*m.struc)?;
@@ -1176,15 +1178,22 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         let ty = struc.ty().clone();
 
         match struc.into_inner() {
-            StructExpressionInner::Value(v) => Ok(ty
-                .members
-                .iter()
-                .zip(v)
-                .find(|(member, _)| member.id == id)
-                .unwrap()
-                .1
-                .into()),
-            inner => Ok(E::member(inner.annotate(ty), id)),
+            StructExpressionInner::Value(v) => Ok(ThisOrUncle::Uncle(
+                E::from(
+                    ty.members
+                        .iter()
+                        .zip(v)
+                        .find(|(member, _)| member.id == id)
+                        .unwrap()
+                        .1
+                        .into(),
+                )
+                .into_inner(),
+            )),
+            inner => Ok(ThisOrUncle::This(MemberExpression::new(
+                inner.annotate(ty),
+                id,
+            ))),
         }
     }
 
