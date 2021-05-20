@@ -1,10 +1,13 @@
+def swap(u32[10] a, u32 i, u32 j) -> u32[10]:
+	u32 tmp = a[i]
+	a[i] = a[j]
+	a[j] = tmp
+	return a
+
 def bubblesort<N>(u32[N] a) -> u32[N]:
 	for u32 i in 0..(N-1) do
 		for u32 j in 0..(N-1-i) do
-			bool swap = a[j + 1] < a[j]
-			u32 tmp = a[j]
-			a[j] = if swap then a[j + 1] else a[j] fi
-			a[j + 1] = if swap then tmp else a[j + 1] fi
+			a = if a[j + 1] < a[j] then swap(a, j, j + 1) else a fi
 		endfor
 	endfor
 	return a
