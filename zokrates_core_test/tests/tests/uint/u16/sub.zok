@@ -1,2 +1,2 @@
-def main(u16 a, u16 b) -> u16:
-    return a - b
+def main(u16 a, u16 b) -> (u16, u16, u16):
+    return a - b, a - 1, 1 - a

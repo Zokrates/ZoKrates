@@ -1,0 +1,34 @@
+{
+    "entry_point": "./tests/tests/panics/internal_panic.zok",
+    "curves": ["Bn128"],
+    "config": {
+        "allow_unconstrained_variables": false,
+        "isolate_branches": true
+    },
+	"tests": [
+        {
+            "input": {
+                "values": [
+                    "1"
+                ]
+            },
+            "output": {
+				"Ok": {
+					"values": ["1"] 
+				}
+            }
+        },
+        {
+            "input": {
+                "values": [
+                    "0"
+                ]
+            },
+            "output": {
+				"Ok": {
+					"values": ["0"] 
+				}
+            }
+        }
+    ]
+}

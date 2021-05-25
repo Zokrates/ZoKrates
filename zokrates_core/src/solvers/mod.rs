@@ -13,6 +13,8 @@ pub enum Solver {
     EuclideanDiv,
     #[cfg(feature = "bellman")]
     Sha256Round,
+    #[cfg(feature = "ark")]
+    Verify(usize),
 }
 
 impl fmt::Display for Solver {
@@ -34,6 +36,8 @@ impl Solver {
             Solver::EuclideanDiv => (2, 2),
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => (768, 26935),
+            #[cfg(feature = "ark")]
+            Solver::Verify(n) => (26 + 3 * n, 56953 + 3078 * n), // TODO: update this
         }
     }
 }

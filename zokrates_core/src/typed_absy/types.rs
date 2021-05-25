@@ -1,4 +1,4 @@
-use crate::typed_absy::{OwnedTypedModuleId, UExpression, UExpressionInner};
+use crate::typed_absy::{Identifier, OwnedTypedModuleId, UExpression, UExpressionInner};
 use crate::typed_absy::{TryFrom, TryInto};
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
@@ -54,6 +54,7 @@ pub struct SpecializationError;
 pub enum Constant<'ast> {
     Generic(GenericIdentifier<'ast>),
     Concrete(u32),
+    Identifier(&'ast str, usize),
 }
 
 impl<'ast> From<u32> for Constant<'ast> {
@@ -79,6 +80,7 @@ impl<'ast> fmt::Display for Constant<'ast> {
         match self {
             Constant::Generic(i) => write!(f, "{}", i),
             Constant::Concrete(v) => write!(f, "{}", v),
+            Constant::Identifier(v, _) => write!(f, "{}", v),
         }
     }
 }
@@ -96,6 +98,9 @@ impl<'ast, T> From<Constant<'ast>> for UExpression<'ast, T> {
                 UExpressionInner::Identifier(i.name.into()).annotate(UBitwidth::B32)
             }
             Constant::Concrete(v) => UExpressionInner::Value(v as u128).annotate(UBitwidth::B32),
+            Constant::Identifier(v, size) => {
+                UExpressionInner::Identifier(Identifier::from(v)).annotate(UBitwidth::from(size))
+            }
         }
     }
 }
@@ -179,7 +184,7 @@ impl<'ast, T> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GArrayType<S> {
     pub size: S,
     #[serde(flatten)]
@@ -426,7 +431,7 @@ impl fmt::Display for UBitwidth {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum GType<S> {
     FieldElement,
     Boolean,
@@ -623,29 +628,6 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}", array_type),
             GType::Struct(ref struct_type) => write!(f, "{}", struct_type.name(),),
-        }
-    }
-}
-
-impl<S: fmt::Debug> fmt::Debug for GType<S> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            GType::FieldElement => write!(f, "field"),
-            GType::Boolean => write!(f, "bool"),
-            GType::Int => write!(f, "integer"),
-            GType::Uint(ref bitwidth) => write!(f, "u{:?}", bitwidth),
-            GType::Array(ref array_type) => write!(f, "{:?}[{:?}]", array_type.ty, array_type.size),
-            GType::Struct(ref struct_type) => write!(
-                f,
-                "{:?} {{{:?}}}",
-                struct_type.name(),
-                struct_type
-                    .members
-                    .iter()
-                    .map(|member| format!("{:?}: {:?}", member.id, member.ty))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
         }
     }
 }
@@ -870,7 +852,7 @@ pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, Serialize, Deserialize, Eq)]
+    #[derive(Clone, Serialize, Deserialize, Eq, Debug)]
     pub struct GSignature<S> {
         pub generics: Vec<Option<S>>,
         pub inputs: Vec<GType<S>>,
@@ -943,6 +925,7 @@ pub mod signature {
                             }
                         },
                         Constant::Concrete(s0) => s1 == *s0 as usize,
+                        Constant::Identifier(_, s0) => s1 == *s0,
                     }
             }
             (DeclarationType::FieldElement, GType::FieldElement)
@@ -968,6 +951,7 @@ pub mod signature {
                 let size = match t0.size {
                     Constant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
                     Constant::Concrete(s) => Ok(s.into()),
+                    Constant::Identifier(_, s) => Ok((s as u32).into()),
                 }?;
 
                 GType::Array(GArrayType { size, ty })
@@ -1133,16 +1117,6 @@ pub mod signature {
     impl<'ast, T> From<DeclarationSignature<'ast>> for Signature<'ast, T> {
         fn from(s: DeclarationSignature<'ast>) -> Self {
             try_from_g_signature(s).unwrap()
-        }
-    }
-
-    impl<S: fmt::Debug> fmt::Debug for GSignature<S> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(
-                f,
-                "Signature(generics: {:?}, inputs: {:?}, outputs: {:?})",
-                self.generics, self.inputs, self.outputs
-            )
         }
     }
 

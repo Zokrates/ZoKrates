@@ -152,13 +152,16 @@ fn is_constant<T: Field>(e: &TypedExpression<T>) -> bool {
     }
 }
 
-fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
-    fn remove_spreads_aux<T: Field>(e: TypedExpressionOrSpread<T>) -> Vec<TypedExpression<T>> {
+// in the constant map, we only want canonical constants: [0; 3] -> [0, 0, 0], [...[1], 2] -> [1, 2], etc
+fn to_canonical_constant<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
+    fn to_canonical_constant_aux<T: Field>(
+        e: TypedExpressionOrSpread<T>,
+    ) -> Vec<TypedExpression<T>> {
         match e {
             TypedExpressionOrSpread::Expression(e) => vec![e],
             TypedExpressionOrSpread::Spread(s) => match s.array.into_inner() {
                 ArrayExpressionInner::Value(v) => {
-                    v.into_iter().flat_map(remove_spreads_aux).collect()
+                    v.into_iter().flat_map(to_canonical_constant_aux).collect()
                 }
                 _ => unimplemented!(),
             },
@@ -167,12 +170,12 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
 
     match e {
         TypedExpression::Array(a) => {
-            let array_ty = a.get_array_type();
+            let array_ty = a.ty();
 
             match a.into_inner() {
                 ArrayExpressionInner::Value(v) => ArrayExpressionInner::Value(
                     v.into_iter()
-                        .flat_map(remove_spreads_aux)
+                        .flat_map(to_canonical_constant_aux)
                         .map(|e| e.into())
                         .collect::<Vec<_>>()
                         .into(),
@@ -197,7 +200,7 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
 
                     ArrayExpressionInner::Value(
                         v.into_iter()
-                            .flat_map(remove_spreads_aux)
+                            .flat_map(to_canonical_constant_aux)
                             .map(|e| e.into())
                             .enumerate()
                             .filter(|(index, _)| index >= &from && index < &to)
@@ -214,7 +217,7 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
                         _ => unreachable!("should be a uint value"),
                     };
 
-                    let e = remove_spreads(e);
+                    let e = to_canonical_constant(e);
 
                     ArrayExpressionInner::Value(
                         vec![TypedExpressionOrSpread::Expression(e); count].into(),
@@ -222,6 +225,18 @@ fn remove_spreads<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
                     .annotate(*array_ty.ty, array_ty.size)
                     .into()
                 }
+                _ => unreachable!(),
+            }
+        }
+        TypedExpression::Struct(s) => {
+            let struct_ty = s.ty().clone();
+
+            match s.into_inner() {
+                StructExpressionInner::Value(expressions) => StructExpressionInner::Value(
+                    expressions.into_iter().map(to_canonical_constant).collect(),
+                )
+                .annotate(struct_ty)
+                .into(),
                 _ => unreachable!(),
             }
         }
@@ -300,7 +315,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 if is_constant(&expr) {
                     match assignee {
                         TypedAssignee::Identifier(var) => {
-                            let expr = remove_spreads(expr);
+                            let expr = to_canonical_constant(expr);
 
                             assert!(self.constants.insert(var.id, expr).is_none());
 
@@ -308,7 +323,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         }
                         assignee => match self.try_get_constant_mut(&assignee) {
                             Ok((_, c)) => {
-                                *c = remove_spreads(expr);
+                                *c = to_canonical_constant(expr);
                                 Ok(vec![])
                             }
                             Err(v) => match self.constants.remove(&v.id) {
@@ -374,7 +389,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                             let argument = arguments.pop().unwrap();
 
-                            let argument = remove_spreads(argument);
+                            let argument = to_canonical_constant(argument);
 
                             match ArrayExpression::try_from(argument)
                                 .unwrap()
@@ -1408,6 +1423,22 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         m,
                     )),
                 }
+            }
+            StructExpressionInner::Value(v) => {
+                let v = v.into_iter().zip(ty.iter()).map(|(v, member)|
+                    match self.fold_expression(v) {
+                        Ok(v) => match (ConcreteType::try_from(v.get_type().clone()), ConcreteType::try_from(*member.ty.clone())) {
+                            (Ok(t1), Ok(t2)) => if t1 == t2 { Ok(v) } else { Err(Error::Type(format!(
+                                "Struct member `{}` in struct `{}/{}` expected to have type `{}`, found type `{}`",
+                                member.id, ty.canonical_location.clone().module.display(), ty.canonical_location.clone().name, t2, t1
+                            ))) },
+                            _ => Ok(v)
+                        }
+                        e => e
+                    }
+                ).collect::<Result<_, _>>()?;
+
+                Ok(StructExpressionInner::Value(v))
             }
             e => fold_struct_expression_inner(self, ty, e),
         }

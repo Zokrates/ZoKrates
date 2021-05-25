@@ -1,6 +1,6 @@
 {
   "entry_point": "./tests/tests/uint/u64/sub.zok",
-  "max_constraint_count": 197,
+  "max_constraint_count": 331,
   "tests": [
     {
       "input": {
@@ -8,7 +8,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0xfffffffffffffffe"]
+          "values": ["0xfffffffffffffffe", "0xfffffffffffffffe", "0x0000000000000002"]
         }
       }
     },
@@ -18,7 +18,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0xffffffffffffffff"]
+          "values": ["0xffffffffffffffff", "0xffffffffffffffff", "0x0000000000000001"]
         }
       }
     }

@@ -6,7 +6,10 @@ use crate::solvers::Solver;
 use crate::typed_absy::types::{
     ConcreteGenericsAssignment, Constant, DeclarationSignature, DeclarationType, GenericIdentifier,
 };
+use ark_bls12_377::Bls12_377;
+use ark_bw6_761::BW6_761;
 use std::collections::HashMap;
+use zokrates_embed::ark::generate_verify_constraints;
 use zokrates_field::{Bn128Field, Field};
 
 cfg_if::cfg_if! {
@@ -23,8 +26,6 @@ cfg_if::cfg_if! {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum FlatEmbed {
     U32ToField,
-    #[cfg(feature = "bellman")]
-    Sha256Round,
     Unpack,
     U8ToBits,
     U16ToBits,
@@ -34,6 +35,10 @@ pub enum FlatEmbed {
     U16FromBits,
     U32FromBits,
     U64FromBits,
+    #[cfg(feature = "bellman")]
+    Sha256Round,
+    #[cfg(feature = "ark")]
+    Verify,
 }
 
 impl FlatEmbed {
@@ -113,6 +118,36 @@ impl FlatEmbed {
                     DeclarationType::Boolean,
                     256usize,
                 ))]),
+            #[cfg(feature = "ark")]
+            FlatEmbed::Verify => DeclarationSignature::new()
+                .generics(vec![
+                    Some(Constant::Generic(GenericIdentifier {
+                        name: "N",
+                        index: 0,
+                    })),
+                    Some(Constant::Generic(GenericIdentifier {
+                        name: "V",
+                        index: 1,
+                    })),
+                ])
+                .inputs(vec![
+                    DeclarationType::array((
+                        DeclarationType::FieldElement,
+                        Some(Constant::Generic(GenericIdentifier {
+                            name: "V",
+                            index: 1,
+                        })),
+                    )), // 18 + (2 * n)
+                    DeclarationType::array((
+                        DeclarationType::FieldElement,
+                        Some(Constant::Generic(GenericIdentifier {
+                            name: "N",
+                            index: 0,
+                        })),
+                    )), // inputs
+                    DeclarationType::array((DeclarationType::FieldElement, 8)), // proof
+                ])
+                .outputs(vec![DeclarationType::Boolean]),
         }
     }
 
@@ -133,8 +168,6 @@ impl FlatEmbed {
     pub fn id(&self) -> &'static str {
         match self {
             FlatEmbed::U32ToField => "_U32_TO_FIELD",
-            #[cfg(feature = "bellman")]
-            FlatEmbed::Sha256Round => "_SHA256_ROUND",
             FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
@@ -144,15 +177,21 @@ impl FlatEmbed {
             FlatEmbed::U16FromBits => "_U16_FROM_BITS",
             FlatEmbed::U32FromBits => "_U32_FROM_BITS",
             FlatEmbed::U64FromBits => "_U64_FROM_BITS",
+            #[cfg(feature = "bellman")]
+            FlatEmbed::Sha256Round => "_SHA256_ROUND",
+            #[cfg(feature = "ark")]
+            FlatEmbed::Verify => "_VERIFY",
         }
     }
 
     /// Actually get the `FlatFunction` that this `FlatEmbed` represents
     pub fn synthetize<T: Field>(&self, generics: &[u32]) -> FlatFunction<T> {
         match self {
+            FlatEmbed::Unpack => unpack_to_bitwidth(generics[0] as usize),
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => sha256_round(),
-            FlatEmbed::Unpack => unpack_to_bitwidth(generics[0] as usize),
+            #[cfg(feature = "ark")]
+            FlatEmbed::Verify => verify(),
             _ => unreachable!(),
         }
     }
@@ -280,6 +319,118 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         arguments,
         statements,
     }
+}
+
+#[cfg(feature = "ark")]
+pub fn verify<T: Field>(n: usize) -> FlatFunction<T> {
+    unreachable!();
+    //
+    // let (output_index, constraints) = generate_verify_constraints(n);
+    //
+    // let statements = constraints
+    //     .into_iter()
+    //     .map(|c| flat_statement_from_constraint::<T, BW6_761>(c))
+    //     .collect();
+    //
+    // //indices of the arguments to the function
+    // // apply an offset of `variable_count` to get the index of our dummy `input` argument
+    // let input_argument_indices = input_indices
+    //     .clone()
+    //     .into_iter()
+    //     .map(|i| i + variable_count);
+    //
+    // let proof_argument_indices = proof_indices
+    //     .clone()
+    //     .into_iter()
+    //     .map(|i| i + variable_count);
+    //
+    // let vk_argument_indices = vk_indices.clone().into_iter().map(|i| i + variable_count);
+    //
+    // // define parameters to the function based on the variables
+    // let proof_arguments = proof_argument_indices.clone().map(|i| FlatParameter {
+    //     id: FlatVariable::new(i),
+    //     private: true,
+    // });
+    //
+    // let input_arguments = input_argument_indices.clone().map(|i| FlatParameter {
+    //     id: FlatVariable::new(i),
+    //     private: false,
+    // });
+    //
+    // let vk_arguments = vk_argument_indices.clone().map(|i| FlatParameter {
+    //     id: FlatVariable::new(i),
+    //     private: true,
+    // });
+    //
+    // let arguments = proof_arguments
+    //     .clone()
+    //     .chain(input_arguments)
+    //     .chain(vk_arguments)
+    //     .collect();
+    //
+    // let one_binding_statement = FlatStatement::Condition(
+    //     FlatExpression::Identifier(FlatVariable::new(0)),
+    //     FlatExpression::Number(T::from(1)),
+    // );
+    //
+    // let input_binding_statements: Vec<_> = proof_indices
+    //     .clone()
+    //     .chain(input_indices.clone())
+    //     .chain(vk_indices.clone())
+    //     .zip(
+    //         proof_argument_indices
+    //             .clone()
+    //             .chain(input_argument_indices.clone())
+    //             .chain(vk_argument_indices.clone()),
+    //     )
+    //     .map(|(cs_index, argument_index)| {
+    //         FlatStatement::Condition(
+    //             FlatVariable::new(cs_index).into(),
+    //             FlatVariable::new(argument_index).into(),
+    //         )
+    //     })
+    //     .collect();
+    //
+    // let directive_outputs: Vec<FlatVariable> = output_indices
+    //     .clone()
+    //     .map(|o| FlatVariable::new(o))
+    //     .collect();
+    //
+    // let outputs: Vec<FlatExpression<T>> = directive_outputs
+    //     .iter()
+    //     .enumerate()
+    //     .map(|(_, o)| FlatExpression::Identifier(o.clone()))
+    //     .collect();
+    //
+    // // insert flattened statements to represent constraints
+    // let constraint_statements: Vec<FlatStatement<T>> =
+    //     r1cs.constraints.into_iter().map(|c| to_fs(c)).collect();
+    // let return_statement = FlatStatement::Return(FlatExpressionList {
+    //     expressions: outputs.clone(),
+    // });
+    //
+    // // insert a directive to set the witness based on the zexe gadget and  inputs
+    // let directive_statement = FlatStatement::Directive(FlatDirective {
+    //     outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
+    //     inputs: proof_argument_indices
+    //         .chain(input_argument_indices.clone())
+    //         .chain(vk_argument_indices.clone())
+    //         .map(|i| FlatVariable::new(i).into())
+    //         .collect(),
+    //     solver: Solver::Verify(n),
+    // });
+    //
+    // let statements: Vec<_> = std::iter::once(directive_statement)
+    //     .chain(std::iter::once(one_binding_statement))
+    //     .chain(input_binding_statements)
+    //     .chain(constraint_statements)
+    //     .chain(std::iter::once(return_statement))
+    //     .collect();
+    //
+    // FlatFunction {
+    //     arguments,
+    //     statements,
+    // }
 }
 
 fn use_variable(

@@ -1,0 +1,28 @@
+{
+    "entry_point": "./tests/tests/panics/panic_isolation.zok",
+    "config": {
+        "allow_unconstrained_variables": false,
+        "isolate_branches": false
+    },
+    "curves": ["Bn128"],
+	"tests": [
+        {
+            "input": {
+                "values": [
+                    "1",
+                    "1",
+                    "1",
+                    "1"
+                ]
+            },
+            "output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "1",
+						"right": "0"
+					}
+				}
+            }
+        }
+    ]
+}

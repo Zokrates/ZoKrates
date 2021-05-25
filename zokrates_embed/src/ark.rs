@@ -3,7 +3,7 @@ use ark_bls12_377::{
 };
 use ark_bw6_761::Fr as BW6Fr;
 use ark_ec::PairingEngine;
-use ark_ff::{Field, One, UniformRand};
+use ark_ff::{Field, UniformRand};
 use ark_r1cs_std::bits::boolean::Boolean;
 use ark_relations::{
     lc, ns,
@@ -13,14 +13,15 @@ use ark_relations::{
 use ark_crypto_primitives::snark::constraints::SNARKGadget;
 use ark_crypto_primitives::snark::{CircuitSpecificSetupSNARK, SNARK};
 use ark_gm17::{constraints::GM17VerifierGadget, GM17};
+use ark_r1cs_std::ToBitsGadget;
 
 use ark_r1cs_std::alloc::AllocVar;
 use ark_std::test_rng;
 
 use crate::Constraint;
 use ark_r1cs_std::eq::EqGadget;
-use ark_relations::r1cs::{OptimizationGoal, Variable};
-use ark_std::ops::{Mul, MulAssign};
+use ark_relations::r1cs::Variable;
+use ark_std::ops::MulAssign;
 
 #[derive(Copy, Clone)]
 struct DummyCircuit<F: Field> {
@@ -55,7 +56,10 @@ impl<ConstraintF: Field> ConstraintSynthesizer<ConstraintF> for DummyCircuit<Con
 type GM17Snark = GM17<BLS12PairingEngine>;
 type VerifierGadget = GM17VerifierGadget<BLS12PairingEngine, BLS12PairingVar>;
 
-pub fn generate_verify_constraints<T>(input_size: usize) -> (usize, Vec<Constraint<T>>) {
+// pub fn generate_verify_constraints(input_size: usize) -> (usize, Vec<Constraint<BW6Fr>>) {
+#[test]
+pub fn generate_verify_constraints() {
+    let input_size: usize = 1;
     let mut rng = test_rng();
     let a = BLS12Fr::rand(&mut rng);
     let b = BLS12Fr::rand(&mut rng);
@@ -82,6 +86,20 @@ pub fn generate_verify_constraints<T>(input_size: usize) -> (usize, Vec<Constrai
         >>::InputVar::new_input(ns!(cs, "alloc_inputs"), || Ok(vec![c; input_size]))
         .unwrap();
 
+    let input_indices = input_gadget
+        .clone()
+        .into_iter()
+        .map(|f| {
+            f.iter()
+                .map(|b| match b {
+                    Boolean::Is(x) => var_to_index(x.variable()),
+                    Boolean::Not(x) => var_to_index(x.variable()),
+                    _ => unreachable!(),
+                })
+                .collect()
+        })
+        .collect::<Vec<Vec<usize>>>();
+
     let proof_gadget = <VerifierGadget as SNARKGadget<
         <BLS12PairingEngine as PairingEngine>::Fr,
         <BLS12PairingEngine as PairingEngine>::Fq,
@@ -89,12 +107,35 @@ pub fn generate_verify_constraints<T>(input_size: usize) -> (usize, Vec<Constrai
     >>::ProofVar::new_witness(ns!(cs, "alloc_proof"), || Ok(proof))
     .unwrap();
 
+    let proof_indices = proof_gadget
+        .clone()
+        .a
+        .to_bits_le()
+        .unwrap()
+        .into_iter()
+        .map(|b| match b {
+            Boolean::Is(x) => var_to_index(x.variable()),
+            Boolean::Not(x) => var_to_index(x.variable()),
+            _ => unreachable!(),
+        })
+        .collect::<Vec<usize>>();
+
     let vk_gadget = <VerifierGadget as SNARKGadget<
         <BLS12PairingEngine as PairingEngine>::Fr,
         <BLS12PairingEngine as PairingEngine>::Fq,
         GM17Snark,
     >>::VerifyingKeyVar::new_constant(ns!(cs, "alloc_vk"), vk.clone())
     .unwrap();
+
+    // let vk_indices = vk_gadget
+    //     .clone()
+    //     .into_iter()
+    //     .map(|f| f.iter().map(|b| match b {
+    //         Boolean::Is(x) => var_to_index(x.variable()),
+    //         Boolean::Not(x) => var_to_index(x.variable()),
+    //         _ => unreachable!(),
+    //     }).collect())
+    //     .collect::<Vec<Vec<usize>>>();
 
     let res = <VerifierGadget as SNARKGadget<
         <BLS12PairingEngine as PairingEngine>::Fr,
@@ -128,7 +169,11 @@ pub fn generate_verify_constraints<T>(input_size: usize) -> (usize, Vec<Constrai
 
     assert!(cs.is_satisfied().unwrap());
 
-    (out_index, constraints)
+    println!("{}", input_indices.len());
+    println!("{}", proof_indices.len());
+    // println!("{}", vk_indices.len());
+
+    // (out_index, constraints)
 }
 
 fn var_to_index(v: Variable) -> usize {

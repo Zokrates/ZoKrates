@@ -1,4 +1,4 @@
-import "EMBED/u32_from_bits" as from_bits
+from "EMBED" import u32_from_bits
 
 // convert an array of bool to an array of u32
 // the sizes must match (one u32 for 32 bool) otherwise an error will happen
@@ -9,7 +9,7 @@ def main<N, P>(bool[N] bits) -> u32[P]:
 	u32[P] res = [0; P]
 	
 	for u32 i in 0..P do
-		res[i] = from_bits(bits[32 * i..32 * (i + 1)])
+		res[i] = u32_from_bits(bits[32 * i..32 * (i + 1)])
 	endfor
 
 	return res

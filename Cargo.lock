@@ -2322,7 +2322,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.7.0"
+version = "0.7.3"
 dependencies = [
  "assert_cli",
  "bincode",
@@ -2347,7 +2347,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.0"
+version = "0.6.3"
 dependencies = [
  "ark-bls12-377",
  "ark-bn254",
@@ -2388,7 +2388,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core_test"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "zokrates_test",
  "zokrates_test_derive",
@@ -2443,7 +2443,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "glob 0.2.11",
  "pest",
@@ -2452,7 +2452,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "from-pest",
  "glob 0.2.11",
@@ -2464,7 +2464,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "fs_extra",
  "zokrates_test",
@@ -2473,7 +2473,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_test"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "serde",
  "serde_derive",

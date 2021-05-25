@@ -1,7 +1,7 @@
-import "EMBED/u64_to_bits" as to_bits
+from "EMBED" import u64_to_bits
 
 def main(u64 i) -> field:
-    bool[64] bits = to_bits(i)
+    bool[64] bits = u64_to_bits(i)
     field res = 0
     for u32 j in 0..64 do
         u32 exponent = 64 - j - 1
