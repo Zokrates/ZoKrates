@@ -1,5 +1,4 @@
-import "ecc/babyjubjubParams" as context
-from "ecc/babyjubjubParams" import BabyJubJubParams
+from "ecc/babyjubjubParams" import main as context, BabyJubJubParams
 import "ecc/proofOfOwnership" as proofOfOwnership
 import "ecc/edwardsScalarMult" as multiply
 

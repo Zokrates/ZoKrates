@@ -1,4 +1,3 @@
-from "ecc/babyjubjubParams" import main as context
 from "ecc/babyjubjubParams" import BabyJubJubParams
 
 // Add two points on a twisted Edwards curve
