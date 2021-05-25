@@ -56,10 +56,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for BoundsChecker {
         }
     }
 
-    fn fold_select_expression<E: Select<'ast, T> + From<TypedExpression<'ast, T>>>(
+    fn fold_select_expression<
+        E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
         &mut self,
         select: SelectExpression<'ast, T, E>,
-    ) -> Result<E, Self::Error> {
+    ) -> Result<ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner>, Self::Error> {
         let array = self.fold_array_expression(*select.array)?;
         let index = self.fold_uint_expression(*select.index)?;
 
@@ -75,6 +77,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for BoundsChecker {
             _ => unreachable!(),
         };
 
-        Ok(E::select(array, index))
+        Ok(ThisOrUncle::This(SelectExpression::new(array, index)))
     }
 }

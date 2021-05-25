@@ -1044,10 +1044,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
-    fn fold_member_expression<E: Member<'ast, T> + From<TypedExpression<'ast, T>>>(
+    fn fold_member_expression<
+        E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
         &mut self,
         m: MemberExpression<'ast, T, E>,
-    ) -> Result<E, Self::Error> {
+    ) -> Result<ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner>, Self::Error> {
         let id = m.id;
 
         let struc = self.fold_struct_expression(*m.struc)?;
@@ -1055,22 +1057,31 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         let ty = struc.ty().clone();
 
         match struc.into_inner() {
-            StructExpressionInner::Value(v) => Ok(ty
-                .members
-                .iter()
-                .zip(v)
-                .find(|(member, _)| member.id == id)
-                .unwrap()
-                .1
-                .into()),
-            inner => Ok(E::member(inner.annotate(ty), id)),
+            StructExpressionInner::Value(v) => Ok(ThisOrUncle::Uncle(
+                E::from(
+                    ty.members
+                        .iter()
+                        .zip(v)
+                        .find(|(member, _)| member.id == id)
+                        .unwrap()
+                        .1
+                        .into(),
+                )
+                .into_inner(),
+            )),
+            inner => Ok(ThisOrUncle::This(MemberExpression::new(
+                inner.annotate(ty),
+                id,
+            ))),
         }
     }
 
-    fn fold_select_expression<E: Select<'ast, T> + From<TypedExpression<'ast, T>>>(
+    fn fold_select_expression<
+        E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
         &mut self,
         e: SelectExpression<'ast, T, E>,
-    ) -> Result<E, Self::Error> {
+    ) -> Result<ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner>, Self::Error> {
         let array = self.fold_array_expression(*e.array)?;
         let index = self.fold_uint_expression(*e.index)?;
 
@@ -1081,10 +1092,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             UExpressionInner::Value(size) => match (array.into_inner(), index.into_inner()) {
                 (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                     if n < size {
-                        Ok(E::from(
-                            v.expression_at::<StructExpression<'ast, T>>(n as usize)
-                                .unwrap()
-                                .clone(),
+                        Ok(ThisOrUncle::Uncle(
+                            E::from(
+                                v.expression_at::<StructExpression<'ast, T>>(n as usize)
+                                    .unwrap()
+                                    .clone(),
+                            )
+                            .into_inner(),
                         ))
                     } else {
                         Err(Error::OutOfBounds(n, size))
@@ -1094,10 +1108,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     match self.constants.get(&id) {
                         Some(a) => match a {
                             TypedExpression::Array(a) => match a.as_inner() {
-                                ArrayExpressionInner::Value(v) => Ok(E::from(
-                                    v.expression_at::<StructExpression<'ast, T>>(n as usize)
-                                        .unwrap()
-                                        .clone(),
+                                ArrayExpressionInner::Value(v) => Ok(ThisOrUncle::Uncle(
+                                    E::from(
+                                        v.expression_at::<StructExpression<'ast, T>>(n as usize)
+                                            .unwrap()
+                                            .clone(),
+                                    )
+                                    .into_inner(),
                                 )),
                                 _ => unreachable!("should be an array value"),
                             },
@@ -1106,15 +1123,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         None => Ok(E::select(
                             ArrayExpressionInner::Identifier(id).annotate(inner_type, size as u32),
                             UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                        )),
+                        )
+                        .into_inner()
+                        .into()),
                     }
                 }
-                (a, i) => Ok(E::select(
+                (a, i) => Ok(ThisOrUncle::This(SelectExpression::new(
                     a.annotate(inner_type, size as u32),
                     i.annotate(UBitwidth::B32),
-                )),
+                ))),
             },
-            _ => Ok(E::select(array, index)),
+            _ => Ok(ThisOrUncle::This(SelectExpression::new(array, index))),
         }
     }
 
