@@ -25,8 +25,10 @@ describe('tests', function() {
 
         it('should resolve stdlib module', function() {
             const stdlib = require('../stdlib.json');
+            const key = "utils/casts/u32_to_bits.zok";
+            assert.ok(key in stdlib);
             assert.doesNotThrow(() => {
-                const code = `import "${Object.keys(stdlib)[0]}" as func\ndef main(): return`;
+                const code = `import "${key}" as to_bits\ndef main(): return`;
                 this.zokrates.compile(code);
             });
         });

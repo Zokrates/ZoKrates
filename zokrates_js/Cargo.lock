@@ -1159,7 +1159,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "zokrates_abi"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "serde",
  "serde_derive",
@@ -1174,7 +1174,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.5.3"
+version = "0.6.3"
 dependencies = [
  "bellman_ce",
  "bincode 0.8.0",
@@ -1202,7 +1202,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_embed"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bellman_ce",
  "sapling-crypto_ce",
@@ -1210,7 +1210,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_field"
-version = "0.3.7"
+version = "0.4.0"
 dependencies = [
  "bellman_ce",
  "bincode 0.8.0",
@@ -1226,7 +1226,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.0.27"
+version = "1.0.32"
 dependencies = [
  "bincode 1.3.1",
  "console_error_panic_hook",
@@ -1242,7 +1242,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.1.6"
+version = "0.2.2"
 dependencies = [
  "pest",
  "pest_derive",
@@ -1250,7 +1250,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.1.5"
+version = "0.2.2"
 dependencies = [
  "from-pest",
  "lazy_static",
