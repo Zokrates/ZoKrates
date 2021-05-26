@@ -1484,8 +1484,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 res
             }
             Statement::MultipleDefinition(assignees, rhs) => {
-                println!("ASSIGNEES: {:?}", assignees);
-
                 match rhs.value {
                     // Right side has to be a function call
                     Expression::FunctionCall(fun_id, generics, arguments) => {
@@ -1524,8 +1522,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         let assignee_types: Vec<_> = assignees.iter().map(|a| Some(a.get_type().clone())).collect();
 
-                        println!("{:?}", assignee_types);
-
                         // find argument types
                         let mut arguments_checked = vec![];
                         for arg in arguments {
@@ -1537,8 +1533,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
                         let query = FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &assignee_types);
-
-                        println!("QUERY {:?}", query);
 
                         let functions = self.find_functions(&query);
 
