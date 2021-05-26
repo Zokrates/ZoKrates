@@ -14,11 +14,11 @@ pub use ast::{
     DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
     FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
     IdentifierExpression, ImportDirective, ImportSource, ImportSymbol, InlineArrayExpression,
-    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression,
-    TypedIdentifierOrAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
-    SymbolDeclaration, TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator,
-    Underscore, Visibility,
+    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression, Parameter,
+    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
+    Statement, StructDefinition, StructField, SymbolDeclaration, TernaryExpression, ToExpression,
+    Type, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression, UnaryOperator, Underscore,
+    Visibility,
 };
 
 mod ast {
@@ -638,7 +638,7 @@ mod ast {
     #[pest_ast(rule(Rule::typed_identifier_or_assignee))]
     pub enum TypedIdentifierOrAssignee<'ast> {
         Assignee(Assignee<'ast>),
-        TypedIdentifier(TypedIdentifier<'ast>)
+        TypedIdentifier(TypedIdentifier<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -1342,9 +1342,9 @@ mod tests {
                                     span: Span::new(&source, 23, 28).unwrap()
                                 })),
                                 identifier: IdentifierExpression {
-                                        value: String::from("a"),
-                                        span: Span::new(&source, 29, 30).unwrap(),
-                                    },
+                                    value: String::from("a"),
+                                    span: Span::new(&source, 29, 30).unwrap(),
+                                },
                                 span: Span::new(&source, 23, 30).unwrap()
                             }),
                             TypedIdentifierOrAssignee::Assignee(Assignee {

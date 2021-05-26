@@ -255,11 +255,14 @@ fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy
                             vec![absy::AssigneeNode::from(i.identifier.clone())],
                             e,
                         ),
-                        _ => absy::Statement::Definition(absy::AssigneeNode::from(i.identifier.clone()), e),
+                        _ => absy::Statement::Definition(
+                            absy::AssigneeNode::from(i.identifier.clone()),
+                            e,
+                        ),
                     };
 
                     vec![declaration, s.span(definition.span)]
-                },
+                }
                 pest::TypedIdentifierOrAssignee::Assignee(a) => {
                     let s = match e.value {
                         absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
@@ -279,28 +282,29 @@ fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy
                 pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
                     let ty = i.ty;
                     let id = i.identifier;
-    
-                    Some(absy::Statement::Declaration(
-                        absy::Variable::new(
-                            id.span.as_str(),
-                            absy::UnresolvedTypeNode::from(ty),
+
+                    Some(
+                        absy::Statement::Declaration(
+                            absy::Variable::new(
+                                id.span.as_str(),
+                                absy::UnresolvedTypeNode::from(ty),
+                            )
+                            .span(id.span),
                         )
-                        .span(id.span),
+                        .span(i.span),
                     )
-                    .span(i.span))
-                },
-                _ => None
+                }
+                _ => None,
             });
 
             let lhs = lhs
                 .into_iter()
                 .map(|i| match i {
                     pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
-                        absy::Assignee::Identifier(i.identifier.span.as_str()).span(i.identifier.span)
-                    },
-                    pest::TypedIdentifierOrAssignee::Assignee(a) => {
-                        absy::AssigneeNode::from(a)
+                        absy::Assignee::Identifier(i.identifier.span.as_str())
+                            .span(i.identifier.span)
                     }
+                    pest::TypedIdentifierOrAssignee::Assignee(a) => absy::AssigneeNode::from(a),
                 })
                 .collect();
 
@@ -1111,18 +1115,14 @@ mod tests {
         // A `Definition` is generated and no `Declaration`s
 
         let definition = pest::DefinitionStatement {
-            lhs: vec![pest::OptionallyTypedAssignee {
-                ty: None,
-                a: pest::Assignee {
-                    id: pest::IdentifierExpression {
-                        value: String::from("a"),
-                        span: span.clone(),
-                    },
-                    accesses: vec![],
+            lhs: vec![pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
+                id: pest::IdentifierExpression {
+                    value: String::from("a"),
                     span: span.clone(),
                 },
+                accesses: vec![],
                 span: span.clone(),
-            }],
+            })],
             expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
                 pest::DecimalLiteralExpression {
                     value: pest::DecimalNumber {
@@ -1149,18 +1149,14 @@ mod tests {
         // A MultiDef is generated
 
         let definition = pest::DefinitionStatement {
-            lhs: vec![pest::OptionallyTypedAssignee {
-                ty: None,
-                a: pest::Assignee {
-                    id: pest::IdentifierExpression {
-                        value: String::from("a"),
-                        span: span.clone(),
-                    },
-                    accesses: vec![],
+            lhs: vec![pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
+                id: pest::IdentifierExpression {
+                    value: String::from("a"),
                     span: span.clone(),
                 },
+                accesses: vec![],
                 span: span.clone(),
-            }],
+            })],
             expression: pest::Expression::Postfix(pest::PostfixExpression {
                 id: pest::IdentifierExpression {
                     value: String::from("foo"),
@@ -1195,32 +1191,24 @@ mod tests {
 
         let definition = pest::DefinitionStatement {
             lhs: vec![
-                pest::OptionallyTypedAssignee {
-                    ty: Some(pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
+                pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
+                    ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
                         span: span.clone(),
-                    }))),
-                    a: pest::Assignee {
-                        id: pest::IdentifierExpression {
-                            value: String::from("a"),
-                            span: span.clone(),
-                        },
-                        accesses: vec![],
+                    })),
+                    identifier: pest::IdentifierExpression {
+                        value: String::from("a"),
                         span: span.clone(),
                     },
                     span: span.clone(),
-                },
-                pest::OptionallyTypedAssignee {
-                    ty: None,
-                    a: pest::Assignee {
-                        id: pest::IdentifierExpression {
-                            value: String::from("b"),
-                            span: span.clone(),
-                        },
-                        accesses: vec![],
+                }),
+                pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
+                    id: pest::IdentifierExpression {
+                        value: String::from("b"),
                         span: span.clone(),
                     },
+                    accesses: vec![],
                     span: span.clone(),
-                },
+                }),
             ],
             expression: pest::Expression::Postfix(pest::PostfixExpression {
                 id: pest::IdentifierExpression {

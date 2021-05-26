@@ -1484,7 +1484,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 res
             }
             Statement::MultipleDefinition(assignees, rhs) => {
-
                 println!("ASSIGNEES: {:?}", assignees);
 
                 match rhs.value {
