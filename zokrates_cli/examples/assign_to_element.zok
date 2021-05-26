@@ -1,0 +1,11 @@
+// def foo() -> u32:
+//         return 0
+
+def bar() -> (u32, u32):
+        return 0, 0
+
+
+def main(u32[1] a, u32 b):
+        //a[0] = foo()
+        a[0], b = bar()
+        return

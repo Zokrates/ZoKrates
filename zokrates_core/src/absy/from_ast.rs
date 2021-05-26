@@ -239,54 +239,69 @@ fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy
 
             let e: absy::ExpressionNode = absy::ExpressionNode::from(definition.expression);
 
-            let s = match e.value {
-                absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
-                    vec![absy::AssigneeNode::from(a.a.clone())],
-                    e,
-                ),
-                _ => absy::Statement::Definition(absy::AssigneeNode::from(a.a.clone()), e),
-            };
-
-            match a.ty {
-                Some(ty) => {
-                    assert_eq!(a.a.accesses.len(), 0);
-
+            match a {
+                pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
                     let declaration = absy::Statement::Declaration(
                         absy::Variable::new(
-                            a.a.id.span.as_str(),
-                            absy::UnresolvedTypeNode::from(ty),
+                            i.identifier.span.as_str(),
+                            absy::UnresolvedTypeNode::from(i.ty),
                         )
-                        .span(a.a.id.span.clone()),
+                        .span(i.identifier.span.clone()),
                     )
                     .span(definition.span.clone());
 
+                    let s = match e.value {
+                        absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
+                            vec![absy::AssigneeNode::from(i.identifier.clone())],
+                            e,
+                        ),
+                        _ => absy::Statement::Definition(absy::AssigneeNode::from(i.identifier.clone()), e),
+                    };
+
                     vec![declaration, s.span(definition.span)]
-                }
-                None => {
-                    // Assignment
+                },
+                pest::TypedIdentifierOrAssignee::Assignee(a) => {
+                    let s = match e.value {
+                        absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
+                            vec![absy::AssigneeNode::from(a)],
+                            e,
+                        ),
+                        _ => absy::Statement::Definition(absy::AssigneeNode::from(a), e),
+                    };
+
                     vec![s.span(definition.span)]
                 }
             }
         }
         _ => {
             // Multidefinition
-            let declarations = lhs.clone().into_iter().filter(|i| i.ty.is_some()).map(|a| {
-                let ty = a.ty;
-                let a = a.a;
-
-                assert_eq!(a.accesses.len(), 0);
-                absy::Statement::Declaration(
-                    absy::Variable::new(
-                        a.id.span.as_str(),
-                        absy::UnresolvedTypeNode::from(ty.unwrap()),
+            let declarations = lhs.clone().into_iter().filter_map(|i| match i {
+                pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
+                    let ty = i.ty;
+                    let id = i.identifier;
+    
+                    Some(absy::Statement::Declaration(
+                        absy::Variable::new(
+                            id.span.as_str(),
+                            absy::UnresolvedTypeNode::from(ty),
+                        )
+                        .span(id.span),
                     )
-                    .span(a.id.span),
-                )
-                .span(a.span)
+                    .span(i.span))
+                },
+                _ => None
             });
+
             let lhs = lhs
                 .into_iter()
-                .map(|i| absy::Assignee::Identifier(i.a.id.span.as_str()).span(i.a.id.span))
+                .map(|i| match i {
+                    pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
+                        absy::Assignee::Identifier(i.identifier.span.as_str()).span(i.identifier.span)
+                    },
+                    pest::TypedIdentifierOrAssignee::Assignee(a) => {
+                        absy::AssigneeNode::from(a)
+                    }
+                })
                 .collect();
 
             let multi_def = absy::Statement::MultipleDefinition(

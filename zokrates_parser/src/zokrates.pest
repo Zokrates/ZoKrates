@@ -54,11 +54,11 @@ statement = { (return_statement // does not require subsequent newline
 
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
-definition_statement = { optionally_typed_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
+definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
 expression_statement = {"assert" ~ "(" ~ expression ~ ")"}
 
-optionally_typed_assignee_list = _{ optionally_typed_assignee ~ ("," ~ optionally_typed_assignee)* }
-optionally_typed_assignee = { (ty ~ assignee) | (assignee) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
+typed_identifier_or_assignee_list = _{ typed_identifier_or_assignee ~ ("," ~ typed_identifier_or_assignee)* }
+typed_identifier_or_assignee = { typed_identifier | assignee } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
 
 // Expressions
 expression_list = _{(expression ~ ("," ~ expression)*)?}
@@ -103,6 +103,7 @@ array_initializer_expression = { "[" ~ expression ~ ";" ~ expression ~ "]" }
 
 // End Expressions
 
+typed_identifier = { ty ~ identifier }
 assignee = { identifier ~ assignee_access* }
 assignee_access = { array_access | member_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
