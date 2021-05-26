@@ -25,12 +25,8 @@ The first step is for Alice and Bob to each come up with a preimage value and ca
 There are many ways to calculate a hash, but here we use Zokrates. 
 
 1. Create this file under the name `get_hash.zok`:
-```javascript
-import "hashes/sha256/512bit" as sha256
-
-def main(u32[16] hashMe) -> u32[8]:
-  u32[8] h = sha256(hashMe[0..8], hashMe[8..16])
-  return h
+```zokrates
+{{#include ../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok}}
 ```
 2. Compile the program to a form that is usable for zero knowledge proofs. This command writes 
 the binary to `get_hash`. You can see a textual representation, somewhat analogous to assembler 
@@ -102,28 +98,8 @@ Finally, return `h` to the caller to display the hash.
 The next step is to reveal a single bit.
 
 1. Use this program, `reveal_bit.zok`:
-```javascript
-import "hashes/sha256/512bit" as sha256
-import "utils/casts/u32_to_bits" as u32_to_bits
-
-// Reveal a bit from a 512 bit value, and return it with the corresponding hash
-// for that value.
-//
-// WARNING, once enough bits have been revealed it is possible to brute force
-// the remaining preimage bits.
-
-def main(private u32[16] preimage, field bitNum) -> (u32[8], bool):
-                                                                                                                       
-  // Convert the preimage to bits
-  bool[512] preimageBits = [false; 512]
-  for field i in 0..16 do
-    bool[32] val = u32_to_bits(preimage[i])
-    for field bit in 0..32 do
-      preimageBits[i*32+bit] = val[bit]
-    endfor
-  endfor
-  
-  return sha256(preimage[0..8], preimage[8..16]), preimageBits[bitNum]
+```zokrates
+{{#include ../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok}}
 ```
 
 2. Compile and run as you did the previous program:
@@ -157,7 +133,7 @@ A Zokrates function can return multiple values. In this case, it returns the has
 value of the bit being revealed.
 
 ```javascript
-def main(private u32[16] preimage, field bitNum) -> (u32[8], bool):
+def main(private u32[16] preimage, u32 bitNum) -> (u32[8], bool):
 ```
 
 &nbsp;
@@ -176,10 +152,10 @@ when it is declared.
 &nbsp;
 
 This is a [for loop](https://zokrates.github.io/language/control_flow.html#for-loops). For loops 
-have to have an index of type `field`, and their bounds need to be known at compile time.
+have to have an index of type `u32`, and their bounds need to be known at compile time.
 In this case, we go over each of the sixteen 32 bit words.
 ```javascript
-  for field i in 0..16 do
+  for u32 i in 0..16 do
 ```
 
 The function we imported, `u32_to_bits`, converts a `u32` value to an array of bits.
@@ -193,7 +169,7 @@ The function we imported, `u32_to_bits`, converts a `u32` value to an array of b
 The inner loop copies the bits from `val` to `preimageBits`, the bit array for the preimage.
 
 ```javascript
-    for field bit in 0..32 do
+    for u32 bit in 0..32 do
       preimageBits[i*32+bit] = val[bit]
     endfor
   endfor
