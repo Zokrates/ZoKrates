@@ -1,11 +1,5 @@
 name: Check markdown links
-on:
-  push:
-    paths:
-      - '**.md'
-  pull_request:
-    paths:
-      - '**.md'
+on: [push, pull_request]
 jobs:
   markdown-link-check:
     runs-on: ubuntu-latest
