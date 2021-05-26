@@ -21,7 +21,7 @@ curl -LSfs get.zokrat.es | sh
 ```
 
 Have a look at the [documentation](https://zokrates.github.io/) for more information about using ZoKrates.
-A getting started tutorial can be found [here](https://zokrates.github.io/sha256example.html).
+A getting started tutorial can be found [here](https://zokrates.github.io/gettingstarted.html).
 
 ## Getting Help
 
