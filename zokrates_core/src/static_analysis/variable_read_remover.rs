@@ -26,16 +26,16 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
         Self::new().fold_program(p)
     }
 
-    fn select<E: Select<'ast, T> + IfElse<'ast, T>>(
+    fn select<E: Expr<'ast, T> + Select<'ast, T> + IfElse<'ast, T>>(
         &mut self,
         e: SelectExpression<'ast, T, E>,
-    ) -> E {
+    ) -> E::Inner {
         let a = *e.array;
         let i = *e.index;
 
         match i.into_inner() {
             UExpressionInner::Value(i) => {
-                E::select(a, UExpressionInner::Value(i).annotate(UBitwidth::B32))
+                E::select(a, UExpressionInner::Value(i).annotate(UBitwidth::B32)).into_inner()
             }
             i => {
                 let size = match a.get_type().clone() {
@@ -82,6 +82,7 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
                         None => Some(res),
                     })
                     .unwrap()
+                    .into_inner()
             }
         }
     }
@@ -89,12 +90,12 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
 
 impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
     fn fold_select_expression<
-        E: Select<'ast, T> + IfElse<'ast, T> + From<TypedExpression<'ast, T>>,
+        E: Expr<'ast, T> + Select<'ast, T> + IfElse<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
         e: SelectExpression<'ast, T, E>,
-    ) -> E {
-        self.select(e)
+    ) -> ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner> {
+        ThisOrUncle::Uncle(self.select(e))
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {

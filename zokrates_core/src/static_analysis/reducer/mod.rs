@@ -16,17 +16,17 @@ mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
 use crate::typed_absy::result_folder::*;
-use crate::typed_absy::types::ConcreteGenericsAssignment;
+use crate::typed_absy::types::{ConcreteGenericsAssignment};
 use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::Folder;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, ArrayType, BlockExpression, BooleanExpression,
-    CoreIdentifier, DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier,
-    StructExpression, StructExpressionInner, StructType, Type, TypedExpression,
+ ArrayExpressionInner, ArrayType, BlockExpression,
+    CoreIdentifier, FunctionCall, Identifier,
+  TypedExpression,
     TypedExpressionList, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
-    TypedStatement, UBitwidth, UExpression, UExpressionInner, Variable,
+    TypedStatement, UExpression, UExpressionInner, Variable, FunctionCallExpression, ThisOrUncle, Expr, TypedExpressionListInner, Id
 };
 
 use std::convert::TryInto;
@@ -191,32 +191,31 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             complete: true,
         }
     }
+}
 
-    fn fold_function_call<E>(
+impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
+    type Error = Error;
+
+    fn fold_function_call_expression<E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>>(
         &mut self,
-        key: DeclarationFunctionKey<'ast>,
-        generics: Vec<Option<UExpression<'ast, T>>>,
-        arguments: Vec<TypedExpression<'ast, T>>,
-        output_type: Type<'ast, T>,
-    ) -> Result<E, Error>
-    where
-        E: FunctionCall<'ast, T> + From<TypedExpression<'ast, T>> + std::fmt::Debug,
-    {
-        let generics = generics
+        ty: E::Ty,
+        e: FunctionCallExpression<'ast, T, E>,
+    ) -> Result<ThisOrUncle<FunctionCallExpression<'ast, T, E>, E::Inner>, Self::Error> {
+        let generics = e.generics
             .into_iter()
             .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
             .collect::<Result<_, _>>()?;
 
-        let arguments = arguments
+        let arguments = e.arguments
             .into_iter()
             .map(|e| self.fold_expression(e))
             .collect::<Result<_, _>>()?;
 
-        let res = inline_call(
-            key.clone(),
+        let res = inline_call::<_, E>(
+            e.function_key.clone(),
             generics,
             arguments,
-            vec![output_type.clone()],
+            ty,
             &self.program,
             &mut self.versions,
         );
@@ -225,30 +224,29 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             Ok(Output::Complete((statements, mut expressions))) => {
                 self.complete &= true;
                 self.statement_buffer.extend(statements);
-                Ok(expressions.pop().unwrap().try_into().unwrap())
+                Ok(ThisOrUncle::Uncle(E::from(expressions.pop().unwrap().try_into().unwrap()).into_inner()))
             }
             Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                 self.complete = false;
                 self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
-                Ok(expressions[0].clone().try_into().unwrap())
+                Ok(ThisOrUncle::Uncle(E::from(expressions[0].clone().try_into().unwrap()).into_inner()))
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
                 conc.to_string(),
                 decl.to_string()
             ))),
-            Err(InlineError::NonConstant(key, generics, arguments, mut output_types)) => {
+            Err(InlineError::NonConstant(key, generics, arguments, _)) => {
                 self.complete = false;
 
-                Ok(E::function_call(
+                Ok(ThisOrUncle::Uncle(E::function_call(
                     key,
                     generics,
                     arguments,
-                    output_types.pop().unwrap(),
-                ))
+                )))
             }
-            Err(InlineError::Flat(embed, generics, arguments, mut output_types)) => {
+            Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                 let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
                     *self
                         .versions
@@ -256,23 +254,19 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                         .and_modify(|e| *e += 1) // if it was already declared, we increment
                         .or_insert(0),
                 );
-                let var = Variable::with_id_and_type(identifier, output_types.pop().unwrap());
+                let var = Variable::with_id_and_type(identifier.clone(), output_types.clone().inner.pop().unwrap());
 
                 let v = vec![var.clone().into()];
 
                 self.statement_buffer
                     .push(TypedStatement::MultipleDefinition(
                         v,
-                        TypedExpressionList::EmbedCall(embed, generics, arguments, output_types),
+                        TypedExpressionListInner::EmbedCall(embed, generics, arguments).annotate(output_types),
                     ));
-                Ok(TypedExpression::from(var).try_into().unwrap())
+                Ok(ThisOrUncle::Uncle(E::identifier(identifier)))
             }
         }
     }
-}
-
-impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
-    type Error = Error;
 
     fn fold_block_expression<E: ResultFold<'ast, T>>(
         &mut self,
@@ -304,23 +298,26 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         let res = match s {
             TypedStatement::MultipleDefinition(
                 v,
-                TypedExpressionList::FunctionCall(key, generics, arguments, output_types),
+                TypedExpressionList {
+                    inner: TypedExpressionListInner::FunctionCall(function_call),
+                    types
+                }
             ) => {
-                let generics = generics
+                let generics = function_call.generics
                     .into_iter()
                     .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
                     .collect::<Result<_, _>>()?;
 
-                let arguments = arguments
+                let arguments = function_call.arguments
                     .into_iter()
                     .map(|a| self.fold_expression(a))
                     .collect::<Result<_, _>>()?;
 
-                match inline_call(
-                    key,
+                match inline_call::<_, TypedExpressionList<'ast, T>>(
+                    function_call.function_key,
                     generics,
                     arguments,
-                    output_types,
+                    types,
                     &self.program,
                     &mut self.versions,
                 ) {
@@ -363,23 +360,21 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionList::FunctionCall(
+                            TypedExpressionList::function_call(
                                 key,
                                 generics,
-                                arguments,
-                                output_types,
-                            ),
+                                arguments
+                            ).annotate(output_types),
                         )])
                     }
                     Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionList::EmbedCall(
+                            TypedExpressionListInner::EmbedCall(
                                 embed,
                                 generics,
-                                arguments,
-                                output_types,
-                            ),
+                                arguments
+                            ).annotate(output_types),
                         )])
                     }
                 }
@@ -452,62 +447,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
     }
 
-    fn fold_boolean_expression(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
-        match e {
-            BooleanExpression::FunctionCall(key, generics, arguments) => {
-                self.fold_function_call(key, generics, arguments, Type::Boolean)
-            }
-            e => fold_boolean_expression(self, e),
-        }
-    }
-
-    fn fold_uint_expression_inner(
-        &mut self,
-        bitwidth: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
-        match e {
-            UExpressionInner::FunctionCall(key, generics, arguments) => self
-                .fold_function_call::<UExpression<'ast, T>>(
-                    key,
-                    generics,
-                    arguments,
-                    Type::Uint(bitwidth),
-                )
-                .map(|e| e.into_inner()),
-            e => fold_uint_expression_inner(self, bitwidth, e),
-        }
-    }
-
-    fn fold_field_expression(
-        &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
-        match e {
-            FieldElementExpression::FunctionCall(key, generic, arguments) => {
-                self.fold_function_call(key, generic, arguments, Type::FieldElement)
-            }
-            e => fold_field_expression(self, e),
-        }
-    }
-
     fn fold_array_expression_inner(
         &mut self,
-        array_ty: &ArrayType<'ast, T>,
+        array_ty: ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
-            ArrayExpressionInner::FunctionCall(key, generics, arguments) => self
-                .fold_function_call::<ArrayExpression<_>>(
-                    key.clone(),
-                    generics,
-                    arguments.clone(),
-                    Type::array(array_ty.clone()),
-                )
-                .map(|e| e.into_inner()),
             ArrayExpressionInner::Slice(box array, box from, box to) => {
                 let array = self.fold_array_expression(array)?;
                 let from = self.fold_uint_expression(from)?;
@@ -523,25 +468,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                 }
             }
-            _ => fold_array_expression_inner(self, &array_ty, e),
-        }
-    }
-
-    fn fold_struct_expression_inner(
-        &mut self,
-        struct_ty: &StructType<'ast, T>,
-        e: StructExpressionInner<'ast, T>,
-    ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
-        match e {
-            StructExpressionInner::FunctionCall(key, generics, arguments) => self
-                .fold_function_call::<StructExpression<'ast, T>>(
-                    key,
-                    generics,
-                    arguments,
-                    Type::Struct(struct_ty.clone()),
-                )
-                .map(|e| e.into_inner()),
-            _ => fold_struct_expression_inner(self, struct_ty, e),
+            _ => fold_array_expression_inner(self, array_ty, e),
         }
     }
 }

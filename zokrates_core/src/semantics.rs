@@ -1548,7 +1548,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     message: format!("Expected function call argument to be of type {}, found {} of type {}", e.1, e.0, e.0.get_type())
                                 }])?;
 
-                                let call = TypedExpressionList::FunctionCall(FunctionCallExpression::new(f.clone(), generics_checked.unwrap_or_else(|| vec![None; f.signature.generics.len()]), arguments_checked), assignees.iter().map(|a| a.get_type()).collect());
+                                let call = TypedExpressionList::function_call(f.clone(), generics_checked.unwrap_or_else(|| vec![None; f.signature.generics.len()]), arguments_checked).annotate(Types { inner: assignees.iter().map(|a| a.get_type()).collect()});
 
                                 Ok(TypedStatement::MultipleDefinition(assignees, call))
                     		},
@@ -2102,7 +2102,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         let generics_checked = generics_checked.unwrap_or_else(|| vec![None; signature.generics.len()]);
 
-                        let output_types = signature.get_output_types(
+                        let mut output_types = signature.get_output_types(
                             generics_checked.clone(),
                             arguments_checked.iter().map(|a| a.get_type()).collect()
                         ).map_err(|e| ErrorInner {
@@ -2123,36 +2123,31 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         match output_types.len() {
                             1 => match output_types.pop().unwrap() {
                                 Type::Int => unreachable!(),
-                                ty @ Type::FieldElement => Ok(FieldElementExpression::function_call(
+                                Type::FieldElement => Ok(FieldElementExpression::function_call(
                                     function_key,
                                     generics_checked,
                                     arguments_checked,
-                                    ty
                                 ).into()),
-                                ty @ Type::Boolean => Ok(BooleanExpression::function_call(
+                                Type::Boolean => Ok(BooleanExpression::function_call(
                                     function_key,
                                     generics_checked,
                                     arguments_checked,
-                                    ty
                                 ).into()),
-                                ty @ Type::Uint(..) => Ok(UExpression::function_call(
+                                Type::Uint(bitwidth) => Ok(UExpression::function_call(
                                     function_key,
                                     generics_checked,
                                     arguments_checked,
-                                    ty
-                                ).into()),
-                                ty @ Type::Struct(..) => Ok(StructExpression::function_call(
+                                ).annotate(bitwidth).into()),
+                                Type::Struct(struct_ty) => Ok(StructExpression::function_call(
                                     function_key,
                                     generics_checked,
                                     arguments_checked,
-                                    ty
-                                ).into()),
-                                ty @ Type::Array(..) => Ok(ArrayExpression::function_call(
+                                ).annotate(struct_ty).into()),
+                                Type::Array(array_ty) => Ok(ArrayExpression::function_call(
                                     function_key,
                                     generics_checked,
                                     arguments_checked,
-                                    ty
-                                ).into()),
+                                ).annotate(*array_ty.ty, array_ty.size).into()),
                             },
                             n => Err(ErrorInner {
                                 pos: Some(pos),

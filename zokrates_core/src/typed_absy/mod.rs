@@ -21,7 +21,7 @@ pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteType, DeclarationFunctionKey,
     DeclarationSignature, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
-    Signature, StructType, Type, UBitwidth,
+    Signature, StructType, Type, UBitwidth, IntoTypes, Types
 };
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
@@ -704,8 +704,8 @@ pub trait MultiTyped<'ast, T> {
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 
 pub struct TypedExpressionList<'ast, T> {
-    inner: TypedExpressionListInner<'ast, T>,
-    types: Vec<Type<'ast, T>>
+    pub inner: TypedExpressionListInner<'ast, T>,
+    pub types: Types<'ast, T>
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
@@ -716,7 +716,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub enum TypedExpressionListInner<'ast, T> {
-    FunctionCall(FunctionCallExpression<'ast, T, Self>),
+    FunctionCall(FunctionCallExpression<'ast, T, TypedExpressionList<'ast, T>>),
     EmbedCall(
         FlatEmbed,
         Vec<u32>,
@@ -726,7 +726,16 @@ pub enum TypedExpressionListInner<'ast, T> {
 
 impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
     fn get_types(&self) -> &Vec<Type<'ast, T>> {
-        &self.types
+        &self.types.inner
+    }
+}
+
+impl<'ast, T> TypedExpressionListInner<'ast, T> {
+    pub fn annotate(self, types: Types<'ast, T>) -> TypedExpressionList<'ast, T> {
+        TypedExpressionList {
+            inner: self,
+            types
+        }
     }
 }
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
@@ -1261,6 +1270,12 @@ impl<'ast, T> From<TypedExpression<'ast, T>> for StructExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> From<TypedExpression<'ast, T>> for TypedExpressionList<'ast, T> {
+    fn from(_: TypedExpression<'ast, T>) -> TypedExpressionList<'ast, T> {
+        unreachable!()
+    }
+}
+
 impl<'ast, T> From<TypedConstant<'ast, T>> for FieldElementExpression<'ast, T> {
     fn from(tc: TypedConstant<'ast, T>) -> FieldElementExpression<'ast, T> {
         tc.expression.into()
@@ -1492,8 +1507,9 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 
 // Common behaviour across expressions
 
-pub trait Expr<'ast, T> {
+pub trait Expr<'ast, T>: From<TypedExpression<'ast, T>> {
     type Inner;
+    type Ty: IntoTypes<'ast, T>;
 
     fn into_inner(self) -> Self::Inner;
 
@@ -1502,6 +1518,7 @@ pub trait Expr<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     type Inner = Self;
+    type Ty = Type<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1514,6 +1531,7 @@ impl<'ast, T> Expr<'ast, T> for FieldElementExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for BooleanExpression<'ast, T> {
     type Inner = Self;
+    type Ty = Type<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1526,6 +1544,8 @@ impl<'ast, T> Expr<'ast, T> for BooleanExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for UExpression<'ast, T> {
     type Inner = UExpressionInner<'ast, T>;
+    type Ty = UBitwidth;
+
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1538,6 +1558,7 @@ impl<'ast, T> Expr<'ast, T> for UExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for StructExpression<'ast, T> {
     type Inner = StructExpressionInner<'ast, T>;
+    type Ty = StructType<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1550,6 +1571,7 @@ impl<'ast, T> Expr<'ast, T> for StructExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
+    type Ty = ArrayType<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1562,6 +1584,7 @@ impl<'ast, T> Expr<'ast, T> for ArrayExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for IntExpression<'ast, T> {
     type Inner = Self;
+    type Ty = Type<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1574,6 +1597,7 @@ impl<'ast, T> Expr<'ast, T> for IntExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for TypedExpressionList<'ast, T> {
     type Inner = TypedExpressionListInner<'ast, T>;
+    type Ty = Types<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1581,6 +1605,79 @@ impl<'ast, T> Expr<'ast, T> for TypedExpressionList<'ast, T> {
 
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
+    }
+}
+
+// pub trait Annotate<U> {
+//     type Ty;
+
+//     fn annotate(self, ty: Self::Ty) -> U;
+// }
+
+// impl<'ast, T> Annotate<IntExpression<'ast, T>> for IntExpression<'ast, T> {
+//     type Ty = !;
+
+//     fn annotate(self, _: Self::Ty) -> IntExpression<'ast, T> {
+//         self
+//     }
+// }
+
+// impl<'ast, T> Annotate<FieldElementExpression<'ast, T>> for FieldElementExpression<'ast, T> {
+//     type Ty = !;
+
+//     fn annotate(self, _: Self::Ty) -> FieldElementExpression<'ast, T> {
+//         self
+//     }
+// }
+
+// impl<'ast, T> Annotate<BooleanExpression<'ast, T>> for BooleanExpression<'ast, T> {
+//     type Ty = !;
+
+//     fn annotate(self, _: Self::Ty) -> BooleanExpression<'ast, T> {
+//         self
+//     }
+// }
+
+// impl<'ast, T> Annotate<ArrayExpression<'ast, T>> for ArrayExpressionInner<'ast, T> {
+//     type Ty = ArrayType<'ast, T>;
+
+//     fn annotate(self, ty: Self::Ty) -> ArrayExpression<'ast, T> {
+//         self.annotate(*ty.ty, ty.size)
+//     }
+// }
+
+// impl<'ast, T> Annotate<StructExpression<'ast, T>> for StructExpressionInner<'ast, T> {
+//     type Ty = StructType<'ast, T>;
+
+//     fn annotate(self, ty: Self::Ty) -> StructExpression<'ast, T> {
+//         self.annotate(ty)
+//     }
+// }
+
+// impl<'ast, T> Annotate<UExpression<'ast, T>> for UExpressionInner<'ast, T> {
+//     type Ty = UBitwidth;
+
+//     fn annotate(self, b: Self::Ty) -> UExpression<'ast, T> {
+//         self.annotate(b)
+//     }
+// }
+
+// impl<'ast, T> Annotate<TypedExpressionList<'ast, T>> for TypedExpressionListInner<'ast, T> {
+//     type Ty = Vec<Type<'ast, T>>;
+
+//     fn annotate(self, b: Self::Ty) -> TypedExpressionList<'ast, T> {
+//         self.annotate(b)
+//     }
+// }
+
+pub enum ThisOrUncle<S, U> {
+    This(S),
+    Uncle(U),
+}
+
+impl<S, U> From<U> for ThisOrUncle<S, U> {
+    fn from(u: U) -> Self {
+        Self::Uncle(u)
     }
 }
 
@@ -1778,6 +1875,60 @@ impl<'ast, T: Clone> Member<'ast, T> for StructExpression<'ast, T> {
             _ => unreachable!(),
         };
         StructExpressionInner::Member(MemberExpression::new(s, id)).annotate(struct_ty)
+    }
+}
+
+pub trait Id<'ast, T>: Expr<'ast, T> {
+    fn identifier(
+        id: Identifier<'ast>
+    ) -> Self::Inner;
+}
+
+impl<'ast, T: Field> Id<'ast, T> for FieldElementExpression<'ast, T> {
+    fn identifier(
+        id: Identifier<'ast>
+    ) -> Self::Inner {
+        FieldElementExpression::Identifier(id)
+    }
+}
+
+impl<'ast, T: Field> Id<'ast, T> for BooleanExpression<'ast, T> {
+    fn identifier(
+        id: Identifier<'ast>
+    ) -> Self::Inner {
+        BooleanExpression::Identifier(id)
+    }
+}
+
+impl<'ast, T: Field> Id<'ast, T> for UExpression<'ast, T> {
+    fn identifier(
+        id: Identifier<'ast>
+    ) -> Self::Inner {
+        UExpressionInner::Identifier(id)
+    }
+}
+
+impl<'ast, T: Field> Id<'ast, T> for ArrayExpression<'ast, T> {
+    fn identifier(
+        id: Identifier<'ast>
+    ) -> Self::Inner {
+        ArrayExpressionInner::Identifier(id)
+    }
+}
+
+impl<'ast, T: Field> Id<'ast, T> for StructExpression<'ast, T> {
+    fn identifier(
+        id: Identifier<'ast>
+    ) -> Self::Inner {
+        StructExpressionInner::Identifier(id)
+    }
+}
+
+impl<'ast, T: Field> Id<'ast, T> for TypedExpressionList<'ast, T> {
+    fn identifier(
+        _: Identifier<'ast>
+    ) -> Self::Inner {
+        unreachable!()
     }
 }
 

@@ -68,7 +68,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
 
     fn fold_array_expression_inner(
         &mut self,
-        array_ty: &ArrayType<'ast, T>,
+        array_ty: ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
@@ -85,7 +85,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
 
     fn fold_struct_expression_inner(
         &mut self,
-        struct_ty: &StructType<'ast, T>,
+        struct_ty: StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
