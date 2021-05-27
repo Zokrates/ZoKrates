@@ -1048,6 +1048,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
+        _: &E::Ty,
         m: MemberExpression<'ast, T, E>,
     ) -> Result<ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner>, Self::Error> {
         let id = m.id;
