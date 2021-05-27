@@ -51,6 +51,12 @@ pub struct Types<'ast, T> {
     pub inner: Vec<Type<'ast, T>>,
 }
 
+impl<'ast, T> Types<'ast, T> {
+    pub fn new(types: Vec<Type<'ast, T>>) -> Self {
+        Self { inner: types }
+    }
+}
+
 #[derive(Debug, Clone, Eq, Ord)]
 pub struct GenericIdentifier<'ast> {
     pub name: &'ast str,

@@ -370,7 +370,7 @@ mod tests {
 
             let s: TypedStatement<Bn128Field> = TypedStatement::MultipleDefinition(
                 vec![Variable::field_element("a").into()],
-                TypedExpressionList::FunctionCall(
+                TypedExpressionList::function_call(
                     DeclarationFunctionKey::with_location("main", "foo").signature(
                         DeclarationSignature::new()
                             .inputs(vec![DeclarationType::FieldElement])
@@ -378,14 +378,14 @@ mod tests {
                     ),
                     vec![],
                     vec![FieldElementExpression::Identifier("a".into()).into()],
-                    vec![Type::FieldElement],
-                ),
+                )
+                .annotate(Types::new(vec![Type::FieldElement])),
             );
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::MultipleDefinition(
                     vec![Variable::field_element(Identifier::from("a").version(1)).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
@@ -395,9 +395,9 @@ mod tests {
                         vec![
                             FieldElementExpression::Identifier(Identifier::from("a").version(0))
                                 .into()
-                        ],
-                        vec![Type::FieldElement],
+                        ]
                     )
+                    .annotate(Types::new(vec![Type::FieldElement]))
                 )]
             );
         }
@@ -817,14 +817,14 @@ mod tests {
                     ),
                     TypedStatement::MultipleDefinition(
                         vec![Variable::field_element("a").into()],
-                        TypedExpressionList::FunctionCall(
+                        TypedExpressionList::function_call(
                             DeclarationFunctionKey::with_location("main", "foo"),
                             vec![Some(
                                 UExpressionInner::Identifier("n".into()).annotate(UBitwidth::B32),
                             )],
                             vec![FieldElementExpression::Identifier("a".into()).into()],
-                            vec![Type::FieldElement],
-                        ),
+                        )
+                        .annotate(Types::new(vec![Type::FieldElement])),
                     ),
                     TypedStatement::Definition(
                         Variable::uint("n", UBitwidth::B32).into(),
@@ -835,7 +835,7 @@ mod tests {
                     TypedStatement::Definition(
                         Variable::field_element("a").into(),
                         (FieldElementExpression::Identifier("a".into())
-                            * FieldElementExpression::FunctionCall(
+                            * FieldElementExpression::function_call(
                                 DeclarationFunctionKey::with_location("main", "foo"),
                                 vec![Some(
                                     UExpressionInner::Identifier("n".into())
@@ -892,7 +892,7 @@ mod tests {
                     ),
                     TypedStatement::MultipleDefinition(
                         vec![Variable::field_element(Identifier::from("a").version(2)).into()],
-                        TypedExpressionList::FunctionCall(
+                        TypedExpressionList::function_call(
                             DeclarationFunctionKey::with_location("main", "foo"),
                             vec![Some(
                                 UExpressionInner::Identifier(Identifier::from("n").version(1))
@@ -902,8 +902,8 @@ mod tests {
                                 Identifier::from("a").version(1),
                             )
                             .into()],
-                            vec![Type::FieldElement],
-                        ),
+                        )
+                        .annotate(Types::new(vec![Type::FieldElement])),
                     ),
                     TypedStatement::Definition(
                         Variable::uint(Identifier::from("n").version(2), UBitwidth::B32).into(),
@@ -914,7 +914,7 @@ mod tests {
                     TypedStatement::Definition(
                         Variable::field_element(Identifier::from("a").version(3)).into(),
                         (FieldElementExpression::Identifier(Identifier::from("a").version(2))
-                            * FieldElementExpression::FunctionCall(
+                            * FieldElementExpression::function_call(
                                 DeclarationFunctionKey::with_location("main", "foo"),
                                 vec![Some(
                                     UExpressionInner::Identifier(Identifier::from("n").version(2))

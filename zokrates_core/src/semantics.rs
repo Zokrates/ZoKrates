@@ -4756,18 +4756,17 @@ mod tests {
                     typed_absy::Variable::field_element("a").into(),
                     typed_absy::Variable::field_element("b").into(),
                 ],
-                TypedExpressionList::FunctionCall(
-                    FunctionCallExpression::new(
-                        DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
-                            .signature(DeclarationSignature::new().outputs(vec![
-                                DeclarationType::FieldElement,
-                                DeclarationType::FieldElement,
-                            ])),
-                        vec![],
-                        vec![],
+                TypedExpressionList::function_call(
+                    DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo").signature(
+                        DeclarationSignature::new().outputs(vec![
+                            DeclarationType::FieldElement,
+                            DeclarationType::FieldElement,
+                        ]),
                     ),
-                    vec![Type::FieldElement, Type::FieldElement],
-                ),
+                    vec![],
+                    vec![],
+                )
+                .annotate(Types::new(vec![Type::FieldElement, Type::FieldElement])),
             ),
             TypedStatement::Return(vec![FieldElementExpression::Add(
                 box FieldElementExpression::Identifier("a".into()),

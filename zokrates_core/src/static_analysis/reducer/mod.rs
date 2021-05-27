@@ -609,10 +609,10 @@ mod tests {
     use crate::typed_absy::types::Constant;
     use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
-        ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
-        FieldElementExpression, GenericIdentifier, Identifier, OwnedTypedModuleId, Select, Type,
-        TypedExpression, TypedExpressionList, TypedExpressionOrSpread, UBitwidth, UExpressionInner,
-        Variable,
+        ArrayExpression, ArrayExpressionInner, DeclarationFunctionKey, DeclarationType,
+        DeclarationVariable, FieldElementExpression, GenericIdentifier, Identifier,
+        OwnedTypedModuleId, Select, Type, TypedExpression, TypedExpressionList,
+        TypedExpressionOrSpread, Types, UBitwidth, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
 
@@ -673,7 +673,7 @@ mod tests {
                 ),
                 TypedStatement::MultipleDefinition(
                     vec![Variable::field_element("a").into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
@@ -681,8 +681,8 @@ mod tests {
                         ),
                         vec![],
                         vec![FieldElementExpression::Identifier("a".into()).into()],
-                        vec![Type::FieldElement],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::FieldElement])),
                 ),
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
@@ -871,15 +871,15 @@ mod tests {
                 ),
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into()],
-                        vec![Type::array((Type::FieldElement, 1u32))],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
@@ -1099,15 +1099,15 @@ mod tests {
                 ),
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into()],
-                        vec![Type::array((Type::FieldElement, 1u32))],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
@@ -1303,7 +1303,7 @@ mod tests {
                     )
                     .into(),
                     ArrayExpressionInner::Slice(
-                        box ArrayExpressionInner::FunctionCall(
+                        box ArrayExpression::function_call(
                             DeclarationFunctionKey::with_location("main", "bar")
                                 .signature(foo_signature.clone()),
                             vec![None],
@@ -1374,7 +1374,7 @@ mod tests {
             statements: vec![
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
@@ -1383,8 +1383,8 @@ mod tests {
                         )
                         .annotate(Type::FieldElement, 1u32)
                         .into()],
-                        vec![Type::array((Type::FieldElement, 1u32))],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Return(vec![]),
             ],
@@ -1580,15 +1580,15 @@ mod tests {
             statements: vec![
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpressionInner::Value(vec![].into())
                             .annotate(Type::FieldElement, 0u32)
                             .into()],
-                        vec![Type::array((Type::FieldElement, 1u32))],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Return(vec![]),
             ],
