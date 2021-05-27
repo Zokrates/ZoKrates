@@ -1058,7 +1058,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         let ty = struc.ty().clone();
 
         match struc.into_inner() {
-            StructExpressionInner::Value(v) => Ok(ThisOrUncle::Uncle(
+            StructExpressionInner::Value(v) => Ok(MemberOrExpression::Expression(
                 E::from(
                     ty.members
                         .iter()
@@ -1069,7 +1069,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 )
                 .into_inner(),
             )),
-            inner => Ok(ThisOrUncle::This(MemberExpression::new(
+            inner => Ok(MemberOrExpression::Member(MemberExpression::new(
                 inner.annotate(ty),
                 id,
             ))),
@@ -1093,7 +1093,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             UExpressionInner::Value(size) => match (array.into_inner(), index.into_inner()) {
                 (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                     if n < size {
-                        Ok(ThisOrUncle::Uncle(
+                        Ok(SelectOrExpression::Expression(
                             E::from(
                                 v.expression_at::<StructExpression<'ast, T>>(n as usize)
                                     .unwrap()
@@ -1109,32 +1109,40 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     match self.constants.get(&id) {
                         Some(a) => match a {
                             TypedExpression::Array(a) => match a.as_inner() {
-                                ArrayExpressionInner::Value(v) => Ok(ThisOrUncle::Uncle(
-                                    E::from(
-                                        v.expression_at::<StructExpression<'ast, T>>(n as usize)
+                                ArrayExpressionInner::Value(v) => {
+                                    Ok(SelectOrExpression::Expression(
+                                        E::from(
+                                            v.expression_at::<StructExpression<'ast, T>>(
+                                                n as usize,
+                                            )
                                             .unwrap()
                                             .clone(),
-                                    )
-                                    .into_inner(),
-                                )),
+                                        )
+                                        .into_inner(),
+                                    ))
+                                }
                                 _ => unreachable!("should be an array value"),
                             },
                             _ => unreachable!("should be an array expression"),
                         },
-                        None => Ok(E::select(
-                            ArrayExpressionInner::Identifier(id).annotate(inner_type, size as u32),
-                            UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                        )
-                        .into_inner()
-                        .into()),
+                        None => Ok(SelectOrExpression::Expression(
+                            E::select(
+                                ArrayExpressionInner::Identifier(id)
+                                    .annotate(inner_type, size as u32),
+                                UExpressionInner::Value(n).annotate(UBitwidth::B32),
+                            )
+                            .into_inner(),
+                        )),
                     }
                 }
-                (a, i) => Ok(ThisOrUncle::This(SelectExpression::new(
+                (a, i) => Ok(SelectOrExpression::Select(SelectExpression::new(
                     a.annotate(inner_type, size as u32),
                     i.annotate(UBitwidth::B32),
                 ))),
             },
-            _ => Ok(ThisOrUncle::This(SelectExpression::new(array, index))),
+            _ => Ok(SelectOrExpression::Select(SelectExpression::new(
+                array, index,
+            ))),
         }
     }
 

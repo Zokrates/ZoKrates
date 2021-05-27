@@ -78,6 +78,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for BoundsChecker {
             _ => unreachable!(),
         };
 
-        Ok(ThisOrUncle::This(SelectExpression::new(array, index)))
+        Ok(SelectOrExpression::Select(SelectExpression::new(
+            array, index,
+        )))
     }
 }

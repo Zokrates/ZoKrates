@@ -361,12 +361,12 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             )
         }
         ArrayExpressionInner::Select(select) => match f.fold_select_expression(ty, select) {
-            ThisOrUncle::This(s) => ArrayExpressionInner::Select(s),
-            ThisOrUncle::Uncle(u) => u,
+            SelectOrExpression::Select(s) => ArrayExpressionInner::Select(s),
+            SelectOrExpression::Expression(u) => u,
         },
         ArrayExpressionInner::Member(m) => match f.fold_member_expression(ty, m) {
-            ThisOrUncle::This(m) => ArrayExpressionInner::Member(m),
-            ThisOrUncle::Uncle(u) => u,
+            MemberOrExpression::Member(m) => ArrayExpressionInner::Member(m),
+            MemberOrExpression::Expression(u) => u,
         },
         ArrayExpressionInner::Slice(box array, box from, box to) => {
             let array = f.fold_array_expression(array);
@@ -411,12 +411,12 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             )
         }
         StructExpressionInner::Select(select) => match f.fold_select_expression(ty, select) {
-            ThisOrUncle::This(s) => StructExpressionInner::Select(s),
-            ThisOrUncle::Uncle(u) => u,
+            SelectOrExpression::Select(s) => StructExpressionInner::Select(s),
+            SelectOrExpression::Expression(u) => u,
         },
         StructExpressionInner::Member(m) => match f.fold_member_expression(ty, m) {
-            ThisOrUncle::This(m) => StructExpressionInner::Member(m),
-            ThisOrUncle::Uncle(u) => u,
+            MemberOrExpression::Member(m) => StructExpressionInner::Member(m),
+            MemberOrExpression::Expression(u) => u,
         },
     }
 }
@@ -484,14 +484,14 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
         }
         FieldElementExpression::Select(select) => {
             match f.fold_select_expression(&Type::FieldElement, select) {
-                ThisOrUncle::This(s) => FieldElementExpression::Select(s),
-                ThisOrUncle::Uncle(u) => u,
+                SelectOrExpression::Select(s) => FieldElementExpression::Select(s),
+                SelectOrExpression::Expression(u) => u,
             }
         }
         FieldElementExpression::Member(m) => match f.fold_member_expression(&Type::FieldElement, m)
         {
-            ThisOrUncle::This(m) => FieldElementExpression::Member(m),
-            ThisOrUncle::Uncle(u) => u,
+            MemberOrExpression::Member(m) => FieldElementExpression::Member(m),
+            MemberOrExpression::Expression(u) => u,
         },
     }
 }
@@ -506,7 +506,7 @@ pub fn fold_member_expression<
     _: &E::Ty,
     e: MemberExpression<'ast, T, E>,
 ) -> MemberOrExpression<'ast, T, E> {
-    ThisOrUncle::This(MemberExpression::new(
+    MemberOrExpression::Member(MemberExpression::new(
         f.fold_struct_expression(*e.struc),
         e.id,
     ))
@@ -522,7 +522,7 @@ pub fn fold_select_expression<
     _: &E::Ty,
     e: SelectExpression<'ast, T, E>,
 ) -> SelectOrExpression<'ast, T, E> {
-    ThisOrUncle::This(SelectExpression::new(
+    SelectOrExpression::Select(SelectExpression::new(
         f.fold_array_expression(*e.array),
         f.fold_uint_expression(*e.index),
     ))
@@ -638,12 +638,12 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
         }
         BooleanExpression::Select(select) => match f.fold_select_expression(&Type::Boolean, select)
         {
-            ThisOrUncle::This(s) => BooleanExpression::Select(s),
-            ThisOrUncle::Uncle(u) => u,
+            SelectOrExpression::Select(s) => BooleanExpression::Select(s),
+            SelectOrExpression::Expression(u) => u,
         },
         BooleanExpression::Member(m) => match f.fold_member_expression(&Type::Boolean, m) {
-            ThisOrUncle::This(m) => BooleanExpression::Member(m),
-            ThisOrUncle::Uncle(u) => u,
+            MemberOrExpression::Member(m) => BooleanExpression::Member(m),
+            MemberOrExpression::Expression(u) => u,
         },
     }
 }
@@ -757,8 +757,8 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             UExpressionInner::FunctionCall(key, generics, exps)
         }
         UExpressionInner::Select(select) => match f.fold_select_expression(&ty, select) {
-            ThisOrUncle::This(s) => UExpressionInner::Select(s),
-            ThisOrUncle::Uncle(u) => u,
+            SelectOrExpression::Select(s) => UExpressionInner::Select(s),
+            SelectOrExpression::Expression(u) => u,
         },
         UExpressionInner::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);
@@ -767,8 +767,8 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             UExpressionInner::IfElse(box cond, box cons, box alt)
         }
         UExpressionInner::Member(m) => match f.fold_member_expression(&ty, m) {
-            ThisOrUncle::This(m) => UExpressionInner::Member(m),
-            ThisOrUncle::Uncle(u) => u,
+            MemberOrExpression::Member(m) => UExpressionInner::Member(m),
+            MemberOrExpression::Expression(u) => u,
         },
     }
 }

@@ -1677,22 +1677,17 @@ impl<'ast, T> Expr<'ast, T> for IntExpression<'ast, T> {
     }
 }
 
-// Enum type to enable returning e.g a member expression OR another expression
-pub enum ThisOrUncle<S, U> {
-    This(S),
-    Uncle(U),
+// Enums types to enable returning e.g a member expression OR another type of expression of this type
+
+pub enum SelectOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Select(SelectExpression<'ast, T, E>),
+    Expression(E::Inner),
 }
 
-impl<S, U> From<U> for ThisOrUncle<S, U> {
-    fn from(u: U) -> Self {
-        Self::Uncle(u)
-    }
+pub enum MemberOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Member(MemberExpression<'ast, T, E>),
+    Expression(E::Inner),
 }
-
-pub type SelectOrExpression<'ast, T, E> =
-    ThisOrUncle<SelectExpression<'ast, T, E>, <E as Expr<'ast, T>>::Inner>;
-pub type MemberOrExpression<'ast, T, E> =
-    ThisOrUncle<MemberExpression<'ast, T, E>, <E as Expr<'ast, T>>::Inner>;
 
 pub trait IfElse<'ast, T> {
     fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
