@@ -23,9 +23,9 @@ use std::collections::HashMap;
 
 use crate::typed_absy::{
     ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
-    FunctionCallExpression, Id, Identifier, ThisOrUncle, TypedExpression, TypedExpressionList,
-    TypedExpressionListInner, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
-    TypedStatement, UExpression, UExpressionInner, Variable,
+    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, TypedExpression,
+    TypedExpressionList, TypedExpressionListInner, TypedFunction, TypedFunctionSymbol, TypedModule,
+    TypedProgram, TypedStatement, UExpression, UExpressionInner, Variable,
 };
 
 use std::convert::TryInto;
@@ -201,7 +201,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         &mut self,
         ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
-    ) -> Result<ThisOrUncle<FunctionCallExpression<'ast, T, E>, E::Inner>, Self::Error> {
+    ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
         let generics = e
             .generics
             .into_iter()
@@ -227,7 +227,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             Ok(Output::Complete((statements, mut expressions))) => {
                 self.complete &= true;
                 self.statement_buffer.extend(statements);
-                Ok(ThisOrUncle::Uncle(
+                Ok(FunctionCallOrExpression::Expression(
                     E::from(expressions.pop().unwrap().try_into().unwrap()).into_inner(),
                 ))
             }
@@ -235,7 +235,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 self.complete = false;
                 self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
-                Ok(ThisOrUncle::Uncle(
+                Ok(FunctionCallOrExpression::Expression(
                     E::from(expressions[0].clone().try_into().unwrap()).into_inner(),
                 ))
             }
@@ -247,7 +247,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             Err(InlineError::NonConstant(key, generics, arguments, _)) => {
                 self.complete = false;
 
-                Ok(ThisOrUncle::Uncle(E::function_call(
+                Ok(FunctionCallOrExpression::Expression(E::function_call(
                     key, generics, arguments,
                 )))
             }
@@ -272,7 +272,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         TypedExpressionListInner::EmbedCall(embed, generics, arguments)
                             .annotate(output_types),
                     ));
-                Ok(ThisOrUncle::Uncle(E::identifier(identifier)))
+                Ok(FunctionCallOrExpression::Expression(E::identifier(
+                    identifier,
+                )))
             }
         }
     }

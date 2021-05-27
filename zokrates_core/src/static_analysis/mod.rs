@@ -27,6 +27,7 @@ use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_read_remover::VariableReadRemover;
 use self::variable_write_remover::VariableWriteRemover;
+use crate::compile::CompileConfig;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::static_analysis::constant_inliner::ConstantInliner;
@@ -74,11 +75,15 @@ impl fmt::Display for Error {
 }
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
-    pub fn analyse(self) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
+    pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         // inline user-defined constants
         let r = ConstantInliner::inline(self);
         // isolate branches
-        let r = Isolator::isolate(r);
+        let r = if config.isolate_branches {
+            Isolator::isolate(r)
+        } else {
+            r
+        };
         // reduce the program to a single function
         let r = reduce_program(r).map_err(Error::from)?;
         // generate abi

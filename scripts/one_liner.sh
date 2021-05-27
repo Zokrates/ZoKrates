@@ -297,7 +297,7 @@ main() {
         cp -r $td/* $dest
       else
         read -p "ZoKrates is already installed, overwrite (y/n)? " answer
-        case ${answer:0:1} in
+        case ${answer} in
             y|Y )
                 rm -rf $dest/*
                 cp -r $td/* $dest

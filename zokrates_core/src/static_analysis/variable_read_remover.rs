@@ -95,8 +95,8 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
         &mut self,
         _: &E::Ty,
         e: SelectExpression<'ast, T, E>,
-    ) -> ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner> {
-        ThisOrUncle::Uncle(self.select(e))
+    ) -> SelectOrExpression<'ast, T, E> {
+        SelectOrExpression::Expression(self.select(e))
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {

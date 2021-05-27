@@ -1600,77 +1600,20 @@ impl<'ast, T: Clone> Expr<'ast, T> for TypedExpressionList<'ast, T> {
     }
 }
 
-// pub trait Annotate<U> {
-//     type Ty;
+// Enums types to enable returning e.g a member expression OR another type of expression of this type
 
-//     fn annotate(self, ty: Self::Ty) -> U;
-// }
-
-// impl<'ast, T> Annotate<IntExpression<'ast, T>> for IntExpression<'ast, T> {
-//     type Ty = !;
-
-//     fn annotate(self, _: Self::Ty) -> IntExpression<'ast, T> {
-//         self
-//     }
-// }
-
-// impl<'ast, T> Annotate<FieldElementExpression<'ast, T>> for FieldElementExpression<'ast, T> {
-//     type Ty = !;
-
-//     fn annotate(self, _: Self::Ty) -> FieldElementExpression<'ast, T> {
-//         self
-//     }
-// }
-
-// impl<'ast, T> Annotate<BooleanExpression<'ast, T>> for BooleanExpression<'ast, T> {
-//     type Ty = !;
-
-//     fn annotate(self, _: Self::Ty) -> BooleanExpression<'ast, T> {
-//         self
-//     }
-// }
-
-// impl<'ast, T> Annotate<ArrayExpression<'ast, T>> for ArrayExpressionInner<'ast, T> {
-//     type Ty = ArrayType<'ast, T>;
-
-//     fn annotate(self, ty: Self::Ty) -> ArrayExpression<'ast, T> {
-//         self.annotate(*ty.ty, ty.size)
-//     }
-// }
-
-// impl<'ast, T> Annotate<StructExpression<'ast, T>> for StructExpressionInner<'ast, T> {
-//     type Ty = StructType<'ast, T>;
-
-//     fn annotate(self, ty: Self::Ty) -> StructExpression<'ast, T> {
-//         self.annotate(ty)
-//     }
-// }
-
-// impl<'ast, T> Annotate<UExpression<'ast, T>> for UExpressionInner<'ast, T> {
-//     type Ty = UBitwidth;
-
-//     fn annotate(self, b: Self::Ty) -> UExpression<'ast, T> {
-//         self.annotate(b)
-//     }
-// }
-
-// impl<'ast, T> Annotate<TypedExpressionList<'ast, T>> for TypedExpressionListInner<'ast, T> {
-//     type Ty = Vec<Type<'ast, T>>;
-
-//     fn annotate(self, b: Self::Ty) -> TypedExpressionList<'ast, T> {
-//         self.annotate(b)
-//     }
-// }
-
-pub enum ThisOrUncle<S, U> {
-    This(S),
-    Uncle(U),
+pub enum FunctionCallOrExpression<'ast, T, E: Expr<'ast, T>> {
+    FunctionCall(FunctionCallExpression<'ast, T, E>),
+    Expression(E::Inner),
+}
+pub enum SelectOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Select(SelectExpression<'ast, T, E>),
+    Expression(E::Inner),
 }
 
-impl<S, U> From<U> for ThisOrUncle<S, U> {
-    fn from(u: U) -> Self {
-        Self::Uncle(u)
-    }
+pub enum MemberOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Member(MemberExpression<'ast, T, E>),
+    Expression(E::Inner),
 }
 
 pub trait IfElse<'ast, T> {

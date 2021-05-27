@@ -69,4 +69,4 @@ from "../../../mycode" import foo
 
 ### Absolute Imports
 
-Absolute imports don't start with `./` or `../` in the path and are used to import components from the ZoKrates standard library. Please check the according [section](./stdlib.html) for more details.
+Absolute imports don't start with `./` or `../` in the path and are used to import components from the ZoKrates standard library. Please check the according [section](/toolbox/stdlib.html) for more details.

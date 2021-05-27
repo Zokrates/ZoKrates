@@ -180,7 +180,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         &mut self,
         ty: &E::Ty,
         c: FunctionCallExpression<'ast, T, E>,
-    ) -> ThisOrUncle<FunctionCallExpression<'ast, T, E>, E::Inner> {
+    ) -> FunctionCallOrExpression<'ast, T, E> {
         if !c.function_key.id.starts_with('_') {
             self.blocked = true;
         }
