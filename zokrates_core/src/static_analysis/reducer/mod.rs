@@ -28,8 +28,6 @@ use crate::typed_absy::{
     TypedProgram, TypedStatement, UExpression, UExpressionInner, Variable,
 };
 
-use std::convert::TryInto;
-
 use zokrates_field::Field;
 
 use self::shallow_ssa::ShallowTransformer;
@@ -228,7 +226,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 self.complete &= true;
                 self.statement_buffer.extend(statements);
                 Ok(FunctionCallOrExpression::Expression(
-                    E::from(expressions.pop().unwrap().try_into().unwrap()).into_inner(),
+                    E::from(expressions.pop().unwrap()).into_inner(),
                 ))
             }
             Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
@@ -236,7 +234,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
                 Ok(FunctionCallOrExpression::Expression(
-                    E::from(expressions[0].clone().try_into().unwrap()).into_inner(),
+                    E::from(expressions[0].clone()).into_inner(),
                 ))
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
