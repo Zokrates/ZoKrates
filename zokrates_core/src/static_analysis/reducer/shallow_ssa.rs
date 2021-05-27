@@ -174,9 +174,11 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
         res
     }
 
-    fn fold_function_call_expression<E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>>(
+    fn fold_function_call_expression<
+        E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
+    >(
         &mut self,
-        ty: E::Ty, 
+        ty: &E::Ty,
         c: FunctionCallExpression<'ast, T, E>,
     ) -> ThisOrUncle<FunctionCallExpression<'ast, T, E>, E::Inner> {
         if !c.function_key.id.starts_with('_') {

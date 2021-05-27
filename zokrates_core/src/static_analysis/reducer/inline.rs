@@ -34,9 +34,9 @@ use crate::typed_absy::CoreIdentifier;
 use crate::typed_absy::Identifier;
 use crate::typed_absy::TypedAssignee;
 use crate::typed_absy::{
-    ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Signature,
-    Types, TypedExpression, TypedFunctionSymbol, TypedProgram, TypedStatement, UExpression,
-    UExpressionInner, Variable, Expr
+    ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Expr,
+    Signature, TypedExpression, TypedFunctionSymbol, TypedProgram, TypedStatement, Types,
+    UExpression, UExpressionInner, Variable,
 };
 use zokrates_field::Field;
 
@@ -83,7 +83,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     k: DeclarationFunctionKey<'ast>,
     generics: Vec<Option<UExpression<'ast, T>>>,
     arguments: Vec<TypedExpression<'ast, T>>,
-    output: E::Ty,
+    output: &E::Ty,
     program: &TypedProgram<'ast, T>,
     versions: &'a mut Versions<'ast>,
 ) -> InlineResult<'ast, T> {
@@ -91,7 +91,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 
     use crate::typed_absy::Typed;
 
-    let output_types = output.into_types();
+    let output_types = output.clone().into_types();
 
     // we try to get concrete values for explicit generics
     let generics_values: Vec<Option<u32>> = generics

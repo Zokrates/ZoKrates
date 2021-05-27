@@ -1,5 +1,5 @@
-use crate::typed_absy::{self, Expr};
 use crate::typed_absy::types::UBitwidth;
+use crate::typed_absy::{self, Expr};
 use crate::zir;
 use std::marker::PhantomData;
 use zokrates_field::Field;

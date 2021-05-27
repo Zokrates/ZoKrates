@@ -367,11 +367,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     .collect::<Result<_, _>>()?;
                 let expression_list = self.fold_expression_list(expression_list)?;
 
-                let types = Types { inner: expression_list.types.clone()
-                .inner
-                .into_iter()
-                .map(|t| self.fold_type(t))
-                .collect::<Result<_, _>>()? };
+                let types = Types {
+                    inner: expression_list
+                        .types
+                        .clone()
+                        .inner
+                        .into_iter()
+                        .map(|t| self.fold_type(t))
+                        .collect::<Result<_, _>>()?,
+                };
 
                 let statements = match expression_list.into_inner() {
                     TypedExpressionListInner::EmbedCall(embed, generics, arguments) => {
@@ -604,15 +608,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                 TypedStatement::MultipleDefinition(
                                                     vec![assignee],
                                                     TypedExpressionListInner::EmbedCall(
-                                                        embed, generics, arguments
-                                                    ).annotate(types),
+                                                        embed, generics, arguments,
+                                                    )
+                                                    .annotate(types),
                                                 ),
                                             ],
                                             None => vec![TypedStatement::MultipleDefinition(
                                                 vec![assignee],
                                                 TypedExpressionListInner::EmbedCall(
-                                                    embed, generics, arguments
-                                                ).annotate(types),
+                                                    embed, generics, arguments,
+                                                )
+                                                .annotate(types),
                                             )],
                                         }
                                     }
@@ -624,9 +630,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                                 let def = TypedStatement::MultipleDefinition(
                                     assignees.clone(),
-                                    TypedExpressionListInner::EmbedCall(
-                                        embed, generics, arguments,
-                                    ).annotate(types),
+                                    TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                                        .annotate(types),
                                 );
 
                                 let invalidations = assignees.iter().flat_map(|assignee| {
@@ -647,12 +652,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         }
                     }
                     TypedExpressionListInner::FunctionCall(function_call) => {
-                        let generics = function_call.generics
+                        let generics = function_call
+                            .generics
                             .into_iter()
                             .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
                             .collect::<Result<_, _>>()?;
 
-                        let arguments: Vec<_> = function_call.arguments
+                        let arguments: Vec<_> = function_call
+                            .arguments
                             .into_iter()
                             .map(|a| self.fold_expression(a))
                             .collect::<Result<_, _>>()?;
@@ -661,7 +668,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                         let def = TypedStatement::MultipleDefinition(
                             assignees.clone(),
-                            TypedExpressionList::function_call(function_call.function_key, generics, arguments).annotate(types),
+                            TypedExpressionList::function_call(
+                                function_call.function_key,
+                                generics,
+                                arguments,
+                            )
+                            .annotate(types),
                         );
 
                         let invalidations = assignees.iter().flat_map(|assignee| {

@@ -16,17 +16,16 @@ mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
 use crate::typed_absy::result_folder::*;
-use crate::typed_absy::types::{ConcreteGenericsAssignment};
+use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::Folder;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
- ArrayExpressionInner, ArrayType, BlockExpression,
-    CoreIdentifier, FunctionCall, Identifier,
-  TypedExpression,
-    TypedExpressionList, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
-    TypedStatement, UExpression, UExpressionInner, Variable, FunctionCallExpression, ThisOrUncle, Expr, TypedExpressionListInner, Id
+    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
+    FunctionCallExpression, Id, Identifier, ThisOrUncle, TypedExpression, TypedExpressionList,
+    TypedExpressionListInner, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
+    TypedStatement, UExpression, UExpressionInner, Variable,
 };
 
 use std::convert::TryInto;
@@ -196,17 +195,21 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
 impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     type Error = Error;
 
-    fn fold_function_call_expression<E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>>(
+    fn fold_function_call_expression<
+        E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
+    >(
         &mut self,
-        ty: E::Ty,
+        ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
     ) -> Result<ThisOrUncle<FunctionCallExpression<'ast, T, E>, E::Inner>, Self::Error> {
-        let generics = e.generics
+        let generics = e
+            .generics
             .into_iter()
             .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
             .collect::<Result<_, _>>()?;
 
-        let arguments = e.arguments
+        let arguments = e
+            .arguments
             .into_iter()
             .map(|e| self.fold_expression(e))
             .collect::<Result<_, _>>()?;
@@ -224,13 +227,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             Ok(Output::Complete((statements, mut expressions))) => {
                 self.complete &= true;
                 self.statement_buffer.extend(statements);
-                Ok(ThisOrUncle::Uncle(E::from(expressions.pop().unwrap().try_into().unwrap()).into_inner()))
+                Ok(ThisOrUncle::Uncle(
+                    E::from(expressions.pop().unwrap().try_into().unwrap()).into_inner(),
+                ))
             }
             Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                 self.complete = false;
                 self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
-                Ok(ThisOrUncle::Uncle(E::from(expressions[0].clone().try_into().unwrap()).into_inner()))
+                Ok(ThisOrUncle::Uncle(
+                    E::from(expressions[0].clone().try_into().unwrap()).into_inner(),
+                ))
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
@@ -241,9 +248,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 self.complete = false;
 
                 Ok(ThisOrUncle::Uncle(E::function_call(
-                    key,
-                    generics,
-                    arguments,
+                    key, generics, arguments,
                 )))
             }
             Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
@@ -254,14 +259,18 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         .and_modify(|e| *e += 1) // if it was already declared, we increment
                         .or_insert(0),
                 );
-                let var = Variable::with_id_and_type(identifier.clone(), output_types.clone().inner.pop().unwrap());
+                let var = Variable::with_id_and_type(
+                    identifier.clone(),
+                    output_types.clone().inner.pop().unwrap(),
+                );
 
                 let v = vec![var.clone().into()];
 
                 self.statement_buffer
                     .push(TypedStatement::MultipleDefinition(
                         v,
-                        TypedExpressionListInner::EmbedCall(embed, generics, arguments).annotate(output_types),
+                        TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                            .annotate(output_types),
                     ));
                 Ok(ThisOrUncle::Uncle(E::identifier(identifier)))
             }
@@ -300,15 +309,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 v,
                 TypedExpressionList {
                     inner: TypedExpressionListInner::FunctionCall(function_call),
-                    types
-                }
+                    types,
+                },
             ) => {
-                let generics = function_call.generics
+                let generics = function_call
+                    .generics
                     .into_iter()
                     .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
                     .collect::<Result<_, _>>()?;
 
-                let arguments = function_call.arguments
+                let arguments = function_call
+                    .arguments
                     .into_iter()
                     .map(|a| self.fold_expression(a))
                     .collect::<Result<_, _>>()?;
@@ -317,7 +328,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     function_call.function_key,
                     generics,
                     arguments,
-                    types,
+                    &types,
                     &self.program,
                     &mut self.versions,
                 ) {
@@ -360,21 +371,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionList::function_call(
-                                key,
-                                generics,
-                                arguments
-                            ).annotate(output_types),
+                            TypedExpressionList::function_call(key, generics, arguments)
+                                .annotate(output_types),
                         )])
                     }
                     Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionListInner::EmbedCall(
-                                embed,
-                                generics,
-                                arguments
-                            ).annotate(output_types),
+                            TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                                .annotate(output_types),
                         )])
                     }
                 }

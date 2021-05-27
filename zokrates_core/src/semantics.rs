@@ -4757,14 +4757,15 @@ mod tests {
                     typed_absy::Variable::field_element("b").into(),
                 ],
                 TypedExpressionList::FunctionCall(
-                    FunctionCallExpression::new(DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo").signature(
-                        DeclarationSignature::new().outputs(vec![
-                            DeclarationType::FieldElement,
-                            DeclarationType::FieldElement,
-                        ]),
+                    FunctionCallExpression::new(
+                        DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
+                            .signature(DeclarationSignature::new().outputs(vec![
+                                DeclarationType::FieldElement,
+                                DeclarationType::FieldElement,
+                            ])),
+                        vec![],
+                        vec![],
                     ),
-                    vec![],
-                    vec![]),
                     vec![Type::FieldElement, Type::FieldElement],
                 ),
             ),

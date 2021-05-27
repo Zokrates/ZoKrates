@@ -12,16 +12,14 @@ pub trait IntoTypes<'ast, T> {
 
 impl<'ast, T> IntoTypes<'ast, T> for Type<'ast, T> {
     fn into_types(self) -> Types<'ast, T> {
-        Types {
-            inner: vec![self]
-        }
+        Types { inner: vec![self] }
     }
 }
 
 impl<'ast, T> IntoTypes<'ast, T> for StructType<'ast, T> {
     fn into_types(self) -> Types<'ast, T> {
         Types {
-            inner: vec![Type::Struct(self)]
+            inner: vec![Type::Struct(self)],
         }
     }
 }
@@ -29,7 +27,7 @@ impl<'ast, T> IntoTypes<'ast, T> for StructType<'ast, T> {
 impl<'ast, T> IntoTypes<'ast, T> for ArrayType<'ast, T> {
     fn into_types(self) -> Types<'ast, T> {
         Types {
-            inner: vec![Type::Array(self)]
+            inner: vec![Type::Array(self)],
         }
     }
 }
@@ -37,7 +35,7 @@ impl<'ast, T> IntoTypes<'ast, T> for ArrayType<'ast, T> {
 impl<'ast, T> IntoTypes<'ast, T> for UBitwidth {
     fn into_types(self) -> Types<'ast, T> {
         Types {
-            inner: vec![Type::Uint(self)]
+            inner: vec![Type::Uint(self)],
         }
     }
 }
@@ -50,7 +48,7 @@ impl<'ast, T> IntoTypes<'ast, T> for Types<'ast, T> {
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Types<'ast, T> {
-    pub inner: Vec<Type<'ast, T>>
+    pub inner: Vec<Type<'ast, T>>,
 }
 
 #[derive(Debug, Clone, Eq, Ord)]
