@@ -1592,6 +1592,7 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 
 pub trait Expr<'ast, T> {
     type Inner;
+    type Ty;
 
     fn into_inner(self) -> Self::Inner;
 
@@ -1600,6 +1601,7 @@ pub trait Expr<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     type Inner = Self;
+    type Ty = Type<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1612,6 +1614,7 @@ impl<'ast, T> Expr<'ast, T> for FieldElementExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for BooleanExpression<'ast, T> {
     type Inner = Self;
+    type Ty = Type<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1624,6 +1627,7 @@ impl<'ast, T> Expr<'ast, T> for BooleanExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for UExpression<'ast, T> {
     type Inner = UExpressionInner<'ast, T>;
+    type Ty = UBitwidth;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1636,6 +1640,7 @@ impl<'ast, T> Expr<'ast, T> for UExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for StructExpression<'ast, T> {
     type Inner = StructExpressionInner<'ast, T>;
+    type Ty = StructType<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1648,6 +1653,7 @@ impl<'ast, T> Expr<'ast, T> for StructExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
+    type Ty = ArrayType<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1660,6 +1666,7 @@ impl<'ast, T> Expr<'ast, T> for ArrayExpression<'ast, T> {
 
 impl<'ast, T> Expr<'ast, T> for IntExpression<'ast, T> {
     type Inner = Self;
+    type Ty = Type<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self
