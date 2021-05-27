@@ -17,7 +17,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for BoundsChecker {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: ArrayType<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
@@ -60,6 +60,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for BoundsChecker {
         E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
+        _: &E::Ty,
         select: SelectExpression<'ast, T, E>,
     ) -> Result<ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner>, Self::Error> {
         let array = self.fold_array_expression(*select.array)?;

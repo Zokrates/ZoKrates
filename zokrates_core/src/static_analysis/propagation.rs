@@ -1056,6 +1056,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
+        _: &E::Ty,
         m: MemberExpression<'ast, T, E>,
     ) -> Result<ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner>, Self::Error> {
         let id = m.id;
@@ -1088,6 +1089,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
+        _: &E::Ty,
         e: SelectExpression<'ast, T, E>,
     ) -> Result<ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner>, Self::Error> {
         let array = self.fold_array_expression(*e.array)?;
@@ -1147,7 +1149,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
     fn fold_array_expression_inner(
         &mut self,
-        ty: ArrayType<'ast, T>,
+        ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Error> {
         match e {
@@ -1177,7 +1179,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: StructType<'ast, T>,
+        ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
     ) -> Result<StructExpressionInner<'ast, T>, Error> {
         match e {

@@ -454,7 +454,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
     fn fold_array_expression_inner(
         &mut self,
-        array_ty: ArrayType<'ast, T>,
+        array_ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
