@@ -95,7 +95,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
         &mut self,
         _: &E::Ty,
         e: SelectExpression<'ast, T, E>,
-    ) -> ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner> {
+    ) -> SelectOrExpression<'ast, T, E> {
         ThisOrUncle::Uncle(self.select(e))
     }
 

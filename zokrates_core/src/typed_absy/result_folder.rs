@@ -151,7 +151,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         ty: &E::Ty,
         e: MemberExpression<'ast, T, E>,
-    ) -> Result<ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner>, Self::Error> {
+    ) -> Result<MemberOrExpression<'ast, T, E>, Self::Error> {
         fold_member_expression(self, ty, e)
     }
 
@@ -161,7 +161,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         ty: &E::Ty,
         e: SelectExpression<'ast, T, E>,
-    ) -> Result<ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner>, Self::Error> {
+    ) -> Result<SelectOrExpression<'ast, T, E>, Self::Error> {
         fold_select_expression(self, ty, e)
     }
 
@@ -589,7 +589,7 @@ pub fn fold_member_expression<
     f: &mut F,
     _: &E::Ty,
     e: MemberExpression<'ast, T, E>,
-) -> Result<ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner>, F::Error> {
+) -> Result<MemberOrExpression<'ast, T, E>, F::Error> {
     Ok(ThisOrUncle::This(MemberExpression::new(
         f.fold_struct_expression(*e.struc)?,
         e.id,
@@ -605,7 +605,7 @@ pub fn fold_select_expression<
     f: &mut F,
     _: &E::Ty,
     e: SelectExpression<'ast, T, E>,
-) -> Result<ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner>, F::Error> {
+) -> Result<SelectOrExpression<'ast, T, E>, F::Error> {
     Ok(ThisOrUncle::This(SelectExpression::new(
         f.fold_array_expression(*e.array)?,
         f.fold_uint_expression(*e.index)?,

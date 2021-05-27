@@ -1050,7 +1050,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         &mut self,
         _: &E::Ty,
         m: MemberExpression<'ast, T, E>,
-    ) -> Result<ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner>, Self::Error> {
+    ) -> Result<MemberOrExpression<'ast, T, E>, Self::Error> {
         let id = m.id;
 
         let struc = self.fold_struct_expression(*m.struc)?;
@@ -1065,8 +1065,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         .zip(v)
                         .find(|(member, _)| member.id == id)
                         .unwrap()
-                        .1
-                        .into(),
+                        .1,
                 )
                 .into_inner(),
             )),
@@ -1083,7 +1082,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         &mut self,
         _: &E::Ty,
         e: SelectExpression<'ast, T, E>,
-    ) -> Result<ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner>, Self::Error> {
+    ) -> Result<SelectOrExpression<'ast, T, E>, Self::Error> {
         let array = self.fold_array_expression(*e.array)?;
         let index = self.fold_uint_expression(*e.index)?;
 

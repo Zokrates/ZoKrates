@@ -62,7 +62,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for BoundsChecker {
         &mut self,
         _: &E::Ty,
         select: SelectExpression<'ast, T, E>,
-    ) -> Result<ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner>, Self::Error> {
+    ) -> Result<SelectOrExpression<'ast, T, E>, Self::Error> {
         let array = self.fold_array_expression(*select.array)?;
         let index = self.fold_uint_expression(*select.index)?;
 

@@ -1676,6 +1676,8 @@ impl<'ast, T> Expr<'ast, T> for IntExpression<'ast, T> {
         &self
     }
 }
+
+// Enum type to enable returning e.g a member expression OR another expression
 pub enum ThisOrUncle<S, U> {
     This(S),
     Uncle(U),
@@ -1686,6 +1688,11 @@ impl<S, U> From<U> for ThisOrUncle<S, U> {
         Self::Uncle(u)
     }
 }
+
+pub type SelectOrExpression<'ast, T, E> =
+    ThisOrUncle<SelectExpression<'ast, T, E>, <E as Expr<'ast, T>>::Inner>;
+pub type MemberOrExpression<'ast, T, E> =
+    ThisOrUncle<MemberExpression<'ast, T, E>, <E as Expr<'ast, T>>::Inner>;
 
 pub trait IfElse<'ast, T> {
     fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)

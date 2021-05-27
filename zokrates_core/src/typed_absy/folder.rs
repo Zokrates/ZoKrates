@@ -195,7 +195,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         &mut self,
         ty: &E::Ty,
         e: MemberExpression<'ast, T, E>,
-    ) -> ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner> {
+    ) -> MemberOrExpression<'ast, T, E> {
         fold_member_expression(self, ty, e)
     }
 
@@ -205,7 +205,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         &mut self,
         ty: &E::Ty,
         e: SelectExpression<'ast, T, E>,
-    ) -> ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner> {
+    ) -> SelectOrExpression<'ast, T, E> {
         fold_select_expression(self, ty, e)
     }
 
@@ -505,7 +505,7 @@ pub fn fold_member_expression<
     f: &mut F,
     _: &E::Ty,
     e: MemberExpression<'ast, T, E>,
-) -> ThisOrUncle<MemberExpression<'ast, T, E>, E::Inner> {
+) -> MemberOrExpression<'ast, T, E> {
     ThisOrUncle::This(MemberExpression::new(
         f.fold_struct_expression(*e.struc),
         e.id,
@@ -521,7 +521,7 @@ pub fn fold_select_expression<
     f: &mut F,
     _: &E::Ty,
     e: SelectExpression<'ast, T, E>,
-) -> ThisOrUncle<SelectExpression<'ast, T, E>, E::Inner> {
+) -> SelectOrExpression<'ast, T, E> {
     ThisOrUncle::This(SelectExpression::new(
         f.fold_array_expression(*e.array),
         f.fold_uint_expression(*e.index),
