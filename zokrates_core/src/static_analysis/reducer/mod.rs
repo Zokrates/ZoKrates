@@ -39,6 +39,8 @@ use crate::static_analysis::Propagator;
 
 use std::fmt;
 
+const MAX_FOR_LOOP_SIZE: u128 = 2u128.pow(20);
+
 // An SSA version map, giving access to the latest version number for each identifier
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
 
@@ -55,6 +57,7 @@ pub enum Error {
     GenericsInMain,
     // TODO: give more details about what's blocking the progress
     NoProgress,
+    LoopTooLarge(u128),
 }
 
 impl fmt::Display for Error {
@@ -66,7 +69,8 @@ impl fmt::Display for Error {
                 s
             ),
             Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
-            Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds")
+            Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds"),
+            Error::LoopTooLarge(size) => write!(f, "Found a loop of size {}, which is too large. Check the loop bounds, especially for underflows", size),
         }
     }
 }
@@ -405,6 +409,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             .collect();
 
                         let mut transformer = ShallowTransformer::with_versions(&mut self.versions);
+
+                        if to - from > MAX_FOR_LOOP_SIZE {
+                            return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
+                        }
 
                         for index in *from..*to {
                             let statements: Vec<TypedStatement<_>> =
