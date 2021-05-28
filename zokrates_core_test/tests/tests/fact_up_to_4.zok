@@ -1,10 +1,11 @@
-import "utils/casts/u32_to_field" as to_field
+from "utils/cast" import cast
 
 def main(field x) -> field:
     field f = 1
     field counter = 0
     for u32 i in 1..5 do
-        f = if counter == x then f else f * to_field(i) fi
+        field j = cast(i)
+        f = if counter == x then f else f * j fi
         counter = if counter == x then counter else counter + 1 fi
     endfor
     return f

@@ -1,5 +1,5 @@
-import "../../../utils/pack/bool/pack128" as pack128
-import "../../../utils/pack/bool/unpack128" as unpack128
+import "utils/pack/bool/pack128" as pack128
+import "utils/pack/bool/unpack128" as unpack128
 import "./512bitPadded" as sha256
 
 // A function that takes an array of 4 field elements as inputs, unpacks each of them to 128

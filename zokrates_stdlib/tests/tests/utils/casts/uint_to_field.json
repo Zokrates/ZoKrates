@@ -1,5 +1,5 @@
 {
-  "entry_point": "./tests/tests/utils/casts/field_to_uint.zok",
+  "entry_point": "./tests/tests/utils/casts/uint_to_field.zok",
   "tests": [
     {
       "input": {

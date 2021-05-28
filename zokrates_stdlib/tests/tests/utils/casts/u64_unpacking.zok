@@ -1,0 +1,7 @@
+from "utils/cast" import cast
+
+def main(u64 input) -> (u32[2], u16[4], u8[8]):
+    u32[2] a = cast(input)
+    u16[4] b = cast(input)
+    u8[8] c = cast(input)
+    return a, b, c

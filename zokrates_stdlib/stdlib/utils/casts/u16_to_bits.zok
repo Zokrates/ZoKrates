@@ -1,4 +1,4 @@
 from "EMBED" import u16_to_bits
 
-def main(u16 a) -> bool[16]:
-    return u16_to_bits(a)
+def main(u16 i) -> bool[16]:
+    return u16_to_bits(i)

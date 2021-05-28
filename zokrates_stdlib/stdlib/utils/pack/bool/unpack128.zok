@@ -1,9 +1,9 @@
 #pragma curve bn128
 
-import "./unpack" as unpack
+from "./unpack" import main as unpack
 
 // Unpack a field element as 128 big-endian bits
 // Precondition: the input is smaller or equal to `2**128 - 1`
 def main(field i) -> bool[128]:
-	bool[128] res = unpack::<128>(i)
-	return res
+	bool[128] result = unpack::<128>(i)
+	return result

@@ -1,0 +1,35 @@
+{
+  "entry_point": "./tests/tests/utils/casts/u8_upcasting.zok",
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["0", "0", "0"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["255"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["255", "255", "255"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["42"]
+      },
+      "output": {
+        "Ok": {
+          "values": ["42", "42", "42"]
+        }
+      }
+    }
+  ]
+}

@@ -1,9 +1,7 @@
-import "../../casts/u32_array_to_bool_array" as to_bits
-import "../bool/pack"
+from "utils/pack/bool/pack" import main as pack
+from "utils/cast" import cast
 
-// pack N big-endian bits into one field element
+// Pack u32[N] into one field element
 def main<N>(u32[N] input) -> field:
-
-	bool[N * 32] bits = to_bits(input)
-
+	bool[N * 32] bits = cast(input)
     return pack(bits)

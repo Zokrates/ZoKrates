@@ -1,0 +1,9 @@
+from "utils/cast" import cast
+
+def main(u8[16] a, u16[8] b, u32[4] c, u64[2] d) -> bool[128]:
+    bool[128] e = cast(a)
+    bool[128] f = cast(b)
+    bool[128] g = cast(c)
+    bool[128] h = cast(d)
+    assert(e == f && f == g && g == h)
+    return e

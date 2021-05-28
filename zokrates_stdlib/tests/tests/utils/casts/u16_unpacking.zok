@@ -1,0 +1,5 @@
+from "utils/cast" import cast
+
+def main(u16 input) -> u8[2]:
+    u8[2] result = cast(input)
+    return result

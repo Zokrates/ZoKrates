@@ -1,5 +1,5 @@
 from "utils/pack/bool/unpack.zok" import main as unpack
-from "utils/casts/u32_to_bits" import main as u32_to_bits
+from "EMBED" import u32_to_bits
 
 // this comparison works for any N smaller than the field size, which is the case in practice
 def le<N>(bool[N] a_bits, bool[N] c_bits) -> bool:

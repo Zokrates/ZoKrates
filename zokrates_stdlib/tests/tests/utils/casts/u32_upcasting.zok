@@ -1,0 +1,5 @@
+from "utils/cast" import cast
+
+def main(u32 input) -> u64:
+    u64 result = cast(input)
+    return result

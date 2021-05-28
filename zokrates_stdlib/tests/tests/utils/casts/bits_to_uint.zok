@@ -1,6 +1,6 @@
 from "utils/cast" import cast
 
-def main(field a, field b, field c, field d) -> (u8, u16, u32, u64):
+def main(bool[8] a, bool[16] b, bool[32] c, bool[64] d) -> (u8, u16, u32, u64):
     u8 e = cast(a)
     u16 f = cast(b)
     u32 g = cast(c)

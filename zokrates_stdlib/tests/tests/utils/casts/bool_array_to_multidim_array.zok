@@ -1,0 +1,9 @@
+from "utils/cast" import cast
+
+def main():
+    bool[1024] input = [false; 1024]
+    bool[2][512] a = cast(input)
+    bool[4][256] b = cast(input)
+    bool[8][128] c = cast(input)
+    bool[16][64] d = cast(input)
+    return

@@ -4,9 +4,6 @@ from "EMBED" import unpack
 
 // Unpack a field element as N big endian bits
 def main<N>(field i) -> bool[N]:
-
 	assert(N <= 254)
-    
-    bool[N] res = unpack(i)
-
-    return res
+    bool[N] result = unpack(i)
+    return result

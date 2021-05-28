@@ -6,7 +6,7 @@ import "utils/pack/u32/nonStrictUnpack256" as unpack256u
 import "ecc/edwardsOnCurve" as onCurve
 import "ecc/edwardsOrderCheck" as orderCheck
 from "ecc/babyjubjubParams" import BabyJubJubParams
-import "utils/casts/u32_8_to_bool_256"
+from "utils/cast" import cast
 
 /// Verifies an EdDSA Signature.
 ///
@@ -39,7 +39,7 @@ def main(private field[2] R, private field S, field[2] A, u32[8] M0, u32[8] M1, 
 
     u32[8] Rx = unpack256u(R[0])
     u32[8] Ax = unpack256u(A[0])
-    bool[256] hRAM = u32_8_to_bool_256(sha256(Rx, Ax, M0, M1))
+    bool[256] hRAM = cast(sha256(Rx, Ax, M0, M1))
 
     bool[256] sBits = unpack256bool(S)
     field[2] lhs = scalarMult(sBits, G, context)
