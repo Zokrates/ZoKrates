@@ -290,6 +290,35 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         fold_function(self, f)
     }
 
+    fn fold_if_else_expression<
+        E: Expr<'ast, T> + IfElse<'ast, T> + PartialEq + ResultFold<'ast, T>,
+    >(
+        &mut self,
+        _: &E::Ty,
+        e: IfElseExpression<'ast, T, E>,
+    ) -> Result<IfElseOrExpression<'ast, T, E>, Self::Error> {
+        Ok(
+            match (
+                self.fold_boolean_expression(*e.condition)?,
+                e.consequence.fold(self)?,
+                e.alternative.fold(self)?,
+            ) {
+                (BooleanExpression::Value(true), consequence, _) => {
+                    IfElseOrExpression::Expression(consequence.into_inner())
+                }
+                (BooleanExpression::Value(false), _, alternative) => {
+                    IfElseOrExpression::Expression(alternative.into_inner())
+                }
+                (_, consequence, alternative) if consequence == alternative => {
+                    IfElseOrExpression::Expression(consequence.into_inner())
+                }
+                (condition, consequence, alternative) => IfElseOrExpression::IfElse(
+                    IfElseExpression::new(condition, consequence, alternative),
+                ),
+            },
+        )
+    }
+
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
@@ -913,19 +942,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     box e2.annotate(bitwidth),
                 )),
             },
-            UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                let consequence = self.fold_uint_expression(consequence)?;
-                let alternative = self.fold_uint_expression(alternative)?;
-                match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => Ok(consequence.into_inner()),
-                    BooleanExpression::Value(false) => Ok(alternative.into_inner()),
-                    c => Ok(UExpressionInner::IfElse(
-                        box c,
-                        box consequence,
-                        box alternative,
-                    )),
-                }
-            }
             UExpressionInner::Not(box e) => {
                 let e = self.fold_uint_expression(e)?.into_inner();
                 match e {
@@ -1032,19 +1048,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     )),
                     (_, e2) => Err(Error::NonConstantExponent(
                         e2.annotate(UBitwidth::B32).to_string(),
-                    )),
-                }
-            }
-            FieldElementExpression::IfElse(box condition, box consequence, box alternative) => {
-                let consequence = self.fold_field_expression(consequence)?;
-                let alternative = self.fold_field_expression(alternative)?;
-                match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => Ok(consequence),
-                    BooleanExpression::Value(false) => Ok(alternative),
-                    c => Ok(FieldElementExpression::IfElse(
-                        box c,
-                        box consequence,
-                        box alternative,
                     )),
                 }
             }
@@ -1167,19 +1170,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 },
                 None => Ok(ArrayExpressionInner::Identifier(id)),
             },
-            ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                let consequence = self.fold_array_expression(consequence)?;
-                let alternative = self.fold_array_expression(alternative)?;
-                match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => Ok(consequence.into_inner()),
-                    BooleanExpression::Value(false) => Ok(alternative.into_inner()),
-                    c => Ok(ArrayExpressionInner::IfElse(
-                        box c,
-                        box consequence,
-                        box alternative,
-                    )),
-                }
-            }
             e => fold_array_expression_inner(self, ty, e),
         }
     }
@@ -1197,19 +1187,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 },
                 None => Ok(StructExpressionInner::Identifier(id)),
             },
-            StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                let consequence = self.fold_struct_expression(consequence)?;
-                let alternative = self.fold_struct_expression(alternative)?;
-                match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => Ok(consequence.into_inner()),
-                    BooleanExpression::Value(false) => Ok(alternative.into_inner()),
-                    c => Ok(StructExpressionInner::IfElse(
-                        box c,
-                        box consequence,
-                        box alternative,
-                    )),
-                }
-            }
             StructExpressionInner::Value(v) => {
                 let v = v.into_iter().zip(ty.iter()).map(|(v, member)|
                     match self.fold_expression(v) {
@@ -1433,19 +1410,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     e => Ok(BooleanExpression::Not(box e)),
                 }
             }
-            BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
-                let consequence = self.fold_boolean_expression(consequence)?;
-                let alternative = self.fold_boolean_expression(alternative)?;
-                match self.fold_boolean_expression(condition)? {
-                    BooleanExpression::Value(true) => Ok(consequence),
-                    BooleanExpression::Value(false) => Ok(alternative),
-                    c => Ok(BooleanExpression::IfElse(
-                        box c,
-                        box consequence,
-                        box alternative,
-                    )),
-                }
-            }
             e => fold_boolean_expression(self, e),
         }
     }
@@ -1531,10 +1495,10 @@ mod tests {
 
             #[test]
             fn if_else_true() {
-                let e = FieldElementExpression::IfElse(
-                    box BooleanExpression::Value(true),
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
+                let e = FieldElementExpression::if_else(
+                    BooleanExpression::Value(true),
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::Number(Bn128Field::from(3)),
                 );
 
                 assert_eq!(
@@ -1545,10 +1509,10 @@ mod tests {
 
             #[test]
             fn if_else_false() {
-                let e = FieldElementExpression::IfElse(
-                    box BooleanExpression::Value(false),
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
+                let e = FieldElementExpression::if_else(
+                    BooleanExpression::Value(false),
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::Number(Bn128Field::from(3)),
                 );
 
                 assert_eq!(

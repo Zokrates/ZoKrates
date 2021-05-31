@@ -2,8 +2,8 @@ use crate::typed_absy::types::{ArrayType, Type};
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, FieldElementExpression, IfElse,
-    Select, SelectExpression, StructExpression, Typed, TypedExpression, TypedExpressionOrSpread,
-    TypedSpread, UExpression, UExpressionInner,
+    IfElseExpression, Select, SelectExpression, StructExpression, Typed, TypedExpression,
+    TypedExpressionOrSpread, TypedSpread, UExpression, UExpressionInner,
 };
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -142,11 +142,7 @@ pub enum IntExpression<'ast, T> {
     Div(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Rem(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Pow(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    IfElse(
-        Box<BooleanExpression<'ast, T>>,
-        Box<IntExpression<'ast, T>>,
-        Box<IntExpression<'ast, T>>,
-    ),
+    IfElse(IfElseExpression<'ast, T, IntExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, IntExpression<'ast, T>>),
     Xor(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     And(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
@@ -261,11 +257,7 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
             IntExpression::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             IntExpression::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             IntExpression::Not(ref e) => write!(f, "!{}", e),
-            IntExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
+            IntExpression::IfElse(ref c) => write!(f, "{}", c),
         }
     }
 }
@@ -315,13 +307,11 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
             )),
             IntExpression::Pos(box e) => Ok(Self::Pos(box Self::try_from_int(e)?)),
             IntExpression::Neg(box e) => Ok(Self::Neg(box Self::try_from_int(e)?)),
-            IntExpression::IfElse(box condition, box consequence, box alternative) => {
-                Ok(Self::IfElse(
-                    box condition,
-                    box Self::try_from_int(consequence)?,
-                    box Self::try_from_int(alternative)?,
-                ))
-            }
+            IntExpression::IfElse(c) => Ok(Self::IfElse(IfElseExpression::new(
+                *c.condition,
+                Self::try_from_int(*c.consequence)?,
+                Self::try_from_int(*c.alternative)?,
+            ))),
             IntExpression::Select(select) => {
                 let array = *select.array;
                 let index = *select.index;
@@ -430,10 +420,10 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 Self::try_from_int(e1, bitwidth)?,
                 e2,
             )),
-            IfElse(box condition, box consequence, box alternative) => Ok(UExpression::if_else(
-                condition,
-                Self::try_from_int(consequence, bitwidth)?,
-                Self::try_from_int(alternative, bitwidth)?,
+            IfElse(c) => Ok(UExpression::if_else(
+                *c.condition,
+                Self::try_from_int(*c.consequence, bitwidth)?,
+                Self::try_from_int(*c.alternative, bitwidth)?,
             )),
             Select(select) => {
                 let array = *select.array;

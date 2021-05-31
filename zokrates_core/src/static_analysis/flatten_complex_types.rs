@@ -49,6 +49,64 @@ fn flatten_identifier_rec<'ast>(
     }
 }
 
+trait Flatten<'ast, T: Field> {
+    fn flatten(
+        self,
+        f: &mut Flattener<T>,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    ) -> Vec<zir::ZirExpression<'ast, T>>;
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::FieldElementExpression<'ast, T> {
+    fn flatten(
+        self,
+        f: &mut Flattener<T>,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        vec![f.fold_field_expression(statements_buffer, self).into()]
+    }
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::BooleanExpression<'ast, T> {
+    fn flatten(
+        self,
+        f: &mut Flattener<T>,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        vec![f.fold_boolean_expression(statements_buffer, self).into()]
+    }
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::UExpression<'ast, T> {
+    fn flatten(
+        self,
+        f: &mut Flattener<T>,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        vec![f.fold_uint_expression(statements_buffer, self).into()]
+    }
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::ArrayExpression<'ast, T> {
+    fn flatten(
+        self,
+        f: &mut Flattener<T>,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        f.fold_array_expression(statements_buffer, self)
+    }
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::StructExpression<'ast, T> {
+    fn flatten(
+        self,
+        f: &mut Flattener<T>,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        f.fold_struct_expression(statements_buffer, self)
+    }
+}
+
 impl<'ast, T: Field> Flattener<T> {
     pub fn flatten(p: typed_absy::TypedProgram<T>) -> zir::ZirProgram<T> {
         let mut f = Flattener::default();
@@ -223,7 +281,15 @@ impl<'ast, T: Field> Flattener<T> {
         }
     }
 
-    pub fn fold_member_expression<E>(
+    fn fold_if_else_expression<E: Flatten<'ast, T>>(
+        &mut self,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+        c: typed_absy::IfElseExpression<'ast, T, E>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        fold_if_else_expression(self, statements_buffer, c)
+    }
+
+    fn fold_member_expression<E>(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
         m: typed_absy::MemberExpression<'ast, T, E>,
@@ -231,7 +297,7 @@ impl<'ast, T: Field> Flattener<T> {
         fold_member_expression(self, statements_buffer, m)
     }
 
-    pub fn fold_select_expression<E>(
+    fn fold_select_expression<E>(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
         select: typed_absy::SelectExpression<'ast, T, E>,
@@ -289,7 +355,7 @@ impl<'ast, T: Field> Flattener<T> {
     }
 }
 
-pub fn fold_statement<'ast, T: Field>(
+fn fold_statement<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     s: typed_absy::TypedStatement<'ast, T>,
@@ -334,7 +400,7 @@ pub fn fold_statement<'ast, T: Field>(
     statements_buffer.extend(res);
 }
 
-pub fn fold_array_expression_inner<'ast, T: Field>(
+fn fold_array_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     ty: &typed_absy::types::ConcreteType,
@@ -376,44 +442,8 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
             exprs
         }
         typed_absy::ArrayExpressionInner::FunctionCall(..) => unreachable!(),
-        typed_absy::ArrayExpressionInner::IfElse(
-            box condition,
-            box consequence,
-            box alternative,
-        ) => {
-            let mut consequence_statements = vec![];
-            let mut alternative_statements = vec![];
-
-            let condition = f.fold_boolean_expression(statements_buffer, condition);
-            let consequence = f.fold_array_expression(&mut consequence_statements, consequence);
-            let alternative = f.fold_array_expression(&mut alternative_statements, alternative);
-
-            assert_eq!(consequence.len(), alternative.len());
-
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
-
-            use crate::zir::IfElse;
-
-            consequence
-                .into_iter()
-                .zip(alternative.into_iter())
-                .map(|(c, a)| match (c, a) {
-                    (zir::ZirExpression::FieldElement(c), zir::ZirExpression::FieldElement(a)) => {
-                        zir::FieldElementExpression::if_else(condition.clone(), c, a).into()
-                    }
-                    (zir::ZirExpression::Boolean(c), zir::ZirExpression::Boolean(a)) => {
-                        zir::BooleanExpression::if_else(condition.clone(), c, a).into()
-                    }
-                    (zir::ZirExpression::Uint(c), zir::ZirExpression::Uint(a)) => {
-                        zir::UExpression::if_else(condition.clone(), c, a).into()
-                    }
-                    _ => unreachable!(),
-                })
-                .collect()
+        typed_absy::ArrayExpressionInner::IfElse(c) => {
+            f.fold_if_else_expression(statements_buffer, c)
         }
         typed_absy::ArrayExpressionInner::Member(m) => {
             f.fold_member_expression(statements_buffer, m)
@@ -452,7 +482,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
     }
 }
 
-pub fn fold_struct_expression_inner<'ast, T: Field>(
+fn fold_struct_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     ty: &typed_absy::types::ConcreteStructType,
@@ -487,44 +517,8 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
             .flat_map(|e| f.fold_expression(statements_buffer, e))
             .collect(),
         typed_absy::StructExpressionInner::FunctionCall(..) => unreachable!(),
-        typed_absy::StructExpressionInner::IfElse(
-            box condition,
-            box consequence,
-            box alternative,
-        ) => {
-            let mut consequence_statements = vec![];
-            let mut alternative_statements = vec![];
-
-            let condition = f.fold_boolean_expression(statements_buffer, condition);
-            let consequence = f.fold_struct_expression(&mut consequence_statements, consequence);
-            let alternative = f.fold_struct_expression(&mut alternative_statements, alternative);
-
-            assert_eq!(consequence.len(), alternative.len());
-
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
-
-            use zir::IfElse;
-
-            consequence
-                .into_iter()
-                .zip(alternative.into_iter())
-                .map(|(c, a)| match (c, a) {
-                    (zir::ZirExpression::FieldElement(c), zir::ZirExpression::FieldElement(a)) => {
-                        zir::FieldElementExpression::if_else(condition.clone(), c, a).into()
-                    }
-                    (zir::ZirExpression::Boolean(c), zir::ZirExpression::Boolean(a)) => {
-                        zir::BooleanExpression::if_else(condition.clone(), c, a).into()
-                    }
-                    (zir::ZirExpression::Uint(c), zir::ZirExpression::Uint(a)) => {
-                        zir::UExpression::if_else(condition.clone(), c, a).into()
-                    }
-                    _ => unreachable!(),
-                })
-                .collect()
+        typed_absy::StructExpressionInner::IfElse(c) => {
+            f.fold_if_else_expression(statements_buffer, c)
         }
         typed_absy::StructExpressionInner::Member(m) => {
             f.fold_member_expression(statements_buffer, m)
@@ -535,7 +529,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
     }
 }
 
-pub fn fold_member_expression<'ast, T: Field, E>(
+fn fold_member_expression<'ast, T: Field, E>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     m: typed_absy::MemberExpression<'ast, T, E>,
@@ -571,7 +565,7 @@ pub fn fold_member_expression<'ast, T: Field, E>(
     s[offset..offset + size].to_vec()
 }
 
-pub fn fold_select_expression<'ast, T: Field, E>(
+fn fold_select_expression<'ast, T: Field, E>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     select: typed_absy::SelectExpression<'ast, T, E>,
@@ -593,7 +587,47 @@ pub fn fold_select_expression<'ast, T: Field, E>(
     }
 }
 
-pub fn fold_field_expression<'ast, T: Field>(
+fn fold_if_else_expression<'ast, T: Field, E: Flatten<'ast, T>>(
+    f: &mut Flattener<T>,
+    statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    c: typed_absy::IfElseExpression<'ast, T, E>,
+) -> Vec<zir::ZirExpression<'ast, T>> {
+    let mut consequence_statements = vec![];
+    let mut alternative_statements = vec![];
+
+    let condition = f.fold_boolean_expression(statements_buffer, *c.condition);
+    let consequence = c.consequence.flatten(f, &mut consequence_statements);
+    let alternative = c.alternative.flatten(f, &mut alternative_statements);
+
+    assert_eq!(consequence.len(), alternative.len());
+
+    statements_buffer.push(zir::ZirStatement::IfElse(
+        condition.clone(),
+        consequence_statements,
+        alternative_statements,
+    ));
+
+    use crate::zir::IfElse;
+
+    consequence
+        .into_iter()
+        .zip(alternative.into_iter())
+        .map(|(c, a)| match (c, a) {
+            (zir::ZirExpression::FieldElement(c), zir::ZirExpression::FieldElement(a)) => {
+                zir::FieldElementExpression::if_else(condition.clone(), c, a).into()
+            }
+            (zir::ZirExpression::Boolean(c), zir::ZirExpression::Boolean(a)) => {
+                zir::BooleanExpression::if_else(condition.clone(), c, a).into()
+            }
+            (zir::ZirExpression::Uint(c), zir::ZirExpression::Uint(a)) => {
+                zir::UExpression::if_else(condition.clone(), c, a).into()
+            }
+            _ => unreachable!(),
+        })
+        .collect()
+}
+
+fn fold_field_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed_absy::FieldElementExpression<'ast, T>,
@@ -647,26 +681,12 @@ pub fn fold_field_expression<'ast, T: Field>(
         typed_absy::FieldElementExpression::Pos(box e) => {
             f.fold_field_expression(statements_buffer, e)
         }
-        typed_absy::FieldElementExpression::IfElse(
-            box condition,
-            box consequence,
-            box alternative,
-        ) => {
-            let mut consequence_statements = vec![];
-            let mut alternative_statements = vec![];
-
-            let condition = f.fold_boolean_expression(statements_buffer, condition);
-            let consequence = f.fold_field_expression(&mut consequence_statements, consequence);
-            let alternative = f.fold_field_expression(&mut alternative_statements, alternative);
-
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
-
-            zir::FieldElementExpression::IfElse(box condition, box consequence, box alternative)
-        }
+        typed_absy::FieldElementExpression::IfElse(c) => f
+            .fold_if_else_expression(statements_buffer, c)
+            .pop()
+            .unwrap()
+            .try_into()
+            .unwrap(),
         typed_absy::FieldElementExpression::FunctionCall(..) => unreachable!(""),
         typed_absy::FieldElementExpression::Select(select) => f
             .fold_select_expression(statements_buffer, select)
@@ -690,7 +710,7 @@ pub fn fold_field_expression<'ast, T: Field>(
     }
 }
 
-pub fn fold_boolean_expression<'ast, T: Field>(
+fn fold_boolean_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed_absy::BooleanExpression<'ast, T>,
@@ -836,22 +856,12 @@ pub fn fold_boolean_expression<'ast, T: Field>(
             let e = f.fold_boolean_expression(statements_buffer, e);
             zir::BooleanExpression::Not(box e)
         }
-        typed_absy::BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
-            let mut consequence_statements = vec![];
-            let mut alternative_statements = vec![];
-
-            let condition = f.fold_boolean_expression(statements_buffer, condition);
-            let consequence = f.fold_boolean_expression(&mut consequence_statements, consequence);
-            let alternative = f.fold_boolean_expression(&mut alternative_statements, alternative);
-
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
-
-            zir::BooleanExpression::IfElse(box condition, box consequence, box alternative)
-        }
+        typed_absy::BooleanExpression::IfElse(c) => f
+            .fold_if_else_expression(statements_buffer, c)
+            .pop()
+            .unwrap()
+            .try_into()
+            .unwrap(),
         typed_absy::BooleanExpression::FunctionCall(..) => unreachable!(),
         typed_absy::BooleanExpression::Select(select) => f
             .fold_select_expression(statements_buffer, select)
@@ -868,7 +878,7 @@ pub fn fold_boolean_expression<'ast, T: Field>(
     }
 }
 
-pub fn fold_uint_expression<'ast, T: Field>(
+fn fold_uint_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed_absy::UExpression<'ast, T>,
@@ -877,7 +887,7 @@ pub fn fold_uint_expression<'ast, T: Field>(
         .annotate(e.bitwidth.to_usize())
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field>(
+fn fold_uint_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     bitwidth: UBitwidth,
@@ -1008,26 +1018,17 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
         )
         .unwrap()
         .into_inner(),
-        typed_absy::UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-            let mut consequence_statements = vec![];
-            let mut alternative_statements = vec![];
-
-            let condition = f.fold_boolean_expression(statements_buffer, condition);
-            let consequence = f.fold_uint_expression(&mut consequence_statements, consequence);
-            let alternative = f.fold_uint_expression(&mut alternative_statements, alternative);
-
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
-
-            zir::UExpressionInner::IfElse(box condition, box consequence, box alternative)
-        }
+        typed_absy::UExpressionInner::IfElse(c) => zir::UExpression::try_from(
+            f.fold_if_else_expression(statements_buffer, c)
+                .pop()
+                .unwrap(),
+        )
+        .unwrap()
+        .into_inner(),
     }
 }
 
-pub fn fold_function<'ast, T: Field>(
+fn fold_function<'ast, T: Field>(
     f: &mut Flattener<T>,
     fun: typed_absy::TypedFunction<'ast, T>,
 ) -> zir::ZirFunction<'ast, T> {
@@ -1052,7 +1053,7 @@ pub fn fold_function<'ast, T: Field>(
     }
 }
 
-pub fn fold_array_expression<'ast, T: Field>(
+fn fold_array_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed_absy::ArrayExpression<'ast, T>,
@@ -1069,7 +1070,7 @@ pub fn fold_array_expression<'ast, T: Field>(
     )
 }
 
-pub fn fold_struct_expression<'ast, T: Field>(
+fn fold_struct_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed_absy::StructExpression<'ast, T>,
@@ -1081,7 +1082,7 @@ pub fn fold_struct_expression<'ast, T: Field>(
     )
 }
 
-pub fn fold_program<'ast, T: Field>(
+fn fold_program<'ast, T: Field>(
     f: &mut Flattener<T>,
     mut p: typed_absy::TypedProgram<'ast, T>,
 ) -> zir::ZirProgram<'ast, T> {
