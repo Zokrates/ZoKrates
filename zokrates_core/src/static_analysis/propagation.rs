@@ -944,67 +944,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     e => Ok(UExpressionInner::Pos(box e.annotate(bitwidth))),
                 }
             }
-            UExpressionInner::Select(box array, box index) => {
-                let array = self.fold_array_expression(array)?;
-                let index = self.fold_uint_expression(index)?;
-
-                let inner_type = array.inner_type().clone();
-                let size = array.size();
-
-                match size.into_inner() {
-                    UExpressionInner::Value(size) => {
-                        match (array.into_inner(), index.into_inner()) {
-                            (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
-                                if n < size {
-                                    Ok(UExpression::try_from(
-                                        v.expression_at::<UExpression<'ast, T>>(n as usize)
-                                            .unwrap()
-                                            .clone(),
-                                    )
-                                    .unwrap()
-                                    .into_inner())
-                                } else {
-                                    Err(Error::OutOfBounds(n, size))
-                                }
-                            }
-                            (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
-                                match self.constants.get(&id) {
-                                    Some(a) => match a {
-                                        TypedExpression::Array(a) => match a.as_inner() {
-                                            ArrayExpressionInner::Value(v) => {
-                                                Ok(UExpression::try_from(
-                                                    TypedExpression::try_from(
-                                                        v.0[n as usize].clone(),
-                                                    )
-                                                    .unwrap(),
-                                                )
-                                                .unwrap()
-                                                .into_inner())
-                                            }
-                                            _ => unreachable!("should be an array value"),
-                                        },
-                                        _ => unreachable!("should be an array expression"),
-                                    },
-                                    None => Ok(UExpressionInner::Select(
-                                        box ArrayExpressionInner::Identifier(id)
-                                            .annotate(inner_type, size as u32),
-                                        box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                    )),
-                                }
-                            }
-                            (a, i) => Ok(UExpressionInner::Select(
-                                box a.annotate(inner_type, size as u32),
-                                box i.annotate(UBitwidth::B32),
-                            )),
-                        }
-                    }
-                    _ => fold_uint_expression_inner(
-                        self,
-                        bitwidth,
-                        UExpressionInner::Select(box array, box index),
-                    ),
-                }
-            }
             e => fold_uint_expression_inner(self, bitwidth, e),
         }
     }
@@ -1101,94 +1040,109 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     )),
                 }
             }
-            FieldElementExpression::Select(box array, box index) => {
-                let array = self.fold_array_expression(array)?;
-                let index = self.fold_uint_expression(index)?;
-
-                let inner_type = array.inner_type().clone();
-                let size = array.size();
-
-                match size.into_inner() {
-                    UExpressionInner::Value(size) => {
-                        match (array.into_inner(), index.into_inner()) {
-                            (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
-                                if n < size {
-                                    Ok(FieldElementExpression::try_from(
-                                        v.expression_at::<FieldElementExpression<'ast, T>>(
-                                            n as usize,
-                                        )
-                                        .unwrap()
-                                        .clone(),
-                                    )
-                                    .unwrap())
-                                } else {
-                                    Err(Error::OutOfBounds(n, size))
-                                }
-                            }
-                            (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
-                                match self.constants.get(&id) {
-                                    Some(a) => match a {
-                                        TypedExpression::Array(a) => match a.as_inner() {
-                                            ArrayExpressionInner::Value(v) => {
-                                                Ok(FieldElementExpression::try_from(
-                                                    TypedExpression::try_from(
-                                                        v.0[n as usize].clone(),
-                                                    )
-                                                    .unwrap(),
-                                                )
-                                                .unwrap())
-                                            }
-                                            _ => unreachable!("should be an array value"),
-                                        },
-                                        _ => unreachable!("should be an array expression"),
-                                    },
-                                    None => Ok(FieldElementExpression::Select(
-                                        box ArrayExpressionInner::Identifier(id)
-                                            .annotate(inner_type, size as u32),
-                                        box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                    )),
-                                }
-                            }
-                            (a, i) => Ok(FieldElementExpression::Select(
-                                box a.annotate(inner_type, size as u32),
-                                box i.annotate(UBitwidth::B32),
-                            )),
-                        }
-                    }
-                    _ => fold_field_expression(
-                        self,
-                        FieldElementExpression::Select(box array, box index),
-                    ),
-                }
-            }
-            FieldElementExpression::Member(box s, m) => {
-                let s = self.fold_struct_expression(s)?;
-
-                let members = match s.get_type() {
-                    Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct type"),
-                };
-
-                match s.into_inner() {
-                    StructExpressionInner::Value(v) => {
-                        match members
-                            .iter()
-                            .zip(v)
-                            .find(|(member, _)| member.id == m)
-                            .unwrap()
-                            .1
-                        {
-                            TypedExpression::FieldElement(s) => Ok(s),
-                            _ => unreachable!("should be a field element expression"),
-                        }
-                    }
-                    inner => Ok(FieldElementExpression::Member(
-                        box inner.annotate(members),
-                        m,
-                    )),
-                }
-            }
             e => fold_field_expression(self, e),
+        }
+    }
+
+    fn fold_member_expression<
+        E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
+        &mut self,
+        _: &E::Ty,
+        m: MemberExpression<'ast, T, E>,
+    ) -> Result<MemberOrExpression<'ast, T, E>, Self::Error> {
+        let id = m.id;
+
+        let struc = self.fold_struct_expression(*m.struc)?;
+
+        let ty = struc.ty().clone();
+
+        match struc.into_inner() {
+            StructExpressionInner::Value(v) => Ok(MemberOrExpression::Expression(
+                E::from(
+                    ty.members
+                        .iter()
+                        .zip(v)
+                        .find(|(member, _)| member.id == id)
+                        .unwrap()
+                        .1,
+                )
+                .into_inner(),
+            )),
+            inner => Ok(MemberOrExpression::Member(MemberExpression::new(
+                inner.annotate(ty),
+                id,
+            ))),
+        }
+    }
+
+    fn fold_select_expression<
+        E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
+        &mut self,
+        _: &E::Ty,
+        e: SelectExpression<'ast, T, E>,
+    ) -> Result<SelectOrExpression<'ast, T, E>, Self::Error> {
+        let array = self.fold_array_expression(*e.array)?;
+        let index = self.fold_uint_expression(*e.index)?;
+
+        let inner_type = array.inner_type().clone();
+        let size = array.size();
+
+        match size.into_inner() {
+            UExpressionInner::Value(size) => match (array.into_inner(), index.into_inner()) {
+                (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
+                    if n < size {
+                        Ok(SelectOrExpression::Expression(
+                            E::from(
+                                v.expression_at::<StructExpression<'ast, T>>(n as usize)
+                                    .unwrap()
+                                    .clone(),
+                            )
+                            .into_inner(),
+                        ))
+                    } else {
+                        Err(Error::OutOfBounds(n, size))
+                    }
+                }
+                (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
+                    match self.constants.get(&id) {
+                        Some(a) => match a {
+                            TypedExpression::Array(a) => match a.as_inner() {
+                                ArrayExpressionInner::Value(v) => {
+                                    Ok(SelectOrExpression::Expression(
+                                        E::from(
+                                            v.expression_at::<StructExpression<'ast, T>>(
+                                                n as usize,
+                                            )
+                                            .unwrap()
+                                            .clone(),
+                                        )
+                                        .into_inner(),
+                                    ))
+                                }
+                                _ => unreachable!("should be an array value"),
+                            },
+                            _ => unreachable!("should be an array expression"),
+                        },
+                        None => Ok(SelectOrExpression::Expression(
+                            E::select(
+                                ArrayExpressionInner::Identifier(id)
+                                    .annotate(inner_type, size as u32),
+                                UExpressionInner::Value(n).annotate(UBitwidth::B32),
+                            )
+                            .into_inner(),
+                        )),
+                    }
+                }
+                (a, i) => Ok(SelectOrExpression::Select(SelectExpression::new(
+                    a.annotate(inner_type, size as u32),
+                    i.annotate(UBitwidth::B32),
+                ))),
+            },
+            _ => Ok(SelectOrExpression::Select(SelectExpression::new(
+                array, index,
+            ))),
         }
     }
 
@@ -1205,67 +1159,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 },
                 None => Ok(ArrayExpressionInner::Identifier(id)),
             },
-            ArrayExpressionInner::Select(box array, box index) => {
-                let array = self.fold_array_expression(array)?;
-                let index = self.fold_uint_expression(index)?;
-
-                let inner_type = array.inner_type().clone();
-                let size = array.size();
-
-                match size.into_inner() {
-                    UExpressionInner::Value(size) => match (array.into_inner(), index.into_inner())
-                    {
-                        (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
-                            if n < size {
-                                Ok(ArrayExpression::try_from(
-                                    v.expression_at::<ArrayExpression<'ast, T>>(n as usize)
-                                        .unwrap()
-                                        .clone(),
-                                )
-                                .unwrap()
-                                .into_inner())
-                            } else {
-                                Err(Error::OutOfBounds(n, size))
-                            }
-                        }
-                        (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
-                            match self.constants.get(&id) {
-                                Some(a) => match a {
-                                    TypedExpression::Array(a) => match a.as_inner() {
-                                        ArrayExpressionInner::Value(v) => {
-                                            Ok(ArrayExpression::try_from(
-                                                v.expression_at::<ArrayExpression<'ast, T>>(
-                                                    n as usize,
-                                                )
-                                                .unwrap()
-                                                .clone(),
-                                            )
-                                            .unwrap()
-                                            .into_inner())
-                                        }
-                                        _ => unreachable!("should be an array value"),
-                                    },
-                                    _ => unreachable!("should be an array expression"),
-                                },
-                                None => Ok(ArrayExpressionInner::Select(
-                                    box ArrayExpressionInner::Identifier(id)
-                                        .annotate(inner_type, size as u32),
-                                    box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                )),
-                            }
-                        }
-                        (a, i) => Ok(ArrayExpressionInner::Select(
-                            box a.annotate(inner_type, size as u32),
-                            box i.annotate(UBitwidth::B32),
-                        )),
-                    },
-                    _ => fold_array_expression_inner(
-                        self,
-                        ty,
-                        ArrayExpressionInner::Select(box array, box index),
-                    ),
-                }
-            }
             ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_array_expression(consequence)?;
                 let alternative = self.fold_array_expression(alternative)?;
@@ -1276,33 +1169,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         box c,
                         box consequence,
                         box alternative,
-                    )),
-                }
-            }
-            ArrayExpressionInner::Member(box struc, id) => {
-                let struc = self.fold_struct_expression(struc)?;
-
-                let members = match struc.get_type() {
-                    Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct type"),
-                };
-
-                match struc.into_inner() {
-                    StructExpressionInner::Value(v) => {
-                        match members
-                            .iter()
-                            .zip(v)
-                            .find(|(member, _)| member.id == id)
-                            .unwrap()
-                            .1
-                        {
-                            TypedExpression::Array(a) => Ok(a.into_inner()),
-                            _ => unreachable!("should be an array expression"),
-                        }
-                    }
-                    inner => Ok(ArrayExpressionInner::Member(
-                        box inner.annotate(members),
-                        id,
                     )),
                 }
             }
@@ -1323,67 +1189,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 },
                 None => Ok(StructExpressionInner::Identifier(id)),
             },
-            StructExpressionInner::Select(box array, box index) => {
-                let array = self.fold_array_expression(array)?;
-                let index = self.fold_uint_expression(index)?;
-
-                let inner_type = array.inner_type().clone();
-                let size = array.size();
-
-                match size.into_inner() {
-                    UExpressionInner::Value(size) => match (array.into_inner(), index.into_inner())
-                    {
-                        (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
-                            if n < size {
-                                Ok(StructExpression::try_from(
-                                    v.expression_at::<StructExpression<'ast, T>>(n as usize)
-                                        .unwrap()
-                                        .clone(),
-                                )
-                                .unwrap()
-                                .into_inner())
-                            } else {
-                                Err(Error::OutOfBounds(n, size))
-                            }
-                        }
-                        (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
-                            match self.constants.get(&id) {
-                                Some(a) => match a {
-                                    TypedExpression::Array(a) => match a.as_inner() {
-                                        ArrayExpressionInner::Value(v) => {
-                                            Ok(StructExpression::try_from(
-                                                v.expression_at::<StructExpression<'ast, T>>(
-                                                    n as usize,
-                                                )
-                                                .unwrap()
-                                                .clone(),
-                                            )
-                                            .unwrap()
-                                            .into_inner())
-                                        }
-                                        _ => unreachable!("should be an array value"),
-                                    },
-                                    _ => unreachable!("should be an array expression"),
-                                },
-                                None => Ok(StructExpressionInner::Select(
-                                    box ArrayExpressionInner::Identifier(id)
-                                        .annotate(inner_type, size as u32),
-                                    box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                )),
-                            }
-                        }
-                        (a, i) => Ok(StructExpressionInner::Select(
-                            box a.annotate(inner_type, size as u32),
-                            box i.annotate(UBitwidth::B32),
-                        )),
-                    },
-                    _ => fold_struct_expression_inner(
-                        self,
-                        ty,
-                        StructExpressionInner::Select(box array, box index),
-                    ),
-                }
-            }
             StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_struct_expression(consequence)?;
                 let alternative = self.fold_struct_expression(alternative)?;
@@ -1394,33 +1199,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         box c,
                         box consequence,
                         box alternative,
-                    )),
-                }
-            }
-            StructExpressionInner::Member(box s, m) => {
-                let s = self.fold_struct_expression(s)?;
-
-                let members = match s.get_type() {
-                    Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct type"),
-                };
-
-                match s.into_inner() {
-                    StructExpressionInner::Value(v) => {
-                        match members
-                            .iter()
-                            .zip(v)
-                            .find(|(member, _)| member.id == m)
-                            .unwrap()
-                            .1
-                        {
-                            TypedExpression::Struct(s) => Ok(s.into_inner()),
-                            _ => unreachable!("should be a struct expression"),
-                        }
-                    }
-                    inner => Ok(StructExpressionInner::Member(
-                        box inner.annotate(members),
-                        m,
                     )),
                 }
             }
@@ -1660,85 +1438,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     )),
                 }
             }
-            BooleanExpression::Select(box array, box index) => {
-                let array = self.fold_array_expression(array)?;
-                let index = self.fold_uint_expression(index)?;
-
-                let inner_type = array.inner_type().clone();
-                let size = array.size();
-
-                match size.into_inner() {
-                    UExpressionInner::Value(size) => match (array.into_inner(), index.into_inner())
-                    {
-                        (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
-                            if n < size {
-                                Ok(BooleanExpression::try_from(
-                                    v.expression_at::<BooleanExpression<'ast, T>>(n as usize)
-                                        .unwrap()
-                                        .clone(),
-                                )
-                                .unwrap())
-                            } else {
-                                Err(Error::OutOfBounds(n, size))
-                            }
-                        }
-                        (ArrayExpressionInner::Identifier(id), UExpressionInner::Value(n)) => {
-                            match self.constants.get(&id) {
-                                Some(a) => match a {
-                                    TypedExpression::Array(a) => match a.as_inner() {
-                                        ArrayExpressionInner::Value(v) => {
-                                            Ok(BooleanExpression::try_from(
-                                                TypedExpression::try_from(v.0[n as usize].clone())
-                                                    .unwrap(),
-                                            )
-                                            .unwrap())
-                                        }
-                                        _ => unreachable!("should be an array value"),
-                                    },
-                                    _ => unreachable!("should be an array expression"),
-                                },
-                                None => Ok(BooleanExpression::Select(
-                                    box ArrayExpressionInner::Identifier(id)
-                                        .annotate(inner_type, size as u32),
-                                    box UExpressionInner::Value(n).annotate(UBitwidth::B32),
-                                )),
-                            }
-                        }
-                        (a, i) => Ok(BooleanExpression::Select(
-                            box a.annotate(inner_type, size as u32),
-                            box i.annotate(UBitwidth::B32),
-                        )),
-                    },
-                    _ => fold_boolean_expression(
-                        self,
-                        BooleanExpression::Select(box array, box index),
-                    ),
-                }
-            }
-            BooleanExpression::Member(box s, m) => {
-                let s = self.fold_struct_expression(s)?;
-
-                let members = match s.get_type() {
-                    Type::Struct(members) => members,
-                    _ => unreachable!("should be a struct type"),
-                };
-
-                match s.into_inner() {
-                    StructExpressionInner::Value(v) => {
-                        match members
-                            .iter()
-                            .zip(v)
-                            .find(|(member, _)| member.id == m)
-                            .unwrap()
-                            .1
-                        {
-                            TypedExpression::Boolean(s) => Ok(s),
-                            _ => unreachable!("should be a boolean expression"),
-                        }
-                    }
-                    inner => Ok(BooleanExpression::Member(box inner.annotate(members), m)),
-                }
-            }
             e => fold_boolean_expression(self, e),
         }
     }
@@ -1852,8 +1551,8 @@ mod tests {
 
             #[test]
             fn select() {
-                let e = FieldElementExpression::Select(
-                    box ArrayExpressionInner::Value(
+                let e = FieldElementExpression::select(
+                    ArrayExpressionInner::Value(
                         vec![
                             FieldElementExpression::Number(Bn128Field::from(1)).into(),
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
@@ -1862,7 +1561,7 @@ mod tests {
                         .into(),
                     )
                     .annotate(Type::FieldElement, 3usize),
-                    box UExpressionInner::Add(box 1u32.into(), box 1u32.into())
+                    UExpressionInner::Add(box 1u32.into(), box 1u32.into())
                         .annotate(UBitwidth::B32),
                 );
 

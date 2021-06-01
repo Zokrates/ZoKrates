@@ -26,14 +26,16 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
         Self::new().fold_program(p)
     }
 
-    fn select<U: Select<'ast, T> + IfElse<'ast, T>>(
+    fn select<E: Expr<'ast, T> + Select<'ast, T> + IfElse<'ast, T>>(
         &mut self,
-        a: ArrayExpression<'ast, T>,
-        i: UExpression<'ast, T>,
-    ) -> U {
+        e: SelectExpression<'ast, T, E>,
+    ) -> E::Inner {
+        let a = *e.array;
+        let i = *e.index;
+
         match i.into_inner() {
             UExpressionInner::Value(i) => {
-                U::select(a, UExpressionInner::Value(i).annotate(UBitwidth::B32))
+                E::select(a, UExpressionInner::Value(i).annotate(UBitwidth::B32)).into_inner()
             }
             i => {
                 let size = match a.get_type().clone() {
@@ -61,7 +63,7 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
 
                 (0..size)
                     .map(|i| {
-                        U::select(
+                        E::select(
                             a.clone(),
                             UExpressionInner::Value(i.into()).annotate(UBitwidth::B32),
                         )
@@ -69,7 +71,7 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
                     .enumerate()
                     .rev()
                     .fold(None, |acc, (index, res)| match acc {
-                        Some(acc) => Some(U::if_else(
+                        Some(acc) => Some(E::if_else(
                             BooleanExpression::UintEq(
                                 box i.clone().annotate(UBitwidth::B32),
                                 box (index as u32).into(),
@@ -80,69 +82,21 @@ impl<'ast, T: Field> VariableReadRemover<'ast, T> {
                         None => Some(res),
                     })
                     .unwrap()
+                    .into_inner()
             }
         }
     }
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for VariableReadRemover<'ast, T> {
-    fn fold_field_expression(
+    fn fold_select_expression<
+        E: Expr<'ast, T> + Select<'ast, T> + IfElse<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
-        match e {
-            FieldElementExpression::Select(box a, box i) => self.select(a, i),
-            e => fold_field_expression(self, e),
-        }
-    }
-
-    fn fold_boolean_expression(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> BooleanExpression<'ast, T> {
-        match e {
-            BooleanExpression::Select(box a, box i) => self.select(a, i),
-            e => fold_boolean_expression(self, e),
-        }
-    }
-
-    fn fold_array_expression_inner(
-        &mut self,
-        ty: &ArrayType<'ast, T>,
-        e: ArrayExpressionInner<'ast, T>,
-    ) -> ArrayExpressionInner<'ast, T> {
-        match e {
-            ArrayExpressionInner::Select(box a, box i) => {
-                self.select::<ArrayExpression<'ast, T>>(a, i).into_inner()
-            }
-            e => fold_array_expression_inner(self, ty, e),
-        }
-    }
-
-    fn fold_struct_expression_inner(
-        &mut self,
-        ty: &StructType<'ast, T>,
-        e: StructExpressionInner<'ast, T>,
-    ) -> StructExpressionInner<'ast, T> {
-        match e {
-            StructExpressionInner::Select(box a, box i) => {
-                self.select::<StructExpression<'ast, T>>(a, i).into_inner()
-            }
-            e => fold_struct_expression_inner(self, ty, e),
-        }
-    }
-
-    fn fold_uint_expression_inner(
-        &mut self,
-        bitwidth: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
-        match e {
-            UExpressionInner::Select(box a, box i) => {
-                self.select::<UExpression<'ast, T>>(a, i).into_inner()
-            }
-            e => fold_uint_expression_inner(self, bitwidth, e),
-        }
+        _: &E::Ty,
+        e: SelectExpression<'ast, T, E>,
+    ) -> SelectOrExpression<'ast, T, E> {
+        SelectOrExpression::Expression(self.select(e))
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
@@ -167,9 +121,9 @@ mod tests {
 
         let access: TypedStatement<Bn128Field> = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_element("b")),
-            FieldElementExpression::Select(
-                box ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 2u32),
-                box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
+            FieldElementExpression::select(
+                ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 2u32),
+                UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
             )
             .into(),
         );
@@ -194,15 +148,15 @@ mod tests {
                             box UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
                             box UExpressionInner::Value(0).annotate(UBitwidth::B32)
                         ),
-                        FieldElementExpression::Select(
-                            box ArrayExpressionInner::Identifier("a".into())
+                        FieldElementExpression::select(
+                            ArrayExpressionInner::Identifier("a".into())
                                 .annotate(Type::FieldElement, 2u32),
-                            box 0u32.into(),
+                            0u32,
                         ),
-                        FieldElementExpression::Select(
-                            box ArrayExpressionInner::Identifier("a".into())
+                        FieldElementExpression::select(
+                            ArrayExpressionInner::Identifier("a".into())
                                 .annotate(Type::FieldElement, 2u32),
-                            box 1u32.into(),
+                            1u32,
                         )
                     )
                     .into()

@@ -29,7 +29,7 @@ use crate::typed_absy::{
     TypedStatement, UBitwidth, UExpression, UExpressionInner, Variable,
 };
 
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 
 use zokrates_field::Field;
 
@@ -204,7 +204,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         output_type: Type<'ast, T>,
     ) -> Result<E, Error>
     where
-        E: FunctionCall<'ast, T> + TryFrom<TypedExpression<'ast, T>, Error = ()> + std::fmt::Debug,
+        E: FunctionCall<'ast, T> + From<TypedExpression<'ast, T>> + std::fmt::Debug,
     {
         let generics = generics
             .into_iter()

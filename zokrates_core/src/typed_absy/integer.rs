@@ -2,8 +2,8 @@ use crate::typed_absy::types::{ArrayType, Type};
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, FieldElementExpression, IfElse,
-    Select, StructExpression, Typed, TypedExpression, TypedExpressionOrSpread, TypedSpread,
-    UExpression, UExpressionInner,
+    Select, SelectExpression, StructExpression, Typed, TypedExpression, TypedExpressionOrSpread,
+    TypedSpread, UExpression, UExpressionInner,
 };
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -147,7 +147,7 @@ pub enum IntExpression<'ast, T> {
         Box<IntExpression<'ast, T>>,
         Box<IntExpression<'ast, T>>,
     ),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, IntExpression<'ast, T>>),
     Xor(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     And(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Or(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
@@ -251,7 +251,7 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
             IntExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             IntExpression::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             IntExpression::Pow(ref lhs, ref rhs) => write!(f, "({} ** {})", lhs, rhs),
-            IntExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            IntExpression::Select(ref select) => write!(f, "{}", select),
             IntExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             IntExpression::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
             IntExpression::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
@@ -322,7 +322,10 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                     box Self::try_from_int(alternative)?,
                 ))
             }
-            IntExpression::Select(box array, box index) => {
+            IntExpression::Select(select) => {
+                let array = *select.array;
+                let index = *select.index;
+
                 let size = array.size();
 
                 match array.into_inner() {
@@ -432,7 +435,10 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 Self::try_from_int(consequence, bitwidth)?,
                 Self::try_from_int(alternative, bitwidth)?,
             )),
-            Select(box array, box index) => {
+            Select(select) => {
+                let array = *select.array;
+                let index = *select.index;
+
                 let size = array.size();
                 match array.into_inner() {
                     ArrayExpressionInner::Value(values) => {
