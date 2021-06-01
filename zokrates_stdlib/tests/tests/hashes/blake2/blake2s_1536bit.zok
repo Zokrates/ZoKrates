@@ -1,6 +1,17 @@
 import "hashes/blake2/blake2s"
 
+// Python code:
+// >>> from hashlib import blake2s
+
+// >>> digest = blake2s()
+// >>> digest.update(b'\x00\x00\x00\x2A' * 48)
+// >>> digest.hexdigest()
+// '2707edbde466a6632371e0611804ecdbe3e21dd683ce9d2060c50341b6fa99ed'
+
 def main():
-    u32[8] h = blake2s::<3>([[0x42424242; 16]; 3])
-    assert(h == [0x804BD0E6, 0x90AD426E, 0x6BCF0BAD, 0xCB2D22C1, 0xF717B3C3, 0x4D9CB47F, 0xEB541A97, 0x061D9ED0])
+    u32[8] h = blake2s::<3>([[42; 16]; 3]) // 3 * 16 * 32 = 1536 bit input
+    assert(h == [
+        0x2707EDBD, 0xE466A663, 0x2371E061, 0x1804ECDB,
+        0xE3E21DD6, 0x83CE9D20, 0x60C50341, 0xB6FA99ED
+    ])
     return
