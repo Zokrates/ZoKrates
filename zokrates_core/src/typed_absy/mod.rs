@@ -33,6 +33,7 @@ pub use crate::typed_absy::integer::IntExpression;
 pub use crate::typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
 use crate::embed::FlatEmbed;
+use num_bigint::BigUint;
 
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
@@ -725,6 +726,7 @@ impl<'ast, T> TypedExpressionListInner<'ast, T> {
         TypedExpressionList { inner: self, types }
     }
 }
+
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub struct BlockExpression<'ast, T, E> {
     pub statements: Vec<TypedStatement<'ast, T>>,
@@ -1490,6 +1492,7 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 pub trait Expr<'ast, T>: From<TypedExpression<'ast, T>> {
     type Inner;
     type Ty: Clone + IntoTypes<'ast, T>;
+    type Value;
 
     fn into_inner(self) -> Self::Inner;
 
@@ -1499,6 +1502,7 @@ pub trait Expr<'ast, T>: From<TypedExpression<'ast, T>> {
 impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+    type Value = T;
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1512,6 +1516,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
 impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+    type Value = bool;
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1525,6 +1530,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
 impl<'ast, T: Clone> Expr<'ast, T> for UExpression<'ast, T> {
     type Inner = UExpressionInner<'ast, T>;
     type Ty = UBitwidth;
+    type Value = u128;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1538,6 +1544,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for UExpression<'ast, T> {
 impl<'ast, T: Clone> Expr<'ast, T> for StructExpression<'ast, T> {
     type Inner = StructExpressionInner<'ast, T>;
     type Ty = StructType<'ast, T>;
+    type Value = Vec<TypedExpression<'ast, T>>;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1551,6 +1558,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for StructExpression<'ast, T> {
 impl<'ast, T: Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
     type Ty = ArrayType<'ast, T>;
+    type Value = ArrayValue<'ast, T>;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1564,6 +1572,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
 impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+    type Value = BigUint;
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1577,6 +1586,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
 impl<'ast, T: Clone> Expr<'ast, T> for TypedExpressionList<'ast, T> {
     type Inner = TypedExpressionListInner<'ast, T>;
     type Ty = Types<'ast, T>;
+    type Value = Vec<TypedExpression<'ast, T>>;
 
     fn into_inner(self) -> Self::Inner {
         self.inner
