@@ -190,11 +190,7 @@ pub enum UExpressionInner<'ast, T> {
     Not(Box<UExpression<'ast, T>>),
     Neg(Box<UExpression<'ast, T>>),
     Pos(Box<UExpression<'ast, T>>),
-    FunctionCall(
-        DeclarationFunctionKey<'ast>,
-        Vec<Option<UExpression<'ast, T>>>,
-        Vec<TypedExpression<'ast, T>>,
-    ),
+    FunctionCall(FunctionCallExpression<'ast, T, UExpression<'ast, T>>),
     LeftShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     RightShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     IfElse(

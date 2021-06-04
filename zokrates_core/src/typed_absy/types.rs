@@ -6,6 +6,57 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
+pub trait IntoTypes<'ast, T> {
+    fn into_types(self) -> Types<'ast, T>;
+}
+
+impl<'ast, T> IntoTypes<'ast, T> for Type<'ast, T> {
+    fn into_types(self) -> Types<'ast, T> {
+        Types { inner: vec![self] }
+    }
+}
+
+impl<'ast, T> IntoTypes<'ast, T> for StructType<'ast, T> {
+    fn into_types(self) -> Types<'ast, T> {
+        Types {
+            inner: vec![Type::Struct(self)],
+        }
+    }
+}
+
+impl<'ast, T> IntoTypes<'ast, T> for ArrayType<'ast, T> {
+    fn into_types(self) -> Types<'ast, T> {
+        Types {
+            inner: vec![Type::Array(self)],
+        }
+    }
+}
+
+impl<'ast, T> IntoTypes<'ast, T> for UBitwidth {
+    fn into_types(self) -> Types<'ast, T> {
+        Types {
+            inner: vec![Type::Uint(self)],
+        }
+    }
+}
+
+impl<'ast, T> IntoTypes<'ast, T> for Types<'ast, T> {
+    fn into_types(self) -> Types<'ast, T> {
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct Types<'ast, T> {
+    pub inner: Vec<Type<'ast, T>>,
+}
+
+impl<'ast, T> Types<'ast, T> {
+    pub fn new(types: Vec<Type<'ast, T>>) -> Self {
+        Self { inner: types }
+    }
+}
+
 #[derive(Debug, Clone, Eq, Ord)]
 pub struct GenericIdentifier<'ast> {
     pub name: &'ast str,

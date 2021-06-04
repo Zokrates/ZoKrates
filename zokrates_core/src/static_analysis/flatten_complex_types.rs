@@ -1,5 +1,5 @@
-use crate::typed_absy;
 use crate::typed_absy::types::UBitwidth;
+use crate::typed_absy::{self, Expr};
 use crate::zir;
 use std::marker::PhantomData;
 use zokrates_field::Field;
@@ -208,8 +208,8 @@ impl<'ast, T: Field> Flattener<T> {
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
         es: typed_absy::TypedExpressionList<'ast, T>,
     ) -> zir::ZirExpressionList<'ast, T> {
-        match es {
-            typed_absy::TypedExpressionList::EmbedCall(embed, generics, arguments, _) => {
+        match es.into_inner() {
+            typed_absy::TypedExpressionListInner::EmbedCall(embed, generics, arguments) => {
                 zir::ZirExpressionList::EmbedCall(
                     embed,
                     generics,

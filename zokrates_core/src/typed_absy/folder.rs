@@ -118,6 +118,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
+    fn fold_types(&mut self, tys: Types<'ast, T>) -> Types<'ast, T> {
+        fold_types(self, tys)
+    }
+
     fn fold_array_type(&mut self, t: ArrayType<'ast, T>) -> ArrayType<'ast, T> {
         ArrayType {
             ty: box self.fold_type(*t.ty),
@@ -199,6 +203,16 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_member_expression(self, ty, e)
     }
 
+    fn fold_function_call_expression<
+        E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
+    >(
+        &mut self,
+        ty: &E::Ty,
+        e: FunctionCallExpression<'ast, T, E>,
+    ) -> FunctionCallOrExpression<'ast, T, E> {
+        fold_function_call_expression(self, ty, e)
+    }
+
     fn fold_select_expression<
         E: Expr<'ast, T> + Select<'ast, T> + IfElse<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
@@ -225,6 +239,14 @@ pub trait Folder<'ast, T: Field>: Sized {
         es: TypedExpressionList<'ast, T>,
     ) -> TypedExpressionList<'ast, T> {
         fold_expression_list(self, es)
+    }
+
+    fn fold_expression_list_inner(
+        &mut self,
+        tys: Types<'ast, T>,
+        es: TypedExpressionListInner<'ast, T>,
+    ) -> TypedExpressionListInner<'ast, T> {
+        fold_expression_list_inner(self, tys, es)
     }
 
     fn fold_int_expression(&mut self, e: IntExpression<'ast, T>) -> IntExpression<'ast, T> {
@@ -345,13 +367,13 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
                 .map(|e| f.fold_expression_or_spread(e))
                 .collect(),
         ),
-        ArrayExpressionInner::FunctionCall(id, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)))
-                .collect();
-            let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
-            ArrayExpressionInner::FunctionCall(id, generics, exps)
+        ArrayExpressionInner::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(ty, function_call) {
+                FunctionCallOrExpression::FunctionCall(function_call) => {
+                    ArrayExpressionInner::FunctionCall(function_call)
+                }
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
         ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {
             ArrayExpressionInner::IfElse(
@@ -395,13 +417,13 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
         StructExpressionInner::Value(exprs) => {
             StructExpressionInner::Value(exprs.into_iter().map(|e| f.fold_expression(e)).collect())
         }
-        StructExpressionInner::FunctionCall(id, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)))
-                .collect();
-            let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
-            StructExpressionInner::FunctionCall(id, generics, exps)
+        StructExpressionInner::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(ty, function_call) {
+                FunctionCallOrExpression::FunctionCall(function_call) => {
+                    StructExpressionInner::FunctionCall(function_call)
+                }
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
         StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
             StructExpressionInner::IfElse(
@@ -474,13 +496,13 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let alt = f.fold_field_expression(alt);
             FieldElementExpression::IfElse(box cond, box cons, box alt)
         }
-        FieldElementExpression::FunctionCall(key, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)))
-                .collect();
-            let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
-            FieldElementExpression::FunctionCall(key, generics, exps)
+        FieldElementExpression::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(&Type::FieldElement, function_call) {
+                FunctionCallOrExpression::FunctionCall(function_call) => {
+                    FieldElementExpression::FunctionCall(function_call)
+                }
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
         FieldElementExpression::Select(select) => {
             match f.fold_select_expression(&Type::FieldElement, select) {
@@ -622,13 +644,13 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e = f.fold_boolean_expression(e);
             BooleanExpression::Not(box e)
         }
-        BooleanExpression::FunctionCall(key, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)))
-                .collect();
-            let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
-            BooleanExpression::FunctionCall(key, generics, exps)
+        BooleanExpression::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(&Type::Boolean, function_call) {
+                FunctionCallOrExpression::FunctionCall(function_call) => {
+                    BooleanExpression::FunctionCall(function_call)
+                }
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
         BooleanExpression::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);
@@ -748,13 +770,13 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
 
             UExpressionInner::Pos(box e)
         }
-        UExpressionInner::FunctionCall(key, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)))
-                .collect();
-            let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
-            UExpressionInner::FunctionCall(key, generics, exps)
+        UExpressionInner::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(&ty, function_call) {
+                FunctionCallOrExpression::FunctionCall(function_call) => {
+                    UExpressionInner::FunctionCall(function_call)
+                }
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
         UExpressionInner::Select(select) => match f.fold_select_expression(&ty, select) {
             SelectOrExpression::Select(s) => UExpressionInner::Select(s),
@@ -795,6 +817,29 @@ pub fn fold_declaration_function_key<'ast, T: Field, F: Folder<'ast, T>>(
         signature: f.fold_signature(key.signature),
         ..key
     }
+}
+
+pub fn fold_function_call_expression<
+    'ast,
+    T: Field,
+    E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
+    F: Folder<'ast, T>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: FunctionCallExpression<'ast, T, E>,
+) -> FunctionCallOrExpression<'ast, T, E> {
+    FunctionCallOrExpression::FunctionCall(FunctionCallExpression::new(
+        e.function_key,
+        e.generics
+            .into_iter()
+            .map(|g| g.map(|g| f.fold_uint_expression(g)))
+            .collect(),
+        e.arguments
+            .into_iter()
+            .map(|e| f.fold_expression(e))
+            .collect(),
+    ))
 }
 
 pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
@@ -851,30 +896,45 @@ pub fn fold_expression_list<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     es: TypedExpressionList<'ast, T>,
 ) -> TypedExpressionList<'ast, T> {
+    let types = f.fold_types(es.types);
+
+    TypedExpressionList {
+        inner: f.fold_expression_list_inner(types.clone(), es.inner),
+        types,
+    }
+}
+
+pub fn fold_types<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    tys: Types<'ast, T>,
+) -> Types<'ast, T> {
+    Types {
+        inner: tys.inner.into_iter().map(|t| f.fold_type(t)).collect(),
+    }
+}
+
+pub fn fold_expression_list_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    tys: Types<'ast, T>,
+    es: TypedExpressionListInner<'ast, T>,
+) -> TypedExpressionListInner<'ast, T> {
     match es {
-        TypedExpressionList::FunctionCall(id, generics, arguments, types) => {
-            TypedExpressionList::FunctionCall(
-                id,
-                generics
-                    .into_iter()
-                    .map(|g| g.map(|g| f.fold_uint_expression(g)))
-                    .collect(),
-                arguments
-                    .into_iter()
-                    .map(|a| f.fold_expression(a))
-                    .collect(),
-                types.into_iter().map(|t| f.fold_type(t)).collect(),
-            )
+        TypedExpressionListInner::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(&tys, function_call) {
+                FunctionCallOrExpression::FunctionCall(function_call) => {
+                    TypedExpressionListInner::FunctionCall(function_call)
+                }
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
-        TypedExpressionList::EmbedCall(embed, generics, arguments, types) => {
-            TypedExpressionList::EmbedCall(
+        TypedExpressionListInner::EmbedCall(embed, generics, arguments) => {
+            TypedExpressionListInner::EmbedCall(
                 embed,
                 generics,
                 arguments
                     .into_iter()
                     .map(|a| f.fold_expression(a))
                     .collect(),
-                types.into_iter().map(|t| f.fold_type(t)).collect(),
             )
         }
     }
