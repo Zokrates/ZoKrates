@@ -644,7 +644,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatExpression<T> {
         // check the cache
         if let Some(c) = self.condition_cache.get(&expression) {
-            return c.clone().into();
+            return (*c).into();
         }
 
         match expression {
