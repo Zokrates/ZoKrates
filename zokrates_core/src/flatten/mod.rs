@@ -416,6 +416,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         name_x_or_y.into(),
                         T::one().into(),
                     ));
+
                     output
                 }
                 s => vec![s],
@@ -2194,7 +2195,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }));
             }
             ZirStatement::IfElse(condition, consequence, alternative) => {
-                let condition = self.flatten_boolean_expression(statements_flattened, condition);
+                let condition_flat =
+                    self.flatten_boolean_expression(statements_flattened, condition.clone());
+
+                let condition_id = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(condition_id, condition_flat));
+
+                self.condition_cache.insert(condition, condition_id);
 
                 if self.config.isolate_branches {
                     let mut consequence_statements = vec![];
@@ -2208,10 +2215,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .for_each(|s| self.flatten_statement(&mut alternative_statements, s));
 
                     let consequence_statements =
-                        self.make_conditional(consequence_statements, condition.clone());
+                        self.make_conditional(consequence_statements, condition_id.clone().into());
                     let alternative_statements = self.make_conditional(
                         alternative_statements,
-                        FlatExpression::Sub(box FlatExpression::Number(T::one()), box condition),
+                        FlatExpression::Sub(
+                            box FlatExpression::Number(T::one()),
+                            box condition_id.into(),
+                        ),
                     );
 
                     statements_flattened.extend(consequence_statements);
