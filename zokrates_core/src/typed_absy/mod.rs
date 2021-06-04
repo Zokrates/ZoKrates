@@ -1263,6 +1263,9 @@ impl<'ast, T> From<TypedExpression<'ast, T>> for StructExpression<'ast, T> {
     }
 }
 
+// `TypedExpressionList` can technically not be constructed from `TypedExpression`
+// However implementing `From<TypedExpression>` is required for `TypedExpressionList` to be `Expr`, which makes generic treatment of function calls possible
+// This could maybe be avoided by splitting the `Expr` trait into many, but I did not find a way
 impl<'ast, T> From<TypedExpression<'ast, T>> for TypedExpressionList<'ast, T> {
     fn from(_: TypedExpression<'ast, T>) -> TypedExpressionList<'ast, T> {
         unreachable!()
@@ -1847,6 +1850,9 @@ impl<'ast, T: Field> Id<'ast, T> for StructExpression<'ast, T> {
     }
 }
 
+// `TypedExpressionList` does not have an Identifier variant
+// However implementing `From<TypedExpression>` is required for `TypedExpressionList` to be `Expr`, which makes generic treatment of function calls possible
+// This could maybe be avoided by splitting the `Expr` trait into many, but I did not find a way
 impl<'ast, T: Field> Id<'ast, T> for TypedExpressionList<'ast, T> {
     fn identifier(_: Identifier<'ast>) -> Self::Inner {
         unreachable!()
