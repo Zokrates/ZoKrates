@@ -374,11 +374,13 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             assert_eq!(consequence.len(), alternative.len());
 
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
+            if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
+                statements_buffer.push(zir::ZirStatement::IfElse(
+                    condition.clone(),
+                    consequence_statements,
+                    alternative_statements,
+                ));
+            }
 
             use crate::zir::IfElse;
 
@@ -513,11 +515,13 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
 
             assert_eq!(consequence.len(), alternative.len());
 
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
+            if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
+                statements_buffer.push(zir::ZirStatement::IfElse(
+                    condition.clone(),
+                    consequence_statements,
+                    alternative_statements,
+                ));
+            }
 
             use zir::IfElse;
 
@@ -647,11 +651,13 @@ pub fn fold_field_expression<'ast, T: Field>(
             let consequence = f.fold_field_expression(&mut consequence_statements, consequence);
             let alternative = f.fold_field_expression(&mut alternative_statements, alternative);
 
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
+            if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
+                statements_buffer.push(zir::ZirStatement::IfElse(
+                    condition.clone(),
+                    consequence_statements,
+                    alternative_statements,
+                ));
+            }
 
             zir::FieldElementExpression::IfElse(box condition, box consequence, box alternative)
         }
@@ -846,11 +852,13 @@ pub fn fold_boolean_expression<'ast, T: Field>(
             let consequence = f.fold_boolean_expression(&mut consequence_statements, consequence);
             let alternative = f.fold_boolean_expression(&mut alternative_statements, alternative);
 
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
+            if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
+                statements_buffer.push(zir::ZirStatement::IfElse(
+                    condition.clone(),
+                    consequence_statements,
+                    alternative_statements,
+                ));
+            }
 
             zir::BooleanExpression::IfElse(box condition, box consequence, box alternative)
         }
@@ -1048,11 +1056,13 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
             let consequence = f.fold_uint_expression(&mut consequence_statements, consequence);
             let alternative = f.fold_uint_expression(&mut alternative_statements, alternative);
 
-            statements_buffer.push(zir::ZirStatement::IfElse(
-                condition.clone(),
-                consequence_statements,
-                alternative_statements,
-            ));
+            if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
+                statements_buffer.push(zir::ZirStatement::IfElse(
+                    condition.clone(),
+                    consequence_statements,
+                    alternative_statements,
+                ));
+            }
 
             zir::UExpressionInner::IfElse(box condition, box consequence, box alternative)
         }

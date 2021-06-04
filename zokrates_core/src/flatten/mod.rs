@@ -35,6 +35,8 @@ pub struct Flattener<'ast, T: Field> {
     layout: HashMap<Identifier<'ast>, FlatVariable>,
     /// Cached bit decompositions to avoid re-generating them
     bits_cache: HashMap<FlatExpression<T>, Vec<FlatExpression<T>>>,
+    /// Cached flattened conditions for branches
+    condition_cache: HashMap<BooleanExpression<'ast, T>, FlatVariable>,
 }
 
 trait FlattenOutput<T: Field>: Sized {
@@ -159,6 +161,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             next_var_idx: 0,
             layout: HashMap::new(),
             bits_cache: HashMap::new(),
+            condition_cache: HashMap::new(),
         }
     }
 
@@ -437,10 +440,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         consequence: U,
         alternative: U,
     ) -> FlatUExpression<T> {
-        let condition = self.flatten_boolean_expression(statements_flattened, condition);
+        let condition_flat =
+            self.flatten_boolean_expression(statements_flattened, condition.clone());
 
         let condition_id = self.use_sym();
-        statements_flattened.push(FlatStatement::Definition(condition_id, condition));
+        statements_flattened.push(FlatStatement::Definition(condition_id, condition_flat));
+
+        self.condition_cache.insert(condition, condition_id);
 
         let (consequence, alternative) = if self.config.isolate_branches {
             let mut consequence_statements = vec![];
@@ -636,7 +642,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         expression: BooleanExpression<'ast, T>,
     ) -> FlatExpression<T> {
-        // those will be booleans in the future
+        // check the cache
+        if let Some(c) = self.condition_cache.get(&expression) {
+            return c.clone().into();
+        }
+
         match expression {
             BooleanExpression::Identifier(x) => {
                 FlatExpression::Identifier(*self.layout.get(&x).unwrap())
