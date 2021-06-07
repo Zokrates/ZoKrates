@@ -129,9 +129,10 @@ jobs:
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
-    working_directory: zokrates_js
+    working_directory: ~/project/zokrates_js
     steps:
-      - checkout
+      - checkout:
+          path: ~/project
       - run:
           name: Check format
           command: cargo fmt --all -- --check
