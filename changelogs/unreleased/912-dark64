@@ -1,0 +1,1 @@
+Fixed deserialization logic in the zokrates.js that caused issues on cli-compiled binaries
