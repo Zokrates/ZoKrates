@@ -1,0 +1,7 @@
+const u32 N = 1
+def foo(bool[N] arr) -> bool:
+    return true
+
+def main(bool[N] arr):
+    assert(foo(arr))
+    return
