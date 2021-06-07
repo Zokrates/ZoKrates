@@ -830,7 +830,7 @@ pub fn fold_function_call_expression<
     e: FunctionCallExpression<'ast, T, E>,
 ) -> FunctionCallOrExpression<'ast, T, E> {
     FunctionCallOrExpression::FunctionCall(FunctionCallExpression::new(
-        e.function_key,
+        f.fold_declaration_function_key(e.function_key),
         e.generics
             .into_iter()
             .map(|g| g.map(|g| f.fold_uint_expression(g)))
