@@ -1,0 +1,3 @@
+from "./origin.zok" import foo
+def main():
+   return
