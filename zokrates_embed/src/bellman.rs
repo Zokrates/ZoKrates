@@ -6,6 +6,7 @@ use bellman::{
     pairing::{ff::Field, Engine},
     ConstraintSystem, Index, LinearCombination, SynthesisError, Variable,
 };
+use sapling_crypto::bellman::pairing::ff::{PrimeField, PrimeFieldRepr};
 use sapling_crypto::circuit::{
     boolean::{AllocatedBit, Boolean},
     sha256::sha256_compression_function,
@@ -149,7 +150,7 @@ impl<E: Engine> ConstraintSystem<E> for R1CS<E::Fr> {
         AR: Into<String>,
     {
         // we don't care about the value as we're only generating the CS
-        let index = self.aux_count.clone();
+        let index = self.aux_count;
         let var = Variable::new_unchecked(Index::Aux(index));
         self.aux_count += 1;
         Ok(var)
@@ -249,6 +250,35 @@ fn var_to_index(v: Variable) -> usize {
         Index::Aux(i) => i + 1,
         Index::Input(0) => 0,
         _ => unreachable!("No public variables should have been allocated"),
+    }
+}
+
+pub fn from_bellman<T: zokrates_field::Field, E: Engine>(c: Constraint<E::Fr>) -> Constraint<T> {
+    Constraint {
+        a: c.a
+            .into_iter()
+            .map(|(index, fq)| {
+                let mut res: Vec<u8> = vec![];
+                fq.into_repr().write_le(&mut res).unwrap();
+                (index, T::from_byte_vector(res))
+            })
+            .collect(),
+        b: c.b
+            .into_iter()
+            .map(|(index, fq)| {
+                let mut res: Vec<u8> = vec![];
+                fq.into_repr().write_le(&mut res).unwrap();
+                (index, T::from_byte_vector(res))
+            })
+            .collect(),
+        c: c.c
+            .into_iter()
+            .map(|(index, fq)| {
+                let mut res: Vec<u8> = vec![];
+                fq.into_repr().write_le(&mut res).unwrap();
+                (index, T::from_byte_vector(res))
+            })
+            .collect(),
     }
 }
 

@@ -144,7 +144,7 @@ impl Interpreter {
         inputs: &[T],
     ) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = solver.get_signature();
-        assert!(inputs.len() == expected_input_count);
+        assert_eq!(inputs.len(), expected_input_count);
 
         let res = match solver {
             Solver::ConditionEq => match inputs[0].is_zero() {
@@ -232,6 +232,10 @@ impl Interpreter {
                         T::from_byte_vector(res)
                     })
                     .collect()
+            }
+            #[cfg(feature = "ark")]
+            Solver::Verify(_n) => {
+                todo!()
             }
         };
 

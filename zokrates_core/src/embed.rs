@@ -7,17 +7,16 @@ use crate::typed_absy::types::{
     ConcreteGenericsAssignment, Constant, DeclarationSignature, DeclarationType, GenericIdentifier,
 };
 use ark_bls12_377::Bls12_377;
-use ark_bw6_761::BW6_761;
 use std::collections::HashMap;
-use zokrates_embed::ark::generate_verify_constraints;
+use zokrates_embed::ark::{from_ark, generate_verify_constraints};
+use zokrates_embed::bellman::from_bellman;
+use zokrates_embed::Constraint;
 use zokrates_field::{Bn128Field, Field};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "bellman")] {
         use pairing_ce::bn256::Bn256;
-        use pairing_ce::ff::{PrimeField, PrimeFieldRepr};
-        use pairing_ce::Engine;
-        use zokrates_embed::{bellman::generate_sha256_round_constraints, Constraint};
+        use zokrates_embed::{bellman::generate_sha256_round_constraints};
     }
 }
 
@@ -133,19 +132,19 @@ impl FlatEmbed {
                 .inputs(vec![
                     DeclarationType::array((
                         DeclarationType::FieldElement,
-                        Some(Constant::Generic(GenericIdentifier {
-                            name: "V",
-                            index: 1,
-                        })),
-                    )), // 18 + (2 * n)
-                    DeclarationType::array((
-                        DeclarationType::FieldElement,
-                        Some(Constant::Generic(GenericIdentifier {
+                        GenericIdentifier {
                             name: "N",
                             index: 0,
-                        })),
+                        },
                     )), // inputs
-                    DeclarationType::array((DeclarationType::FieldElement, 8)), // proof
+                    DeclarationType::array((DeclarationType::FieldElement, 8usize)), // proof
+                    DeclarationType::array((
+                        DeclarationType::FieldElement,
+                        GenericIdentifier {
+                            name: "V",
+                            index: 1,
+                        },
+                    )), // 18 + (2 * n) // vk
                 ])
                 .outputs(vec![DeclarationType::Boolean]),
         }
@@ -191,7 +190,7 @@ impl FlatEmbed {
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => sha256_round(),
             #[cfg(feature = "ark")]
-            FlatEmbed::Verify => verify(),
+            FlatEmbed::Verify => verify(generics[0] as usize),
             _ => unreachable!(),
         }
     }
@@ -199,37 +198,33 @@ impl FlatEmbed {
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
 // we build a binary tree of additions by splitting the vector recursively
-#[cfg(feature = "bellman")]
-fn flat_expression_from_vec<T: Field, E: Engine>(v: &[(usize, E::Fr)]) -> FlatExpression<T> {
+fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
     match v.len() {
         0 => FlatExpression::Number(T::zero()),
         1 => {
-            let (key, val) = v[0];
-            let mut res: Vec<u8> = vec![];
-            val.into_repr().write_le(&mut res).unwrap();
+            let (key, val) = v[0].clone();
             FlatExpression::Mult(
-                box FlatExpression::Number(T::from_byte_vector(res)),
+                box FlatExpression::Number(val),
                 box FlatExpression::Identifier(FlatVariable::new(key)),
             )
         }
         n => {
             let (u, v) = v.split_at(n / 2);
             FlatExpression::Add(
-                box flat_expression_from_vec::<T, E>(u),
-                box flat_expression_from_vec::<T, E>(v),
+                box flat_expression_from_vec::<T>(u),
+                box flat_expression_from_vec::<T>(v),
             )
         }
     }
 }
 
-#[cfg(feature = "bellman")]
-fn flat_statement_from_constraint<T: Field, E: Engine>(c: Constraint<E::Fr>) -> FlatStatement<T> {
-    let rhs_a = flat_expression_from_vec::<T, E>(&c.a);
-    let rhs_b = flat_expression_from_vec::<T, E>(&c.b);
-    let lhs = flat_expression_from_vec::<T, E>(&c.c);
-
-    FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
-}
+// fn flat_statement_from_constraint<T: Field, F>(c: Constraint<F>) -> FlatStatement<T> {
+//     let rhs_a = flat_expression_from_vec::<T, F>(&c.a);
+//     let rhs_b = flat_expression_from_vec::<T, F>(&c.b);
+//     let lhs = flat_expression_from_vec::<T, F>(&c.c);
+//
+//     FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
+// }
 
 /// Returns a flat function which computes a sha256 round
 ///
@@ -288,10 +283,15 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         )
     });
     // insert flattened statements to represent constraints
-    let constraint_statements = r1cs
-        .constraints
-        .into_iter()
-        .map(|c| flat_statement_from_constraint::<T, Bn256>(c));
+    let constraint_statements = r1cs.constraints.into_iter().map(|c| {
+        let c = from_bellman::<T, Bn256>(c);
+        let rhs_a = flat_expression_from_vec::<T>(c.a.as_slice());
+        let rhs_b = flat_expression_from_vec::<T>(c.b.as_slice());
+        let lhs = flat_expression_from_vec::<T>(c.c.as_slice());
+
+        FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
+    });
+
     // define which subset of the witness is returned
     let outputs: Vec<FlatExpression<T>> = output_indices
         .map(|o| FlatExpression::Identifier(FlatVariable::new(o)))
@@ -323,114 +323,99 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
 
 #[cfg(feature = "ark")]
 pub fn verify<T: Field>(n: usize) -> FlatFunction<T> {
-    unreachable!();
-    //
-    // let (output_index, constraints) = generate_verify_constraints(n);
-    //
-    // let statements = constraints
-    //     .into_iter()
-    //     .map(|c| flat_statement_from_constraint::<T, BW6_761>(c))
-    //     .collect();
-    //
-    // //indices of the arguments to the function
-    // // apply an offset of `variable_count` to get the index of our dummy `input` argument
-    // let input_argument_indices = input_indices
-    //     .clone()
-    //     .into_iter()
-    //     .map(|i| i + variable_count);
-    //
-    // let proof_argument_indices = proof_indices
-    //     .clone()
-    //     .into_iter()
-    //     .map(|i| i + variable_count);
-    //
-    // let vk_argument_indices = vk_indices.clone().into_iter().map(|i| i + variable_count);
-    //
-    // // define parameters to the function based on the variables
-    // let proof_arguments = proof_argument_indices.clone().map(|i| FlatParameter {
-    //     id: FlatVariable::new(i),
-    //     private: true,
-    // });
-    //
-    // let input_arguments = input_argument_indices.clone().map(|i| FlatParameter {
-    //     id: FlatVariable::new(i),
-    //     private: false,
-    // });
-    //
-    // let vk_arguments = vk_argument_indices.clone().map(|i| FlatParameter {
-    //     id: FlatVariable::new(i),
-    //     private: true,
-    // });
-    //
-    // let arguments = proof_arguments
-    //     .clone()
-    //     .chain(input_arguments)
-    //     .chain(vk_arguments)
-    //     .collect();
-    //
-    // let one_binding_statement = FlatStatement::Condition(
-    //     FlatExpression::Identifier(FlatVariable::new(0)),
-    //     FlatExpression::Number(T::from(1)),
-    // );
-    //
-    // let input_binding_statements: Vec<_> = proof_indices
-    //     .clone()
-    //     .chain(input_indices.clone())
-    //     .chain(vk_indices.clone())
-    //     .zip(
-    //         proof_argument_indices
-    //             .clone()
-    //             .chain(input_argument_indices.clone())
-    //             .chain(vk_argument_indices.clone()),
-    //     )
-    //     .map(|(cs_index, argument_index)| {
-    //         FlatStatement::Condition(
-    //             FlatVariable::new(cs_index).into(),
-    //             FlatVariable::new(argument_index).into(),
-    //         )
-    //     })
-    //     .collect();
-    //
-    // let directive_outputs: Vec<FlatVariable> = output_indices
-    //     .clone()
-    //     .map(|o| FlatVariable::new(o))
-    //     .collect();
-    //
-    // let outputs: Vec<FlatExpression<T>> = directive_outputs
-    //     .iter()
-    //     .enumerate()
-    //     .map(|(_, o)| FlatExpression::Identifier(o.clone()))
-    //     .collect();
-    //
-    // // insert flattened statements to represent constraints
-    // let constraint_statements: Vec<FlatStatement<T>> =
-    //     r1cs.constraints.into_iter().map(|c| to_fs(c)).collect();
-    // let return_statement = FlatStatement::Return(FlatExpressionList {
-    //     expressions: outputs.clone(),
-    // });
-    //
-    // // insert a directive to set the witness based on the zexe gadget and  inputs
-    // let directive_statement = FlatStatement::Directive(FlatDirective {
-    //     outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
-    //     inputs: proof_argument_indices
-    //         .chain(input_argument_indices.clone())
-    //         .chain(vk_argument_indices.clone())
-    //         .map(|i| FlatVariable::new(i).into())
-    //         .collect(),
-    //     solver: Solver::Verify(n),
-    // });
-    //
-    // let statements: Vec<_> = std::iter::once(directive_statement)
-    //     .chain(std::iter::once(one_binding_statement))
-    //     .chain(input_binding_statements)
-    //     .chain(constraint_statements)
-    //     .chain(std::iter::once(return_statement))
-    //     .collect();
-    //
-    // FlatFunction {
-    //     arguments,
-    //     statements,
-    // }
+    let (out_index, input_indices, proof_indices, vk_indices, constraints, aux_count) =
+        generate_verify_constraints(n);
+
+    let variable_count = aux_count + 1; // aux + ~one
+    let cs_indices = 0..variable_count;
+    let input_indices = input_indices.into_iter();
+    let proof_indices = proof_indices.into_iter();
+    let vk_indices = vk_indices.into_iter();
+
+    // indices of the arguments to the function
+    let input_argument_indices = input_indices.clone().map(|i| i + variable_count);
+
+    let proof_argument_indices = proof_indices.clone().map(|i| i + variable_count);
+
+    let vk_argument_indices = vk_indices.clone().map(|i| i + variable_count);
+
+    let input_arguments = input_argument_indices
+        .clone()
+        .map(|i| FlatParameter::private(FlatVariable::new(i)));
+
+    let proof_arguments = proof_argument_indices
+        .clone()
+        .map(|i| FlatParameter::private(FlatVariable::new(i)));
+
+    let vk_arguments = vk_argument_indices
+        .clone()
+        .map(|i| FlatParameter::private(FlatVariable::new(i)));
+
+    let arguments = input_arguments
+        .chain(proof_arguments)
+        .chain(vk_arguments)
+        .collect();
+
+    let one_binding_statement = FlatStatement::Condition(
+        FlatExpression::Identifier(FlatVariable::new(0)),
+        FlatExpression::Number(T::from(1)),
+    );
+
+    let input_binding_statements: Vec<_> = input_indices
+        .chain(proof_indices)
+        .chain(vk_indices)
+        .zip(
+            input_argument_indices
+                .clone()
+                .chain(proof_argument_indices.clone())
+                .chain(vk_argument_indices.clone()),
+        )
+        .map(|(cs_index, argument_index)| {
+            FlatStatement::Condition(
+                FlatVariable::new(cs_index).into(),
+                FlatVariable::new(argument_index).into(),
+            )
+        })
+        .collect();
+
+    let constraint_statements: Vec<FlatStatement<T>> = constraints
+        .into_iter()
+        .map(|c| {
+            let c: Constraint<T> = from_ark::<T, Bls12_377>(c);
+            let rhs_a = flat_expression_from_vec::<T>(c.a.as_slice());
+            let rhs_b = flat_expression_from_vec::<T>(c.b.as_slice());
+            let lhs = flat_expression_from_vec::<T>(c.c.as_slice());
+
+            FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
+        })
+        .collect();
+
+    let return_statement = FlatStatement::Return(FlatExpressionList {
+        expressions: vec![FlatExpression::Identifier(FlatVariable::new(out_index))],
+    });
+
+    // insert a directive to set the witness
+    let directive_statement = FlatStatement::Directive(FlatDirective {
+        outputs: cs_indices.map(FlatVariable::new).collect(),
+        inputs: input_argument_indices
+            .chain(proof_argument_indices)
+            .chain(vk_argument_indices)
+            .map(|i| FlatVariable::new(i).into())
+            .collect(),
+        solver: Solver::Verify(n),
+    });
+
+    let statements: Vec<_> = std::iter::once(directive_statement)
+        .chain(std::iter::once(one_binding_statement))
+        .chain(input_binding_statements)
+        .chain(constraint_statements)
+        .chain(std::iter::once(return_statement))
+        .collect();
+
+    FlatFunction {
+        arguments,
+        statements,
+    }
 }
 
 fn use_variable(

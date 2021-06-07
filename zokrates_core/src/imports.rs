@@ -156,6 +156,10 @@ impl Importer {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::U8FromBits),
                 },
+                "verify" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Flat(FlatEmbed::Verify),
+                },
                 s => {
                     return Err(CompileErrorInner::ImportError(
                         Error::new(format!("Embed {} not found", s)).with_pos(Some(pos)),

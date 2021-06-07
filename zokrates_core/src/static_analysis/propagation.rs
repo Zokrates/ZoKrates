@@ -549,6 +549,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                         }
                                     }
                                     FlatEmbed::Sha256Round => None,
+                                    FlatEmbed::Verify => None,
                                 };
 
                                 match r {

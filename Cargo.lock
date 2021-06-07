@@ -2409,6 +2409,7 @@ dependencies = [
  "ark-std",
  "bellman_ce",
  "sapling-crypto_ce",
+ "zokrates_field",
 ]
 
 [[package]]

@@ -37,7 +37,7 @@ impl Solver {
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => (768, 26935),
             #[cfg(feature = "ark")]
-            Solver::Verify(n) => (26 + 3 * n, 56953 + 3078 * n), // TODO: update this
+            Solver::Verify(n) => (26 + 3 * n, 0), // TODO: update output count
         }
     }
 }
