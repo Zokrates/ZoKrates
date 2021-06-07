@@ -129,10 +129,18 @@ jobs:
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
+    working_directory: zokrates_js
     steps:
       - checkout
       - run:
-          command: cd zokrates_js && npm run test
+          name: Check format
+          command: cargo fmt --all -- --check
+      - run:
+          name: Run clippy
+          command: cargo clippy -- -D warnings
+      - run:
+          name: Run tests
+          command: npm run test
   cross_build:
     parameters:
       os:
