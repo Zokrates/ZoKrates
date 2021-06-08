@@ -1,0 +1,51 @@
+{
+    "entry_point": "./tests/tests/panics/conditional_bound_throw.zok",
+    "curves": ["Bn128"],
+	"tests": [
+        {
+            "input": {
+                "values": [
+                    "0"
+                ]
+            },
+            "output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "0",
+						"right": "1"
+					}
+				}
+            }
+        },
+        {
+            "input": {
+                "values": [
+                    "1"
+                ]
+            },
+            "output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "1",
+						"right": "0"
+					}
+				}
+            }
+        },
+        {
+            "input": {
+                "values": [
+                    "2"
+                ]
+            },
+            "output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "2",
+						"right": "0"
+					}
+				}
+            }
+        }
+    ]
+}

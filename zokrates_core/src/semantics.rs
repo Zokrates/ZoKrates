@@ -1988,26 +1988,22 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     TypedExpression::Boolean(condition) => {
                         match (consequence_checked, alternative_checked) {
                             (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
-                                Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
+                                Ok(FieldElementExpression::if_else(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Boolean(consequence), TypedExpression::Boolean(alternative)) => {
-                                Ok(BooleanExpression::IfElse(box condition, box consequence, box alternative).into())
+                                Ok(BooleanExpression::if_else(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
-                                let inner_type = consequence.inner_type().clone();
-                                let size = consequence.size();
-                                Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type, size).into())
+                                Ok(ArrayExpression::if_else(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Struct(consequence), TypedExpression::Struct(alternative)) => {
-                                let ty = consequence.ty().clone();
-                                Ok(StructExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(ty).into())
+                                Ok(StructExpression::if_else(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Uint(consequence), TypedExpression::Uint(alternative)) => {
-                                let bitwidth = consequence.bitwidth();
-                                Ok(UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(bitwidth).into())
+                                Ok(UExpression::if_else(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Int(consequence), TypedExpression::Int(alternative)) => {
-                                Ok(IntExpression::IfElse(box condition, box consequence, box alternative).into())
+                                Ok(IntExpression::if_else(condition, consequence, alternative).into())
                             },
                             (c, a) => Err(ErrorInner {
                                 pos: Some(pos),

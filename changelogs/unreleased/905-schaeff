@@ -1,0 +1,1 @@
+Improve propagation on if-else expressions when consequence and alternative are equal
