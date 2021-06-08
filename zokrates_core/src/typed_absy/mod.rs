@@ -19,9 +19,10 @@ mod variable;
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
-    ConcreteFunctionKey, ConcreteSignature, ConcreteType, ConstantIdentifier,
-    DeclarationFunctionKey, DeclarationSignature, DeclarationType, GArrayType, GStructType, GType,
-    GenericIdentifier, IntoTypes, Signature, StructType, Type, Types, UBitwidth,
+    CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteType,
+    ConstantIdentifier, DeclarationFunctionKey, DeclarationSignature, DeclarationType, GArrayType,
+    GStructType, GType, GenericIdentifier, IntoTypes, Signature, StructType, Type, Types,
+    UBitwidth,
 };
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
@@ -65,12 +66,12 @@ pub type TypedFunctionSymbols<'ast, T> =
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypedConstantSymbol<'ast, T> {
     Here(TypedConstant<'ast, T>),
-    There(ConstantIdentifier<'ast>),
+    There(CanonicalConstantIdentifier<'ast>),
 }
 
 /// A collection of `TypedConstantSymbol`s
 pub type TypedConstantSymbols<'ast, T> =
-    HashMap<ConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>;
+    HashMap<CanonicalConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>;
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug, Clone)]

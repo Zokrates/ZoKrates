@@ -135,7 +135,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         println!("location {}", self.location.display());
 
         match c {
-            DeclarationConstant::Identifier(id) => DeclarationConstant::Concrete(
+            DeclarationConstant::Constant(id) => DeclarationConstant::Concrete(
                 match self
                     .constants
                     .get(&self.location)

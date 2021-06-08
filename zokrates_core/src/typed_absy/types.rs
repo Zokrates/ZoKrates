@@ -101,15 +101,17 @@ impl<'ast> fmt::Display for GenericIdentifier<'ast> {
 #[derive(Debug)]
 pub struct SpecializationError;
 
+pub type ConstantIdentifier<'ast> = &'ast str;
+
 #[derive(Clone, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
-pub struct ConstantIdentifier<'ast> {
+pub struct CanonicalConstantIdentifier<'ast> {
     pub module: OwnedTypedModuleId,
-    pub id: &'ast str,
+    pub id: ConstantIdentifier<'ast>,
 }
 
-impl<'ast> ConstantIdentifier<'ast> {
-    pub fn new(id: &'ast str, module: OwnedTypedModuleId) -> Self {
-        ConstantIdentifier { id, module }
+impl<'ast> CanonicalConstantIdentifier<'ast> {
+    pub fn new(id: ConstantIdentifier<'ast>, module: OwnedTypedModuleId) -> Self {
+        CanonicalConstantIdentifier { module, id }
     }
 }
 
@@ -117,7 +119,7 @@ impl<'ast> ConstantIdentifier<'ast> {
 pub enum DeclarationConstant<'ast> {
     Generic(GenericIdentifier<'ast>),
     Concrete(u32),
-    Identifier(&'ast str),
+    Constant(ConstantIdentifier<'ast>),
 }
 
 impl<'ast> From<u32> for DeclarationConstant<'ast> {
@@ -143,7 +145,7 @@ impl<'ast> fmt::Display for DeclarationConstant<'ast> {
         match self {
             DeclarationConstant::Generic(i) => write!(f, "{}", i),
             DeclarationConstant::Concrete(v) => write!(f, "{}", v),
-            DeclarationConstant::Identifier(v) => write!(f, "{}", v),
+            DeclarationConstant::Constant(v) => write!(f, "{}", v),
         }
     }
 }
@@ -163,8 +165,9 @@ impl<'ast, T> From<DeclarationConstant<'ast>> for UExpression<'ast, T> {
             DeclarationConstant::Concrete(v) => {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
             }
-            DeclarationConstant::Identifier(v) => UExpressionInner::Identifier(Identifier::from(v))
-                .annotate(UBitwidth::from(UBitwidth::B32)),
+            DeclarationConstant::Constant(v) => {
+                UExpressionInner::Identifier(Identifier::from(v)).annotate(UBitwidth::B32)
+            }
         }
     }
 }
@@ -991,7 +994,7 @@ pub mod signature {
                         DeclarationConstant::Concrete(s0) => s1 == *s0 as usize,
                         // in the case of a constant, we do not know the value yet, so we optimistically assume it's correct
                         // if it does not match, it will be caught during inlining
-                        DeclarationConstant::Identifier(..) => true,
+                        DeclarationConstant::Constant(..) => true,
                     }
             }
             (DeclarationType::FieldElement, GType::FieldElement)
@@ -1017,7 +1020,7 @@ pub mod signature {
                 let size = match t0.size {
                     DeclarationConstant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
                     DeclarationConstant::Concrete(s) => Ok(s.into()),
-                    DeclarationConstant::Identifier(..) => {
+                    DeclarationConstant::Constant(..) => {
                         unreachable!("identifiers should have been removed in constant inlining")
                     }
                 }?;

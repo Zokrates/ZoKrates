@@ -55,7 +55,8 @@ impl ErrorInner {
 }
 
 type TypeMap<'ast> = HashMap<OwnedModuleId, HashMap<UserTypeId, DeclarationType<'ast>>>;
-type ConstantMap<'ast, T> = HashMap<OwnedModuleId, HashMap<&'ast str, Type<'ast, T>>>;
+type ConstantMap<'ast, T> =
+    HashMap<OwnedModuleId, HashMap<ConstantIdentifier<'ast>, Type<'ast, T>>>;
 
 /// The global state of the program during semantic checks
 #[derive(Debug)]
@@ -349,7 +350,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
     fn check_constant_definition(
         &mut self,
-        id: &'ast str,
+        id: ConstantIdentifier<'ast>,
         c: ConstantDefinitionNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
@@ -445,7 +446,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
         functions: &mut HashMap<DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
-        constants: &mut HashMap<ConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>,
+        constants: &mut HashMap<CanonicalConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>,
         symbol_unifier: &mut SymbolUnifier<'ast>,
     ) -> Result<(), Vec<Error>> {
         let mut errors: Vec<Error> = vec![];
@@ -506,7 +507,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             ),
                             true => {
                                 constants.insert(
-                                    ConstantIdentifier::new(declaration.id, module_id.into()),
+                                    CanonicalConstantIdentifier::new(
+                                        declaration.id,
+                                        module_id.into(),
+                                    ),
                                     TypedConstantSymbol::Here(c.clone()),
                                 );
                                 self.insert_into_scope(Variable::with_id_and_type(
@@ -656,11 +660,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             }});
                                     }
                                     true => {
-                                        let imported_id = ConstantIdentifier::new(import.symbol_id.into(), import.module_id);
-                                        let id = ConstantIdentifier::new(declaration.id.clone(), module_id.into());
+                                        let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id);
+                                        let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into());
 
                                         constants.insert(id.clone(), TypedConstantSymbol::There(imported_id));
-                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id.clone(), ty.clone()));
+                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, ty.clone()));
 
                                         state
                                             .constants
@@ -1144,7 +1148,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match (constants_map.get(name), generics_map.get(&name)) {
                     (Some(ty), None) => {
                         match ty {
-                            Type::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Identifier(name)),
+                            Type::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(name)),
                             _ => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
