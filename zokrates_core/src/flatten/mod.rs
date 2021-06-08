@@ -2215,7 +2215,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .for_each(|s| self.flatten_statement(&mut alternative_statements, s));
 
                     let consequence_statements =
-                        self.make_conditional(consequence_statements, condition_id.clone().into());
+                        self.make_conditional(consequence_statements, condition_id.into());
                     let alternative_statements = self.make_conditional(
                         alternative_statements,
                         FlatExpression::Sub(
