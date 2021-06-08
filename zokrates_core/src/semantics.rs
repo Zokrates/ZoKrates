@@ -1122,7 +1122,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn check_generic_expression(
         &mut self,
         expr: ExpressionNode<'ast>,
-        constants_map: &HashMap<&'ast str, Type<'ast, T>>,
+        module_id: &ModuleId,
+        constants_map: &HashMap<ConstantIdentifier<'ast>, Type<'ast, T>>,
         generics_map: &HashMap<Identifier<'ast>, usize>,
     ) -> Result<DeclarationConstant<'ast>, ErrorInner> {
         let pos = expr.pos();
@@ -1148,7 +1149,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match (constants_map.get(name), generics_map.get(&name)) {
                     (Some(ty), None) => {
                         match ty {
-                            Type::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(name)),
+                            Type::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(CanonicalConstantIdentifier::new(name, module_id.into()))),
                             _ => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
@@ -1192,6 +1193,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             UnresolvedType::Array(t, size) => {
                 let checked_size = self.check_generic_expression(
                     size.clone(),
+                    module_id,
                     state.constants.get(module_id).unwrap_or(&HashMap::new()),
                     generics_map,
                 )?;

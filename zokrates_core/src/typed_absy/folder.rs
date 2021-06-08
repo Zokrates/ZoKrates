@@ -1024,7 +1024,10 @@ pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> TypedFunctionSymbol<'ast, T> {
     match s {
         TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
-        there => there, // by default, do not fold modules recursively
+        TypedFunctionSymbol::There(key) => {
+            TypedFunctionSymbol::There(f.fold_declaration_function_key(key))
+        }
+        s => s,
     }
 }
 

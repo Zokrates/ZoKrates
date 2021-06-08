@@ -119,7 +119,7 @@ impl<'ast> CanonicalConstantIdentifier<'ast> {
 pub enum DeclarationConstant<'ast> {
     Generic(GenericIdentifier<'ast>),
     Concrete(u32),
-    Constant(ConstantIdentifier<'ast>),
+    Constant(CanonicalConstantIdentifier<'ast>),
 }
 
 impl<'ast> From<u32> for DeclarationConstant<'ast> {
@@ -145,7 +145,7 @@ impl<'ast> fmt::Display for DeclarationConstant<'ast> {
         match self {
             DeclarationConstant::Generic(i) => write!(f, "{}", i),
             DeclarationConstant::Concrete(v) => write!(f, "{}", v),
-            DeclarationConstant::Constant(v) => write!(f, "{}", v),
+            DeclarationConstant::Constant(v) => write!(f, "{}/{}", v.module.display(), v.id),
         }
     }
 }
@@ -166,7 +166,7 @@ impl<'ast, T> From<DeclarationConstant<'ast>> for UExpression<'ast, T> {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
-                UExpressionInner::Identifier(Identifier::from(v)).annotate(UBitwidth::B32)
+                UExpressionInner::Identifier(Identifier::from(v.id)).annotate(UBitwidth::B32)
             }
         }
     }
