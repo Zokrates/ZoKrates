@@ -1,43 +1,41 @@
-use crate::static_analysis::propagation::Propagator;
 use crate::typed_absy::folder::*;
-use crate::typed_absy::result_folder::ResultFolder;
-use crate::typed_absy::types::{Constant, DeclarationStructType, GStructMember};
+use crate::typed_absy::types::DeclarationConstant;
 use crate::typed_absy::*;
+use core::str;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use zokrates_field::Field;
 
-pub struct ConstantInliner<'ast, 'a, T: Field> {
+type ModuleConstants<'ast, T> =
+    HashMap<OwnedTypedModuleId, HashMap<&'ast str, TypedConstant<'ast, T>>>;
+
+pub struct ConstantInliner<'ast, T> {
     modules: TypedModules<'ast, T>,
     location: OwnedTypedModuleId,
-    propagator: Propagator<'ast, 'a, T>,
+    constants: ModuleConstants<'ast, T>,
 }
 
-impl<'ast, 'a, T: Field> ConstantInliner<'ast, 'a, T> {
+impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
     pub fn new(
         modules: TypedModules<'ast, T>,
         location: OwnedTypedModuleId,
-        propagator: Propagator<'ast, 'a, T>,
+        constants: ModuleConstants<'ast, T>,
     ) -> Self {
         ConstantInliner {
             modules,
             location,
-            propagator,
+            constants,
         }
     }
     pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        let mut constants = HashMap::new();
-        let mut inliner = ConstantInliner::new(
-            p.modules.clone(),
-            p.main.clone(),
-            Propagator::with_constants(&mut constants),
-        );
+        let constants = HashMap::new();
+        let mut inliner = ConstantInliner::new(p.modules.clone(), p.main.clone(), constants);
         inliner.fold_program(p)
     }
 
-    fn module(&self) -> &TypedModule<'ast, T> {
-        self.modules.get(&self.location).unwrap()
-    }
+    // fn module(&self) -> &TypedModule<'ast, T> {
+    //     self.modules.get(&self.location).unwrap()
+    // }
 
     fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
         let prev = self.location.clone();
@@ -46,116 +44,119 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, 'a, T> {
     }
 
     fn get_constant(&mut self, id: &Identifier) -> Option<TypedConstant<'ast, T>> {
-        self.modules
-            .get(&self.location)
-            .unwrap()
-            .constants
-            .get(id.clone().try_into().unwrap())
-            .cloned()
-            .map(|symbol| self.get_canonical_constant(symbol))
-    }
-
-    fn get_canonical_constant(
-        &mut self,
-        symbol: TypedConstantSymbol<'ast, T>,
-    ) -> TypedConstant<'ast, T> {
-        match symbol {
-            TypedConstantSymbol::There(module_id, id) => {
-                let location = self.change_location(module_id);
-                let symbol = self.module().constants.get(id).cloned().unwrap();
-
-                let symbol = self.get_canonical_constant(symbol);
-                let _ = self.change_location(location);
-                symbol
+        assert_eq!(id.version, 0);
+        match id.id {
+            CoreIdentifier::Call(..) => {
+                unreachable!("calls indentifiers are only available after call inlining")
             }
-            TypedConstantSymbol::Here(tc) => {
-                let tc: TypedConstant<T> = self.fold_constant(tc);
-                TypedConstant {
-                    expression: self.propagator.fold_expression(tc.expression).unwrap(),
-                    ..tc
-                }
-            }
+            CoreIdentifier::Source(id) => self
+                .constants
+                .get(&self.location)
+                .and_then(|constants| constants.get(id))
+                .cloned(),
         }
     }
 }
 
-impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
+impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         TypedProgram {
             modules: p
                 .modules
                 .into_iter()
-                .map(|(module_id, module)| {
-                    self.change_location(module_id.clone());
-                    (module_id, self.fold_module(module))
+                .map(|(m_id, m)| {
+                    self.change_location(m_id.clone());
+                    (m_id, self.fold_module(m))
                 })
                 .collect(),
-            main: p.main,
+            ..p
         }
     }
 
-    fn fold_declaration_type(&mut self, t: DeclarationType<'ast>) -> DeclarationType<'ast> {
-        match t {
-            DeclarationType::Array(ref array_ty) => match array_ty.size {
-                Constant::Identifier(name, _) => {
-                    let tc = self.get_constant(&name.into()).unwrap();
-                    let expression: UExpression<'ast, T> = tc.expression.try_into().unwrap();
-                    match expression.inner {
-                        UExpressionInner::Value(v) => DeclarationType::array((
-                            self.fold_declaration_type(*array_ty.ty.clone()),
-                            Constant::Concrete(v as u32),
-                        )),
-                        _ => unreachable!("expected u32 value"),
-                    }
-                }
-                _ => t,
-            },
-            DeclarationType::Struct(struct_ty) => DeclarationType::struc(DeclarationStructType {
-                members: struct_ty
-                    .members
+    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
+        // only treat this module if its constants are not in the map yet
+        if !self.constants.contains_key(&self.location) {
+            self.constants.entry(self.location.clone()).or_default();
+            TypedModule {
+                constants: m
+                    .constants
                     .into_iter()
-                    .map(|m| GStructMember::new(m.id, self.fold_declaration_type(*m.ty)))
-                    .collect(),
-                ..struct_ty
-            }),
-            _ => t,
-        }
-    }
+                    .map(|(id, tc)| {
+                        let constant = match tc {
+                            TypedConstantSymbol::There(imported_id) => {
+                                if !self.constants.contains_key(&imported_id.module) {
+                                    let current_m_id = self.change_location(id.module.clone());
+                                    let _ = self
+                                        .fold_module(self.modules.get(&id.module).unwrap().clone());
+                                    self.change_location(current_m_id);
+                                }
+                                self.constants
+                                    .get(&imported_id.module)
+                                    .unwrap()
+                                    .get(&imported_id.id)
+                                    .cloned()
+                                    .unwrap()
+                            }
+                            TypedConstantSymbol::Here(c) => fold_constant(self, c),
+                        };
 
-    fn fold_type(&mut self, t: Type<'ast, T>) -> Type<'ast, T> {
-        use self::GType::*;
-        match t {
-            Array(ref array_type) => match &array_type.size.inner {
-                UExpressionInner::Identifier(v) => match self.get_constant(v) {
-                    Some(tc) => {
-                        let expression: UExpression<'ast, T> = tc.expression.try_into().unwrap();
-                        Type::array(GArrayType::new(
-                            self.fold_type(*array_type.ty.clone()),
-                            expression,
-                        ))
-                    }
-                    None => t,
-                },
-                _ => t,
-            },
-            Struct(struct_type) => Type::struc(GStructType {
-                members: struct_type
-                    .members
+                        assert!(self
+                            .constants
+                            .entry(self.location.clone())
+                            .or_default()
+                            .insert(id.id, constant.clone())
+                            .is_none());
+
+                        (id, TypedConstantSymbol::Here(constant))
+                    })
+                    .collect(),
+                functions: m
+                    .functions
                     .into_iter()
-                    .map(|m| GStructMember::new(m.id, self.fold_type(*m.ty)))
+                    .map(|(key, fun)| {
+                        (
+                            self.fold_declaration_function_key(key),
+                            self.fold_function_symbol(fun),
+                        )
+                    })
                     .collect(),
-                ..struct_type
-            }),
-            _ => t,
+            }
+        } else {
+            m
         }
     }
 
-    fn fold_constant_symbol(
+    fn fold_declaration_constant(
         &mut self,
-        s: TypedConstantSymbol<'ast, T>,
-    ) -> TypedConstantSymbol<'ast, T> {
-        let tc = self.get_canonical_constant(s);
-        TypedConstantSymbol::Here(tc)
+        c: DeclarationConstant<'ast>,
+    ) -> DeclarationConstant<'ast> {
+        println!("id {}", c);
+        println!("constants {:#?}", self.constants);
+        println!("location {}", self.location.display());
+
+        match c {
+            DeclarationConstant::Identifier(id) => DeclarationConstant::Concrete(
+                match self
+                    .constants
+                    .get(&self.location)
+                    .unwrap()
+                    .get(&id)
+                    .cloned()
+                    .unwrap()
+                {
+                    TypedConstant {
+                        ty: Type::Uint(UBitwidth::B32),
+                        expression:
+                            TypedExpression::Uint(UExpression {
+                                inner: UExpressionInner::Value(v),
+                                ..
+                            }),
+                    } => v as u32,
+                    _ => unreachable!(),
+                },
+            ),
+            c => c,
+        }
     }
 
     fn fold_field_expression(

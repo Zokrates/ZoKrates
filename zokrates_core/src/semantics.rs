@@ -19,9 +19,9 @@ use crate::parser::Position;
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
 use crate::typed_absy::types::{
-    ArrayType, Constant, DeclarationArrayType, DeclarationFunctionKey, DeclarationSignature,
-    DeclarationStructMember, DeclarationStructType, DeclarationType, GenericIdentifier,
-    StructLocation,
+    ArrayType, DeclarationArrayType, DeclarationConstant, DeclarationFunctionKey,
+    DeclarationSignature, DeclarationStructMember, DeclarationStructType, DeclarationType,
+    GenericIdentifier, StructLocation,
 };
 use std::hash::{Hash, Hasher};
 
@@ -55,8 +55,7 @@ impl ErrorInner {
 }
 
 type TypeMap<'ast> = HashMap<OwnedModuleId, HashMap<UserTypeId, DeclarationType<'ast>>>;
-type ConstantMap<'ast, T> =
-    HashMap<OwnedModuleId, HashMap<ConstantIdentifier<'ast>, Type<'ast, T>>>;
+type ConstantMap<'ast, T> = HashMap<OwnedModuleId, HashMap<&'ast str, Type<'ast, T>>>;
 
 /// The global state of the program during semantic checks
 #[derive(Debug)]
@@ -506,8 +505,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 .in_file(module_id),
                             ),
                             true => {
-                                constants
-                                    .insert(declaration.id, TypedConstantSymbol::Here(c.clone()));
+                                constants.insert(
+                                    ConstantIdentifier::new(declaration.id, module_id.into()),
+                                    TypedConstantSymbol::Here(c.clone()),
+                                );
                                 self.insert_into_scope(Variable::with_id_and_type(
                                     declaration.id,
                                     c.get_type(),
@@ -600,7 +601,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .constants
                             .entry(import.module_id.to_path_buf())
                             .or_default()
-                            .get(import.symbol_id)
+                            .iter()
+                            .find(|(i, _)| *i == &import.symbol_id)
+                            .map(|(_, c)| c)
                             .cloned();
 
                         match (function_candidates.len(), type_candidate, const_candidate) {
@@ -653,8 +656,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             }});
                                     }
                                     true => {
-                                        constants.insert(declaration.id, TypedConstantSymbol::There(import.module_id.to_path_buf(), import.symbol_id));
-                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, ty.clone()));
+                                        let imported_id = ConstantIdentifier::new(import.symbol_id.into(), import.module_id);
+                                        let id = ConstantIdentifier::new(declaration.id.clone(), module_id.into());
+
+                                        constants.insert(id.clone(), TypedConstantSymbol::There(imported_id));
+                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id.clone(), ty.clone()));
 
                                         state
                                             .constants
@@ -856,7 +862,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let v = Variable::with_id_and_type(
                         match generic {
-                            Constant::Generic(g) => g.name,
+                            DeclarationConstant::Generic(g) => g.name,
                             _ => unreachable!(),
                         },
                         Type::Uint(UBitwidth::B32),
@@ -996,7 +1002,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(Constant::Generic(GenericIdentifier {
+                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
                             name: g.value,
                             index,
                         })));
@@ -1112,16 +1118,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn check_generic_expression(
         &mut self,
         expr: ExpressionNode<'ast>,
-        constants_map: &HashMap<ConstantIdentifier<'ast>, Type<'ast, T>>,
+        constants_map: &HashMap<&'ast str, Type<'ast, T>>,
         generics_map: &HashMap<Identifier<'ast>, usize>,
-    ) -> Result<Constant<'ast>, ErrorInner> {
+    ) -> Result<DeclarationConstant<'ast>, ErrorInner> {
         let pos = expr.pos();
 
         match expr.value {
-            Expression::U32Constant(c) => Ok(Constant::Concrete(c)),
+            Expression::U32Constant(c) => Ok(DeclarationConstant::Concrete(c)),
             Expression::IntConstant(c) => {
                 if c <= BigUint::from(2u128.pow(32) - 1) {
-                    Ok(Constant::Concrete(
+                    Ok(DeclarationConstant::Concrete(
                         u32::from_str_radix(&c.to_str_radix(16), 16).unwrap(),
                     ))
                 } else {
@@ -1138,7 +1144,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match (constants_map.get(name), generics_map.get(&name)) {
                     (Some(ty), None) => {
                         match ty {
-                            Type::Uint(UBitwidth::B32) => Ok(Constant::Identifier(name, 32usize)),
+                            Type::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Identifier(name)),
                             _ => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
@@ -1148,7 +1154,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             })
                         }
                     }
-                    (None, Some(index)) => Ok(Constant::Generic(GenericIdentifier { name, index: *index })),
+                    (None, Some(index)) => Ok(DeclarationConstant::Generic(GenericIdentifier { name, index: *index })),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Undeclared symbol `{}` in function definition", name)

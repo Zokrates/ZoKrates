@@ -1,6 +1,6 @@
 // Generic walk through a typed AST. Not mutating in place
 
-use crate::typed_absy::types::{ArrayType, StructMember, StructType};
+use crate::typed_absy::types::*;
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
@@ -95,6 +95,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         s: DeclarationSignature<'ast>,
     ) -> Result<DeclarationSignature<'ast>, Self::Error> {
         fold_signature(self, s)
+    }
+
+    fn fold_declaration_constant(
+        &mut self,
+        c: DeclarationConstant<'ast>,
+    ) -> Result<DeclarationConstant<'ast>, Self::Error> {
+        fold_declaration_constant(self, c)
     }
 
     fn fold_parameter(
@@ -212,6 +219,34 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         t: DeclarationType<'ast>,
     ) -> Result<DeclarationType<'ast>, Self::Error> {
         Ok(t)
+    }
+
+    fn fold_declaration_array_type(
+        &mut self,
+        t: DeclarationArrayType<'ast>,
+    ) -> Result<DeclarationArrayType<'ast>, Self::Error> {
+        Ok(DeclarationArrayType {
+            ty: box self.fold_declaration_type(*t.ty)?,
+            size: self.fold_declaration_constant(t.size)?,
+        })
+    }
+
+    fn fold_declaration_struct_type(
+        &mut self,
+        t: DeclarationStructType<'ast>,
+    ) -> Result<DeclarationStructType<'ast>, Self::Error> {
+        Ok(DeclarationStructType {
+            members: t
+                .members
+                .into_iter()
+                .map(|m| {
+                    let id = m.id;
+                    self.fold_declaration_type(*m.ty)
+                        .map(|ty| DeclarationStructMember { ty: box ty, id })
+                })
+                .collect::<Result<_, _>>()?,
+            ..t
+        })
     }
 
     fn fold_assignee(
@@ -932,6 +967,13 @@ fn fold_signature<'ast, T: Field, F: ResultFolder<'ast, T>>(
             .map(|o| f.fold_declaration_type(o))
             .collect::<Result<_, _>>()?,
     })
+}
+
+fn fold_declaration_constant<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    _: &mut F,
+    c: DeclarationConstant<'ast>,
+) -> Result<DeclarationConstant<'ast>, F::Error> {
+    Ok(c)
 }
 
 pub fn fold_array_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(

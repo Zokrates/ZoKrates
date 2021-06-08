@@ -78,6 +78,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         // inline user-defined constants
         let r = ConstantInliner::inline(self);
+        println!("{}", r);
         // isolate branches
         let r = if config.isolate_branches {
             Isolator::isolate(r)

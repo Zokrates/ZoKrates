@@ -1,6 +1,6 @@
 // Generic walk through a typed AST. Not mutating in place
 
-use crate::typed_absy::types::{ArrayType, StructMember, StructType};
+use crate::typed_absy::types::*;
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
@@ -80,6 +80,13 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_signature(self, s)
     }
 
+    fn fold_declaration_constant(
+        &mut self,
+        c: DeclarationConstant<'ast>,
+    ) -> DeclarationConstant<'ast> {
+        fold_declaration_constant(self, c)
+    }
+
     fn fold_parameter(&mut self, p: DeclarationParameter<'ast>) -> DeclarationParameter<'ast> {
         DeclarationParameter {
             id: self.fold_declaration_variable(p.id),
@@ -144,7 +151,40 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_declaration_type(&mut self, t: DeclarationType<'ast>) -> DeclarationType<'ast> {
-        t
+        use self::GType::*;
+
+        match t {
+            Array(array_type) => Array(self.fold_declaration_array_type(array_type)),
+            Struct(struct_type) => Struct(self.fold_declaration_struct_type(struct_type)),
+            t => t,
+        }
+    }
+
+    fn fold_declaration_array_type(
+        &mut self,
+        t: DeclarationArrayType<'ast>,
+    ) -> DeclarationArrayType<'ast> {
+        DeclarationArrayType {
+            ty: box self.fold_declaration_type(*t.ty),
+            size: self.fold_declaration_constant(t.size),
+        }
+    }
+
+    fn fold_declaration_struct_type(
+        &mut self,
+        t: DeclarationStructType<'ast>,
+    ) -> DeclarationStructType<'ast> {
+        DeclarationStructType {
+            members: t
+                .members
+                .into_iter()
+                .map(|m| DeclarationStructMember {
+                    ty: box self.fold_declaration_type(*m.ty),
+                    ..m
+                })
+                .collect(),
+            ..t
+        }
     }
 
     fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
@@ -878,6 +918,13 @@ fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
             .map(|o| f.fold_declaration_type(o))
             .collect(),
     }
+}
+
+fn fold_declaration_constant<'ast, T: Field, F: Folder<'ast, T>>(
+    _: &mut F,
+    c: DeclarationConstant<'ast>,
+) -> DeclarationConstant<'ast> {
+    c
 }
 
 pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(

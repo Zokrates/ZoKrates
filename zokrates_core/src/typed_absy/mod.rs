@@ -19,9 +19,9 @@ mod variable;
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
-    ConcreteFunctionKey, ConcreteSignature, ConcreteType, DeclarationFunctionKey,
-    DeclarationSignature, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
-    IntoTypes, Signature, StructType, Type, Types, UBitwidth,
+    ConcreteFunctionKey, ConcreteSignature, ConcreteType, ConstantIdentifier,
+    DeclarationFunctionKey, DeclarationSignature, DeclarationType, GArrayType, GStructType, GType,
+    GenericIdentifier, IntoTypes, Signature, StructType, Type, Types, UBitwidth,
 };
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
@@ -62,12 +62,10 @@ pub type TypedModules<'ast, T> = HashMap<OwnedTypedModuleId, TypedModule<'ast, T
 pub type TypedFunctionSymbols<'ast, T> =
     HashMap<DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
 
-pub type ConstantIdentifier<'ast> = &'ast str;
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypedConstantSymbol<'ast, T> {
     Here(TypedConstant<'ast, T>),
-    There(OwnedTypedModuleId, ConstantIdentifier<'ast>),
+    There(ConstantIdentifier<'ast>),
 }
 
 /// A collection of `TypedConstantSymbol`s
@@ -188,12 +186,17 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
         let res = self
             .constants
             .iter()
-            .map(|(key, symbol)| match symbol {
+            .map(|(id, symbol)| match symbol {
                 TypedConstantSymbol::Here(ref tc) => {
-                    format!("const {} {} = {}", tc.ty, key, tc.expression)
+                    format!("const {} {} = {}", tc.ty, id.id, tc.expression)
                 }
-                TypedConstantSymbol::There(ref module_id, ref id) => {
-                    format!("from \"{}\" import {} as {}", module_id.display(), id, key)
+                TypedConstantSymbol::There(ref imported_id) => {
+                    format!(
+                        "from \"{}\" import {} as {}",
+                        imported_id.module.display(),
+                        imported_id.id,
+                        id.id
+                    )
                 }
             })
             .chain(self.functions.iter().map(|(key, symbol)| match symbol {

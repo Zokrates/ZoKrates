@@ -1,3 +1,4 @@
 from "./origin.zok" import foo
 def main():
-   return
+    assert(foo([1, 1]))
+    return
