@@ -601,11 +601,13 @@ fn fold_if_else_expression<'ast, T: Field, E: Flatten<'ast, T>>(
 
     assert_eq!(consequence.len(), alternative.len());
 
-    statements_buffer.push(zir::ZirStatement::IfElse(
-        condition.clone(),
-        consequence_statements,
-        alternative_statements,
-    ));
+    if !consequence_statements.is_empty() || !alternative_statements.is_empty() {
+        statements_buffer.push(zir::ZirStatement::IfElse(
+            condition.clone(),
+            consequence_statements,
+            alternative_statements,
+        ));
+    }
 
     use crate::zir::IfElse;
 
