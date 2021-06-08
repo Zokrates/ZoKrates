@@ -60,6 +60,8 @@ zokrates compute-witness -a 337 113569
 zokrates generate-proof
 # export a solidity verifier
 zokrates export-verifier
+# or verify natively
+zokrates verify
 ```
 
 The CLI commands are explained in more detail in the [CLI reference](toolbox/cli.md).
