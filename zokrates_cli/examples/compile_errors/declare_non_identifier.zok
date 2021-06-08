@@ -1,0 +1,3 @@
+def main():
+    field[2] a[2] = [1, 2] // only variables can be declared in such a statement, declaring `a[2]` is invalid
+    return

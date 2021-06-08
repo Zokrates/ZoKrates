@@ -17,86 +17,17 @@ impl Isolator {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for Isolator {
-    fn fold_field_expression(
+    fn fold_if_else_expression<
+        E: Expr<'ast, T> + Block<'ast, T> + Fold<'ast, T> + IfElse<'ast, T>,
+    >(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
-        match e {
-            FieldElementExpression::IfElse(box condition, box consequence, box alternative) => {
-                FieldElementExpression::IfElse(
-                    box self.fold_boolean_expression(condition),
-                    box FieldElementExpression::block(vec![], consequence.fold(self)),
-                    box FieldElementExpression::block(vec![], alternative.fold(self)),
-                )
-            }
-            e => fold_field_expression(self, e),
-        }
-    }
-
-    fn fold_boolean_expression(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> BooleanExpression<'ast, T> {
-        match e {
-            BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
-                BooleanExpression::IfElse(
-                    box self.fold_boolean_expression(condition),
-                    box BooleanExpression::block(vec![], consequence.fold(self)),
-                    box BooleanExpression::block(vec![], alternative.fold(self)),
-                )
-            }
-            e => fold_boolean_expression(self, e),
-        }
-    }
-
-    fn fold_uint_expression_inner(
-        &mut self,
-        bitwidth: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
-        match e {
-            UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                UExpressionInner::IfElse(
-                    box self.fold_boolean_expression(condition),
-                    box UExpression::block(vec![], consequence.fold(self)),
-                    box UExpression::block(vec![], alternative.fold(self)),
-                )
-            }
-            e => fold_uint_expression_inner(self, bitwidth, e),
-        }
-    }
-
-    fn fold_array_expression_inner(
-        &mut self,
-        array_ty: &ArrayType<'ast, T>,
-        e: ArrayExpressionInner<'ast, T>,
-    ) -> ArrayExpressionInner<'ast, T> {
-        match e {
-            ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                ArrayExpressionInner::IfElse(
-                    box self.fold_boolean_expression(condition),
-                    box ArrayExpression::block(vec![], consequence.fold(self)),
-                    box ArrayExpression::block(vec![], alternative.fold(self)),
-                )
-            }
-            e => fold_array_expression_inner(self, array_ty, e),
-        }
-    }
-
-    fn fold_struct_expression_inner(
-        &mut self,
-        struct_ty: &StructType<'ast, T>,
-        e: StructExpressionInner<'ast, T>,
-    ) -> StructExpressionInner<'ast, T> {
-        match e {
-            StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                StructExpressionInner::IfElse(
-                    box self.fold_boolean_expression(condition),
-                    box StructExpression::block(vec![], consequence.fold(self)),
-                    box StructExpression::block(vec![], alternative.fold(self)),
-                )
-            }
-            e => fold_struct_expression_inner(self, struct_ty, e),
-        }
+        _: &E::Ty,
+        e: IfElseExpression<'ast, T, E>,
+    ) -> IfElseOrExpression<'ast, T, E> {
+        IfElseOrExpression::IfElse(IfElseExpression::new(
+            self.fold_boolean_expression(*e.condition),
+            E::block(vec![], e.consequence.fold(self)),
+            E::block(vec![], e.alternative.fold(self)),
+        ))
     }
 }
