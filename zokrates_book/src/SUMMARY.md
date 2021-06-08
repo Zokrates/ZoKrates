@@ -25,6 +25,8 @@
     - [JSON ABI](toolbox/abi.md)
 	- [zokrates.js](toolbox/zokrates_js.md)
 
-- [Tutorial: A zkSNARK RNG](rng_tutorial.md)
+- [Examples](examples/index.md)
+	- [A SNARK Powered RNG](examples/rng_tutorial.md)
+	- [Proving knowledge of a hash preimage](examples/sha256example.md)
 
 - [Testing](testing.md)

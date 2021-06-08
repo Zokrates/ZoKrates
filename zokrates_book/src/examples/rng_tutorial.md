@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Make sure you have followed the instructions in the [Getting Started](gettingstarted.md) chapter and are able to run the "Hello World" example described there.
+Make sure you have followed the instructions in the [Getting Started](../gettingstarted.md) chapter and are able to run the "Hello World" example described there.
 
 ## Description of the problem
 
@@ -30,15 +30,15 @@ There are many ways to calculate a hash, but here we use Zokrates.
 ```
 2. Compile the program to a form that is usable for zero knowledge proofs. This command writes 
 the binary to `get_hash`. You can see a textual representation, somewhat analogous to assembler 
-coming from a compiler, at `get_hash.ztf` if you remove the `--light` command line option.
+coming from a compiler, at `get_hash.ztf` enabled by the `--ztf` command line option.
 ```
-zokrates compile -i get_hash.zok -o get_hash --light
+zokrates compile -i get_hash.zok -o get_hash --ztf
 ```
 3. The input to the Zokrates program is sixteen 32 bit values, each in decimal. specify those values 
 to get a hash. For example, to calculate the hash of `0x00000000000000010000000200000003000000040000000500000006...`
 use this command:
 ```
-zokrates compute-witness --light -i get_hash -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+zokrates compute-witness --verbose -i get_hash -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
 ```
 The result is:
 ```
@@ -104,8 +104,8 @@ The next step is to reveal a single bit.
 
 2. Compile and run as you did the previous program:
 ```bash
-zokrates compile -i reveal_bit.zok -o reveal_bit --light
-zokrates compute-witness --light -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510
+zokrates compile -i reveal_bit.zok -o reveal_bit
+zokrates compute-witness --verbose -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510
 ```
 3. The output should be similar to:
 ```
@@ -205,8 +205,8 @@ Proofs give us.
 
 2. Compile `reveal_bit.zok` and create the proving and verification keys.
    ```
-   zokrates compile -i reveal_bit.zok -o reveal_bit --light
-   zokrates setup -i reveal_bit --light
+   zokrates compile -i reveal_bit.zok -o reveal_bit
+   zokrates setup -i reveal_bit
    ```
 3. Copy the file `proving.key` to Alice's directory.
 
@@ -214,13 +214,13 @@ Proofs give us.
 
 4. Alice should compile `reveal_bit.zok` independently to make sure it doesn't disclose information she wants to keep secret.
    ```
-   zokrates compile -i reveal_bit.zok -o reveal_bit --light
+   zokrates compile -i reveal_bit.zok -o reveal_bit
    ```   
    
 5. Next, Alice creates the `witness` file with the values of all the parameters in the program. Using this `witness`, 
    Bob's `proving.key`, and the compiled program she generates the actual proof.
    ```
-   zokrates compute-witness -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510 --light
+   zokrates compute-witness -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510
    zokrates generate-proof -i reveal_bit
    ``` 
    
