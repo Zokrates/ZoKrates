@@ -1,0 +1,4 @@
+from "EMBED" import FIELD_SIZE_IN_BITS
+
+def main() -> u32:
+    return FIELD_SIZE_IN_BITS
