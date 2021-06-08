@@ -159,6 +159,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_block_expression(self, block)
     }
 
+    fn fold_identifier_expression<E: Expr<'ast, T> + Id<'ast, T> + ResultFold<'ast, T>>(
+        &mut self,
+        ty: &E::Ty,
+        id: IdentifierExpression<'ast, E>,
+    ) -> Result<IdentifierOrExpression<'ast, T, E>, Self::Error> {
+        fold_identifier_expression(self, ty, id)
+    }
+
     fn fold_member_expression<
         E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
@@ -412,7 +420,10 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
         ArrayExpressionInner::Block(block) => {
             ArrayExpressionInner::Block(f.fold_block_expression(block)?)
         }
-        ArrayExpressionInner::Identifier(id) => ArrayExpressionInner::Identifier(f.fold_name(id)?),
+        ArrayExpressionInner::Identifier(id) => match f.fold_identifier_expression(ty, id)? {
+            IdentifierOrExpression::Identifier(i) => ArrayExpressionInner::Identifier(i),
+            IdentifierOrExpression::Expression(u) => u,
+        },
         ArrayExpressionInner::Value(exprs) => ArrayExpressionInner::Value(
             exprs
                 .into_iter()
@@ -461,9 +472,10 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
         StructExpressionInner::Block(block) => {
             StructExpressionInner::Block(f.fold_block_expression(block)?)
         }
-        StructExpressionInner::Identifier(id) => {
-            StructExpressionInner::Identifier(f.fold_name(id)?)
-        }
+        StructExpressionInner::Identifier(id) => match f.fold_identifier_expression(ty, id)? {
+            IdentifierOrExpression::Identifier(i) => StructExpressionInner::Identifier(i),
+            IdentifierOrExpression::Expression(u) => u,
+        },
         StructExpressionInner::Value(exprs) => StructExpressionInner::Value(
             exprs
                 .into_iter()
@@ -502,7 +514,10 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
         }
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
-            FieldElementExpression::Identifier(f.fold_name(id)?)
+            match f.fold_identifier_expression(&Type::FieldElement, id)? {
+                IdentifierOrExpression::Identifier(i) => FieldElementExpression::Identifier(i),
+                IdentifierOrExpression::Expression(u) => u,
+            }
         }
         FieldElementExpression::Add(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1)?;
@@ -630,6 +645,21 @@ pub fn fold_member_expression<
     )))
 }
 
+pub fn fold_identifier_expression<
+    'ast,
+    T: Field,
+    E: Expr<'ast, T> + Id<'ast, T> + From<TypedExpression<'ast, T>>,
+    F: ResultFolder<'ast, T>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: IdentifierExpression<'ast, E>,
+) -> Result<IdentifierOrExpression<'ast, T, E>, F::Error> {
+    Ok(IdentifierOrExpression::Identifier(
+        IdentifierExpression::new(f.fold_name(e.id)?),
+    ))
+}
+
 pub fn fold_select_expression<
     'ast,
     T: Field,
@@ -678,7 +708,12 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
             BooleanExpression::Block(f.fold_block_expression(block)?)
         }
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
-        BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)?),
+        BooleanExpression::Identifier(id) => {
+            match f.fold_identifier_expression(&Type::Boolean, id)? {
+                IdentifierOrExpression::Identifier(i) => BooleanExpression::Identifier(i),
+                IdentifierOrExpression::Expression(u) => u,
+            }
+        }
         BooleanExpression::FieldEq(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1)?;
             let e2 = f.fold_field_expression(e2)?;
@@ -800,7 +835,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     let e = match e {
         UExpressionInner::Block(block) => UExpressionInner::Block(f.fold_block_expression(block)?),
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
-        UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)?),
+        UExpressionInner::Identifier(id) => match f.fold_identifier_expression(&ty, id)? {
+            IdentifierOrExpression::Identifier(i) => UExpressionInner::Identifier(i),
+            IdentifierOrExpression::Expression(u) => u,
+        },
         UExpressionInner::Add(box left, box right) => {
             let left = f.fold_uint_expression(left)?;
             let right = f.fold_uint_expression(right)?;

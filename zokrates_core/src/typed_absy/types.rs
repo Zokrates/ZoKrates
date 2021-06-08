@@ -1,4 +1,4 @@
-use crate::typed_absy::{Identifier, OwnedTypedModuleId, UExpression, UExpressionInner};
+use crate::typed_absy::{Id, Identifier, OwnedTypedModuleId, UExpression, UExpressionInner};
 use crate::typed_absy::{TryFrom, TryInto};
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
@@ -55,6 +55,11 @@ impl<'ast, T> Types<'ast, T> {
     pub fn new(types: Vec<Type<'ast, T>>) -> Self {
         Self { inner: types }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct ConcreteTypes {
+    pub inner: Vec<ConcreteType>,
 }
 
 #[derive(Debug, Clone, Eq, Ord)]
@@ -142,15 +147,13 @@ impl<'ast, T> From<usize> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> From<Constant<'ast>> for UExpression<'ast, T> {
+impl<'ast, T: Clone> From<Constant<'ast>> for UExpression<'ast, T> {
     fn from(c: Constant<'ast>) -> Self {
         match c {
-            Constant::Generic(i) => {
-                UExpressionInner::Identifier(i.name.into()).annotate(UBitwidth::B32)
-            }
+            Constant::Generic(i) => UExpression::identifier(i.name.into()).annotate(UBitwidth::B32),
             Constant::Concrete(v) => UExpressionInner::Value(v as u128).annotate(UBitwidth::B32),
             Constant::Identifier(v, size) => {
-                UExpressionInner::Identifier(Identifier::from(v)).annotate(UBitwidth::from(size))
+                UExpression::identifier(Identifier::from(v)).annotate(UBitwidth::from(size))
             }
         }
     }
@@ -229,7 +232,7 @@ impl<'ast> From<ConcreteStructMember> for DeclarationStructMember<'ast> {
     }
 }
 
-impl<'ast, T> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
+impl<'ast, T: Clone> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
     fn from(t: DeclarationStructMember<'ast>) -> Self {
         try_from_g_struct_member(t).unwrap()
     }
@@ -334,7 +337,7 @@ impl<'ast> From<ConcreteArrayType> for DeclarationArrayType<'ast> {
     }
 }
 
-impl<'ast, T> From<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
+impl<'ast, T: Clone> From<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
     fn from(t: DeclarationArrayType<'ast>) -> Self {
         try_from_g_array_type(t).unwrap()
     }
@@ -401,7 +404,7 @@ impl<'ast> From<ConcreteStructType> for DeclarationStructType<'ast> {
     }
 }
 
-impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
+impl<'ast, T: Clone> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
     fn from(t: DeclarationStructType<'ast>) -> Self {
         try_from_g_struct_type(t).unwrap()
     }
@@ -637,7 +640,7 @@ impl<'ast> From<ConcreteType> for DeclarationType<'ast> {
     }
 }
 
-impl<'ast, T> From<DeclarationType<'ast>> for Type<'ast, T> {
+impl<'ast, T: Clone> From<DeclarationType<'ast>> for Type<'ast, T> {
     fn from(t: DeclarationType<'ast>) -> Self {
         try_from_g_type(t).unwrap()
     }
@@ -852,7 +855,7 @@ impl<'ast> From<ConcreteFunctionKey<'ast>> for DeclarationFunctionKey<'ast> {
     }
 }
 
-impl<'ast, T> From<DeclarationFunctionKey<'ast>> for FunctionKey<'ast, T> {
+impl<'ast, T: Clone> From<DeclarationFunctionKey<'ast>> for FunctionKey<'ast, T> {
     fn from(k: DeclarationFunctionKey<'ast>) -> Self {
         try_from_g_function_key(k).unwrap()
     }
@@ -1165,7 +1168,7 @@ pub mod signature {
         }
     }
 
-    impl<'ast, T> From<DeclarationSignature<'ast>> for Signature<'ast, T> {
+    impl<'ast, T: Clone> From<DeclarationSignature<'ast>> for Signature<'ast, T> {
         fn from(s: DeclarationSignature<'ast>) -> Self {
             try_from_g_signature(s).unwrap()
         }

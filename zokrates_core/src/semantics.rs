@@ -1715,19 +1715,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 // check that `id` is defined in the scope
                 match self.get_scope(&name) {
                     Some(v) => match v.id.get_type() {
-                        Type::Boolean => Ok(BooleanExpression::Identifier(name.into()).into()),
-                        Type::Uint(bitwidth) => Ok(UExpressionInner::Identifier(name.into())
+                        Type::Boolean => Ok(BooleanExpression::identifier(name.into()).into()),
+                        Type::Uint(bitwidth) => Ok(UExpression::identifier(name.into())
                             .annotate(bitwidth)
                             .into()),
                         Type::FieldElement => {
-                            Ok(FieldElementExpression::Identifier(name.into()).into())
+                            Ok(FieldElementExpression::identifier(name.into()).into())
                         }
-                        Type::Array(array_type) => {
-                            Ok(ArrayExpressionInner::Identifier(name.into())
-                                .annotate(*array_type.ty, array_type.size)
-                                .into())
-                        }
-                        Type::Struct(members) => Ok(StructExpressionInner::Identifier(name.into())
+                        Type::Array(array_type) => Ok(ArrayExpression::identifier(name.into())
+                            .annotate(*array_type.ty, array_type.size)
+                            .into()),
+                        Type::Struct(members) => Ok(StructExpression::identifier(name.into())
                             .annotate(members)
                             .into()),
                         Type::Int => unreachable!(),

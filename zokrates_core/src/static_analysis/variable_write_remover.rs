@@ -323,22 +323,18 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                     let base = match variable.get_type() {
                         Type::Int => unreachable!(),
                         Type::FieldElement => {
-                            FieldElementExpression::Identifier(variable.id.clone()).into()
+                            FieldElementExpression::identifier(variable.id.clone()).into()
                         }
-                        Type::Boolean => BooleanExpression::Identifier(variable.id.clone()).into(),
-                        Type::Uint(bitwidth) => UExpressionInner::Identifier(variable.id.clone())
+                        Type::Boolean => BooleanExpression::identifier(variable.id.clone()).into(),
+                        Type::Uint(bitwidth) => UExpression::identifier(variable.id.clone())
                             .annotate(bitwidth)
                             .into(),
-                        Type::Array(array_type) => {
-                            ArrayExpressionInner::Identifier(variable.id.clone())
-                                .annotate(*array_type.ty, array_type.size)
-                                .into()
-                        }
-                        Type::Struct(members) => {
-                            StructExpressionInner::Identifier(variable.id.clone())
-                                .annotate(members)
-                                .into()
-                        }
+                        Type::Array(array_type) => ArrayExpression::identifier(variable.id.clone())
+                            .annotate(*array_type.ty, array_type.size)
+                            .into(),
+                        Type::Struct(members) => StructExpression::identifier(variable.id.clone())
+                            .annotate(members)
+                            .into(),
                     };
 
                     let base = self.fold_expression(base);

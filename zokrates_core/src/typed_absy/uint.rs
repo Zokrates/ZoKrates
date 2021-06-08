@@ -129,7 +129,7 @@ impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {
 
 impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
     fn from(e: &'ast str) -> Self {
-        UExpressionInner::Identifier(e.into())
+        UExpressionInner::Identifier(IdentifierExpression::new(e.into()))
     }
 }
 
@@ -176,7 +176,7 @@ impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum UExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, UExpression<'ast, T>>),
-    Identifier(Identifier<'ast>),
+    Identifier(IdentifierExpression<'ast, UExpression<'ast, T>>),
     Value(u128),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),

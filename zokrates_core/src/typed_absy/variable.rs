@@ -43,7 +43,7 @@ impl<'ast, T> From<ConcreteVariable<'ast>> for Variable<'ast, T> {
     }
 }
 
-impl<'ast, T> From<DeclarationVariable<'ast>> for Variable<'ast, T> {
+impl<'ast, T: Clone> From<DeclarationVariable<'ast>> for Variable<'ast, T> {
     fn from(v: DeclarationVariable<'ast>) -> Self {
         let _type = v._type.into();
 
