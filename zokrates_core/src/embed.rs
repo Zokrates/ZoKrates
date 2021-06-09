@@ -190,7 +190,11 @@ impl<T: Field, E: Engine> From<BellmanConstraint<E>> for FlatStatement<T> {
         let rhs_b = flat_expression_from_vec::<T, E>(&c.b);
         let lhs = flat_expression_from_vec::<T, E>(&c.c);
 
-        FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
+        FlatStatement::Condition(
+            lhs,
+            FlatExpression::Mult(box rhs_a, box rhs_b),
+            "bellman constraint failed",
+        )
     }
 }
 
@@ -241,6 +245,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     let one_binding_statement = FlatStatement::Condition(
         FlatVariable::new(0).into(),
         FlatExpression::Number(T::from(1)),
+        "bellman one binding constraint failed",
     );
     let input_binding_statements =
     // bind input and current_hash to inputs
@@ -248,6 +253,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         FlatStatement::Condition(
             FlatVariable::new(cs_index).into(),
             FlatVariable::new(argument_index).into(),
+            "bellman input binding failed"
         )
     });
     // insert flattened statements to represent constraints
@@ -342,6 +348,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
             FlatStatement::Condition(
                 bit.clone(),
                 FlatExpression::Mult(box bit.clone(), box bit.clone()),
+                "bitness check failed",
             )
         })
         .collect();
@@ -365,6 +372,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
             box FlatExpression::Identifier(FlatVariable::new(0)),
             box FlatExpression::Number(T::from(1)),
         ),
+        "sum check failed",
     ));
 
     statements.insert(

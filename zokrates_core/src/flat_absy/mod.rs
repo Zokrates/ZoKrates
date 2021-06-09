@@ -89,7 +89,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 #[derive(Clone, PartialEq)]
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
-    Condition(FlatExpression<T>, FlatExpression<T>),
+    Condition(FlatExpression<T>, FlatExpression<T>, &'static str),
     Definition(FlatVariable, FlatExpression<T>),
     Directive(FlatDirective<T>),
 }
@@ -99,7 +99,9 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
-            FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            FlatStatement::Condition(ref lhs, ref rhs, ref message) => {
+                write!(f, "{} == {} // {}", lhs, rhs, message)
+            }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
         }
     }
@@ -110,7 +112,7 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
-            FlatStatement::Condition(ref lhs, ref rhs) => {
+            FlatStatement::Condition(ref lhs, ref rhs, _) => {
                 write!(f, "FlatCondition({:?}, {:?})", lhs, rhs)
             }
             FlatStatement::Directive(ref d) => write!(f, "{:?}", d),
@@ -129,9 +131,10 @@ impl<T: Field> FlatStatement<T> {
                 x.apply_substitution(substitution),
             ),
             FlatStatement::Return(x) => FlatStatement::Return(x.apply_substitution(substitution)),
-            FlatStatement::Condition(x, y) => FlatStatement::Condition(
+            FlatStatement::Condition(x, y, message) => FlatStatement::Condition(
                 x.apply_substitution(substitution),
                 y.apply_substitution(substitution),
+                message,
             ),
             FlatStatement::Directive(d) => {
                 let outputs = d

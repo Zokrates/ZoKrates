@@ -99,7 +99,7 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
 impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
         match flat_statement {
-            FlatStatement::Condition(linear, quadratic) => match quadratic {
+            FlatStatement::Condition(linear, quadratic, _) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
                     QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
                     linear.into(),
