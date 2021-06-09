@@ -131,7 +131,7 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
         let main = self.main;
 
         for statement in main.statements {
-            if let Statement::Constraint(quad, lin) = statement {
+            if let Statement::Constraint(quad, lin, _) = statement {
                 let a = &bellman_combination(
                     quad.left.into_canonical(),
                     cs,
