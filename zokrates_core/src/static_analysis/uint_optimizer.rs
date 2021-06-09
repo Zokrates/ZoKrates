@@ -54,6 +54,24 @@ fn force_no_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
+        match e {
+            FieldElementExpression::Select(a, box i) => {
+                let a = a
+                    .into_iter()
+                    .map(|e| self.fold_field_expression(e))
+                    .collect();
+                let i = self.fold_uint_expression(i);
+
+                FieldElementExpression::Select(a, box force_reduce(i))
+            }
+            _ => fold_field_expression(self, e),
+        }
+    }
+
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
@@ -133,6 +151,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .cloned()
                     .unwrap_or_else(|| panic!("identifier should have been defined: {}", id)),
             ),
+            Select(..) => unreachable!(),
             Add(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);

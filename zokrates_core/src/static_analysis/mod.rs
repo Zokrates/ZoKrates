@@ -94,9 +94,9 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // remove assignment to variable index
         let r = VariableWriteRemover::apply(r);
         // remove variable access to complex types
-        let r = VariableReadRemover::apply(r);
+        //let r = VariableReadRemover::apply(r);
         // check array accesses are in bounds
-        let r = BoundsChecker::check(r).map_err(Error::from)?;
+        //let r = BoundsChecker::check(r).map_err(Error::from)?;
         // detect non constant shifts
         let r = ShiftChecker::check(r).map_err(Error::from)?;
         // convert to zir, removing complex types
