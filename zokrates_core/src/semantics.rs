@@ -445,8 +445,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         declaration: SymbolDeclarationNode<'ast>,
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
-        functions: &mut HashMap<DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
-        constants: &mut HashMap<CanonicalConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>,
+        functions: &mut TypedFunctionSymbols<'ast, T>,
+        constants: &mut TypedConstantSymbols<'ast, T>,
         symbol_unifier: &mut SymbolUnifier<'ast>,
     ) -> Result<(), Vec<Error>> {
         let mut errors: Vec<Error> = vec![];
@@ -506,13 +506,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 .in_file(module_id),
                             ),
                             true => {
-                                constants.insert(
+                                constants.push((
                                     CanonicalConstantIdentifier::new(
                                         declaration.id,
                                         module_id.into(),
                                     ),
                                     TypedConstantSymbol::Here(c.clone()),
-                                );
+                                ));
                                 self.insert_into_scope(Variable::with_id_and_type(
                                     declaration.id,
                                     c.get_type(),
@@ -663,7 +663,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id);
                                         let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into());
 
-                                        constants.insert(id.clone(), TypedConstantSymbol::There(imported_id));
+                                        constants.push((id.clone(), TypedConstantSymbol::There(imported_id)));
                                         self.insert_into_scope(Variable::with_id_and_type(declaration.id, ty.clone()));
 
                                         state
@@ -760,8 +760,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
     ) -> Result<(), Vec<Error>> {
-        let mut checked_functions = HashMap::new();
-        let mut checked_constants = HashMap::new();
+        let mut checked_functions = TypedFunctionSymbols::new();
+        let mut checked_constants = TypedConstantSymbols::new();
 
         // check if the module was already removed from the untyped ones
         let to_insert = match state.modules.remove(module_id) {

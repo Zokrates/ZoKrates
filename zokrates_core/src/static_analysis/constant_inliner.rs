@@ -34,14 +34,14 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
         inliner.fold_program(p)
     }
 
-    // fn module(&self) -> &TypedModule<'ast, T> {
-    //     self.modules.get(&self.location).unwrap()
-    // }
-
     fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
         let prev = self.location.clone();
         self.location = location;
         prev
+    }
+
+    fn treated(&self, id: &OwnedTypedModuleId) -> bool {
+        self.constants.contains_key(id)
     }
 
     fn get_constant(&mut self, id: &Identifier) -> Option<TypedExpression<'ast, T>> {
@@ -66,8 +66,12 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
                 .modules
                 .into_iter()
                 .map(|(m_id, m)| {
-                    self.change_location(m_id.clone());
-                    (m_id, self.fold_module(m))
+                    if !self.treated(&m_id) {
+                        self.change_location(m_id.clone());
+                        (m_id, self.fold_module(m))
+                    } else {
+                        (m_id, m)
+                    }
                 })
                 .collect(),
             ..p
@@ -75,69 +79,68 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
     }
 
     fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
-        // only treat this module if its constants are not in the map yet
-        if !self.constants.contains_key(&self.location) {
-            self.constants.entry(self.location.clone()).or_default();
-            TypedModule {
-                constants: m
-                    .constants
-                    .into_iter()
-                    .map(|(id, tc)| {
-                        let constant = match tc {
-                            TypedConstantSymbol::There(imported_id) => {
-                                if !self.constants.contains_key(&imported_id.module) {
-                                    let current_m_id =
-                                        self.change_location(imported_id.module.clone());
-                                    let _ = self.fold_module(
-                                        self.modules.get(&imported_id.module).unwrap().clone(),
-                                    );
-                                    self.change_location(current_m_id);
-                                }
-                                self.constants
-                                    .get(&imported_id.module)
-                                    .unwrap()
-                                    .get(&imported_id.id.into())
-                                    .cloned()
-                                    .unwrap()
+        assert!(self
+            .constants
+            .insert(self.location.clone(), Default::default())
+            .is_none());
+        TypedModule {
+            constants: m
+                .constants
+                .into_iter()
+                .map(|(id, tc)| {
+                    let constant = match tc {
+                        TypedConstantSymbol::There(imported_id) => {
+                            if !self.treated(&imported_id.module) {
+                                let current_m_id = self.change_location(imported_id.module.clone());
+                                let m = self.fold_module(
+                                    self.modules.get(&imported_id.module).unwrap().clone(),
+                                );
+
+                                self.modules.insert(imported_id.module.clone(), m);
+
+                                self.change_location(current_m_id);
                             }
-                            TypedConstantSymbol::Here(c) => fold_constant(self, c).expression,
-                        };
+                            self.constants
+                                .get(&imported_id.module)
+                                .unwrap()
+                                .get(&imported_id.id.into())
+                                .cloned()
+                                .unwrap()
+                        }
+                        TypedConstantSymbol::Here(c) => fold_constant(self, c).expression,
+                    };
 
-                        let constant = Propagator::with_constants(
-                            self.constants.get_mut(&self.location).unwrap(),
-                        )
-                        .fold_expression(constant)
-                        .unwrap();
+                    let constant =
+                        Propagator::with_constants(self.constants.get_mut(&self.location).unwrap())
+                            .fold_expression(constant)
+                            .unwrap();
 
-                        assert!(self
-                            .constants
-                            .entry(self.location.clone())
-                            .or_default()
-                            .insert(id.id.into(), constant.clone())
-                            .is_none());
+                    assert!(self
+                        .constants
+                        .entry(self.location.clone())
+                        .or_default()
+                        .insert(id.id.into(), constant.clone())
+                        .is_none());
 
-                        (
-                            id,
-                            TypedConstantSymbol::Here(TypedConstant {
-                                ty: constant.get_type().clone(),
-                                expression: constant,
-                            }),
-                        )
-                    })
-                    .collect(),
-                functions: m
-                    .functions
-                    .into_iter()
-                    .map(|(key, fun)| {
-                        (
-                            self.fold_declaration_function_key(key),
-                            self.fold_function_symbol(fun),
-                        )
-                    })
-                    .collect(),
-            }
-        } else {
-            m
+                    (
+                        id,
+                        TypedConstantSymbol::Here(TypedConstant {
+                            ty: constant.get_type().clone(),
+                            expression: constant,
+                        }),
+                    )
+                })
+                .collect(),
+            functions: m
+                .functions
+                .into_iter()
+                .map(|(key, fun)| {
+                    (
+                        self.fold_declaration_function_key(key),
+                        self.fold_function_symbol(fun),
+                    )
+                })
+                .collect(),
         }
     }
 
@@ -159,7 +162,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
                         inner: UExpressionInner::Value(v),
                         ..
                     }) => v as u32,
-                    _ => unreachable!(),
+                    _ => unreachable!("all constants should be reduceable to u32 literals"),
                 },
             ),
             c => c,

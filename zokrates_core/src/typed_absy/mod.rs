@@ -70,8 +70,11 @@ pub enum TypedConstantSymbol<'ast, T> {
 }
 
 /// A collection of `TypedConstantSymbol`s
-pub type TypedConstantSymbols<'ast, T> =
-    HashMap<CanonicalConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>;
+/// It is still ordered, as we inline the constants in the order they are declared
+pub type TypedConstantSymbols<'ast, T> = Vec<(
+    CanonicalConstantIdentifier<'ast>,
+    TypedConstantSymbol<'ast, T>,
+)>;
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug, Clone)]
