@@ -151,7 +151,27 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .cloned()
                     .unwrap_or_else(|| panic!("identifier should have been defined: {}", id)),
             ),
-            Select(..) => unreachable!(),
+            Select(values, box index) => {
+                let index = self.fold_uint_expression(index);
+
+                let index = force_reduce(index);
+
+                let values: Vec<_> = values
+                    .into_iter()
+                    .map(|v| force_no_reduce(self.fold_uint_expression(v)))
+                    .collect();
+
+                let max_value = T::try_from(
+                    values
+                        .iter()
+                        .map(|v| v.metadata.as_ref().unwrap().max.to_biguint())
+                        .max()
+                        .unwrap(),
+                )
+                .unwrap();
+
+                UExpression::select(values, index).with_max(max_value)
+            }
             Add(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);

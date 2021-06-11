@@ -577,9 +577,6 @@ fn fold_select_expression<'ast, T: Field, E>(
     let array = f.fold_array_expression(statements_buffer, *select.array);
     let index = f.fold_uint_expression(statements_buffer, *select.index);
 
-    println!("{:#?}", array);
-    println!("{:#?}", index);
-
     array
         .chunks(size)
         .fold(vec![vec![]; size], |mut acc, e| {
@@ -595,8 +592,6 @@ fn fold_select_expression<'ast, T: Field, E>(
         })
         .into_iter()
         .map(|a| {
-            println!("select {:#?} from {:#?}", index, a);
-
             use crate::zir::Typed;
 
             let ty = a[0].get_type();
@@ -636,13 +631,6 @@ fn fold_select_expression<'ast, T: Field, E>(
             }
         })
         .collect()
-}
-
-fn sel<'ast, T: Field>(
-    e: zir::ZirExpression<'ast, T>,
-    index: zir::UExpression<'ast, T>,
-) -> zir::ZirExpression<'ast, T> {
-    unimplemented!()
 }
 
 fn fold_if_else_expression<'ast, T: Field, E: Flatten<'ast, T>>(
