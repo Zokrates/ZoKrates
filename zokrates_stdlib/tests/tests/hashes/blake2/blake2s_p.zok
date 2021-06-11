@@ -4,14 +4,14 @@ import "hashes/blake2/blake2s_p" as blake2s
 // >>> from hashlib import blake2s
 
 // >>> digest = blake2s(person=b'\x12\x34\x56\x78\x00\x00\x00\x00')
-// >>> digest.update(b'\x00' * 64)
+// >>> digest.update(b'\x12\x34\x56\x78' * 16)
 // >>> digest.hexdigest()
-// 'a6e927d1b9d50453bc6eb5e4050c443a7203a541cc06ba78a7dc00caa69fb3e9'
+// '780105bc9ca7633b1f289b3d1558dece65e04ac23f88e711dc29600fa3e0258a'
 
 def main():
-    u32[8] h = blake2s::<1>([[0; 16]; 1], [0x12345678, 0])
+    u32[8] h = blake2s::<1>([[0x12345678; 16]; 1], [0x12345678, 0])
     assert(h == [
-        0xA6E927D1, 0xB9D50453, 0xBC6EB5E4, 0x050C443A,
-        0x7203A541, 0xCC06BA78, 0xA7DC00CA, 0xA69FB3E9
+        0x780105BC, 0x9CA7633B, 0x1F289B3D, 0x1558DECE,
+        0x65E04AC2, 0x3F88E711, 0xDC29600F, 0xA3E0258A
     ])
     return
