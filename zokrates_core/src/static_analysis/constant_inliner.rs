@@ -40,7 +40,7 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
         prev
     }
 
-    fn treated(&self, id: &OwnedTypedModuleId) -> bool {
+    fn treated(&self, id: &TypedModuleId) -> bool {
         self.constants.contains_key(id)
     }
 
@@ -149,6 +149,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         c: DeclarationConstant<'ast>,
     ) -> DeclarationConstant<'ast> {
         match c {
+            // replace constants by their concrete value in declaration types
             DeclarationConstant::Constant(id) => DeclarationConstant::Concrete(
                 match self
                     .constants
