@@ -114,6 +114,20 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         })
     }
 
+    fn fold_canonical_constant_identifier(
+        &mut self,
+        i: CanonicalConstantIdentifier<'ast>,
+    ) -> Result<CanonicalConstantIdentifier<'ast>, Self::Error> {
+        Ok(CanonicalConstantIdentifier {
+            module: self.fold_module_id(i.module)?,
+            id: i.id,
+        })
+    }
+
+    fn fold_module_id(&mut self, i: OwnedTypedModuleId) -> Result<OwnedTypedModuleId, Self::Error> {
+        Ok(i)
+    }
+
     fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
         Ok(n)
     }
@@ -923,6 +937,7 @@ pub fn fold_declaration_function_key<'ast, T: Field, F: ResultFolder<'ast, T>>(
     key: DeclarationFunctionKey<'ast>,
 ) -> Result<DeclarationFunctionKey<'ast>, F::Error> {
     Ok(DeclarationFunctionKey {
+        module: f.fold_module_id(key.module)?,
         signature: f.fold_signature(key.signature)?,
         ..key
     })
@@ -1067,7 +1082,9 @@ pub fn fold_constant_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<TypedConstantSymbol<'ast, T>, F::Error> {
     match s {
         TypedConstantSymbol::Here(tc) => Ok(TypedConstantSymbol::Here(f.fold_constant(tc)?)),
-        there => Ok(there),
+        TypedConstantSymbol::There(id) => Ok(TypedConstantSymbol::There(
+            f.fold_canonical_constant_identifier(id)?,
+        )),
     }
 }
 
@@ -1077,7 +1094,10 @@ pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<TypedFunctionSymbol<'ast, T>, F::Error> {
     match s {
         TypedFunctionSymbol::Here(fun) => Ok(TypedFunctionSymbol::Here(f.fold_function(fun)?)),
-        there => Ok(there), // by default, do not fold modules recursively
+        TypedFunctionSymbol::There(key) => Ok(TypedFunctionSymbol::There(
+            f.fold_declaration_function_key(key)?,
+        )),
+        s => Ok(s),
     }
 }
 
@@ -1109,6 +1129,6 @@ pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
             .into_iter()
             .map(|(module_id, module)| f.fold_module(module).map(|m| (module_id, m)))
             .collect::<Result<_, _>>()?,
-        main: p.main,
+        main: f.fold_module_id(p.main)?,
     })
 }

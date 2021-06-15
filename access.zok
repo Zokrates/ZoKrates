@@ -1,0 +1,2 @@
+def main(field[3][2] a, u32 index) -> field[2]:
+    return a[index]

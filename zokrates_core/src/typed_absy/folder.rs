@@ -215,6 +215,20 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
+    fn fold_canonical_constant_identifier(
+        &mut self,
+        i: CanonicalConstantIdentifier<'ast>,
+    ) -> CanonicalConstantIdentifier<'ast> {
+        CanonicalConstantIdentifier {
+            module: self.fold_module_id(i.module),
+            id: i.id,
+        }
+    }
+
+    fn fold_module_id(&mut self, i: OwnedTypedModuleId) -> OwnedTypedModuleId {
+        i
+    }
+
     fn fold_expression(&mut self, e: TypedExpression<'ast, T>) -> TypedExpression<'ast, T> {
         match e {
             TypedExpression::FieldElement(e) => self.fold_field_expression(e).into(),
@@ -342,7 +356,12 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
         constants: m
             .constants
             .into_iter()
-            .map(|(key, tc)| (key, f.fold_constant_symbol(tc)))
+            .map(|(id, tc)| {
+                (
+                    f.fold_canonical_constant_identifier(id),
+                    f.fold_constant_symbol(tc),
+                )
+            })
             .collect(),
         functions: m
             .functions
@@ -1014,7 +1033,9 @@ pub fn fold_constant_symbol<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> TypedConstantSymbol<'ast, T> {
     match s {
         TypedConstantSymbol::Here(tc) => TypedConstantSymbol::Here(f.fold_constant(tc)),
-        there => there,
+        TypedConstantSymbol::There(id) => {
+            TypedConstantSymbol::There(f.fold_canonical_constant_identifier(id))
+        }
     }
 }
 
@@ -1052,8 +1073,8 @@ pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
         modules: p
             .modules
             .into_iter()
-            .map(|(module_id, module)| (module_id, f.fold_module(module)))
+            .map(|(module_id, module)| (f.fold_module_id(module_id), f.fold_module(module)))
             .collect(),
-        main: p.main,
+        main: f.fold_module_id(p.main),
     }
 }

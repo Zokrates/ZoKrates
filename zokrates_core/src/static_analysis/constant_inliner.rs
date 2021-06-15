@@ -48,7 +48,7 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
         assert_eq!(id.version, 0);
         match id.id {
             CoreIdentifier::Call(..) => {
-                unreachable!("calls indentifiers are only available after call inlining")
+                unreachable!("calls identifiers are only available after call inlining")
             }
             CoreIdentifier::Source(id) => self
                 .constants
@@ -60,46 +60,34 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
-    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        TypedProgram {
-            modules: p
-                .modules
-                .into_iter()
-                .map(|(m_id, m)| {
-                    if !self.treated(&m_id) {
-                        self.change_location(m_id.clone());
-                        (m_id, self.fold_module(m))
-                    } else {
-                        (m_id, m)
-                    }
-                })
-                .collect(),
-            ..p
+    fn fold_module_id(&mut self, id: OwnedTypedModuleId) -> OwnedTypedModuleId {
+        // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
+        if !self.treated(&id) {
+            let current_m_id = self.change_location(id.clone());
+            self.constants.entry(self.location.clone()).or_default();
+            let m = self.fold_module(self.modules.get(&id).unwrap().clone());
+
+            self.modules.insert(id.clone(), m);
+
+            self.change_location(current_m_id);
         }
+        id
     }
 
     fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
-        assert!(self
-            .constants
-            .insert(self.location.clone(), Default::default())
-            .is_none());
+        // initialise a constant map for this module
+        self.constants.entry(self.location.clone()).or_default();
+
         TypedModule {
             constants: m
                 .constants
                 .into_iter()
                 .map(|(id, tc)| {
+                    let id = self.fold_canonical_constant_identifier(id);
+
                     let constant = match tc {
                         TypedConstantSymbol::There(imported_id) => {
-                            if !self.treated(&imported_id.module) {
-                                let current_m_id = self.change_location(imported_id.module.clone());
-                                let m = self.fold_module(
-                                    self.modules.get(&imported_id.module).unwrap().clone(),
-                                );
-
-                                self.modules.insert(imported_id.module.clone(), m);
-
-                                self.change_location(current_m_id);
-                            }
+                            let imported_id = self.fold_canonical_constant_identifier(imported_id);
                             self.constants
                                 .get(&imported_id.module)
                                 .unwrap()
@@ -115,12 +103,10 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
                             .fold_expression(constant)
                             .unwrap();
 
-                    assert!(self
-                        .constants
+                    self.constants
                         .entry(self.location.clone())
                         .or_default()
-                        .insert(id.id.into(), constant.clone())
-                        .is_none());
+                        .insert(id.id.into(), constant.clone());
 
                     (
                         id,
@@ -176,7 +162,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
     ) -> FieldElementExpression<'ast, T> {
         match e {
             FieldElementExpression::Identifier(ref id) => match self.get_constant(id) {
-                Some(c) => self.fold_expression(c).try_into().unwrap(),
+                Some(c) => c.try_into().unwrap(),
                 None => fold_field_expression(self, e),
             },
             e => fold_field_expression(self, e),
