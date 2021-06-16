@@ -143,7 +143,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
                         inner: UExpressionInner::Value(v),
                         ..
                     }) => v as u32,
-                    _ => unreachable!("all constants should be reduceable to u32 literals"),
+                    _ => unreachable!("all constants found in declaration types should be reduceable to u32 literals"),
                 })
             }
             c => c,
