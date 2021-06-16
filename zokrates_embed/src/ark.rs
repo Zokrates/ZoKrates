@@ -7,38 +7,34 @@ use ark_ff::{BigInteger, One, PrimeField};
 use ark_r1cs_std::bits::boolean::Boolean;
 use ark_relations::{
     ns,
-    r1cs::{ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError},
+    r1cs::{ConstraintSystem, ConstraintSystemRef},
 };
 
 use ark_crypto_primitives::snark::constraints::SNARKGadget;
-use ark_crypto_primitives::snark::{FromFieldElementsGadget, SNARK};
-use ark_gm17::{constraints::GM17VerifierGadget, GM17};
-use ark_r1cs_std::ToConstraintFieldGadget;
-
-use ark_r1cs_std::alloc::AllocVar;
-use ark_std::test_rng;
+use ark_crypto_primitives::snark::FromFieldElementsGadget;
+use ark_gm17::{constraints::GM17VerifierGadget, Proof, VerifyingKey, GM17};
+use ark_r1cs_std::alloc::{AllocVar, AllocationMode};
 
 use crate::Constraint;
 use ark_r1cs_std::fields::fp::FpVar;
-use ark_relations::r1cs::Variable;
 
-#[derive(Copy, Clone)]
-struct DefaultCircuit {
-    pub public_input_size: usize,
-}
-
-impl<F: PrimeField> ConstraintSynthesizer<F> for DefaultCircuit {
-    fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<(), SynthesisError> {
-        for _ in 0..self.public_input_size {
-            let _ = FpVar::<F>::new_input(ns!(cs, "alloc"), || Ok(F::one()))?;
-            // gadget.to_bits_le()?;
+macro_rules! var {
+    ($f:expr, $offset:expr) => {
+        match $f {
+            FpVar::Var(ref fp) => {
+                let var = &fp.variable;
+                var.get_index_unchecked($offset).unwrap()
+            }
+            _ => unreachable!("expected variable, found constant"),
         }
-        Ok(())
-    }
+    };
 }
 
 type GM17Snark = GM17<BLS12PairingEngine>;
 type VerifierGadget = GM17VerifierGadget<BLS12PairingEngine, BLS12PairingVar>;
+
+type G1 = <ark_ec::bls12::Bls12<ark_bls12_377::Parameters> as PairingEngine>::G1Affine;
+type G2 = <ark_ec::bls12::Bls12<ark_bls12_377::Parameters> as PairingEngine>::G2Affine;
 
 #[allow(clippy::type_complexity)]
 pub fn generate_verify_constraints(
@@ -51,12 +47,6 @@ pub fn generate_verify_constraints(
     Vec<Constraint<BW6Fr>>,
     usize,
 ) {
-    let mut rng = test_rng();
-    let circuit = DefaultCircuit { public_input_size };
-
-    let (pk, vk) = GM17Snark::circuit_specific_setup(circuit, &mut rng).unwrap();
-    let proof = GM17Snark::prove(&pk, circuit, &mut rng).unwrap();
-
     let cs_sys = ConstraintSystem::<BW6Fr>::new();
     let cs = ConstraintSystemRef::new(cs_sys);
 
@@ -65,166 +55,116 @@ pub fn generate_verify_constraints(
         inputs.push(FpVar::new_input(ns!(cs, "alloc_input"), || Ok(BLS12Fq::one())).unwrap());
     }
 
-    let input_indices = inputs
-        .iter()
-        .map(|f| match f {
-            FpVar::Var(fp) => var_to_index(&fp.variable),
-            _ => unreachable!(),
-        })
-        .collect::<Vec<usize>>();
-
-    let input_gadget = <VerifierGadget as SNARKGadget<
+    let dummy_inputs = <VerifierGadget as SNARKGadget<
         <BLS12PairingEngine as PairingEngine>::Fr,
         <BLS12PairingEngine as PairingEngine>::Fq,
         GM17Snark,
     >>::InputVar::from_field_elements(&inputs)
     .unwrap();
 
-    let proof_gadget = <VerifierGadget as SNARKGadget<
+    let dummy_proof = <VerifierGadget as SNARKGadget<
         <BLS12PairingEngine as PairingEngine>::Fr,
         <BLS12PairingEngine as PairingEngine>::Fq,
         GM17Snark,
-    >>::ProofVar::new_witness(ns!(cs, "alloc_proof"), || Ok(proof))
+    >>::new_proof_unchecked(
+        ns!(cs, "alloc_proof"),
+        || {
+            Ok(Proof {
+                a: G1::default(),
+                b: G2::default(),
+                c: G1::default(),
+            })
+        },
+        AllocationMode::Witness,
+    )
     .unwrap();
 
-    let proof_indices: Vec<usize> = vec![
-        proof_gadget
-            .a
-            .to_constraint_field()
-            .unwrap()
-            .iter()
-            .take(2) // [x, y, infinity] - infinity
-            .map(|f| match f {
-                FpVar::Var(fp) => var_to_index(&fp.variable),
-                _ => unreachable!(),
-            })
-            .collect::<Vec<usize>>(),
-        proof_gadget
-            .b
-            .to_constraint_field()
-            .unwrap()
-            .iter()
-            .take(4) // [[x0, y0], [x1, y1], infinity] - infinity
-            .map(|f| match f {
-                FpVar::Var(fp) => var_to_index(&fp.variable),
-                _ => unreachable!(),
-            })
-            .collect::<Vec<usize>>(),
-        proof_gadget
-            .c
-            .to_constraint_field()
-            .unwrap()
-            .iter()
-            .take(2) // [x, y, infinity] - infinity
-            .map(|f| match f {
-                FpVar::Var(fp) => var_to_index(&fp.variable),
-                _ => unreachable!(),
-            })
-            .collect::<Vec<usize>>(),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-
-    let vk_gadget = <VerifierGadget as SNARKGadget<
+    let dummy_vk = <VerifierGadget as SNARKGadget<
         <BLS12PairingEngine as PairingEngine>::Fr,
         <BLS12PairingEngine as PairingEngine>::Fq,
         GM17Snark,
-    >>::VerifyingKeyVar::new_witness(ns!(cs, "alloc_vk"), || Ok(vk.clone()))
+    >>::new_verification_key_unchecked(
+        ns!(cs, "alloc_vk"),
+        || {
+            Ok(VerifyingKey {
+                h_g2: G2::default(),
+                g_alpha_g1: G1::default(),
+                h_beta_g2: G2::default(),
+                g_gamma_g1: G1::default(),
+                h_gamma_g2: G2::default(),
+                query: vec![G1::default(); public_input_size + 1],
+            })
+        },
+        AllocationMode::Witness,
+    )
     .unwrap();
-
-    let vk_indices: Vec<usize> = vec![
-        vk_gadget
-            .h_g2
-            .to_constraint_field()
-            .unwrap()
-            .iter()
-            .take(4) // [[x0, y0], [x1, y1], infinity] - infinity
-            .map(|f| match f {
-                FpVar::Var(fp) => var_to_index(&fp.variable),
-                _ => unreachable!(),
-            })
-            .collect::<Vec<usize>>(),
-        vk_gadget
-            .g_alpha_g1
-            .to_constraint_field()
-            .unwrap()
-            .iter()
-            .take(2) // [x, y, infinity] - infinity
-            .map(|f| match f {
-                FpVar::Var(fp) => var_to_index(&fp.variable),
-                _ => unreachable!(),
-            })
-            .collect::<Vec<usize>>(),
-        vk_gadget
-            .h_beta_g2
-            .to_constraint_field()
-            .unwrap()
-            .iter()
-            .take(4) // [[x0, y0], [x1, y1], infinity] - infinity
-            .map(|f| match f {
-                FpVar::Var(fp) => var_to_index(&fp.variable),
-                _ => unreachable!(),
-            })
-            .collect::<Vec<usize>>(),
-        vk_gadget
-            .g_gamma_g1
-            .to_constraint_field()
-            .unwrap()
-            .iter()
-            .take(2) // [x, y, infinity] - infinity
-            .map(|f| match f {
-                FpVar::Var(fp) => var_to_index(&fp.variable),
-                _ => unreachable!(),
-            })
-            .collect::<Vec<usize>>(),
-        vk_gadget
-            .h_gamma_g2
-            .to_constraint_field()
-            .unwrap()
-            .iter()
-            .take(4) // [[x0, y0], [x1, y1], infinity] - infinity
-            .map(|f| match f {
-                FpVar::Var(fp) => var_to_index(&fp.variable),
-                _ => unreachable!(),
-            })
-            .collect::<Vec<usize>>(),
-        vk_gadget
-            .query
-            .iter()
-            .map(|q| {
-                q.to_constraint_field()
-                    .unwrap()
-                    .iter()
-                    .take(2) // [x, y, infinity] - infinity
-                    .map(|f| match f {
-                        FpVar::Var(fp) => var_to_index(&fp.variable),
-                        _ => unreachable!(),
-                    })
-                    .collect::<Vec<usize>>()
-            })
-            .flatten()
-            .collect::<Vec<usize>>(),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<usize>>();
 
     let res = <VerifierGadget as SNARKGadget<
         <BLS12PairingEngine as PairingEngine>::Fr,
         <BLS12PairingEngine as PairingEngine>::Fq,
         GM17Snark,
-    >>::verify(&vk_gadget, &input_gadget, &proof_gadget)
+    >>::verify(&dummy_vk, &dummy_inputs, &dummy_proof)
     .unwrap();
 
+    cs.finalize();
+
+    let num_instance_variables = cs.num_instance_variables();
+    let input_indices = inputs.iter().map(|f| var!(f, 0)).collect::<Vec<usize>>();
+
+    let proof_indices: Vec<usize> = vec![
+        var!(dummy_proof.a.x, num_instance_variables),
+        var!(dummy_proof.a.y, num_instance_variables),
+        var!(dummy_proof.b.x.c0, num_instance_variables),
+        var!(dummy_proof.b.x.c1, num_instance_variables),
+        var!(dummy_proof.b.y.c0, num_instance_variables),
+        var!(dummy_proof.b.y.c1, num_instance_variables),
+        var!(dummy_proof.c.x, num_instance_variables),
+        var!(dummy_proof.c.y, num_instance_variables),
+    ];
+
+    let mut vk_indices: Vec<usize> = vec![
+        var!(dummy_vk.h_g2.x.c0, num_instance_variables),
+        var!(dummy_vk.h_g2.x.c1, num_instance_variables),
+        var!(dummy_vk.h_g2.y.c0, num_instance_variables),
+        var!(dummy_vk.h_g2.y.c1, num_instance_variables),
+        var!(dummy_vk.g_alpha_g1.x, num_instance_variables),
+        var!(dummy_vk.g_alpha_g1.y, num_instance_variables),
+        var!(dummy_vk.h_beta_g2.x.c0, num_instance_variables),
+        var!(dummy_vk.h_beta_g2.x.c1, num_instance_variables),
+        var!(dummy_vk.h_beta_g2.y.c0, num_instance_variables),
+        var!(dummy_vk.h_beta_g2.y.c1, num_instance_variables),
+        var!(dummy_vk.g_gamma_g1.x, num_instance_variables),
+        var!(dummy_vk.g_gamma_g1.y, num_instance_variables),
+        var!(dummy_vk.h_gamma_g2.x.c0, num_instance_variables),
+        var!(dummy_vk.h_gamma_g2.x.c1, num_instance_variables),
+        var!(dummy_vk.h_gamma_g2.y.c0, num_instance_variables),
+        var!(dummy_vk.h_gamma_g2.y.c1, num_instance_variables),
+    ];
+
+    vk_indices.extend(
+        dummy_vk
+            .query
+            .iter()
+            .map(|q| {
+                vec![
+                    var!(q.x, num_instance_variables),
+                    var!(q.y, num_instance_variables),
+                ]
+            })
+            .flatten(),
+    );
+
     let out_index = match &res {
-        Boolean::Is(x) => var_to_index(&x.variable()),
-        Boolean::Not(x) => var_to_index(&x.variable()),
+        Boolean::Is(x) => x
+            .variable()
+            .get_index_unchecked(num_instance_variables)
+            .unwrap(),
+        Boolean::Not(x) => x
+            .variable()
+            .get_index_unchecked(num_instance_variables)
+            .unwrap(),
         _ => unreachable!(),
     };
-
-    // res.conditional_enforce_equal(&Boolean::TRUE, &Boolean::TRUE).unwrap();
-    cs.finalize();
 
     let matrices = cs.to_matrices().unwrap();
     let constraints: Vec<Constraint<_>> = matrices
@@ -239,16 +179,12 @@ pub fn generate_verify_constraints(
         })
         .collect();
 
-    // println!("input_indices: {:?}", input_indices);
-    // println!("proof_indices: {:?}", proof_indices);
-    // println!("vk_indices: {:?}", vk_indices);
-    // println!("out_index: {:?}", out_index);
-
-    assert!(
-        cs.is_satisfied().unwrap(),
-        "Constraint not satisfied: {}",
-        cs.which_is_unsatisfied().unwrap().unwrap_or_default()
-    );
+    println!("num_instance_variables: {:?}", num_instance_variables);
+    println!("input_indices: {:?}", input_indices);
+    println!("proof_indices: {:?}", proof_indices);
+    println!("vk_indices: {:?}", vk_indices);
+    println!("out_index: {:?}", out_index);
+    println!("constraint_count: {:?}", cs.num_constraints());
 
     (
         out_index,
@@ -263,11 +199,6 @@ pub fn generate_verify_constraints(
 #[test]
 fn generate_verify_constraints_test() {
     let _ = generate_verify_constraints(2);
-}
-
-fn var_to_index(v: &Variable) -> usize {
-    v.get_index_unchecked(0)
-        .expect("Could not get variable index")
 }
 
 pub fn from_ark<T: zokrates_field::Field, E: PairingEngine>(c: Constraint<E::Fq>) -> Constraint<T> {

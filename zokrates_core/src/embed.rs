@@ -323,10 +323,9 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
 
 #[cfg(feature = "ark")]
 pub fn verify<T: Field>(n: usize) -> FlatFunction<T> {
-    let (out_index, input_indices, proof_indices, vk_indices, constraints, aux_count) =
+    let (out_index, input_indices, proof_indices, vk_indices, constraints, variable_count) =
         generate_verify_constraints(n);
 
-    let variable_count = aux_count + 1; // aux + ~one
     let cs_indices = 0..variable_count;
     let input_indices = input_indices.into_iter();
     let proof_indices = proof_indices.into_iter();
