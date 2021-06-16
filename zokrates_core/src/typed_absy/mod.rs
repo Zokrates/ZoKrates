@@ -298,6 +298,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedConstant<'ast, T> {
+    // the type is already stored in the TypedExpression, but we want to avoid awkward trait bounds in `fmt::Display`
     pub ty: Type<'ast, T>,
     pub expression: TypedExpression<'ast, T>,
 }
@@ -310,6 +311,7 @@ impl<'ast, T> TypedConstant<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // using `self.expression.get_type()` would be better here but ends up requiring stronger trait bounds
         write!(f, "const {}({})", self.ty, self.expression)
     }
 }
