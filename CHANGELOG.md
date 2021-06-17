@@ -7,7 +7,7 @@ https://github.com/Zokrates/ZoKrates/compare/latest...develop
 ## [0.7.4] - 2021-06-17
 
 ### Release
-- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.4
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.4 <!-- markdown-link-check-disable-line -->
 
 ### Changes
 - Add `FIELD_SIZE_IN_BITS`, `FIELD_MIN` and `FIELD_MAX` constants to `field` stdlib module (#917, @dark64)
