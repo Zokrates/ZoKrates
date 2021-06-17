@@ -1,1 +1,0 @@
-Documentation improvements, move examples to a separate section, remove deprecated `--light` flag used in a rng tutorial, add a simple file system resolver example to zokrates.js docs

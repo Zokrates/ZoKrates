@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.4] - 2021-06-17
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.4
+
+### Changes
+- Add `FIELD_SIZE_IN_BITS`, `FIELD_MIN` and `FIELD_MAX` constants to `field` stdlib module (#917, @dark64)
+- Fix crash on import of functions containing constants (#913, @schaeff)
+- Change endianness in keccak, sha3 and blake2s hash algorithms to big endian (#906, @dark64)
+- Documentation improvements, move examples to a separate section, remove deprecated `--light` flag used in a rng tutorial, add a simple file system resolver example to zokrates.js docs (#914, @dark64)
+- Fixed deserialization logic in the zokrates.js that caused issues on cli-compiled binaries (#912, @dark64)
+- Reduce the cost of conditionals (#907, @schaeff)
+- Improve propagation on if-else expressions when consequence and alternative are equal (#905, @schaeff)
+- Fix access to constant in local function call (#910, @schaeff)
+- Fix parsing of the left hand side of definitions (#896, @schaeff)
+- Fix variable write remover when isolating branches (#904, @schaeff)
+- Introduce a limit of 2**20 for for-loop sizes (#902, @schaeff)
+- Run compilation test on RNG tutorial and fix bugs (#881, @axic)
+
 ## [0.7.3] - 2021-05-19
 
 ### Release
