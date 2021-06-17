@@ -1,6 +1,14 @@
 import "hashes/keccak/256bit" as keccak256
 
+// Python code:
+// >>> from Crypto.Hash import keccak
+
+// >>> digest = keccak.new(digest_bits=256)
+// >>> digest.update(b'\x00\x00\x00\x00\x00\x00\x00\x2A' * 20)
+// >>> digest.hexdigest()
+// '33d0141407fee6e5d9caf6ae44e840bc67a37da55e3c845fbc2b4a6dce1f02f0'
+
 def main():
     u64[4] h = keccak256::<20>([42; 20])
-    assert(h == [0x09330DD35B609CA9, 0xDACFC1598C95602C, 0xACD911013FB018F3, 0x17233D68F05E0826])
+    assert(h == [0x33D0141407FEE6E5, 0xD9CAF6AE44E840BC, 0x67A37DA55E3C845F, 0xBC2B4A6DCE1F02F0])
     return

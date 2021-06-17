@@ -1,6 +1,6 @@
 // Generic walk through a typed AST. Not mutating in place
 
-use crate::typed_absy::types::{ArrayType, StructMember, StructType};
+use crate::typed_absy::types::*;
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
@@ -80,6 +80,13 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_signature(self, s)
     }
 
+    fn fold_declaration_constant(
+        &mut self,
+        c: DeclarationConstant<'ast>,
+    ) -> DeclarationConstant<'ast> {
+        fold_declaration_constant(self, c)
+    }
+
     fn fold_parameter(&mut self, p: DeclarationParameter<'ast>) -> DeclarationParameter<'ast> {
         DeclarationParameter {
             id: self.fold_declaration_variable(p.id),
@@ -144,7 +151,40 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_declaration_type(&mut self, t: DeclarationType<'ast>) -> DeclarationType<'ast> {
-        t
+        use self::GType::*;
+
+        match t {
+            Array(array_type) => Array(self.fold_declaration_array_type(array_type)),
+            Struct(struct_type) => Struct(self.fold_declaration_struct_type(struct_type)),
+            t => t,
+        }
+    }
+
+    fn fold_declaration_array_type(
+        &mut self,
+        t: DeclarationArrayType<'ast>,
+    ) -> DeclarationArrayType<'ast> {
+        DeclarationArrayType {
+            ty: box self.fold_declaration_type(*t.ty),
+            size: self.fold_declaration_constant(t.size),
+        }
+    }
+
+    fn fold_declaration_struct_type(
+        &mut self,
+        t: DeclarationStructType<'ast>,
+    ) -> DeclarationStructType<'ast> {
+        DeclarationStructType {
+            members: t
+                .members
+                .into_iter()
+                .map(|m| DeclarationStructMember {
+                    ty: box self.fold_declaration_type(*m.ty),
+                    ..m
+                })
+                .collect(),
+            ..t
+        }
     }
 
     fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
@@ -173,6 +213,20 @@ pub trait Folder<'ast, T: Field>: Sized {
         TypedSpread {
             array: self.fold_array_expression(s.array),
         }
+    }
+
+    fn fold_canonical_constant_identifier(
+        &mut self,
+        i: CanonicalConstantIdentifier<'ast>,
+    ) -> CanonicalConstantIdentifier<'ast> {
+        CanonicalConstantIdentifier {
+            module: self.fold_module_id(i.module),
+            id: i.id,
+        }
+    }
+
+    fn fold_module_id(&mut self, i: OwnedTypedModuleId) -> OwnedTypedModuleId {
+        i
     }
 
     fn fold_expression(&mut self, e: TypedExpression<'ast, T>) -> TypedExpression<'ast, T> {
@@ -316,7 +370,12 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
         constants: m
             .constants
             .into_iter()
-            .map(|(key, tc)| (key, f.fold_constant_symbol(tc)))
+            .map(|(id, tc)| {
+                (
+                    f.fold_canonical_constant_identifier(id),
+                    f.fold_constant_symbol(tc),
+                )
+            })
             .collect(),
         functions: m
             .functions
@@ -901,6 +960,13 @@ fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
+fn fold_declaration_constant<'ast, T: Field, F: Folder<'ast, T>>(
+    _: &mut F,
+    c: DeclarationConstant<'ast>,
+) -> DeclarationConstant<'ast> {
+    c
+}
+
 pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: ArrayExpression<'ast, T>,
@@ -988,7 +1054,9 @@ pub fn fold_constant_symbol<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> TypedConstantSymbol<'ast, T> {
     match s {
         TypedConstantSymbol::Here(tc) => TypedConstantSymbol::Here(f.fold_constant(tc)),
-        there => there,
+        TypedConstantSymbol::There(id) => {
+            TypedConstantSymbol::There(f.fold_canonical_constant_identifier(id))
+        }
     }
 }
 
@@ -998,7 +1066,10 @@ pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> TypedFunctionSymbol<'ast, T> {
     match s {
         TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
-        there => there, // by default, do not fold modules recursively
+        TypedFunctionSymbol::There(key) => {
+            TypedFunctionSymbol::There(f.fold_declaration_function_key(key))
+        }
+        s => s,
     }
 }
 
@@ -1023,8 +1094,8 @@ pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
         modules: p
             .modules
             .into_iter()
-            .map(|(module_id, module)| (module_id, f.fold_module(module)))
+            .map(|(module_id, module)| (f.fold_module_id(module_id), f.fold_module(module)))
             .collect(),
-        main: p.main,
+        main: f.fold_module_id(p.main),
     }
 }

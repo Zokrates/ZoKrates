@@ -1,4 +1,4 @@
-use crate::typed_absy::types::Constant;
+use crate::typed_absy::types::DeclarationConstant;
 use crate::typed_absy::GVariable;
 use std::fmt;
 
@@ -18,7 +18,7 @@ impl<'ast, S> From<GVariable<'ast, S>> for GParameter<'ast, S> {
     }
 }
 
-pub type DeclarationParameter<'ast> = GParameter<'ast, Constant<'ast>>;
+pub type DeclarationParameter<'ast> = GParameter<'ast, DeclarationConstant<'ast>>;
 
 impl<'ast, S: fmt::Display + Clone> fmt::Display for GParameter<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

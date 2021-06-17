@@ -1,0 +1,3 @@
+const u32 N = 1 + 1
+def foo(field[N] a) -> bool:
+   return true
