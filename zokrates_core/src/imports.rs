@@ -14,6 +14,7 @@ use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use crate::absy::types::UnresolvedType;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
 use zokrates_field::{Bn128Field, Field};
@@ -155,6 +156,17 @@ impl Importer {
                 "u8_from_bits" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::U8FromBits),
+                },
+                "FIELD_SIZE_IN_BITS" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Here(SymbolDefinition::Constant(
+                        ConstantDefinition {
+                            ty: UnresolvedType::Uint(32).into(),
+                            expression: Expression::U32Constant(T::get_required_bits() as u32)
+                                .into(),
+                        }
+                        .start_end(pos.0, pos.1),
+                    )),
                 },
                 s => {
                     return Err(CompileErrorInner::ImportError(
