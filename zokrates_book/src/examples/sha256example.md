@@ -7,7 +7,7 @@ In particular, we'll show how ZoKrates and the Ethereum blockchain can be used t
 
 ## Pre-requisites
 
-Make sure you have followed the instructions in the [Getting Started](gettingstarted.md) chapter and are able to run the "Hello World" example described there.
+Make sure you have followed the instructions in the [Getting Started](../gettingstarted.md) chapter and are able to run the "Hello World" example described there.
 
 ## Computing a Hash using ZoKrates
 

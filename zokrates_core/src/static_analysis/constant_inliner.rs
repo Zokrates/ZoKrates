@@ -1,161 +1,153 @@
-use crate::static_analysis::propagation::Propagator;
+use crate::static_analysis::Propagator;
 use crate::typed_absy::folder::*;
 use crate::typed_absy::result_folder::ResultFolder;
-use crate::typed_absy::types::{Constant, DeclarationStructType, GStructMember};
+use crate::typed_absy::types::DeclarationConstant;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use zokrates_field::Field;
 
-pub struct ConstantInliner<'ast, 'a, T: Field> {
+type ProgramConstants<'ast, T> =
+    HashMap<OwnedTypedModuleId, HashMap<Identifier<'ast>, TypedExpression<'ast, T>>>;
+
+pub struct ConstantInliner<'ast, T> {
     modules: TypedModules<'ast, T>,
     location: OwnedTypedModuleId,
-    propagator: Propagator<'ast, 'a, T>,
+    constants: ProgramConstants<'ast, T>,
 }
 
-impl<'ast, 'a, T: Field> ConstantInliner<'ast, 'a, T> {
+impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
     pub fn new(
         modules: TypedModules<'ast, T>,
         location: OwnedTypedModuleId,
-        propagator: Propagator<'ast, 'a, T>,
+        constants: ProgramConstants<'ast, T>,
     ) -> Self {
         ConstantInliner {
             modules,
             location,
-            propagator,
+            constants,
         }
     }
     pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        let mut constants = HashMap::new();
-        let mut inliner = ConstantInliner::new(
-            p.modules.clone(),
-            p.main.clone(),
-            Propagator::with_constants(&mut constants),
-        );
+        let constants = ProgramConstants::new();
+        let mut inliner = ConstantInliner::new(p.modules.clone(), p.main.clone(), constants);
         inliner.fold_program(p)
-    }
-
-    fn module(&self) -> &TypedModule<'ast, T> {
-        self.modules.get(&self.location).unwrap()
     }
 
     fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
         let prev = self.location.clone();
         self.location = location;
+        self.constants.entry(self.location.clone()).or_default();
         prev
     }
 
-    fn get_constant(&mut self, id: &Identifier) -> Option<TypedConstant<'ast, T>> {
-        self.modules
-            .get(&self.location)
-            .unwrap()
-            .constants
-            .get(id.clone().try_into().unwrap())
-            .cloned()
-            .map(|symbol| self.get_canonical_constant(symbol))
+    fn treated(&self, id: &TypedModuleId) -> bool {
+        self.constants.contains_key(id)
     }
 
-    fn get_canonical_constant(
-        &mut self,
-        symbol: TypedConstantSymbol<'ast, T>,
-    ) -> TypedConstant<'ast, T> {
-        match symbol {
-            TypedConstantSymbol::There(module_id, id) => {
-                let location = self.change_location(module_id);
-                let symbol = self.module().constants.get(id).cloned().unwrap();
+    fn get_constant(
+        &self,
+        id: &CanonicalConstantIdentifier<'ast>,
+    ) -> Option<TypedExpression<'ast, T>> {
+        self.constants
+            .get(&id.module)
+            .and_then(|constants| constants.get(&id.id.into()))
+            .cloned()
+    }
 
-                let symbol = self.get_canonical_constant(symbol);
-                let _ = self.change_location(location);
-                symbol
-            }
-            TypedConstantSymbol::Here(tc) => {
-                let tc: TypedConstant<T> = self.fold_constant(tc);
-                TypedConstant {
-                    expression: self.propagator.fold_expression(tc.expression).unwrap(),
-                    ..tc
-                }
-            }
-        }
+    fn get_constant_for_identifier(
+        &self,
+        id: &Identifier<'ast>,
+    ) -> Option<TypedExpression<'ast, T>> {
+        self.constants
+            .get(&self.location)
+            .and_then(|constants| constants.get(&id))
+            .cloned()
     }
 }
 
-impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
-    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        TypedProgram {
-            modules: p
-                .modules
+impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
+    fn fold_module_id(&mut self, id: OwnedTypedModuleId) -> OwnedTypedModuleId {
+        // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
+        if !self.treated(&id) {
+            let current_m_id = self.change_location(id.clone());
+            let m = self.modules.remove(&id).unwrap();
+            let m = self.fold_module(m);
+            self.modules.insert(id.clone(), m);
+            self.change_location(current_m_id);
+        }
+        id
+    }
+
+    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
+        TypedModule {
+            constants: m
+                .constants
                 .into_iter()
-                .map(|(module_id, module)| {
-                    self.change_location(module_id.clone());
-                    (module_id, self.fold_module(module))
+                .map(|(id, tc)| {
+                    let constant = match tc {
+                        TypedConstantSymbol::There(imported_id) => {
+                            // visit the imported symbol. This triggers visiting the corresponding module if needed
+                            let imported_id = self.fold_canonical_constant_identifier(imported_id);
+                            // after that, the constant must have been defined defined in the global map. It is already reduced
+                            // to a literal, so running propagation isn't required
+                            self.get_constant(&imported_id).unwrap()
+                        }
+                        TypedConstantSymbol::Here(c) => {
+                            let non_propagated_constant = fold_constant(self, c).expression;
+                            // folding the constant above only reduces it to an expression containing only literals, not to a single literal.
+                            // propagating with an empty map of constants reduces it to a single literal
+                            Propagator::with_constants(&mut HashMap::default())
+                                .fold_expression(non_propagated_constant)
+                                .unwrap()
+                        }
+                    };
+
+                    // add to the constant map. The value added is always a single litteral
+                    self.constants
+                        .get_mut(&self.location)
+                        .unwrap()
+                        .insert(id.id.into(), constant.clone());
+
+                    (
+                        id,
+                        TypedConstantSymbol::Here(TypedConstant {
+                            ty: constant.get_type().clone(),
+                            expression: constant,
+                        }),
+                    )
                 })
                 .collect(),
-            main: p.main,
+            functions: m
+                .functions
+                .into_iter()
+                .map(|(key, fun)| {
+                    (
+                        self.fold_declaration_function_key(key),
+                        self.fold_function_symbol(fun),
+                    )
+                })
+                .collect(),
         }
     }
 
-    fn fold_declaration_type(&mut self, t: DeclarationType<'ast>) -> DeclarationType<'ast> {
-        match t {
-            DeclarationType::Array(ref array_ty) => match array_ty.size {
-                Constant::Identifier(name, _) => {
-                    let tc = self.get_constant(&name.into()).unwrap();
-                    let expression: UExpression<'ast, T> = tc.expression.try_into().unwrap();
-                    match expression.inner {
-                        UExpressionInner::Value(v) => DeclarationType::array((
-                            self.fold_declaration_type(*array_ty.ty.clone()),
-                            Constant::Concrete(v as u32),
-                        )),
-                        _ => unreachable!("expected u32 value"),
-                    }
-                }
-                _ => t,
-            },
-            DeclarationType::Struct(struct_ty) => DeclarationType::struc(DeclarationStructType {
-                members: struct_ty
-                    .members
-                    .into_iter()
-                    .map(|m| GStructMember::new(m.id, self.fold_declaration_type(*m.ty)))
-                    .collect(),
-                ..struct_ty
-            }),
-            _ => t,
-        }
-    }
-
-    fn fold_type(&mut self, t: Type<'ast, T>) -> Type<'ast, T> {
-        use self::GType::*;
-        match t {
-            Array(ref array_type) => match &array_type.size.inner {
-                UExpressionInner::Identifier(v) => match self.get_constant(v) {
-                    Some(tc) => {
-                        let expression: UExpression<'ast, T> = tc.expression.try_into().unwrap();
-                        Type::array(GArrayType::new(
-                            self.fold_type(*array_type.ty.clone()),
-                            expression,
-                        ))
-                    }
-                    None => t,
-                },
-                _ => t,
-            },
-            Struct(struct_type) => Type::struc(GStructType {
-                members: struct_type
-                    .members
-                    .into_iter()
-                    .map(|m| GStructMember::new(m.id, self.fold_type(*m.ty)))
-                    .collect(),
-                ..struct_type
-            }),
-            _ => t,
-        }
-    }
-
-    fn fold_constant_symbol(
+    fn fold_declaration_constant(
         &mut self,
-        s: TypedConstantSymbol<'ast, T>,
-    ) -> TypedConstantSymbol<'ast, T> {
-        let tc = self.get_canonical_constant(s);
-        TypedConstantSymbol::Here(tc)
+        c: DeclarationConstant<'ast>,
+    ) -> DeclarationConstant<'ast> {
+        match c {
+            // replace constants by their concrete value in declaration types
+            DeclarationConstant::Constant(id) => {
+                DeclarationConstant::Concrete(match self.get_constant(&id).unwrap() {
+                    TypedExpression::Uint(UExpression {
+                        inner: UExpressionInner::Value(v),
+                        ..
+                    }) => v as u32,
+                    _ => unreachable!("all constants found in declaration types should be reduceable to u32 literals"),
+                })
+            }
+            c => c,
+        }
     }
 
     fn fold_field_expression(
@@ -163,10 +155,12 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
         match e {
-            FieldElementExpression::Identifier(ref id) => match self.get_constant(id) {
-                Some(c) => self.fold_constant(c).try_into().unwrap(),
-                None => fold_field_expression(self, e),
-            },
+            FieldElementExpression::Identifier(ref id) => {
+                match self.get_constant_for_identifier(id) {
+                    Some(c) => c.try_into().unwrap(),
+                    None => fold_field_expression(self, e),
+                }
+            }
             e => fold_field_expression(self, e),
         }
     }
@@ -176,8 +170,8 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
-            BooleanExpression::Identifier(ref id) => match self.get_constant(id) {
-                Some(c) => self.fold_constant(c).try_into().unwrap(),
+            BooleanExpression::Identifier(ref id) => match self.get_constant_for_identifier(id) {
+                Some(c) => c.try_into().unwrap(),
                 None => fold_boolean_expression(self, e),
             },
             e => fold_boolean_expression(self, e),
@@ -190,9 +184,9 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         match e {
-            UExpressionInner::Identifier(ref id) => match self.get_constant(id) {
+            UExpressionInner::Identifier(ref id) => match self.get_constant_for_identifier(id) {
                 Some(c) => {
-                    let e: UExpression<'ast, T> = self.fold_constant(c).try_into().unwrap();
+                    let e: UExpression<'ast, T> = c.try_into().unwrap();
                     e.into_inner()
                 }
                 None => fold_uint_expression_inner(self, size, e),
@@ -207,13 +201,15 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         match e {
-            ArrayExpressionInner::Identifier(ref id) => match self.get_constant(id) {
-                Some(c) => {
-                    let e: ArrayExpression<'ast, T> = self.fold_constant(c).try_into().unwrap();
-                    e.into_inner()
+            ArrayExpressionInner::Identifier(ref id) => {
+                match self.get_constant_for_identifier(id) {
+                    Some(c) => {
+                        let e: ArrayExpression<'ast, T> = c.try_into().unwrap();
+                        e.into_inner()
+                    }
+                    None => fold_array_expression_inner(self, ty, e),
                 }
-                None => fold_array_expression_inner(self, ty, e),
-            },
+            }
             e => fold_array_expression_inner(self, ty, e),
         }
     }
@@ -224,9 +220,10 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ConstantInliner<'ast, 'a, T> {
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
-            StructExpressionInner::Identifier(ref id) => match self.get_constant(id) {
+            StructExpressionInner::Identifier(ref id) => match self.get_constant_for_identifier(id)
+            {
                 Some(c) => {
-                    let e: StructExpression<'ast, T> = self.fold_constant(c).try_into().unwrap();
+                    let e: StructExpression<'ast, T> = c.try_into().unwrap();
                     e.into_inner()
                 }
                 None => fold_struct_expression_inner(self, ty, e),
@@ -265,7 +262,7 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            const_id,
+            CanonicalConstantIdentifier::new(const_id, "main".into()),
             TypedConstantSymbol::Here(TypedConstant::new(
                 GType::FieldElement,
                 TypedExpression::FieldElement(FieldElementExpression::Number(Bn128Field::from(1))),
@@ -353,7 +350,7 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            const_id,
+            CanonicalConstantIdentifier::new(const_id, "main".into()),
             TypedConstantSymbol::Here(TypedConstant::new(
                 GType::Boolean,
                 TypedExpression::Boolean(BooleanExpression::Value(true)),
@@ -442,7 +439,7 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            const_id,
+            CanonicalConstantIdentifier::new(const_id, "main".into()),
             TypedConstantSymbol::Here(TypedConstant::new(
                 GType::Uint(UBitwidth::B32),
                 UExpressionInner::Value(1u128)
@@ -523,16 +520,16 @@ mod tests {
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
-                FieldElementExpression::Select(
-                    box ArrayExpressionInner::Identifier(Identifier::from(const_id))
+                FieldElementExpression::select(
+                    ArrayExpressionInner::Identifier(Identifier::from(const_id))
                         .annotate(GType::FieldElement, 2usize),
-                    box UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
+                    UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
                 )
                 .into(),
-                FieldElementExpression::Select(
-                    box ArrayExpressionInner::Identifier(Identifier::from(const_id))
+                FieldElementExpression::select(
+                    ArrayExpressionInner::Identifier(Identifier::from(const_id))
                         .annotate(GType::FieldElement, 2usize),
-                    box UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
+                    UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
                 )
                 .into(),
             )
@@ -543,7 +540,7 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            const_id,
+            CanonicalConstantIdentifier::new(const_id, "main".into()),
             TypedConstantSymbol::Here(TypedConstant::new(
                 GType::FieldElement,
                 TypedExpression::Array(
@@ -588,8 +585,8 @@ mod tests {
         let expected_main = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
-                FieldElementExpression::Select(
-                    box ArrayExpressionInner::Value(
+                FieldElementExpression::select(
+                    ArrayExpressionInner::Value(
                         vec![
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
@@ -597,11 +594,11 @@ mod tests {
                         .into(),
                     )
                     .annotate(GType::FieldElement, 2usize),
-                    box UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
+                    UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
                 )
                 .into(),
-                FieldElementExpression::Select(
-                    box ArrayExpressionInner::Value(
+                FieldElementExpression::select(
+                    ArrayExpressionInner::Value(
                         vec![
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
                             FieldElementExpression::Number(Bn128Field::from(2)).into(),
@@ -609,7 +606,7 @@ mod tests {
                         .into(),
                     )
                     .annotate(GType::FieldElement, 2usize),
-                    box UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
+                    UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
                 )
                 .into(),
             )
@@ -682,7 +679,7 @@ mod tests {
                     .collect(),
                     constants: vec![
                         (
-                            const_a_id,
+                            CanonicalConstantIdentifier::new(const_a_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 GType::FieldElement,
                                 TypedExpression::FieldElement(FieldElementExpression::Number(
@@ -691,7 +688,7 @@ mod tests {
                             )),
                         ),
                         (
-                            const_b_id,
+                            CanonicalConstantIdentifier::new(const_b_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 GType::FieldElement,
                                 TypedExpression::FieldElement(FieldElementExpression::Add(
@@ -740,7 +737,7 @@ mod tests {
                     .collect(),
                     constants: vec![
                         (
-                            const_a_id,
+                            CanonicalConstantIdentifier::new(const_a_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 GType::FieldElement,
                                 TypedExpression::FieldElement(FieldElementExpression::Number(
@@ -749,7 +746,7 @@ mod tests {
                             )),
                         ),
                         (
-                            const_b_id,
+                            CanonicalConstantIdentifier::new(const_b_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 GType::FieldElement,
                                 TypedExpression::FieldElement(FieldElementExpression::Number(
@@ -801,7 +798,7 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                foo_const_id,
+                CanonicalConstantIdentifier::new(foo_const_id, "foo".into()),
                 TypedConstantSymbol::Here(TypedConstant::new(
                     GType::FieldElement,
                     TypedExpression::FieldElement(FieldElementExpression::Number(
@@ -833,8 +830,11 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                foo_const_id,
-                TypedConstantSymbol::There(OwnedTypedModuleId::from("foo"), foo_const_id),
+                CanonicalConstantIdentifier::new(foo_const_id, "main".into()),
+                TypedConstantSymbol::There(CanonicalConstantIdentifier::new(
+                    foo_const_id,
+                    "foo".into(),
+                )),
             )]
             .into_iter()
             .collect(),
@@ -871,7 +871,7 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                foo_const_id,
+                CanonicalConstantIdentifier::new(foo_const_id, "main".into()),
                 TypedConstantSymbol::Here(TypedConstant::new(
                     GType::FieldElement,
                     TypedExpression::FieldElement(FieldElementExpression::Number(

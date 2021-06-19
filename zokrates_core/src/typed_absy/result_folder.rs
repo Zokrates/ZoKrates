@@ -1,6 +1,6 @@
 // Generic walk through a typed AST. Not mutating in place
 
-use crate::typed_absy::types::{ArrayType, StructMember, StructType};
+use crate::typed_absy::types::*;
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
@@ -97,6 +97,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_signature(self, s)
     }
 
+    fn fold_declaration_constant(
+        &mut self,
+        c: DeclarationConstant<'ast>,
+    ) -> Result<DeclarationConstant<'ast>, Self::Error> {
+        fold_declaration_constant(self, c)
+    }
+
     fn fold_parameter(
         &mut self,
         p: DeclarationParameter<'ast>,
@@ -105,6 +112,20 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
             id: self.fold_declaration_variable(p.id)?,
             ..p
         })
+    }
+
+    fn fold_canonical_constant_identifier(
+        &mut self,
+        i: CanonicalConstantIdentifier<'ast>,
+    ) -> Result<CanonicalConstantIdentifier<'ast>, Self::Error> {
+        Ok(CanonicalConstantIdentifier {
+            module: self.fold_module_id(i.module)?,
+            id: i.id,
+        })
+    }
+
+    fn fold_module_id(&mut self, i: OwnedTypedModuleId) -> Result<OwnedTypedModuleId, Self::Error> {
+        Ok(i)
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
@@ -138,11 +159,55 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         }
     }
 
+    fn fold_types(&mut self, tys: Types<'ast, T>) -> Result<Types<'ast, T>, Self::Error> {
+        fold_types(self, tys)
+    }
+
+    fn fold_if_else_expression<
+        E: Expr<'ast, T> + PartialEq + IfElse<'ast, T> + ResultFold<'ast, T>,
+    >(
+        &mut self,
+        ty: &E::Ty,
+        e: IfElseExpression<'ast, T, E>,
+    ) -> Result<IfElseOrExpression<'ast, T, E>, Self::Error> {
+        fold_if_else_expression(self, ty, e)
+    }
+
     fn fold_block_expression<E: ResultFold<'ast, T>>(
         &mut self,
         block: BlockExpression<'ast, T, E>,
     ) -> Result<BlockExpression<'ast, T, E>, Self::Error> {
         fold_block_expression(self, block)
+    }
+
+    fn fold_member_expression<
+        E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
+        &mut self,
+        ty: &E::Ty,
+        e: MemberExpression<'ast, T, E>,
+    ) -> Result<MemberOrExpression<'ast, T, E>, Self::Error> {
+        fold_member_expression(self, ty, e)
+    }
+
+    fn fold_select_expression<
+        E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
+        &mut self,
+        ty: &E::Ty,
+        e: SelectExpression<'ast, T, E>,
+    ) -> Result<SelectOrExpression<'ast, T, E>, Self::Error> {
+        fold_select_expression(self, ty, e)
+    }
+
+    fn fold_function_call_expression<
+        E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
+    >(
+        &mut self,
+        ty: &E::Ty,
+        e: FunctionCallExpression<'ast, T, E>,
+    ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
+        fold_function_call_expression(self, ty, e)
     }
 
     fn fold_array_type(
@@ -178,6 +243,34 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         t: DeclarationType<'ast>,
     ) -> Result<DeclarationType<'ast>, Self::Error> {
         Ok(t)
+    }
+
+    fn fold_declaration_array_type(
+        &mut self,
+        t: DeclarationArrayType<'ast>,
+    ) -> Result<DeclarationArrayType<'ast>, Self::Error> {
+        Ok(DeclarationArrayType {
+            ty: box self.fold_declaration_type(*t.ty)?,
+            size: self.fold_declaration_constant(t.size)?,
+        })
+    }
+
+    fn fold_declaration_struct_type(
+        &mut self,
+        t: DeclarationStructType<'ast>,
+    ) -> Result<DeclarationStructType<'ast>, Self::Error> {
+        Ok(DeclarationStructType {
+            members: t
+                .members
+                .into_iter()
+                .map(|m| {
+                    let id = m.id;
+                    self.fold_declaration_type(*m.ty)
+                        .map(|ty| DeclarationStructMember { ty: box ty, id })
+                })
+                .collect::<Result<_, _>>()?,
+            ..t
+        })
     }
 
     fn fold_assignee(
@@ -252,6 +345,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         e: StructExpression<'ast, T>,
     ) -> Result<StructExpression<'ast, T>, Self::Error> {
         fold_struct_expression(self, e)
+    }
+
+    fn fold_expression_list_inner(
+        &mut self,
+        tys: &Types<'ast, T>,
+        es: TypedExpressionListInner<'ast, T>,
+    ) -> Result<TypedExpressionListInner<'ast, T>, Self::Error> {
+        fold_expression_list_inner(self, tys, es)
     }
 
     fn fold_expression_list(
@@ -353,7 +454,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    _: &ArrayType<'ast, T>,
+    ty: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> Result<ArrayExpressionInner<'ast, T>, F::Error> {
     let e = match e {
@@ -367,33 +468,24 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 .map(|e| f.fold_expression_or_spread(e))
                 .collect::<Result<_, _>>()?,
         ),
-        ArrayExpressionInner::FunctionCall(id, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)).transpose())
-                .collect::<Result<_, _>>()?;
-            let exps = exps
-                .into_iter()
-                .map(|e| f.fold_expression(e))
-                .collect::<Result<_, _>>()?;
-            ArrayExpressionInner::FunctionCall(id, generics, exps)
+        ArrayExpressionInner::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(ty, function_call)? {
+                FunctionCallOrExpression::FunctionCall(c) => ArrayExpressionInner::FunctionCall(c),
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
-        ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-            ArrayExpressionInner::IfElse(
-                box f.fold_boolean_expression(condition)?,
-                box f.fold_array_expression(consequence)?,
-                box f.fold_array_expression(alternative)?,
-            )
-        }
-        ArrayExpressionInner::Member(box s, id) => {
-            let s = f.fold_struct_expression(s)?;
-            ArrayExpressionInner::Member(box s, id)
-        }
-        ArrayExpressionInner::Select(box array, box index) => {
-            let array = f.fold_array_expression(array)?;
-            let index = f.fold_uint_expression(index)?;
-            ArrayExpressionInner::Select(box array, box index)
-        }
+        ArrayExpressionInner::IfElse(c) => match f.fold_if_else_expression(ty, c)? {
+            IfElseOrExpression::IfElse(c) => ArrayExpressionInner::IfElse(c),
+            IfElseOrExpression::Expression(u) => u,
+        },
+        ArrayExpressionInner::Member(m) => match f.fold_member_expression(ty, m)? {
+            MemberOrExpression::Member(m) => ArrayExpressionInner::Member(m),
+            MemberOrExpression::Expression(u) => u,
+        },
+        ArrayExpressionInner::Select(select) => match f.fold_select_expression(ty, select)? {
+            SelectOrExpression::Select(m) => ArrayExpressionInner::Select(m),
+            SelectOrExpression::Expression(u) => u,
+        },
         ArrayExpressionInner::Slice(box array, box from, box to) => {
             let array = f.fold_array_expression(array)?;
             let from = f.fold_uint_expression(from)?;
@@ -411,7 +503,7 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
 pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    _: &StructType<'ast, T>,
+    ty: &StructType<'ast, T>,
     e: StructExpressionInner<'ast, T>,
 ) -> Result<StructExpressionInner<'ast, T>, F::Error> {
     let e = match e {
@@ -427,33 +519,24 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 .map(|e| f.fold_expression(e))
                 .collect::<Result<_, _>>()?,
         ),
-        StructExpressionInner::FunctionCall(id, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)).transpose())
-                .collect::<Result<_, _>>()?;
-            let exps = exps
-                .into_iter()
-                .map(|e| f.fold_expression(e))
-                .collect::<Result<_, _>>()?;
-            StructExpressionInner::FunctionCall(id, generics, exps)
+        StructExpressionInner::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(ty, function_call)? {
+                FunctionCallOrExpression::FunctionCall(c) => StructExpressionInner::FunctionCall(c),
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
-        StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-            StructExpressionInner::IfElse(
-                box f.fold_boolean_expression(condition)?,
-                box f.fold_struct_expression(consequence)?,
-                box f.fold_struct_expression(alternative)?,
-            )
-        }
-        StructExpressionInner::Member(box s, id) => {
-            let s = f.fold_struct_expression(s)?;
-            StructExpressionInner::Member(box s, id)
-        }
-        StructExpressionInner::Select(box array, box index) => {
-            let array = f.fold_array_expression(array)?;
-            let index = f.fold_uint_expression(index)?;
-            StructExpressionInner::Select(box array, box index)
-        }
+        StructExpressionInner::IfElse(c) => match f.fold_if_else_expression(ty, c)? {
+            IfElseOrExpression::IfElse(c) => StructExpressionInner::IfElse(c),
+            IfElseOrExpression::Expression(u) => u,
+        },
+        StructExpressionInner::Member(m) => match f.fold_member_expression(ty, m)? {
+            MemberOrExpression::Member(m) => StructExpressionInner::Member(m),
+            MemberOrExpression::Expression(u) => u,
+        },
+        StructExpressionInner::Select(select) => match f.fold_select_expression(ty, select)? {
+            SelectOrExpression::Select(m) => StructExpressionInner::Select(m),
+            SelectOrExpression::Expression(u) => u,
+        },
     };
     Ok(e)
 }
@@ -505,31 +588,31 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
             FieldElementExpression::Pos(box e)
         }
-        FieldElementExpression::IfElse(box cond, box cons, box alt) => {
-            let cond = f.fold_boolean_expression(cond)?;
-            let cons = f.fold_field_expression(cons)?;
-            let alt = f.fold_field_expression(alt)?;
-            FieldElementExpression::IfElse(box cond, box cons, box alt)
+        FieldElementExpression::IfElse(c) => {
+            match f.fold_if_else_expression(&Type::FieldElement, c)? {
+                IfElseOrExpression::IfElse(c) => FieldElementExpression::IfElse(c),
+                IfElseOrExpression::Expression(u) => u,
+            }
         }
-        FieldElementExpression::FunctionCall(key, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)).transpose())
-                .collect::<Result<_, _>>()?;
-            let exps = exps
-                .into_iter()
-                .map(|e| f.fold_expression(e))
-                .collect::<Result<_, _>>()?;
-            FieldElementExpression::FunctionCall(key, generics, exps)
+        FieldElementExpression::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(&Type::FieldElement, function_call)? {
+                FunctionCallOrExpression::FunctionCall(c) => {
+                    FieldElementExpression::FunctionCall(c)
+                }
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
-        FieldElementExpression::Member(box s, id) => {
-            let s = f.fold_struct_expression(s)?;
-            FieldElementExpression::Member(box s, id)
+        FieldElementExpression::Member(m) => {
+            match f.fold_member_expression(&Type::FieldElement, m)? {
+                MemberOrExpression::Member(m) => FieldElementExpression::Member(m),
+                MemberOrExpression::Expression(u) => u,
+            }
         }
-        FieldElementExpression::Select(box array, box index) => {
-            let array = f.fold_array_expression(array)?;
-            let index = f.fold_uint_expression(index)?;
-            FieldElementExpression::Select(box array, box index)
+        FieldElementExpression::Select(select) => {
+            match f.fold_select_expression(&Type::FieldElement, select)? {
+                SelectOrExpression::Select(s) => FieldElementExpression::Select(s),
+                SelectOrExpression::Expression(u) => u,
+            }
         }
     };
     Ok(e)
@@ -557,6 +640,82 @@ pub fn fold_block_expression<'ast, T: Field, E: ResultFold<'ast, T>, F: ResultFo
             .collect(),
         value: box block.value.fold(f)?,
     })
+}
+
+pub fn fold_if_else_expression<
+    'ast,
+    T: Field,
+    E: Expr<'ast, T>
+        + IfElse<'ast, T>
+        + PartialEq
+        + ResultFold<'ast, T>
+        + From<TypedExpression<'ast, T>>,
+    F: ResultFolder<'ast, T>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: IfElseExpression<'ast, T, E>,
+) -> Result<IfElseOrExpression<'ast, T, E>, F::Error> {
+    Ok(IfElseOrExpression::IfElse(IfElseExpression::new(
+        f.fold_boolean_expression(*e.condition)?,
+        e.consequence.fold(f)?,
+        e.alternative.fold(f)?,
+    )))
+}
+
+pub fn fold_member_expression<
+    'ast,
+    T: Field,
+    E: Expr<'ast, T> + Member<'ast, T> + From<TypedExpression<'ast, T>>,
+    F: ResultFolder<'ast, T>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: MemberExpression<'ast, T, E>,
+) -> Result<MemberOrExpression<'ast, T, E>, F::Error> {
+    Ok(MemberOrExpression::Member(MemberExpression::new(
+        f.fold_struct_expression(*e.struc)?,
+        e.id,
+    )))
+}
+
+pub fn fold_select_expression<
+    'ast,
+    T: Field,
+    E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+    F: ResultFolder<'ast, T>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: SelectExpression<'ast, T, E>,
+) -> Result<SelectOrExpression<'ast, T, E>, F::Error> {
+    Ok(SelectOrExpression::Select(SelectExpression::new(
+        f.fold_array_expression(*e.array)?,
+        f.fold_uint_expression(*e.index)?,
+    )))
+}
+
+pub fn fold_function_call_expression<
+    'ast,
+    T: Field,
+    E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
+    F: ResultFolder<'ast, T>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: FunctionCallExpression<'ast, T, E>,
+) -> Result<FunctionCallOrExpression<'ast, T, E>, F::Error> {
+    Ok(FunctionCallOrExpression::Expression(E::function_call(
+        f.fold_declaration_function_key(e.function_key)?,
+        e.generics
+            .into_iter()
+            .map(|g| g.map(|g| f.fold_uint_expression(g)).transpose())
+            .collect::<Result<_, _>>()?,
+        e.arguments
+            .into_iter()
+            .map(|e| f.fold_expression(e))
+            .collect::<Result<_, _>>()?,
+    )))
 }
 
 pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
@@ -648,32 +807,26 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
             let e = f.fold_boolean_expression(e)?;
             BooleanExpression::Not(box e)
         }
-        BooleanExpression::FunctionCall(key, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)).transpose())
-                .collect::<Result<_, _>>()?;
-            let exps = exps
-                .into_iter()
-                .map(|e| f.fold_expression(e))
-                .collect::<Result<_, _>>()?;
-            BooleanExpression::FunctionCall(key, generics, exps)
+        BooleanExpression::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(&Type::Boolean, function_call)? {
+                FunctionCallOrExpression::FunctionCall(c) => BooleanExpression::FunctionCall(c),
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
-        BooleanExpression::IfElse(box cond, box cons, box alt) => {
-            let cond = f.fold_boolean_expression(cond)?;
-            let cons = f.fold_boolean_expression(cons)?;
-            let alt = f.fold_boolean_expression(alt)?;
-            BooleanExpression::IfElse(box cond, box cons, box alt)
+        BooleanExpression::IfElse(c) => match f.fold_if_else_expression(&Type::Boolean, c)? {
+            IfElseOrExpression::IfElse(c) => BooleanExpression::IfElse(c),
+            IfElseOrExpression::Expression(u) => u,
+        },
+        BooleanExpression::Select(select) => {
+            match f.fold_select_expression(&Type::Boolean, select)? {
+                SelectOrExpression::Select(s) => BooleanExpression::Select(s),
+                SelectOrExpression::Expression(u) => u,
+            }
         }
-        BooleanExpression::Member(box s, id) => {
-            let s = f.fold_struct_expression(s)?;
-            BooleanExpression::Member(box s, id)
-        }
-        BooleanExpression::Select(box array, box index) => {
-            let array = f.fold_array_expression(array)?;
-            let index = f.fold_uint_expression(index)?;
-            BooleanExpression::Select(box array, box index)
-        }
+        BooleanExpression::Member(m) => match f.fold_member_expression(&Type::Boolean, m)? {
+            MemberOrExpression::Member(m) => BooleanExpression::Member(m),
+            MemberOrExpression::Expression(u) => u,
+        },
     };
     Ok(e)
 }
@@ -690,7 +843,7 @@ pub fn fold_uint_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
 pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
-    _: UBitwidth,
+    ty: UBitwidth,
     e: UExpressionInner<'ast, T>,
 ) -> Result<UExpressionInner<'ast, T>, F::Error> {
     let e = match e {
@@ -778,32 +931,24 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
             UExpressionInner::Pos(box e)
         }
-        UExpressionInner::FunctionCall(key, generics, exps) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)).transpose())
-                .collect::<Result<_, _>>()?;
-            let exps = exps
-                .into_iter()
-                .map(|e| f.fold_expression(e))
-                .collect::<Result<_, _>>()?;
-            UExpressionInner::FunctionCall(key, generics, exps)
+        UExpressionInner::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(&ty, function_call)? {
+                FunctionCallOrExpression::FunctionCall(c) => UExpressionInner::FunctionCall(c),
+                FunctionCallOrExpression::Expression(u) => u,
+            }
         }
-        UExpressionInner::Select(box array, box index) => {
-            let array = f.fold_array_expression(array)?;
-            let index = f.fold_uint_expression(index)?;
-            UExpressionInner::Select(box array, box index)
-        }
-        UExpressionInner::IfElse(box cond, box cons, box alt) => {
-            let cond = f.fold_boolean_expression(cond)?;
-            let cons = f.fold_uint_expression(cons)?;
-            let alt = f.fold_uint_expression(alt)?;
-            UExpressionInner::IfElse(box cond, box cons, box alt)
-        }
-        UExpressionInner::Member(box s, id) => {
-            let s = f.fold_struct_expression(s)?;
-            UExpressionInner::Member(box s, id)
-        }
+        UExpressionInner::Select(select) => match f.fold_select_expression(&ty, select)? {
+            SelectOrExpression::Select(s) => UExpressionInner::Select(s),
+            SelectOrExpression::Expression(u) => u,
+        },
+        UExpressionInner::IfElse(c) => match f.fold_if_else_expression(&ty, c)? {
+            IfElseOrExpression::IfElse(c) => UExpressionInner::IfElse(c),
+            IfElseOrExpression::Expression(u) => u,
+        },
+        UExpressionInner::Member(m) => match f.fold_member_expression(&ty, m)? {
+            MemberOrExpression::Member(m) => UExpressionInner::Member(m),
+            MemberOrExpression::Expression(u) => u,
+        },
     };
     Ok(e)
 }
@@ -813,6 +958,7 @@ pub fn fold_declaration_function_key<'ast, T: Field, F: ResultFolder<'ast, T>>(
     key: DeclarationFunctionKey<'ast>,
 ) -> Result<DeclarationFunctionKey<'ast>, F::Error> {
     Ok(DeclarationFunctionKey {
+        module: f.fold_module_id(key.module)?,
         signature: f.fold_signature(key.signature)?,
         ..key
     })
@@ -859,6 +1005,13 @@ fn fold_signature<'ast, T: Field, F: ResultFolder<'ast, T>>(
     })
 }
 
+fn fold_declaration_constant<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    _: &mut F,
+    c: DeclarationConstant<'ast>,
+) -> Result<DeclarationConstant<'ast>, F::Error> {
+    Ok(c)
+}
+
 pub fn fold_array_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: ArrayExpression<'ast, T>,
@@ -875,36 +1028,48 @@ pub fn fold_expression_list<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     es: TypedExpressionList<'ast, T>,
 ) -> Result<TypedExpressionList<'ast, T>, F::Error> {
+    let types = f.fold_types(es.types)?;
+
+    Ok(TypedExpressionList {
+        inner: f.fold_expression_list_inner(&types, es.inner)?,
+        types,
+    })
+}
+
+pub fn fold_types<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    tys: Types<'ast, T>,
+) -> Result<Types<'ast, T>, F::Error> {
+    Ok(Types {
+        inner: tys
+            .inner
+            .into_iter()
+            .map(|t| f.fold_type(t))
+            .collect::<Result<_, _>>()?,
+    })
+}
+
+pub fn fold_expression_list_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    tys: &Types<'ast, T>,
+    es: TypedExpressionListInner<'ast, T>,
+) -> Result<TypedExpressionListInner<'ast, T>, F::Error> {
     match es {
-        TypedExpressionList::FunctionCall(id, generics, arguments, types) => {
-            let generics = generics
-                .into_iter()
-                .map(|g| g.map(|g| f.fold_uint_expression(g)).transpose())
-                .collect::<Result<_, _>>()?;
-            Ok(TypedExpressionList::FunctionCall(
-                id,
-                generics,
-                arguments
-                    .into_iter()
-                    .map(|a| f.fold_expression(a))
-                    .collect::<Result<_, _>>()?,
-                types
-                    .into_iter()
-                    .map(|t| f.fold_type(t))
-                    .collect::<Result<_, _>>()?,
-            ))
+        TypedExpressionListInner::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(tys, function_call)? {
+                FunctionCallOrExpression::FunctionCall(function_call) => {
+                    Ok(TypedExpressionListInner::FunctionCall(function_call))
+                }
+                FunctionCallOrExpression::Expression(list) => Ok(list),
+            }
         }
-        TypedExpressionList::EmbedCall(embed, generics, arguments, types) => {
-            Ok(TypedExpressionList::EmbedCall(
+        TypedExpressionListInner::EmbedCall(embed, generics, arguments) => {
+            Ok(TypedExpressionListInner::EmbedCall(
                 embed,
                 generics,
                 arguments
                     .into_iter()
                     .map(|a| f.fold_expression(a))
-                    .collect::<Result<_, _>>()?,
-                types
-                    .into_iter()
-                    .map(|t| f.fold_type(t))
                     .collect::<Result<_, _>>()?,
             ))
         }
@@ -938,7 +1103,9 @@ pub fn fold_constant_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<TypedConstantSymbol<'ast, T>, F::Error> {
     match s {
         TypedConstantSymbol::Here(tc) => Ok(TypedConstantSymbol::Here(f.fold_constant(tc)?)),
-        there => Ok(there),
+        TypedConstantSymbol::There(id) => Ok(TypedConstantSymbol::There(
+            f.fold_canonical_constant_identifier(id)?,
+        )),
     }
 }
 
@@ -948,7 +1115,10 @@ pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<TypedFunctionSymbol<'ast, T>, F::Error> {
     match s {
         TypedFunctionSymbol::Here(fun) => Ok(TypedFunctionSymbol::Here(f.fold_function(fun)?)),
-        there => Ok(there), // by default, do not fold modules recursively
+        TypedFunctionSymbol::There(key) => Ok(TypedFunctionSymbol::There(
+            f.fold_declaration_function_key(key)?,
+        )),
+        s => Ok(s),
     }
 }
 
@@ -980,6 +1150,6 @@ pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
             .into_iter()
             .map(|(module_id, module)| f.fold_module(module).map(|m| (module_id, m)))
             .collect::<Result<_, _>>()?,
-        main: p.main,
+        main: f.fold_module_id(p.main)?,
     })
 }

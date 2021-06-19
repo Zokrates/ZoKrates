@@ -90,7 +90,19 @@ const artifacts = zokratesProvider.compile(source, options);
 
 **Note:** The `resolveCallback` function is used to resolve dependencies. 
 This callback receives the current module location and the import location of the module which is being imported. 
-The callback must synchronously return either an error, `null` or a valid `ResolverResult` object like shown in the example above.
+The callback must synchronously return either an error, `null` or a valid `ResolverResult` object like shown in the example above. 
+A simple file system resolver for a node environment can be implemented as follows:
+
+```js
+const fs = require("fs");
+const path = require("path");
+
+const fileSystemResolver = (from, to) => {
+  const location = path.resolve(path.dirname(path.resolve(from)), to);
+  const source = fs.readFileSync(location).toString();
+  return { source, location };
+};
+```
 
 ##### computeWitness(artifacts, args)
 Computes a valid assignment of the variables, which include the results of the computation.

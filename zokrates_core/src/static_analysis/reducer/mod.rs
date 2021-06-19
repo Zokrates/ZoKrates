@@ -22,14 +22,11 @@ use crate::typed_absy::Folder;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, ArrayType, BlockExpression, BooleanExpression,
-    CoreIdentifier, DeclarationFunctionKey, FieldElementExpression, FunctionCall, Identifier,
-    StructExpression, StructExpressionInner, StructType, Type, TypedExpression,
-    TypedExpressionList, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
-    TypedStatement, UBitwidth, UExpression, UExpressionInner, Variable,
+    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
+    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, TypedExpression,
+    TypedExpressionList, TypedExpressionListInner, TypedFunction, TypedFunctionSymbol, TypedModule,
+    TypedProgram, TypedStatement, UExpression, UExpressionInner, Variable,
 };
-
-use std::convert::{TryFrom, TryInto};
 
 use zokrates_field::Field;
 
@@ -38,6 +35,8 @@ use self::shallow_ssa::ShallowTransformer;
 use crate::static_analysis::Propagator;
 
 use std::fmt;
+
+const MAX_FOR_LOOP_SIZE: u128 = 2u128.pow(20);
 
 // An SSA version map, giving access to the latest version number for each identifier
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
@@ -55,6 +54,7 @@ pub enum Error {
     GenericsInMain,
     // TODO: give more details about what's blocking the progress
     NoProgress,
+    LoopTooLarge(u128),
 }
 
 impl fmt::Display for Error {
@@ -66,7 +66,8 @@ impl fmt::Display for Error {
                 s
             ),
             Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
-            Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds")
+            Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds"),
+            Error::LoopTooLarge(size) => write!(f, "Found a loop of size {}, which is larger than the maximum allowed of {}. Check the loop bounds, especially for underflows", size, MAX_FOR_LOOP_SIZE),
         }
     }
 }
@@ -191,32 +192,35 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             complete: true,
         }
     }
+}
 
-    fn fold_function_call<E>(
+impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
+    type Error = Error;
+
+    fn fold_function_call_expression<
+        E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
+    >(
         &mut self,
-        key: DeclarationFunctionKey<'ast>,
-        generics: Vec<Option<UExpression<'ast, T>>>,
-        arguments: Vec<TypedExpression<'ast, T>>,
-        output_type: Type<'ast, T>,
-    ) -> Result<E, Error>
-    where
-        E: FunctionCall<'ast, T> + TryFrom<TypedExpression<'ast, T>, Error = ()> + std::fmt::Debug,
-    {
-        let generics = generics
+        ty: &E::Ty,
+        e: FunctionCallExpression<'ast, T, E>,
+    ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
+        let generics = e
+            .generics
             .into_iter()
             .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
             .collect::<Result<_, _>>()?;
 
-        let arguments = arguments
+        let arguments = e
+            .arguments
             .into_iter()
             .map(|e| self.fold_expression(e))
             .collect::<Result<_, _>>()?;
 
-        let res = inline_call(
-            key.clone(),
+        let res = inline_call::<_, E>(
+            e.function_key.clone(),
             generics,
             arguments,
-            vec![output_type.clone()],
+            ty,
             &self.program,
             &mut self.versions,
         );
@@ -225,30 +229,31 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             Ok(Output::Complete((statements, mut expressions))) => {
                 self.complete &= true;
                 self.statement_buffer.extend(statements);
-                Ok(expressions.pop().unwrap().try_into().unwrap())
+                Ok(FunctionCallOrExpression::Expression(
+                    E::from(expressions.pop().unwrap()).into_inner(),
+                ))
             }
             Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                 self.complete = false;
                 self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
-                Ok(expressions[0].clone().try_into().unwrap())
+                Ok(FunctionCallOrExpression::Expression(
+                    E::from(expressions[0].clone()).into_inner(),
+                ))
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
                 conc.to_string(),
                 decl.to_string()
             ))),
-            Err(InlineError::NonConstant(key, generics, arguments, mut output_types)) => {
+            Err(InlineError::NonConstant(key, generics, arguments, _)) => {
                 self.complete = false;
 
-                Ok(E::function_call(
-                    key,
-                    generics,
-                    arguments,
-                    output_types.pop().unwrap(),
-                ))
+                Ok(FunctionCallOrExpression::Expression(E::function_call(
+                    key, generics, arguments,
+                )))
             }
-            Err(InlineError::Flat(embed, generics, arguments, mut output_types)) => {
+            Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                 let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
                     *self
                         .versions
@@ -256,23 +261,25 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
                         .and_modify(|e| *e += 1) // if it was already declared, we increment
                         .or_insert(0),
                 );
-                let var = Variable::with_id_and_type(identifier, output_types.pop().unwrap());
+                let var = Variable::with_id_and_type(
+                    identifier.clone(),
+                    output_types.clone().inner.pop().unwrap(),
+                );
 
                 let v = vec![var.clone().into()];
 
                 self.statement_buffer
                     .push(TypedStatement::MultipleDefinition(
                         v,
-                        TypedExpressionList::EmbedCall(embed, generics, arguments, output_types),
+                        TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                            .annotate(output_types),
                     ));
-                Ok(TypedExpression::from(var).try_into().unwrap())
+                Ok(FunctionCallOrExpression::Expression(E::identifier(
+                    identifier,
+                )))
             }
         }
     }
-}
-
-impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
-    type Error = Error;
 
     fn fold_block_expression<E: ResultFold<'ast, T>>(
         &mut self,
@@ -304,23 +311,28 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         let res = match s {
             TypedStatement::MultipleDefinition(
                 v,
-                TypedExpressionList::FunctionCall(key, generics, arguments, output_types),
+                TypedExpressionList {
+                    inner: TypedExpressionListInner::FunctionCall(function_call),
+                    types,
+                },
             ) => {
-                let generics = generics
+                let generics = function_call
+                    .generics
                     .into_iter()
                     .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
                     .collect::<Result<_, _>>()?;
 
-                let arguments = arguments
+                let arguments = function_call
+                    .arguments
                     .into_iter()
                     .map(|a| self.fold_expression(a))
                     .collect::<Result<_, _>>()?;
 
-                match inline_call(
-                    key,
+                match inline_call::<_, TypedExpressionList<'ast, T>>(
+                    function_call.function_key,
                     generics,
                     arguments,
-                    output_types,
+                    &types,
                     &self.program,
                     &mut self.versions,
                 ) {
@@ -363,23 +375,15 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionList::FunctionCall(
-                                key,
-                                generics,
-                                arguments,
-                                output_types,
-                            ),
+                            TypedExpressionList::function_call(key, generics, arguments)
+                                .annotate(output_types),
                         )])
                     }
                     Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionList::EmbedCall(
-                                embed,
-                                generics,
-                                arguments,
-                                output_types,
-                            ),
+                            TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                                .annotate(output_types),
                         )])
                     }
                 }
@@ -405,6 +409,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             .collect();
 
                         let mut transformer = ShallowTransformer::with_versions(&mut self.versions);
+
+                        if to - from > MAX_FOR_LOOP_SIZE {
+                            return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
+                        }
 
                         for index in *from..*to {
                             let statements: Vec<TypedStatement<_>> =
@@ -452,62 +460,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
     }
 
-    fn fold_boolean_expression(
-        &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
-        match e {
-            BooleanExpression::FunctionCall(key, generics, arguments) => {
-                self.fold_function_call(key, generics, arguments, Type::Boolean)
-            }
-            e => fold_boolean_expression(self, e),
-        }
-    }
-
-    fn fold_uint_expression_inner(
-        &mut self,
-        bitwidth: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
-        match e {
-            UExpressionInner::FunctionCall(key, generics, arguments) => self
-                .fold_function_call::<UExpression<'ast, T>>(
-                    key,
-                    generics,
-                    arguments,
-                    Type::Uint(bitwidth),
-                )
-                .map(|e| e.into_inner()),
-            e => fold_uint_expression_inner(self, bitwidth, e),
-        }
-    }
-
-    fn fold_field_expression(
-        &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
-        match e {
-            FieldElementExpression::FunctionCall(key, generic, arguments) => {
-                self.fold_function_call(key, generic, arguments, Type::FieldElement)
-            }
-            e => fold_field_expression(self, e),
-        }
-    }
-
     fn fold_array_expression_inner(
         &mut self,
         array_ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
     ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
-            ArrayExpressionInner::FunctionCall(key, generics, arguments) => self
-                .fold_function_call::<ArrayExpression<_>>(
-                    key.clone(),
-                    generics,
-                    arguments.clone(),
-                    Type::array(array_ty.clone()),
-                )
-                .map(|e| e.into_inner()),
             ArrayExpressionInner::Slice(box array, box from, box to) => {
                 let array = self.fold_array_expression(array)?;
                 let from = self.fold_uint_expression(from)?;
@@ -523,25 +481,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                 }
             }
-            _ => fold_array_expression_inner(self, &array_ty, e),
-        }
-    }
-
-    fn fold_struct_expression_inner(
-        &mut self,
-        struct_ty: &StructType<'ast, T>,
-        e: StructExpressionInner<'ast, T>,
-    ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
-        match e {
-            StructExpressionInner::FunctionCall(key, generics, arguments) => self
-                .fold_function_call::<StructExpression<'ast, T>>(
-                    key,
-                    generics,
-                    arguments,
-                    Type::Struct(struct_ty.clone()),
-                )
-                .map(|e| e.into_inner()),
-            _ => fold_struct_expression_inner(self, struct_ty, e),
+            _ => fold_array_expression_inner(self, array_ty, e),
         }
     }
 }
@@ -674,13 +614,13 @@ fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::Constant;
+    use crate::typed_absy::types::DeclarationConstant;
     use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
-        ArrayExpressionInner, DeclarationFunctionKey, DeclarationType, DeclarationVariable,
-        FieldElementExpression, GenericIdentifier, Identifier, OwnedTypedModuleId, Select, Type,
-        TypedExpression, TypedExpressionList, TypedExpressionOrSpread, UBitwidth, UExpressionInner,
-        Variable,
+        ArrayExpression, ArrayExpressionInner, DeclarationFunctionKey, DeclarationType,
+        DeclarationVariable, FieldElementExpression, GenericIdentifier, Identifier,
+        OwnedTypedModuleId, Select, Type, TypedExpression, TypedExpressionList,
+        TypedExpressionOrSpread, Types, UBitwidth, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
 
@@ -741,7 +681,7 @@ mod tests {
                 ),
                 TypedStatement::MultipleDefinition(
                     vec![Variable::field_element("a").into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
@@ -749,8 +689,8 @@ mod tests {
                         ),
                         vec![],
                         vec![FieldElementExpression::Identifier("a".into()).into()],
-                        vec![Type::FieldElement],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::FieldElement])),
                 ),
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
@@ -894,11 +834,11 @@ mod tests {
             )])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
@@ -939,15 +879,15 @@ mod tests {
                 ),
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into()],
-                        vec![Type::array((Type::FieldElement, 1u32))],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
@@ -1113,11 +1053,11 @@ mod tests {
             )])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
@@ -1167,15 +1107,15 @@ mod tests {
                 ),
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpressionInner::Identifier("b".into())
                             .annotate(Type::FieldElement, 1u32)
                             .into()],
-                        vec![Type::array((Type::FieldElement, 1u32))],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
@@ -1345,11 +1285,11 @@ mod tests {
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .generics(vec![Some(
                 GenericIdentifier::with_name("K").index(0).into(),
@@ -1359,7 +1299,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             )
             .into()],
             statements: vec![
@@ -1371,7 +1311,7 @@ mod tests {
                     )
                     .into(),
                     ArrayExpressionInner::Slice(
-                        box ArrayExpressionInner::FunctionCall(
+                        box ArrayExpression::function_call(
                             DeclarationFunctionKey::with_location("main", "bar")
                                 .signature(foo_signature.clone()),
                             vec![None],
@@ -1423,7 +1363,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             )
             .into()],
             statements: vec![TypedStatement::Return(vec![
@@ -1442,7 +1382,7 @@ mod tests {
             statements: vec![
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
@@ -1451,8 +1391,8 @@ mod tests {
                         )
                         .annotate(Type::FieldElement, 1u32)
                         .into()],
-                        vec![Type::array((Type::FieldElement, 1u32))],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Return(vec![]),
             ],
@@ -1648,15 +1588,15 @@ mod tests {
             statements: vec![
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
-                    TypedExpressionList::FunctionCall(
+                    TypedExpressionList::function_call(
                         DeclarationFunctionKey::with_location("main", "foo")
                             .signature(foo_signature.clone()),
                         vec![None],
                         vec![ArrayExpressionInner::Value(vec![].into())
                             .annotate(Type::FieldElement, 0u32)
                             .into()],
-                        vec![Type::array((Type::FieldElement, 1u32))],
-                    ),
+                    )
+                    .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Return(vec![]),
             ],

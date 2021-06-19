@@ -310,12 +310,13 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
             TypedStatement::Definition(assignee, expr) => {
+                let expr = self.fold_expression(expr);
+
                 if is_constant(&assignee) {
                     vec![TypedStatement::Definition(assignee, expr)]
                 } else {
                     // Note: here we redefine the whole object, ideally we would only redefine some of it
                     // Example: `a[0][i] = 42` we redefine `a` but we could redefine just `a[0]`
-                    let expr = self.fold_expression(expr);
 
                     let (variable, indices) = linear(assignee);
 

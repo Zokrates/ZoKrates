@@ -14,11 +14,11 @@ pub use ast::{
     DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
     FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
     IdentifierExpression, ImportDirective, ImportSource, ImportSymbol, InlineArrayExpression,
-    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression,
-    OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
-    SymbolDeclaration, TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator,
-    Underscore, Visibility,
+    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression, Parameter,
+    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
+    Statement, StructDefinition, StructField, SymbolDeclaration, TernaryExpression, ToExpression,
+    Type, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression, UnaryOperator, Underscore,
+    Visibility,
 };
 
 mod ast {
@@ -349,7 +349,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::definition_statement))]
     pub struct DefinitionStatement<'ast> {
-        pub lhs: Vec<OptionallyTypedAssignee<'ast>>,
+        pub lhs: Vec<TypedIdentifierOrAssignee<'ast>>,
         pub expression: Expression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -635,10 +635,17 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::optionally_typed_assignee))]
-    pub struct OptionallyTypedAssignee<'ast> {
-        pub ty: Option<Type<'ast>>,
-        pub a: Assignee<'ast>,
+    #[pest_ast(rule(Rule::typed_identifier_or_assignee))]
+    pub enum TypedIdentifierOrAssignee<'ast> {
+        Assignee(Assignee<'ast>),
+        TypedIdentifier(TypedIdentifier<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::typed_identifier))]
+    pub struct TypedIdentifier<'ast> {
+        pub ty: Type<'ast>,
+        pub identifier: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -1330,32 +1337,24 @@ mod tests {
                     }))],
                     statements: vec![Statement::Definition(DefinitionStatement {
                         lhs: vec![
-                            OptionallyTypedAssignee {
-                                ty: Some(Type::Basic(BasicType::Field(FieldType {
+                            TypedIdentifierOrAssignee::TypedIdentifier(TypedIdentifier {
+                                ty: Type::Basic(BasicType::Field(FieldType {
                                     span: Span::new(&source, 23, 28).unwrap()
-                                }))),
-                                a: Assignee {
-                                    id: IdentifierExpression {
-                                        value: String::from("a"),
-                                        span: Span::new(&source, 29, 30).unwrap(),
-                                    },
-                                    accesses: vec![],
-                                    span: Span::new(&source, 29, 30).unwrap()
+                                })),
+                                identifier: IdentifierExpression {
+                                    value: String::from("a"),
+                                    span: Span::new(&source, 29, 30).unwrap(),
                                 },
                                 span: Span::new(&source, 23, 30).unwrap()
-                            },
-                            OptionallyTypedAssignee {
-                                ty: None,
-                                a: Assignee {
-                                    id: IdentifierExpression {
-                                        value: String::from("b"),
-                                        span: Span::new(&source, 32, 33).unwrap(),
-                                    },
-                                    accesses: vec![],
-                                    span: Span::new(&source, 32, 34).unwrap()
+                            }),
+                            TypedIdentifierOrAssignee::Assignee(Assignee {
+                                id: IdentifierExpression {
+                                    value: String::from("b"),
+                                    span: Span::new(&source, 32, 33).unwrap(),
                                 },
+                                accesses: vec![],
                                 span: Span::new(&source, 32, 34).unwrap()
-                            },
+                            }),
                         ],
                         expression: Expression::Postfix(PostfixExpression {
                             id: IdentifierExpression {
