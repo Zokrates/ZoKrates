@@ -192,7 +192,7 @@ pub fn generate_verify_constraints(
         proof_indices,
         vk_indices,
         constraints,
-        cs.num_witness_variables(),
+        cs.num_witness_variables() + cs.num_instance_variables(),
     )
 }
 
