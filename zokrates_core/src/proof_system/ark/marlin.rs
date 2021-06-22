@@ -1,6 +1,6 @@
 use ark_marlin::{IndexProverKey, IndexVerifierKey, Proof as ArkProof};
 
-use ark_marlin::Marlin;
+use ark_marlin::Marlin as ArkMarlin;
 
 use ark_ec::PairingEngine;
 use ark_ff::{PrimeField, UniformRand};
@@ -19,11 +19,11 @@ use crate::ir::{Prog, Witness};
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
-use crate::proof_system::marlin::{self, NotBw6_761Field, ProofPoints, VerificationKey};
+use crate::proof_system::marlin::{self, ProofPoints, VerificationKey};
 use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, Proof, SetupKeypair};
 
-impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, marlin::Marlin> for Ark {
+impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
     fn setup(program: Prog<T>) -> SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey> {
         let computation = Computation::without_witness(program);
 
@@ -33,7 +33,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, marlin::Marlin>
 
         println!("setup not found, creating local srs");
 
-        let srs = Marlin::<
+        let srs = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
             MarlinKZG10<
                 T::ArkEngine,
@@ -53,7 +53,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, marlin::Marlin>
             computation.program.constraint_count()
         );
 
-        let (pk, vk) = Marlin::<
+        let (pk, vk) = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
             MarlinKZG10<
                 T::ArkEngine,
@@ -63,7 +63,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, marlin::Marlin>
         >::index(&srs, computation)
         .unwrap();
 
-        println!("srs specialized for dummy circuit!");
+        println!("srs specialized!");
 
         //let parameters = Computation::without_witness(program).setup();
 
@@ -102,7 +102,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, marlin::Marlin>
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        let proof = Marlin::<
+        let proof = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
             MarlinKZG10<
                 T::ArkEngine,
@@ -159,7 +159,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, marlin::Marlin>
 
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 
-        Marlin::<
+        ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
             MarlinKZG10<
                 T::ArkEngine,
@@ -168,106 +168,6 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, marlin::Marlin>
             Sha256,
         >::verify(&vk, &inputs, &proof, rng)
         .unwrap()
-    }
-}
-
-impl Backend<Bw6_761Field, marlin::Marlin> for Ark {
-    fn setup(
-        program: Prog<Bw6_761Field>,
-    ) -> SetupKeypair<<marlin::Marlin as Scheme<Bw6_761Field>>::VerificationKey> {
-        unimplemented!();
-
-        // let parameters = Computation::without_witness(program).setup();
-
-        //         let mut pk: Vec<u8> = Vec::new();
-        //         parameters.serialize_uncompressed(&mut pk).unwrap();
-
-        //         let vk = VerificationKey {
-        //             h: parse_g2_fq::<Bw6_761Field>(&parameters.vk.h_g2),
-        //             g_alpha: parse_g1::<Bw6_761Field>(&parameters.vk.g_alpha_g1),
-        //             h_beta: parse_g2_fq::<Bw6_761Field>(&parameters.vk.h_beta_g2),
-        //             g_gamma: parse_g1::<Bw6_761Field>(&parameters.vk.g_gamma_g1),
-        //             h_gamma: parse_g2_fq::<Bw6_761Field>(&parameters.vk.h_gamma_g2),
-        //             query: parameters
-        //                 .vk
-        //                 .query
-        //                 .iter()
-        //                 .map(|g1| parse_g1::<Bw6_761Field>(g1))
-        //                 .collect(),
-        //         };
-
-        //         SetupKeypair::new(vk, pk)
-    }
-
-    fn generate_proof(
-        program: Prog<Bw6_761Field>,
-        witness: Witness<Bw6_761Field>,
-        proving_key: Vec<u8>,
-    ) -> Proof<<marlin::Marlin as Scheme<Bw6_761Field>>::ProofPoints> {
-        unimplemented!();
-
-        // let computation = Computation::with_witness(program, witness);
-        // let params =
-        //     ProvingKey::<<Bw6_761Field as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
-        //         &mut proving_key.as_slice(),
-        //     )
-        //         .unwrap();
-
-        // let proof = computation.clone().prove(&params);
-        // let proof_points = ProofPoints {
-        //     a: parse_g1::<Bw6_761Field>(&proof.a),
-        //     b: parse_g2_fq::<Bw6_761Field>(&proof.b),
-        //     c: parse_g1::<Bw6_761Field>(&proof.c),
-        // };
-
-        // let inputs = computation
-        //     .public_inputs_values()
-        //     .iter()
-        //     .map(parse_fr::<Bw6_761Field>)
-        //     .collect::<Vec<_>>();
-
-        // Proof::new(proof_points, inputs)
-    }
-
-    fn verify(
-        vk: <marlin::Marlin as Scheme<Bw6_761Field>>::VerificationKey,
-        proof: Proof<<marlin::Marlin as Scheme<Bw6_761Field>>::ProofPoints>,
-    ) -> bool {
-        unimplemented!();
-
-        // let vk = VerifyingKey {
-        //     h_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h),
-        //     g_alpha_g1: serialization::to_g1::<Bw6_761Field>(vk.g_alpha),
-        //     h_beta_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h_beta),
-        //     g_gamma_g1: serialization::to_g1::<Bw6_761Field>(vk.g_gamma),
-        //     h_gamma_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h_gamma),
-        //     query: vk
-        //         .query
-        //         .into_iter()
-        //         .map(serialization::to_g1::<Bw6_761Field>)
-        //         .collect(),
-        // };
-
-        // let ark_proof = ArkProof {
-        //     a: serialization::to_g1::<Bw6_761Field>(proof.proof.a),
-        //     b: serialization::to_g2_fq::<Bw6_761Field>(proof.proof.b),
-        //     c: serialization::to_g1::<Bw6_761Field>(proof.proof.c),
-        // };
-
-        // let pvk: PreparedVerifyingKey<<Bw6_761Field as ArkFieldExtensions>::ArkEngine> =
-        //     prepare_verifying_key(&vk);
-
-        // let public_inputs: Vec<_> = proof
-        //     .inputs
-        //     .iter()
-        //     .map(|s| {
-        //         Bw6_761Field::try_from_str(s.trim_start_matches("0x"), 16)
-        //             .unwrap()
-        //             .into_ark()
-        //     })
-        //     .collect::<Vec<_>>();
-
-        // verify_proof(&pvk, &ark_proof, &public_inputs).unwrap()
     }
 }
 
@@ -322,6 +222,7 @@ mod tests {
     use crate::ir::{Function, Interpreter, Prog, Statement};
 
     use super::*;
+    use crate::proof_system::scheme::Marlin;
     use zokrates_field::{Bls12_377Field, Bw6_761Field};
 
     #[test]

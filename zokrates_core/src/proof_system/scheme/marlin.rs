@@ -9,11 +9,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
-pub trait NotBw6_761Field {}
-impl NotBw6_761Field for Bls12_377Field {}
-impl NotBw6_761Field for Bls12_381Field {}
-impl NotBw6_761Field for Bn128Field {}
-
 #[allow(clippy::upper_case_acronyms)]
 pub struct Marlin;
 
@@ -27,17 +22,12 @@ pub struct VerificationKey {
     pub raw: Vec<u8>,
 }
 
-impl<T: Field + NotBw6_761Field> Scheme<T> for Marlin {
+impl<T: Field> Scheme<T> for Marlin {
     type VerificationKey = VerificationKey;
     type ProofPoints = ProofPoints;
 }
 
-impl Scheme<Bw6_761Field> for Marlin {
-    type VerificationKey = VerificationKey;
-    type ProofPoints = ProofPoints;
-}
-
-impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for Marlin {
+impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
     fn export_solidity_verifier(
         vk: <Marlin as Scheme<T>>::VerificationKey,
         abi: SolidityAbi,
