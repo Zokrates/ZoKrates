@@ -33,6 +33,8 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         println!("setup not found, creating local srs");
 
+        let degree = 5;
+
         let srs = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
             MarlinKZG10<
@@ -40,7 +42,12 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
             Sha256,
-        >::universal_setup(2usize.pow(21), 2usize.pow(21), 2usize.pow(21), rng)
+        >::universal_setup(
+            2usize.pow(degree),
+            2usize.pow(degree),
+            2usize.pow(degree),
+            rng,
+        )
         .unwrap();
 
         println!("srs done!");
@@ -219,7 +226,7 @@ pub mod serialization {
 #[cfg(test)]
 mod tests {
     use crate::flat_absy::FlatVariable;
-    use crate::ir::{Function, Interpreter, Prog, Statement};
+    use crate::ir::{Function, Interpreter, Prog, QuadComb, Statement};
 
     use super::*;
     use crate::proof_system::scheme::Marlin;
@@ -232,12 +239,21 @@ mod tests {
                 id: String::from("main"),
                 arguments: vec![FlatVariable::new(0)],
                 returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::Constraint(
-                    FlatVariable::new(0).into(),
-                    FlatVariable::public(0).into(),
-                )],
+                statements: vec![
+                    Statement::Constraint(
+                        QuadComb::from_linear_combinations(
+                            FlatVariable::new(0).into(),
+                            FlatVariable::new(0).into(),
+                        ),
+                        FlatVariable::new(1).into(),
+                    ),
+                    Statement::Constraint(
+                        FlatVariable::new(1).into(),
+                        FlatVariable::public(0).into(),
+                    ),
+                ],
             },
-            private: vec![false],
+            private: vec![true],
         };
 
         let keypair = <Ark as Backend<Bls12_377Field, Marlin>>::setup(program.clone());
@@ -261,12 +277,21 @@ mod tests {
                 id: String::from("main"),
                 arguments: vec![FlatVariable::new(0)],
                 returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::Constraint(
-                    FlatVariable::new(0).into(),
-                    FlatVariable::public(0).into(),
-                )],
+                statements: vec![
+                    Statement::Constraint(
+                        QuadComb::from_linear_combinations(
+                            FlatVariable::new(0).into(),
+                            FlatVariable::new(0).into(),
+                        ),
+                        FlatVariable::new(1).into(),
+                    ),
+                    Statement::Constraint(
+                        FlatVariable::new(1).into(),
+                        FlatVariable::public(0).into(),
+                    ),
+                ],
             },
-            private: vec![false],
+            private: vec![true],
         };
 
         let keypair = <Ark as Backend<Bw6_761Field, Marlin>>::setup(program.clone());
