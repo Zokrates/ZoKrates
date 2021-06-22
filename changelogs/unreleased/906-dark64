@@ -1,1 +1,0 @@
-Change endianness in keccak, sha3 and blake2s hash algorithms to big endian
