@@ -175,6 +175,7 @@ impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum UExpressionInner<'ast, T> {
+    Block(BlockExpression<'ast, T, UExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
     Value(u128),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
@@ -189,20 +190,12 @@ pub enum UExpressionInner<'ast, T> {
     Not(Box<UExpression<'ast, T>>),
     Neg(Box<UExpression<'ast, T>>),
     Pos(Box<UExpression<'ast, T>>),
-    FunctionCall(
-        DeclarationFunctionKey<'ast>,
-        Vec<Option<UExpression<'ast, T>>>,
-        Vec<TypedExpression<'ast, T>>,
-    ),
+    FunctionCall(FunctionCallExpression<'ast, T, UExpression<'ast, T>>),
     LeftShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     RightShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    IfElse(
-        Box<BooleanExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-    ),
-    Member(Box<StructExpression<'ast, T>>, MemberId),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    IfElse(IfElseExpression<'ast, T, UExpression<'ast, T>>),
+    Member(MemberExpression<'ast, T, UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {

@@ -259,7 +259,7 @@ impl<T: Field> LinComb<T> {
     }
 
     fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
-        self.0.iter().count() == 1
+        self.0.len() == 1
             && self.0.get(0).unwrap().1 == T::from(1)
             && !witness.contains_key(&self.0.get(0).unwrap().0)
     }

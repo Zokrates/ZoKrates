@@ -1,60 +1,71 @@
 use crate::absy;
-use crate::imports;
 
 use num_bigint::BigUint;
+use std::path::Path;
 use zokrates_pest_ast as pest;
 
 impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
-    fn from(prog: pest::File<'ast>) -> absy::Module<'ast> {
-        absy::Module::with_symbols(
-            prog.structs
-                .into_iter()
-                .map(absy::SymbolDeclarationNode::from)
-                .chain(
-                    prog.functions
-                        .into_iter()
-                        .map(absy::SymbolDeclarationNode::from),
-                ),
-        )
-        .imports(
-            prog.imports
-                .into_iter()
-                .map(absy::ImportDirective::from)
-                .flatten(),
-        )
+    fn from(file: pest::File<'ast>) -> absy::Module<'ast> {
+        absy::Module::with_symbols(file.declarations.into_iter().flat_map(|d| match d {
+            pest::SymbolDeclaration::Import(i) => import_directive_to_symbol_vec(i),
+            pest::SymbolDeclaration::Constant(c) => vec![c.into()],
+            pest::SymbolDeclaration::Struct(s) => vec![s.into()],
+            pest::SymbolDeclaration::Function(f) => vec![f.into()],
+        }))
     }
 }
 
-impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportDirective<'ast> {
-    fn from(import: pest::ImportDirective<'ast>) -> absy::ImportDirective<'ast> {
-        use crate::absy::NodeValue;
+fn import_directive_to_symbol_vec(
+    import: pest::ImportDirective,
+) -> Vec<absy::SymbolDeclarationNode> {
+    use crate::absy::NodeValue;
 
-        match import {
-            pest::ImportDirective::Main(import) => absy::ImportDirective::Main(
-                imports::Import::new(None, std::path::Path::new(import.source.span.as_str()))
-                    .alias(import.alias.map(|a| a.span.as_str()))
-                    .span(import.span),
-            ),
-            pest::ImportDirective::From(import) => absy::ImportDirective::From(
-                import
-                    .symbols
-                    .iter()
-                    .map(|symbol| {
-                        imports::Import::new(
-                            Some(symbol.symbol.span.as_str()),
-                            std::path::Path::new(import.source.span.as_str()),
-                        )
-                        .alias(
-                            symbol
-                                .alias
-                                .as_ref()
-                                .map(|a| a.span.as_str())
-                                .or_else(|| Some(symbol.symbol.span.as_str())),
-                        )
-                        .span(symbol.span.clone())
-                    })
-                    .collect(),
-            ),
+    match import {
+        pest::ImportDirective::Main(import) => {
+            let span = import.span;
+            let source = Path::new(import.source.span.as_str());
+            let id = "main";
+            let alias = import.alias.map(|a| a.span.as_str());
+
+            let import = absy::CanonicalImport {
+                source,
+                id: absy::SymbolIdentifier::from(id).alias(alias),
+            }
+            .span(span.clone());
+
+            vec![absy::SymbolDeclaration {
+                id: alias.unwrap_or(id),
+                symbol: absy::Symbol::Here(absy::SymbolDefinition::Import(import)),
+            }
+            .span(span.clone())]
+        }
+        pest::ImportDirective::From(import) => {
+            let span = import.span;
+            let source = Path::new(import.source.span.as_str());
+            import
+                .symbols
+                .into_iter()
+                .map(|symbol| {
+                    let alias = symbol
+                        .alias
+                        .as_ref()
+                        .map(|a| a.span.as_str())
+                        .unwrap_or_else(|| symbol.id.span.as_str());
+
+                    let import = absy::CanonicalImport {
+                        source,
+                        id: absy::SymbolIdentifier::from(symbol.id.span.as_str())
+                            .alias(Some(alias)),
+                    }
+                    .span(span.clone());
+
+                    absy::SymbolDeclaration {
+                        id: alias,
+                        symbol: absy::Symbol::Here(absy::SymbolDefinition::Import(import)),
+                    }
+                    .span(span.clone())
+                })
+                .collect()
         }
     }
 }
@@ -78,7 +89,7 @@ impl<'ast> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'a
 
         absy::SymbolDeclaration {
             id,
-            symbol: absy::Symbol::HereType(ty),
+            symbol: absy::Symbol::Here(absy::SymbolDefinition::Struct(ty)),
         }
         .span(span)
     }
@@ -98,8 +109,29 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'as
     }
 }
 
-impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
-    fn from(function: pest::Function<'ast>) -> absy::SymbolDeclarationNode<'ast> {
+impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<'ast> {
+    fn from(definition: pest::ConstantDefinition<'ast>) -> absy::SymbolDeclarationNode<'ast> {
+        use crate::absy::NodeValue;
+
+        let span = definition.span;
+        let id = definition.id.span.as_str();
+
+        let ty = absy::ConstantDefinition {
+            ty: definition.ty.into(),
+            expression: definition.expression.into(),
+        }
+        .span(span.clone());
+
+        absy::SymbolDeclaration {
+            id,
+            symbol: absy::Symbol::Here(absy::SymbolDefinition::Constant(ty)),
+        }
+        .span(span)
+    }
+}
+
+impl<'ast> From<pest::FunctionDefinition<'ast>> for absy::SymbolDeclarationNode<'ast> {
+    fn from(function: pest::FunctionDefinition<'ast>) -> absy::SymbolDeclarationNode<'ast> {
         use crate::absy::NodeValue;
 
         let span = function.span;
@@ -148,7 +180,7 @@ impl<'ast> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast> {
 
         absy::SymbolDeclaration {
             id,
-            symbol: absy::Symbol::HereFunction(function),
+            symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(function)),
         }
         .span(span)
     }
@@ -207,54 +239,73 @@ fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy
 
             let e: absy::ExpressionNode = absy::ExpressionNode::from(definition.expression);
 
-            let s = match e.value {
-                absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
-                    vec![absy::AssigneeNode::from(a.a.clone())],
-                    e,
-                ),
-                _ => absy::Statement::Definition(absy::AssigneeNode::from(a.a.clone()), e),
-            };
-
-            match a.ty {
-                Some(ty) => {
-                    assert_eq!(a.a.accesses.len(), 0);
-
+            match a {
+                pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
                     let declaration = absy::Statement::Declaration(
                         absy::Variable::new(
-                            a.a.id.span.as_str(),
-                            absy::UnresolvedTypeNode::from(ty),
+                            i.identifier.span.as_str(),
+                            absy::UnresolvedTypeNode::from(i.ty),
                         )
-                        .span(a.a.id.span.clone()),
+                        .span(i.identifier.span.clone()),
                     )
                     .span(definition.span.clone());
 
+                    let s = match e.value {
+                        absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
+                            vec![absy::AssigneeNode::from(i.identifier.clone())],
+                            e,
+                        ),
+                        _ => absy::Statement::Definition(
+                            absy::AssigneeNode::from(i.identifier.clone()),
+                            e,
+                        ),
+                    };
+
                     vec![declaration, s.span(definition.span)]
                 }
-                None => {
-                    // Assignment
+                pest::TypedIdentifierOrAssignee::Assignee(a) => {
+                    let s = match e.value {
+                        absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
+                            vec![absy::AssigneeNode::from(a)],
+                            e,
+                        ),
+                        _ => absy::Statement::Definition(absy::AssigneeNode::from(a), e),
+                    };
+
                     vec![s.span(definition.span)]
                 }
             }
         }
         _ => {
             // Multidefinition
-            let declarations = lhs.clone().into_iter().filter(|i| i.ty.is_some()).map(|a| {
-                let ty = a.ty;
-                let a = a.a;
+            let declarations = lhs.clone().into_iter().filter_map(|i| match i {
+                pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
+                    let ty = i.ty;
+                    let id = i.identifier;
 
-                assert_eq!(a.accesses.len(), 0);
-                absy::Statement::Declaration(
-                    absy::Variable::new(
-                        a.id.span.as_str(),
-                        absy::UnresolvedTypeNode::from(ty.unwrap()),
+                    Some(
+                        absy::Statement::Declaration(
+                            absy::Variable::new(
+                                id.span.as_str(),
+                                absy::UnresolvedTypeNode::from(ty),
+                            )
+                            .span(id.span),
+                        )
+                        .span(i.span),
                     )
-                    .span(a.id.span),
-                )
-                .span(a.span)
+                }
+                _ => None,
             });
+
             let lhs = lhs
                 .into_iter()
-                .map(|i| absy::Assignee::Identifier(i.a.id.span.as_str()).span(i.a.id.span))
+                .map(|i| match i {
+                    pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
+                        absy::Assignee::Identifier(i.identifier.span.as_str())
+                            .span(i.identifier.span)
+                    }
+                    pest::TypedIdentifierOrAssignee::Assignee(a) => absy::AssigneeNode::from(a),
+                })
                 .collect();
 
             let multi_def = absy::Statement::MultipleDefinition(
@@ -754,7 +805,7 @@ mod tests {
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::Symbol::HereFunction(
+                symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
@@ -771,10 +822,9 @@ mod tests {
                             .outputs(vec![UnresolvedType::FieldElement.mock()]),
                     }
                     .into(),
-                ),
+                )),
             }
             .into()],
-            imports: vec![],
         };
         assert_eq!(absy::Module::from(ast), expected);
     }
@@ -786,7 +836,7 @@ mod tests {
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::Symbol::HereFunction(
+                symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
@@ -801,10 +851,9 @@ mod tests {
                             .outputs(vec![UnresolvedType::Boolean.mock()]),
                     }
                     .into(),
-                ),
+                )),
             }
             .into()],
-            imports: vec![],
         };
         assert_eq!(absy::Module::from(ast), expected);
     }
@@ -817,7 +866,7 @@ mod tests {
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::Symbol::HereFunction(
+                symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![
                             absy::Parameter::private(
@@ -854,10 +903,9 @@ mod tests {
                             .outputs(vec![UnresolvedType::FieldElement.mock()]),
                     }
                     .into(),
-                ),
+                )),
             }
             .into()],
-            imports: vec![],
         };
 
         assert_eq!(absy::Module::from(ast), expected);
@@ -871,7 +919,7 @@ mod tests {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
-                    symbol: absy::Symbol::HereFunction(
+                    symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![absy::Parameter::private(
                                 absy::Variable::new("a", ty.clone().mock()).into(),
@@ -887,10 +935,9 @@ mod tests {
                             signature: UnresolvedSignature::new().inputs(vec![ty.mock()]),
                         }
                         .into(),
-                    ),
+                    )),
                 }
                 .into()],
-                imports: vec![],
             }
         }
 
@@ -945,7 +992,7 @@ mod tests {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
-                    symbol: absy::Symbol::HereFunction(
+                    symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![],
                             statements: vec![absy::Statement::Return(
@@ -958,10 +1005,9 @@ mod tests {
                             signature: UnresolvedSignature::new(),
                         }
                         .into(),
-                    ),
+                    )),
                 }
                 .into()],
-                imports: vec![],
             }
         }
 
@@ -1069,18 +1115,14 @@ mod tests {
         // A `Definition` is generated and no `Declaration`s
 
         let definition = pest::DefinitionStatement {
-            lhs: vec![pest::OptionallyTypedAssignee {
-                ty: None,
-                a: pest::Assignee {
-                    id: pest::IdentifierExpression {
-                        value: String::from("a"),
-                        span: span.clone(),
-                    },
-                    accesses: vec![],
+            lhs: vec![pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
+                id: pest::IdentifierExpression {
+                    value: String::from("a"),
                     span: span.clone(),
                 },
+                accesses: vec![],
                 span: span.clone(),
-            }],
+            })],
             expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
                 pest::DecimalLiteralExpression {
                     value: pest::DecimalNumber {
@@ -1107,18 +1149,14 @@ mod tests {
         // A MultiDef is generated
 
         let definition = pest::DefinitionStatement {
-            lhs: vec![pest::OptionallyTypedAssignee {
-                ty: None,
-                a: pest::Assignee {
-                    id: pest::IdentifierExpression {
-                        value: String::from("a"),
-                        span: span.clone(),
-                    },
-                    accesses: vec![],
+            lhs: vec![pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
+                id: pest::IdentifierExpression {
+                    value: String::from("a"),
                     span: span.clone(),
                 },
+                accesses: vec![],
                 span: span.clone(),
-            }],
+            })],
             expression: pest::Expression::Postfix(pest::PostfixExpression {
                 id: pest::IdentifierExpression {
                     value: String::from("foo"),
@@ -1153,32 +1191,24 @@ mod tests {
 
         let definition = pest::DefinitionStatement {
             lhs: vec![
-                pest::OptionallyTypedAssignee {
-                    ty: Some(pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
+                pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
+                    ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
                         span: span.clone(),
-                    }))),
-                    a: pest::Assignee {
-                        id: pest::IdentifierExpression {
-                            value: String::from("a"),
-                            span: span.clone(),
-                        },
-                        accesses: vec![],
+                    })),
+                    identifier: pest::IdentifierExpression {
+                        value: String::from("a"),
                         span: span.clone(),
                     },
                     span: span.clone(),
-                },
-                pest::OptionallyTypedAssignee {
-                    ty: None,
-                    a: pest::Assignee {
-                        id: pest::IdentifierExpression {
-                            value: String::from("b"),
-                            span: span.clone(),
-                        },
-                        accesses: vec![],
+                }),
+                pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
+                    id: pest::IdentifierExpression {
+                        value: String::from("b"),
                         span: span.clone(),
                     },
+                    accesses: vec![],
                     span: span.clone(),
-                },
+                }),
             ],
             expression: pest::Expression::Postfix(pest::PostfixExpression {
                 id: pest::IdentifierExpression {

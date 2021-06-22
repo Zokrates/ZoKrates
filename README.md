@@ -1,5 +1,5 @@
 
-<img src="http://www.redaktion.tu-berlin.de/fileadmin/fg308/icons/projekte/logos/ZoKrates_logo.svg" width="100%" height="180">
+<img src="zokrates_logo.svg" width="100%" height="180">
 
 # ZoKrates
 
@@ -21,7 +21,7 @@ curl -LSfs get.zokrat.es | sh
 ```
 
 Have a look at the [documentation](https://zokrates.github.io/) for more information about using ZoKrates.
-A getting started tutorial can be found [here](https://zokrates.github.io/sha256example.html).
+[Get started](https://zokrates.github.io/gettingstarted.html), then try a [tutorial](https://zokrates.github.io/rng_tutorial.html)!
 
 ## Getting Help
 

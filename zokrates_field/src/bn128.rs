@@ -30,7 +30,7 @@ mod tests {
 
         #[test]
         fn max_value_bits() {
-            let bits = FieldPrime::max_value_bit_vector_be();
+            let bits = FieldPrime::max_value().bit_vector_be();
             assert_eq!(
                 bits[0..10].to_vec(),
                 vec![true, true, false, false, false, false, false, true, true, false]

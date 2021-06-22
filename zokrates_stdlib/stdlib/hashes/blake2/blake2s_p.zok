@@ -1,10 +1,18 @@
 // https://tools.ietf.org/html/rfc7693
 
-import "EMBED/u32_to_bits" as to_bits
-import "EMBED/u32_from_bits" as from_bits
+import "utils/casts/u32_to_bits"
+import "utils/casts/u32_from_bits"
 
+// right rotation
 def rotr32<N>(u32 x) -> u32:
     return (x >> N) | (x << (32 - N))
+
+// change endianness
+def swap_u32(u32 val) -> u32:
+    return (val << 24) | \
+          ((val <<  8) & 0x00ff0000) | \
+          ((val >>  8) & 0x0000ff00) | \
+          ((val >> 24) & 0x000000ff)
 
 def blake2s_iv() -> (u32[8]):
     return [
@@ -73,8 +81,8 @@ def blake2s_init(u32[2] p) -> (u32[8]):
         iv[3],
         iv[4],
         iv[5],
-        iv[6] ^ p[0],
-        iv[7] ^ p[1]
+        iv[6] ^ swap_u32(p[0]),
+        iv[7] ^ swap_u32(p[1])
     ]
     return h
 
@@ -83,6 +91,13 @@ def main<K>(u32[K][16] input, u32[2] p) -> (u32[8]):
 
     u32 t0 = 0
     u32 t1 = 0
+
+    // change endianness of inputs from big endian to little endian
+    for u32 i in 0..K do
+        for u32 j in 0..16 do
+            input[i][j] = swap_u32(input[i][j])
+        endfor
+    endfor
 
     for u32 i in 0..K-1 do
         t0 = (i + 1) * 64
@@ -94,4 +109,10 @@ def main<K>(u32[K][16] input, u32[2] p) -> (u32[8]):
     t1 = if t0 == 0 then t1 + 1 else t1 fi
 
     h = blake2s_compression(h, input[K - 1], [t0, t1], true)
+
+    // change endianness of output from little endian to big endian
+    for u32 i in 0..8 do
+        h[i] = swap_u32(h[i])
+    endfor
+
     return h

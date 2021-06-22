@@ -140,19 +140,43 @@ impl From<static_analysis::Error> for CompileErrorInner {
 impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CompileErrorInner::ParserError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::MacroError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
-            CompileErrorInner::AnalysisError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::ParserError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::MacroError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::SemanticError(ref e) => {
+                let location = e
+                    .pos()
+                    .map(|p| format!("{}", p.0))
+                    .unwrap_or_else(|| "".to_string());
+                write!(f, "{}\n\t{}", location, e.message())
+            }
+            CompileErrorInner::ReadError(ref e) => write!(f, "\n\t{}", e),
+            CompileErrorInner::ImportError(ref e) => {
+                let location = e
+                    .pos()
+                    .map(|p| format!("{}", p.0))
+                    .unwrap_or_else(|| "".to_string());
+                write!(f, "{}\n\t{}", location, e.message())
+            }
+            CompileErrorInner::AnalysisError(ref e) => write!(f, "\n\t{}", e),
         }
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct CompileConfig {
     pub allow_unconstrained_variables: bool,
+    pub isolate_branches: bool,
+}
+
+impl CompileConfig {
+    pub fn allow_unconstrained_variables(mut self, flag: bool) -> Self {
+        self.allow_unconstrained_variables = flag;
+        self
+    }
+    pub fn isolate_branches(mut self, flag: bool) -> Self {
+        self.isolate_branches = flag;
+        self
+    }
 }
 
 type FilePath = PathBuf;
@@ -165,7 +189,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
+    let (typed_ast, abi) = check_with_arena(source, location, resolver, config, &arena)?;
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast, config);
@@ -192,16 +216,18 @@ pub fn check<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
+    config: &CompileConfig,
 ) -> Result<(), CompileErrors> {
     let arena = Arena::new();
 
-    check_with_arena::<T, _>(source, location, resolver, &arena).map(|_| ())
+    check_with_arena::<T, _>(source, location, resolver, config, &arena).map(|_| ())
 }
 
 fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
+    config: &CompileConfig,
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
@@ -215,7 +241,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
 
     // analyse (unroll and constant propagation)
     typed_ast
-        .analyse()
+        .analyse(config)
         .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
 }
 
@@ -283,7 +309,7 @@ mod test {
         assert!(res.unwrap_err().0[0]
             .value()
             .to_string()
-            .contains(&"Can't resolve import without a resolver"));
+            .contains(&"Cannot resolve import without a resolver"));
     }
 
     #[test]

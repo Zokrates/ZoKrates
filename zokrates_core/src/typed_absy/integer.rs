@@ -2,8 +2,8 @@ use crate::typed_absy::types::{ArrayType, Type};
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, FieldElementExpression, IfElse,
-    Select, StructExpression, Typed, TypedExpression, TypedExpressionOrSpread, TypedSpread,
-    UExpression, UExpressionInner,
+    IfElseExpression, Select, SelectExpression, StructExpression, Typed, TypedExpression,
+    TypedExpressionOrSpread, TypedSpread, UExpression, UExpressionInner,
 };
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -142,12 +142,8 @@ pub enum IntExpression<'ast, T> {
     Div(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Rem(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Pow(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    IfElse(
-        Box<BooleanExpression<'ast, T>>,
-        Box<IntExpression<'ast, T>>,
-        Box<IntExpression<'ast, T>>,
-    ),
-    Select(Box<ArrayExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    IfElse(IfElseExpression<'ast, T, IntExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, IntExpression<'ast, T>>),
     Xor(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     And(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Or(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
@@ -251,7 +247,7 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
             IntExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             IntExpression::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             IntExpression::Pow(ref lhs, ref rhs) => write!(f, "({} ** {})", lhs, rhs),
-            IntExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            IntExpression::Select(ref select) => write!(f, "{}", select),
             IntExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             IntExpression::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
             IntExpression::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
@@ -261,11 +257,7 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
             IntExpression::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             IntExpression::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             IntExpression::Not(ref e) => write!(f, "!{}", e),
-            IntExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
+            IntExpression::IfElse(ref c) => write!(f, "{}", c),
         }
     }
 }
@@ -315,14 +307,15 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
             )),
             IntExpression::Pos(box e) => Ok(Self::Pos(box Self::try_from_int(e)?)),
             IntExpression::Neg(box e) => Ok(Self::Neg(box Self::try_from_int(e)?)),
-            IntExpression::IfElse(box condition, box consequence, box alternative) => {
-                Ok(Self::IfElse(
-                    box condition,
-                    box Self::try_from_int(consequence)?,
-                    box Self::try_from_int(alternative)?,
-                ))
-            }
-            IntExpression::Select(box array, box index) => {
+            IntExpression::IfElse(c) => Ok(Self::IfElse(IfElseExpression::new(
+                *c.condition,
+                Self::try_from_int(*c.consequence)?,
+                Self::try_from_int(*c.alternative)?,
+            ))),
+            IntExpression::Select(select) => {
+                let array = *select.array;
+                let index = *select.index;
+
                 let size = array.size();
 
                 match array.into_inner() {
@@ -427,12 +420,15 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 Self::try_from_int(e1, bitwidth)?,
                 e2,
             )),
-            IfElse(box condition, box consequence, box alternative) => Ok(UExpression::if_else(
-                condition,
-                Self::try_from_int(consequence, bitwidth)?,
-                Self::try_from_int(alternative, bitwidth)?,
+            IfElse(c) => Ok(UExpression::if_else(
+                *c.condition,
+                Self::try_from_int(*c.consequence, bitwidth)?,
+                Self::try_from_int(*c.alternative, bitwidth)?,
             )),
-            Select(box array, box index) => {
+            Select(select) => {
+                let array = *select.array;
+                let index = *select.index;
+
                 let size = array.size();
                 match array.into_inner() {
                     ArrayExpressionInner::Value(values) => {
@@ -476,12 +472,12 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
         }
     }
 
-    // precondition: `array` is only made of inline arrays unless it does not contain the Integer type
+    // precondition: `array` is only made of inline arrays and repeat constructs unless it does not contain the Integer type
     pub fn try_from_int(
         array: Self,
         target_inner_ty: Type<'ast, T>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
-        let array_ty = array.get_array_type();
+        let array_ty = array.ty();
 
         // elements must fit in the target type
         match array.into_inner() {
@@ -515,11 +511,13 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                 match target_inner_ty.clone() {
                     Type::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
                         .annotate(Type::Int, array_ty.size)),
-                    // try to convert the repeated element to the target type
+                    // try to align the repeated element to the target type
                     t => TypedExpression::align_to_type(e, t)
                         .map(|e| {
+                            let ty = e.get_type().clone();
+
                             ArrayExpressionInner::Repeat(box e, box count)
-                                .annotate(target_inner_ty, array_ty.size)
+                                .annotate(ty, array_ty.size)
                         })
                         .map_err(|(e, _)| e),
                 }

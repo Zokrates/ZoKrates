@@ -1,5 +1,5 @@
 #pragma curve bn128
-import "EMBED/sha256round" as sha256round
+from "EMBED" import sha256round
 
 // a and b is NOT checked to be 0 or 1
 // the return value is checked to be 0 or 1

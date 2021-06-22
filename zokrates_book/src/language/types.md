@@ -8,7 +8,7 @@ ZoKrates currently exposes two primitive types and two complex types:
 
 This is the most basic type in ZoKrates, and it represents a field element with positive integer values in `[0,  p - 1]` where `p` is a (large) prime number. Standard arithmetic operations are supported; note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
 
-As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](/toolbox/proving_schemes.html#alt_bn128) curve supported by Ethereum.
+As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](../toolbox/proving_schemes.md#curves) curve supported by Ethereum.
 
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2, so that we have:
 
@@ -48,7 +48,7 @@ ZoKrates provides two complex types: arrays and structs.
 
 ### Arrays
 
-ZoKrates supports static arrays, i.e., whose length needs to be known at compile time. For more details on generic array sizes, see [constant generics](/language/generics.html)
+ZoKrates supports static arrays, i.e., whose length needs to be known at compile time. For more details on generic array sizes, see [constant generics](../language/generics.md)
 Arrays can contain elements of any type and have arbitrary dimensions.
 
 The following example code shows examples of how to use arrays:

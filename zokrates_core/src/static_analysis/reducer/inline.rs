@@ -29,14 +29,14 @@ use crate::embed::FlatEmbed;
 use crate::static_analysis::reducer::Output;
 use crate::static_analysis::reducer::ShallowTransformer;
 use crate::static_analysis::reducer::Versions;
-use crate::typed_absy::types::ConcreteGenericsAssignment;
+use crate::typed_absy::types::{ConcreteGenericsAssignment, IntoTypes};
 use crate::typed_absy::CoreIdentifier;
 use crate::typed_absy::Identifier;
 use crate::typed_absy::TypedAssignee;
 use crate::typed_absy::{
-    ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Signature,
-    Type, TypedExpression, TypedFunctionSymbol, TypedProgram, TypedStatement, UExpression,
-    UExpressionInner, Variable,
+    ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Expr,
+    Signature, TypedExpression, TypedFunctionSymbol, TypedProgram, TypedStatement, Types,
+    UExpression, UExpressionInner, Variable,
 };
 use zokrates_field::Field;
 
@@ -46,13 +46,13 @@ pub enum InlineError<'ast, T> {
         FlatEmbed,
         Vec<u32>,
         Vec<TypedExpression<'ast, T>>,
-        Vec<Type<'ast, T>>,
+        Types<'ast, T>,
     ),
     NonConstant(
         DeclarationFunctionKey<'ast>,
         Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
-        Vec<Type<'ast, T>>,
+        Types<'ast, T>,
     ),
 }
 
@@ -79,17 +79,19 @@ type InlineResult<'ast, T> = Result<
     InlineError<'ast, T>,
 >;
 
-pub fn inline_call<'a, 'ast, T: Field>(
+pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     k: DeclarationFunctionKey<'ast>,
     generics: Vec<Option<UExpression<'ast, T>>>,
     arguments: Vec<TypedExpression<'ast, T>>,
-    output_types: Vec<Type<'ast, T>>,
+    output: &E::Ty,
     program: &TypedProgram<'ast, T>,
     versions: &'a mut Versions<'ast>,
 ) -> InlineResult<'ast, T> {
     use std::convert::TryFrom;
 
     use crate::typed_absy::Typed;
+
+    let output_types = output.clone().into_types();
 
     // we try to get concrete values for explicit generics
     let generics_values: Vec<Option<u32>> = generics
@@ -117,7 +119,7 @@ pub fn inline_call<'a, 'ast, T: Field>(
     let inferred_signature = Signature::new()
         .generics(generics.clone())
         .inputs(arguments.iter().map(|a| a.get_type()).collect())
-        .outputs(output_types.clone());
+        .outputs(output_types.clone().inner);
 
     // we try to get concrete values for the whole signature. if this fails we should propagate again
     let inferred_signature = match ConcreteSignature::try_from(inferred_signature) {

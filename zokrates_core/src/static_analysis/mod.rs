@@ -5,10 +5,11 @@
 //! @date 2018
 
 mod bounds_checker;
+mod branch_isolator;
+mod constant_inliner;
 mod flat_propagation;
 mod flatten_complex_types;
 mod propagation;
-mod redefinition;
 mod reducer;
 mod shift_checker;
 mod uint_optimizer;
@@ -17,17 +18,19 @@ mod variable_read_remover;
 mod variable_write_remover;
 
 use self::bounds_checker::BoundsChecker;
+use self::branch_isolator::Isolator;
 use self::flatten_complex_types::Flattener;
 use self::propagation::Propagator;
-use self::redefinition::RedefinitionOptimizer;
 use self::reducer::reduce_program;
 use self::shift_checker::ShiftChecker;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_read_remover::VariableReadRemover;
 use self::variable_write_remover::VariableWriteRemover;
+use crate::compile::CompileConfig;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
+use crate::static_analysis::constant_inliner::ConstantInliner;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;
 use std::fmt;
@@ -72,15 +75,23 @@ impl fmt::Display for Error {
 }
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
-    pub fn analyse(self) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
-        let r = reduce_program(self).map_err(Error::from)?;
+    pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
+        // inline user-defined constants
+        let r = ConstantInliner::inline(self);
+        // isolate branches
+        let r = if config.isolate_branches {
+            Isolator::isolate(r)
+        } else {
+            r
+        };
 
+        // reduce the program to a single function
+        let r = reduce_program(r).map_err(Error::from)?;
+        // generate abi
         let abi = r.abi();
 
         // propagate
         let r = Propagator::propagate(r).map_err(Error::from)?;
-        // optimize redefinitions
-        let r = RedefinitionOptimizer::optimize(r);
         // remove assignment to variable index
         let r = VariableWriteRemover::apply(r);
         // remove variable access to complex types

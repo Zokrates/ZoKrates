@@ -9,4 +9,4 @@ def main(field a) -> bool:
   // maxvalue = 2**252 - 1
   field maxvalue = a + 7237005577332262213973186563042994240829374041602535252466099000494570602496 - 1
   // we added a = 0 to prevent the condition to be evaluated at compile time
-  return 0 < (maxvalue + 1)
+  return a < (maxvalue + 1)

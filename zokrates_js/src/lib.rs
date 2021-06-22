@@ -1,6 +1,6 @@
-use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
+use std::io::Cursor;
 use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
@@ -37,14 +37,18 @@ pub struct ComputationResult {
 
 #[inline]
 fn deserialize_program(value: &[u8]) -> Result<ir::Prog<Bn128Field>, JsValue> {
-    deserialize(value)
-        .map_err(|err| JsValue::from_str(&format!("Could not deserialize program: {}", err)))
+    let prog = ir::ProgEnum::deserialize(value).map_err(|err| JsValue::from_str(&err))?;
+    match prog {
+        ir::ProgEnum::Bn128Program(p) => Ok(p),
+        _ => Err(JsValue::from_str("Unsupported binary")),
+    }
 }
 
 #[inline]
-fn serialize_program(program: &ir::Prog<Bn128Field>) -> Result<Vec<u8>, JsValue> {
-    serialize(program)
-        .map_err(|err| JsValue::from_str(&format!("Could not serialize program: {}", err)))
+fn serialize_program(program: &ir::Prog<Bn128Field>) -> Vec<u8> {
+    let mut buffer = Cursor::new(vec![]);
+    program.serialize(&mut buffer);
+    buffer.into_inner()
 }
 
 pub struct JsResolver<'a> {
@@ -97,7 +101,7 @@ pub fn compile(
     config: JsValue,
 ) -> Result<JsValue, JsValue> {
     let resolver = JsResolver::new(resolve_callback);
-    let config: CompileConfig = config.into_serde().unwrap_or(CompileConfig::default());
+    let config: CompileConfig = config.into_serde().unwrap_or_default();
 
     let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
     let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
@@ -107,17 +111,17 @@ pub fn compile(
         &config,
     )
     .map_err(|ce| {
-        JsValue::from_str(&format!(
-            "{}",
-            ce.0.iter()
+        JsValue::from_str(
+            &ce.0
+                .iter()
                 .map(|e| fmt_error(e))
                 .collect::<Vec<_>>()
-                .join("\n")
-        ))
+                .join("\n"),
+        )
     })?;
 
     let result = CompilationResult {
-        program: serialize_program(artifacts.prog())?,
+        program: serialize_program(artifacts.prog()),
         abi: to_string_pretty(artifacts.abi()).unwrap(),
     };
 
@@ -134,8 +138,8 @@ pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<Js
     let input = args.as_string().unwrap();
 
     let inputs = parse_strict(&input, signature.inputs)
-        .map(|parsed| Inputs::Abi(parsed))
-        .map_err(|why| JsValue::from_str(&format!("{}", why.to_string())))?;
+        .map(Inputs::Abi)
+        .map_err(|why| JsValue::from_str(&why.to_string()))?;
 
     let interpreter = ir::Interpreter::default();
 
@@ -203,6 +207,6 @@ pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
 
 #[wasm_bindgen(start)]
 pub fn main_js() -> Result<(), JsValue> {
-    console_error_panic_hook::set_once();
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     Ok(())
 }

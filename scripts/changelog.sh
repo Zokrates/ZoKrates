@@ -30,7 +30,7 @@ cat << EOT
 ## [${tag}] - $(qdate '+%Y-%m-%d')
 
 ### Release
-- https://github.com/Zokrates/ZoKrates/releases/tag/${tag}
+- https://github.com/Zokrates/ZoKrates/releases/tag/${tag} <!-- markdown-link-check-disable-line -->
 
 ### Changes
 EOT
@@ -38,9 +38,13 @@ EOT
 for file in $unreleased
 do
     IFS=$'-' read -ra entry <<< "$file"
-    contents=$(cat ${CHANGELOG_PATH}/${file} | tr '\n' ' ')
     author=$(join '-' ${entry[@]:1})
-    echo "- ${contents} (#${entry[0]}, @${author})"
+
+    IFS=$'\n' rows=$(cat ${CHANGELOG_PATH}/${file})
+    for row in $rows
+    do
+        echo "- ${row} (#${entry[0]}, @${author})"
+    done
 done
 
 echo -e "\nCopy and paste the markdown above to the appropriate CHANGELOG file."

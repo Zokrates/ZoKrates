@@ -70,7 +70,11 @@ impl fmt::Display for FlatVariable {
 
 impl fmt::Debug for FlatVariable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "FlatVariable(id: {})", self.id)
+        match self.id {
+            0 => write!(f, "~one"),
+            i if i > 0 => write!(f, "_{}", i - 1),
+            i => write!(f, "~out_{}", -(i + 1)),
+        }
     }
 }
 

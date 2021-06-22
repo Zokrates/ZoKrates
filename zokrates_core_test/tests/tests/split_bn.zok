@@ -1,4 +1,4 @@
-import "EMBED/unpack"
+from "EMBED" import unpack
 
 def main(field a) -> (bool[254]):
 	

@@ -74,7 +74,6 @@ impl<V: NodeValue> From<V> for Node<V> {
 
 use crate::absy::types::UnresolvedType;
 use crate::absy::*;
-use crate::imports::*;
 
 impl<'ast> NodeValue for Expression<'ast> {}
 impl<'ast> NodeValue for ExpressionList<'ast> {}
@@ -84,12 +83,13 @@ impl<'ast> NodeValue for SymbolDeclaration<'ast> {}
 impl<'ast> NodeValue for UnresolvedType<'ast> {}
 impl<'ast> NodeValue for StructDefinition<'ast> {}
 impl<'ast> NodeValue for StructDefinitionField<'ast> {}
+impl<'ast> NodeValue for ConstantDefinition<'ast> {}
 impl<'ast> NodeValue for Function<'ast> {}
 impl<'ast> NodeValue for Module<'ast> {}
+impl<'ast> NodeValue for CanonicalImport<'ast> {}
 impl<'ast> NodeValue for SymbolImport<'ast> {}
 impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
-impl<'ast> NodeValue for Import<'ast> {}
 impl<'ast> NodeValue for Spread<'ast> {}
 impl<'ast> NodeValue for Range<'ast> {}
 impl<'ast> NodeValue for Identifier<'ast> {}

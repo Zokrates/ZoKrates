@@ -1,6 +1,6 @@
 import "./512bitBool.zok" as pedersen
-import "EMBED/u32_to_bits" as to_bits
-import "EMBED/u32_from_bits" as from_bits
+import "utils/casts/u32_to_bits" as to_bits
+import "utils/casts/u32_from_bits" as from_bits
 
 def main(u32[16] inputs) -> u32[8]:
 	bool[512] e = [\
