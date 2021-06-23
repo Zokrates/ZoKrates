@@ -26,7 +26,7 @@ There are many ways to calculate a hash, but here we use Zokrates.
 
 1. Create this file under the name `get_hash.zok`:
 ```zokrates
-{{#include ../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok}}
 ```
 2. Compile the program to a form that is usable for zero knowledge proofs. This command writes 
 the binary to `get_hash`. You can see a textual representation, somewhat analogous to assembler 
@@ -99,7 +99,7 @@ The next step is to reveal a single bit.
 
 1. Use this program, `reveal_bit.zok`:
 ```zokrates
-{{#include ../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok}}
 ```
 
 2. Compile and run as you did the previous program:
