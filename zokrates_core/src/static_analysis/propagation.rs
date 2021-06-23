@@ -548,7 +548,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                             _ => unreachable!("should be a field value"),
                                         }
                                     }
+                                    #[cfg(feature = "bellman")]
                                     FlatEmbed::Sha256Round => None,
+                                    #[cfg(feature = "ark")]
                                     FlatEmbed::Verify => None,
                                 };
 

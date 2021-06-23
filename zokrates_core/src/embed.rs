@@ -6,17 +6,20 @@ use crate::solvers::Solver;
 use crate::typed_absy::types::{
     ConcreteGenericsAssignment, Constant, DeclarationSignature, DeclarationType, GenericIdentifier,
 };
-use ark_bls12_377::Bls12_377;
 use std::collections::HashMap;
-use zokrates_embed::ark::{from_ark, generate_verify_constraints};
-use zokrates_embed::bellman::from_bellman;
-use zokrates_embed::Constraint;
 use zokrates_field::{Bn128Field, Field};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "bellman")] {
         use pairing_ce::bn256::Bn256;
-        use zokrates_embed::{bellman::generate_sha256_round_constraints};
+        use zokrates_embed::{bellman::{from_bellman, generate_sha256_round_constraints}};
+    }
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "ark")] {
+        use ark_bls12_377::Bls12_377;
+        use zokrates_embed::ark::{from_ark, generate_verify_constraints};
     }
 }
 
@@ -218,14 +221,6 @@ fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
     }
 }
 
-// fn flat_statement_from_constraint<T: Field, F>(c: Constraint<F>) -> FlatStatement<T> {
-//     let rhs_a = flat_expression_from_vec::<T, F>(&c.a);
-//     let rhs_b = flat_expression_from_vec::<T, F>(&c.b);
-//     let lhs = flat_expression_from_vec::<T, F>(&c.c);
-//
-//     FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
-// }
-
 /// Returns a flat function which computes a sha256 round
 ///
 /// # Remarks
@@ -380,7 +375,7 @@ pub fn verify<T: Field>(n: usize) -> FlatFunction<T> {
     let constraint_statements: Vec<FlatStatement<T>> = constraints
         .into_iter()
         .map(|c| {
-            let c: Constraint<T> = from_ark::<T, Bls12_377>(c);
+            let c = from_ark::<T, Bls12_377>(c);
             let rhs_a = flat_expression_from_vec::<T>(c.a.as_slice());
             let rhs_b = flat_expression_from_vec::<T>(c.b.as_slice());
             let lhs = flat_expression_from_vec::<T>(c.c.as_slice());

@@ -120,6 +120,11 @@ impl Importer {
                         }
                     }
                 }
+                #[cfg(feature = "ark")]
+                "verify" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Flat(FlatEmbed::Verify),
+                },
                 "unpack" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::Unpack),
@@ -155,10 +160,6 @@ impl Importer {
                 "u8_from_bits" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::U8FromBits),
-                },
-                "verify" => SymbolDeclaration {
-                    id: symbol.get_alias(),
-                    symbol: Symbol::Flat(FlatEmbed::Verify),
                 },
                 s => {
                     return Err(CompileErrorInner::ImportError(

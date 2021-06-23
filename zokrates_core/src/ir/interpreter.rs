@@ -6,6 +6,7 @@ use pairing_ce::bn256::Bn256;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
+use zokrates_embed::ark::generate_verify_witness;
 #[cfg(feature = "bellman")]
 use zokrates_embed::bellman::generate_sha256_round_witness;
 use zokrates_field::Field;
@@ -234,9 +235,11 @@ impl Interpreter {
                     .collect()
             }
             #[cfg(feature = "ark")]
-            Solver::Verify(_n) => {
-                todo!()
-            }
+            Solver::Verify(n) => generate_verify_witness(
+                &inputs[..*n],
+                &inputs[*n..*n + 8usize],
+                &inputs[*n + 8usize..],
+            ),
         };
 
         assert_eq!(res.len(), expected_output_count);
