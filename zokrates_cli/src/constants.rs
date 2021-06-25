@@ -5,6 +5,8 @@ pub const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
 pub const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
 pub const WITNESS_DEFAULT_PATH: &str = "witness";
 pub const JSON_PROOF_PATH: &str = "proof.json";
+pub const UNIVERSAL_SETUP_DEFAULT_PATH: &str = "universal_setup.dat";
+pub const UNIVERSAL_SETUP_DEFAULT_SIZE: &str = "10";
 
 pub const BELLMAN: &str = "bellman";
 pub const LIBSNARK: &str = "libsnark";
@@ -56,3 +58,4 @@ pub const GM17: &str = "gm17";
 pub const MARLIN: &str = "marlin";
 
 pub const SCHEMES: &[&str] = &[G16, PGHR13, GM17, MARLIN];
+pub const UNIVERSAL_SCHEMES: &[&str] = &[MARLIN];

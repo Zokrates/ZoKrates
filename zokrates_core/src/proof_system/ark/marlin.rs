@@ -3,37 +3,26 @@ use ark_marlin::{IndexProverKey, IndexVerifierKey, Proof as ArkProof};
 use ark_marlin::Marlin as ArkMarlin;
 
 use ark_ec::PairingEngine;
-use ark_ff::{PrimeField, UniformRand};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly_commit::marlin_pc::MarlinKZG10;
-use ark_relations::{
-    lc,
-    r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError},
-};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use sha2::Sha256;
 
-use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
+use zokrates_field::{ArkFieldExtensions, Field};
 
 use crate::ir::{Prog, Witness};
+use crate::proof_system::ark::parse_fr;
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
-use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
 use crate::proof_system::marlin::{self, ProofPoints, VerificationKey};
 use crate::proof_system::Scheme;
-use crate::proof_system::{Backend, Proof, SetupKeypair};
+use crate::proof_system::{Backend, Proof, SetupKeypair, UniversalBackend};
 
-impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn setup(program: Prog<T>) -> SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey> {
-        let computation = Computation::without_witness(program);
-
+impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark {
+    fn universal_setup(size: u32) -> Vec<u8> {
         use rand_0_7::SeedableRng;
 
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
-
-        println!("setup not found, creating local srs");
-
-        let degree = 5;
 
         let srs = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -43,22 +32,33 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
             >,
             Sha256,
         >::universal_setup(
-            2usize.pow(degree),
-            2usize.pow(degree),
-            2usize.pow(degree),
-            rng,
+            2usize.pow(size), 2usize.pow(size), 2usize.pow(size), rng
         )
         .unwrap();
 
-        println!("srs done!");
+        let mut res = vec![];
+
+        srs.serialize(&mut res).unwrap();
+
+        res
+    }
+
+    fn setup(
+        universal_srs: Vec<u8>,
+        program: Prog<T>,
+    ) -> SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey> {
+        let computation = Computation::without_witness(program);
+
+        let srs = ark_marlin::UniversalSRS::<
+            <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
+            MarlinKZG10<
+                T::ArkEngine,
+                DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
+            >,
+        >::deserialize(&mut universal_srs.as_slice())
+        .unwrap();
 
         use ark_poly_commit::PCUniversalParams;
-
-        println!("srs max degree: {}", srs.max_degree());
-        println!(
-            "computation constraint count {}",
-            computation.program.constraint_count()
-        );
 
         let (pk, vk) = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -70,8 +70,6 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
         >::index(&srs, computation)
         .unwrap();
 
-        println!("srs specialized!");
-
         //let parameters = Computation::without_witness(program).setup();
 
         let mut serialized_pk: Vec<u8> = Vec::new();
@@ -82,7 +80,9 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         SetupKeypair::new(VerificationKey { raw: serialized_vk }, serialized_pk)
     }
+}
 
+impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
     fn generate_proof(
         program: Prog<T>,
         witness: Witness<T>,
@@ -256,7 +256,9 @@ mod tests {
             private: vec![true],
         };
 
-        let keypair = <Ark as Backend<Bls12_377Field, Marlin>>::setup(program.clone());
+        let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
+        let keypair =
+            <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -294,7 +296,8 @@ mod tests {
             private: vec![true],
         };
 
-        let keypair = <Ark as Backend<Bw6_761Field, Marlin>>::setup(program.clone());
+        let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5);
+        let keypair = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::setup(srs, program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter

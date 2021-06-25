@@ -16,3 +16,7 @@ pub trait Scheme<T: Field> {
     type VerificationKey: Serialize + DeserializeOwned;
     type ProofPoints: Serialize + DeserializeOwned;
 }
+
+pub trait NonUniversalScheme<T: Field>: Scheme<T> {}
+
+pub trait UniversalScheme<T: Field>: Scheme<T> {}

@@ -9,6 +9,7 @@ pub enum CurveParameter {
     Bw6_761,
 }
 
+#[derive(Debug)]
 pub enum BackendParameter {
     #[cfg(feature = "bellman")]
     Bellman,
@@ -19,6 +20,7 @@ pub enum BackendParameter {
 }
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Debug)]
 pub enum SchemeParameter {
     G16,
     GM17,
@@ -70,6 +72,7 @@ impl TryFrom<&str> for SchemeParameter {
     }
 }
 
+#[derive(Debug)]
 pub struct Parameters(
     pub BackendParameter,
     pub CurveParameter,
@@ -97,6 +100,10 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
             (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
             #[cfg(feature = "ark")]
             (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => Ok(()),
+            #[cfg(feature = "ark")]
+            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => Ok(()),
+            #[cfg(feature = "ark")]
+            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => Ok(()),
             #[cfg(feature = "libsnark")]
             (BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
             #[cfg(feature = "libsnark")]

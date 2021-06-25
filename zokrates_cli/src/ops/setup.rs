@@ -70,6 +70,16 @@ pub fn subcommand() -> App<'static, 'static> {
                 .possible_values(constants::SCHEMES)
                 .default_value(constants::G16),
         )
+        .arg(
+            Arg::with_name("universal-setup-path")
+                .short("u")
+                .long("universal-setup-path")
+                .help("Path of the universal setup file for universal schemes")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(constants::UNIVERSAL_SETUP_DEFAULT_PATH),
+        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -95,22 +105,49 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match parameters {
         #[cfg(feature = "bellman")]
         Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
+            ProgEnum::Bn128Program(p) => cli_setup_non_universal::<_, G16, Bellman>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => {
+                cli_setup_non_universal::<_, G16, Bellman>(p, sub_matches)
+            }
             _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bls12_377Program(p) => {
+                cli_setup_non_universal::<_, GM17, Ark>(p, sub_matches)
+            }
+            ProgEnum::Bw6_761Program(p) => cli_setup_non_universal::<_, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bn128Program(p) => cli_setup_non_universal::<_, GM17, Ark>(p, sub_matches),
             _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
-            ProgEnum::Bls12_377Program(p) => cli_setup::<_, Marlin, Ark>(p, sub_matches),
-            _ => unreachable!(),
-        },
+        Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => {
+            let setup_path = Path::new(sub_matches.value_of("universal-setup-path").unwrap());
+            let setup_file = File::open(&setup_path)
+                .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
+
+            let mut reader = BufReader::new(setup_file);
+
+            let mut setup = vec![];
+            use std::io::Read;
+
+            reader
+                .read_to_end(&mut setup)
+                .map_err(|_| "Cannot read universal setup".to_string())?;
+
+            match prog {
+                ProgEnum::Bls12_377Program(p) => {
+                    cli_setup_universal::<_, Marlin, Ark>(p, setup, sub_matches)
+                }
+                ProgEnum::Bn128Program(p) => {
+                    cli_setup_universal::<_, Marlin, Ark>(p, setup, sub_matches)
+                }
+                ProgEnum::Bw6_761Program(p) => {
+                    cli_setup_universal::<_, Marlin, Ark>(p, setup, sub_matches)
+                }
+                _ => unreachable!(),
+            }
+        }
         #[cfg(feature = "libsnark")]
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
             match prog {
@@ -129,7 +166,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
+fn cli_setup_non_universal<T: Field, S: NonUniversalScheme<T>, B: NonUniversalBackend<T, S>>(
     program: ir::Prog<T>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -146,6 +183,51 @@ fn cli_setup<T: Field, S: Scheme<T>, B: Backend<T, S>>(
 
     // run setup phase
     let keypair = B::setup(program);
+
+    // write verification key
+    let mut vk_file = File::create(vk_path)
+        .map_err(|why| format!("Could not create {}: {}", vk_path.display(), why))?;
+    vk_file
+        .write_all(
+            serde_json::to_string_pretty(&keypair.vk)
+                .unwrap()
+                .as_bytes(),
+        )
+        .map_err(|why| format!("Could not write to {}: {}", vk_path.display(), why))?;
+
+    println!("Verification key written to '{}'", vk_path.display());
+
+    // write proving key
+    let mut pk_file = File::create(pk_path)
+        .map_err(|why| format!("Could not create {}: {}", pk_path.display(), why))?;
+    pk_file
+        .write_all(keypair.pk.as_ref())
+        .map_err(|why| format!("Could not write to {}: {}", pk_path.display(), why))?;
+
+    println!("Proving key written to '{}'", pk_path.display());
+    println!("Setup completed");
+
+    Ok(())
+}
+
+fn cli_setup_universal<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S>>(
+    program: ir::Prog<T>,
+    srs: Vec<u8>,
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
+    println!("Performing setup...");
+
+    // print deserialized flattened program if in verbose mode
+    if sub_matches.is_present("verbose") {
+        println!("{}", program);
+    }
+
+    // get paths for proving and verification keys
+    let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
+    let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
+
+    // run setup phase
+    let keypair = B::setup(srs, program);
 
     // write verification key
     let mut vk_file = File::create(vk_path)
