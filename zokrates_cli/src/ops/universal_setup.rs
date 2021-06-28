@@ -7,8 +7,6 @@ use std::io::Write;
 use std::path::Path;
 #[cfg(feature = "ark")]
 use zokrates_core::proof_system::ark::Ark;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::Libsnark;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 use zokrates_core::proof_system::*;
 use zokrates_field::{Bls12_377Field, Bn128Field, Bw6_761Field, Field};
