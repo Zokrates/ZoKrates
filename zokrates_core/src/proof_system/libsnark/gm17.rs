@@ -4,8 +4,8 @@ use crate::proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
 use crate::proof_system::libsnark::{
     prepare_generate_proof, prepare_public_inputs, prepare_setup, serialization::*, Libsnark,
 };
-use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, G1Affine, G2Affine, Proof, SetupKeypair};
+use crate::proof_system::{NonUniversalScheme, Scheme};
 use std::io::{BufReader, BufWriter, Write};
 use zokrates_field::{Bn128Field, Field};
 
