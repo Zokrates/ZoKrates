@@ -46,7 +46,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
     fn setup(
         universal_srs: Vec<u8>,
         program: Prog<T>,
-    ) -> SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey> {
+    ) -> Result<SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey>, String> {
         let computation = Computation::without_witness(program);
 
         let srs = ark_marlin::UniversalSRS::<
@@ -58,8 +58,6 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         >::deserialize(&mut universal_srs.as_slice())
         .unwrap();
 
-        use ark_poly_commit::PCUniversalParams;
-
         let (pk, vk) = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
             MarlinKZG10<
@@ -68,9 +66,10 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
             >,
             Sha256,
         >::index(&srs, computation)
-        .unwrap();
-
-        //let parameters = Computation::without_witness(program).setup();
+        .map_err(|e| match e {
+            ark_marlin::Error::IndexTooLarge => String::from("The universal setup is too small for this program, please provide a larger universal setup"),
+            _ => String::from("Unknown error specializing the universal setup for this program")
+        })?;
 
         let mut serialized_pk: Vec<u8> = Vec::new();
         pk.serialize_uncompressed(&mut serialized_pk).unwrap();
@@ -78,7 +77,10 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         let mut serialized_vk: Vec<u8> = Vec::new();
         vk.serialize_uncompressed(&mut serialized_vk).unwrap();
 
-        SetupKeypair::new(VerificationKey { raw: serialized_vk }, serialized_pk)
+        Ok(SetupKeypair::new(
+            VerificationKey { raw: serialized_vk },
+            serialized_pk,
+        ))
     }
 }
 

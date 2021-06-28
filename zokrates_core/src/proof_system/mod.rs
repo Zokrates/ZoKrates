@@ -95,5 +95,8 @@ pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S>
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
     fn universal_setup(size: u32) -> Vec<u8>;
 
-    fn setup(srs: Vec<u8>, program: ir::Prog<T>) -> SetupKeypair<S::VerificationKey>;
+    fn setup(
+        srs: Vec<u8>,
+        program: ir::Prog<T>,
+    ) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }

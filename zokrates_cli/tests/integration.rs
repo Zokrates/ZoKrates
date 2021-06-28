@@ -212,16 +212,28 @@ mod integration {
 
         #[cfg(feature = "libsnark")]
         let backends = map! {
-            "bellman" => ["g16"],
-            "libsnark" => ["pghr13"],
-            "ark" => ["gm17"]
+            "bellman" => vec!["g16"],
+            "libsnark" => vec!["pghr13"],
+            "ark" => vec!["gm17", "marlin"]
         };
 
         #[cfg(not(feature = "libsnark"))]
         let backends = map! {
-            "bellman" => ["g16"],
-            "ark" => ["gm17"]
+            "bellman" => vec!["g16"],
+            "ark" => vec!["gm17", "marlin"]
         };
+
+        // GENERATE A UNIVERSAL SETUP
+        assert_cli::Assert::command(&[
+            "../target/release/zokrates",
+            "universal-setup",
+            "--size",
+            "15",
+            "--proving-scheme",
+            "marlin",
+        ])
+        .succeeds()
+        .unwrap();
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
@@ -279,7 +291,7 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
-                if backend != "ark" {
+                if scheme != &"marlin" {
                     for abi_version in &["v1", "v2"] {
                         // EXPORT-VERIFIER
                         assert_cli::Assert::command(&[

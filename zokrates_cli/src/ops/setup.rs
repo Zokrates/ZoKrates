@@ -227,7 +227,7 @@ fn cli_setup_universal<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
     // run setup phase
-    let keypair = B::setup(srs, program);
+    let keypair = B::setup(srs, program)?;
 
     // write verification key
     let mut vk_file = File::create(vk_path)

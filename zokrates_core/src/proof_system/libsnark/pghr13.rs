@@ -42,67 +42,6 @@ extern "C" {
 }
 
 impl Backend<Bn128Field, PGHR13> for Libsnark {
-    fn setup(
-        program: Prog<Bn128Field>,
-    ) -> SetupKeypair<<PGHR13 as Scheme<Bn128Field>>::VerificationKey> {
-        let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
-            prepare_setup(program);
-
-        let (vk, pk) = unsafe {
-            let result: SetupResult = pghr13_bn128_setup(
-                a_arr.as_ptr(),
-                b_arr.as_ptr(),
-                c_arr.as_ptr(),
-                a_vec.len() as i32,
-                b_vec.len() as i32,
-                c_vec.len() as i32,
-                num_constraints as i32,
-                num_variables as i32,
-                num_inputs as i32,
-            );
-
-            let vk: Vec<u8> =
-                std::slice::from_raw_parts(result.vk.data, result.vk.length as usize).to_vec();
-            let pk: Vec<u8> =
-                std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
-
-            // free c allocated buffers
-            result.vk.free();
-            result.pk.free();
-
-            (vk, pk)
-        };
-
-        let vk_slice = vk.as_slice();
-        let mut reader = BufReader::new(vk_slice);
-
-        let a = read_g2(&mut reader).unwrap();
-        let b = read_g1(&mut reader).unwrap();
-        let c = read_g2(&mut reader).unwrap();
-        let gamma = read_g2(&mut reader).unwrap();
-        let gamma_beta_1 = read_g1(&mut reader).unwrap();
-        let gamma_beta_2 = read_g2(&mut reader).unwrap();
-        let z = read_g2(&mut reader).unwrap();
-
-        let mut ic = vec![];
-        while let Ok(q) = read_g1(&mut reader) {
-            ic.push(q);
-        }
-
-        let vk = VerificationKey::<G1Affine, G2Affine> {
-            a,
-            b,
-            c,
-            gamma,
-            gamma_beta_1,
-            gamma_beta_2,
-            z,
-            ic,
-        };
-
-        SetupKeypair::new(vk, pk)
-    }
-
     fn generate_proof(
         program: Prog<Bn128Field>,
         witness: Witness<Bn128Field>,
@@ -221,6 +160,69 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
 
             ans
         }
+    }
+}
+
+impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
+    fn setup(
+        program: Prog<Bn128Field>,
+    ) -> SetupKeypair<<PGHR13 as Scheme<Bn128Field>>::VerificationKey> {
+        let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
+            prepare_setup(program);
+
+        let (vk, pk) = unsafe {
+            let result: SetupResult = pghr13_bn128_setup(
+                a_arr.as_ptr(),
+                b_arr.as_ptr(),
+                c_arr.as_ptr(),
+                a_vec.len() as i32,
+                b_vec.len() as i32,
+                c_vec.len() as i32,
+                num_constraints as i32,
+                num_variables as i32,
+                num_inputs as i32,
+            );
+
+            let vk: Vec<u8> =
+                std::slice::from_raw_parts(result.vk.data, result.vk.length as usize).to_vec();
+            let pk: Vec<u8> =
+                std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
+
+            // free c allocated buffers
+            result.vk.free();
+            result.pk.free();
+
+            (vk, pk)
+        };
+
+        let vk_slice = vk.as_slice();
+        let mut reader = BufReader::new(vk_slice);
+
+        let a = read_g2(&mut reader).unwrap();
+        let b = read_g1(&mut reader).unwrap();
+        let c = read_g2(&mut reader).unwrap();
+        let gamma = read_g2(&mut reader).unwrap();
+        let gamma_beta_1 = read_g1(&mut reader).unwrap();
+        let gamma_beta_2 = read_g2(&mut reader).unwrap();
+        let z = read_g2(&mut reader).unwrap();
+
+        let mut ic = vec![];
+        while let Ok(q) = read_g1(&mut reader) {
+            ic.push(q);
+        }
+
+        let vk = VerificationKey::<G1Affine, G2Affine> {
+            a,
+            b,
+            c,
+            gamma,
+            gamma_beta_1,
+            gamma_beta_2,
+            z,
+            ic,
+        };
+
+        SetupKeypair::new(vk, pk)
     }
 }
 
