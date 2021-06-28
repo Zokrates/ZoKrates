@@ -1,0 +1,5 @@
+from "gadgets/verify" import main as verify
+
+def main(private field[2] inputs, private field[8] proof, private field[22] vk) -> bool:
+    bool result = verify(inputs, proof, vk)
+    return result

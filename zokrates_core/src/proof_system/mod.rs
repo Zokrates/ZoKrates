@@ -46,15 +46,15 @@ pub type Fq = String;
 pub type Fq2 = (String, String);
 
 #[derive(Serialize, Deserialize)]
-pub struct G1Affine(Fq, Fq);
+pub struct G1Affine(pub Fq, pub Fq);
 
 // When G2 is defined on Fq2 field
 #[derive(Serialize, Deserialize)]
-pub struct G2Affine(Fq2, Fq2);
+pub struct G2Affine(pub Fq2, pub Fq2);
 
 // When G2 is defined on a Fq field (BW6_761 curve)
 #[derive(Serialize, Deserialize)]
-pub struct G2AffineFq(Fq, Fq);
+pub struct G2AffineFq(pub Fq, pub Fq);
 
 impl ToString for G1Affine {
     fn to_string(&self) -> String {

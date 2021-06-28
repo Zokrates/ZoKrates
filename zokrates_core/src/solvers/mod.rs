@@ -1,4 +1,3 @@
-use num::Integer;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -38,10 +37,7 @@ impl Solver {
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => (768, 26935),
             #[cfg(feature = "ark")]
-            Solver::Verify(n) => (
-                26 + 3 * n,
-                (41991 + (3570 * n)) + ((n.div_ceil(&2usize) - 1) * 2816),
-            ),
+            Solver::Verify(n) => (26 + 3 * n, 41991 + 4972 * n),
         }
     }
 }

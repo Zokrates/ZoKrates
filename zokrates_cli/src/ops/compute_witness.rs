@@ -82,9 +82,9 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     let verbose = sub_matches.is_present("verbose");
 
     // print deserialized flattened program if in verbose mode
-    // if verbose {
-    //     println!("{}", ir_prog);
-    // }
+    if verbose {
+        println!("{}", ir_prog);
+    }
 
     let is_stdin = sub_matches.is_present("stdin");
     let is_abi = sub_matches.is_present("abi");
