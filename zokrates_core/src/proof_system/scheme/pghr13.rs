@@ -1,4 +1,4 @@
-use crate::proof_system::scheme::Scheme;
+use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
 use crate::proof_system::solidity::{
     SolidityAbi, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
@@ -38,6 +38,8 @@ impl<T: Field> Scheme<T> for PGHR13 {
     type VerificationKey = VerificationKey<G1Affine, G2Affine>;
     type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 }
+
+impl<T: Field> NonUniversalScheme<T> for PGHR13 {}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
     fn export_solidity_verifier(
