@@ -1,4 +1,4 @@
-from "gadgets/verify" import main as verify
+from "snark/verify" import main as verify
 
 def main(private field[5] inputs, private field[8] proof, private field[28] vk) -> bool:
     bool result = verify(inputs, proof, vk)
