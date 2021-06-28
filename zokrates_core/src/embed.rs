@@ -7,7 +7,7 @@ use crate::typed_absy::types::{
     ConcreteGenericsAssignment, Constant, DeclarationSignature, DeclarationType, GenericIdentifier,
 };
 use std::collections::HashMap;
-use zokrates_field::{Bn128Field, Field};
+use zokrates_field::Field;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "bellman")] {
@@ -230,6 +230,7 @@ fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
 /// - arguments
 #[cfg(feature = "bellman")]
 pub fn sha256_round<T: Field>() -> FlatFunction<T> {
+    use zokrates_field::Bn128Field;
     assert_eq!(T::id(), Bn128Field::id());
 
     // Define iterators for all indices at hand
@@ -318,6 +319,9 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
 
 #[cfg(feature = "ark")]
 pub fn verify<T: Field>(n: usize) -> FlatFunction<T> {
+    use zokrates_field::Bw6_761Field;
+    assert_eq!(T::id(), Bw6_761Field::id());
+
     let (out_index, input_indices, proof_indices, vk_indices, constraints, variable_count) =
         generate_verify_constraints(n);
 

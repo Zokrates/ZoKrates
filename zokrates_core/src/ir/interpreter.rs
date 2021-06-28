@@ -235,11 +235,16 @@ impl Interpreter {
                     .collect()
             }
             #[cfg(feature = "ark")]
-            Solver::Verify(n) => generate_verify_witness(
-                &inputs[..*n],
-                &inputs[*n..*n + 8usize],
-                &inputs[*n + 8usize..],
-            ),
+            Solver::Verify(n) => {
+                use zokrates_field::Bw6_761Field;
+                assert_eq!(T::id(), Bw6_761Field::id());
+
+                generate_verify_witness(
+                    &inputs[..*n],
+                    &inputs[*n..*n + 8usize],
+                    &inputs[*n + 8usize..],
+                )
+            }
         };
 
         assert_eq!(res.len(), expected_output_count);
