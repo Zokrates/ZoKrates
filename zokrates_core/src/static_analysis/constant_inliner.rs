@@ -542,7 +542,7 @@ mod tests {
         let constants: TypedConstantSymbols<_> = vec![(
             CanonicalConstantIdentifier::new(const_id, "main".into()),
             TypedConstantSymbol::Here(TypedConstant::new(
-                GType::FieldElement,
+                GType::array(GArrayType::new(GType::FieldElement, 2usize)),
                 TypedExpression::Array(
                     ArrayExpressionInner::Value(
                         vec![
