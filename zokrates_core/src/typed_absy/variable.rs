@@ -1,4 +1,4 @@
-use crate::typed_absy::types::{Constant, GStructType, UBitwidth};
+use crate::typed_absy::types::{DeclarationConstant, GStructType, UBitwidth};
 use crate::typed_absy::types::{GType, SpecializationError};
 use crate::typed_absy::Identifier;
 use crate::typed_absy::UExpression;
@@ -11,7 +11,7 @@ pub struct GVariable<'ast, S> {
     pub _type: GType<S>,
 }
 
-pub type DeclarationVariable<'ast> = GVariable<'ast, Constant<'ast>>;
+pub type DeclarationVariable<'ast> = GVariable<'ast, DeclarationConstant<'ast>>;
 pub type ConcreteVariable<'ast> = GVariable<'ast, usize>;
 pub type Variable<'ast, T> = GVariable<'ast, UExpression<'ast, T>>;
 

@@ -80,6 +80,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         } else {
             r
         };
+
         // reduce the program to a single function
         let r = reduce_program(r).map_err(Error::from)?;
         // generate abi

@@ -30,7 +30,7 @@ cat << EOT
 ## [${tag}] - $(qdate '+%Y-%m-%d')
 
 ### Release
-- https://github.com/Zokrates/ZoKrates/releases/tag/${tag}
+- https://github.com/Zokrates/ZoKrates/releases/tag/${tag} <!-- markdown-link-check-disable-line -->
 
 ### Changes
 EOT
