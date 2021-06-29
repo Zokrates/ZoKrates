@@ -12,5 +12,5 @@ def bubblesort<N>(u32[N] a) -> u32[N]:
 	endfor
 	return a
 
-def main(u32[10] a) -> u32[10]:
+def main(u32[2] a) -> u32[2]:
         return bubblesort(a)
