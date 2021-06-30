@@ -77,6 +77,15 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
+            BooleanExpression::Select(a, box i) => {
+                let a = a
+                    .into_iter()
+                    .map(|e| self.fold_boolean_expression(e))
+                    .collect();
+                let i = self.fold_uint_expression(i);
+
+                BooleanExpression::Select(a, box force_reduce(i))
+            }
             BooleanExpression::UintEq(box left, box right) => {
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
