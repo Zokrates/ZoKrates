@@ -259,10 +259,11 @@ pub enum ZirExpressionList<'ast, T> {
 }
 
 /// An expression of type `field`
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum FieldElementExpression<'ast, T> {
     Number(T),
     Identifier(Identifier<'ast>),
+    Select(Vec<Self>, Box<UExpression<'ast, T>>),
     Add(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -291,10 +292,11 @@ pub enum FieldElementExpression<'ast, T> {
 }
 
 /// An expression of type `bool`
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum BooleanExpression<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(bool),
+    Select(Vec<Self>, Box<UExpression<'ast, T>>),
     FieldLt(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -411,6 +413,15 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
         match *self {
             FieldElementExpression::Number(ref i) => write!(f, "{}", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
+            FieldElementExpression::Select(ref a, ref i) => write!(
+                f,
+                "[{}][{}]",
+                a.iter()
+                    .map(|a| a.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                i
+            ),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             FieldElementExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
@@ -432,6 +443,15 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
         match self.inner {
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
+            UExpressionInner::Select(ref a, ref i) => write!(
+                f,
+                "[{}][{}]",
+                a.iter()
+                    .map(|a| a.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                i
+            ),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
@@ -457,6 +477,15 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::Value(b) => write!(f, "{}", b),
+            BooleanExpression::Select(ref a, ref i) => write!(
+                f,
+                "[{}][{}]",
+                a.iter()
+                    .map(|a| a.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                i
+            ),
             BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
@@ -476,79 +505,6 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
                 "if {} then {} else {} fi",
                 condition, consequent, alternative
             ),
-        }
-    }
-}
-
-impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            BooleanExpression::Identifier(ref var) => write!(f, "Ide({:?})", var),
-            BooleanExpression::Value(b) => write!(f, "Value({})", b),
-            BooleanExpression::FieldLt(ref lhs, ref rhs) => {
-                write!(f, "FieldLt({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::FieldLe(ref lhs, ref rhs) => {
-                write!(f, "FieldLe({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::FieldGe(ref lhs, ref rhs) => {
-                write!(f, "FieldGe({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::FieldGt(ref lhs, ref rhs) => {
-                write!(f, "FieldGt({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::UintLt(ref lhs, ref rhs) => {
-                write!(f, "UintLt({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::UintLe(ref lhs, ref rhs) => {
-                write!(f, "UintLe({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::UintGe(ref lhs, ref rhs) => {
-                write!(f, "UintGe({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::UintGt(ref lhs, ref rhs) => {
-                write!(f, "UintGt({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::FieldEq(ref lhs, ref rhs) => {
-                write!(f, "FieldEq({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::BoolEq(ref lhs, ref rhs) => {
-                write!(f, "BoolEq({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::UintEq(ref lhs, ref rhs) => {
-                write!(f, "UintEq({:?}, {:?})", lhs, rhs)
-            }
-            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "Or({:?}, {:?})", lhs, rhs),
-            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),
-            BooleanExpression::Not(ref exp) => write!(f, "Not({:?})", exp),
-            BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "IfElse({:?}, {:?}, {:?})",
-                condition, consequent, alternative
-            ),
-        }
-    }
-}
-
-impl<'ast, T: fmt::Debug> fmt::Debug for FieldElementExpression<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            FieldElementExpression::Number(ref i) => write!(f, "Num({:?})", i),
-            FieldElementExpression::Identifier(ref var) => write!(f, "Ide({:?})", var),
-            FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
-            FieldElementExpression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
-            FieldElementExpression::Mult(ref lhs, ref rhs) => {
-                write!(f, "Mult({:?}, {:?})", lhs, rhs)
-            }
-            FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
-            FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
-            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => {
-                write!(
-                    f,
-                    "IfElse({:?}, {:?}, {:?})",
-                    condition, consequent, alternative
-                )
-            }
         }
     }
 }
