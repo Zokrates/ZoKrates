@@ -151,14 +151,18 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         #[cfg(feature = "libsnark")]
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
             match prog {
-                ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Libsnark>(p, sub_matches),
+                ProgEnum::Bn128Program(p) => {
+                    cli_setup_non_universal::<_, GM17, Libsnark>(p, sub_matches)
+                }
                 _ => unreachable!(),
             }
         }
         #[cfg(feature = "libsnark")]
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
             match prog {
-                ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13, Libsnark>(p, sub_matches),
+                ProgEnum::Bn128Program(p) => {
+                    cli_setup_non_universal::<_, PGHR13, Libsnark>(p, sub_matches)
+                }
                 _ => unreachable!(),
             }
         }
