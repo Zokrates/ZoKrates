@@ -47,7 +47,7 @@ ace.define("ace/mode/zokrates_highlight_rules",["require","exports","module","ac
         var decimalInteger = "(?:(?:[1-9]\\d*)|(?:0))";
         var decimalSuffix = "(?:_?(?:f|u(?:8|16|32|64)))?";
         var hexInteger = "(?:0[xX][\\dA-Fa-f]+)";
-        var integer = "(?:" + decimalInteger + decimalSuffix "|" + hexInteger + ")\\b";
+        var integer = "(?:" + decimalInteger + decimalSuffix + "|" + hexInteger + ")\\b";
 
         this.$rules = {
             "start": [
