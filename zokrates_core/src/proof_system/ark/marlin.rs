@@ -260,7 +260,7 @@ mod tests {
 
         let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
         let keypair =
-            <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone());
+            <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -299,7 +299,8 @@ mod tests {
         };
 
         let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5);
-        let keypair = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::setup(srs, program.clone());
+        let keypair =
+            <Ark as UniversalBackend<Bw6_761Field, Marlin>>::setup(srs, program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
