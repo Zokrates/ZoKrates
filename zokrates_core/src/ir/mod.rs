@@ -1,5 +1,5 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
-use crate::flat_absy::FlatVariable;
+use crate::flat_absy::{FlatVariable, RuntimeError};
 use crate::solvers::Solver;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -22,7 +22,7 @@ pub use self::witness::Witness;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 pub enum Statement<T> {
-    Constraint(QuadComb<T>, LinComb<T>, Option<&'static str>),
+    Constraint(QuadComb<T>, LinComb<T>, Option<RuntimeError>),
     Directive(Directive<T>),
 }
 
@@ -34,7 +34,7 @@ impl<T: Field> Statement<T> {
     pub fn constraint<U: Into<QuadComb<T>>, V: Into<LinComb<T>>>(
         quad: U,
         lin: V,
-        message: Option<&'static str>,
+        message: Option<RuntimeError>,
     ) -> Self {
         Statement::Constraint(quad.into(), lin.into(), message)
     }
@@ -176,6 +176,7 @@ mod tests {
                     FlatVariable::new(42).into(),
                 ),
                 FlatVariable::new(42).into(),
+                None,
             );
             assert_eq!(format!("{}", c), "(1 * _42) * (1 * _42) == 1 * _42")
         }

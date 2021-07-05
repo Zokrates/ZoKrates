@@ -60,7 +60,10 @@ impl Interpreter {
                             return Err(Error::UnsatisfiedConstraint {
                                 left: lhs_value.to_dec_string(),
                                 right: rhs_value.to_dec_string(),
-                                message: message.unwrap(),
+                                message: message
+                                    .as_ref()
+                                    .map(|m| m.to_string())
+                                    .unwrap_or("Unknown".to_string()),
                             });
                         }
                     }
@@ -279,7 +282,7 @@ pub enum Error {
     UnsatisfiedConstraint {
         left: String,
         right: String,
-        message: &'static str,
+        message: String,
     },
     Solver,
     WrongInputCount {

@@ -330,7 +330,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push(FlatStatement::Condition(
             FlatExpression::Identifier(name_y),
             FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
-            "Equal check failed probably because of a malicious solver",
+            RuntimeError::Equal,
         ));
 
         let res = FlatExpression::Sub(
@@ -341,7 +341,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push(FlatStatement::Condition(
             FlatExpression::Number(T::zero()),
             FlatExpression::Mult(box res.clone(), box x),
-            "Equal check failed probably because of a malicious solver",
+            RuntimeError::Equal,
         ));
 
         res
@@ -372,7 +372,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push(FlatStatement::Condition(
             FlatExpression::Number(T::from(0)),
             FlatExpression::Sub(box conditions_sum, box T::from(conditions_count).into()),
-            "<= check failed",
+            RuntimeError::Le,
         ));
     }
 
@@ -414,7 +414,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             box FlatExpression::Sub(box y.clone(), box name_x_or_y.into()),
                         ),
                         FlatExpression::Mult(box x.clone(), box y.clone()),
-                        "Branch isolation failed",
+                        RuntimeError::BranchIsolation,
                     ));
                     output.push(FlatStatement::Condition(
                         name_x_or_y.into(),
@@ -589,7 +589,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     box FlatExpression::Identifier(*bit),
                     box FlatExpression::Identifier(*bit),
                 ),
-                "Bitness check failed in constant '<' check, probably because of a malicious solver",
+                RuntimeError::ConstantLtBitness,
             ));
         }
 
@@ -609,7 +609,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push(FlatStatement::Condition(
             FlatExpression::Identifier(e_id),
             e_sum,
-            "Sum check failed in constant '<' check, probably because of a malicious solver",
+            RuntimeError::ConstantLtSum,
         ));
 
         // check that this decomposition does not overflow the field
@@ -710,7 +710,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                         box FlatExpression::Identifier(*bit),
                                         box FlatExpression::Identifier(*bit),
                                     ),
-                                    "Bitness lhs check failed in variable '<' check, probably because of a malicious solver"
+                                    RuntimeError::LtBitness,
                                 ));
                             }
 
@@ -732,7 +732,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             statements_flattened.push(FlatStatement::Condition(
                                 FlatExpression::Identifier(lhs_id),
                                 lhs_sum,
-                                "Bitness lhs sum check failed in variable '<' check. Check the size of variable comparison operands"
+                                RuntimeError::LtSum,
                             ));
                         }
 
@@ -762,7 +762,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                         box FlatExpression::Identifier(*bit),
                                         box FlatExpression::Identifier(*bit),
                                     ),
-                                    "Bitness rhs check failed in constant '<' check, probably because of a malicious solver"
+                                    RuntimeError::LtBitness,
                                 ));
                             }
 
@@ -784,7 +784,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             statements_flattened.push(FlatStatement::Condition(
                                 FlatExpression::Identifier(rhs_id),
                                 rhs_sum,
-                                "Bitness rhs sum check failed in variable '<' check. Check the size of variable comparison operands"
+                                RuntimeError::LtSum,
                             ));
                         }
 
@@ -819,7 +819,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                     box FlatExpression::Identifier(*bit),
                                     box FlatExpression::Identifier(*bit),
                                 ),
-                                "Final bitness check in variable '<' check failed, probably because of a malicious solver"
+                                RuntimeError::LtFinalBitness,
                             ));
                         }
 
@@ -846,7 +846,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         statements_flattened.push(FlatStatement::Condition(
                             subtraction_result,
                             expr,
-                            "Final sum check failed in variable '<' check",
+                            RuntimeError::LtFinalSum,
                         ));
 
                         FlatExpression::Identifier(sub_bits_be[bit_width - 1])
@@ -976,7 +976,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             box FlatExpression::Identifier(*bit),
                             box FlatExpression::Identifier(*bit),
                         ),
-                        "Bitness check failed in variable '<' check, probably because of a malicious solver",
+                        RuntimeError::LtFinalBitness,
                     ));
                 }
 
@@ -1000,7 +1000,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     );
                 }
 
-                statements_flattened.push(FlatStatement::Condition(subtraction_result, expr, "Sum check failed in variable '<' check, probably because of a malicious solver"));
+                statements_flattened.push(FlatStatement::Condition(
+                    subtraction_result,
+                    expr,
+                    RuntimeError::LtFinalSum,
+                ));
 
                 FlatExpression::Identifier(sub_bits_be[bit_width - 1])
             }
@@ -1039,7 +1043,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         box FlatExpression::Sub(box y.clone(), box name_x_or_y.into()),
                     ),
                     FlatExpression::Mult(box x.clone(), box y.clone()),
-                    "Or check failed, probably because of a malicious solver",
+                    RuntimeError::Or,
                 ));
                 name_x_or_y.into()
             }
@@ -1315,7 +1319,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 box FlatExpression::Add(box x.clone(), box x.clone()),
                                 box y.clone(),
                             ),
-                            "XOR check failed probably because of a malicious solver",
+                            RuntimeError::Xor,
                         ),
                     ]);
 
@@ -1369,7 +1373,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push(FlatStatement::Condition(
             FlatExpression::Number(T::one()),
             FlatExpression::Mult(box invd.into(), box d.clone()),
-            "Inverse check failed probably because of a malicious solver",
+            RuntimeError::Inverse,
         ));
 
         // now introduce the quotient and remainder
@@ -1413,7 +1417,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push(FlatStatement::Condition(
             FlatExpression::Sub(box n, box r.into()),
             FlatExpression::Mult(box q.into(), box d),
-            "Euclidean check failed probably because of a malicious solver",
+            RuntimeError::Euclidean,
         ));
 
         (q.into(), r.into())
@@ -1655,7 +1659,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                 box a,
                                                 box FlatExpression::Sub(box b, box c),
                                             ),
-                                            "Custom XOR check failed",
+                                            RuntimeError::ShaXor,
                                         ),
                                     ]);
                                     ch.into()
@@ -1720,7 +1724,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                         box b.clone(),
                                                         box c.clone(),
                                                     ),
-                                                    "XOR first check failed probably because of a malicious solver",
+                                                    RuntimeError::ShaXor,
                                                 ),
                                                 FlatStatement::Condition(
                                                     FlatExpression::Sub(
@@ -1737,7 +1741,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                         ),
                                                         box a,
                                                     ),
-                                                    "XOR second check failed probably because of a malicious solver",
+                                                    RuntimeError::ShaXor,
                                                 ),
                                             ]);
                                             maj.into()
@@ -1859,7 +1863,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                         box FlatExpression::Sub(box y.clone(), box name.into()),
                                     ),
                                     FlatExpression::Mult(box x, box y),
-                                    "OR check failed probably because of a malicious solver",
+                                    RuntimeError::Or,
                                 ),
                             ]);
                             name.into()
@@ -1965,7 +1969,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         FlatStatement::Condition(
                             bit.clone(),
                             FlatExpression::Mult(box bit.clone(), box bit.clone()),
-                            "Bitness check failed",
+                            RuntimeError::Bitness,
                         )
                     }));
 
@@ -1975,7 +1979,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened.push(FlatStatement::Condition(
                         e.field.clone().unwrap(),
                         sum.clone(),
-                        "Sum check failed",
+                        RuntimeError::Sum,
                     ));
 
                     // truncate to the `to` lowest bits
@@ -2095,7 +2099,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened.push(FlatStatement::Condition(
                     FlatExpression::Number(T::one()),
                     FlatExpression::Mult(box invb.into(), box new_right.clone()),
-                    "Inverse check failed",
+                    RuntimeError::Inverse,
                 ));
 
                 // # c = a/b
@@ -2109,7 +2113,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened.push(FlatStatement::Condition(
                     new_left,
                     FlatExpression::Mult(box new_right, box inverse.into()),
-                    "Division check failed",
+                    RuntimeError::Division,
                 ));
 
                 inverse.into()
@@ -2332,14 +2336,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             statements_flattened.push(FlatStatement::Condition(
                                 e,
                                 FlatExpression::Number(T::from(1)),
-                                "Source assertion failed",
+                                RuntimeError::Source,
                             ));
                         } else {
                             // swap so that left side is linear
                             statements_flattened.push(FlatStatement::Condition(
                                 FlatExpression::Number(T::from(1)),
                                 e,
-                                "Source assertion failed",
+                                RuntimeError::Source,
                             ));
                         }
                     }
@@ -2468,7 +2472,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ),
             ),
         };
-        statements_flattened.push(FlatStatement::Condition(lhs, rhs, "Equality check failed"));
+        statements_flattened.push(FlatStatement::Condition(lhs, rhs, RuntimeError::Equal));
     }
 
     /// Identifies a non-linear expression by assigning it to a new identifier.
@@ -2538,7 +2542,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened.push(FlatStatement::Condition(
                     variable.into(),
                     FlatExpression::Mult(box variable.into(), box variable.into()),
-                    "Argument bitness check failed",
+                    RuntimeError::ArgumentBitness,
                 ));
             }
             Type::FieldElement => {

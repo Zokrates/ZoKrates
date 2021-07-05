@@ -11,10 +11,44 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
+use serde::{Deserialize, Serialize};
+
 use crate::solvers::Solver;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+pub enum RuntimeError {
+    BellmanConstraint,
+    BellmanOneBinding,
+    BellmanInputBinding,
+    Bitness,
+    Sum,
+    Equal,
+    Le,
+    BranchIsolation,
+    ConstantLtBitness,
+    ConstantLtSum,
+    LtBitness,
+    LtSum,
+    LtFinalBitness,
+    LtFinalSum,
+    Or,
+    Xor,
+    Inverse,
+    Euclidean,
+    ShaXor,
+    Division,
+    Source,
+    ArgumentBitness,
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 #[derive(Clone, PartialEq)]
 pub struct FlatProg<T: Field> {
@@ -89,7 +123,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 #[derive(Clone, PartialEq)]
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
-    Condition(FlatExpression<T>, FlatExpression<T>, &'static str),
+    Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(FlatVariable, FlatExpression<T>),
     Directive(FlatDirective<T>),
 }

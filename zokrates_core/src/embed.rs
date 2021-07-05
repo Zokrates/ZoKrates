@@ -1,6 +1,6 @@
 use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
-    FlatVariable,
+    FlatVariable, RuntimeError,
 };
 use crate::solvers::Solver;
 use crate::typed_absy::types::{
@@ -193,7 +193,7 @@ impl<T: Field, E: Engine> From<BellmanConstraint<E>> for FlatStatement<T> {
         FlatStatement::Condition(
             lhs,
             FlatExpression::Mult(box rhs_a, box rhs_b),
-            "bellman constraint failed",
+            RuntimeError::BellmanConstraint,
         )
     }
 }
@@ -245,7 +245,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     let one_binding_statement = FlatStatement::Condition(
         FlatVariable::new(0).into(),
         FlatExpression::Number(T::from(1)),
-        "bellman one binding constraint failed",
+        RuntimeError::BellmanOneBinding,
     );
     let input_binding_statements =
     // bind input and current_hash to inputs
@@ -253,7 +253,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         FlatStatement::Condition(
             FlatVariable::new(cs_index).into(),
             FlatVariable::new(argument_index).into(),
-            "bellman input binding failed"
+            RuntimeError::BellmanInputBinding
         )
     });
     // insert flattened statements to represent constraints
@@ -348,7 +348,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
             FlatStatement::Condition(
                 bit.clone(),
                 FlatExpression::Mult(box bit.clone(), box bit.clone()),
-                "bitness check failed",
+                RuntimeError::Bitness,
             )
         })
         .collect();
@@ -372,7 +372,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
             box FlatExpression::Identifier(FlatVariable::new(0)),
             box FlatExpression::Number(T::from(1)),
         ),
-        "sum check failed",
+        RuntimeError::Sum,
     ));
 
     statements.insert(
