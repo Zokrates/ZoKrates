@@ -56,7 +56,6 @@ ark-poly = { version = "^0.2.0", default-features = false, optional = true }
 ark-poly-commit = { version = "^0.2.0", default-features = false, optional = true }
 sha2 = { version = "0.9.3", optional = true }
 
-
 [dev-dependencies]
 wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
