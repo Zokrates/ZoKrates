@@ -1,4 +1,4 @@
-from "snark/verify" import main as verify
+from "EMBED" import verify
 
 def main(private field[1] inputs, private field[8] proof, private field[20] vk) -> bool:
     bool result = verify(inputs, proof, vk)

@@ -1,7 +1,0 @@
-#pragma curve bw6_761
-
-from "EMBED" import verify
-
-def main<N, V>(field[N] inputs, field[8] proof, field[V] vk) -> bool:
-    assert(18 + (2 * N) == V)
-    return verify(inputs, proof, vk)

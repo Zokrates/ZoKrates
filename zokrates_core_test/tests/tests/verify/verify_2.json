@@ -1,5 +1,5 @@
 {
-  "entry_point": "./tests/tests/snark/verify_2.zok",
+  "entry_point": "./tests/tests/verify/verify_2.zok",
   "curves": ["Bw6_761"],
   "tests": [
     {

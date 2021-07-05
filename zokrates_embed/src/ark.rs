@@ -30,44 +30,6 @@ type VerifierGadget = GM17VerifierGadget<BLS12PairingEngine, BLS12PairingVar>;
 type G1 = <ark_ec::bls12::Bls12<ark_bls12_377::Parameters> as PairingEngine>::G1Affine;
 type G2 = <ark_ec::bls12::Bls12<ark_bls12_377::Parameters> as PairingEngine>::G2Affine;
 
-macro_rules! var {
-    ($f:expr, $offset:expr) => {
-        match $f {
-            FpVar::Var(ref fp) => {
-                let var = &fp.variable;
-                var.get_index_unchecked($offset).unwrap()
-            }
-            _ => unreachable!("expected variable, found constant"),
-        }
-    };
-}
-
-macro_rules! g1 {
-    ($e:expr, $i0:expr, $i1:expr) => {
-        G1::new(
-            BLS12Fq::from_str(&*$e[$i0].to_dec_string()).unwrap(),
-            BLS12Fq::from_str(&*$e[$i1].to_dec_string()).unwrap(),
-            false,
-        )
-    };
-}
-
-macro_rules! g2 {
-    ($e:expr, $i0:expr, $i1:expr, $i2:expr, $i3:expr) => {
-        G2::new(
-            BLS12Fq2::new(
-                BLS12Fq::from_str(&*$e[$i0].to_dec_string()).unwrap(),
-                BLS12Fq::from_str(&*$e[$i1].to_dec_string()).unwrap(),
-            ),
-            BLS12Fq2::new(
-                BLS12Fq::from_str(&*$e[$i2].to_dec_string()).unwrap(),
-                BLS12Fq::from_str(&*$e[$i3].to_dec_string()).unwrap(),
-            ),
-            false,
-        )
-    };
-}
-
 #[derive(Copy, Clone)]
 struct DefaultCircuit {
     pub public_input_size: usize,
@@ -147,36 +109,39 @@ pub fn generate_verify_constraints(
     cs.finalize();
 
     let num_instance_variables = cs.num_instance_variables();
-    let input_indices = fp_vars.iter().map(|f| var!(f, 0)).collect::<Vec<usize>>();
+    let input_indices = fp_vars
+        .iter()
+        .map(|f| var_to_index(&f, 0))
+        .collect::<Vec<usize>>();
 
     let proof_indices: Vec<usize> = vec![
-        var!(proof.a.x, num_instance_variables),
-        var!(proof.a.y, num_instance_variables),
-        var!(proof.b.x.c0, num_instance_variables),
-        var!(proof.b.x.c1, num_instance_variables),
-        var!(proof.b.y.c0, num_instance_variables),
-        var!(proof.b.y.c1, num_instance_variables),
-        var!(proof.c.x, num_instance_variables),
-        var!(proof.c.y, num_instance_variables),
+        var_to_index(&proof.a.x, num_instance_variables),
+        var_to_index(&proof.a.y, num_instance_variables),
+        var_to_index(&proof.b.x.c0, num_instance_variables),
+        var_to_index(&proof.b.x.c1, num_instance_variables),
+        var_to_index(&proof.b.y.c0, num_instance_variables),
+        var_to_index(&proof.b.y.c1, num_instance_variables),
+        var_to_index(&proof.c.x, num_instance_variables),
+        var_to_index(&proof.c.y, num_instance_variables),
     ];
 
     let mut vk_indices: Vec<usize> = vec![
-        var!(vk.h_g2.x.c0, num_instance_variables),
-        var!(vk.h_g2.x.c1, num_instance_variables),
-        var!(vk.h_g2.y.c0, num_instance_variables),
-        var!(vk.h_g2.y.c1, num_instance_variables),
-        var!(vk.g_alpha_g1.x, num_instance_variables),
-        var!(vk.g_alpha_g1.y, num_instance_variables),
-        var!(vk.h_beta_g2.x.c0, num_instance_variables),
-        var!(vk.h_beta_g2.x.c1, num_instance_variables),
-        var!(vk.h_beta_g2.y.c0, num_instance_variables),
-        var!(vk.h_beta_g2.y.c1, num_instance_variables),
-        var!(vk.g_gamma_g1.x, num_instance_variables),
-        var!(vk.g_gamma_g1.y, num_instance_variables),
-        var!(vk.h_gamma_g2.x.c0, num_instance_variables),
-        var!(vk.h_gamma_g2.x.c1, num_instance_variables),
-        var!(vk.h_gamma_g2.y.c0, num_instance_variables),
-        var!(vk.h_gamma_g2.y.c1, num_instance_variables),
+        var_to_index(&vk.h_g2.x.c0, num_instance_variables),
+        var_to_index(&vk.h_g2.x.c1, num_instance_variables),
+        var_to_index(&vk.h_g2.y.c0, num_instance_variables),
+        var_to_index(&vk.h_g2.y.c1, num_instance_variables),
+        var_to_index(&vk.g_alpha_g1.x, num_instance_variables),
+        var_to_index(&vk.g_alpha_g1.y, num_instance_variables),
+        var_to_index(&vk.h_beta_g2.x.c0, num_instance_variables),
+        var_to_index(&vk.h_beta_g2.x.c1, num_instance_variables),
+        var_to_index(&vk.h_beta_g2.y.c0, num_instance_variables),
+        var_to_index(&vk.h_beta_g2.y.c1, num_instance_variables),
+        var_to_index(&vk.g_gamma_g1.x, num_instance_variables),
+        var_to_index(&vk.g_gamma_g1.y, num_instance_variables),
+        var_to_index(&vk.h_gamma_g2.x.c0, num_instance_variables),
+        var_to_index(&vk.h_gamma_g2.x.c1, num_instance_variables),
+        var_to_index(&vk.h_gamma_g2.y.c0, num_instance_variables),
+        var_to_index(&vk.h_gamma_g2.y.c1, num_instance_variables),
     ];
 
     vk_indices.extend(
@@ -184,8 +149,8 @@ pub fn generate_verify_constraints(
             .iter()
             .map(|q| {
                 vec![
-                    var!(q.x, num_instance_variables),
-                    var!(q.y, num_instance_variables),
+                    var_to_index(&q.x, num_instance_variables),
+                    var_to_index(&q.y, num_instance_variables),
                 ]
             })
             .flatten(),
@@ -259,9 +224,9 @@ pub fn generate_verify_witness<T: Field>(inputs: &[T], proof: &[T], vk: &[T]) ->
         ns!(cs, "alloc_proof"),
         || {
             Ok(Proof {
-                a: g1!(proof, 0, 1),
-                b: g2!(proof, 2, 3, 4, 5),
-                c: g1!(proof, 6, 7),
+                a: new_g1(&proof[0..2]),
+                b: new_g2(&proof[2..6]),
+                c: new_g1(&proof[6..8]),
             })
         },
         AllocationMode::Witness,
@@ -276,15 +241,15 @@ pub fn generate_verify_witness<T: Field>(inputs: &[T], proof: &[T], vk: &[T]) ->
         ns!(cs, "alloc_vk"),
         || {
             Ok(VerifyingKey {
-                h_g2: g2!(vk, 0, 1, 2, 3),
-                g_alpha_g1: g1!(vk, 4, 5),
-                h_beta_g2: g2!(vk, 6, 7, 8, 9),
-                g_gamma_g1: g1!(vk, 10, 11),
-                h_gamma_g2: g2!(vk, 12, 13, 14, 15),
+                h_g2: new_g2(&vk[0..4]),
+                g_alpha_g1: new_g1(&vk[4..6]),
+                h_beta_g2: new_g2(&vk[6..10]),
+                g_gamma_g1: new_g1(&vk[10..12]),
+                h_gamma_g2: new_g2(&vk[12..16]),
                 query: (16..vk.len())
                     .collect::<Vec<_>>()
                     .chunks(2)
-                    .map(|c| g1!(vk, c[0], c[1]))
+                    .map(|c| new_g1(&vk[c[0]..c[1] + 1]))
                     .collect(),
             })
         },
@@ -310,6 +275,43 @@ pub fn generate_verify_witness<T: Field>(inputs: &[T], proof: &[T], vk: &[T]) ->
         .chain(witness_variables)
         .map(|fq| T::from_byte_vector(fq.into_repr().to_bytes_le()))
         .collect()
+}
+
+#[inline]
+fn var_to_index<F: ark_ff::PrimeField>(var: &FpVar<F>, offset: usize) -> usize {
+    match var {
+        FpVar::Var(ref fp) => {
+            let var = &fp.variable;
+            var.get_index_unchecked(offset).unwrap()
+        }
+        _ => unreachable!("expected variable, but found a constant"),
+    }
+}
+
+#[inline]
+fn new_g1<T: Field>(flat: &[T]) -> G1 {
+    assert_eq!(flat.len(), 2);
+    G1::new(
+        BLS12Fq::from_str(&*flat[0].to_dec_string()).unwrap(),
+        BLS12Fq::from_str(&*flat[1].to_dec_string()).unwrap(),
+        false,
+    )
+}
+
+#[inline]
+fn new_g2<T: Field>(flat: &[T]) -> G2 {
+    assert_eq!(flat.len(), 4);
+    G2::new(
+        BLS12Fq2::new(
+            BLS12Fq::from_str(&*flat[0].to_dec_string()).unwrap(),
+            BLS12Fq::from_str(&*flat[1].to_dec_string()).unwrap(),
+        ),
+        BLS12Fq2::new(
+            BLS12Fq::from_str(&*flat[2].to_dec_string()).unwrap(),
+            BLS12Fq::from_str(&*flat[3].to_dec_string()).unwrap(),
+        ),
+        false,
+    )
 }
 
 pub fn from_ark<T: zokrates_field::Field, E: PairingEngine>(c: Constraint<E::Fq>) -> Constraint<T> {
