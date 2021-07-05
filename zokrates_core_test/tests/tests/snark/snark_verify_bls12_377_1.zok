@@ -1,5 +1,5 @@
-from "EMBED" import verify
+from "EMBED" import snark_verify_bls12_377
 
 def main(private field[1] inputs, private field[8] proof, private field[20] vk) -> bool:
-    bool result = verify(inputs, proof, vk)
+    bool result = snark_verify_bls12_377(inputs, proof, vk)
     return result

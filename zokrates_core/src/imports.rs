@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use typed_arena::Arena;
 use zokrates_common::Resolver;
-use zokrates_field::{Bn128Field, Field};
+use zokrates_field::{Bn128Field, Bw6_761Field, Field};
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -106,8 +106,8 @@ impl Importer {
                     if T::id() != Bn128Field::id() {
                         return Err(CompileErrorInner::ImportError(
                             Error::new(format!(
-                                "Embed sha256round cannot be used with curve {}",
-                                T::name()
+                                "Embed `sha256round` must be used with curve `{}`",
+                                Bn128Field::name()
                             ))
                             .with_pos(Some(pos)),
                         )
@@ -121,10 +121,24 @@ impl Importer {
                     }
                 }
                 #[cfg(feature = "ark")]
-                "verify" => SymbolDeclaration {
-                    id: symbol.get_alias(),
-                    symbol: Symbol::Flat(FlatEmbed::Verify),
-                },
+                "snark_verify_bls12_377" => {
+                    if T::id() != Bw6_761Field::id() {
+                        return Err(CompileErrorInner::ImportError(
+                            Error::new(format!(
+                                "Embed `snark_verify_bls12_377` must be used with curve `{}`",
+                                Bw6_761Field::name()
+                            ))
+                            .with_pos(Some(pos)),
+                        )
+                        .in_file(location)
+                        .into());
+                    } else {
+                        SymbolDeclaration {
+                            id: symbol.get_alias(),
+                            symbol: Symbol::Flat(FlatEmbed::Verify),
+                        }
+                    }
+                }
                 "unpack" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::Unpack),
