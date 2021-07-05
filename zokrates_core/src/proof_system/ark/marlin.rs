@@ -18,6 +18,8 @@ use crate::proof_system::marlin::{self, ProofPoints, VerificationKey};
 use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, Proof, SetupKeypair, UniversalBackend};
 
+const MINIMUM_CONSTRAINT_COUNT: usize = 2;
+
 impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark {
     fn universal_setup(size: u32) -> Vec<u8> {
         use rand_0_7::SeedableRng;
@@ -47,6 +49,10 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         universal_srs: Vec<u8>,
         program: Prog<T>,
     ) -> Result<SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey>, String> {
+        if program.constraint_count() < MINIMUM_CONSTRAINT_COUNT {
+            return Err(format!("Programs must have a least {} constraints. This program is too small to generate a setup with Marlin, see [this issue](https://github.com/arkworks-rs/marlin/issues/79)", MINIMUM_CONSTRAINT_COUNT));
+        }
+
         let computation = Computation::without_witness(program);
 
         let srs = ark_marlin::UniversalSRS::<

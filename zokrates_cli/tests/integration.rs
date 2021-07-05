@@ -238,7 +238,7 @@ mod integration {
         for (backend, schemes) in backends {
             for scheme in &schemes {
                 // SETUP
-                assert_cli::Assert::command(&[
+                let setup = assert_cli::Assert::command(&[
                     "../target/release/zokrates",
                     "setup",
                     "-i",
@@ -253,74 +253,78 @@ mod integration {
                     scheme,
                 ])
                 .succeeds()
-                .unwrap();
+                .stdout()
+                .doesnt_contain("This program is too small to generate a setup with Marlin")
+                .execute();
 
-                // GENERATE-PROOF
-                assert_cli::Assert::command(&[
-                    "../target/release/zokrates",
-                    "generate-proof",
-                    "-i",
-                    flattened_path.to_str().unwrap(),
-                    "-w",
-                    witness_path.to_str().unwrap(),
-                    "-p",
-                    proving_key_path.to_str().unwrap(),
-                    "--backend",
-                    backend,
-                    "--proving-scheme",
-                    scheme,
-                    "-j",
-                    proof_path.to_str().unwrap(),
-                ])
-                .succeeds()
-                .unwrap();
+                if setup.is_ok() {
+                    // GENERATE-PROOF
+                    assert_cli::Assert::command(&[
+                        "../target/release/zokrates",
+                        "generate-proof",
+                        "-i",
+                        flattened_path.to_str().unwrap(),
+                        "-w",
+                        witness_path.to_str().unwrap(),
+                        "-p",
+                        proving_key_path.to_str().unwrap(),
+                        "--backend",
+                        backend,
+                        "--proving-scheme",
+                        scheme,
+                        "-j",
+                        proof_path.to_str().unwrap(),
+                    ])
+                    .succeeds()
+                    .unwrap();
 
-                // CLI VERIFICATION
-                assert_cli::Assert::command(&[
-                    "../target/release/zokrates",
-                    "verify",
-                    "--backend",
-                    backend,
-                    "--proving-scheme",
-                    scheme,
-                    "-j",
-                    proof_path.to_str().unwrap(),
-                    "-v",
-                    verification_key_path.to_str().unwrap(),
-                ])
-                .succeeds()
-                .unwrap();
+                    // CLI VERIFICATION
+                    assert_cli::Assert::command(&[
+                        "../target/release/zokrates",
+                        "verify",
+                        "--backend",
+                        backend,
+                        "--proving-scheme",
+                        scheme,
+                        "-j",
+                        proof_path.to_str().unwrap(),
+                        "-v",
+                        verification_key_path.to_str().unwrap(),
+                    ])
+                    .succeeds()
+                    .unwrap();
 
-                if scheme != &"marlin" {
-                    for abi_version in &["v1", "v2"] {
-                        // EXPORT-VERIFIER
-                        assert_cli::Assert::command(&[
-                            "../target/release/zokrates",
-                            "export-verifier",
-                            "-i",
-                            verification_key_path.to_str().unwrap(),
-                            "-o",
-                            verification_contract_path.to_str().unwrap(),
-                            "--proving-scheme",
-                            scheme,
-                            "-a",
-                            abi_version,
-                        ])
-                        .succeeds()
-                        .unwrap();
+                    if scheme != &"marlin" {
+                        for abi_version in &["v1", "v2"] {
+                            // EXPORT-VERIFIER
+                            assert_cli::Assert::command(&[
+                                "../target/release/zokrates",
+                                "export-verifier",
+                                "-i",
+                                verification_key_path.to_str().unwrap(),
+                                "-o",
+                                verification_contract_path.to_str().unwrap(),
+                                "--proving-scheme",
+                                scheme,
+                                "-a",
+                                abi_version,
+                            ])
+                            .succeeds()
+                            .unwrap();
 
-                        // TEST VERIFIER
-                        assert_cli::Assert::command(&[
-                            "node",
-                            "test.js",
-                            verification_contract_path.to_str().unwrap(),
-                            proof_path.to_str().unwrap(),
-                            scheme,
-                            abi_version,
-                        ])
-                        .current_dir(concat!(env!("OUT_DIR"), "/contract"))
-                        .succeeds()
-                        .unwrap();
+                            // TEST VERIFIER
+                            assert_cli::Assert::command(&[
+                                "node",
+                                "test.js",
+                                verification_contract_path.to_str().unwrap(),
+                                proof_path.to_str().unwrap(),
+                                scheme,
+                                abi_version,
+                            ])
+                            .current_dir(concat!(env!("OUT_DIR"), "/contract"))
+                            .succeeds()
+                            .unwrap();
+                        }
                     }
                 }
             }
