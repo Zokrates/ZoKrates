@@ -11,6 +11,8 @@ pub mod folder;
 mod from_flat;
 mod interpreter;
 mod serialize;
+pub mod smtlib2;
+pub mod visitor;
 mod witness;
 
 pub use self::expression::QuadComb;

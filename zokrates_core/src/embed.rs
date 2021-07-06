@@ -4,7 +4,8 @@ use crate::flat_absy::{
 };
 use crate::solvers::Solver;
 use crate::typed_absy::types::{
-    ConcreteGenericsAssignment, Constant, DeclarationSignature, DeclarationType, GenericIdentifier,
+    ConcreteGenericsAssignment, DeclarationConstant, DeclarationSignature, DeclarationType,
+    GenericIdentifier,
 };
 use std::collections::HashMap;
 use zokrates_field::{Bn128Field, Field};
@@ -43,10 +44,12 @@ impl FlatEmbed {
                 .inputs(vec![DeclarationType::uint(32)])
                 .outputs(vec![DeclarationType::FieldElement]),
             FlatEmbed::Unpack => DeclarationSignature::new()
-                .generics(vec![Some(Constant::Generic(GenericIdentifier {
-                    name: "N",
-                    index: 0,
-                }))])
+                .generics(vec![Some(DeclarationConstant::Generic(
+                    GenericIdentifier {
+                        name: "N",
+                        index: 0,
+                    },
+                ))])
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
@@ -122,7 +125,7 @@ impl FlatEmbed {
             .generics
             .into_iter()
             .map(|c| match c.unwrap() {
-                Constant::Generic(g) => g,
+                DeclarationConstant::Generic(g) => g,
                 _ => unreachable!(),
             });
 

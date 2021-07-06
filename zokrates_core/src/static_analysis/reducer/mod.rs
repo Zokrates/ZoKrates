@@ -614,7 +614,7 @@ fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::Constant;
+    use crate::typed_absy::types::DeclarationConstant;
     use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
         ArrayExpression, ArrayExpressionInner, DeclarationFunctionKey, DeclarationType,
@@ -834,11 +834,11 @@ mod tests {
             )])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
@@ -1053,11 +1053,11 @@ mod tests {
             )])
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))]);
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
@@ -1285,11 +1285,11 @@ mod tests {
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .outputs(vec![DeclarationType::array((
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             ))])
             .generics(vec![Some(
                 GenericIdentifier::with_name("K").index(0).into(),
@@ -1299,7 +1299,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             )
             .into()],
             statements: vec![
@@ -1363,7 +1363,7 @@ mod tests {
             arguments: vec![DeclarationVariable::array(
                 "a",
                 DeclarationType::FieldElement,
-                Constant::Generic(GenericIdentifier::with_name("K").index(0)),
+                DeclarationConstant::Generic(GenericIdentifier::with_name("K").index(0)),
             )
             .into()],
             statements: vec![TypedStatement::Return(vec![

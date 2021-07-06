@@ -1,6 +1,6 @@
 use crate::ir::{Prog, Witness};
 use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
-use crate::proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
+use crate::proof_system::libsnark::ffi::{c_free, Buffer, ProofResult, SetupResult};
 use crate::proof_system::libsnark::{
     prepare_generate_proof, prepare_public_inputs, prepare_setup, serialization::*, Libsnark,
 };
@@ -64,8 +64,8 @@ impl Backend<Bn128Field, GM17> for Libsnark {
                 std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
 
             // free c allocated buffers
-            result.vk.free();
-            result.pk.free();
+            c_free(result.vk.data);
+            c_free(result.pk.data);
 
             (vk, pk)
         };
@@ -104,9 +104,9 @@ impl Backend<Bn128Field, GM17> for Libsnark {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program.clone(), witness.clone());
 
-        let proof = unsafe {
-            let mut pk_buffer = Buffer::from_vec(&proving_key);
+        let mut pk_buffer = Buffer::from_vec(&proving_key);
 
+        let proof = unsafe {
             let result = gm17_bn128_generate_proof(
                 &mut pk_buffer as *mut _,
                 public_inputs_arr[0].as_ptr(),
@@ -115,14 +115,11 @@ impl Backend<Bn128Field, GM17> for Libsnark {
                 private_inputs_length as i32,
             );
 
-            pk_buffer.drop(); // drop the buffer manually
-
-            let proof: Vec<u8> =
-                std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
-                    .to_vec();
+            let proof = std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
+                .to_vec();
 
             // free c allocated buffer
-            result.proof.free();
+            c_free(result.proof.data);
 
             proof
         };
@@ -175,21 +172,16 @@ impl Backend<Bn128Field, GM17> for Libsnark {
 
         let (public_inputs_arr, public_inputs_length) = prepare_public_inputs(public_inputs);
 
-        unsafe {
-            let mut vk_buffer = Buffer::from_vec(vk_writer.get_ref());
-            let mut proof_buffer = Buffer::from_vec(proof_writer.get_ref());
+        let mut vk_buffer = Buffer::from_vec(vk_writer.get_ref());
+        let mut proof_buffer = Buffer::from_vec(proof_writer.get_ref());
 
-            let ans = gm17_bn128_verify(
+        unsafe {
+            gm17_bn128_verify(
                 &mut vk_buffer as *mut _,
                 &mut proof_buffer as *mut _,
                 public_inputs_arr[0].as_ptr(),
                 public_inputs_length as i32,
-            );
-
-            vk_buffer.drop();
-            proof_buffer.drop();
-
-            ans
+            )
         }
     }
 }
