@@ -231,7 +231,7 @@ mod tests {
                 id: String::from("main"),
                 arguments: vec![FlatVariable::new(0)],
                 returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::Constraint(
+                statements: vec![Statement::constraint(
                     FlatVariable::new(0).into(),
                     FlatVariable::public(0).into(),
                 )],
