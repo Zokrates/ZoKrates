@@ -55,7 +55,9 @@ pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
         Statement::Constraint(quad, lin, error) => {
             f.visit_quadratic_combination(quad);
             f.visit_linear_combination(lin);
-            error.as_ref().map(|error| f.visit_runtime_error(error));
+            if let Some(error) = error.as_ref() {
+                f.visit_runtime_error(error);
+            }
         }
         Statement::Directive(dir) => f.visit_directive(dir),
     }
