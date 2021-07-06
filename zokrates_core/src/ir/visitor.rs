@@ -40,6 +40,10 @@ pub trait Visitor<T: Field>: Sized {
     fn visit_directive(&mut self, d: &Directive<T>) {
         visit_directive(self, d)
     }
+
+    fn visit_runtime_error(&mut self, e: &RuntimeError) {
+        visit_runtime_error(self, e)
+    }
 }
 
 pub fn visit_module<T: Field, F: Visitor<T>>(f: &mut F, p: &Prog<T>) {
@@ -48,9 +52,10 @@ pub fn visit_module<T: Field, F: Visitor<T>>(f: &mut F, p: &Prog<T>) {
 
 pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
     match s {
-        Statement::Constraint(quad, lin) => {
+        Statement::Constraint(quad, lin, error) => {
             f.visit_quadratic_combination(quad);
             f.visit_linear_combination(lin);
+            error.as_ref().map(|error| f.visit_runtime_error(error));
         }
         Statement::Directive(dir) => f.visit_directive(dir),
     }
@@ -96,3 +101,5 @@ pub fn visit_argument<T: Field, F: Visitor<T>>(f: &mut F, a: &FlatVariable) {
 pub fn visit_variable<T: Field, F: Visitor<T>>(_f: &mut F, _v: &FlatVariable) {}
 
 pub fn visit_value<T: Field, F: Visitor<T>>(_f: &mut F, _v: &T) {}
+
+fn visit_runtime_error<T: Field, F: Visitor<T>>(_f: &mut F, _: &RuntimeError) {}

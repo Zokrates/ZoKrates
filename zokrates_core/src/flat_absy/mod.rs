@@ -42,13 +42,14 @@ pub enum RuntimeError {
     Division,
     Source,
     ArgumentBitness,
+    SelectRangeCheck,
 }
 
 impl RuntimeError {
     fn is_malicious(&self) -> bool {
         use RuntimeError::*;
 
-        !matches!(self, Source | Inverse | LtSum)
+        !matches!(self, Source | Inverse | LtSum | SelectRangeCheck)
     }
 }
 
@@ -79,6 +80,7 @@ impl fmt::Display for RuntimeError {
             Division => "Division check failed",
             Source => "User assertion failed",
             ArgumentBitness => "Argument bitness check failed",
+            SelectRangeCheck => "Out of bounds array access",
         };
 
         write!(f, "{}", msg)?;

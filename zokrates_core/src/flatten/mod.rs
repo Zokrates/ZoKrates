@@ -2053,6 +2053,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push(FlatStatement::Condition(
             range_check,
             FlatExpression::Number(T::one()),
+            RuntimeError::SelectRangeCheck,
         ));
         FlatUExpression::with_field(result)
     }
