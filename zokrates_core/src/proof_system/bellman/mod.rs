@@ -304,9 +304,9 @@ mod tests {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(0)],
                     returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        FlatVariable::new(0).into(),
-                        FlatVariable::public(0).into(),
+                    statements: vec![Statement::constraint(
+                        FlatVariable::new(0),
+                        FlatVariable::public(0),
                     )],
                 },
                 private: vec![true],
@@ -331,9 +331,9 @@ mod tests {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(0)],
                     returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        FlatVariable::new(0).into(),
-                        FlatVariable::public(0).into(),
+                    statements: vec![Statement::constraint(
+                        FlatVariable::new(0),
+                        FlatVariable::public(0),
                     )],
                 },
                 private: vec![false],
@@ -358,9 +358,9 @@ mod tests {
                     id: String::from("main"),
                     arguments: vec![],
                     returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        FlatVariable::one().into(),
-                        FlatVariable::public(0).into(),
+                    statements: vec![Statement::constraint(
+                        FlatVariable::one(),
+                        FlatVariable::public(0),
                     )],
                 },
                 private: vec![],
@@ -385,17 +385,15 @@ mod tests {
                     arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
                     returns: vec![FlatVariable::public(0), FlatVariable::public(1)],
                     statements: vec![
-                        Statement::Constraint(
-                            (LinComb::from(FlatVariable::new(42))
-                                + LinComb::from(FlatVariable::new(51)))
-                            .into(),
-                            FlatVariable::public(0).into(),
+                        Statement::constraint(
+                            LinComb::from(FlatVariable::new(42))
+                                + LinComb::from(FlatVariable::new(51)),
+                            FlatVariable::public(0),
                         ),
-                        Statement::Constraint(
-                            (LinComb::from(FlatVariable::one())
-                                + LinComb::from(FlatVariable::new(42)))
-                            .into(),
-                            FlatVariable::public(1).into(),
+                        Statement::constraint(
+                            LinComb::from(FlatVariable::one())
+                                + LinComb::from(FlatVariable::new(42)),
+                            FlatVariable::public(1),
                         ),
                     ],
                 },
@@ -420,9 +418,9 @@ mod tests {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42)],
                     returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        (LinComb::from(FlatVariable::new(42)) + LinComb::one()).into(),
-                        FlatVariable::public(0).into(),
+                    statements: vec![Statement::constraint(
+                        LinComb::from(FlatVariable::new(42)) + LinComb::one(),
+                        FlatVariable::public(0),
                     )],
                 },
                 private: vec![false],
@@ -447,11 +445,9 @@ mod tests {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
                     returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        (LinComb::from(FlatVariable::new(42))
-                            + LinComb::from(FlatVariable::new(51)))
-                        .into(),
-                        FlatVariable::public(0).into(),
+                    statements: vec![Statement::constraint(
+                        LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
+                        FlatVariable::public(0),
                     )],
                 },
                 private: vec![true, false],

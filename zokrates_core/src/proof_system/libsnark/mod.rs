@@ -270,7 +270,7 @@ pub fn r1cs_program<T: Field>(
 
     // second pass to convert program to raw sparse vectors
     for (quad, lin) in main.statements.into_iter().filter_map(|s| match s {
-        Statement::Constraint(quad, lin) => Some((quad, lin)),
+        Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
     }) {
         a.push(

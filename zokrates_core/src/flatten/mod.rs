@@ -2637,6 +2637,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2704,6 +2705,7 @@ mod tests {
                         ),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2765,6 +2767,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2826,6 +2829,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2900,6 +2904,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2974,6 +2979,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -3069,6 +3075,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -3433,6 +3440,7 @@ mod tests {
                 FlatStatement::Condition(
                     FlatExpression::Number(Bn128Field::from(1)),
                     FlatExpression::Mult(box invb0.into(), box b0.into()),
+                    RuntimeError::Inverse,
                 ),
                 // execute div
                 FlatStatement::Directive(FlatDirective::new(
@@ -3443,6 +3451,7 @@ mod tests {
                 FlatStatement::Condition(
                     five.into(),
                     FlatExpression::Mult(box b0.into(), box sym_0.into()),
+                    RuntimeError::Division
                 ),
                 // inputs to second div (res/b)
                 FlatStatement::Definition(sym_1, sym_0.into()),
@@ -3456,6 +3465,7 @@ mod tests {
                 FlatStatement::Condition(
                     FlatExpression::Number(Bn128Field::from(1)),
                     FlatExpression::Mult(box invb1.into(), box b1.into()),
+                    RuntimeError::Inverse
                 ),
                 // execute div
                 FlatStatement::Directive(FlatDirective::new(
@@ -3466,6 +3476,7 @@ mod tests {
                 FlatStatement::Condition(
                     sym_1.into(),
                     FlatExpression::Mult(box b1.into(), box sym_2.into()),
+                    RuntimeError::Division
                 ),
             ]
         );

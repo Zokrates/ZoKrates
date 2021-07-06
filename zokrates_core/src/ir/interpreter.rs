@@ -63,7 +63,7 @@ impl Interpreter {
                                 message: message
                                     .as_ref()
                                     .map(|m| m.to_string())
-                                    .unwrap_or("Unknown".to_string()),
+                                    .unwrap_or_else(|| "Unknown".to_string()),
                             });
                         }
                     }

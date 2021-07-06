@@ -19,9 +19,9 @@ fn generate_proof() {
             id: String::from("main"),
             arguments: vec![FlatVariable::new(0)],
             returns: vec![FlatVariable::new(0)],
-            statements: vec![Statement::Constraint(
-                FlatVariable::new(0).into(),
-                FlatVariable::new(0).into(),
+            statements: vec![Statement::constraint(
+                FlatVariable::new(0),
+                FlatVariable::new(0),
             )],
         },
         private: vec![false],

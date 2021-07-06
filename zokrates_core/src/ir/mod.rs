@@ -31,12 +31,8 @@ impl<T: Field> Statement<T> {
         Statement::Constraint(e.into(), v.into(), None)
     }
 
-    pub fn constraint<U: Into<QuadComb<T>>, V: Into<LinComb<T>>>(
-        quad: U,
-        lin: V,
-        message: Option<RuntimeError>,
-    ) -> Self {
-        Statement::Constraint(quad.into(), lin.into(), message)
+    pub fn constraint<U: Into<QuadComb<T>>, V: Into<LinComb<T>>>(quad: U, lin: V) -> Self {
+        Statement::Constraint(quad.into(), lin.into(), None)
     }
 }
 

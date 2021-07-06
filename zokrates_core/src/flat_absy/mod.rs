@@ -44,9 +44,51 @@ pub enum RuntimeError {
     ArgumentBitness,
 }
 
+impl RuntimeError {
+    fn is_malicious(&self) -> bool {
+        use RuntimeError::*;
+
+        !matches!(self, Source | Inverse | LtSum)
+    }
+}
+
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        use RuntimeError::*;
+
+        let msg = match self {
+            BellmanConstraint => "Bellman constraint is unsatisfied",
+            BellmanOneBinding => "Bellman ~one binding is unsatisfied",
+            BellmanInputBinding => "Bellman input binding is unsatisfied",
+            Bitness => "Bitness check failed",
+            Sum => "Sum check failed",
+            Equal => "Equal check failed",
+            Le => "Constant Le check failed",
+            BranchIsolation => "Branch isolation failed",
+            ConstantLtBitness => "Bitness check failed in constant Lt check",
+            ConstantLtSum => "Sum check failed in constant Lt check",
+            LtBitness => "Bitness check failed in Lt check",
+            LtSum => "Sum check failed in Lt check",
+            LtFinalBitness => "Bitness check failed in final Lt check",
+            LtFinalSum => "Sum check failed in final Lt check",
+            Or => "Or check failed",
+            Xor => "Xor check failed",
+            Inverse => "Division by zero",
+            Euclidean => "Euclidean check failed",
+            ShaXor => "Internal Sha check failed",
+            Division => "Division check failed",
+            Source => "User assertion failed",
+            ArgumentBitness => "Argument bitness check failed",
+        };
+
+        write!(f, "{}", msg)?;
+
+        if self.is_malicious() {
+            writeln!(f)?;
+            write!(f, "The default ZoKrates interpreter should not yield this error. Please open an issue")?;
+        }
+
+        write!(f, "")
     }
 }
 

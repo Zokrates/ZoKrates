@@ -489,7 +489,8 @@ mod tests {
                 compiled.statements[1],
                 FlatStatement::Condition(
                     FlatVariable::new(0).into(),
-                    FlatExpression::Number(Bn128Field::from(1))
+                    FlatExpression::Number(Bn128Field::from(1)),
+                    RuntimeError::BellmanInputBinding
                 )
             );
 
@@ -498,7 +499,8 @@ mod tests {
                 compiled.statements[2],
                 FlatStatement::Condition(
                     FlatVariable::new(1).into(),
-                    FlatVariable::new(26936).into()
+                    FlatVariable::new(26936).into(),
+                    RuntimeError::BellmanOneBinding
                 )
             );
 
