@@ -190,8 +190,8 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
-            FlatStatement::Condition(ref lhs, ref rhs, _) => {
-                write!(f, "FlatCondition({:?}, {:?})", lhs, rhs)
+            FlatStatement::Condition(ref lhs, ref rhs, ref error) => {
+                write!(f, "FlatCondition({:?}, {:?}, {:?})", lhs, rhs, error)
             }
             FlatStatement::Directive(ref d) => write!(f, "{:?}", d),
         }
