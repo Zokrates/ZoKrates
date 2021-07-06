@@ -250,7 +250,7 @@ pub fn r1cs_program<T: Field>(
 
     // first pass through statements to populate `variables`
     for (quad, lin) in main.statements.iter().filter_map(|s| match s {
-        Statement::Constraint(quad, lin) => Some((quad, lin)),
+        Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
     }) {
         for (k, _) in &quad.left.0 {
