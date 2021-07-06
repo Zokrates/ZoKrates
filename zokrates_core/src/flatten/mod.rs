@@ -2375,7 +2375,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let lhs = self.flatten_field_expression(statements_flattened, lhs);
                         let rhs = self.flatten_field_expression(statements_flattened, rhs);
 
-                        self.flatten_equality(statements_flattened, lhs, rhs)
+                        self.flatten_equality_assertion(statements_flattened, lhs, rhs)
                     }
                     BooleanExpression::UintEq(box lhs, box rhs) => {
                         let lhs = self
@@ -2385,13 +2385,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .flatten_uint_expression(statements_flattened, rhs)
                             .get_field_unchecked();
 
-                        self.flatten_equality(statements_flattened, lhs, rhs)
+                        self.flatten_equality_assertion(statements_flattened, lhs, rhs)
                     }
                     BooleanExpression::BoolEq(box lhs, box rhs) => {
                         let lhs = self.flatten_boolean_expression(statements_flattened, lhs);
                         let rhs = self.flatten_boolean_expression(statements_flattened, rhs);
 
-                        self.flatten_equality(statements_flattened, lhs, rhs)
+                        self.flatten_equality_assertion(statements_flattened, lhs, rhs)
                     }
                     _ => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
@@ -2508,14 +2508,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Flattens an equality expression
+    /// Flattens an equality assertion, enforcing it in the circuit.
     ///
     /// # Arguments
     ///
     /// * `statements_flattened` - `FlatStatements<T>` Vector where new flattened statements can be added.
     /// * `lhs` - `FlatExpression<T>` Left-hand side of the equality expression.
     /// * `rhs` - `FlatExpression<T>` Right-hand side of the equality expression.
-    fn flatten_equality(
+    fn flatten_equality_assertion(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         lhs: FlatExpression<T>,
@@ -2537,7 +2537,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ),
             ),
         };
-        statements_flattened.push(FlatStatement::Condition(lhs, rhs, RuntimeError::Equal));
+        statements_flattened.push(FlatStatement::Condition(lhs, rhs, RuntimeError::Source));
     }
 
     /// Identifies a non-linear expression by assigning it to a new identifier.

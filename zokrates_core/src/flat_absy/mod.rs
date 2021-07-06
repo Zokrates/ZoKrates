@@ -49,7 +49,10 @@ impl RuntimeError {
     fn is_malicious(&self) -> bool {
         use RuntimeError::*;
 
-        !matches!(self, Source | Inverse | LtSum | SelectRangeCheck)
+        !matches!(
+            self,
+            Source | Inverse | LtSum | SelectRangeCheck | ArgumentBitness
+        )
     }
 }
 
