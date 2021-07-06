@@ -5,6 +5,7 @@ pub const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
 pub const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
 pub const WITNESS_DEFAULT_PATH: &str = "witness";
 pub const JSON_PROOF_PATH: &str = "proof.json";
+pub const SMTLIB2_DEFAULT_PATH: &str = "out.smt2";
 
 pub const BELLMAN: &str = "bellman";
 pub const LIBSNARK: &str = "libsnark";

@@ -48,6 +48,7 @@ fn cli() -> Result<(), String> {
             export_verifier::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             generate_proof::subcommand(),
+            generate_smtlib2::subcommand(),
             print_proof::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             verify::subcommand()])
@@ -62,6 +63,7 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("generate-proof", Some(sub_matches)) => generate_proof::exec(sub_matches),
+        ("generate-smtlib2", Some(sub_matches)) => generate_smtlib2::exec(sub_matches),
         ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
