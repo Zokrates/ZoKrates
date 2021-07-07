@@ -153,7 +153,7 @@ impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
                     i.value.source.display(),
                     i.value.id
                 ),
-                SymbolDefinition::Struct(ref t) => write!(f, "struct {} {}", self.id, t),
+                SymbolDefinition::Struct(ref t) => write!(f, "struct {}{}", self.id, t),
                 SymbolDefinition::Constant(ref c) => write!(
                     f,
                     "const {} {} = {}",
@@ -199,6 +199,7 @@ pub type UnresolvedTypeNode<'ast> = Node<UnresolvedType<'ast>>;
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructDefinition<'ast> {
+    pub generics: Vec<ConstantGenericNode<'ast>>,
     pub fields: Vec<StructDefinitionFieldNode<'ast>>,
 }
 
@@ -206,12 +207,17 @@ impl<'ast> fmt::Display for StructDefinition<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}",
+            "<{}> {{\n  {}\n}}",
+            self.generics
+                .iter()
+                .map(|g| g.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
             self.fields
                 .iter()
                 .map(|fi| fi.to_string())
                 .collect::<Vec<_>>()
-                .join("\n")
+                .join("\n  ")
         )
     }
 }
@@ -227,7 +233,7 @@ pub struct StructDefinitionField<'ast> {
 
 impl<'ast> fmt::Display for StructDefinitionField<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {},", self.id, self.ty)
+        write!(f, "{} {}", self.ty, self.id)
     }
 }
 

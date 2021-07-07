@@ -147,6 +147,7 @@ mod ast {
     #[pest_ast(rule(Rule::ty_struct_definition))]
     pub struct StructDefinition<'ast> {
         pub id: IdentifierExpression<'ast>,
+        pub generics: Vec<IdentifierExpression<'ast>>,
         pub fields: Vec<StructField<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -307,6 +308,7 @@ mod ast {
     #[pest_ast(rule(Rule::ty_struct))]
     pub struct StructType<'ast> {
         pub id: IdentifierExpression<'ast>,
+        pub explicit_generics: Option<ExplicitGenerics<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

@@ -362,6 +362,7 @@ pub struct GStructType<S> {
     pub canonical_location: StructLocation,
     #[serde(skip)]
     pub location: Option<StructLocation>,
+    pub generics: Vec<Option<S>>,
     pub members: Vec<GStructMember<S>>,
 }
 
@@ -389,6 +390,14 @@ fn try_from_g_struct_type<T: TryInto<U>, U>(
     Ok(GStructType {
         location: t.location,
         canonical_location: t.canonical_location,
+        generics: t
+            .generics
+            .into_iter()
+            .map(|g| match g {
+                Some(g) => g.try_into().map(Some).map_err(|_| SpecializationError),
+                None => Ok(None),
+            })
+            .collect::<Result<_, _>>()?,
         members: t
             .members
             .into_iter()
@@ -424,10 +433,16 @@ impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
 }
 
 impl<S> GStructType<S> {
-    pub fn new(module: PathBuf, name: String, members: Vec<GStructMember<S>>) -> Self {
+    pub fn new(
+        module: PathBuf,
+        name: String,
+        generics: Vec<Option<S>>,
+        members: Vec<GStructMember<S>>,
+    ) -> Self {
         GStructType {
             canonical_location: StructLocation { module, name },
             location: None,
+            generics,
             members,
         }
     }
@@ -694,7 +709,27 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}", array_type),
-            GType::Struct(ref struct_type) => write!(f, "{}", struct_type.name(),),
+            GType::Struct(ref struct_type) => write!(
+                f,
+                "{}{}",
+                struct_type.name(),
+                if !struct_type.generics.is_empty() {
+                    format!(
+                        "<{}>",
+                        struct_type
+                            .generics
+                            .iter()
+                            .map(|g| g
+                                .as_ref()
+                                .map(|g| g.to_string())
+                                .unwrap_or_else(|| '_'.to_string()))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                } else {
+                    "".to_string()
+                }
+            ),
         }
     }
 }
@@ -1037,6 +1072,24 @@ pub mod signature {
                     .map(|m| {
                         let id = m.id;
                         specialize_type(*m.ty, constants).map(|ty| GStructMember { ty: box ty, id })
+                    })
+                    .collect::<Result<_, _>>()?,
+                generics: s0
+                    .generics
+                    .into_iter()
+                    .map(|g| match g {
+                        Some(constant) => match constant {
+                            DeclarationConstant::Generic(s) => {
+                                constants.0.get(&s).cloned().ok_or(s).map(|v| Some(v))
+                            }
+                            DeclarationConstant::Concrete(s) => Ok(Some(s.into())),
+                            DeclarationConstant::Constant(..) => {
+                                unreachable!(
+                                    "identifiers should have been removed in constant inlining"
+                                )
+                            }
+                        },
+                        _ => Ok(None),
                     })
                     .collect::<Result<_, _>>()?,
                 canonical_location: s0.canonical_location,

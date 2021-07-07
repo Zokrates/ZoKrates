@@ -79,6 +79,11 @@ impl<'ast> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'a
         let id = definition.id.span.as_str();
 
         let ty = absy::StructDefinition {
+            generics: definition
+                .generics
+                .into_iter()
+                .map(absy::ConstantGenericNode::from)
+                .collect(),
             fields: definition
                 .fields
                 .into_iter()
@@ -767,9 +772,25 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                         pest::BasicType::U32(t) => UnresolvedType::Uint(32).span(t.span),
                         pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
                     },
-                    pest::BasicOrStructType::Struct(t) => {
-                        UnresolvedType::User(t.span.as_str().to_string()).span(t.span)
-                    }
+                    pest::BasicOrStructType::Struct(t) => UnresolvedType::User(
+                        t.span.as_str().to_string(),
+                        t.explicit_generics.map(|explicit_generics| {
+                            explicit_generics
+                                .values
+                                .into_iter()
+                                .map(|i| match i {
+                                    pest::ConstantGenericValue::Underscore(_) => None,
+                                    pest::ConstantGenericValue::Value(v) => {
+                                        Some(absy::ExpressionNode::from(v))
+                                    }
+                                    pest::ConstantGenericValue::Identifier(i) => Some(
+                                        absy::Expression::Identifier(i.span.as_str()).span(i.span),
+                                    ),
+                                })
+                                .collect()
+                        }),
+                    )
+                    .span(t.span),
                 };
 
                 let span = t.span;
@@ -785,9 +806,25 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                     .unwrap()
                     .span(span.clone())
             }
-            pest::Type::Struct(s) => {
-                UnresolvedType::User(s.id.span.as_str().to_string()).span(s.span)
-            }
+            pest::Type::Struct(s) => UnresolvedType::User(
+                s.id.span.as_str().to_string(),
+                s.explicit_generics.map(|explicit_generics| {
+                    explicit_generics
+                        .values
+                        .into_iter()
+                        .map(|i| match i {
+                            pest::ConstantGenericValue::Underscore(_) => None,
+                            pest::ConstantGenericValue::Value(v) => {
+                                Some(absy::ExpressionNode::from(v))
+                            }
+                            pest::ConstantGenericValue::Identifier(i) => {
+                                Some(absy::Expression::Identifier(i.span.as_str()).span(i.span))
+                            }
+                        })
+                        .collect()
+                }),
+            )
+            .span(s.span),
         }
     }
 }
