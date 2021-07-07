@@ -58,7 +58,7 @@ pub fn generate_verify_constraints(
     let cs_sys = ConstraintSystem::<BW6Fr>::new();
     let cs = ConstraintSystemRef::new(cs_sys);
 
-    let mut rng = test_rng();
+    let mut rng = test_rng(); // has a fixed seed
     let circuit = DefaultCircuit { public_input_size };
 
     let (pk, vk) = GM17Snark::circuit_specific_setup(circuit, &mut rng).unwrap();
@@ -158,10 +158,6 @@ pub fn generate_verify_constraints(
 
     let out_index = match &res {
         Boolean::Is(x) => x
-            .variable()
-            .get_index_unchecked(num_instance_variables)
-            .unwrap(),
-        Boolean::Not(x) => x
             .variable()
             .get_index_unchecked(num_instance_variables)
             .unwrap(),
