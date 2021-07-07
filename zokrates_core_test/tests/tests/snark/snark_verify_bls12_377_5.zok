@@ -1,7 +1,7 @@
 from "EMBED" import snark_verify_bls12_377
 
 // Verifies a proof with 5 public inputs (4 inputs + 1 output)
-// Circuit used in this test:
+// Circuit used in this test (compiled using `bls12_377` curve):
 //
 // def main(field[4] a) -> field:
 //     field out = 0
@@ -9,6 +9,11 @@ from "EMBED" import snark_verify_bls12_377
 //         out = out + a[i]
 //     endfor
 //     return out
+//
+// Arguments:
+//     inputs - public inputs of the circuit
+//     proof - flattened proof to an array of field elements
+//     vk - flattened verification key to an array of field elements
 
 def main(private field[5] inputs, private field[8] proof, private field[28] vk) -> bool:
     bool result = snark_verify_bls12_377(inputs, proof, vk)
