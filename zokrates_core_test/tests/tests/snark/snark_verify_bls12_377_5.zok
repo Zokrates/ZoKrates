@@ -1,7 +1,7 @@
 from "EMBED" import snark_verify_bls12_377
 
 // Verifies a proof with 5 public inputs (4 inputs + 1 output)
-// Circuit used in this test (compiled using `bls12_377` curve):
+// Circuit used in this test:
 //
 // def main(field[4] a) -> field:
 //     field out = 0
@@ -10,11 +10,30 @@ from "EMBED" import snark_verify_bls12_377
 //     endfor
 //     return out
 //
-// Arguments:
-//     inputs - public inputs of the circuit
-//     proof - flattened proof to an array of field elements
-//     vk - flattened verification key to an array of field elements
+// Save the circuit as "circuit.zok" and run the following commands (in order):
+// $ zokrates compile -i ./circuit.zok -c bls12_377
+// $ zokrates compute-witness -a 2 2 2 2
+// $ zokrates setup -b ark -s gm17
+// $ zokrates generate-proof -b ark -s gm17
+//
+// To get flattened inputs needed for this test, use the following script:
+// #!/usr/bin/env node
+//
+// const path = require("path");
+// const fs = require("fs");
+//
+// let output = []
+// for (let i = 2; i < process.argv.length; i++) {
+//     const source = fs.readFileSync(path.resolve(process.argv[i]), 'utf8')
+//     const flat = [...source.matchAll(/0x[a-z0-9]+/gm)].map(n => BigInt(n).toString(10));
+//     output.push(...flat)
+// }
+//
+// console.log(JSON.stringify(output));
+//
+// Save this script as "flatten.js" and run the following command:
+// $ node flatten.js proof.json verification.key
 
-def main(private field[5] inputs, private field[8] proof, private field[28] vk) -> bool:
+def main(private field[8] proof, private field[5] inputs, private field[28] vk) -> bool:
     bool result = snark_verify_bls12_377(inputs, proof, vk)
     return result
