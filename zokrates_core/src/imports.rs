@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use crate::absy::types::UnresolvedType;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
-use zokrates_field::{Bn128Field, Field};
+use zokrates_field::{Bn128Field, Bw6_761Field, Field};
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -107,7 +107,8 @@ impl Importer {
                     if T::id() != Bn128Field::id() {
                         return Err(CompileErrorInner::ImportError(
                             Error::new(format!(
-                                "Embed sha256round cannot be used with curve {}",
+                                "`sha256round` is expected to be compiled over `{}` curve, but found `{}`",
+                                Bn128Field::name(),
                                 T::name()
                             ))
                             .with_pos(Some(pos)),
@@ -118,6 +119,26 @@ impl Importer {
                         SymbolDeclaration {
                             id: symbol.get_alias(),
                             symbol: Symbol::Flat(FlatEmbed::Sha256Round),
+                        }
+                    }
+                }
+                #[cfg(feature = "ark")]
+                "snark_verify_bls12_377" => {
+                    if T::id() != Bw6_761Field::id() {
+                        return Err(CompileErrorInner::ImportError(
+                            Error::new(format!(
+                                "`snark_verify_bls12_377` is expected to be compiled over `{}` curve, but found `{}`",
+                                Bw6_761Field::name(),
+                                T::name()
+                            ))
+                            .with_pos(Some(pos)),
+                        )
+                        .in_file(location)
+                        .into());
+                    } else {
+                        SymbolDeclaration {
+                            id: symbol.get_alias(),
+                            symbol: Symbol::Flat(FlatEmbed::SnarkVerifyBls12377),
                         }
                     }
                 }
