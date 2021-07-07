@@ -2702,7 +2702,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Equal,
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2770,7 +2770,7 @@ mod tests {
                         ),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Equal,
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2832,7 +2832,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Equal,
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2894,7 +2894,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Equal,
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -2969,7 +2969,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Equal,
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -3044,7 +3044,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Equal,
+                    RuntimeError::Source,
                 ),
             ],
         };
@@ -3140,7 +3140,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Equal,
+                    RuntimeError::Source,
                 ),
             ],
         };
