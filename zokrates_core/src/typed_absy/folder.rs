@@ -894,6 +894,7 @@ pub fn fold_declaration_function_key<'ast, T: Field, F: Folder<'ast, T>>(
     key: DeclarationFunctionKey<'ast>,
 ) -> DeclarationFunctionKey<'ast> {
     DeclarationFunctionKey {
+        module: f.fold_module_id(key.module),
         signature: f.fold_signature(key.signature),
         ..key
     }
