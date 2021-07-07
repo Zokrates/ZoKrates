@@ -40,7 +40,7 @@ pub enum FlatEmbed {
     #[cfg(feature = "bellman")]
     Sha256Round,
     #[cfg(feature = "ark")]
-    Verify,
+    SnarkVerifyBls12377,
 }
 
 impl FlatEmbed {
@@ -121,7 +121,7 @@ impl FlatEmbed {
                     256usize,
                 ))]),
             #[cfg(feature = "ark")]
-            FlatEmbed::Verify => DeclarationSignature::new()
+            FlatEmbed::SnarkVerifyBls12377 => DeclarationSignature::new()
                 .generics(vec![
                     Some(Constant::Generic(GenericIdentifier {
                         name: "N",
@@ -182,7 +182,7 @@ impl FlatEmbed {
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
             #[cfg(feature = "ark")]
-            FlatEmbed::Verify => "_VERIFY",
+            FlatEmbed::SnarkVerifyBls12377 => "_SNARK_VERIFY_BLS12_377",
         }
     }
 
@@ -193,7 +193,7 @@ impl FlatEmbed {
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => sha256_round(),
             #[cfg(feature = "ark")]
-            FlatEmbed::Verify => verify(generics[0] as usize),
+            FlatEmbed::SnarkVerifyBls12377 => snark_verify_bls12_377(generics[0] as usize),
             _ => unreachable!(),
         }
     }
@@ -318,7 +318,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
 }
 
 #[cfg(feature = "ark")]
-pub fn verify<T: Field>(n: usize) -> FlatFunction<T> {
+pub fn snark_verify_bls12_377<T: Field>(n: usize) -> FlatFunction<T> {
     use zokrates_field::Bw6_761Field;
     assert_eq!(T::id(), Bw6_761Field::id());
 

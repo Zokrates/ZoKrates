@@ -106,8 +106,9 @@ impl Importer {
                     if T::id() != Bn128Field::id() {
                         return Err(CompileErrorInner::ImportError(
                             Error::new(format!(
-                                "Embed `sha256round` must be used with curve `{}`",
-                                Bn128Field::name()
+                                "`sha256round` is expected to be compiled over `{}` curve, but found `{}`",
+                                Bn128Field::name(),
+                                T::name()
                             ))
                             .with_pos(Some(pos)),
                         )
@@ -125,8 +126,9 @@ impl Importer {
                     if T::id() != Bw6_761Field::id() {
                         return Err(CompileErrorInner::ImportError(
                             Error::new(format!(
-                                "Embed `snark_verify_bls12_377` must be used with curve `{}`",
-                                Bw6_761Field::name()
+                                "`snark_verify_bls12_377` is expected to be compiled over `{}` curve, but found `{}`",
+                                Bw6_761Field::name(),
+                                T::name()
                             ))
                             .with_pos(Some(pos)),
                         )
@@ -135,7 +137,7 @@ impl Importer {
                     } else {
                         SymbolDeclaration {
                             id: symbol.get_alias(),
-                            symbol: Symbol::Flat(FlatEmbed::Verify),
+                            symbol: Symbol::Flat(FlatEmbed::SnarkVerifyBls12377),
                         }
                     }
                 }

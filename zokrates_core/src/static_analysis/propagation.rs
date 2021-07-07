@@ -551,7 +551,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     #[cfg(feature = "bellman")]
                                     FlatEmbed::Sha256Round => None,
                                     #[cfg(feature = "ark")]
-                                    FlatEmbed::Verify => None,
+                                    FlatEmbed::SnarkVerifyBls12377 => None,
                                 };
 
                                 match r {
