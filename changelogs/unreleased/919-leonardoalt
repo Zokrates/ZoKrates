@@ -1,0 +1,1 @@
+Add a CLI option `generate-smtlib2` to output the compiled IR as an SMT formula.

@@ -1,4 +1,5 @@
 {
-	"entry_point": "./tests/tests/cached_condition.zok",
-    "max_constraint_count": 2015
+  "entry_point": "./tests/tests/cached_condition.zok",
+  "max_constraint_count": 2015,
+  "tests": []
 }

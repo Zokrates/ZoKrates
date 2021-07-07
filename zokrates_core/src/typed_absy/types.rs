@@ -106,37 +106,51 @@ impl<'ast> fmt::Display for GenericIdentifier<'ast> {
 #[derive(Debug)]
 pub struct SpecializationError;
 
+pub type ConstantIdentifier<'ast> = &'ast str;
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
+pub struct CanonicalConstantIdentifier<'ast> {
+    pub module: OwnedTypedModuleId,
+    pub id: ConstantIdentifier<'ast>,
+}
+
+impl<'ast> CanonicalConstantIdentifier<'ast> {
+    pub fn new(id: ConstantIdentifier<'ast>, module: OwnedTypedModuleId) -> Self {
+        CanonicalConstantIdentifier { module, id }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Constant<'ast> {
+pub enum DeclarationConstant<'ast> {
     Generic(GenericIdentifier<'ast>),
     Concrete(u32),
-    Identifier(&'ast str, usize),
+    Constant(CanonicalConstantIdentifier<'ast>),
 }
 
-impl<'ast> From<u32> for Constant<'ast> {
+impl<'ast> From<u32> for DeclarationConstant<'ast> {
     fn from(e: u32) -> Self {
-        Constant::Concrete(e)
+        DeclarationConstant::Concrete(e)
     }
 }
 
-impl<'ast> From<usize> for Constant<'ast> {
+impl<'ast> From<usize> for DeclarationConstant<'ast> {
     fn from(e: usize) -> Self {
-        Constant::Concrete(e as u32)
+        DeclarationConstant::Concrete(e as u32)
     }
 }
 
-impl<'ast> From<GenericIdentifier<'ast>> for Constant<'ast> {
+impl<'ast> From<GenericIdentifier<'ast>> for DeclarationConstant<'ast> {
     fn from(e: GenericIdentifier<'ast>) -> Self {
-        Constant::Generic(e)
+        DeclarationConstant::Generic(e)
     }
 }
 
-impl<'ast> fmt::Display for Constant<'ast> {
+impl<'ast> fmt::Display for DeclarationConstant<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Constant::Generic(i) => write!(f, "{}", i),
-            Constant::Concrete(v) => write!(f, "{}", v),
-            Constant::Identifier(v, _) => write!(f, "{}", v),
+            DeclarationConstant::Generic(i) => write!(f, "{}", i),
+            DeclarationConstant::Concrete(v) => write!(f, "{}", v),
+            DeclarationConstant::Constant(v) => write!(f, "{}/{}", v.module.display(), v.id),
         }
     }
 }
@@ -147,13 +161,17 @@ impl<'ast, T> From<usize> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> From<Constant<'ast>> for UExpression<'ast, T> {
-    fn from(c: Constant<'ast>) -> Self {
+impl<'ast, T: Clone> From<DeclarationConstant<'ast>> for UExpression<'ast, T> {
+    fn from(c: DeclarationConstant<'ast>) -> Self {
         match c {
-            Constant::Generic(i) => UExpression::identifier(i.name.into()).annotate(UBitwidth::B32),
-            Constant::Concrete(v) => UExpressionInner::Value(v as u128).annotate(UBitwidth::B32),
-            Constant::Identifier(v, size) => {
-                UExpression::identifier(Identifier::from(v)).annotate(UBitwidth::from(size))
+            DeclarationConstant::Generic(i) => {
+                UExpression::identifier(i.name.into()).annotate(UBitwidth::B32)
+            }
+            DeclarationConstant::Concrete(v) => {
+                UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
+            }
+            DeclarationConstant::Constant(v) => {
+                UExpression::identifier(Identifier::from(v.id)).annotate(UBitwidth::B32)
             }
         }
     }
@@ -172,12 +190,12 @@ impl<'ast, T> TryInto<usize> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast> TryInto<usize> for Constant<'ast> {
+impl<'ast> TryInto<usize> for DeclarationConstant<'ast> {
     type Error = SpecializationError;
 
     fn try_into(self) -> Result<usize, Self::Error> {
         match self {
-            Constant::Concrete(v) => Ok(v as usize),
+            DeclarationConstant::Concrete(v) => Ok(v as usize),
             _ => Err(SpecializationError),
         }
     }
@@ -193,7 +211,7 @@ pub struct GStructMember<S> {
     pub ty: Box<GType<S>>,
 }
 
-pub type DeclarationStructMember<'ast> = GStructMember<Constant<'ast>>;
+pub type DeclarationStructMember<'ast> = GStructMember<DeclarationConstant<'ast>>;
 pub type ConcreteStructMember = GStructMember<usize>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
@@ -245,7 +263,7 @@ pub struct GArrayType<S> {
     pub ty: Box<GType<S>>,
 }
 
-pub type DeclarationArrayType<'ast> = GArrayType<Constant<'ast>>;
+pub type DeclarationArrayType<'ast> = GArrayType<DeclarationConstant<'ast>>;
 pub type ConcreteArrayType = GArrayType<usize>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
@@ -253,7 +271,7 @@ impl<'ast, T: PartialEq> PartialEq<DeclarationArrayType<'ast>> for ArrayType<'as
     fn eq(&self, other: &DeclarationArrayType<'ast>) -> bool {
         *self.ty == *other.ty
             && match (self.size.as_inner(), &other.size) {
-                (UExpressionInner::Value(l), Constant::Concrete(r)) => *l as u32 == *r,
+                (UExpressionInner::Value(l), DeclarationConstant::Concrete(r)) => *l as u32 == *r,
                 _ => true,
             }
     }
@@ -352,7 +370,7 @@ pub struct GStructType<S> {
     pub members: Vec<GStructMember<S>>,
 }
 
-pub type DeclarationStructType<'ast> = GStructType<Constant<'ast>>;
+pub type DeclarationStructType<'ast> = GStructType<DeclarationConstant<'ast>>;
 pub type ConcreteStructType = GStructType<usize>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
@@ -591,7 +609,7 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
     }
 }
 
-pub type DeclarationType<'ast> = GType<Constant<'ast>>;
+pub type DeclarationType<'ast> = GType<DeclarationConstant<'ast>>;
 pub type ConcreteType = GType<usize>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
 
@@ -714,7 +732,7 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
                         // check the size if types match
                         match (&l.size.as_inner(), &r.size) {
                             // compare the sizes for concrete ones
-                            (UExpressionInner::Value(v), Constant::Concrete(c)) => {
+                            (UExpressionInner::Value(v), DeclarationConstant::Concrete(c)) => {
                                 (*v as u32) == *c
                             }
                             _ => true,
@@ -775,7 +793,7 @@ pub struct GFunctionKey<'ast, S> {
     pub signature: GSignature<S>,
 }
 
-pub type DeclarationFunctionKey<'ast> = GFunctionKey<'ast, Constant<'ast>>;
+pub type DeclarationFunctionKey<'ast> = GFunctionKey<'ast, DeclarationConstant<'ast>>;
 pub type ConcreteFunctionKey<'ast> = GFunctionKey<'ast, usize>;
 pub type FunctionKey<'ast, T> = GFunctionKey<'ast, UExpression<'ast, T>>;
 
@@ -951,7 +969,7 @@ pub mod signature {
         }
     }
 
-    pub type DeclarationSignature<'ast> = GSignature<Constant<'ast>>;
+    pub type DeclarationSignature<'ast> = GSignature<DeclarationConstant<'ast>>;
     pub type ConcreteSignature = GSignature<usize>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
@@ -971,15 +989,17 @@ pub mod signature {
                     && match &t0.size {
                         // if the declared size is an identifier, we insert into the map, or check if the concrete size
                         // matches if this identifier is already in the map
-                        Constant::Generic(id) => match constants.0.entry(id.clone()) {
+                        DeclarationConstant::Generic(id) => match constants.0.entry(id.clone()) {
                             Entry::Occupied(e) => *e.get() == s1,
                             Entry::Vacant(e) => {
                                 e.insert(s1);
                                 true
                             }
                         },
-                        Constant::Concrete(s0) => s1 == *s0 as usize,
-                        Constant::Identifier(_, s0) => s1 == *s0,
+                        DeclarationConstant::Concrete(s0) => s1 == *s0 as usize,
+                        // in the case of a constant, we do not know the value yet, so we optimistically assume it's correct
+                        // if it does not match, it will be caught during inlining
+                        DeclarationConstant::Constant(..) => true,
                     }
             }
             (DeclarationType::FieldElement, GType::FieldElement)
@@ -1003,9 +1023,11 @@ pub mod signature {
 
                 let ty = box specialize_type(*t0.ty, &constants)?;
                 let size = match t0.size {
-                    Constant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
-                    Constant::Concrete(s) => Ok(s.into()),
-                    Constant::Identifier(_, s) => Ok((s as u32).into()),
+                    DeclarationConstant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
+                    DeclarationConstant::Concrete(s) => Ok(s.into()),
+                    DeclarationConstant::Constant(..) => {
+                        unreachable!("identifiers should have been removed in constant inlining")
+                    }
                 }?;
 
                 GType::Array(GArrayType { size, ty })
@@ -1056,7 +1078,7 @@ pub mod signature {
             assert_eq!(self.generics.len(), values.len());
 
             let decl_generics = self.generics.iter().map(|g| match g.clone().unwrap() {
-                Constant::Generic(g) => g,
+                DeclarationConstant::Generic(g) => g,
                 _ => unreachable!(),
             });
 
@@ -1099,7 +1121,7 @@ pub mod signature {
                     v.map(|v| {
                         (
                             match g.clone().unwrap() {
-                                Constant::Generic(g) => g,
+                                DeclarationConstant::Generic(g) => g,
                                 _ => unreachable!(),
                             },
                             v,

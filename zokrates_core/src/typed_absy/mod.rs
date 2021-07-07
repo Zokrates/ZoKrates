@@ -19,10 +19,10 @@ mod variable;
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
-    ConcreteArrayType, ConcreteFunctionKey, ConcreteSignature, ConcreteStructType, ConcreteType,
-    ConcreteTypes, DeclarationFunctionKey, DeclarationSignature, DeclarationType, GArrayType,
-    GStructType, GType, GenericIdentifier, IntoTypes, Signature, StructType, Type, Types,
-    UBitwidth,
+    CanonicalConstantIdentifier, ConcreteArrayType, ConcreteFunctionKey, ConcreteSignature,
+    ConcreteStructType, ConcreteType, ConcreteTypes, ConstantIdentifier, DeclarationFunctionKey,
+    DeclarationSignature, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
+    IntoTypes, Signature, StructType, Type, Types, UBitwidth,
 };
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
@@ -63,17 +63,18 @@ pub type TypedModules<'ast, T> = HashMap<OwnedTypedModuleId, TypedModule<'ast, T
 pub type TypedFunctionSymbols<'ast, T> =
     HashMap<DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
 
-pub type ConstantIdentifier<'ast> = &'ast str;
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypedConstantSymbol<'ast, T> {
     Here(TypedConstant<'ast, T>),
-    There(OwnedTypedModuleId, ConstantIdentifier<'ast>),
+    There(CanonicalConstantIdentifier<'ast>),
 }
 
 /// A collection of `TypedConstantSymbol`s
-pub type TypedConstantSymbols<'ast, T> =
-    HashMap<ConstantIdentifier<'ast>, TypedConstantSymbol<'ast, T>>;
+/// It is still ordered, as we inline the constants in the order they are declared
+pub type TypedConstantSymbols<'ast, T> = Vec<(
+    CanonicalConstantIdentifier<'ast>,
+    TypedConstantSymbol<'ast, T>,
+)>;
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug, Clone)]
@@ -189,12 +190,17 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
         let res = self
             .constants
             .iter()
-            .map(|(key, symbol)| match symbol {
+            .map(|(id, symbol)| match symbol {
                 TypedConstantSymbol::Here(ref tc) => {
-                    format!("const {} {} = {}", tc.ty, key, tc.expression)
+                    format!("const {} {} = {}", tc.ty, id.id, tc.expression)
                 }
-                TypedConstantSymbol::There(ref module_id, ref id) => {
-                    format!("from \"{}\" import {} as {}", module_id.display(), id, key)
+                TypedConstantSymbol::There(ref imported_id) => {
+                    format!(
+                        "from \"{}\" import {} as {}",
+                        imported_id.module.display(),
+                        imported_id.id,
+                        id.id
+                    )
                 }
             })
             .chain(self.functions.iter().map(|(key, symbol)| match symbol {
@@ -292,6 +298,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedConstant<'ast, T> {
+    // the type is already stored in the TypedExpression, but we want to avoid awkward trait bounds in `fmt::Display`
     pub ty: Type<'ast, T>,
     pub expression: TypedExpression<'ast, T>,
 }
@@ -304,6 +311,7 @@ impl<'ast, T> TypedConstant<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // using `self.expression.get_type()` would be better here but ends up requiring stronger trait bounds
         write!(f, "const {}({})", self.ty, self.expression)
     }
 }

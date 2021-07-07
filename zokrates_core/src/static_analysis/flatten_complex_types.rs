@@ -558,13 +558,66 @@ fn fold_select_expression<'ast, T: Field, E>(
     let array = f.fold_array_expression(statements_buffer, *select.array);
     let index = f.fold_uint_expression(statements_buffer, *select.index);
 
-    match index.into_inner() {
-        zir::UExpressionInner::Value(i) => {
-            let start = i as usize * size;
-            let end = start + size;
-            array[start..end].to_vec()
+    match index.as_inner() {
+        zir::UExpressionInner::Value(v) => {
+            let v = *v as usize;
+
+            array[v * size..(v + 1) * size].to_vec()
         }
-        _ => unreachable!(),
+        _ => array
+            .chunks(size)
+            .fold(vec![vec![]; size], |mut acc, e| {
+                acc = acc
+                    .into_iter()
+                    .zip(e)
+                    .map(|(mut a, e)| {
+                        a.push(e);
+                        a
+                    })
+                    .collect();
+                acc
+            })
+            .into_iter()
+            .map(|a| {
+                use crate::zir::Typed;
+
+                let ty = a[0].get_type();
+
+                match ty {
+                    zir::Type::Boolean => zir::BooleanExpression::Select(
+                        a.into_iter()
+                            .map(|e| match e {
+                                zir::ZirExpression::Boolean(e) => e.clone(),
+                                _ => unreachable!(),
+                            })
+                            .collect(),
+                        box index.clone(),
+                    )
+                    .into(),
+                    zir::Type::FieldElement => zir::FieldElementExpression::Select(
+                        a.into_iter()
+                            .map(|e| match e {
+                                zir::ZirExpression::FieldElement(e) => e.clone(),
+                                _ => unreachable!(),
+                            })
+                            .collect(),
+                        box index.clone(),
+                    )
+                    .into(),
+                    zir::Type::Uint(bitwidth) => zir::UExpressionInner::Select(
+                        a.into_iter()
+                            .map(|e| match e {
+                                zir::ZirExpression::Uint(e) => e.clone(),
+                                _ => unreachable!(),
+                            })
+                            .collect(),
+                        box index.clone(),
+                    )
+                    .annotate(bitwidth)
+                    .into(),
+                }
+            })
+            .collect(),
     }
 }
 
