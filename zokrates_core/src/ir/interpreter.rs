@@ -235,7 +235,7 @@ impl Interpreter {
                     .collect()
             }
             #[cfg(feature = "ark")]
-            Solver::Verify(n) => {
+            Solver::SnarkVerifyBls12377(n) => {
                 use zokrates_field::Bw6_761Field;
                 assert_eq!(T::id(), Bw6_761Field::id());
 

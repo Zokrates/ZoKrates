@@ -400,7 +400,7 @@ pub fn snark_verify_bls12_377<T: Field>(n: usize) -> FlatFunction<T> {
             .chain(vk_argument_indices)
             .map(|i| FlatVariable::new(i).into())
             .collect(),
-        solver: Solver::Verify(n),
+        solver: Solver::SnarkVerifyBls12377(n),
     });
 
     let statements: Vec<_> = std::iter::once(directive_statement)

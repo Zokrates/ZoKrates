@@ -14,7 +14,7 @@ pub enum Solver {
     #[cfg(feature = "bellman")]
     Sha256Round,
     #[cfg(feature = "ark")]
-    Verify(usize),
+    SnarkVerifyBls12377(usize),
 }
 
 impl fmt::Display for Solver {
@@ -37,7 +37,7 @@ impl Solver {
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => (768, 26935),
             #[cfg(feature = "ark")]
-            Solver::Verify(n) => (26 + 3 * n, 41991 + 4972 * n),
+            Solver::SnarkVerifyBls12377(n) => (26 + 3 * n, 41991 + 4972 * n),
         }
     }
 }
