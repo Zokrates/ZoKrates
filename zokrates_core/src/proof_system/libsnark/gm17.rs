@@ -211,7 +211,7 @@ mod tests {
             private: vec![true],
         };
 
-        let keypair = <Libsnark as Backend<Bn128Field, GM17>>::setup(program.clone());
+        let keypair = <Libsnark as NonUniversalBackend<Bn128Field, GM17>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
