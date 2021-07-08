@@ -30,7 +30,7 @@ struct proof_result_t {
     }
 };
 
-void __free(uint8_t* ptr);
+void c_free(uint8_t* ptr);
 
 #ifdef __cplusplus
 } // extern "C"

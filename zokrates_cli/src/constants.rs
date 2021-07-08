@@ -7,6 +7,7 @@ pub const WITNESS_DEFAULT_PATH: &str = "witness";
 pub const JSON_PROOF_PATH: &str = "proof.json";
 pub const UNIVERSAL_SETUP_DEFAULT_PATH: &str = "universal_setup.dat";
 pub const UNIVERSAL_SETUP_DEFAULT_SIZE: &str = "10";
+pub const SMTLIB2_DEFAULT_PATH: &str = "out.smt2";
 
 pub const BELLMAN: &str = "bellman";
 pub const LIBSNARK: &str = "libsnark";

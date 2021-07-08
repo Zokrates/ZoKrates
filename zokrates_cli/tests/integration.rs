@@ -330,4 +330,78 @@ mod integration {
             }
         }
     }
+
+    fn test_compile_and_smtlib2(
+        program_name: &str,
+        program_path: &Path,
+        expected_smtlib2_path: &Path,
+    ) {
+        let tmp_dir = TempDir::new(".tmp").unwrap();
+        let tmp_base = tmp_dir.path();
+        let test_case_path = tmp_base.join(program_name);
+        let flattened_path = tmp_base.join(program_name).join("out");
+        let smtlib2_path = tmp_base.join(program_name).join("out.smt2");
+
+        // create a tmp folder to store artifacts
+        fs::create_dir(test_case_path).unwrap();
+
+        let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+
+        // prepare compile arguments
+        let compile = vec![
+            "../target/release/zokrates",
+            "compile",
+            "-i",
+            program_path.to_str().unwrap(),
+            "--stdlib-path",
+            stdlib.to_str().unwrap(),
+            "-o",
+            flattened_path.to_str().unwrap(),
+        ];
+
+        // compile
+        assert_cli::Assert::command(&compile).succeeds().unwrap();
+
+        // prepare generate-smtlib2 arguments
+        let gen = vec![
+            "../target/release/zokrates",
+            "generate-smtlib2",
+            "-i",
+            flattened_path.to_str().unwrap(),
+            "-o",
+            smtlib2_path.to_str().unwrap(),
+        ];
+
+        // generate-smtlib2
+        assert_cli::Assert::command(&gen).succeeds().unwrap();
+
+        // load the expected smtlib2
+        let mut expected_smtlib2_file = File::open(&expected_smtlib2_path).unwrap();
+        let mut expected_smtlib2 = String::new();
+        expected_smtlib2_file
+            .read_to_string(&mut expected_smtlib2)
+            .unwrap();
+
+        // load the actual smtlib2
+        let mut smtlib2_file = File::open(&smtlib2_path).unwrap();
+        let mut smtlib2 = String::new();
+        smtlib2_file.read_to_string(&mut smtlib2).unwrap();
+
+        assert_eq!(expected_smtlib2, smtlib2);
+    }
+
+    #[test]
+    fn test_compile_and_smtlib2_dir() {
+        let dir = Path::new("./tests/code");
+        assert!(dir.is_dir());
+        for entry in fs::read_dir(dir).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.extension().unwrap() == "smt2" {
+                let program_name = Path::new(path.file_stem().unwrap());
+                let prog = dir.join(program_name).with_extension("zok");
+                test_compile_and_smtlib2(program_name.to_str().unwrap(), &prog, &path);
+            }
+        }
+    }
 }
