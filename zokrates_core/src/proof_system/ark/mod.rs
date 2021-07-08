@@ -125,7 +125,7 @@ impl<T: Field + ArkFieldExtensions> Prog<T> {
                 let main = self.main;
 
                 for statement in main.statements {
-                    if let Statement::Constraint(quad, lin) = statement {
+                    if let Statement::Constraint(quad, lin, _) = statement {
                         let a = ark_combination(
                             quad.left.clone().into_canonical(),
                             &mut cs,

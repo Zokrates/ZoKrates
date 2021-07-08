@@ -1,5 +1,5 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
-use crate::flat_absy::FlatVariable;
+use crate::flat_absy::{FlatVariable, RuntimeError};
 use crate::solvers::Solver;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -24,17 +24,17 @@ pub use self::witness::Witness;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 pub enum Statement<T> {
-    Constraint(QuadComb<T>, LinComb<T>),
+    Constraint(QuadComb<T>, LinComb<T>, Option<RuntimeError>),
     Directive(Directive<T>),
 }
 
 impl<T: Field> Statement<T> {
     pub fn definition<U: Into<QuadComb<T>>>(v: FlatVariable, e: U) -> Self {
-        Statement::Constraint(e.into(), v.into())
+        Statement::Constraint(e.into(), v.into(), None)
     }
 
     pub fn constraint<U: Into<QuadComb<T>>, V: Into<LinComb<T>>>(quad: U, lin: V) -> Self {
-        Statement::Constraint(quad.into(), lin.into())
+        Statement::Constraint(quad.into(), lin.into(), None)
     }
 }
 
@@ -68,7 +68,7 @@ impl<T: Field> fmt::Display for Directive<T> {
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Constraint(ref quad, ref lin) => write!(f, "{} == {}", quad, lin),
+            Statement::Constraint(ref quad, ref lin, _) => write!(f, "{} == {}", quad, lin),
             Statement::Directive(ref s) => write!(f, "{}", s),
         }
     }
@@ -174,6 +174,7 @@ mod tests {
                     FlatVariable::new(42).into(),
                 ),
                 FlatVariable::new(42).into(),
+                None,
             );
             assert_eq!(format!("{}", c), "(1 * _42) * (1 * _42) == 1 * _42")
         }

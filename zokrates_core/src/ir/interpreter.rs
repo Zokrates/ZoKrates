@@ -49,7 +49,7 @@ impl Interpreter {
 
         for statement in main.statements.iter() {
             match statement {
-                Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
+                Statement::Constraint(quad, lin, message) => match lin.is_assignee(&witness) {
                     true => {
                         let val = quad.evaluate(&witness).unwrap();
                         witness.insert(lin.0.get(0).unwrap().0, val);
@@ -61,6 +61,10 @@ impl Interpreter {
                             return Err(Error::UnsatisfiedConstraint {
                                 left: lhs_value.to_dec_string(),
                                 right: rhs_value.to_dec_string(),
+                                message: message
+                                    .as_ref()
+                                    .map(|m| m.to_string())
+                                    .unwrap_or_else(|| "Unknown".to_string()),
                             });
                         }
                     }
@@ -287,9 +291,16 @@ impl<T: Field> QuadComb<T> {
 
 #[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub enum Error {
-    UnsatisfiedConstraint { left: String, right: String },
+    UnsatisfiedConstraint {
+        left: String,
+        right: String,
+        message: String,
+    },
     Solver,
-    WrongInputCount { expected: usize, received: usize },
+    WrongInputCount {
+        expected: usize,
+        received: usize,
+    },
 }
 
 impl fmt::Display for Error {
@@ -298,7 +309,8 @@ impl fmt::Display for Error {
             Error::UnsatisfiedConstraint {
                 ref left,
                 ref right,
-            } => write!(f, "Expected {} to equal {}", left, right),
+                ref message,
+            } => write!(f, "{}: expected {} to equal {}", message, left, right),
             Error::Solver => write!(f, ""),
             Error::WrongInputCount { expected, received } => write!(
                 f,

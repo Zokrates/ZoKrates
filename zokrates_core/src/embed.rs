@@ -1,6 +1,6 @@
 use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
-    FlatVariable,
+    FlatVariable, RuntimeError,
 };
 use crate::solvers::Solver;
 use crate::typed_absy::types::{
@@ -126,11 +126,11 @@ impl FlatEmbed {
             #[cfg(feature = "ark")]
             FlatEmbed::SnarkVerifyBls12377 => DeclarationSignature::new()
                 .generics(vec![
-                    Some(Constant::Generic(GenericIdentifier {
+                    Some(DeclarationConstant::Generic(GenericIdentifier {
                         name: "N",
                         index: 0,
                     })),
-                    Some(Constant::Generic(GenericIdentifier {
+                    Some(DeclarationConstant::Generic(GenericIdentifier {
                         name: "V",
                         index: 1,
                     })),
@@ -272,6 +272,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     let one_binding_statement = FlatStatement::Condition(
         FlatVariable::new(0).into(),
         FlatExpression::Number(T::from(1)),
+        RuntimeError::BellmanOneBinding,
     );
     let input_binding_statements =
     // bind input and current_hash to inputs
@@ -279,6 +280,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         FlatStatement::Condition(
             FlatVariable::new(cs_index).into(),
             FlatVariable::new(argument_index).into(),
+            RuntimeError::BellmanInputBinding
         )
     });
     // insert flattened statements to represent constraints
@@ -288,7 +290,11 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         let rhs_b = flat_expression_from_vec::<T>(c.b.as_slice());
         let lhs = flat_expression_from_vec::<T>(c.c.as_slice());
 
-        FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
+        FlatStatement::Condition(
+            lhs,
+            FlatExpression::Mult(box rhs_a, box rhs_b),
+            RuntimeError::BellmanConstraint,
+        )
     });
 
     // define which subset of the witness is returned
@@ -360,6 +366,7 @@ pub fn snark_verify_bls12_377<T: Field>(n: usize) -> FlatFunction<T> {
     let one_binding_statement = FlatStatement::Condition(
         FlatExpression::Identifier(FlatVariable::new(0)),
         FlatExpression::Number(T::from(1)),
+        RuntimeError::ArkOneBinding,
     );
 
     let input_binding_statements: Vec<_> = input_indices
@@ -375,6 +382,7 @@ pub fn snark_verify_bls12_377<T: Field>(n: usize) -> FlatFunction<T> {
             FlatStatement::Condition(
                 FlatVariable::new(cs_index).into(),
                 FlatVariable::new(argument_index).into(),
+                RuntimeError::ArkInputBinding,
             )
         })
         .collect();
@@ -387,7 +395,11 @@ pub fn snark_verify_bls12_377<T: Field>(n: usize) -> FlatFunction<T> {
             let rhs_b = flat_expression_from_vec::<T>(c.b.as_slice());
             let lhs = flat_expression_from_vec::<T>(c.c.as_slice());
 
-            FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
+            FlatStatement::Condition(
+                lhs,
+                FlatExpression::Mult(box rhs_a, box rhs_b),
+                RuntimeError::ArkConstraint,
+            )
         })
         .collect();
 
@@ -480,6 +492,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
             FlatStatement::Condition(
                 bit.clone(),
                 FlatExpression::Mult(box bit.clone(), box bit.clone()),
+                RuntimeError::Bitness,
             )
         })
         .collect();
@@ -503,6 +516,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
             box FlatExpression::Identifier(FlatVariable::new(0)),
             box FlatExpression::Number(T::from(1)),
         ),
+        RuntimeError::Sum,
     ));
 
     statements.insert(
@@ -619,7 +633,8 @@ mod tests {
                 compiled.statements[1],
                 FlatStatement::Condition(
                     FlatVariable::new(0).into(),
-                    FlatExpression::Number(Bn128Field::from(1))
+                    FlatExpression::Number(Bn128Field::from(1)),
+                    RuntimeError::BellmanOneBinding
                 )
             );
 
@@ -628,7 +643,8 @@ mod tests {
                 compiled.statements[2],
                 FlatStatement::Condition(
                     FlatVariable::new(1).into(),
-                    FlatVariable::new(26936).into()
+                    FlatVariable::new(26936).into(),
+                    RuntimeError::BellmanInputBinding
                 )
             );
 
