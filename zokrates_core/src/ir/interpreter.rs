@@ -6,8 +6,9 @@ use pairing_ce::bn256::Bn256;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
+use zokrates_embed::ark::generate_verify_witness;
 #[cfg(feature = "bellman")]
-use zokrates_embed::generate_sha256_round_witness;
+use zokrates_embed::bellman::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -148,7 +149,7 @@ impl Interpreter {
         inputs: &[T],
     ) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = solver.get_signature();
-        assert!(inputs.len() == expected_input_count);
+        assert_eq!(inputs.len(), expected_input_count);
 
         let res = match solver {
             Solver::ConditionEq => match inputs[0].is_zero() {
@@ -236,6 +237,17 @@ impl Interpreter {
                         T::from_byte_vector(res)
                     })
                     .collect()
+            }
+            #[cfg(feature = "ark")]
+            Solver::SnarkVerifyBls12377(n) => {
+                use zokrates_field::Bw6_761Field;
+                assert_eq!(T::id(), Bw6_761Field::id());
+
+                generate_verify_witness(
+                    &inputs[..*n],
+                    &inputs[*n..*n + 8usize],
+                    &inputs[*n + 8usize..],
+                )
             }
         };
 
