@@ -2,13 +2,9 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::Directive;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use crate::solvers::Solver;
-use pairing_ce::bn256::Bn256;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
-use zokrates_embed::ark::generate_verify_witness;
-#[cfg(feature = "bellman")]
-use zokrates_embed::bellman::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -216,6 +212,8 @@ impl Interpreter {
             }
             #[cfg(feature = "bellman")]
             Solver::Sha256Round => {
+                use pairing_ce::bn256::Bn256;
+                use zokrates_embed::bellman::generate_sha256_round_witness;
                 use zokrates_field::Bn128Field;
                 assert_eq!(T::id(), Bn128Field::id());
                 let i = &inputs[0..512];
@@ -240,6 +238,7 @@ impl Interpreter {
             }
             #[cfg(feature = "ark")]
             Solver::SnarkVerifyBls12377(n) => {
+                use zokrates_embed::ark::generate_verify_witness;
                 use zokrates_field::Bw6_761Field;
                 assert_eq!(T::id(), Bw6_761Field::id());
 

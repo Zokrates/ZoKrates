@@ -204,6 +204,7 @@ impl FlatEmbed {
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
 // we build a binary tree of additions by splitting the vector recursively
+#[cfg(any(feature = "ark", feature = "bellman"))]
 fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
     match v.len() {
         0 => FlatExpression::Number(T::zero()),
