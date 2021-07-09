@@ -1,4 +1,4 @@
-use crate::proof_system::scheme::Scheme;
+use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
 use crate::proof_system::solidity::{
     SolidityAbi, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
@@ -33,6 +33,10 @@ pub struct VerificationKey<G1, G2> {
     pub h_gamma: G2,
     pub query: Vec<G1>,
 }
+
+impl<T: Field + NotBw6_761Field> NonUniversalScheme<T> for GM17 {}
+
+impl NonUniversalScheme<Bw6_761Field> for GM17 {}
 
 impl<T: Field + NotBw6_761Field> Scheme<T> for GM17 {
     type VerificationKey = VerificationKey<G1Affine, G2Affine>;
