@@ -107,6 +107,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .arguments
                 .iter()
                 .map(|p| {
+                    println!("{:#?}", p);
+
                     types::ConcreteType::try_from(types::Type::<T>::from(p.id._type.clone()))
                         .map(|ty| AbiInput {
                             public: !p.private,

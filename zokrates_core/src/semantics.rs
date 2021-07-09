@@ -6,6 +6,7 @@
 
 use crate::absy::Identifier;
 use crate::absy::*;
+use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::*;
 use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
 use num_bigint::BigUint;
@@ -19,9 +20,9 @@ use crate::parser::Position;
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
 use crate::typed_absy::types::{
-    ArrayType, DeclarationArrayType, DeclarationConstant, DeclarationFunctionKey,
-    DeclarationSignature, DeclarationStructMember, DeclarationStructType, DeclarationType,
-    GenericIdentifier, StructLocation,
+    check_type, specialize_type, ArrayType, DeclarationArrayType, DeclarationConstant,
+    DeclarationFunctionKey, DeclarationSignature, DeclarationStructMember, DeclarationStructType,
+    DeclarationType, GenericIdentifier, StructLocation, StructMember,
 };
 use std::hash::{Hash, Hasher};
 
@@ -442,10 +443,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
         }
 
+        let mut used_generics = HashSet::new();
+
         for field in s.fields {
             let member_id = field.value.id.to_string();
             match self
-                .check_declaration_type(field.value.ty, module_id, state, &generics_map)
+                .check_declaration_type(
+                    field.value.ty,
+                    module_id,
+                    state,
+                    &generics_map,
+                    &mut used_generics,
+                )
                 .map(|t| (member_id, t))
             {
                 Ok(f) => match fields_set.insert(f.0.clone()) {
@@ -458,6 +467,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 Err(e) => {
                     errors.push(e);
                 }
+            }
+        }
+
+        // check that all declared generics were used
+        for declared_generic in generics_map.keys() {
+            if !used_generics.contains(declared_generic) {
+                errors.push(ErrorInner {
+                    pos: Some(pos),
+                    message: format!("Generic parameter {} must be used", declared_generic),
+                });
             }
         }
 
@@ -1058,7 +1077,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.inputs {
-            match self.check_declaration_type(t, module_id, state, &generics_map) {
+            match self.check_declaration_type(
+                t,
+                module_id,
+                state,
+                &generics_map,
+                &mut HashSet::default(),
+            ) {
                 Ok(t) => {
                     inputs.push(t);
                 }
@@ -1069,7 +1094,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
 
         for t in signature.outputs {
-            match self.check_declaration_type(t, module_id, state, &generics_map) {
+            match self.check_declaration_type(
+                t,
+                module_id,
+                state,
+                &generics_map,
+                &mut HashSet::default(),
+            ) {
                 Ok(t) => {
                     outputs.push(t);
                 }
@@ -1155,61 +1186,59 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             message: format!("Undefined type {}", id),
                         })?;
 
-                // check explicit generics if provided
-                if let Some(generics) = generics {
-                    match declaration_type {
-                        DeclarationType::Struct(struct_type) => {
-                            match struct_type.generics.len() == generics.len() {
-                                true => {
-                                    let checked_generics = generics
-                                        .into_iter()
-                                        .map(|e| match e {
-                                            Some(e) => self
-                                                .check_expression(e, module_id, types)
-                                                .and_then(|e| {
-                                                    UExpression::try_from_typed(e, UBitwidth::B32)
-                                                        .map(Some)
-                                                        .map_err(|e| ErrorInner {
-                                                            pos: Some(pos),
-                                                            message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
-                                                        })
-                                                }),
-                                            None => Ok(None),
-                                        })
-                                        .collect::<Result<_, _>>()?;
+                // absence of generics is treated as 0 generics, as we do not provide inference for now
+                let generics = generics.unwrap_or_default();
 
-                                    Ok(Type::Struct(StructType {
-                                        canonical_location: struct_type.canonical_location,
-                                        location: struct_type.location,
-                                        generics: checked_generics,
-                                        members: struct_type
-                                            .members
-                                            .into_iter()
-                                            .map(|m| m.into())
-                                            .collect(),
-                                    }))
-                                }
-                                false => Err(ErrorInner {
-                                    pos: Some(pos),
-                                    message: format!(
-                                        "Expected {} generic argument{} on type {}, but got {}",
-                                        struct_type.generics.len(),
-                                        if struct_type.generics.len() == 1 {
-                                            ""
-                                        } else {
-                                            "s"
-                                        },
-                                        id,
-                                        generics.len()
-                                    ),
-                                }),
+                // check generics
+                match declaration_type {
+                    DeclarationType::Struct(struct_type) => {
+                        match struct_type.generics.len() == generics.len() {
+                            true => {
+                                let checked_generics = generics
+                                    .into_iter()
+                                    .map(|e| match e {
+                                        Some(e) => self
+                                            .check_expression(e, module_id, types)
+                                            .and_then(|e| {
+                                                UExpression::try_from_typed(e, UBitwidth::B32)
+                                                    .map(Some)
+                                                    .map_err(|e| ErrorInner {
+                                                        pos: Some(pos),
+                                                        message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
+                                                    })
+                                            }),
+                                        None => Ok(None),
+                                    })
+                                    .collect::<Result<_, _>>()?;
+
+                                Ok(Type::Struct(StructType {
+                                    canonical_location: struct_type.canonical_location,
+                                    location: struct_type.location,
+                                    generics: checked_generics,
+                                    members: struct_type
+                                        .members
+                                        .into_iter()
+                                        .map(|m| m.into())
+                                        .collect(),
+                                }))
                             }
+                            false => Err(ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Expected {} generic argument{} on type {}, but got {}",
+                                    struct_type.generics.len(),
+                                    if struct_type.generics.len() == 1 {
+                                        ""
+                                    } else {
+                                        "s"
+                                    },
+                                    id,
+                                    generics.len()
+                                ),
+                            }),
                         }
-                        _ => Ok(declaration_type.into()),
                     }
-                } else {
-                    // explicit generics were not provided, so we will infer later on
-                    Ok(declaration_type.into())
+                    _ => unreachable!("user defined types should always be structs"),
                 }
             }
         }
@@ -1220,6 +1249,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         constants_map: &HashMap<ConstantIdentifier<'ast>, Type<'ast, T>>,
         generics_map: &HashMap<Identifier<'ast>, usize>,
+        used_generics: &mut HashSet<Identifier<'ast>>,
     ) -> Result<DeclarationConstant<'ast>, ErrorInner> {
         let pos = expr.pos();
 
@@ -1241,6 +1271,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
             }
             Expression::Identifier(name) => {
+                used_generics.insert(name.clone());
+
                 match (constants_map.get(name), generics_map.get(&name)) {
                     (Some(ty), None) => {
                         match ty {
@@ -1277,6 +1309,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &State<'ast, T>,
         generics_map: &HashMap<Identifier<'ast>, usize>,
+        used_generics: &mut HashSet<Identifier<'ast>>,
     ) -> Result<DeclarationType<'ast>, ErrorInner> {
         let pos = ty.pos();
         let ty = ty.value;
@@ -1291,15 +1324,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     module_id,
                     state.constants.get(module_id).unwrap_or(&HashMap::new()),
                     generics_map,
+                    used_generics,
                 )?;
 
                 Ok(DeclarationType::Array(DeclarationArrayType::new(
-                    self.check_declaration_type(*t, module_id, state, generics_map)?,
+                    self.check_declaration_type(*t, module_id, state, generics_map, used_generics)?,
                     checked_size,
                 )))
             }
             UnresolvedType::User(id, generics) => {
-                let ty = state
+                let declared_ty = state
                     .types
                     .get(module_id)
                     .unwrap()
@@ -1310,12 +1344,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         message: format!("Undefined type {}", id),
                     })?;
 
-                match ty {
-                    DeclarationType::Struct(struct_type) => {
+                match declared_ty {
+                    DeclarationType::Struct(declared_struct_ty) => {
                         let generics = generics.unwrap_or_default();
-                        match struct_type.generics.len() == generics.len() {
+                        match declared_struct_ty.generics.len() == generics.len() {
                             true => {
-                                let checked_generics = generics
+                                let checked_generics: Vec<_> = generics
                                     .into_iter()
                                     .map(|e| match e {
                                         Some(e) => self
@@ -1327,25 +1361,49 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                                     .get(module_id)
                                                     .unwrap_or(&HashMap::new()),
                                                 generics_map,
+                                                used_generics,
                                             )
                                             .map(Some),
-                                        None => Ok(None),
+                                        None => Err(ErrorInner {
+                                            pos: Some(pos),
+                                            message: format!("Expected u32 constant or identifier, but found `_`"),
+                                        }),
                                     })
                                     .collect::<Result<_, _>>()?;
 
+                                let mut assignment = GGenericsAssignment::default();
+
+                                assignment.0.extend(declared_struct_ty.generics.iter().zip(checked_generics.iter()).map(|(decl_g, g_val)| match decl_g.clone().unwrap() {
+                                    DeclarationConstant::Generic(g) => (g, g_val.clone().unwrap()),
+                                    _ => unreachable!("generic on declaration struct types must be generic identifiers")
+                                }));
+
+                                // generate actual type based on generic type and concrete generics
+                                let members = declared_struct_ty
+                                    .members
+                                    .into_iter()
+                                    .map(|m| {
+                                        Ok(DeclarationStructMember {
+                                            ty: box specialize_type(*m.ty, &assignment)
+                                                .map_err(|_| unimplemented!())?,
+                                            ..m
+                                        })
+                                    })
+                                    .collect::<Result<Vec<_>, _>>()?;
+
                                 Ok(DeclarationType::Struct(DeclarationStructType {
-                                    canonical_location: struct_type.canonical_location,
-                                    location: struct_type.location,
+                                    canonical_location: declared_struct_ty.canonical_location,
+                                    location: declared_struct_ty.location,
                                     generics: checked_generics,
-                                    members: struct_type.members,
+                                    members,
                                 }))
                             }
                             false => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
                                     "Expected {} generic argument{} on type {}, but got {}",
-                                    struct_type.generics.len(),
-                                    if struct_type.generics.len() == 1 {
+                                    declared_struct_ty.generics.len(),
+                                    if declared_struct_ty.generics.len() == 1 {
                                         ""
                                     } else {
                                         "s"
@@ -1356,7 +1414,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             }),
                         }
                     }
-                    _ => Ok(ty),
+                    _ => Ok(declared_ty),
                 }
             }
         }
@@ -2820,26 +2878,28 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .into())
             }
             Expression::InlineStruct(id, inline_members) => {
-                let ty = self.check_type(
-                    UnresolvedType::User(id.clone(), None).at(42, 42, 42),
-                    module_id,
-                    types,
-                )?;
-                let struct_type = match ty {
-                    Type::Struct(struct_type) => struct_type,
+                let ty = match types.get(module_id).unwrap().get(&id).cloned() {
+                    None => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!("Undeclared type of name `{}`", id),
+                    }),
+                    Some(ty) => Ok(ty),
+                }?;
+
+                let declared_struct_type = match ty {
+                    DeclarationType::Struct(struct_type) => struct_type,
                     _ => unreachable!(),
                 };
 
                 // check that we provided the required number of values
-
-                if struct_type.members_count() != inline_members.len() {
+                if declared_struct_type.members_count() != inline_members.len() {
                     return Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Inline struct {} does not match {} {{{}}}",
                             Expression::InlineStruct(id, inline_members),
-                            Type::Struct(struct_type.clone()),
-                            struct_type
+                            declared_struct_type,
+                            declared_struct_type
                                 .members
                                 .iter()
                                 .map(|m| format!("{}: {}", m.id, m.ty))
@@ -2857,54 +2917,87 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .into_iter()
                     .map(|(id, v)| (id.to_string(), v))
                     .collect::<HashMap<_, _>>();
-                let mut result: Vec<TypedExpression<'ast, T>> = vec![];
 
-                for member in struct_type.iter() {
-                    match inline_members_map.remove(member.id.as_str()) {
-                        Some(value) => {
-                            let expression_checked =
-                                self.check_expression(value, module_id, types)?;
+                let inferred_values = declared_struct_type
+                    .iter()
+                    .map(
+                        |member| match inline_members_map.remove(member.id.as_str()) {
+                            Some(value) => {
+                                let expression_checked =
+                                    self.check_expression(value, module_id, types)?;
 
-                            let expression_checked = TypedExpression::align_to_type(
-                                expression_checked,
-                                *member.ty.clone(),
-                            )
-                            .map_err(|e| ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Member {} of struct {} has type {}, found {} of type {}",
-                                    member.id,
-                                    id.clone(),
-                                    e.1,
-                                    e.0,
-                                    e.0.get_type(),
-                                ),
-                            })?;
+                                let expression_checked = TypedExpression::align_to_type(
+                                    expression_checked,
+                                    Type::from(*member.ty.clone()),
+                                )
+                                .map_err(|e| ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Member {} of struct {} has type {}, found {} of type {}",
+                                        member.id,
+                                        id.clone(),
+                                        e.1,
+                                        e.0,
+                                        e.0.get_type(),
+                                    ),
+                                })?;
 
-                            result.push(expression_checked);
-                        }
-                        None => {
-                            return Err(ErrorInner {
+                                Ok(expression_checked)
+                            }
+                            None => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
                                     "Member {} of struct {} {{{}}} not found in value {}",
                                     member.id,
-                                    Type::Struct(struct_type.clone()),
-                                    struct_type
+                                    declared_struct_type,
+                                    declared_struct_type
                                         .members
                                         .iter()
                                         .map(|m| format!("{}: {}", m.id, m.ty))
                                         .collect::<Vec<_>>()
                                         .join(", "),
-                                    Expression::InlineStruct(id, inline_members),
+                                    Expression::InlineStruct(id.clone(), inline_members.clone()),
+                                ),
+                            }),
+                        },
+                    )
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let mut generics_map = GGenericsAssignment::default();
+
+                let members = declared_struct_type
+                    .iter()
+                    .zip(inferred_values.iter())
+                    .map(|(m, v)| {
+                        if !check_type(&m.ty, &v.get_type(), &mut generics_map) {
+                            Err(ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Value `{}` doesn't match the expected type `{}` because of conflict in generic values",
+                                    Expression::InlineStruct(id.clone(), inline_members.clone()),
+                                    declared_struct_type
                                 ),
                             })
+                        } else {
+                            Ok(StructMember {
+                                id: m.id.clone(),
+                                ty: box v.get_type().clone(),
+                            })
                         }
-                    }
-                }
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
 
-                Ok(StructExpressionInner::Value(result)
-                    .annotate(struct_type)
+                let generics = generics_map.0.values().cloned().map(Some).collect();
+
+                let inferred_struct_type = StructType {
+                    canonical_location: declared_struct_type.canonical_location.clone(),
+                    location: declared_struct_type.location,
+                    generics,
+                    members,
+                };
+
+                Ok(StructExpressionInner::Value(inferred_values)
+                    .annotate(inferred_struct_type)
                     .into())
             }
             Expression::And(box e1, box e2) => {

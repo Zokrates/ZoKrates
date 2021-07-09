@@ -372,13 +372,14 @@ pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
 impl<S: PartialEq> PartialEq for GStructType<S> {
     fn eq(&self, other: &Self) -> bool {
-        self.canonical_location.eq(&other.canonical_location)
+        self.canonical_location.eq(&other.canonical_location) && self.generics.eq(&other.generics)
     }
 }
 
 impl<S: Hash> Hash for GStructType<S> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.canonical_location.hash(state);
+        self.generics.hash(state);
     }
 }
 
@@ -709,28 +710,33 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}", array_type),
-            GType::Struct(ref struct_type) => write!(
-                f,
-                "{}{}",
-                struct_type.name(),
-                if !struct_type.generics.is_empty() {
-                    format!(
-                        "<{}>",
-                        struct_type
-                            .generics
-                            .iter()
-                            .map(|g| g
-                                .as_ref()
-                                .map(|g| g.to_string())
-                                .unwrap_or_else(|| '_'.to_string()))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    )
-                } else {
-                    "".to_string()
-                }
-            ),
+            GType::Struct(ref struct_type) => write!(f, "{}", struct_type),
         }
+    }
+}
+
+impl<S: fmt::Display> fmt::Display for GStructType<S> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}{}",
+            self.name(),
+            if !self.generics.is_empty() {
+                format!(
+                    "<{}>",
+                    self.generics
+                        .iter()
+                        .map(|g| g
+                            .as_ref()
+                            .map(|g| g.to_string())
+                            .unwrap_or_else(|| '_'.to_string()))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            } else {
+                "".to_string()
+            }
+        )
     }
 }
 
@@ -948,6 +954,101 @@ impl<'ast> ConcreteFunctionKey<'ast> {
     }
 }
 
+use std::collections::btree_map::Entry;
+
+pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
+    decl_ty: &DeclarationType<'ast>,
+    ty: &GType<S>,
+    constants: &mut GGenericsAssignment<'ast, S>,
+) -> bool {
+    match (decl_ty, ty) {
+        (DeclarationType::Array(t0), GType::Array(t1)) => {
+            let s1 = t1.size.clone();
+
+            // both the inner type and the size must match
+            check_type(&t0.ty, &t1.ty, constants)
+                && match &t0.size {
+                    // if the declared size is an identifier, we insert into the map, or check if the concrete size
+                    // matches if this identifier is already in the map
+                    DeclarationConstant::Generic(id) => match constants.0.entry(id.clone()) {
+                        Entry::Occupied(e) => *e.get() == s1,
+                        Entry::Vacant(e) => {
+                            e.insert(s1);
+                            true
+                        }
+                    },
+                    DeclarationConstant::Concrete(s0) => s1 == *s0 as usize,
+                    // in the case of a constant, we do not know the value yet, so we optimistically assume it's correct
+                    // if it does not match, it will be caught during inlining
+                    DeclarationConstant::Constant(..) => true,
+                }
+        }
+        (DeclarationType::FieldElement, GType::FieldElement)
+        | (DeclarationType::Boolean, GType::Boolean) => true,
+        (DeclarationType::Uint(b0), GType::Uint(b1)) => b0 == b1,
+        (DeclarationType::Struct(s0), GType::Struct(s1)) => {
+            s0.canonical_location == s1.canonical_location
+        }
+        _ => false,
+    }
+}
+
+pub fn specialize_type<'ast, S: Clone + PartialEq + From<u32> + fmt::Debug>(
+    decl_ty: DeclarationType<'ast>,
+    constants: &GGenericsAssignment<'ast, S>,
+) -> Result<GType<S>, GenericIdentifier<'ast>> {
+    Ok(match decl_ty {
+        DeclarationType::Int => unreachable!(),
+        DeclarationType::Array(t0) => {
+            // let s1 = t1.size.clone();
+
+            let ty = box specialize_type(*t0.ty, &constants)?;
+            let size = match t0.size {
+                DeclarationConstant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
+                DeclarationConstant::Concrete(s) => Ok(s.into()),
+                DeclarationConstant::Constant(..) => {
+                    unreachable!("identifiers should have been removed in constant inlining")
+                }
+            }?;
+
+            GType::Array(GArrayType { size, ty })
+        }
+        DeclarationType::FieldElement => GType::FieldElement,
+        DeclarationType::Boolean => GType::Boolean,
+        DeclarationType::Uint(b0) => GType::Uint(b0),
+        DeclarationType::Struct(s0) => GType::Struct(GStructType {
+            members: s0
+                .members
+                .into_iter()
+                .map(|m| {
+                    let id = m.id;
+                    specialize_type(*m.ty, constants).map(|ty| GStructMember { ty: box ty, id })
+                })
+                .collect::<Result<_, _>>()?,
+            generics: s0
+                .generics
+                .into_iter()
+                .map(|g| match g {
+                    Some(constant) => match constant {
+                        DeclarationConstant::Generic(s) => {
+                            constants.0.get(&s).cloned().ok_or(s).map(|v| Some(v))
+                        }
+                        DeclarationConstant::Concrete(s) => Ok(Some(s.into())),
+                        DeclarationConstant::Constant(..) => {
+                            unreachable!(
+                                "identifiers should have been removed in constant inlining"
+                            )
+                        }
+                    },
+                    _ => Ok(None),
+                })
+                .collect::<Result<_, _>>()?,
+            canonical_location: s0.canonical_location,
+            location: s0.location,
+        }),
+    })
+}
+
 pub use self::signature::{ConcreteSignature, DeclarationSignature, GSignature, Signature};
 
 pub mod signature {
@@ -1002,101 +1103,6 @@ pub mod signature {
     pub type DeclarationSignature<'ast> = GSignature<DeclarationConstant<'ast>>;
     pub type ConcreteSignature = GSignature<usize>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
-
-    use std::collections::btree_map::Entry;
-
-    fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
-        decl_ty: &DeclarationType<'ast>,
-        ty: &GType<S>,
-        constants: &mut GGenericsAssignment<'ast, S>,
-    ) -> bool {
-        match (decl_ty, ty) {
-            (DeclarationType::Array(t0), GType::Array(t1)) => {
-                let s1 = t1.size.clone();
-
-                // both the inner type and the size must match
-                check_type(&t0.ty, &t1.ty, constants)
-                    && match &t0.size {
-                        // if the declared size is an identifier, we insert into the map, or check if the concrete size
-                        // matches if this identifier is already in the map
-                        DeclarationConstant::Generic(id) => match constants.0.entry(id.clone()) {
-                            Entry::Occupied(e) => *e.get() == s1,
-                            Entry::Vacant(e) => {
-                                e.insert(s1);
-                                true
-                            }
-                        },
-                        DeclarationConstant::Concrete(s0) => s1 == *s0 as usize,
-                        // in the case of a constant, we do not know the value yet, so we optimistically assume it's correct
-                        // if it does not match, it will be caught during inlining
-                        DeclarationConstant::Constant(..) => true,
-                    }
-            }
-            (DeclarationType::FieldElement, GType::FieldElement)
-            | (DeclarationType::Boolean, GType::Boolean) => true,
-            (DeclarationType::Uint(b0), GType::Uint(b1)) => b0 == b1,
-            (DeclarationType::Struct(s0), GType::Struct(s1)) => {
-                s0.canonical_location == s1.canonical_location
-            }
-            _ => false,
-        }
-    }
-
-    fn specialize_type<'ast, S: Clone + PartialEq + PartialEq<usize> + From<u32> + fmt::Debug>(
-        decl_ty: DeclarationType<'ast>,
-        constants: &GGenericsAssignment<'ast, S>,
-    ) -> Result<GType<S>, GenericIdentifier<'ast>> {
-        Ok(match decl_ty {
-            DeclarationType::Int => unreachable!(),
-            DeclarationType::Array(t0) => {
-                // let s1 = t1.size.clone();
-
-                let ty = box specialize_type(*t0.ty, &constants)?;
-                let size = match t0.size {
-                    DeclarationConstant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
-                    DeclarationConstant::Concrete(s) => Ok(s.into()),
-                    DeclarationConstant::Constant(..) => {
-                        unreachable!("identifiers should have been removed in constant inlining")
-                    }
-                }?;
-
-                GType::Array(GArrayType { size, ty })
-            }
-            DeclarationType::FieldElement => GType::FieldElement,
-            DeclarationType::Boolean => GType::Boolean,
-            DeclarationType::Uint(b0) => GType::Uint(b0),
-            DeclarationType::Struct(s0) => GType::Struct(GStructType {
-                members: s0
-                    .members
-                    .into_iter()
-                    .map(|m| {
-                        let id = m.id;
-                        specialize_type(*m.ty, constants).map(|ty| GStructMember { ty: box ty, id })
-                    })
-                    .collect::<Result<_, _>>()?,
-                generics: s0
-                    .generics
-                    .into_iter()
-                    .map(|g| match g {
-                        Some(constant) => match constant {
-                            DeclarationConstant::Generic(s) => {
-                                constants.0.get(&s).cloned().ok_or(s).map(|v| Some(v))
-                            }
-                            DeclarationConstant::Concrete(s) => Ok(Some(s.into())),
-                            DeclarationConstant::Constant(..) => {
-                                unreachable!(
-                                    "identifiers should have been removed in constant inlining"
-                                )
-                            }
-                        },
-                        _ => Ok(None),
-                    })
-                    .collect::<Result<_, _>>()?,
-                canonical_location: s0.canonical_location,
-                location: s0.location,
-            }),
-        })
-    }
 
     impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
         fn eq(&self, other: &DeclarationSignature<'ast>) -> bool {
