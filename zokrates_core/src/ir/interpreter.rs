@@ -6,8 +6,9 @@ use pairing_ce::bn256::Bn256;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
+use zokrates_embed::ark::generate_verify_witness;
 #[cfg(feature = "bellman")]
-use zokrates_embed::generate_sha256_round_witness;
+use zokrates_embed::bellman::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -48,7 +49,7 @@ impl Interpreter {
 
         for statement in main.statements.iter() {
             match statement {
-                Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
+                Statement::Constraint(quad, lin, message) => match lin.is_assignee(&witness) {
                     true => {
                         let val = quad.evaluate(&witness).unwrap();
                         witness.insert(lin.0.get(0).unwrap().0, val);
@@ -60,6 +61,10 @@ impl Interpreter {
                             return Err(Error::UnsatisfiedConstraint {
                                 left: lhs_value.to_dec_string(),
                                 right: rhs_value.to_dec_string(),
+                                message: message
+                                    .as_ref()
+                                    .map(|m| m.to_string())
+                                    .unwrap_or_else(|| "Unknown".to_string()),
                             });
                         }
                     }
@@ -144,7 +149,7 @@ impl Interpreter {
         inputs: &[T],
     ) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = solver.get_signature();
-        assert!(inputs.len() == expected_input_count);
+        assert_eq!(inputs.len(), expected_input_count);
 
         let res = match solver {
             Solver::ConditionEq => match inputs[0].is_zero() {
@@ -233,6 +238,17 @@ impl Interpreter {
                     })
                     .collect()
             }
+            #[cfg(feature = "ark")]
+            Solver::SnarkVerifyBls12377(n) => {
+                use zokrates_field::Bw6_761Field;
+                assert_eq!(T::id(), Bw6_761Field::id());
+
+                generate_verify_witness(
+                    &inputs[..*n],
+                    &inputs[*n..*n + 8usize],
+                    &inputs[*n + 8usize..],
+                )
+            }
         };
 
         assert_eq!(res.len(), expected_output_count);
@@ -275,9 +291,16 @@ impl<T: Field> QuadComb<T> {
 
 #[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub enum Error {
-    UnsatisfiedConstraint { left: String, right: String },
+    UnsatisfiedConstraint {
+        left: String,
+        right: String,
+        message: String,
+    },
     Solver,
-    WrongInputCount { expected: usize, received: usize },
+    WrongInputCount {
+        expected: usize,
+        received: usize,
+    },
 }
 
 impl fmt::Display for Error {
@@ -286,7 +309,8 @@ impl fmt::Display for Error {
             Error::UnsatisfiedConstraint {
                 ref left,
                 ref right,
-            } => write!(f, "Expected {} to equal {}", left, right),
+                ref message,
+            } => write!(f, "{}: expected {} to equal {}", message, left, right),
             Error::Solver => write!(f, ""),
             Error::WrongInputCount { expected, received } => write!(
                 f,

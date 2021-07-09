@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/arrays/identity.code",
+	"entry_point": "./tests/tests/arrays/identity.zok",
 	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
 	"tests": [
 		{
@@ -30,7 +30,8 @@
 				"Err": {
 					"UnsatisfiedConstraint": {
 						"left": "4",
-						"right": "2"
+						"right": "2",
+						"message": "Argument bitness check failed"
 					}
 				}
 			}

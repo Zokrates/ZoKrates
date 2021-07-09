@@ -24,7 +24,8 @@
 				"Err": {
 					"UnsatisfiedConstraint": {
 						"left": "0",
-						"right": "1"
+						"right": "1",
+                        "message": "Division by zero"
 					}
 				}
             }

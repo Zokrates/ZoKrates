@@ -75,14 +75,14 @@ mod tests {
             main: Function {
                 id: "main".to_string(),
                 statements: vec![
-                    Statement::Constraint(
+                    Statement::constraint(
                         QuadComb::from_linear_combinations(
                             LinComb::summand(3, FlatVariable::new(3)),
                             LinComb::summand(3, FlatVariable::new(3)),
                         ),
                         LinComb::one(),
                     ),
-                    Statement::Constraint(
+                    Statement::constraint(
                         QuadComb::from_linear_combinations(
                             LinComb::summand(3, FlatVariable::new(42)),
                             LinComb::summand(3, FlatVariable::new(3)),
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn remove_duplicates() {
-        let constraint = Statement::Constraint(
+        let constraint = Statement::constraint(
             QuadComb::from_linear_combinations(
                 LinComb::summand(3, FlatVariable::new(3)),
                 LinComb::summand(3, FlatVariable::new(3)),
@@ -117,7 +117,7 @@ mod tests {
                 statements: vec![
                     constraint.clone(),
                     constraint.clone(),
-                    Statement::Constraint(
+                    Statement::constraint(
                         QuadComb::from_linear_combinations(
                             LinComb::summand(3, FlatVariable::new(42)),
                             LinComb::summand(3, FlatVariable::new(3)),
@@ -138,7 +138,7 @@ mod tests {
                 id: "main".to_string(),
                 statements: vec![
                     constraint,
-                    Statement::Constraint(
+                    Statement::constraint(
                         QuadComb::from_linear_combinations(
                             LinComb::summand(3, FlatVariable::new(42)),
                             LinComb::summand(3, FlatVariable::new(3)),

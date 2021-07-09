@@ -19,7 +19,8 @@
 				"Err": {
 					"UnsatisfiedConstraint": {
 						"left": "1",
-						"right": "0"
+						"right": "0",
+                        "message": "User assertion failed"
 					}
 				}
             }
