@@ -209,10 +209,12 @@ mod tests {
                             FlatVariable::new(0).into(),
                         ),
                         FlatVariable::new(1).into(),
+                        None
                     ),
                     Statement::Constraint(
                         FlatVariable::new(1).into(),
                         FlatVariable::public(0).into(),
+                        None
                     ),
                 ],
             },
@@ -249,10 +251,12 @@ mod tests {
                             FlatVariable::new(0).into(),
                         ),
                         FlatVariable::new(1).into(),
+                        None
                     ),
                     Statement::Constraint(
                         FlatVariable::new(1).into(),
                         FlatVariable::public(0).into(),
+                        None
                     ),
                 ],
             },
