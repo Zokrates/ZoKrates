@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use crate::absy::types::UnresolvedType;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
-use zokrates_field::{Bn128Field, Bw6_761Field, Field};
+use zokrates_field::Field;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -104,6 +104,7 @@ impl Importer {
             "EMBED" => match symbol.id {
                 #[cfg(feature = "bellman")]
                 "sha256round" => {
+                    use zokrates_field::Bn128Field;
                     if T::id() != Bn128Field::id() {
                         return Err(CompileErrorInner::ImportError(
                             Error::new(format!(
@@ -124,6 +125,7 @@ impl Importer {
                 }
                 #[cfg(feature = "ark")]
                 "snark_verify_bls12_377" => {
+                    use zokrates_field::Bw6_761Field;
                     if T::id() != Bw6_761Field::id() {
                         return Err(CompileErrorInner::ImportError(
                             Error::new(format!(
