@@ -67,18 +67,18 @@ impl<T: Field> RedefinitionOptimizer<T> {
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         match s {
-            Statement::Constraint(quad, lin) => {
+            Statement::Constraint(quad, lin, message) => {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
                 if lin.is_zero() {
-                    return vec![Statement::Constraint(quad, lin)];
+                    return vec![Statement::Constraint(quad, lin, message)];
                 }
 
                 let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.0[0].0)
                     || self.substitution.contains_key(&lin.0[0].0)
                 {
-                    true => (Some(Statement::Constraint(quad, lin)), None, None),
+                    true => (Some(Statement::Constraint(quad, lin, message)), None, None),
                     false => match lin.try_summand() {
                         // if the right side is a single variable
                         Ok((variable, coefficient)) => match quad.try_linear() {
@@ -89,12 +89,13 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                                 Some(Statement::Constraint(
                                     quad,
                                     LinComb::summand(coefficient, variable),
+                                    message,
                                 )),
                                 None,
                                 Some(variable),
                             ),
                         },
-                        Err(l) => (Some(Statement::Constraint(quad, l)), None, None),
+                        Err(l) => (Some(Statement::Constraint(quad, l, message)), None, None),
                     },
                 };
 

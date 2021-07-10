@@ -138,6 +138,11 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         match c {
             // replace constants by their concrete value in declaration types
             DeclarationConstant::Constant(id) => {
+                let id = CanonicalConstantIdentifier {
+                    module: self.fold_module_id(id.module),
+                    ..id
+                };
+
                 DeclarationConstant::Concrete(match self.get_constant(&id).unwrap() {
                     TypedExpression::Uint(UExpression {
                         inner: UExpressionInner::Value(v),
@@ -542,7 +547,7 @@ mod tests {
         let constants: TypedConstantSymbols<_> = vec![(
             CanonicalConstantIdentifier::new(const_id, "main".into()),
             TypedConstantSymbol::Here(TypedConstant::new(
-                GType::FieldElement,
+                GType::array(GArrayType::new(GType::FieldElement, 2usize)),
                 TypedExpression::Array(
                     ArrayExpressionInner::Value(
                         vec![

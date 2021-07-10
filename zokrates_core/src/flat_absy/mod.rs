@@ -11,10 +11,97 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
+use serde::{Deserialize, Serialize};
+
 use crate::solvers::Solver;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+pub enum RuntimeError {
+    BellmanConstraint,
+    BellmanOneBinding,
+    BellmanInputBinding,
+    ArkConstraint,
+    ArkOneBinding,
+    ArkInputBinding,
+    Bitness,
+    Sum,
+    Equal,
+    Le,
+    BranchIsolation,
+    ConstantLtBitness,
+    ConstantLtSum,
+    LtBitness,
+    LtSum,
+    LtFinalBitness,
+    LtFinalSum,
+    Or,
+    Xor,
+    Inverse,
+    Euclidean,
+    ShaXor,
+    Division,
+    Source,
+    ArgumentBitness,
+    SelectRangeCheck,
+}
+
+impl RuntimeError {
+    fn is_malicious(&self) -> bool {
+        use RuntimeError::*;
+
+        !matches!(
+            self,
+            Source | Inverse | LtSum | SelectRangeCheck | ArgumentBitness
+        )
+    }
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use RuntimeError::*;
+
+        let msg = match self {
+            BellmanConstraint => "Bellman constraint is unsatisfied",
+            BellmanOneBinding => "Bellman ~one binding is unsatisfied",
+            BellmanInputBinding => "Bellman input binding is unsatisfied",
+            ArkConstraint => "Ark constraint is unsatisfied",
+            ArkOneBinding => "Ark ~one binding is unsatisfied",
+            ArkInputBinding => "Ark input binding is unsatisfied",
+            Bitness => "Bitness check failed",
+            Sum => "Sum check failed",
+            Equal => "Equal check failed",
+            Le => "Constant Le check failed",
+            BranchIsolation => "Branch isolation failed",
+            ConstantLtBitness => "Bitness check failed in constant Lt check",
+            ConstantLtSum => "Sum check failed in constant Lt check",
+            LtBitness => "Bitness check failed in Lt check",
+            LtSum => "Sum check failed in Lt check",
+            LtFinalBitness => "Bitness check failed in final Lt check",
+            LtFinalSum => "Sum check failed in final Lt check",
+            Or => "Or check failed",
+            Xor => "Xor check failed",
+            Inverse => "Division by zero",
+            Euclidean => "Euclidean check failed",
+            ShaXor => "Internal Sha check failed",
+            Division => "Division check failed",
+            Source => "User assertion failed",
+            ArgumentBitness => "Argument bitness check failed",
+            SelectRangeCheck => "Out of bounds array access",
+        };
+
+        write!(f, "{}", msg)?;
+
+        if self.is_malicious() {
+            writeln!(f)?;
+            write!(f, "The default ZoKrates interpreter should not yield this error. Please open an issue")?;
+        }
+
+        write!(f, "")
+    }
+}
 
 #[derive(Clone, PartialEq)]
 pub struct FlatProg<T: Field> {
@@ -89,7 +176,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 #[derive(Clone, PartialEq)]
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
-    Condition(FlatExpression<T>, FlatExpression<T>),
+    Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(FlatVariable, FlatExpression<T>),
     Directive(FlatDirective<T>),
 }
@@ -99,7 +186,9 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
-            FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            FlatStatement::Condition(ref lhs, ref rhs, ref message) => {
+                write!(f, "{} == {} // {}", lhs, rhs, message)
+            }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
         }
     }
@@ -110,8 +199,8 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
-            FlatStatement::Condition(ref lhs, ref rhs) => {
-                write!(f, "FlatCondition({:?}, {:?})", lhs, rhs)
+            FlatStatement::Condition(ref lhs, ref rhs, ref error) => {
+                write!(f, "FlatCondition({:?}, {:?}, {:?})", lhs, rhs, error)
             }
             FlatStatement::Directive(ref d) => write!(f, "{:?}", d),
         }
@@ -129,9 +218,10 @@ impl<T: Field> FlatStatement<T> {
                 x.apply_substitution(substitution),
             ),
             FlatStatement::Return(x) => FlatStatement::Return(x.apply_substitution(substitution)),
-            FlatStatement::Condition(x, y) => FlatStatement::Condition(
+            FlatStatement::Condition(x, y, message) => FlatStatement::Condition(
                 x.apply_substitution(substitution),
                 y.apply_substitution(substitution),
+                message,
             ),
             FlatStatement::Directive(d) => {
                 let outputs = d

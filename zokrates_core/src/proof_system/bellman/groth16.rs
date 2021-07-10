@@ -4,7 +4,7 @@ use bellman::groth16::{
 };
 use pairing::{CurveAffine, Engine};
 
-use crate::proof_system::{Backend, Proof, SetupKeypair};
+use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
@@ -18,29 +18,6 @@ use crate::proof_system::Scheme;
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn setup(program: Prog<T>) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
-        println!("{}", G16_WARNING);
-
-        let parameters = Computation::without_witness(program).setup();
-        let mut pk: Vec<u8> = Vec::new();
-        parameters.write(&mut pk).unwrap();
-
-        let vk = VerificationKey {
-            alpha: parse_g1::<T>(&parameters.vk.alpha_g1),
-            beta: parse_g2::<T>(&parameters.vk.beta_g2),
-            gamma: parse_g2::<T>(&parameters.vk.gamma_g2),
-            delta: parse_g2::<T>(&parameters.vk.delta_g2),
-            gamma_abc: parameters
-                .vk
-                .ic
-                .iter()
-                .map(|g1| parse_g1::<T>(g1))
-                .collect(),
-        };
-
-        SetupKeypair::new(vk, pk)
-    }
-
     fn generate_proof(
         program: Prog<T>,
         witness: Witness<T>,
@@ -106,6 +83,31 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
     }
 }
 
+impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
+    fn setup(program: Prog<T>) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
+        println!("{}", G16_WARNING);
+
+        let parameters = Computation::without_witness(program).setup();
+        let mut pk: Vec<u8> = Vec::new();
+        parameters.write(&mut pk).unwrap();
+
+        let vk = VerificationKey {
+            alpha: parse_g1::<T>(&parameters.vk.alpha_g1),
+            beta: parse_g2::<T>(&parameters.vk.beta_g2),
+            gamma: parse_g2::<T>(&parameters.vk.gamma_g2),
+            delta: parse_g2::<T>(&parameters.vk.delta_g2),
+            gamma_abc: parameters
+                .vk
+                .ic
+                .iter()
+                .map(|g1| parse_g1::<T>(g1))
+                .collect(),
+        };
+
+        SetupKeypair::new(vk, pk)
+    }
+}
+
 mod serialization {
     use pairing::{from_hex, CurveAffine, Engine};
 
@@ -144,15 +146,15 @@ mod tests {
                 id: String::from("main"),
                 arguments: vec![FlatVariable::new(0)],
                 returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::Constraint(
-                    FlatVariable::new(0).into(),
-                    FlatVariable::public(0).into(),
+                statements: vec![Statement::constraint(
+                    FlatVariable::new(0),
+                    FlatVariable::public(0),
                 )],
             },
             private: vec![false],
         };
 
-        let keypair = <Bellman as Backend<Bn128Field, G16>>::setup(program.clone());
+        let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter

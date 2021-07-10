@@ -69,9 +69,10 @@ impl<T: Field> FlatStatement<T> {
                 }
                 e => Some(FlatStatement::Definition(var, e)),
             },
-            FlatStatement::Condition(e1, e2) => Some(FlatStatement::Condition(
+            FlatStatement::Condition(e1, e2, message) => Some(FlatStatement::Condition(
                 e1.propagate(constants),
                 e2.propagate(constants),
+                message,
             )),
             FlatStatement::Directive(d) => Some(FlatStatement::Directive(FlatDirective {
                 inputs: d

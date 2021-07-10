@@ -1,6 +1,6 @@
 #include "ffi.hpp"
 
-void __free(uint8_t* ptr)
+void c_free(uint8_t* ptr)
 {
     free(ptr);
 }

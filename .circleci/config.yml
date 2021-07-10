@@ -106,7 +106,8 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run integration tests
-          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
+          no_output_timeout: "30m"
+          command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./integration_test.sh
   deploy:
     docker:
       - image: circleci/python:latest-node

@@ -133,6 +133,10 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
         FieldElementExpression::Identifier(id) => {
             FieldElementExpression::Identifier(f.fold_name(id))
         }
+        FieldElementExpression::Select(a, box i) => FieldElementExpression::Select(
+            a.into_iter().map(|a| f.fold_field_expression(a)).collect(),
+            box f.fold_uint_expression(i),
+        ),
         FieldElementExpression::Add(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
@@ -174,6 +178,12 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     match e {
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)),
+        BooleanExpression::Select(a, box i) => BooleanExpression::Select(
+            a.into_iter()
+                .map(|a| f.fold_boolean_expression(a))
+                .collect(),
+            box f.fold_uint_expression(i),
+        ),
         BooleanExpression::FieldEq(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
@@ -270,6 +280,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     match e {
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),
+        UExpressionInner::Select(a, box i) => UExpressionInner::Select(
+            a.into_iter().map(|a| f.fold_uint_expression(a)).collect(),
+            box f.fold_uint_expression(i),
+        ),
         UExpressionInner::Add(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);

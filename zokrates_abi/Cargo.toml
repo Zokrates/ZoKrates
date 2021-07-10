@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_abi"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>"]
 edition = "2018"
 

@@ -54,11 +54,38 @@ fn force_no_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
+        match e {
+            FieldElementExpression::Select(a, box i) => {
+                let a = a
+                    .into_iter()
+                    .map(|e| self.fold_field_expression(e))
+                    .collect();
+                let i = self.fold_uint_expression(i);
+
+                FieldElementExpression::Select(a, box force_reduce(i))
+            }
+            _ => fold_field_expression(self, e),
+        }
+    }
+
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
+            BooleanExpression::Select(a, box i) => {
+                let a = a
+                    .into_iter()
+                    .map(|e| self.fold_boolean_expression(e))
+                    .collect();
+                let i = self.fold_uint_expression(i);
+
+                BooleanExpression::Select(a, box force_reduce(i))
+            }
             BooleanExpression::UintEq(box left, box right) => {
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
@@ -133,6 +160,27 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .cloned()
                     .unwrap_or_else(|| panic!("identifier should have been defined: {}", id)),
             ),
+            Select(values, box index) => {
+                let index = self.fold_uint_expression(index);
+
+                let index = force_reduce(index);
+
+                let values: Vec<_> = values
+                    .into_iter()
+                    .map(|v| force_no_reduce(self.fold_uint_expression(v)))
+                    .collect();
+
+                let max_value = T::try_from(
+                    values
+                        .iter()
+                        .map(|v| v.metadata.as_ref().unwrap().max.to_biguint())
+                        .max()
+                        .unwrap(),
+                )
+                .unwrap();
+
+                UExpression::select(values, index).with_max(max_value)
+            }
             Add(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
