@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.5] - 2021-07-10
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.5 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Allow field inputs in hexadecimal form in case the abi specification is used (#932, @dark64)
+- Add hints to runtime errors (#931, @schaeff)
+- Reduce cost of variable memory access (#930, @schaeff)
+- Add support for the Marlin proving scheme (#927, @schaeff)
+- Add a CLI option `generate-smtlib2` to output the compiled IR as an SMT formula. (#919, @leonardoalt)
+- Introduce the `snark_verify_bls12_377` embed for one-layer composition of SNARK proofs (over `BLS12-377`/`BW6-761` pair of curves where `BW6-761` is used as an outer curve to `BLS12-377`) (#918, @dark64)
+- Add details to for-loop documentation (#924, @schaeff)
+
 ## [0.7.4] - 2021-06-17
 
 ### Release

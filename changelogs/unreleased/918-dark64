@@ -1,1 +1,0 @@
-Introduce the `snark_verify_bls12_377` embed for one-layer composition of SNARK proofs (over `BLS12-377`/`BW6-761` pair of curves where `BW6-761` is used as an outer curve to `BLS12-377`)
