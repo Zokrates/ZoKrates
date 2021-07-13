@@ -203,17 +203,14 @@ mod tests {
                 arguments: vec![FlatVariable::new(0)],
                 returns: vec![FlatVariable::public(0)],
                 statements: vec![
-                    Statement::Constraint(
+                    Statement::constraint(
                         QuadComb::from_linear_combinations(
                             FlatVariable::new(0).into(),
                             FlatVariable::new(0).into(),
                         ),
-                        FlatVariable::new(1).into(),
+                        FlatVariable::new(1),
                     ),
-                    Statement::Constraint(
-                        FlatVariable::new(1).into(),
-                        FlatVariable::public(0).into(),
-                    ),
+                    Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
                 ],
             },
             private: vec![true],
@@ -243,17 +240,14 @@ mod tests {
                 arguments: vec![FlatVariable::new(0)],
                 returns: vec![FlatVariable::public(0)],
                 statements: vec![
-                    Statement::Constraint(
+                    Statement::constraint(
                         QuadComb::from_linear_combinations(
                             FlatVariable::new(0).into(),
                             FlatVariable::new(0).into(),
                         ),
-                        FlatVariable::new(1).into(),
+                        FlatVariable::new(1),
                     ),
-                    Statement::Constraint(
-                        FlatVariable::new(1).into(),
-                        FlatVariable::public(0).into(),
-                    ),
+                    Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
                 ],
             },
             private: vec![true],

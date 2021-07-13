@@ -106,6 +106,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run integration tests
+          no_output_timeout: "30m"
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./integration_test.sh
   deploy:
     docker:
