@@ -1,6 +1,7 @@
 import "../../utils/pack/u32/pack128" as pack128
 import "../../utils/pack/u32/unpack128" as unpack128
 import "./512bitPadded" as sha256
+
 // A function that takes an array of 4 field elements as input, unpacks each of them to 128
 // bits (big endian), concatenates them and applies sha256.
 // It then returns an array of two field elements, each representing 128 bits of the result.

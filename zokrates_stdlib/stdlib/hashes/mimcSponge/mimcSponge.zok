@@ -1,22 +1,19 @@
 import "./mimcFeistel" as MiMCFeistel
 
-def main(field[2] ins, field k) -> field[3]:
-	//nInputs = 2, nOutputs = 3,
-	u32 nInputs = 2
-	u32 nOutputs = 3 
-	field[4][2] S = [[0; 2]; 4] // Dim: (nInputs + nOutputs - 1, 2)
-	field[3] outs = [0; 3]
+def main<N, P>(field[N] ins, field k) -> field[P]:
+    field[N + P - 1][2] S = [[0; 2]; N + P - 1]
+    field[P] outs = [0; P]
 
-	for u32 i in 0..nInputs do
-		u32 idx = if i == 0 then 0 else i - 1 fi
-		S[i] = if i == 0 then MiMCFeistel(ins[0], 0, k) else MiMCFeistel(S[idx][0] + ins[i], S[idx][1], k) fi
-	endfor
-	outs[0] = S[nInputs - 1][0]
+    for u32 i in 0..N do
+        u32 j = if i == 0 then 0 else i - 1 fi
+        S[i] = if i == 0 then MiMCFeistel(ins[0], 0, k) else MiMCFeistel(S[j][0] + ins[i], S[j][1], k) fi
+    endfor
 
-	for u32 i in 0..(nOutputs - 1) do
-		field[2] feistelRes = MiMCFeistel(S[nInputs + i - 1][0], S[nInputs + i - 1][1], k)
-		S[nInputs + i] = feistelRes
-		outs[i + 1] = S[nInputs + i][0]
-	endfor 
+    outs[0] = S[N - 1][0]
 
-	return outs
+    for u32 i in 0..(P - 1) do
+        S[N + i] = MiMCFeistel(S[N + i - 1][0], S[N + i - 1][1], k)
+        outs[i + 1] = S[N + i][0]
+    endfor
+
+    return outs
