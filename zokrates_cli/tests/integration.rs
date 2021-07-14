@@ -404,4 +404,26 @@ mod integration {
             }
         }
     }
+
+    #[test]
+    fn test_rng_tutorial() {
+        let tmp_dir = TempDir::new(".tmp").unwrap();
+        let tmp_base = tmp_dir.path();
+
+        let dir = Path::new("./examples/book/rng_tutorial");
+        let entries = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|res| res.map(|e| e.path()))
+            .collect::<Result<Vec<_>, std::io::Error>>()
+            .unwrap();
+
+        entries.iter().for_each(|p| {
+            std::fs::copy(p, tmp_base.join(p.file_name().unwrap())).unwrap();
+        });
+
+        assert_cli::Assert::command(&["./test.sh", env!("CARGO_BIN_EXE_zokrates")])
+            .current_dir(tmp_base)
+            .succeeds()
+            .unwrap();
+    }
 }

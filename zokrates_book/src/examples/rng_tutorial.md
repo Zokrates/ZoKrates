@@ -32,13 +32,13 @@ There are many ways to calculate a hash, but here we use Zokrates.
 the binary to `get_hash`. You can see a textual representation, somewhat analogous to assembler 
 coming from a compiler, at `get_hash.ztf` enabled by the `--ztf` command line option.
 ```
-zokrates compile -i get_hash.zok -o get_hash --ztf
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:6}}
 ```
 3. The input to the Zokrates program is sixteen 32 bit values, each in decimal. specify those values 
 to get a hash. For example, to calculate the hash of `0x00000000000000010000000200000003000000040000000500000006...`
 use this command:
 ```
-zokrates compute-witness --verbose -i get_hash -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:7}}
 ```
 The result is:
 ```
@@ -56,8 +56,8 @@ This line imports a Zokrates function from the [standard library](https://github
 You can see the specific function we are importing 
 [here](https://github.com/Zokrates/ZoKrates/blob/latest/zokrates_stdlib/stdlib/hashes/sha256/512bit.zok). It will be
 called `sha256`.
-```javascript
-import "hashes/sha256/512bit" as sha256
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok:1}}
 ```
 
 &nbsp;
@@ -68,8 +68,8 @@ line parameter. The total number of input bits is *32 &times; 16 = 512*.
 
 The output is `u32[8]`, a *32 &times; 8 = 256* bit value.
 
-```javascript
-def main(u32[16] hashMe) -> u32[8]:
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok:3}}
 ```
 
 &nbsp;
@@ -80,16 +80,16 @@ This variable is initialized using `sha256`, the function we
 The `sha256` function expects to get two arrays of eight values each, so we use a [slice `..`](https://zokrates.github.io/language/types.html#slices)
 to divide `hashMe` into two arrays.
 
-```javascript
-  u32[8] h = sha256(hashMe[0..8], hashMe[8..16])
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok:4}}
 ```
 
 &nbsp;
 
 Finally, return `h` to the caller to display the hash.
 
-```javascript
-  return h
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok:5}}
 ```
 
 
@@ -103,9 +103,8 @@ The next step is to reveal a single bit.
 ```
 
 2. Compile and run as you did the previous program:
-```bash
-zokrates compile -i reveal_bit.zok -o reveal_bit
-zokrates compute-witness --verbose -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510
+```
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:23:24}}
 ```
 3. The output should be similar to:
 ```
@@ -121,8 +120,8 @@ This line imports a function that converts a `u32` value to an array of 32 boole
 There are cast functions to convert `u8`s, `u16`s, and `u32`s to boolean arrays and back again, 
 [you can see them here](https://github.com/Zokrates/ZoKrates/blob/master/zokrates_stdlib/stdlib/utils/casts).
 
-```javascript
-import "utils/casts/u32_to_bits" as u32_to_bits
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:2}}
 ```
 
 &nbsp;
@@ -132,8 +131,8 @@ The preimage is declared `private` so it won't be revealed by the zero knowledge
 A Zokrates function can return multiple values. In this case, it returns the hash and a boolean which is the 
 value of the bit being revealed.
 
-```javascript
-def main(private u32[16] preimage, u32 bitNum) -> (u32[8], bool):
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:10}}
 ```
 
 &nbsp;
@@ -144,9 +143,8 @@ an array of 512 `false` values. The syntax `[<value>; <number>]` initializes the
 copies of `<value>`. It is necessary to include it here because a Zokrates variable must be initialized
 when it is declared.
 
-```javascript
-  // Convert the secret to bits
-  bool[512] preimageBits = [false; 512]
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:11:12}}
 ```
 
 &nbsp;
@@ -154,40 +152,37 @@ when it is declared.
 This is a [for loop](https://zokrates.github.io/language/control_flow.html#for-loops). For loops 
 have to have an index of type `u32`, and their bounds need to be known at compile time.
 In this case, we go over each of the sixteen 32 bit words.
-```javascript
-  for u32 i in 0..16 do
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:13}}
 ```
 
 The function we imported, `u32_to_bits`, converts a `u32` value to an array of bits.
 
-```javascript
-    bool[32] val = u32_to_bits(preimage[i])
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:14}}
 ```
 
 &nbsp;
 
 The inner loop copies the bits from `val` to `preimageBits`, the bit array for the preimage.
 
-```javascript
-    for u32 bit in 0..32 do
-      preimageBits[i*32+bit] = val[bit]
-    endfor
-  endfor
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:15:18}}
 ```
 
 &nbsp;
 
 To return multiple values, separate them by commas. 
 
-```javascript
-  return sha256(preimage[0..8], preimage[8..16]), preimageBits[bitNum]
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:20}}
 ```
 
 
 
 ## Actually using zero knowledge proofs
 
-The `reveal_bit.zok`program reveals a bit from the preimage, but who runs it?
+The `reveal_bit.zok` program reveals a bit from the preimage, but who runs it?
 
 1. If Alice runs the program, she can feed it her secret preimage and receive the correct result. However, when she sends the output there is no reason
    for Bob to trust that she is providing the correct output.
@@ -204,34 +199,32 @@ Proofs give us.
 ### Bob's setup stage
 
 2. Compile `reveal_bit.zok` and create the proving and verification keys.
-   ```
-   zokrates compile -i reveal_bit.zok -o reveal_bit
-   zokrates setup -i reveal_bit
-   ```
+```
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:16:17}}
+```
 3. Copy the file `proving.key` to Alice's directory.
 
 ### Alice reveals a bit
 
 4. Alice should compile `reveal_bit.zok` independently to make sure it doesn't disclose information she wants to keep secret.
-   ```
-   zokrates compile -i reveal_bit.zok -o reveal_bit
-   ```   
+```
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:23}}
+```
    
 5. Next, Alice creates the `witness` file with the values of all the parameters in the program. Using this `witness`, 
    Bob's `proving.key`, and the compiled program she generates the actual proof.
-   ```
-   zokrates compute-witness -i reveal_bit -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 510
-   zokrates generate-proof -i reveal_bit
-   ``` 
+```
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:24:25}}
+```
    
 6. The proof is created in the file `proof.json`. Copy this file to Bob's directory.
 
 ### Bob accepts the proof
 
 7. Finally, Bob verifies the proof:
-   ```
-   zokrates verify
-   ```
+```
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:31}}
+```
    
 8. As a sanity check, modify any of the values in `proof.json` and see that the verification fails.
 
@@ -242,7 +235,7 @@ So far, Alice and Bob calculated the random bit between themselves. However, it 
 published on the blockchain. To do this, Bob creates a Solidity program:
 
 ```
-zokrates export-verifier
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:32}}
 ```
 
 The Solidity program is called `verifier.sol`. 
