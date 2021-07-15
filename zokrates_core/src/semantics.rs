@@ -358,8 +358,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
     ) -> Result<(DeclarationType<'ast>, TypedConstant<'ast, T>), ErrorInner> {
         let pos = c.pos();
 
-        println!("check def {} {}", id, c);
-
         let ty = self.check_declaration_type(
             c.value.ty.clone(),
             module_id,
@@ -1328,8 +1326,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
         generics_map: &HashMap<Identifier<'ast>, usize>,
         used_generics: &mut HashSet<Identifier<'ast>>,
     ) -> Result<DeclarationType<'ast>, ErrorInner> {
-        println!("check {}", ty);
-
         let pos = ty.pos();
         let ty = ty.value;
 
