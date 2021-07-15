@@ -20,7 +20,7 @@ use crate::parser::Position;
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
 use crate::typed_absy::types::{
-    check_type, specialize_type, ArrayType, DeclarationArrayType, DeclarationConstant,
+    check_type, specialize_declaration_type, ArrayType, DeclarationArrayType, DeclarationConstant,
     DeclarationFunctionKey, DeclarationSignature, DeclarationStructMember, DeclarationStructType,
     DeclarationType, GenericIdentifier, StructLocation, StructMember,
 };
@@ -357,29 +357,34 @@ impl<'ast, T: Field> Checker<'ast, T> {
         state: &State<'ast, T>,
     ) -> Result<TypedConstant<'ast, T>, ErrorInner> {
         let pos = c.pos();
-        let ty = self.check_type(c.value.ty.clone(), module_id, &state.types)?;
+        let ty = self.check_declaration_type(
+            c.value.ty.clone(),
+            module_id,
+            &state,
+            &HashMap::default(),
+            &mut HashSet::default(),
+        )?;
         let checked_expr =
             self.check_expression(c.value.expression.clone(), module_id, &state.types)?;
 
         match ty {
-            Type::FieldElement => {
+            DeclarationType::FieldElement => {
                 FieldElementExpression::try_from_typed(checked_expr).map(TypedExpression::from)
             }
-            Type::Boolean => {
+            DeclarationType::Boolean => {
                 BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
             }
-            Type::Uint(bitwidth) => {
-                UExpression::try_from_typed(checked_expr, bitwidth).map(TypedExpression::from)
+            DeclarationType::Uint(bitwidth) => {
+                UExpression::try_from_typed(checked_expr, &bitwidth).map(TypedExpression::from)
             }
-            Type::Array(ref array_ty) => {
-                ArrayExpression::try_from_typed(checked_expr, *array_ty.ty.clone())
+            DeclarationType::Array(ref array_ty) => {
+                ArrayExpression::try_from_typed(checked_expr, &array_ty).map(TypedExpression::from)
+            }
+            DeclarationType::Struct(ref struct_ty) => {
+                StructExpression::try_from_typed(checked_expr, &struct_ty)
                     .map(TypedExpression::from)
             }
-            Type::Struct(ref struct_ty) => {
-                StructExpression::try_from_typed(checked_expr, struct_ty.clone())
-                    .map(TypedExpression::from)
-            }
-            Type::Int => Err(checked_expr), // Integers cannot be assigned
+            DeclarationType::Int => Err(checked_expr), // Integers cannot be assigned
         }
         .map_err(|e| ErrorInner {
             pos: Some(pos),
@@ -391,7 +396,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 ty
             ),
         })
-        .map(|e| TypedConstant::new(ty, e))
+        .map(|e| TypedConstant::new(e))
     }
 
     fn check_struct_type_declaration(
@@ -1152,14 +1157,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         ),
                         }),
                     },
-                    TypedExpression::Int(v) => UExpression::try_from_int(v.clone(), UBitwidth::B32)
-                        .map_err(|_| ErrorInner {
-                            pos: Some(pos),
-                            message: format!(
+                    TypedExpression::Int(v) => {
+                        UExpression::try_from_int(v.clone(), &UBitwidth::B32).map_err(|_| {
+                            ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
                             "Expected array dimension to be a u32 constant, found {} of type {}",
                             v, ty
                         ),
-                        }),
+                            }
+                        })
+                    }
                     _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
@@ -1194,33 +1202,38 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     DeclarationType::Struct(struct_type) => {
                         match struct_type.generics.len() == generics.len() {
                             true => {
-                                let checked_generics = generics
+                                // downcast the generics to identifiers, as this is the only possibility here
+                                let generic_identifiers = struct_type.generics.iter().map(|c| {
+                                    match c.as_ref().unwrap() {
+                                        DeclarationConstant::Generic(g) => g.clone(),
+                                        _ => unreachable!(),
+                                    }
+                                });
+
+                                // build the generic assignment for this type
+                                let assignment = GGenericsAssignment(generics
                                     .into_iter()
-                                    .map(|e| match e {
-                                        Some(e) => self
+                                    .zip(generic_identifiers)
+                                    .filter_map(|(e, g)| e.map(|e| {
+                                        self
                                             .check_expression(e, module_id, types)
                                             .and_then(|e| {
-                                                UExpression::try_from_typed(e, UBitwidth::B32)
-                                                    .map(Some)
+                                                UExpression::try_from_typed(e, &UBitwidth::B32)
+                                                    .map(|e| (g, e))
                                                     .map_err(|e| ErrorInner {
                                                         pos: Some(pos),
                                                         message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
                                                     })
-                                            }),
-                                        None => Ok(None),
-                                    })
-                                    .collect::<Result<_, _>>()?;
+                                            })
+                                    }))
+                                    .collect::<Result<_, _>>()?);
 
-                                Ok(Type::Struct(StructType {
-                                    canonical_location: struct_type.canonical_location,
-                                    location: struct_type.location,
-                                    generics: checked_generics,
-                                    members: struct_type
-                                        .members
-                                        .into_iter()
-                                        .map(|m| m.into())
-                                        .collect(),
-                                }))
+                                // specialize the declared type using the generic assignment
+                                Ok(specialize_declaration_type(
+                                    DeclarationType::Struct(struct_type),
+                                    &assignment,
+                                )
+                                .unwrap())
                             }
                             false => Err(ErrorInner {
                                 pos: Some(pos),
@@ -1384,7 +1397,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .into_iter()
                                     .map(|m| {
                                         Ok(DeclarationStructMember {
-                                            ty: box specialize_type(*m.ty, &assignment)
+                                            ty: box specialize_declaration_type(*m.ty, &assignment)
                                                 .map_err(|_| unimplemented!())?,
                                             ..m
                                         })
@@ -1465,7 +1478,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }),
             },
             TypedExpression::Int(v) => {
-                UExpression::try_from_int(v, UBitwidth::B32).map_err(|_| ErrorInner {
+                UExpression::try_from_int(v, &UBitwidth::B32).map_err(|_| ErrorInner {
                     pos: Some(pos),
                     message: format!(
                         "Expected lower loop bound to be of type u32, found {}",
@@ -1495,7 +1508,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }),
             },
             TypedExpression::Int(v) => {
-                UExpression::try_from_int(v, UBitwidth::B32).map_err(|_| ErrorInner {
+                UExpression::try_from_int(v, &UBitwidth::B32).map_err(|_| ErrorInner {
                     pos: Some(pos),
                     message: format!(
                         "Expected upper loop bound to be of type u32, found {}",
@@ -1550,9 +1563,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 let res = match expression_list_checked.len() == return_types.len() {
                     true => match expression_list_checked
-                        .iter()
-                        .zip(return_types.clone())
-                        .map(|(e, t)| TypedExpression::align_to_type(e.clone(), t.into()))
+                        .clone()
+                        .into_iter()
+                        .zip(return_types.iter())
+                        .map(|(e, t)| TypedExpression::align_to_type(e, t))
                         .collect::<Result<Vec<_>, _>>()
                         .map_err(|e| {
                             vec![ErrorInner {
@@ -1641,19 +1655,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let var_type = var.get_type();
 
                 // make sure the assignee has the same type as the rhs
-                match var_type.clone() {
+                match var_type {
                     Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
                         .map(TypedExpression::from),
                     Type::Boolean => {
                         BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
                     }
-                    Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, bitwidth)
+                    Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, &bitwidth)
                         .map(TypedExpression::from),
-                    Type::Array(array_ty) => {
-                        ArrayExpression::try_from_typed(checked_expr, *array_ty.ty)
+                    Type::Array(ref array_ty) => {
+                        ArrayExpression::try_from_typed(checked_expr, array_ty)
                             .map(TypedExpression::from)
                     }
-                    Type::Struct(struct_ty) => {
+                    Type::Struct(ref struct_ty) => {
                         StructExpression::try_from_typed(checked_expr, struct_ty)
                             .map(TypedExpression::from)
                     }
@@ -1710,7 +1724,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     g.map(|g| {
                                         let pos = g.pos();
                                         self.check_expression(g, module_id, types).and_then(|g| {
-                                            UExpression::try_from_typed(g, UBitwidth::B32).map_err(
+                                            UExpression::try_from_typed(g, &UBitwidth::B32).map_err(
                                                 |e| ErrorInner {
                                                     pos: Some(pos),
                                                     message: format!(
@@ -1759,7 +1773,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 let mut functions = functions;
                                 let f = functions.pop().unwrap();
 
-                                let arguments_checked = arguments_checked.into_iter().zip(f.signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t.into())).collect::<Result<Vec<_>, _>>().map_err(|e| vec![ErrorInner {
+                                let arguments_checked = arguments_checked.into_iter().zip(f.signature.inputs.iter()).map(|(a, t)| TypedExpression::align_to_type(a, t)).collect::<Result<Vec<_>, _>>().map_err(|e| vec![ErrorInner {
                                     pos: Some(pos),
                                     message: format!("Expected function call argument to be of type {}, found {} of type {}", e.1, e.0, e.0.get_type())
                                 }])?;
@@ -1827,7 +1841,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         };
 
                         let checked_typed_index =
-                            UExpression::try_from_typed(checked_index, UBitwidth::B32).map_err(
+                            UExpression::try_from_typed(checked_index, &UBitwidth::B32).map_err(
                                 |e| ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
@@ -2127,7 +2141,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Ok(e) => e.into(),
                     Err(e) => e,
                 };
-                let e2_checked = match UExpression::try_from_typed(e2_checked, UBitwidth::B32) {
+                let e2_checked = match UExpression::try_from_typed(e2_checked, &UBitwidth::B32) {
                     Ok(e) => e.into(),
                     Err(e) => e,
                 };
@@ -2261,7 +2275,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 g.map(|g| {
                                     let pos = g.pos();
                                     self.check_expression(g, module_id, types).and_then(|g| {
-                                        UExpression::try_from_typed(g, UBitwidth::B32).map_err(
+                                        UExpression::try_from_typed(g, &UBitwidth::B32).map_err(
                                             |e| ErrorInner {
                                                 pos: Some(pos),
                                                 message: format!(
@@ -2307,7 +2321,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         let signature = f.signature;
 
-                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.clone()).map(|(a, t)| TypedExpression::align_to_type(a, t.into())).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
+                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.iter()).map(|(a, t)| TypedExpression::align_to_type(a, &t)).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
                            pos: Some(pos),
                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
@@ -2513,9 +2527,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
                         Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
                     }
-                    (TypedExpression::Struct(e1), TypedExpression::Struct(e2))
-                        if e1.get_type() == e2.get_type() =>
-                    {
+                    (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
                         Ok(BooleanExpression::StructEq(box e1, box e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
@@ -2659,7 +2671,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .map(|e| self.check_expression(e, module_id, types))
                                     .unwrap_or_else(|| Ok(array_size.clone().into()))?;
 
-                                let from = UExpression::try_from_typed(from, UBitwidth::B32).map_err(|e| ErrorInner {
+                                let from = UExpression::try_from_typed(from, &UBitwidth::B32).map_err(|e| ErrorInner {
                                                     pos: Some(pos),
                                                     message: format!(
                                                         "Expected the lower bound of the range to be a u32, found {} of type {}",
@@ -2668,7 +2680,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                                     ),
                                                 })?;
 
-                                let to = UExpression::try_from_typed(to, UBitwidth::B32).map_err(|e| ErrorInner {
+                                let to = UExpression::try_from_typed(to, &UBitwidth::B32).map_err(|e| ErrorInner {
                                                     pos: Some(pos),
                                                     message: format!(
                                                         "Expected the upper bound of the range to be a u32, found {} of type {}",
@@ -2699,7 +2711,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let index = self.check_expression(index, module_id, types)?;
 
                         let index =
-                            UExpression::try_from_typed(index, UBitwidth::B32).map_err(|e| {
+                            UExpression::try_from_typed(index, &UBitwidth::B32).map_err(|e| {
                                 ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
@@ -2813,19 +2825,24 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .next()
                     .unwrap_or(Type::Int);
 
-                let unwrapped_expressions_or_spreads = match &inferred_type {
+                let unwrapped_expressions_or_spreads = match inferred_type.clone() {
                     Type::Int => expressions_or_spreads_checked,
-                    t => expressions_or_spreads_checked
-                        .into_iter()
-                        .map(|e| {
-                            TypedExpressionOrSpread::align_to_type(e, t.clone()).map_err(
-                                |(e, ty)| ErrorInner {
-                                    pos: Some(pos),
-                                    message: format!("Expected {} to have type {}", e, ty,),
-                                },
-                            )
-                        })
-                        .collect::<Result<Vec<_>, _>>()?,
+                    t => {
+                        let target_array_ty =
+                            ArrayType::new(t, UExpressionInner::Value(0).annotate(UBitwidth::B32));
+
+                        expressions_or_spreads_checked
+                            .into_iter()
+                            .map(|e| {
+                                TypedExpressionOrSpread::align_to_type(e, &target_array_ty).map_err(
+                                    |(e, ty)| ErrorInner {
+                                        pos: Some(pos),
+                                        message: format!("Expected {} to have type {}", e, ty,),
+                                    },
+                                )
+                            })
+                            .collect::<Result<Vec<_>, _>>()?
+                    }
                 };
 
                 // the size of the inline array is the sum of the size of its elements. However expressed as a u32 expression,
@@ -2863,15 +2880,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 let count = self.check_expression(count, module_id, types)?;
 
-                let count =
-                    UExpression::try_from_typed(count, UBitwidth::B32).map_err(|e| ErrorInner {
+                let count = UExpression::try_from_typed(count, &UBitwidth::B32).map_err(|e| {
+                    ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Expected array initializer count to be a u32, found {} of type {}",
                             e,
                             e.get_type(),
                         ),
-                    })?;
+                    }
+                })?;
 
                 Ok(ArrayExpressionInner::Repeat(box e, box count.clone())
                     .annotate(ty, count)
@@ -2881,7 +2899,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let ty = match types.get(module_id).unwrap().get(&id).cloned() {
                     None => Err(ErrorInner {
                         pos: Some(pos),
-                        message: format!("Undeclared type of name `{}`", id),
+                        message: format!("Undefined type `{}`", id),
                     }),
                     Some(ty) => Ok(ty),
                 }?;
@@ -2926,13 +2944,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 let expression_checked =
                                     self.check_expression(value, module_id, types)?;
 
-                                let expression_checked = TypedExpression::align_to_type(
-                                    expression_checked,
-                                    Type::from(*member.ty.clone()),
-                                )
-                                .map_err(|e| ErrorInner {
-                                    pos: Some(pos),
-                                    message: format!(
+                                let expression_checked =
+                                    TypedExpression::align_to_type(expression_checked, &*member.ty)
+                                        .map_err(|e| ErrorInner {
+                                            pos: Some(pos),
+                                            message: format!(
                                         "Member {} of struct {} has type {}, found {} of type {}",
                                         member.id,
                                         id.clone(),
@@ -2940,7 +2956,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         e.0,
                                         e.0.get_type(),
                                     ),
-                                })?;
+                                        })?;
 
                                 Ok(expression_checked)
                             }
@@ -3056,7 +3072,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e2 = self.check_expression(e2, module_id, types)?;
 
                 let e2 =
-                    UExpression::try_from_typed(e2, UBitwidth::B32).map_err(|e| ErrorInner {
+                    UExpression::try_from_typed(e2, &UBitwidth::B32).map_err(|e| ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Expected the left shift right operand to have type `u32`, found {}",
@@ -3083,7 +3099,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let e2 = self.check_expression(e2, module_id, types)?;
 
                 let e2 =
-                    UExpression::try_from_typed(e2, UBitwidth::B32).map_err(|e| ErrorInner {
+                    UExpression::try_from_typed(e2, &UBitwidth::B32).map_err(|e| ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Expected the right shift right operand to be of type `u32`, found {}",
@@ -3402,11 +3418,16 @@ mod tests {
         use super::*;
 
         fn struct0() -> StructDefinitionNode<'static> {
-            StructDefinition { fields: vec![] }.mock()
+            StructDefinition {
+                generics: vec![],
+                fields: vec![],
+            }
+            .mock()
         }
 
         fn struct1() -> StructDefinitionNode<'static> {
             StructDefinition {
+                generics: vec![],
                 fields: vec![StructDefinitionField {
                     id: "foo",
                     ty: UnresolvedType::FieldElement.mock(),
@@ -3730,7 +3751,7 @@ mod tests {
                     checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                         .inner
                         .message,
-                    "Undeclared symbol `P` in function definition"
+                    "Undeclared symbol `P`"
                 );
             }
         }
@@ -3839,7 +3860,11 @@ mod tests {
                     SymbolDeclaration {
                         id: "foo",
                         symbol: Symbol::Here(SymbolDefinition::Struct(
-                            StructDefinition { fields: vec![] }.mock(),
+                            StructDefinition {
+                                generics: vec![],
+                                fields: vec![],
+                            }
+                            .mock(),
                         )),
                     }
                     .mock(),
@@ -3990,7 +4015,7 @@ mod tests {
                 Checker::<Bn128Field>::new().check_signature(signature, &*MODULE_ID, &state),
                 Err(vec![ErrorInner {
                     pos: Some((Position::mock(), Position::mock())),
-                    message: "Undeclared symbol `K` in function definition".to_string()
+                    message: "Undeclared symbol `K`".to_string()
                 }])
             );
         }
@@ -5287,11 +5312,16 @@ mod tests {
                 let modules = Modules::new();
                 let state = State::new(modules);
 
-                let declaration: StructDefinitionNode = StructDefinition { fields: vec![] }.mock();
+                let declaration: StructDefinitionNode = StructDefinition {
+                    generics: vec![],
+                    fields: vec![],
+                }
+                .mock();
 
                 let expected_type = DeclarationType::Struct(DeclarationStructType::new(
                     "".into(),
                     "Foo".into(),
+                    vec![],
                     vec![],
                 ));
 
@@ -5313,6 +5343,7 @@ mod tests {
                 let state = State::new(modules);
 
                 let declaration: StructDefinitionNode = StructDefinition {
+                    generics: vec![],
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5331,6 +5362,7 @@ mod tests {
                 let expected_type = DeclarationType::Struct(DeclarationStructType::new(
                     "".into(),
                     "Foo".into(),
+                    vec![],
                     vec![
                         DeclarationStructMember::new("foo".into(), DeclarationType::FieldElement),
                         DeclarationStructMember::new("bar".into(), DeclarationType::Boolean),
@@ -5355,6 +5387,7 @@ mod tests {
                 let state = State::new(modules);
 
                 let declaration: StructDefinitionNode = StructDefinition {
+                    generics: vec![],
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5397,6 +5430,7 @@ mod tests {
                             id: "Foo",
                             symbol: Symbol::Here(SymbolDefinition::Struct(
                                 StructDefinition {
+                                    generics: vec![],
                                     fields: vec![StructDefinitionField {
                                         id: "foo",
                                         ty: UnresolvedType::FieldElement.mock(),
@@ -5411,9 +5445,10 @@ mod tests {
                             id: "Bar",
                             symbol: Symbol::Here(SymbolDefinition::Struct(
                                 StructDefinition {
+                                    generics: vec![],
                                     fields: vec![StructDefinitionField {
                                         id: "foo",
-                                        ty: UnresolvedType::User("Foo".into()).mock(),
+                                        ty: UnresolvedType::User("Foo".into(), None).mock(),
                                     }
                                     .mock()],
                                 }
@@ -5439,11 +5474,13 @@ mod tests {
                     &DeclarationType::Struct(DeclarationStructType::new(
                         (*MODULE_ID).clone(),
                         "Bar".into(),
+                        vec![],
                         vec![DeclarationStructMember::new(
                             "foo".into(),
                             DeclarationType::Struct(DeclarationStructType::new(
                                 (*MODULE_ID).clone(),
                                 "Foo".into(),
+                                vec![],
                                 vec![DeclarationStructMember::new(
                                     "foo".into(),
                                     DeclarationType::FieldElement
@@ -5465,9 +5502,10 @@ mod tests {
                         id: "Bar",
                         symbol: Symbol::Here(SymbolDefinition::Struct(
                             StructDefinition {
+                                generics: vec![],
                                 fields: vec![StructDefinitionField {
                                     id: "foo",
-                                    ty: UnresolvedType::User("Foo".into()).mock(),
+                                    ty: UnresolvedType::User("Foo".into(), None).mock(),
                                 }
                                 .mock()],
                             }
@@ -5497,9 +5535,10 @@ mod tests {
                         id: "Foo",
                         symbol: Symbol::Here(SymbolDefinition::Struct(
                             StructDefinition {
+                                generics: vec![],
                                 fields: vec![StructDefinitionField {
                                     id: "foo",
-                                    ty: UnresolvedType::User("Foo".into()).mock(),
+                                    ty: UnresolvedType::User("Foo".into(), None).mock(),
                                 }
                                 .mock()],
                             }
@@ -5531,9 +5570,10 @@ mod tests {
                             id: "Foo",
                             symbol: Symbol::Here(SymbolDefinition::Struct(
                                 StructDefinition {
+                                    generics: vec![],
                                     fields: vec![StructDefinitionField {
                                         id: "bar",
-                                        ty: UnresolvedType::User("Bar".into()).mock(),
+                                        ty: UnresolvedType::User("Bar".into(), None).mock(),
                                     }
                                     .mock()],
                                 }
@@ -5545,9 +5585,10 @@ mod tests {
                             id: "Bar",
                             symbol: Symbol::Here(SymbolDefinition::Struct(
                                 StructDefinition {
+                                    generics: vec![],
                                     fields: vec![StructDefinitionField {
                                         id: "foo",
-                                        ty: UnresolvedType::User("Foo".into()).mock(),
+                                        ty: UnresolvedType::User("Foo".into(), None).mock(),
                                     }
                                     .mock()],
                                 }
@@ -5582,6 +5623,7 @@ mod tests {
                 // Bar
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    generics: vec![],
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -5591,13 +5633,14 @@ mod tests {
 
                 assert_eq!(
                     checker.check_type(
-                        UnresolvedType::User("Foo".into()).mock(),
+                        UnresolvedType::User("Foo".into(), None).mock(),
                         &*MODULE_ID,
                         &state.types
                     ),
                     Ok(Type::Struct(StructType::new(
                         "".into(),
                         "Foo".into(),
+                        vec![],
                         vec![StructMember::new("foo".into(), Type::FieldElement)]
                     )))
                 );
@@ -5605,7 +5648,7 @@ mod tests {
                 assert_eq!(
                     checker
                         .check_type(
-                            UnresolvedType::User("Bar".into()).mock(),
+                            UnresolvedType::User("Bar".into(), None).mock(),
                             &*MODULE_ID,
                             &state.types
                         )
@@ -5628,6 +5671,7 @@ mod tests {
                 // Foo { foo: 42 }.foo
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    generics: vec![],
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -5657,6 +5701,7 @@ mod tests {
                         .annotate(StructType::new(
                             "".into(),
                             "Foo".into(),
+                            vec![],
                             vec![StructMember::new("foo".into(), Type::FieldElement)]
                         )),
                         "foo".into()
@@ -5673,6 +5718,7 @@ mod tests {
                 // Foo { foo: 42 }.bar
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    generics: vec![],
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -5711,6 +5757,7 @@ mod tests {
                 // a A value cannot be defined with B as id, even if A and B have the same members
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    generics: vec![],
                     fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
@@ -5731,7 +5778,7 @@ mod tests {
                         )
                         .unwrap_err()
                         .message,
-                    "Undefined type Bar"
+                    "Undefined type `Bar`"
                 );
             }
 
@@ -5743,6 +5790,7 @@ mod tests {
                 // Foo foo = Foo { foo: 42, bar: true }
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    generics: vec![],
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5777,6 +5825,7 @@ mod tests {
                     .annotate(StructType::new(
                         "".into(),
                         "Foo".into(),
+                        vec![],
                         vec![
                             StructMember::new("foo".into(), Type::FieldElement),
                             StructMember::new("bar".into(), Type::Boolean)
@@ -5794,6 +5843,7 @@ mod tests {
                 // Foo foo = Foo { bar: true, foo: 42 }
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    generics: vec![],
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5828,6 +5878,7 @@ mod tests {
                     .annotate(StructType::new(
                         "".into(),
                         "Foo".into(),
+                        vec![],
                         vec![
                             StructMember::new("foo".into(), Type::FieldElement),
                             StructMember::new("bar".into(), Type::Boolean)
@@ -5845,6 +5896,7 @@ mod tests {
                 // Foo foo = Foo { foo: 42 }
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    generics: vec![],
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",
@@ -5886,6 +5938,7 @@ mod tests {
                 // Foo { foo: 42, baz: 42 } // error
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    generics: vec![],
                     fields: vec![
                         StructDefinitionField {
                             id: "foo",

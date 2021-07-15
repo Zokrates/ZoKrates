@@ -327,20 +327,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             // propagation to the defined variable if rhs is a constant
             TypedStatement::Definition(assignee, expr) => {
                 let expr = self.fold_expression(expr)?;
-                let assignee = self.fold_assignee(assignee)?;
 
-                println!(
-                    "{:#?} vs {:#?}",
-                    assignee.get_type().clone(),
-                    expr.get_type().clone()
-                );
+                let assignee = self.fold_assignee(assignee)?;
 
                 if let (Ok(a), Ok(e)) = (
                     ConcreteType::try_from(assignee.get_type()),
                     ConcreteType::try_from(expr.get_type()),
                 ) {
-                    println!("{} vs {}", a, e);
-
                     if a != e {
                         return Err(Error::Type(format!(
                             "Cannot assign {} of type {} to {} of type {}",

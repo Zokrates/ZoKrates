@@ -72,8 +72,6 @@ impl fmt::Display for Error {
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
-        println!("{}", self);
-
         // inline user-defined constants
         let r = ConstantInliner::inline(self);
         // isolate branches
@@ -86,13 +84,12 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // reduce the program to a single function
         let r = reduce_program(r).map_err(Error::from)?;
 
-        println!("{}", r);
-
         // generate abi
         let abi = r.abi();
 
         // propagate
         let r = Propagator::propagate(r).map_err(Error::from)?;
+
         // remove assignment to variable index
         let r = VariableWriteRemover::apply(r);
         // detect non constant shifts

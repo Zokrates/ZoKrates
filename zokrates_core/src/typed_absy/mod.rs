@@ -107,15 +107,19 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .arguments
                 .iter()
                 .map(|p| {
-                    println!("{:#?}", p);
-
-                    types::ConcreteType::try_from(types::Type::<T>::from(p.id._type.clone()))
-                        .map(|ty| AbiInput {
-                            public: !p.private,
-                            name: p.id.id.to_string(),
-                            ty,
-                        })
-                        .unwrap()
+                    types::ConcreteType::try_from(
+                        crate::typed_absy::types::try_from_g_type::<
+                            crate::typed_absy::types::DeclarationConstant<'ast>,
+                            UExpression<'ast, T>,
+                        >(p.id._type.clone())
+                        .unwrap(),
+                    )
+                    .map(|ty| AbiInput {
+                        public: !p.private,
+                        name: p.id.id.to_string(),
+                        ty,
+                    })
+                    .unwrap()
                 })
                 .collect(),
             outputs: main
@@ -123,7 +127,14 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .outputs
                 .iter()
                 .map(|ty| {
-                    types::ConcreteType::try_from(types::Type::<T>::from(ty.clone())).unwrap()
+                    types::ConcreteType::try_from(
+                        crate::typed_absy::types::try_from_g_type::<
+                            crate::typed_absy::types::DeclarationConstant<'ast>,
+                            UExpression<'ast, T>,
+                        >(ty.clone())
+                        .unwrap(),
+                    )
+                    .unwrap()
                 })
                 .collect(),
         }
@@ -194,7 +205,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
             .iter()
             .map(|(id, symbol)| match symbol {
                 TypedConstantSymbol::Here(ref tc) => {
-                    format!("const {} {} = {}", tc.ty, id.id, tc.expression)
+                    format!("const {} {} = {}", "todo", id.id, tc.expression)
                 }
                 TypedConstantSymbol::There(ref imported_id) => {
                     format!(
@@ -300,27 +311,25 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedConstant<'ast, T> {
-    // the type is already stored in the TypedExpression, but we want to avoid awkward trait bounds in `fmt::Display`
-    pub ty: Type<'ast, T>,
     pub expression: TypedExpression<'ast, T>,
 }
 
 impl<'ast, T> TypedConstant<'ast, T> {
-    pub fn new(ty: Type<'ast, T>, expression: TypedExpression<'ast, T>) -> Self {
-        TypedConstant { ty, expression }
+    pub fn new(expression: TypedExpression<'ast, T>) -> Self {
+        TypedConstant { expression }
     }
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // using `self.expression.get_type()` would be better here but ends up requiring stronger trait bounds
-        write!(f, "const {}({})", self.ty, self.expression)
+        write!(f, "const {}({})", "todo", self.expression)
     }
 }
 
-impl<'ast, T: Clone> Typed<'ast, T> for TypedConstant<'ast, T> {
+impl<'ast, T: Field> Typed<'ast, T> for TypedConstant<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
-        self.ty.clone()
+        self.expression.get_type()
     }
 }
 
@@ -1166,24 +1175,6 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
 pub struct StructExpression<'ast, T> {
     ty: StructType<'ast, T>,
     inner: StructExpressionInner<'ast, T>,
-}
-
-impl<'ast, T: Field> StructExpression<'ast, T> {
-    pub fn try_from_typed(
-        e: TypedExpression<'ast, T>,
-        target_struct_ty: StructType<'ast, T>,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
-        match e {
-            TypedExpression::Struct(e) => {
-                if e.ty() == &target_struct_ty {
-                    Ok(e)
-                } else {
-                    Err(TypedExpression::Struct(e))
-                }
-            }
-            e => Err(e),
-        }
-    }
 }
 
 impl<'ast, T> StructExpression<'ast, T> {

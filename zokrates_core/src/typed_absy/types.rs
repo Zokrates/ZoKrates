@@ -122,6 +122,21 @@ pub enum DeclarationConstant<'ast> {
     Constant(CanonicalConstantIdentifier<'ast>),
 }
 
+impl<'ast, T> PartialEq<UExpression<'ast, T>> for DeclarationConstant<'ast> {
+    fn eq(&self, other: &UExpression<'ast, T>) -> bool {
+        match (self, other.as_inner()) {
+            (DeclarationConstant::Concrete(c), UExpressionInner::Value(v)) => *c == *v as u32,
+            _ => true,
+        }
+    }
+}
+
+impl<'ast, T> PartialEq<DeclarationConstant<'ast>> for UExpression<'ast, T> {
+    fn eq(&self, other: &DeclarationConstant<'ast>) -> bool {
+        other.eq(self)
+    }
+}
+
 impl<'ast> From<u32> for DeclarationConstant<'ast> {
     fn from(e: u32) -> Self {
         DeclarationConstant::Concrete(e)
@@ -198,7 +213,7 @@ impl<'ast> TryInto<usize> for DeclarationConstant<'ast> {
 
 pub type MemberId = String;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GStructMember<S> {
     #[serde(rename = "name")]
     pub id: MemberId,
@@ -210,8 +225,8 @@ pub type DeclarationStructMember<'ast> = GStructMember<DeclarationConstant<'ast>
 pub type ConcreteStructMember = GStructMember<usize>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
-impl<'ast, T: PartialEq> PartialEq<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
-    fn eq(&self, other: &DeclarationStructMember<'ast>) -> bool {
+impl<'ast, S, R: PartialEq<S>> PartialEq<GStructMember<S>> for GStructMember<R> {
+    fn eq(&self, other: &GStructMember<S>) -> bool {
         self.id == other.id && *self.ty == *other.ty
     }
 }
@@ -239,19 +254,19 @@ impl<'ast, T> From<ConcreteStructMember> for StructMember<'ast, T> {
     }
 }
 
-impl<'ast> From<ConcreteStructMember> for DeclarationStructMember<'ast> {
-    fn from(t: ConcreteStructMember) -> Self {
-        try_from_g_struct_member(t).unwrap()
-    }
-}
+// impl<'ast> From<ConcreteStructMember> for DeclarationStructMember<'ast> {
+//     fn from(t: ConcreteStructMember) -> Self {
+//         try_from_g_struct_member(t).unwrap()
+//     }
+// }
 
-impl<'ast, T> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
-    fn from(t: DeclarationStructMember<'ast>) -> Self {
-        try_from_g_struct_member(t).unwrap()
-    }
-}
+// impl<'ast, T> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
+//     fn from(t: DeclarationStructMember<'ast>) -> Self {
+//         try_from_g_struct_member(t).unwrap()
+//     }
+// }
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
+#[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GArrayType<S> {
     pub size: S,
     #[serde(flatten)]
@@ -262,13 +277,9 @@ pub type DeclarationArrayType<'ast> = GArrayType<DeclarationConstant<'ast>>;
 pub type ConcreteArrayType = GArrayType<usize>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
-impl<'ast, T: PartialEq> PartialEq<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
-    fn eq(&self, other: &DeclarationArrayType<'ast>) -> bool {
-        *self.ty == *other.ty
-            && match (self.size.as_inner(), &other.size) {
-                (UExpressionInner::Value(l), DeclarationConstant::Concrete(r)) => *l as u32 == *r,
-                _ => true,
-            }
+impl<'ast, S, R: PartialEq<S>> PartialEq<GArrayType<S>> for GArrayType<R> {
+    fn eq(&self, other: &GArrayType<S>) -> bool {
+        *self.ty == *other.ty && self.size == other.size
     }
 }
 
@@ -295,22 +306,6 @@ impl<S: fmt::Display> fmt::Display for GArrayType<S> {
         let acc = vec![];
 
         fmt_aux(f, &self, acc)
-    }
-}
-
-impl<'ast, T: PartialEq + fmt::Display> Type<'ast, T> {
-    // array type equality with non-strict size checks
-    // sizes always match unless they are different constants
-    pub fn weak_eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Type::Array(t), Type::Array(u)) => t.ty.weak_eq(&u.ty),
-            (Type::Struct(t), Type::Struct(u)) => t
-                .members
-                .iter()
-                .zip(u.members.iter())
-                .all(|(m, n)| m.ty.weak_eq(&n.ty)),
-            (t, u) => t == u,
-        }
     }
 }
 
@@ -370,9 +365,18 @@ pub type DeclarationStructType<'ast> = GStructType<DeclarationConstant<'ast>>;
 pub type ConcreteStructType = GStructType<usize>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
-impl<S: PartialEq> PartialEq for GStructType<S> {
-    fn eq(&self, other: &Self) -> bool {
-        self.canonical_location.eq(&other.canonical_location) && self.generics.eq(&other.generics)
+impl<'ast, S, R: PartialEq<S>> PartialEq<GStructType<S>> for GStructType<R> {
+    fn eq(&self, other: &GStructType<S>) -> bool {
+        self.canonical_location == other.canonical_location
+            && self
+                .generics
+                .iter()
+                .zip(other.generics.iter())
+                .all(|(a, b)| match (a, b) {
+                    (Some(a), Some(b)) => a == b,
+                    (None, None) => true,
+                    _ => false,
+                })
     }
 }
 
@@ -427,11 +431,11 @@ impl<'ast> From<ConcreteStructType> for DeclarationStructType<'ast> {
     }
 }
 
-impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
-    fn from(t: DeclarationStructType<'ast>) -> Self {
-        try_from_g_struct_type(t).unwrap()
-    }
-}
+// impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
+//     fn from(t: DeclarationStructType<'ast>) -> Self {
+//         try_from_g_struct_type(t).unwrap()
+//     }
+// }
 
 impl<S> GStructType<S> {
     pub fn new(
@@ -514,7 +518,7 @@ impl fmt::Display for UBitwidth {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[derive(Clone, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum GType<S> {
     FieldElement,
     Boolean,
@@ -624,13 +628,13 @@ pub type DeclarationType<'ast> = GType<DeclarationConstant<'ast>>;
 pub type ConcreteType = GType<usize>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
 
-impl<'ast, T: PartialEq> PartialEq<DeclarationType<'ast>> for Type<'ast, T> {
-    fn eq(&self, other: &DeclarationType<'ast>) -> bool {
+impl<'ast, S, R: PartialEq<S>> PartialEq<GType<S>> for GType<R> {
+    fn eq(&self, other: &GType<S>) -> bool {
         use self::GType::*;
 
         match (self, other) {
             (Array(l), Array(r)) => l == r,
-            (Struct(l), Struct(r)) => l.canonical_location == r.canonical_location,
+            (Struct(l), Struct(r)) => l == r,
             (FieldElement, FieldElement) | (Boolean, Boolean) => true,
             (Uint(l), Uint(r)) => l == r,
             _ => false,
@@ -638,7 +642,7 @@ impl<'ast, T: PartialEq> PartialEq<DeclarationType<'ast>> for Type<'ast, T> {
     }
 }
 
-fn try_from_g_type<T: TryInto<U>, U>(t: GType<T>) -> Result<GType<U>, SpecializationError> {
+pub fn try_from_g_type<T: TryInto<U>, U>(t: GType<T>) -> Result<GType<U>, SpecializationError> {
     match t {
         GType::FieldElement => Ok(GType::FieldElement),
         GType::Boolean => Ok(GType::Boolean),
@@ -665,12 +669,6 @@ impl<'ast, T> From<ConcreteType> for Type<'ast, T> {
 
 impl<'ast> From<ConcreteType> for DeclarationType<'ast> {
     fn from(t: ConcreteType) -> Self {
-        try_from_g_type(t).unwrap()
-    }
-}
-
-impl<'ast, T> From<DeclarationType<'ast>> for Type<'ast, T> {
-    fn from(t: DeclarationType<'ast>) -> Self {
         try_from_g_type(t).unwrap()
     }
 }
@@ -758,7 +756,7 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
     pub fn can_be_specialized_to(&self, other: &DeclarationType) -> bool {
         use self::GType::*;
 
-        if self == other {
+        if other == self {
             true
         } else {
             match (self, other) {
@@ -776,7 +774,13 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
                     }
                     _ => false,
                 },
-                (Struct(_), Struct(_)) => false,
+                (Struct(l), Struct(r)) => {
+                    l.canonical_location == r.canonical_location
+                        && l.members
+                            .iter()
+                            .zip(r.members.iter())
+                            .all(|(m, d_m)| m.ty.can_be_specialized_to(&*d_m.ty))
+                }
                 _ => false,
             }
         }
@@ -889,14 +893,6 @@ impl<'ast, T> TryFrom<FunctionKey<'ast, T>> for ConcreteFunctionKey<'ast> {
     }
 }
 
-// impl<'ast> TryFrom<DeclarationFunctionKey<'ast>> for ConcreteFunctionKey<'ast> {
-//     type Error = SpecializationError;
-
-//     fn try_from(k: DeclarationFunctionKey<'ast>) -> Result<Self, Self::Error> {
-//         try_from_g_function_key(k)
-//     }
-// }
-
 impl<'ast, T> From<ConcreteFunctionKey<'ast>> for FunctionKey<'ast, T> {
     fn from(k: ConcreteFunctionKey<'ast>) -> Self {
         try_from_g_function_key(k).unwrap()
@@ -905,12 +901,6 @@ impl<'ast, T> From<ConcreteFunctionKey<'ast>> for FunctionKey<'ast, T> {
 
 impl<'ast> From<ConcreteFunctionKey<'ast>> for DeclarationFunctionKey<'ast> {
     fn from(k: ConcreteFunctionKey<'ast>) -> Self {
-        try_from_g_function_key(k).unwrap()
-    }
-}
-
-impl<'ast, T> From<DeclarationFunctionKey<'ast>> for FunctionKey<'ast, T> {
-    fn from(k: DeclarationFunctionKey<'ast>) -> Self {
         try_from_g_function_key(k).unwrap()
     }
 }
@@ -993,7 +983,7 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
     }
 }
 
-pub fn specialize_type<'ast, S: Clone + PartialEq + From<u32> + fmt::Debug>(
+pub fn specialize_declaration_type<'ast, S: Clone + PartialEq + From<u32> + fmt::Debug>(
     decl_ty: DeclarationType<'ast>,
     constants: &GGenericsAssignment<'ast, S>,
 ) -> Result<GType<S>, GenericIdentifier<'ast>> {
@@ -1002,7 +992,7 @@ pub fn specialize_type<'ast, S: Clone + PartialEq + From<u32> + fmt::Debug>(
         DeclarationType::Array(t0) => {
             // let s1 = t1.size.clone();
 
-            let ty = box specialize_type(*t0.ty, &constants)?;
+            let ty = box specialize_declaration_type(*t0.ty, &constants)?;
             let size = match t0.size {
                 DeclarationConstant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
                 DeclarationConstant::Concrete(s) => Ok(s.into()),
@@ -1022,7 +1012,8 @@ pub fn specialize_type<'ast, S: Clone + PartialEq + From<u32> + fmt::Debug>(
                 .into_iter()
                 .map(|m| {
                     let id = m.id;
-                    specialize_type(*m.ty, constants).map(|ty| GStructMember { ty: box ty, id })
+                    specialize_declaration_type(*m.ty, constants)
+                        .map(|ty| GStructMember { ty: box ty, id })
                 })
                 .collect::<Result<_, _>>()?,
             generics: s0
@@ -1049,7 +1040,9 @@ pub fn specialize_type<'ast, S: Clone + PartialEq + From<u32> + fmt::Debug>(
     })
 }
 
-pub use self::signature::{ConcreteSignature, DeclarationSignature, GSignature, Signature};
+pub use self::signature::{
+    try_from_g_signature, ConcreteSignature, DeclarationSignature, GSignature, Signature,
+};
 
 pub mod signature {
     use super::*;
@@ -1194,7 +1187,7 @@ pub mod signature {
             self.outputs
                 .clone()
                 .into_iter()
-                .map(|t| specialize_type(t, &constants))
+                .map(|t| specialize_declaration_type(t, &constants))
                 .collect::<Result<_, _>>()
         }
     }
@@ -1240,12 +1233,6 @@ pub mod signature {
 
     impl<'ast> From<ConcreteSignature> for DeclarationSignature<'ast> {
         fn from(s: ConcreteSignature) -> Self {
-            try_from_g_signature(s).unwrap()
-        }
-    }
-
-    impl<'ast, T> From<DeclarationSignature<'ast>> for Signature<'ast, T> {
-        fn from(s: DeclarationSignature<'ast>) -> Self {
             try_from_g_signature(s).unwrap()
         }
     }

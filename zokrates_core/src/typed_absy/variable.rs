@@ -45,7 +45,7 @@ impl<'ast, T> From<ConcreteVariable<'ast>> for Variable<'ast, T> {
 
 impl<'ast, T> From<DeclarationVariable<'ast>> for Variable<'ast, T> {
     fn from(v: DeclarationVariable<'ast>) -> Self {
-        let _type = v._type.into();
+        let _type = crate::typed_absy::types::try_from_g_type(v._type).unwrap();
 
         Self { _type, id: v.id }
     }

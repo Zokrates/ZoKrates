@@ -417,11 +417,13 @@ struct Bar { field a }
                         ty: ConcreteType::Struct(ConcreteStructType::new(
                             "foo".into(),
                             "Foo".into(),
+                            vec![],
                             vec![ConcreteStructMember {
                                 id: "b".into(),
                                 ty: box ConcreteType::Struct(ConcreteStructType::new(
                                     "bar".into(),
                                     "Bar".into(),
+                                    vec![],
                                     vec![ConcreteStructMember {
                                         id: "a".into(),
                                         ty: box ConcreteType::FieldElement
