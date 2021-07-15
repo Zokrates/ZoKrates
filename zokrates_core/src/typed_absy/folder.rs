@@ -232,6 +232,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module),
             id: i.id,
+            ty: box self.fold_declaration_type(*i.ty),
         }
     }
 

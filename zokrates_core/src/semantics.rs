@@ -56,8 +56,8 @@ impl ErrorInner {
 }
 
 type TypeMap<'ast> = HashMap<OwnedModuleId, HashMap<UserTypeId, DeclarationType<'ast>>>;
-type ConstantMap<'ast, T> =
-    HashMap<OwnedModuleId, HashMap<ConstantIdentifier<'ast>, Type<'ast, T>>>;
+type ConstantMap<'ast> =
+    HashMap<OwnedModuleId, HashMap<ConstantIdentifier<'ast>, DeclarationType<'ast>>>;
 
 /// The global state of the program during semantic checks
 #[derive(Debug)]
@@ -69,7 +69,7 @@ struct State<'ast, T> {
     /// The user-defined types, which we keep track at this phase only. In later phases, we rely only on basic types and combinations thereof
     types: TypeMap<'ast>,
     // The user-defined constants
-    constants: ConstantMap<'ast, T>,
+    constants: ConstantMap<'ast>,
 }
 
 /// A symbol for a given name: either a type or a group of functions. Not both!
@@ -355,7 +355,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         c: ConstantDefinitionNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
-    ) -> Result<TypedConstant<'ast, T>, ErrorInner> {
+    ) -> Result<(DeclarationType<'ast>, TypedConstant<'ast, T>), ErrorInner> {
         let pos = c.pos();
         let ty = self.check_declaration_type(
             c.value.ty.clone(),
@@ -396,7 +396,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 ty
             ),
         })
-        .map(|e| TypedConstant::new(e))
+        .map(|e| (ty, TypedConstant::new(e)))
     }
 
     fn check_struct_type_declaration(
@@ -553,7 +553,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
             Symbol::Here(SymbolDefinition::Constant(c)) => {
                 match self.check_constant_definition(declaration.id, c, module_id, state) {
-                    Ok(c) => {
+                    Ok((d_t, c)) => {
                         match symbol_unifier.insert_constant(declaration.id) {
                             false => errors.push(
                                 ErrorInner {
@@ -570,6 +570,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     CanonicalConstantIdentifier::new(
                                         declaration.id,
                                         module_id.into(),
+                                        d_t.clone(),
                                     ),
                                     TypedConstantSymbol::Here(c.clone()),
                                 ));
@@ -581,7 +582,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .constants
                                     .entry(module_id.to_path_buf())
                                     .or_default()
-                                    .insert(declaration.id, c.get_type())
+                                    .insert(declaration.id, d_t)
                                     .is_none());
                             }
                         };
@@ -720,11 +721,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             }});
                                     }
                                     true => {
-                                        let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id);
-                                        let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into());
+                                        let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id, ty.clone());
+                                        let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into(), ty.clone());
 
                                         constants.push((id.clone(), TypedConstantSymbol::There(imported_id)));
-                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, ty.clone()));
+                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, crate::typed_absy::types::try_from_g_type(ty.clone()).unwrap()));
 
                                         state
                                             .constants
@@ -1260,7 +1261,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         expr: ExpressionNode<'ast>,
         module_id: &ModuleId,
-        constants_map: &HashMap<ConstantIdentifier<'ast>, Type<'ast, T>>,
+        constants_map: &HashMap<ConstantIdentifier<'ast>, DeclarationType<'ast>>,
         generics_map: &HashMap<Identifier<'ast>, usize>,
         used_generics: &mut HashSet<Identifier<'ast>>,
     ) -> Result<DeclarationConstant<'ast>, ErrorInner> {
@@ -1289,7 +1290,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match (constants_map.get(name), generics_map.get(&name)) {
                     (Some(ty), None) => {
                         match ty {
-                            Type::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(CanonicalConstantIdentifier::new(name, module_id.into()))),
+                            DeclarationType::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(CanonicalConstantIdentifier::new(name, module_id.into(), DeclarationType::Uint(UBitwidth::B32)))),
                             _ => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(

@@ -107,11 +107,20 @@ pub type ConstantIdentifier<'ast> = &'ast str;
 pub struct CanonicalConstantIdentifier<'ast> {
     pub module: OwnedTypedModuleId,
     pub id: ConstantIdentifier<'ast>,
+    pub ty: Box<DeclarationType<'ast>>,
 }
 
 impl<'ast> CanonicalConstantIdentifier<'ast> {
-    pub fn new(id: ConstantIdentifier<'ast>, module: OwnedTypedModuleId) -> Self {
-        CanonicalConstantIdentifier { module, id }
+    pub fn new(
+        id: ConstantIdentifier<'ast>,
+        module: OwnedTypedModuleId,
+        ty: DeclarationType<'ast>,
+    ) -> Self {
+        CanonicalConstantIdentifier {
+            module,
+            id,
+            ty: box ty,
+        }
     }
 }
 

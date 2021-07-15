@@ -121,6 +121,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         Ok(CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module)?,
             id: i.id,
+            ty: box self.fold_declaration_type(*i.ty)?,
         })
     }
 

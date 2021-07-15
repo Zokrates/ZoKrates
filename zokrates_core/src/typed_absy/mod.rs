@@ -205,7 +205,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
             .iter()
             .map(|(id, symbol)| match symbol {
                 TypedConstantSymbol::Here(ref tc) => {
-                    format!("const {} {} = {}", "todo", id.id, tc.expression)
+                    format!("const {} {} = {}", id.ty, id.id, tc)
                 }
                 TypedConstantSymbol::There(ref imported_id) => {
                     format!(
@@ -322,14 +322,13 @@ impl<'ast, T> TypedConstant<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // using `self.expression.get_type()` would be better here but ends up requiring stronger trait bounds
-        write!(f, "const {}({})", "todo", self.expression)
+        write!(f, "{}", self.expression)
     }
 }
 
 impl<'ast, T: Field> Typed<'ast, T> for TypedConstant<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
-        self.expression.get_type()
+        self.expression.get_type().clone()
     }
 }
 
