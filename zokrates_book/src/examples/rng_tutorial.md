@@ -24,22 +24,25 @@ In this tutorial you learn how to use Zokrates and zero knowledge proofs to reve
 The first step is for Alice and Bob to each come up with a preimage value and calculate the hash to commit to it. 
 There are many ways to calculate a hash, but here we use Zokrates. 
 
-1. Create this file under the name `get_hash.zok`:
+Create this file under the name `get_hash.zok`:
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok}}
 ```
-2. Compile the program to a form that is usable for zero knowledge proofs. This command writes 
+
+Compile the program to a form that is usable for zero knowledge proofs. This command writes 
 the binary to `get_hash`. You can see a textual representation, somewhat analogous to assembler 
 coming from a compiler, at `get_hash.ztf` enabled by the `--ztf` command line option.
 ```
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:6}}
 ```
-3. The input to the Zokrates program is sixteen 32 bit values, each in decimal. specify those values 
+
+The input to the Zokrates program is sixteen 32 bit values, each in decimal. specify those values 
 to get a hash. For example, to calculate the hash of `0x00000000000000010000000200000003000000040000000500000006...`
 use this command:
 ```
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:7}}
 ```
+
 The result is:
 ```
 Computing witness...
@@ -60,10 +63,8 @@ called `sha256`.
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok:1}}
 ```
 
-&nbsp;
-
 This is the main function. The input (`u32[16]`) is an array of sixteen values, each an unsigned 32-bit integer (a number 
-between \\(0\\) and \\( 2^{32} - 1 \\)). As you have seen above, you specify these numbers using the `-a` command
+between \(0\) and \(2^{32} - 1\)). As you have seen above, you specify these numbers using the `-a` command
 line parameter. The total number of input bits is *32 &times; 16 = 512*.
 
 The output is `u32[8]`, a *32 &times; 8 = 256* bit value.
@@ -71,8 +72,6 @@ The output is `u32[8]`, a *32 &times; 8 = 256* bit value.
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok:3}}
 ```
-
-&nbsp;
 
 This line does several things. First, `u32[8] h` defines a variable called `h`, whose type is an array of eight 32-bit unsigned integers.
 This variable is initialized using `sha256`, the function we 
@@ -83,8 +82,6 @@ to divide `hashMe` into two arrays.
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/get_hash.zok:4}}
 ```
-
-&nbsp;
 
 Finally, return `h` to the caller to display the hash.
 
@@ -97,16 +94,17 @@ Finally, return `h` to the caller to display the hash.
 
 The next step is to reveal a single bit.
 
-1. Use this program, `reveal_bit.zok`:
+Use this program, `reveal_bit.zok`:
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok}}
 ```
 
-2. Compile and run as you did the previous program:
+Compile and run as you did the previous program:
 ```
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:23:24}}
 ```
-3. The output should be similar to:
+   
+The output should be similar to:
 ```
 Witness:
 
@@ -124,8 +122,6 @@ There are cast functions to convert `u8`s, `u16`s, and `u32`s to boolean arrays 
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:2}}
 ```
 
-&nbsp;
-
 The preimage is declared `private` so it won't be revealed by the zero knowledge proof.
 
 A Zokrates function can return multiple values. In this case, it returns the hash and a boolean which is the 
@@ -134,8 +130,6 @@ value of the bit being revealed.
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:10}}
 ```
-
-&nbsp;
 
 To find the value of the bit being revealed, we convert the entire preimage into bits and access it at the index `bitNum`. 
 The first line defines an array of 512 boolean values (`bool[512]`) called `preimageBits`. It is initialized to
@@ -146,8 +140,6 @@ when it is declared.
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:11:12}}
 ```
-
-&nbsp;
 
 This is a [for loop](https://zokrates.github.io/language/control_flow.html#for-loops). For loops 
 have to have an index of type `u32`, and their bounds need to be known at compile time.
@@ -162,15 +154,11 @@ The function we imported, `u32_to_bits`, converts a `u32` value to an array of b
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:14}}
 ```
 
-&nbsp;
-
 The inner loop copies the bits from `val` to `preimageBits`, the bit array for the preimage.
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/reveal_bit.zok:15:18}}
 ```
-
-&nbsp;
 
 To return multiple values, separate them by commas. 
 
@@ -193,40 +181,41 @@ Proofs give us.
 
 ### Set up the environment
 
-1. Create two separate directories, `alice` and `bob`. You will perform the actions of Alice in the `alice` directory,
-   and the actions of Bob in the `bob` directory.
+Create two separate directories, `alice` and `bob`. You will perform the actions of Alice in the `alice` directory,
+and the actions of Bob in the `bob` directory.
    
 ### Bob's setup stage
 
-2. Compile `reveal_bit.zok` and create the proving and verification keys.
+Compile `reveal_bit.zok` and create the proving and verification keys.
 ```
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:16:17}}
 ```
-3. Copy the file `proving.key` to Alice's directory.
+
+Copy the file `proving.key` to Alice's directory.
 
 ### Alice reveals a bit
 
-4. Alice should compile `reveal_bit.zok` independently to make sure it doesn't disclose information she wants to keep secret.
+Alice should compile `reveal_bit.zok` independently to make sure it doesn't disclose information she wants to keep secret.
 ```
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:23}}
 ```
    
-5. Next, Alice creates the `witness` file with the values of all the parameters in the program. Using this `witness`, 
-   Bob's `proving.key`, and the compiled program she generates the actual proof.
+Next, Alice creates the `witness` file with the values of all the parameters in the program. Using this `witness`, 
+Bob's `proving.key`, and the compiled program she generates the actual proof.
 ```
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:24:25}}
 ```
    
-6. The proof is created in the file `proof.json`. Copy this file to Bob's directory.
+The proof is created in the file `proof.json`. Copy this file to Bob's directory.
 
 ### Bob accepts the proof
 
-7. Finally, Bob verifies the proof:
+Finally, Bob verifies the proof:
 ```
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:31}}
 ```
    
-8. As a sanity check, modify any of the values in `proof.json` and see that the verification fails.
+As a sanity check, modify any of the values in `proof.json` and see that the verification fails.
 
 
 ## Connecting to Ethereum
@@ -244,43 +233,52 @@ Here are the instructions to use this program when using [Truffle and Ganache](h
 We'll assume they are installed, and the Ganache blockchain is running.
 
 1. Create a new project with `truffle init` and copy `verify.sol` to the subdirectory `contracts`.
-1. Identify the version of Solidity used by `verifier.sol`:
+   
+2. Identify the version of Solidity used by `verifier.sol`:
    ```
    grep solidity contracts/verifier.sol
    ```
-1. Edit `truffle-config.js`:
+   
+3. Edit `truffle-config.js`:
    * Change `module.exports.compilers.solc.version` to the version required by `verifier.sol`.
    * Uncomment `modules.exports.networks.development`. Make sure you delete the comma after the definition.
-1. Compile the contract.
+   
+4. Compile the contract.
    ```
    truffle compile
    ```
-1. Start the Truffle console. The rest of this procedure is done in the JavaScript prompt inside that console.
+   
+5. Start the Truffle console. The rest of this procedure is done in the JavaScript prompt inside that console.
    ```
    truffle console
    ```
-1. Deploy the Verifier contract.
+   
+6. Deploy the Verifier contract.
    ```javascript
    contract = await Verifier.new()
    ```
-1. Read the content of `proof.json`.
+   
+7. Read the content of `proof.json`.
    ```javascript
    proof = JSON.parse(fs.readFileSync("path/to/your/proof.json"))
    ```
-1. Verify the proof. Check that you get the result `true`.
+   
+8. Verify the proof. Check that you get the result `true`.
    ```javascript
    await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, proof.inputs)
    ```
-1. Pretend to be Alice and try to cheat. Create `cheat` which flips the result
+   
+9. Pretend to be Alice and try to cheat. Create `cheat` which flips the result
    bit.
    ```javascript
    cheat = [...proof.inputs]
    cheat[cheat.length-1] = cheat[cheat.length-1].replace(/[01]$/, cheat[cheat.length-1][65] == '1' ? '0': '1')
    ```
-1. As Bob, try to verify a cheating proof, and check that it fails.
-   ```javascript
-   await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, cheat)
-   ```
+   
+10. As Bob, try to verify a cheating proof, and check that it fails.
+    ```javascript
+      await contract.verifyTx(proof.proof.a, proof.proof.b, proof.proof.c, cheat)
+    ```
   
 ## Conclusion
 
