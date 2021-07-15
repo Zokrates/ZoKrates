@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-bin=$1
+bin=$1; stdlib=$2
 
 function zokrates() {
-  $bin $*
+  ZOKRATES_STDLIB=$stdlib $bin $*
 }
 
 zokrates compile -i hashexample.zok

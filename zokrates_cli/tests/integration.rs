@@ -416,10 +416,16 @@ mod integration {
             std::fs::copy(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
         }
 
-        assert_cli::Assert::command(&["./test.sh", env!("CARGO_BIN_EXE_zokrates")])
-            .current_dir(tmp_base)
-            .succeeds()
-            .unwrap();
+        let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+
+        assert_cli::Assert::command(&[
+            "./test.sh",
+            env!("CARGO_BIN_EXE_zokrates"),
+            stdlib.to_str().unwrap(),
+        ])
+        .current_dir(tmp_base)
+        .succeeds()
+        .unwrap();
     }
 
     #[test]
@@ -432,9 +438,15 @@ mod integration {
             std::fs::copy(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
         }
 
-        assert_cli::Assert::command(&["./test.sh", env!("CARGO_BIN_EXE_zokrates")])
-            .current_dir(tmp_base)
-            .succeeds()
-            .unwrap();
+        let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+
+        assert_cli::Assert::command(&[
+            "./test.sh",
+            env!("CARGO_BIN_EXE_zokrates"),
+            stdlib.to_str().unwrap(),
+        ])
+        .current_dir(tmp_base)
+        .succeeds()
+        .unwrap();
     }
 }
