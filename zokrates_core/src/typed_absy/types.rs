@@ -692,10 +692,10 @@ impl<S, U: Into<S>> From<(GType<S>, U)> for GArrayType<S> {
 }
 
 impl<S> GArrayType<S> {
-    pub fn new(ty: GType<S>, size: S) -> Self {
+    pub fn new<U: Into<S>>(ty: GType<S>, size: U) -> Self {
         GArrayType {
             ty: Box::new(ty),
-            size,
+            size: size.into(),
         }
     }
 }
@@ -1031,7 +1031,7 @@ pub fn specialize_declaration_type<'ast, S: Clone + PartialEq + From<u32> + fmt:
                 .map(|g| match g {
                     Some(constant) => match constant {
                         DeclarationConstant::Generic(s) => {
-                            constants.0.get(&s).cloned().ok_or(s).map(|v| Some(v))
+                            constants.0.get(&s).cloned().ok_or(s).map(Some)
                         }
                         DeclarationConstant::Concrete(s) => Ok(Some(s.into())),
                         DeclarationConstant::Constant(..) => {
@@ -1384,8 +1384,7 @@ pub mod signature {
                     GenericIdentifier {
                         name: "P",
                         index: 0,
-                    }
-                    .into(),
+                    },
                 ))]);
             let generic2 = DeclarationSignature::new()
                 .generics(vec![Some(
@@ -1400,8 +1399,7 @@ pub mod signature {
                     GenericIdentifier {
                         name: "Q",
                         index: 0,
-                    }
-                    .into(),
+                    },
                 ))]);
 
             assert_eq!(generic1, generic2);

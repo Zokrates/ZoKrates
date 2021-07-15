@@ -20,9 +20,9 @@ pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteType,
-    ConstantIdentifier, DeclarationFunctionKey, DeclarationSignature, DeclarationType, GArrayType,
-    GStructType, GType, GenericIdentifier, IntoTypes, Signature, StructType, Type, Types,
-    UBitwidth,
+    ConstantIdentifier, DeclarationArrayType, DeclarationFunctionKey, DeclarationSignature,
+    DeclarationStructType, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
+    IntoTypes, Signature, StructType, Type, Types, UBitwidth,
 };
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
@@ -328,7 +328,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
 
 impl<'ast, T: Field> Typed<'ast, T> for TypedConstant<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
-        self.expression.get_type().clone()
+        self.expression.get_type()
     }
 }
 

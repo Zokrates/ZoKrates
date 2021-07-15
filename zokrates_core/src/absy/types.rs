@@ -35,7 +35,9 @@ impl<'ast> fmt::Display for UnresolvedType<'ast> {
                                 generics
                                     .iter()
                                     .map(|e| {
-                                        e.as_ref().map(|e| e.to_string()).unwrap_or("_".to_string())
+                                        e.as_ref()
+                                            .map(|e| e.to_string())
+                                            .unwrap_or_else(|| "_".to_string())
                                     })
                                     .collect::<Vec<_>>()
                                     .join(", ")

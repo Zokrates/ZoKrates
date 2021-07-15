@@ -1285,7 +1285,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
             }
             Expression::Identifier(name) => {
-                used_generics.insert(name.clone());
+                used_generics.insert(name);
 
                 match (constants_map.get(name), generics_map.get(&name)) {
                     (Some(ty), None) => {
@@ -1380,7 +1380,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             .map(Some),
                                         None => Err(ErrorInner {
                                             pos: Some(pos),
-                                            message: format!("Expected u32 constant or identifier, but found `_`"),
+                                            message:
+                                                "Expected u32 constant or identifier, but found `_`"
+                                                    .into(),
                                         }),
                                     })
                                     .collect::<Result<_, _>>()?;
