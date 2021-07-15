@@ -992,22 +992,35 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
     }
 }
 
-pub fn specialize_declaration_type<'ast, S: Clone + PartialEq + From<u32> + fmt::Debug>(
+impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
+    fn from(_: CanonicalConstantIdentifier<'ast>) -> Self {
+        unreachable!("constants should have been removed in constant inlining")
+    }
+}
+
+impl<'ast> From<CanonicalConstantIdentifier<'ast>> for DeclarationConstant<'ast> {
+    fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
+        DeclarationConstant::Constant(c)
+    }
+}
+
+pub fn specialize_declaration_type<
+    'ast,
+    S: Clone + PartialEq + From<u32> + fmt::Debug + From<CanonicalConstantIdentifier<'ast>>,
+>(
     decl_ty: DeclarationType<'ast>,
-    constants: &GGenericsAssignment<'ast, S>,
+    generics: &GGenericsAssignment<'ast, S>,
 ) -> Result<GType<S>, GenericIdentifier<'ast>> {
     Ok(match decl_ty {
         DeclarationType::Int => unreachable!(),
         DeclarationType::Array(t0) => {
             // let s1 = t1.size.clone();
 
-            let ty = box specialize_declaration_type(*t0.ty, &constants)?;
+            let ty = box specialize_declaration_type(*t0.ty, &generics)?;
             let size = match t0.size {
-                DeclarationConstant::Generic(s) => constants.0.get(&s).cloned().ok_or(s),
+                DeclarationConstant::Generic(s) => generics.0.get(&s).cloned().ok_or(s),
                 DeclarationConstant::Concrete(s) => Ok(s.into()),
-                DeclarationConstant::Constant(..) => {
-                    unreachable!("identifiers should have been removed in constant inlining")
-                }
+                DeclarationConstant::Constant(c) => Ok(c.into()),
             }?;
 
             GType::Array(GArrayType { size, ty })
@@ -1021,7 +1034,7 @@ pub fn specialize_declaration_type<'ast, S: Clone + PartialEq + From<u32> + fmt:
                 .into_iter()
                 .map(|m| {
                     let id = m.id;
-                    specialize_declaration_type(*m.ty, constants)
+                    specialize_declaration_type(*m.ty, generics)
                         .map(|ty| GStructMember { ty: box ty, id })
                 })
                 .collect::<Result<_, _>>()?,
@@ -1031,7 +1044,7 @@ pub fn specialize_declaration_type<'ast, S: Clone + PartialEq + From<u32> + fmt:
                 .map(|g| match g {
                     Some(constant) => match constant {
                         DeclarationConstant::Generic(s) => {
-                            constants.0.get(&s).cloned().ok_or(s).map(Some)
+                            generics.0.get(&s).cloned().ok_or(s).map(Some)
                         }
                         DeclarationConstant::Concrete(s) => Ok(Some(s.into())),
                         DeclarationConstant::Constant(..) => {
