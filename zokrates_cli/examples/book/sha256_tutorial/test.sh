@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
-alias zokrates=$1
+bin=$1
+
+function zokrates() {
+  $bin $*
+}
 
 zokrates compile -i hashexample.zok
 zokrates compute-witness -a 0 0 0 5

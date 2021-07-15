@@ -33,14 +33,14 @@ Compile the program to a form that is usable for zero knowledge proofs. This com
 the binary to `get_hash`. You can see a textual representation, somewhat analogous to assembler 
 coming from a compiler, at `get_hash.ztf` enabled by the `--ztf` command line option.
 ```
-{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:6}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:10}}
 ```
 
 The input to the Zokrates program is sixteen 32 bit values, each in decimal. specify those values 
 to get a hash. For example, to calculate the hash of `0x00000000000000010000000200000003000000040000000500000006...`
 use this command:
 ```
-{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:7}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:11}}
 ```
 
 The result is:
@@ -101,7 +101,7 @@ Use this program, `reveal_bit.zok`:
 
 Compile and run as you did the previous program:
 ```
-{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:23:24}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:27:28}}
 ```
    
 The output should be similar to:
@@ -188,7 +188,7 @@ and the actions of Bob in the `bob` directory.
 
 Compile `reveal_bit.zok` and create the proving and verification keys.
 ```
-{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:16:17}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:20:21}}
 ```
 
 Copy the file `proving.key` to Alice's directory.
@@ -197,13 +197,13 @@ Copy the file `proving.key` to Alice's directory.
 
 Alice should compile `reveal_bit.zok` independently to make sure it doesn't disclose information she wants to keep secret.
 ```
-{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:23}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:27}}
 ```
    
 Next, Alice creates the `witness` file with the values of all the parameters in the program. Using this `witness`, 
 Bob's `proving.key`, and the compiled program she generates the actual proof.
 ```
-{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:24:25}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:28:29}}
 ```
    
 The proof is created in the file `proof.json`. Copy this file to Bob's directory.
@@ -212,7 +212,7 @@ The proof is created in the file `proof.json`. Copy this file to Bob's directory
 
 Finally, Bob verifies the proof:
 ```
-{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:31}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:35}}
 ```
    
 As a sanity check, modify any of the values in `proof.json` and see that the verification fails.
@@ -224,7 +224,7 @@ So far, Alice and Bob calculated the random bit between themselves. However, it 
 published on the blockchain. To do this, Bob creates a Solidity program:
 
 ```
-{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:32}}
+{{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:36}}
 ```
 
 The Solidity program is called `verifier.sol`. 
