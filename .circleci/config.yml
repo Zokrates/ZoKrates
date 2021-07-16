@@ -273,7 +273,10 @@ workflows:
           pre-steps:
             - install_rust
             - install_cross
-            - run: xcodebuild -showsdks
+            - run: |
+                xcodebuild -showsdks
+                export SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)
+                export MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)
           add-target: true
           matrix:
             alias: cross-build-apple-silicon
