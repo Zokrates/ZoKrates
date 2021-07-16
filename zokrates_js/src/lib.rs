@@ -13,7 +13,7 @@ use zokrates_core::ir;
 use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::groth16::G16;
 use zokrates_core::proof_system::{
-    Backend, NonUniversalBackend, Proof, Scheme, SolidityAbi, SolidityCompatibleScheme,
+    Backend, NonUniversalBackend, Proof, Scheme, SolidityCompatibleScheme,
 };
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::ConcreteSignature as Signature;
@@ -168,13 +168,9 @@ pub fn setup(program: &[u8]) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn export_solidity_verifier(vk: JsValue, abi_version: JsValue) -> Result<JsValue, JsValue> {
-    let abi_version = SolidityAbi::from(abi_version.as_string().unwrap().as_str())
-        .map_err(|err| JsValue::from_str(err))?;
-
+pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
     let verifier = <G16 as SolidityCompatibleScheme<Bn128Field>>::export_solidity_verifier(
         vk.into_serde().unwrap(),
-        abi_version,
     );
 
     Ok(JsValue::from_str(verifier.as_str()))

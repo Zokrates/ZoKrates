@@ -4,12 +4,10 @@ const solc = require('solc');
 const contractPath = process.argv[2]
 const proofPath = process.argv[3]
 const format = process.argv[4]
-const abiVersion = process.argv[5];
 const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
 
-// -----Compile contract-----
 const source = fs.readFileSync(contractPath, 'UTF-8');
-let jsonContractSource = JSON.stringify({
+let jsonContractSource = {
     language: 'Solidity',
     sources: {
         [contractPath]: {
@@ -17,29 +15,39 @@ let jsonContractSource = JSON.stringify({
         },
     },
     settings: {
+        optimizer: {
+          enabled: true
+        },
         outputSelection: {
-            '*': {
-                '*': ['abi', "evm.bytecode"],
+            [contractPath]: {
+                "Verifier": ['abi', "evm.bytecode"],
             },
         },
     },
-});
+};
 
-let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
-console.log(jsonInterface);
 (async () => {
     const accounts = await web3.eth.getAccounts();
-    let abi = jsonInterface.contracts[contractPath]["Verifier"].abi;
-    let bytecode = jsonInterface.contracts[contractPath]["Verifier"].evm.bytecode;
 
-    //There is a solc issue, that for unknown reasons wont link the BN256G2 Library automatically for gm17 v1 and v2 contracts. I dont know why this is happening,
-    //the contracts compile and deploy without any issue on remix. To fix this, the the BN256G2 Library must be compiled and deployed by itself, after that,
-    //the library placeholder must be replaced with the library address in the contracts bytecode
+    // The BN256G2 library needs to be deployed and linked separately
+    // because it has `public` functions.
+    // This is not needed for the Pairing library because all its functions
+    // are `internal` and therefore are compiled into the contract that uses it.
     if (format == "gm17") {
         let library = await deployLibrary();
-        //replace lib placeholder with lib address in bytecode
-        bytecode.object = bytecode.object.replace(/\_\_\$[a-f0-9]{34}\$\_\_/g, library["_address"].replace("0x", ""));
+        jsonContractSource.settings.libraries = {
+          [contractPath]: {
+            BN256G2: library["_address"]
+          }
+        }
     }
+
+    // -----Compile contract-----
+    let jsonInterface = JSON.parse(solc.compile(JSON.stringify(jsonContractSource)));
+    console.log(jsonInterface);
+
+    let abi = jsonInterface.contracts[contractPath]["Verifier"].abi;
+    let bytecode = jsonInterface.contracts[contractPath]["Verifier"].evm.bytecode;
 
     let contract = new web3.eth.Contract(abi)
         .deploy({
@@ -86,31 +94,15 @@ console.log(jsonInterface);
             }
         }
 
-        return abiVersion == "v1" ? 
-            verifyTx_ABIV1(proof, account, correct).on('receipt', handleReceipt)
-                .catch(handleError)
-            :
-            verifyTx_ABIV2(proof, account, correct).on('receipt', handleReceipt)
-                .catch(handleError);
+        verifyTx(proof, account, correct).on('receipt', handleReceipt)
+            .catch(handleError);
     }
 
-    function verifyTx_ABIV2(proof, account, correct) {
+    function verifyTx(proof, account, correct) {
         var args = proof[0];
         args = proof[1].length > 0 ? [args, proof[1]] : [args];
 
         return contract.methods.verifyTx(...args).send({
-            from: account,
-            gas: 5000000
-        });
-    }
-
-    function verifyTx_ABIV1(proof, account, correct) {
-        var args = proof[0];
-        args = proof[1].length > 0 ? [...args, proof[1]] : args;
-
-        return contract.methods.verifyTx(
-            ...args
-        ).send({
             from: account,
             gas: 5000000
         });
@@ -137,6 +129,9 @@ console.log(jsonInterface);
                 },
             },
             settings: {
+                optimizer: {
+                  enabled: true
+                },
                 outputSelection: {
                     '*': {
                         '*': ['abi', "evm.bytecode"],
