@@ -1,6 +1,6 @@
 use crate::typed_absy::types::{
-    ArrayType, DeclarationArrayType, DeclarationConstant, DeclarationType, GArrayType, GStructType,
-    GType, StructMember, StructType, Type,
+    DeclarationArrayType, DeclarationConstant, DeclarationStructMember, DeclarationStructType,
+    DeclarationType, GArrayType, GStructType, GType, GenericIdentifier, Type,
 };
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
@@ -32,28 +32,51 @@ impl<'ast, T: Field> TypedExpressionOrSpread<'ast, T> {
     }
 }
 
-fn get_common_type<'a, T: Field>(t: Type<'a, T>, u: Type<'a, T>) -> Result<Type<'a, T>, ()> {
+fn get_common_type<'a, T: Field>(
+    t: Type<'a, T>,
+    u: Type<'a, T>,
+) -> Result<DeclarationType<'a>, (Type<'a, T>, Type<'a, T>)> {
     match (t, u) {
-        (Type::Int, Type::Int) => Err(()),
-        (Type::Int, u) => Ok(u),
-        (t, Type::Int) => Ok(t),
-        (Type::Array(t), Type::Array(u)) => Ok(Type::Array(ArrayType::new(
+        (Type::Int, Type::Int) => Err((Type::Int, Type::Int)),
+        (Type::Int, Type::FieldElement) => Ok(DeclarationType::FieldElement),
+        (Type::Int, Type::Uint(bitwidth)) => Ok(DeclarationType::Uint(bitwidth)),
+        (Type::FieldElement, Type::Int) => Ok(DeclarationType::FieldElement),
+        (Type::Uint(bitwidth), Type::Int) => Ok(DeclarationType::Uint(bitwidth)),
+        (Type::FieldElement, Type::FieldElement) => Ok(DeclarationType::FieldElement),
+        (Type::Uint(b0), Type::Uint(b1)) => {
+            if b0 == b1 {
+                Ok(DeclarationType::Uint(b0))
+            } else {
+                Err((Type::Uint(b0), Type::Uint(b1)))
+            }
+        }
+        (Type::Array(t), Type::Array(u)) => Ok(DeclarationType::Array(DeclarationArrayType::new(
             get_common_type(*t.ty, *u.ty)?,
-            t.size,
+            DeclarationConstant::Generic(GenericIdentifier::with_name("DUMMY")),
         ))),
-        (Type::Struct(t), Type::Struct(u)) => Ok(Type::Struct(StructType {
+        (Type::Struct(t), Type::Struct(u)) => Ok(DeclarationType::Struct(DeclarationStructType {
             members: t
                 .members
                 .into_iter()
                 .zip(u.members.into_iter())
                 .map(|(m_t, m_u)| {
-                    get_common_type(*m_t.ty.clone(), *m_u.ty)
-                        .map(|ty| StructMember { ty: box ty, ..m_t })
+                    get_common_type(*m_t.ty.clone(), *m_u.ty).map(|ty| DeclarationStructMember {
+                        ty: box ty,
+                        id: m_t.id,
+                    })
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-            ..t
+            canonical_location: t.canonical_location,
+            location: t.location,
+            generics: t
+                .generics
+                .into_iter()
+                .map(|g| {
+                    g.map(|_| DeclarationConstant::Generic(GenericIdentifier::with_name("DUMMY")))
+                })
+                .collect(),
         })),
-        (t, _) => Ok(t),
+        (t, u) => Err((t, u)),
     }
 }
 
@@ -95,11 +118,15 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 ))
             }
             (Array(lhs), Array(rhs)) => {
+                println!("hey");
+
                 let common_type = get_common_type(lhs.get_type().clone(), rhs.get_type().clone())
                     .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
 
+                println!("common type {}", common_type);
+
                 let common_type = match common_type {
-                    Type::Array(ty) => ty,
+                    DeclarationType::Array(ty) => ty,
                     _ => unreachable!(),
                 };
 
@@ -113,13 +140,17 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 ))
             }
             (Struct(lhs), Struct(rhs)) => {
+                println!("common struct ty");
+
                 let common_type = get_common_type(lhs.get_type(), rhs.get_type())
                     .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
 
                 let common_type = match common_type {
-                    Type::Struct(ty) => ty,
+                    DeclarationType::Struct(ty) => ty,
                     _ => unreachable!(),
                 };
+
+                println!("ty {}", common_type);
 
                 Ok((
                     StructExpression::try_from_int(lhs.clone(), &common_type)
@@ -581,6 +612,8 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
         struc: Self,
         target_struct_ty: &GStructType<S>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
+        println!("try from int {}", struc);
+
         let struct_ty = struc.ty().clone();
 
         match struc.into_inner() {
@@ -598,10 +631,15 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
                     .members
                     .iter()
                     .zip(target_struct_ty.members.iter())
-                    .all(|(m, target_m)| *target_m.ty == *m.ty)
+                    .all(|(m, target_m)| {
+                        println!("{:?}", m);
+                        *target_m.ty == *m.ty
+                    })
                 {
+                    println!("all eq");
                     Ok(s.annotate(struct_ty.clone()))
                 } else {
+                    println!("not all eq");
                     Err(s.annotate(struct_ty.clone()).into())
                 }
             }
