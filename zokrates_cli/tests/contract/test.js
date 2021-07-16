@@ -16,6 +16,9 @@ let jsonContractSource = JSON.stringify({
         },
     },
     settings: {
+        optimizer: {
+          enabled: true
+        },
         outputSelection: {
             '*': {
                 '*': ['abi', "evm.bytecode"],
