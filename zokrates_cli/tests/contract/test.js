@@ -4,7 +4,6 @@ const solc = require('solc');
 const contractPath = process.argv[2]
 const proofPath = process.argv[3]
 const format = process.argv[4]
-const abiVersion = process.argv[5];
 const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
 
 // -----Compile contract-----
@@ -86,31 +85,15 @@ console.log(jsonInterface);
             }
         }
 
-        return abiVersion == "v1" ? 
-            verifyTx_ABIV1(proof, account, correct).on('receipt', handleReceipt)
-                .catch(handleError)
-            :
-            verifyTx_ABIV2(proof, account, correct).on('receipt', handleReceipt)
-                .catch(handleError);
+        verifyTx(proof, account, correct).on('receipt', handleReceipt)
+            .catch(handleError);
     }
 
-    function verifyTx_ABIV2(proof, account, correct) {
+    function verifyTx(proof, account, correct) {
         var args = proof[0];
         args = proof[1].length > 0 ? [args, proof[1]] : [args];
 
         return contract.methods.verifyTx(...args).send({
-            from: account,
-            gas: 5000000
-        });
-    }
-
-    function verifyTx_ABIV1(proof, account, correct) {
-        var args = proof[0];
-        args = proof[1].length > 0 ? [...args, proof[1]] : args;
-
-        return contract.methods.verifyTx(
-            ...args
-        ).send({
             from: account,
             gas: 5000000
         });

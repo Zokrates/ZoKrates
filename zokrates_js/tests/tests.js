@@ -104,7 +104,7 @@ describe('tests', function() {
                 const artifacts = this.zokrates.compile(code);
                 const keypair = this.zokrates.setup(artifacts.program);
 
-                const verifier = this.zokrates.exportSolidityVerifier(keypair.vk, "v1");
+                const verifier = this.zokrates.exportSolidityVerifier(keypair.vk);
                 assert.ok(verifier.length > 0);
             });
         });
