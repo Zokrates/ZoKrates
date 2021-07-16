@@ -10,7 +10,7 @@ def main(bool[256] a, bool[256] b, bool[256] c, bool[256] d) -> (bool[256]):
     bool[256] dummyblock1 = [true, ...[false; 255]]
 
     // Total length of message is 1024 bits: 0b10000000000
-    bool[256] dummyblock2 = [...[false; 245], ...[true, ...[false; 10]]]
+    bool[256] dummyblock2 = [...[false; 245], true, ...[false; 10]]
 
     bool[256] digest = sha256(a, b, c, d, dummyblock1, dummyblock2)
     return digest
