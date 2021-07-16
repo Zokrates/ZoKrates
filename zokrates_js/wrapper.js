@@ -61,8 +61,8 @@ module.exports = (dep) => {
             const { program, abi } = artifacts;
             return zokrates.compute_witness(program, abi, JSON.stringify(Array.from(args)));
         },
-        exportSolidityVerifier: (verificationKey, abiVersion) => {
-            return zokrates.export_solidity_verifier(verificationKey, abiVersion);
+        exportSolidityVerifier: (verificationKey) => {
+            return zokrates.export_solidity_verifier(verificationKey);
         },
         generateProof: (program, witness, provingKey) => {
             return zokrates.generate_proof(program, witness, provingKey);
