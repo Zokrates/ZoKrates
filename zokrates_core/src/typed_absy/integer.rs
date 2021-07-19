@@ -137,8 +137,6 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 ))
             }
             (Struct(lhs), Struct(rhs)) => {
-                println!("common struct ty");
-
                 let common_type = get_common_type(lhs.get_type(), rhs.get_type())
                     .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
 
@@ -146,8 +144,6 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                     DeclarationType::Struct(ty) => ty,
                     _ => unreachable!(),
                 };
-
-                println!("ty {}", common_type);
 
                 Ok((
                     StructExpression::try_from_int(lhs.clone(), &common_type)
@@ -609,8 +605,6 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
         struc: Self,
         target_struct_ty: &GStructType<S>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
-        println!("try from int {}", struc);
-
         let struct_ty = struc.ty().clone();
 
         match struc.into_inner() {
@@ -628,15 +622,10 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
                     .members
                     .iter()
                     .zip(target_struct_ty.members.iter())
-                    .all(|(m, target_m)| {
-                        println!("{:?}", m);
-                        *target_m.ty == *m.ty
-                    })
+                    .all(|(m, target_m)| *target_m.ty == *m.ty)
                 {
-                    println!("all eq");
                     Ok(s.annotate(struct_ty.clone()))
                 } else {
-                    println!("not all eq");
                     Err(s.annotate(struct_ty.clone()).into())
                 }
             }
