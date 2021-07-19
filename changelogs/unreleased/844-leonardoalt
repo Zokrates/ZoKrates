@@ -1,0 +1,1 @@
+Bump Solidity version to latest breaking release and use Solidity's ABI v2. This means that the `export-verifier` CLI flag to choose the ABI coder was removed.

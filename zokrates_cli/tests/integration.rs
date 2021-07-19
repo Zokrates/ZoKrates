@@ -295,36 +295,31 @@ mod integration {
                     .unwrap();
 
                     if scheme != &"marlin" {
-                        for abi_version in &["v1", "v2"] {
-                            // EXPORT-VERIFIER
-                            assert_cli::Assert::command(&[
-                                "../target/release/zokrates",
-                                "export-verifier",
-                                "-i",
-                                verification_key_path.to_str().unwrap(),
-                                "-o",
-                                verification_contract_path.to_str().unwrap(),
-                                "--proving-scheme",
-                                scheme,
-                                "-a",
-                                abi_version,
-                            ])
-                            .succeeds()
-                            .unwrap();
+                        // EXPORT-VERIFIER
+                        assert_cli::Assert::command(&[
+                            "../target/release/zokrates",
+                            "export-verifier",
+                            "-i",
+                            verification_key_path.to_str().unwrap(),
+                            "-o",
+                            verification_contract_path.to_str().unwrap(),
+                            "--proving-scheme",
+                            scheme,
+                        ])
+                        .succeeds()
+                        .unwrap();
 
-                            // TEST VERIFIER
-                            assert_cli::Assert::command(&[
-                                "node",
-                                "test.js",
-                                verification_contract_path.to_str().unwrap(),
-                                proof_path.to_str().unwrap(),
-                                scheme,
-                                abi_version,
-                            ])
-                            .current_dir(concat!(env!("OUT_DIR"), "/contract"))
-                            .succeeds()
-                            .unwrap();
-                        }
+                        // TEST VERIFIER
+                        assert_cli::Assert::command(&[
+                            "node",
+                            "test.js",
+                            verification_contract_path.to_str().unwrap(),
+                            proof_path.to_str().unwrap(),
+                            scheme,
+                        ])
+                        .current_dir(concat!(env!("OUT_DIR"), "/contract"))
+                        .succeeds()
+                        .unwrap();
                     }
                 }
             }
