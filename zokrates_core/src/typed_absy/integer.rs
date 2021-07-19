@@ -37,6 +37,7 @@ fn get_common_type<'a, T: Field>(
     u: Type<'a, T>,
 ) -> Result<DeclarationType<'a>, (Type<'a, T>, Type<'a, T>)> {
     match (t, u) {
+        (Type::Boolean, Type::Boolean) => Ok(DeclarationType::Boolean),
         (Type::Int, Type::Int) => Err((Type::Int, Type::Int)),
         (Type::Int, Type::FieldElement) => Ok(DeclarationType::FieldElement),
         (Type::Int, Type::Uint(bitwidth)) => Ok(DeclarationType::Uint(bitwidth)),
@@ -118,12 +119,8 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 ))
             }
             (Array(lhs), Array(rhs)) => {
-                println!("hey");
-
                 let common_type = get_common_type(lhs.get_type().clone(), rhs.get_type().clone())
                     .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
-
-                println!("common type {}", common_type);
 
                 let common_type = match common_type {
                     DeclarationType::Array(ty) => ty,
