@@ -299,27 +299,33 @@ pub fn parse_strict<T: Field>(s: &str, types: Vec<ConcreteType>) -> Result<Value
         serde_json::from_str(s).map_err(|e| Error::Json(e.to_string()))?;
 
     match values {
-        serde_json::Value::Array(values) => {
-            if values.len() != types.len() {
-                return Err(Error::Type(format!(
-                    "Expected {} inputs, found {}",
-                    types.len(),
-                    values.len()
-                )));
-            }
-            Ok(Values(
-                types
-                    .into_iter()
-                    .zip(values.into_iter())
-                    .map(|(ty, v)| parse_value(v, ty))
-                    .collect::<Result<_, _>>()?,
-            ))
-        }
+        serde_json::Value::Array(values) => parse_strict_json(values, types),
         _ => Err(Error::Type(format!(
             "Expected an array of values, found `{}`",
             values
         ))),
     }
+}
+
+pub fn parse_strict_json<T: Field>(
+    values: Vec<serde_json::Value>,
+    types: Vec<ConcreteType>,
+) -> Result<Values<T>, Error> {
+    if values.len() != types.len() {
+        return Err(Error::Type(format!(
+            "Expected {} inputs, found {}",
+            types.len(),
+            values.len()
+        )));
+    }
+
+    Ok(Values(
+        types
+            .into_iter()
+            .zip(values.into_iter())
+            .map(|(ty, v)| parse_value(v, ty))
+            .collect::<Result<_, _>>()?,
+    ))
 }
 
 #[cfg(test)]
@@ -428,7 +434,6 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
-                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -450,7 +455,6 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
-                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -468,7 +472,6 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
-                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -486,7 +489,6 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
-                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement

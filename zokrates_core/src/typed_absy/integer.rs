@@ -462,7 +462,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 _ => Err(TypedExpression::Uint(e)),
             },
             TypedExpression::Int(e) => {
-                Self::try_from_int(e, bitwidth).map_err(|e| TypedExpression::Int(e))
+                Self::try_from_int(e, bitwidth).map_err(TypedExpression::Int)
             }
             e => Err(e),
         }
