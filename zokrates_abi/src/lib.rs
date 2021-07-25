@@ -434,6 +434,7 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -455,6 +456,7 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -472,6 +474,7 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -489,6 +492,7 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
