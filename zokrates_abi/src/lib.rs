@@ -325,7 +325,6 @@ pub fn parse_strict<T: Field>(s: &str, types: Vec<ConcreteType>) -> Result<Value
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::iter::FromIterator;
     use zokrates_core::typed_absy::types::{
         ConcreteStructMember, ConcreteStructType, ConcreteType,
     };
@@ -509,10 +508,10 @@ mod tests {
             Value::U64(5u64),
             Value::Boolean(true),
             Value::Array(vec![Value::Field(1.into()), Value::Field(2.into())]),
-            Value::Struct(BTreeMap::from_iter(vec![
+            Value::Struct(vec![
                 ("a".to_string(), Value::Field(1.into())),
                 ("b".to_string(), Value::Field(2.into())),
-            ])),
+            ]),
         ]);
 
         let serde_value = values.into_serde_json();
