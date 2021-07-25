@@ -67,6 +67,17 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
+    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        for (id, _) in p.modules {
+            self.fold_module_id(id);
+        }
+
+        TypedProgram {
+            modules: std::mem::take(&mut self.modules),
+            ..p
+        }
+    }
+
     fn fold_module_id(&mut self, id: OwnedTypedModuleId) -> OwnedTypedModuleId {
         // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
         if !self.treated(&id) {
