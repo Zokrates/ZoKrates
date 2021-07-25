@@ -14,13 +14,10 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
     }
 }
 
-use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_core::typed_absy::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
-
-type Map<K, V> = BTreeMap<K, V>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -48,7 +45,7 @@ pub enum Value<T> {
     Field(T),
     Boolean(bool),
     Array(Vec<Value<T>>),
-    Struct(Map<String, Value<T>>),
+    Struct(Vec<(String, Value<T>)>),
 }
 
 #[derive(PartialEq, Debug)]
