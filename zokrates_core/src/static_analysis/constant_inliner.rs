@@ -68,9 +68,7 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
 
 impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        for (id, _) in p.modules {
-            self.fold_module_id(id);
-        }
+        self.fold_module_id(p.main.clone());
 
         TypedProgram {
             modules: std::mem::take(&mut self.modules),
