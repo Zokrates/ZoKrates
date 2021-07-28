@@ -1216,18 +1216,26 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 let assignment = GGenericsAssignment(generics
                                     .into_iter()
                                     .zip(generic_identifiers)
-                                    .filter_map(|(e, g)| e.map(|e| {
-                                        self
-                                            .check_expression(e, module_id, types)
-                                            .and_then(|e| {
-                                                UExpression::try_from_typed(e, &UBitwidth::B32)
-                                                    .map(|e| (g, e))
-                                                    .map_err(|e| ErrorInner {
-                                                        pos: Some(pos),
-                                                        message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
-                                                    })
-                                            })
-                                    }))
+                                    .map(|(e, g)| match e {
+                                        Some(e) => {
+                                            self
+                                                .check_expression(e, module_id, types)
+                                                .and_then(|e| {
+                                                    UExpression::try_from_typed(e, &UBitwidth::B32)
+                                                        .map(|e| (g, e))
+                                                        .map_err(|e| ErrorInner {
+                                                            pos: Some(pos),
+                                                            message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
+                                                        })
+                                                })
+                                        },
+                                        None => Err(ErrorInner {
+                                            pos: Some(pos),
+                                            message:
+                                                "Expected u32 constant or identifier, but found `_`. Generic inference is not supported yet."
+                                                    .into(),
+                                        })
+                                    })
                                     .collect::<Result<_, _>>()?);
 
                                 // specialize the declared type using the generic assignment

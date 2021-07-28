@@ -773,7 +773,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                         pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
                     },
                     pest::BasicOrStructType::Struct(t) => UnresolvedType::User(
-                        t.span.as_str().to_string(),
+                        t.id.span.as_str().to_string(),
                         t.explicit_generics.map(|explicit_generics| {
                             explicit_generics
                                 .values
