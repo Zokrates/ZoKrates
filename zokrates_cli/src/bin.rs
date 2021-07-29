@@ -20,6 +20,8 @@ fn main() {
     // set a custom panic hook
     std::panic::set_hook(Box::new(panic_hook));
 
+    env_logger::init();
+
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
