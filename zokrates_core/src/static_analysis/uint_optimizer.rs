@@ -146,7 +146,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
             Select(s) => match self.fold_select_expression(s) {
                 SelectOrExpression::Select(s) => {
                     let s = SelectExpression {
-                        array: s.array.into_iter().map(|v| force_no_reduce(v)).collect(),
+                        array: s.array.into_iter().map(force_no_reduce).collect(),
                         ..s
                     };
 
