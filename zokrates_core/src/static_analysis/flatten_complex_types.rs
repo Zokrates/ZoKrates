@@ -602,37 +602,29 @@ fn fold_select_expression<'ast, T: Field, E>(
 
                 let ty = a[0].get_type();
 
+                use zir::Select;
+
                 match ty {
-                    zir::Type::Boolean => zir::BooleanExpression::Select(
+                    zir::Type::Boolean => zir::BooleanExpression::select(
                         a.into_iter()
-                            .map(|e| match e {
-                                zir::ZirExpression::Boolean(e) => e.clone(),
-                                _ => unreachable!(),
-                            })
+                            .map(|e| e.clone().try_into().unwrap())
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
                     .into(),
-                    zir::Type::FieldElement => zir::FieldElementExpression::Select(
+                    zir::Type::FieldElement => zir::FieldElementExpression::select(
                         a.into_iter()
-                            .map(|e| match e {
-                                zir::ZirExpression::FieldElement(e) => e.clone(),
-                                _ => unreachable!(),
-                            })
+                            .map(|e| e.clone().try_into().unwrap())
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
                     .into(),
-                    zir::Type::Uint(bitwidth) => zir::UExpressionInner::Select(
+                    zir::Type::Uint(_) => zir::UExpression::select(
                         a.into_iter()
-                            .map(|e| match e {
-                                zir::ZirExpression::Uint(e) => e.clone(),
-                                _ => unreachable!(),
-                            })
+                            .map(|e| e.clone().try_into().unwrap())
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
-                    .annotate(bitwidth)
                     .into(),
                 }
             })

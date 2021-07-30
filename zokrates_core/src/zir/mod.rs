@@ -7,7 +7,7 @@ mod uint;
 mod variable;
 
 pub use self::parameter::Parameter;
-pub use self::types::Type;
+pub use self::types::{Type, UBitwidth};
 pub use self::variable::Variable;
 pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
@@ -15,6 +15,7 @@ use crate::embed::FlatEmbed;
 use crate::zir::types::Signature;
 use std::convert::TryFrom;
 use std::fmt;
+use std::marker::PhantomData;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
@@ -201,6 +202,65 @@ impl<'ast, T: Field> From<UExpression<'ast, T>> for ZirExpression<'ast, T> {
     }
 }
 
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+pub struct SelectExpression<'ast, T, E> {
+    pub array: Vec<E>,
+    pub index: Box<UExpression<'ast, T>>,
+    pub ty: PhantomData<E>,
+}
+
+impl<'ast, T, E> SelectExpression<'ast, T, E> {
+    pub fn new(array: Vec<E>, index: UExpression<'ast, T>) -> Self {
+        SelectExpression {
+            array,
+            index: box index,
+            ty: PhantomData,
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for SelectExpression<'ast, T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "[{}][{}]",
+            self.array
+                .iter()
+                .map(|a| a.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.index
+        )
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+pub struct IfElseExpression<'ast, T, E> {
+    pub condition: Box<BooleanExpression<'ast, T>>,
+    pub consequence: Box<E>,
+    pub alternative: Box<E>,
+}
+
+impl<'ast, T, E> IfElseExpression<'ast, T, E> {
+    pub fn new(condition: BooleanExpression<'ast, T>, consequence: E, alternative: E) -> Self {
+        IfElseExpression {
+            condition: box condition,
+            consequence: box consequence,
+            alternative: box alternative,
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for IfElseExpression<'ast, T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "if {} then {} else {} fi",
+            self.condition, self.consequence, self.alternative
+        )
+    }
+}
+
 impl<'ast, T: fmt::Display> fmt::Display for ZirExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -263,7 +323,7 @@ pub enum ZirExpressionList<'ast, T> {
 pub enum FieldElementExpression<'ast, T> {
     Number(T),
     Identifier(Identifier<'ast>),
-    Select(Vec<Self>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, Self>),
     Add(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -284,11 +344,7 @@ pub enum FieldElementExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
     ),
-    IfElse(
-        Box<BooleanExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    IfElse(IfElseExpression<'ast, T, Self>),
 }
 
 /// An expression of type `bool`
@@ -296,7 +352,7 @@ pub enum FieldElementExpression<'ast, T> {
 pub enum BooleanExpression<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(bool),
-    Select(Vec<Self>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, Self>),
     FieldLt(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -335,11 +391,7 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Not(Box<BooleanExpression<'ast, T>>),
-    IfElse(
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
-    ),
+    IfElse(IfElseExpression<'ast, T, Self>),
 }
 
 pub struct ConjunctionIterator<T> {
@@ -413,27 +465,13 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
         match *self {
             FieldElementExpression::Number(ref i) => write!(f, "{}", i),
             FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
-            FieldElementExpression::Select(ref a, ref i) => write!(
-                f,
-                "[{}][{}]",
-                a.iter()
-                    .map(|a| a.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                i
-            ),
+            FieldElementExpression::Select(ref s) => write!(f, "{}", s),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             FieldElementExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
-            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => {
-                write!(
-                    f,
-                    "if {} then {} else {} fi",
-                    condition, consequent, alternative
-                )
-            }
+            FieldElementExpression::IfElse(ref e) => write!(f, "{}", e),
         }
     }
 }
@@ -443,15 +481,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
         match self.inner {
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
-            UExpressionInner::Select(ref a, ref i) => write!(
-                f,
-                "[{}][{}]",
-                a.iter()
-                    .map(|a| a.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                i
-            ),
+            UExpressionInner::Select(ref s) => write!(f, "{}", s,),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
@@ -463,11 +493,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
-            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
+            UExpressionInner::IfElse(ref e) => write!(f, "{}", e),
         }
     }
 }
@@ -477,15 +503,7 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::Value(b) => write!(f, "{}", b),
-            BooleanExpression::Select(ref a, ref i) => write!(
-                f,
-                "[{}][{}]",
-                a.iter()
-                    .map(|a| a.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                i
-            ),
+            BooleanExpression::Select(ref s) => write!(f, "{}", s,),
             BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
@@ -500,11 +518,7 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
-            BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
+            BooleanExpression::IfElse(ref e) => write!(f, "{}", e),
         }
     }
 }
@@ -556,6 +570,65 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpressionList<'ast, T> {
 
 // Common behaviour accross expressions
 
+pub trait Expr<'ast, T> {
+    type Inner;
+    type Ty: Clone;
+
+    fn into_inner(self) -> Self::Inner;
+
+    fn as_inner(&self) -> &Self::Inner;
+}
+
+impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
+    type Inner = Self;
+    type Ty = Type;
+
+    fn into_inner(self) -> Self::Inner {
+        self
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self
+    }
+}
+
+impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
+    type Inner = Self;
+    type Ty = Type;
+
+    fn into_inner(self) -> Self::Inner {
+        self
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self
+    }
+}
+
+impl<'ast, T: Clone> Expr<'ast, T> for UExpression<'ast, T> {
+    type Inner = UExpressionInner<'ast, T>;
+    type Ty = UBitwidth;
+
+    fn into_inner(self) -> Self::Inner {
+        self.inner
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self.inner
+    }
+}
+
+pub enum SelectOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Select(SelectExpression<'ast, T, E>),
+    #[allow(dead_code)]
+    Expression(E::Inner),
+}
+pub enum IfElseOrExpression<'ast, T, E: Expr<'ast, T>> {
+    IfElse(IfElseExpression<'ast, T, E>),
+    #[allow(dead_code)]
+    Expression(E::Inner),
+}
+
 pub trait IfElse<'ast, T> {
     fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
         -> Self;
@@ -567,7 +640,7 @@ impl<'ast, T> IfElse<'ast, T> for FieldElementExpression<'ast, T> {
         consequence: Self,
         alternative: Self,
     ) -> Self {
-        FieldElementExpression::IfElse(box condition, box consequence, box alternative)
+        FieldElementExpression::IfElse(IfElseExpression::new(condition, consequence, alternative))
     }
 }
 
@@ -577,7 +650,7 @@ impl<'ast, T> IfElse<'ast, T> for BooleanExpression<'ast, T> {
         consequence: Self,
         alternative: Self,
     ) -> Self {
-        BooleanExpression::IfElse(box condition, box consequence, box alternative)
+        BooleanExpression::IfElse(IfElseExpression::new(condition, consequence, alternative))
     }
 }
 
@@ -589,6 +662,31 @@ impl<'ast, T> IfElse<'ast, T> for UExpression<'ast, T> {
     ) -> Self {
         let bitwidth = consequence.bitwidth;
 
-        UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(bitwidth)
+        UExpressionInner::IfElse(IfElseExpression::new(condition, consequence, alternative))
+            .annotate(bitwidth)
+    }
+}
+
+pub trait Select<'ast, T>: Sized {
+    fn select(array: Vec<Self>, index: UExpression<'ast, T>) -> Self;
+}
+
+impl<'ast, T> Select<'ast, T> for FieldElementExpression<'ast, T> {
+    fn select(array: Vec<Self>, index: UExpression<'ast, T>) -> Self {
+        FieldElementExpression::Select(SelectExpression::new(array, index))
+    }
+}
+
+impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
+    fn select(array: Vec<Self>, index: UExpression<'ast, T>) -> Self {
+        BooleanExpression::Select(SelectExpression::new(array, index))
+    }
+}
+
+impl<'ast, T> Select<'ast, T> for UExpression<'ast, T> {
+    fn select(array: Vec<Self>, index: UExpression<'ast, T>) -> Self {
+        let bitwidth = array[0].bitwidth;
+
+        UExpressionInner::Select(SelectExpression::new(array, index)).annotate(bitwidth)
     }
 }

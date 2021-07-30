@@ -1,6 +1,6 @@
 use crate::zir::identifier::Identifier;
 use crate::zir::types::UBitwidth;
-use crate::zir::BooleanExpression;
+use crate::zir::{IfElseExpression, SelectExpression};
 use zokrates_field::Field;
 
 impl<'ast, T: Field> UExpression<'ast, T> {
@@ -14,11 +14,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Sub(box self, box other).annotate(bitwidth)
-    }
-
-    pub fn select(values: Vec<Self>, index: Self) -> UExpression<'ast, T> {
-        let bitwidth = values[0].bitwidth;
-        UExpressionInner::Select(values, box index).annotate(bitwidth)
     }
 
     pub fn mult(self, other: Self) -> UExpression<'ast, T> {
@@ -165,7 +160,7 @@ pub struct UExpression<'ast, T> {
 pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(u128),
-    Select(Vec<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
@@ -177,11 +172,7 @@ pub enum UExpressionInner<'ast, T> {
     LeftShift(Box<UExpression<'ast, T>>, u32),
     RightShift(Box<UExpression<'ast, T>>, u32),
     Not(Box<UExpression<'ast, T>>),
-    IfElse(
-        Box<BooleanExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-    ),
+    IfElse(IfElseExpression<'ast, T, UExpression<'ast, T>>),
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {

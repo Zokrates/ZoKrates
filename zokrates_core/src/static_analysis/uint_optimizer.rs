@@ -54,22 +54,14 @@ fn force_no_reduce<T: Field>(e: UExpression<T>) -> UExpression<T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
-    fn fold_field_expression(
+    fn fold_select_expression<E: Fold<'ast, T> + Expr<'ast, T>>(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
-        match e {
-            FieldElementExpression::Select(a, box i) => {
-                let a = a
-                    .into_iter()
-                    .map(|e| self.fold_field_expression(e))
-                    .collect();
-                let i = self.fold_uint_expression(i);
+        s: SelectExpression<'ast, T, E>,
+    ) -> SelectOrExpression<'ast, T, E> {
+        let a = s.array.into_iter().map(|e| e.fold(self)).collect();
+        let i = self.fold_uint_expression(*s.index);
 
-                FieldElementExpression::Select(a, box force_reduce(i))
-            }
-            _ => fold_field_expression(self, e),
-        }
+        SelectOrExpression::Select(SelectExpression::new(a, force_reduce(i)))
     }
 
     fn fold_boolean_expression(
@@ -77,15 +69,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
-            BooleanExpression::Select(a, box i) => {
-                let a = a
-                    .into_iter()
-                    .map(|e| self.fold_boolean_expression(e))
-                    .collect();
-                let i = self.fold_uint_expression(i);
-
-                BooleanExpression::Select(a, box force_reduce(i))
-            }
             BooleanExpression::UintEq(box left, box right) => {
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
@@ -160,27 +143,28 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .cloned()
                     .unwrap_or_else(|| panic!("identifier should have been defined: {}", id)),
             ),
-            Select(values, box index) => {
-                let index = self.fold_uint_expression(index);
+            Select(s) => match self.fold_select_expression(s) {
+                SelectOrExpression::Select(s) => {
+                    let s = SelectExpression {
+                        array: s.array.into_iter().map(|v| force_no_reduce(v)).collect(),
+                        ..s
+                    };
 
-                let index = force_reduce(index);
+                    let max_value = T::try_from(
+                        s.array
+                            .iter()
+                            .map(|v| v.metadata.as_ref().unwrap().max.to_biguint())
+                            .max()
+                            .unwrap(),
+                    )
+                    .unwrap();
 
-                let values: Vec<_> = values
-                    .into_iter()
-                    .map(|v| force_no_reduce(self.fold_uint_expression(v)))
-                    .collect();
-
-                let max_value = T::try_from(
-                    values
-                        .iter()
-                        .map(|v| v.metadata.as_ref().unwrap().max.to_biguint())
-                        .max()
-                        .unwrap(),
-                )
-                .unwrap();
-
-                UExpression::select(values, index).with_max(max_value)
-            }
+                    UExpressionInner::Select(s)
+                        .annotate(range)
+                        .with_max(max_value)
+                }
+                _ => unreachable!(),
+            },
             Add(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
@@ -398,23 +382,26 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::right_shift(force_reduce(e), by).with_max(max)
             }
-            IfElse(box condition, box consequence, box alternative) => {
-                let condition = self.fold_boolean_expression(condition);
-                let consequence = self.fold_uint_expression(consequence);
-                let alternative = self.fold_uint_expression(alternative);
+            IfElse(e) => match self.fold_if_else_expression(e) {
+                IfElseOrExpression::IfElse(e) => {
+                    let consequence_max = e.consequence.metadata.clone().unwrap().max;
+                    let alternative_max = e.alternative.metadata.clone().unwrap().max;
 
-                let consequence_max = consequence.metadata.clone().unwrap().max;
-                let alternative_max = alternative.metadata.clone().unwrap().max;
+                    let max =
+                        std::cmp::max(consequence_max.to_biguint(), alternative_max.to_biguint());
 
-                let max = std::cmp::max(consequence_max.to_biguint(), alternative_max.to_biguint());
+                    let e = IfElseExpression {
+                        consequence: box force_no_reduce(*e.consequence),
+                        alternative: box force_no_reduce(*e.alternative),
+                        ..e
+                    };
 
-                UExpression::if_else(
-                    condition,
-                    force_no_reduce(consequence),
-                    force_no_reduce(alternative),
-                )
-                .with_max(T::try_from(max).unwrap())
-            }
+                    UExpressionInner::IfElse(e)
+                        .annotate(range)
+                        .with_max(T::try_from(max).unwrap())
+                }
+                _ => unreachable!(),
+            },
         };
 
         assert!(res.metadata.is_some());
