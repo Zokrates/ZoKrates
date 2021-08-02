@@ -392,6 +392,7 @@ mod integration {
     }
 
     #[test]
+    #[ignore]
     fn test_compile_and_smtlib2_dir() {
         let dir = Path::new("./tests/code");
         assert!(dir.is_dir());
@@ -407,6 +408,7 @@ mod integration {
     }
 
     #[test]
+    #[ignore]
     fn test_rng_tutorial() {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
@@ -429,6 +431,7 @@ mod integration {
     }
 
     #[test]
+    #[ignore]
     fn test_sha256_tutorial() {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
