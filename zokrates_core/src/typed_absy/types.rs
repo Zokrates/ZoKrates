@@ -263,18 +263,6 @@ impl<'ast, T> From<ConcreteStructMember> for StructMember<'ast, T> {
     }
 }
 
-// impl<'ast> From<ConcreteStructMember> for DeclarationStructMember<'ast> {
-//     fn from(t: ConcreteStructMember) -> Self {
-//         try_from_g_struct_member(t).unwrap()
-//     }
-// }
-
-// impl<'ast, T> From<DeclarationStructMember<'ast>> for StructMember<'ast, T> {
-//     fn from(t: DeclarationStructMember<'ast>) -> Self {
-//         try_from_g_struct_member(t).unwrap()
-//     }
-// }
-
 #[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GArrayType<S> {
     pub size: S,
@@ -350,12 +338,6 @@ pub struct StructLocation {
 
 impl<'ast> From<ConcreteArrayType> for DeclarationArrayType<'ast> {
     fn from(t: ConcreteArrayType) -> Self {
-        try_from_g_array_type(t).unwrap()
-    }
-}
-
-impl<'ast, T> From<DeclarationArrayType<'ast>> for ArrayType<'ast, T> {
-    fn from(t: DeclarationArrayType<'ast>) -> Self {
         try_from_g_array_type(t).unwrap()
     }
 }
@@ -439,12 +421,6 @@ impl<'ast> From<ConcreteStructType> for DeclarationStructType<'ast> {
         try_from_g_struct_type(t).unwrap()
     }
 }
-
-// impl<'ast, T> From<DeclarationStructType<'ast>> for StructType<'ast, T> {
-//     fn from(t: DeclarationStructType<'ast>) -> Self {
-//         try_from_g_struct_type(t).unwrap()
-//     }
-// }
 
 impl<S> GStructType<S> {
     pub fn new(

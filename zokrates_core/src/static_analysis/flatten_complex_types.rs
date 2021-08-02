@@ -129,7 +129,7 @@ impl<'ast, T: Field> Flattener<T> {
         p: typed_absy::DeclarationParameter<'ast>,
     ) -> Vec<zir::Parameter<'ast>> {
         let private = p.private;
-        self.fold_variable(p.id.try_into().unwrap())
+        self.fold_variable(crate::typed_absy::variable::try_from_g_variable(p.id).unwrap())
             .into_iter()
             .map(|v| zir::Parameter { id: v, private })
             .collect()

@@ -205,20 +205,19 @@ pub struct StructDefinition<'ast> {
 
 impl<'ast> fmt::Display for StructDefinition<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "<{}> {{\n  {}\n}}",
+            "<{}> {{",
             self.generics
                 .iter()
                 .map(|g| g.to_string())
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.fields
-                .iter()
-                .map(|fi| fi.to_string())
-                .collect::<Vec<_>>()
-                .join("\n  ")
-        )
+        )?;
+        for field in &self.fields {
+            writeln!(f, "  {}", field)?;
+        }
+        write!(f, "}}",)
     }
 }
 

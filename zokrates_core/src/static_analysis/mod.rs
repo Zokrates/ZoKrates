@@ -83,13 +83,11 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 
         // reduce the program to a single function
         let r = reduce_program(r).map_err(Error::from)?;
-
         // generate abi
         let abi = r.abi();
 
         // propagate
         let r = Propagator::propagate(r).map_err(Error::from)?;
-
         // remove assignment to variable index
         let r = VariableWriteRemover::apply(r);
         // detect non constant shifts

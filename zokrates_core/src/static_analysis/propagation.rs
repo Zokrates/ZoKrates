@@ -327,7 +327,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             // propagation to the defined variable if rhs is a constant
             TypedStatement::Definition(assignee, expr) => {
                 let expr = self.fold_expression(expr)?;
-
                 let assignee = self.fold_assignee(assignee)?;
 
                 if let (Ok(a), Ok(e)) = (

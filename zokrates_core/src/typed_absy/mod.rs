@@ -14,7 +14,7 @@ mod integer;
 mod parameter;
 pub mod types;
 mod uint;
-mod variable;
+pub mod variable;
 
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};

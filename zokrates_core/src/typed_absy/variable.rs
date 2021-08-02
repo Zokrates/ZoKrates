@@ -25,16 +25,6 @@ impl<'ast, T> TryFrom<Variable<'ast, T>> for ConcreteVariable<'ast> {
     }
 }
 
-// impl<'ast> TryFrom<DeclarationVariable<'ast>> for ConcreteVariable<'ast> {
-//     type Error = SpecializationError;
-
-//     fn try_from(v: DeclarationVariable<'ast>) -> Result<Self, Self::Error> {
-//         let _type = v._type.try_into()?;
-
-//         Ok(Self { _type, id: v.id })
-//     }
-// }
-
 impl<'ast, T> From<ConcreteVariable<'ast>> for Variable<'ast, T> {
     fn from(v: ConcreteVariable<'ast>) -> Self {
         let _type = v._type.into();
@@ -43,12 +33,12 @@ impl<'ast, T> From<ConcreteVariable<'ast>> for Variable<'ast, T> {
     }
 }
 
-impl<'ast, T> From<DeclarationVariable<'ast>> for Variable<'ast, T> {
-    fn from(v: DeclarationVariable<'ast>) -> Self {
-        let _type = crate::typed_absy::types::try_from_g_type(v._type).unwrap();
+pub fn try_from_g_variable<'ast, T: TryInto<U>, U>(
+    v: GVariable<'ast, T>,
+) -> Result<GVariable<U>, SpecializationError> {
+    let _type = crate::typed_absy::types::try_from_g_type(v._type)?;
 
-        Self { _type, id: v.id }
-    }
+    Ok(GVariable { _type, id: v.id })
 }
 
 impl<'ast, S: Clone> GVariable<'ast, S> {

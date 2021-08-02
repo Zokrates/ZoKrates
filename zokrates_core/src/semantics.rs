@@ -945,7 +945,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v =
                         DeclarationVariable::with_id_and_type(arg.id.value.id, decl_ty.clone());
 
-                    match self.insert_into_scope(decl_v.clone()) {
+                    match self.insert_into_scope(
+                        crate::typed_absy::variable::try_from_g_variable(decl_v.clone()).unwrap(),
+                    ) {
                         true => {}
                         false => {
                             errors.push(ErrorInner {
@@ -3258,9 +3260,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
         })
     }
 
-    fn insert_into_scope<U: Into<Variable<'ast, T>>>(&mut self, v: U) -> bool {
+    fn insert_into_scope(&mut self, v: Variable<'ast, T>) -> bool {
         self.scope.insert(ScopedVariable {
-            id: v.into(),
+            id: v,
             level: self.level,
         })
     }
