@@ -1410,7 +1410,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .map(|m| {
                                         Ok(DeclarationStructMember {
                                             ty: box specialize_declaration_type(*m.ty, &assignment)
-                                                .map_err(|_| unimplemented!())?,
+                                                .unwrap(),
                                             ..m
                                         })
                                     })
