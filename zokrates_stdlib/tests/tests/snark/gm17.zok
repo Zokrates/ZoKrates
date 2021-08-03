@@ -26,34 +26,27 @@
 // 5. Generate the test case
 // 
 // ```sh
-// rm gm17.json
-// touch gm17.json
-
-// echo '{
-// 	"entry_point": "./tests/tests/snark/gm17.zok",
-// 	"curves": ["Bw6_761"],
-// 	"tests": [
-// 		{
-// 			"input": {
-// 				"values": [' >> gm17.json
-
-// cat proof.json >> gm17.json
-
-// echo ', ' >> gm17.json
-
-// cat verification.key >> gm17.json
-
-// echo '   
+// cat > gm17.json << EOT
+// {
+//     "entry_point": "./tests/tests/snark/gm17.zok",
+//     "curves": ["Bw6_761"],
+//     "tests": [
+//         {
+//             "abi": true,
+//             "input": {
+//                 "values": [
+//                       $(cat proof.json && echo ", " && cat verification.key)
 //                 ]
-// 			},
-// 			"output": {
-// 				"Ok": {
-// 					"values": ["1"]
-// 				}
-// 			}
-// 		}
-// 	]
-// }' >> gm17.json
+//             },
+//             "output": {
+//                 "Ok": {
+//                      "values": ["1"]
+//                 }
+//             }
+//         }
+//     ]
+// }
+// EOT
 // ```
 //
 // `gm17.json` can then be used as a test for this code file
