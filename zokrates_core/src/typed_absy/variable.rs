@@ -33,8 +33,8 @@ impl<'ast, T> From<ConcreteVariable<'ast>> for Variable<'ast, T> {
     }
 }
 
-pub fn try_from_g_variable<'ast, T: TryInto<U>, U>(
-    v: GVariable<'ast, T>,
+pub fn try_from_g_variable<T: TryInto<U>, U>(
+    v: GVariable<T>,
 ) -> Result<GVariable<U>, SpecializationError> {
     let _type = crate::typed_absy::types::try_from_g_type(v._type)?;
 
