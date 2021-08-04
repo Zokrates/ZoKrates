@@ -984,7 +984,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
 
                 // check that the decomposition is in the field with a strict `< p` checks
-                self.constant_le_check(
+                self.enforce_constant_le_check(
                     statements_flattened,
                     &sub_bits_be,
                     &T::max_value().bit_vector_be(),
