@@ -1,0 +1,5 @@
+from "EMBED" import bit_array_le
+
+// Unpack a field element as N big endian bits
+def main(bool[1] a, bool[1] b) -> bool:
+    return bit_array_le::<1>(a, b)

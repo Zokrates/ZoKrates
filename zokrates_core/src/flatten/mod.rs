@@ -222,7 +222,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         b: &[bool],
     ) -> Vec<FlatExpression<T>> {
         let len = b.len();
-        assert_eq!(a.len(), T::get_required_bits());
         assert_eq!(a.len(), b.len());
 
         let mut is_not_smaller_run = vec![];
@@ -984,7 +983,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
 
                 // check that the decomposition is in the field with a strict `< p` checks
-                self.constant_le_check(
+                self.enforce_constant_le_check(
                     statements_flattened,
                     &sub_bits_be,
                     &T::max_value().bit_vector_be(),
@@ -1160,6 +1159,52 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             crate::embed::FlatEmbed::U8FromBits => {
                 vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 8.into())]
+            }
+            crate::embed::FlatEmbed::BitArrayLe => {
+                let len = generics[0];
+
+                let (expressions, constants) = (
+                    param_expressions[..len as usize].to_vec(),
+                    param_expressions[len as usize..].to_vec(),
+                );
+
+                let variables: Vec<_> = expressions
+                    .into_iter()
+                    .map(|e| {
+                        let e = self
+                            .flatten_expression(statements_flattened, e)
+                            .get_field_unchecked();
+                        self.define(e, statements_flattened)
+                    })
+                    .collect();
+
+                let constants: Vec<_> = constants
+                    .into_iter()
+                    .map(|e| {
+                        self.flatten_expression(statements_flattened, e)
+                            .get_field_unchecked()
+                    })
+                    .map(|e| match e {
+                        FlatExpression::Number(n) => n == T::one(),
+                        _ => unreachable!(),
+                    })
+                    .collect();
+
+                let conditions =
+                    self.constant_le_check(statements_flattened, &variables, &constants);
+
+                // return `len(conditions) == sum(conditions)`
+                vec![FlatUExpression::with_field(
+                    self.eq_check(
+                        statements_flattened,
+                        T::from(conditions.len()).into(),
+                        conditions
+                            .into_iter()
+                            .fold(FlatExpression::Number(T::zero()), |acc, e| {
+                                FlatExpression::Add(box acc, box e)
+                            }),
+                    ),
+                )]
             }
             funct => {
                 let funct = funct.synthetize(&generics);

@@ -502,6 +502,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match embed {
                                     FlatEmbed::U32ToField => None, // todo
+                                    FlatEmbed::BitArrayLe => None, // todo
                                     FlatEmbed::U64FromBits => Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),

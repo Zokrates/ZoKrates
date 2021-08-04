@@ -156,10 +156,18 @@ impl Interpreter {
                 ],
             },
             Solver::Bits(bit_width) => {
+                let padding = bit_width.saturating_sub(T::get_required_bits());
+
+                let bit_width = bit_width - padding;
+
                 let mut num = inputs[0].clone();
                 let mut res = vec![];
 
-                for i in (0..*bit_width).rev() {
+                for _ in 0..padding {
+                    res.push(T::zero());
+                }
+
+                for i in (0..bit_width).rev() {
                     if T::from(2).pow(i) <= num {
                         num = num - T::from(2).pow(i);
                         res.push(T::one());
@@ -406,5 +414,19 @@ mod tests {
         assert_eq!(res[249], Bn128Field::from(0));
         assert_eq!(res[248], Bn128Field::from(1));
         assert_eq!(res[247], Bn128Field::from(0));
+    }
+
+    #[test]
+    fn five_hundred_bits_of_1() {
+        let inputs = vec![Bn128Field::from(1)];
+        let interpreter = Interpreter::default();
+        let res = interpreter
+            .execute_solver(&Solver::Bits(500), &inputs)
+            .unwrap();
+
+        let mut expected = vec![Bn128Field::from(0); 500];
+        expected[499] = Bn128Field::from(1);
+
+        assert_eq!(res, expected);
     }
 }
