@@ -215,6 +215,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///                   **true => a -> 0
     ///      sizeUnkown *
     ///                   **false => a -> {0,1}
+    #[must_use]
     fn constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
