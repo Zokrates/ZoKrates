@@ -1019,8 +1019,8 @@ impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
 /// type checking
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub struct ArrayExpression<'ast, T> {
-    ty: Box<ArrayType<'ast, T>>,
-    inner: ArrayExpressionInner<'ast, T>,
+    pub ty: Box<ArrayType<'ast, T>>,
+    pub inner: ArrayExpressionInner<'ast, T>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]

@@ -1174,6 +1174,34 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 },
                 None => Ok(ArrayExpressionInner::Identifier(id)),
             },
+            ArrayExpressionInner::Value(exprs) => {
+                Ok(ArrayExpressionInner::Value(
+                    exprs
+                        .into_iter()
+                        .map(|e| self.fold_expression_or_spread(e))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flat_map(|e| {
+                            match e {
+                                // simplify `...[a, b]` to `a, b`
+                                TypedExpressionOrSpread::Spread(TypedSpread {
+                                    array:
+                                        ArrayExpression {
+                                            ty: _,
+                                            inner: ArrayExpressionInner::Value(v),
+                                        },
+                                }) => v.0,
+                                e => vec![e],
+                            }
+                        })
+                        // ignore spreads over empty arrays
+                        .filter_map(|e| match e {
+                            TypedExpressionOrSpread::Spread(s) if s.array.size() == 0 => None,
+                            e => Some(e),
+                        })
+                        .collect(),
+                ))
+            }
             e => fold_array_expression_inner(self, ty, e),
         }
     }
