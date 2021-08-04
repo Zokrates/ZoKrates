@@ -2047,6 +2047,14 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                             .take(to as usize - from as usize)
                             .collect()
                     }
+                    ArrayExpressionInner::Repeat(box e, box count) => {
+                        let count = match count.into_inner() {
+                            UExpressionInner::Value(count) => count,
+                            _ => unreachable!(),
+                        };
+
+                        vec![e; count as usize]
+                    }
                     a => unreachable!("{}", a),
                 },
             }
