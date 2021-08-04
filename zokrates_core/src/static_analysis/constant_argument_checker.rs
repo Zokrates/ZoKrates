@@ -3,8 +3,7 @@ use crate::typed_absy::TypedProgram;
 use crate::typed_absy::{
     result_folder::ResultFolder,
     result_folder::{fold_expression_list_inner, fold_uint_expression_inner},
-    ArrayExpressionInner, BooleanExpression, TypedExpression, TypedExpressionListInner,
-    TypedExpressionOrSpread, Types, UBitwidth, UExpressionInner,
+    Constant, TypedExpressionListInner, Types, UBitwidth, UExpressionInner,
 };
 use zokrates_field::Field;
 pub struct ConstantArgumentChecker;
@@ -68,29 +67,17 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                     .map(|a| self.fold_expression(a))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                match arguments[1] {
-                    TypedExpression::Array(ref a) => match a.as_inner() {
-                        ArrayExpressionInner::Value(v) => {
-                            if v.0.iter().all(|v| {
-                                matches!(
-                                    v,
-                                    TypedExpressionOrSpread::Expression(TypedExpression::Boolean(
-                                        BooleanExpression::Value(_)
-                                    ))
-                                )
-                            }) {
-                                Ok(TypedExpressionListInner::EmbedCall(
-                                    FlatEmbed::BitArrayLe,
-                                    generics,
-                                    arguments,
-                                ))
-                            } else {
-                                Err(format!("Cannot compare to a variable value, found `{}`", a))
-                            }
-                        }
-                        v => Err(format!("Cannot compare to a variable value, found `{}`", v)),
-                    },
-                    _ => unreachable!(),
+                if arguments[1].is_constant() {
+                    Ok(TypedExpressionListInner::EmbedCall(
+                        FlatEmbed::BitArrayLe,
+                        generics,
+                        arguments,
+                    ))
+                } else {
+                    Err(format!(
+                        "Cannot compare to a variable value, found `{}`",
+                        arguments[1]
+                    ))
                 }
             }
             l => fold_expression_list_inner(self, tys, l),

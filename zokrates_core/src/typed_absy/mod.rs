@@ -1970,3 +1970,194 @@ impl<'ast, T: Field> Block<'ast, T> for StructExpression<'ast, T> {
         StructExpressionInner::Block(BlockExpression::new(statements, value)).annotate(struct_ty)
     }
 }
+
+pub trait Constant: Sized {
+    fn is_constant(&self) -> bool;
+
+    fn into_canonical_constant(self) -> Self {
+        self
+    }
+}
+
+impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, FieldElementExpression::Number(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for BooleanExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, BooleanExpression::Value(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for UExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self.as_inner(), UExpressionInner::Value(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self.as_inner() {
+            ArrayExpressionInner::Value(v) => v.0.iter().all(|e| match e {
+                TypedExpressionOrSpread::Expression(e) => e.is_constant(),
+                TypedExpressionOrSpread::Spread(s) => s.array.is_constant(),
+            }),
+            ArrayExpressionInner::Slice(box a, box from, box to) => {
+                from.is_constant() && to.is_constant() && a.is_constant()
+            }
+            ArrayExpressionInner::Repeat(box e, box count) => {
+                count.is_constant() && e.is_constant()
+            }
+            _ => false,
+        }
+    }
+
+    fn into_canonical_constant(self) -> Self {
+        fn into_canonical_constant_aux<T: Field>(
+            e: TypedExpressionOrSpread<T>,
+        ) -> Vec<TypedExpression<T>> {
+            match e {
+                TypedExpressionOrSpread::Expression(e) => vec![e],
+                TypedExpressionOrSpread::Spread(s) => match s.array.into_inner() {
+                    ArrayExpressionInner::Value(v) => v
+                        .into_iter()
+                        .flat_map(into_canonical_constant_aux)
+                        .collect(),
+                    ArrayExpressionInner::Slice(box v, box from, box to) => {
+                        let from = match from.into_inner() {
+                            UExpressionInner::Value(v) => v,
+                            _ => unreachable!(),
+                        };
+
+                        let to = match to.into_inner() {
+                            UExpressionInner::Value(v) => v,
+                            _ => unreachable!(),
+                        };
+
+                        let v = match v.into_inner() {
+                            ArrayExpressionInner::Value(v) => v,
+                            _ => unreachable!(),
+                        };
+
+                        v.into_iter()
+                            .flat_map(into_canonical_constant_aux)
+                            .skip(from as usize)
+                            .take(to as usize - from as usize)
+                            .collect()
+                    }
+                    a => unreachable!("{}", a),
+                },
+            }
+        }
+
+        let array_ty = self.ty();
+
+        match self.into_inner() {
+            ArrayExpressionInner::Value(v) => ArrayExpressionInner::Value(
+                v.into_iter()
+                    .flat_map(into_canonical_constant_aux)
+                    .map(|e| e.into())
+                    .collect::<Vec<_>>()
+                    .into(),
+            )
+            .annotate(*array_ty.ty, array_ty.size)
+            .into(),
+            ArrayExpressionInner::Slice(box a, box from, box to) => {
+                let from = match from.into_inner() {
+                    UExpressionInner::Value(from) => from as usize,
+                    _ => unreachable!("should be a uint value"),
+                };
+
+                let to = match to.into_inner() {
+                    UExpressionInner::Value(to) => to as usize,
+                    _ => unreachable!("should be a uint value"),
+                };
+
+                let v = match a.into_inner() {
+                    ArrayExpressionInner::Value(v) => v,
+                    _ => unreachable!("should be an array value"),
+                };
+
+                ArrayExpressionInner::Value(
+                    v.into_iter()
+                        .flat_map(into_canonical_constant_aux)
+                        .map(|e| e.into())
+                        .enumerate()
+                        .filter(|(index, _)| index >= &from && index < &to)
+                        .map(|(_, e)| e)
+                        .collect::<Vec<_>>()
+                        .into(),
+                )
+                .annotate(*array_ty.ty, array_ty.size)
+                .into()
+            }
+            ArrayExpressionInner::Repeat(box e, box count) => {
+                let count = match count.into_inner() {
+                    UExpressionInner::Value(from) => from as usize,
+                    _ => unreachable!("should be a uint value"),
+                };
+
+                let e = e.into_canonical_constant();
+
+                ArrayExpressionInner::Value(
+                    vec![TypedExpressionOrSpread::Expression(e); count].into(),
+                )
+                .annotate(*array_ty.ty, array_ty.size)
+                .into()
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<'ast, T: Field> Constant for StructExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self.as_inner() {
+            StructExpressionInner::Value(v) => v.iter().all(|e| e.is_constant()),
+            _ => false,
+        }
+    }
+
+    fn into_canonical_constant(self) -> Self {
+        let struct_ty = self.ty().clone();
+
+        match self.into_inner() {
+            StructExpressionInner::Value(expressions) => StructExpressionInner::Value(
+                expressions
+                    .into_iter()
+                    .map(|e| e.into_canonical_constant())
+                    .collect(),
+            )
+            .annotate(struct_ty)
+            .into(),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<'ast, T: Field> Constant for TypedExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self {
+            TypedExpression::FieldElement(e) => e.is_constant(),
+            TypedExpression::Boolean(e) => e.is_constant(),
+            TypedExpression::Array(e) => e.is_constant(),
+            TypedExpression::Struct(e) => e.is_constant(),
+            TypedExpression::Uint(e) => e.is_constant(),
+            _ => unreachable!(),
+        }
+    }
+
+    // in the constant map, we only want canonical constants: [0; 3] -> [0, 0, 0], [...[1], 2] -> [1, 2], etc
+    fn into_canonical_constant(self) -> Self {
+        match self {
+            TypedExpression::FieldElement(e) => e.into_canonical_constant().into(),
+            TypedExpression::Boolean(e) => e.into_canonical_constant().into(),
+            TypedExpression::Array(e) => e.into_canonical_constant().into(),
+            TypedExpression::Struct(e) => e.into_canonical_constant().into(),
+            TypedExpression::Uint(e) => e.into_canonical_constant().into(),
+            _ => unreachable!(),
+        }
+    }
+}
