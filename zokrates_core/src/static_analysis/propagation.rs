@@ -1187,10 +1187,27 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 TypedExpressionOrSpread::Spread(TypedSpread {
                                     array:
                                         ArrayExpression {
-                                            ty: _,
                                             inner: ArrayExpressionInner::Value(v),
+                                            ..
                                         },
                                 }) => v.0,
+                                // simplify ...[a; N] to [a, ..., a] if a is constant
+                                TypedExpressionOrSpread::Spread(TypedSpread {
+                                    array:
+                                        ArrayExpression {
+                                            inner:
+                                                ArrayExpressionInner::Repeat(
+                                                    box v,
+                                                    box UExpression {
+                                                        inner: UExpressionInner::Value(count),
+                                                        ..
+                                                    },
+                                                ),
+                                            ..
+                                        },
+                                }) if is_constant(&v) => {
+                                    vec![TypedExpressionOrSpread::Expression(v); count as usize]
+                                }
                                 e => vec![e],
                             }
                         })
