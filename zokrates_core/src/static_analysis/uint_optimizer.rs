@@ -738,7 +738,7 @@ mod tests {
 
             assert_eq!(
                 UintOptimizer::new()
-                    .fold_uint_expression(UExpression::right_shift(left.clone(), right.clone())),
+                    .fold_uint_expression(UExpression::right_shift(left.clone(), right)),
                 UExpression::right_shift(left_expected, right_expected).with_max(output_max)
             );
         }
@@ -761,7 +761,7 @@ mod tests {
 
             assert_eq!(
                 UintOptimizer::new()
-                    .fold_uint_expression(UExpression::left_shift(left.clone(), right.clone())),
+                    .fold_uint_expression(UExpression::left_shift(left.clone(), right)),
                 UExpression::left_shift(left_expected, right_expected).with_max(output_max)
             );
         }

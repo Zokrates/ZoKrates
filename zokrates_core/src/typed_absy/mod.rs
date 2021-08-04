@@ -2062,8 +2062,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                     .collect::<Vec<_>>()
                     .into(),
             )
-            .annotate(*array_ty.ty, array_ty.size)
-            .into(),
+            .annotate(*array_ty.ty, array_ty.size),
             ArrayExpressionInner::Slice(box a, box from, box to) => {
                 let from = match from.into_inner() {
                     UExpressionInner::Value(from) => from as usize,
@@ -2091,7 +2090,6 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                         .into(),
                 )
                 .annotate(*array_ty.ty, array_ty.size)
-                .into()
             }
             ArrayExpressionInner::Repeat(box e, box count) => {
                 let count = match count.into_inner() {
@@ -2105,7 +2103,6 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                     vec![TypedExpressionOrSpread::Expression(e); count].into(),
                 )
                 .annotate(*array_ty.ty, array_ty.size)
-                .into()
             }
             _ => unreachable!(),
         }
@@ -2130,8 +2127,7 @@ impl<'ast, T: Field> Constant for StructExpression<'ast, T> {
                     .map(|e| e.into_canonical_constant())
                     .collect(),
             )
-            .annotate(struct_ty)
-            .into(),
+            .annotate(struct_ty),
             _ => unreachable!(),
         }
     }
