@@ -197,7 +197,7 @@ impl FlatEmbed {
 
     pub fn id(&self) -> &'static str {
         match self {
-            &FlatEmbed::BitArrayLe => "_BIT_ARRAY_LT",
+            FlatEmbed::BitArrayLe => "_BIT_ARRAY_LT",
             FlatEmbed::U32ToField => "_U32_TO_FIELD",
             FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
@@ -475,9 +475,8 @@ fn use_variable(
 /// * bit_width the number of bits we want to decompose to
 ///
 /// # Remarks
-/// * the return value of the `FlatFunction` is not deterministic if `bit_width == T::get_required_bits()`
-///   as we decompose over `log_2(p) + 1 bits, some
-///   elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
+/// * the return value of the `FlatFunction` is not deterministic if `bit_width >= T::get_required_bits()`
+///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
     let mut counter = 0;
 
