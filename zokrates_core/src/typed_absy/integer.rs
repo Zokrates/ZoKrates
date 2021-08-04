@@ -82,7 +82,7 @@ impl<'ast, T> IntegerInference for ArrayType<'ast, T> {
             self.ty
                 .get_common_pattern(*other.ty)
                 .map_err(|(t, u)| (ArrayType::new(t, s0), ArrayType::new(u, s1)))?,
-            DeclarationConstant::Generic(GenericIdentifier::with_name("DUMMY")),
+            DeclarationConstant::Generic(GenericIdentifier::with_name("DUMMY")), // sizes are not checked at this stage, therefore we insert a dummy generic variable which will be equal to all possible sizes
         ))
     }
 }
