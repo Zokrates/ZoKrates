@@ -124,13 +124,18 @@ mod tests {
 
         builder
             .spawn(|| {
-                for p in glob("./examples/**/*.zok").expect("Failed to read glob pattern") {
+                for p in glob("./examples/**/!(*.sh)").expect("Failed to read glob pattern") {
                     let path = match p {
                         Ok(x) => x,
                         Err(why) => panic!("Error: {:?}", why),
                     };
 
+                    if !path.is_file() {
+                        continue;
+                    }
+
                     println!("Testing {:?}", path);
+                    assert_eq!(path.extension().expect("extension expected"), "zok");
 
                     let should_error = path.to_str().unwrap().contains("compile_errors");
 
@@ -165,7 +170,9 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
             println!("Testing {:?}", path);
+            assert_eq!(path.extension().expect("extension expected"), "zok");
 
             let file = File::open(path.clone()).unwrap();
 
@@ -190,12 +197,14 @@ mod tests {
     #[test]
     fn execute_examples_err() {
         //these examples should compile but not run
-        for p in glob("./examples/runtime_errors/*.zok").expect("Failed to read glob pattern") {
+        for p in glob("./examples/runtime_errors/*").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
             println!("Testing {:?}", path);
+            assert_eq!(path.extension().expect("extension expected"), "zok");
 
             let file = File::open(path.clone()).unwrap();
 
