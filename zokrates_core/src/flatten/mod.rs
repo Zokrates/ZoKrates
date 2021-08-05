@@ -1982,8 +1982,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         // constants do not require directives
         if let Some(FlatExpression::Number(ref x)) = e.field {
-            let bits: Vec<_> = Interpreter::default()
-                .execute_solver(&Solver::bits(to), &[x.clone()])
+            let bits: Vec<_> = Interpreter::execute_solver(&Solver::bits(to), &[x.clone()])
                 .unwrap()
                 .into_iter()
                 .map(FlatExpression::Number)

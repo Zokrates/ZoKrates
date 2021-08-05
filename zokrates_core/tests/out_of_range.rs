@@ -129,7 +129,7 @@ fn unpack256_unchecked() {
     .to_string();
 
     // let's try to prove that the least significant bit of 0 is 1
-    // we exploit the fact that the bits of 0 are the bits of p, and p is even
+    // we exploit the fact that the bits of 0 are the bits of p, and p is odd
     // we want this to succeed as the non strict version does not enforce the bits to be in range
 
     let stdlib_path = std::fs::canonicalize(
