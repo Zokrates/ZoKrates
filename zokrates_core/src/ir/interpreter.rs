@@ -65,33 +65,27 @@ impl Interpreter {
                         }
                     }
                 },
-                Statement::Directive(ref d) => {
-                    match (&d.solver, &d.inputs, self.should_try_out_of_range) {
-                        (Solver::Bits(bitwidth), inputs, true)
-                            if inputs[0].left.0.len() > 1
-                                || inputs[0].right.0.len() > 1
-                                    && *bitwidth == T::get_required_bits() =>
-                        {
-                            Self::try_solve_out_of_range(&d, &mut witness)
-                        }
-                        _ => {
-                            let inputs: Vec<_> = d
-                                .inputs
-                                .iter()
-                                .map(|i| i.evaluate(&witness).unwrap())
-                                .collect();
-                            match self.execute_solver(&d.solver, &inputs) {
-                                Ok(res) => {
-                                    for (i, o) in d.outputs.iter().enumerate() {
-                                        witness.insert(*o, res[i].clone());
-                                    }
-                                    continue;
-                                }
-                                Err(_) => return Err(Error::Solver),
-                            };
-                        }
+                Statement::Directive(ref d) => match (&d.solver, self.should_try_out_of_range) {
+                    (Solver::Bits(bitwidth), true) if *bitwidth >= T::get_required_bits() => {
+                        Self::try_solve_out_of_range(&d, &mut witness)
                     }
-                }
+                    _ => {
+                        let inputs: Vec<_> = d
+                            .inputs
+                            .iter()
+                            .map(|i| i.evaluate(&witness).unwrap())
+                            .collect();
+                        match self.execute_solver(&d.solver, &inputs) {
+                            Ok(res) => {
+                                for (i, o) in d.outputs.iter().enumerate() {
+                                    witness.insert(*o, res[i].clone());
+                                }
+                                continue;
+                            }
+                            Err(_) => return Err(Error::Solver),
+                        };
+                    }
+                },
             }
         }
 
@@ -104,7 +98,9 @@ impl Interpreter {
         // we target the `2a - 2b` part of the `<` check by only returning out-of-range results
         // when the input is not a single summand
         let value = d.inputs[0].evaluate(&witness).unwrap();
+
         let candidate = value.to_biguint() + T::max_value().to_biguint() + T::from(1).to_biguint();
+
         let input = if candidate < T::from(2).to_biguint().pow(T::get_required_bits()) {
             candidate
         } else {
@@ -123,6 +119,9 @@ impl Interpreter {
             }
         }
         assert_eq!(num, T::zero().to_biguint());
+
+        println!("RES {:?}", res);
+
         for (i, o) in d.outputs.iter().enumerate() {
             witness.insert(*o, res[i].clone());
         }

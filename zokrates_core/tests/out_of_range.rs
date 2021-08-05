@@ -10,9 +10,10 @@ use zokrates_core::{
     ir::Interpreter,
 };
 use zokrates_field::Bn128Field;
+use zokrates_fs_resolver::FileSystemResolver;
 
 #[test]
-fn out_of_range() {
+fn lt_field() {
     let source = r#"
 		def main(private field a, private field b) -> field:
 	        field x = if a < b then 3333 else 4444 fi
@@ -21,7 +22,7 @@ fn out_of_range() {
 	"#
     .to_string();
 
-    // let's try to prove that "10000 < 5555" is true by exploiting
+    // let's try to prove that "10000f < 5555f" is true by exploiting
     // the fact that `2*10000 - 2*5555` has two distinct bit decompositions
     // we chose the one which is out of range, ie the sum check features an overflow
 
@@ -41,4 +42,116 @@ fn out_of_range() {
             &[Bn128Field::from(10000), Bn128Field::from(5555)]
         )
         .is_err());
+}
+
+#[test]
+fn lt_uint() {
+    let source = r#"
+		def main(private u32 a, private u32 b):
+	        field x = if a < b then 3333 else 4444 fi
+	        assert(x == 3333)
+			return
+	"#
+    .to_string();
+
+    // let's try to prove that "10000u32 < 5555u32" is true by exploiting
+    // the fact that `2*10000 - 2*5555` has two distinct bit decompositions
+    // we chose the one which is out of range, ie the sum check features an overflow
+
+    let res: CompilationArtifacts<Bn128Field> = compile(
+        source,
+        "./path/to/file".into(),
+        None::<&dyn Resolver<io::Error>>,
+        &CompileConfig::default(),
+    )
+    .unwrap();
+
+    let interpreter = Interpreter::try_out_of_range();
+
+    assert!(interpreter
+        .execute(
+            &res.prog(),
+            &[Bn128Field::from(10000), Bn128Field::from(5555)]
+        )
+        .is_err());
+}
+
+#[test]
+fn unpack256() {
+    let source = r#"
+        import "utils/pack/bool/unpack256"
+
+		def main(private field a):
+	        bool[256] bits = unpack256(a)
+			assert(bits[255])
+            return
+	"#
+    .to_string();
+
+    // let's try to prove that the least significant bit of 0 is 1
+    // we exploit the fact that the bits of 0 are the bits of p, and p is even
+    // we want this to still fail
+
+    let stdlib_path = std::fs::canonicalize(
+        std::env::current_dir()
+            .unwrap()
+            .join("../zokrates_stdlib/stdlib"),
+    )
+    .unwrap();
+
+    let res: CompilationArtifacts<Bn128Field> = compile(
+        source,
+        "./path/to/file".into(),
+        Some(&FileSystemResolver::with_stdlib_root(
+            stdlib_path.to_str().unwrap(),
+        )),
+        &CompileConfig::default(),
+    )
+    .unwrap();
+
+    let interpreter = Interpreter::try_out_of_range();
+
+    assert!(interpreter
+        .execute(&res.prog(), &[Bn128Field::from(0)])
+        .is_err());
+}
+
+#[test]
+fn unpack256_unchecked() {
+    let source = r#"
+        import "utils/pack/bool/nonStrictUnpack256"
+
+		def main(private field a):
+	        bool[256] bits = nonStrictUnpack256(a)
+			assert(bits[255])
+            return
+	"#
+    .to_string();
+
+    // let's try to prove that the least significant bit of 0 is 1
+    // we exploit the fact that the bits of 0 are the bits of p, and p is even
+    // we want this to succeed as the non strict version does not enforce the bits to be in range
+
+    let stdlib_path = std::fs::canonicalize(
+        std::env::current_dir()
+            .unwrap()
+            .join("../zokrates_stdlib/stdlib"),
+    )
+    .unwrap();
+
+    let res: CompilationArtifacts<Bn128Field> = compile(
+        source,
+        "./path/to/file".into(),
+        Some(&FileSystemResolver::with_stdlib_root(
+            stdlib_path.to_str().unwrap(),
+        )),
+        &CompileConfig::default(),
+    )
+    .unwrap();
+
+    let interpreter = Interpreter::try_out_of_range();
+
+    assert!(interpreter
+        .execute(&res.prog(), &[Bn128Field::from(0)])
+        .is_ok());
 }

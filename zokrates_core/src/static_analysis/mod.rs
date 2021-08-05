@@ -39,7 +39,7 @@ pub trait Analyse {
 pub enum Error {
     Reducer(self::reducer::Error),
     Propagation(self::propagation::Error),
-    NonConstantShift(self::constant_argument_checker::Error),
+    NonConstantArgument(self::constant_argument_checker::Error),
 }
 
 impl From<reducer::Error> for Error {
@@ -56,7 +56,7 @@ impl From<propagation::Error> for Error {
 
 impl From<constant_argument_checker::Error> for Error {
     fn from(e: constant_argument_checker::Error) -> Self {
-        Error::NonConstantShift(e)
+        Error::NonConstantArgument(e)
     }
 }
 
@@ -65,7 +65,7 @@ impl fmt::Display for Error {
         match self {
             Error::Reducer(e) => write!(f, "{}", e),
             Error::Propagation(e) => write!(f, "{}", e),
-            Error::NonConstantShift(e) => write!(f, "{}", e),
+            Error::NonConstantArgument(e) => write!(f, "{}", e),
         }
     }
 }
