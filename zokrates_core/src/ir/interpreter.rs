@@ -160,22 +160,19 @@ impl Interpreter {
 
                 let bit_width = bit_width - padding;
 
-                let mut num = inputs[0].clone();
-                let mut res = vec![];
+                let num = inputs[0].clone();
 
-                for _ in 0..padding {
-                    res.push(T::zero());
-                }
-
-                for i in (0..bit_width).rev() {
-                    if T::from(2).pow(i) <= num {
-                        num = num - T::from(2).pow(i);
-                        res.push(T::one());
-                    } else {
-                        res.push(T::zero());
-                    }
-                }
-                res
+                (0..padding)
+                    .map(|_| T::zero())
+                    .chain((0..bit_width).rev().scan(num, |state, i| {
+                        if T::from(2).pow(i) <= *state {
+                            *state = (*state).clone() - T::from(2).pow(i);
+                            Some(T::one())
+                        } else {
+                            Some(T::zero())
+                        }
+                    }))
+                    .collect()
             }
             Solver::Xor => {
                 let x = inputs[0].clone();

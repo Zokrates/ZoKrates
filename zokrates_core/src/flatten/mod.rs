@@ -1161,13 +1161,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 8.into())]
             }
             crate::embed::FlatEmbed::BitArrayLe => {
+                // get the length of the bit arrays
                 let len = generics[0];
 
+                // split the arguments into the two bit arrays of size `len`
                 let (expressions, constants) = (
                     param_expressions[..len as usize].to_vec(),
                     param_expressions[len as usize..].to_vec(),
                 );
 
+                // define variables for the variable bits
                 let variables: Vec<_> = expressions
                     .into_iter()
                     .map(|e| {
@@ -1178,6 +1181,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     })
                     .collect();
 
+                // get constants for the constant bits
                 let constants: Vec<_> = constants
                     .into_iter()
                     .map(|e| {
@@ -1185,11 +1189,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .get_field_unchecked()
                     })
                     .map(|e| match e {
-                        FlatExpression::Number(n) => n == T::one(),
+                        FlatExpression::Number(n) if n == T::one() => true,
+                        FlatExpression::Number(n) if n == T::zero() => false,
                         _ => unreachable!(),
                     })
                     .collect();
 
+                // get the list of conditions which must hold iff the `<=` relation holds
                 let conditions =
                     self.constant_le_check(statements_flattened, &variables, &constants);
 
