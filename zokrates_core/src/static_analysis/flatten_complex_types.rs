@@ -570,7 +570,7 @@ fn fold_select_expression<'ast, T: Field, E>(
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     select: typed_absy::SelectExpression<'ast, T, E>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    let size = typed_absy::types::ConcreteType::try_from(*select.array.ty().ty)
+    let size = typed_absy::types::ConcreteType::try_from(*select.array.ty().clone().ty)
         .unwrap()
         .get_primitive_count();
 

@@ -1,7 +1,7 @@
 use crate::typed_absy::types::{ArrayType, Type};
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, BooleanExpression, FieldElementExpression, IfElse,
+    ArrayExpression, ArrayExpressionInner, BooleanExpression, Expr, FieldElementExpression, IfElse,
     IfElseExpression, Select, SelectExpression, StructExpression, Typed, TypedExpression,
     TypedExpressionOrSpread, TypedSpread, UExpression, UExpressionInner,
 };
@@ -477,7 +477,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
         array: Self,
         target_inner_ty: Type<'ast, T>,
     ) -> Result<Self, TypedExpression<'ast, T>> {
-        let array_ty = array.ty();
+        let array_ty = array.ty().clone();
 
         // elements must fit in the target type
         match array.into_inner() {

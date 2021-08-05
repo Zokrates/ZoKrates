@@ -1139,25 +1139,6 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     pub fn size(&self) -> UExpression<'ast, T> {
         self.ty.size.clone()
     }
-
-    pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {
-        &self.inner
-    }
-
-    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
-        &mut self.inner
-    }
-
-    pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
-        self.inner
-    }
-
-    pub fn ty(&self) -> ArrayType<'ast, T> {
-        ArrayType {
-            size: self.size(),
-            ty: box self.inner_type().clone(),
-        }
-    }
 }
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
@@ -1181,24 +1162,6 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
             }
             e => Err(e),
         }
-    }
-}
-
-impl<'ast, T> StructExpression<'ast, T> {
-    pub fn ty(&self) -> &StructType<'ast, T> {
-        &self.ty
-    }
-
-    pub fn as_inner(&self) -> &StructExpressionInner<'ast, T> {
-        &self.inner
-    }
-
-    pub fn as_inner_mut(&mut self) -> &mut StructExpressionInner<'ast, T> {
-        &mut self.inner
-    }
-
-    pub fn into_inner(self) -> StructExpressionInner<'ast, T> {
-        self.inner
     }
 }
 
@@ -1503,14 +1466,22 @@ pub trait Expr<'ast, T>: From<TypedExpression<'ast, T>> {
     type Inner;
     type Ty: Clone + IntoTypes<'ast, T>;
 
+    fn ty(&self) -> &Self::Ty;
+
     fn into_inner(self) -> Self::Inner;
 
     fn as_inner(&self) -> &Self::Inner;
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner;
 }
 
 impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+
+    fn ty(&self) -> &Self::Ty {
+        &Type::FieldElement
+    }
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1518,6 +1489,10 @@ impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
 
     fn as_inner(&self) -> &Self::Inner {
         &self
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
     }
 }
 
@@ -1525,12 +1500,20 @@ impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
 
+    fn ty(&self) -> &Self::Ty {
+        &Type::Boolean
+    }
+
     fn into_inner(self) -> Self::Inner {
         self
     }
 
     fn as_inner(&self) -> &Self::Inner {
         &self
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
     }
 }
 
@@ -1538,12 +1521,20 @@ impl<'ast, T: Clone> Expr<'ast, T> for UExpression<'ast, T> {
     type Inner = UExpressionInner<'ast, T>;
     type Ty = UBitwidth;
 
+    fn ty(&self) -> &Self::Ty {
+        &self.bitwidth
+    }
+
     fn into_inner(self) -> Self::Inner {
         self.inner
     }
 
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
     }
 }
 
@@ -1551,12 +1542,20 @@ impl<'ast, T: Clone> Expr<'ast, T> for StructExpression<'ast, T> {
     type Inner = StructExpressionInner<'ast, T>;
     type Ty = StructType<'ast, T>;
 
+    fn ty(&self) -> &Self::Ty {
+        &self.ty
+    }
+
     fn into_inner(self) -> Self::Inner {
         self.inner
     }
 
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
     }
 }
 
@@ -1564,6 +1563,10 @@ impl<'ast, T: Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
     type Ty = ArrayType<'ast, T>;
 
+    fn ty(&self) -> &Self::Ty {
+        &self.ty
+    }
+
     fn into_inner(self) -> Self::Inner {
         self.inner
     }
@@ -1571,11 +1574,19 @@ impl<'ast, T: Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
     }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
+    }
 }
 
 impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+
+    fn ty(&self) -> &Self::Ty {
+        &Type::Int
+    }
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1584,11 +1595,19 @@ impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     fn as_inner(&self) -> &Self::Inner {
         &self
     }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
+    }
 }
 
 impl<'ast, T: Clone> Expr<'ast, T> for TypedExpressionList<'ast, T> {
     type Inner = TypedExpressionListInner<'ast, T>;
     type Ty = Types<'ast, T>;
+
+    fn ty(&self) -> &Self::Ty {
+        &self.types
+    }
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1596,6 +1615,10 @@ impl<'ast, T: Clone> Expr<'ast, T> for TypedExpressionList<'ast, T> {
 
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
     }
 }
 
@@ -1777,7 +1800,7 @@ impl<'ast, T> Member<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Clone> Member<'ast, T> for UExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
         let ty = s.ty().members.iter().find(|member| id == member.id);
         let bitwidth = match ty {
@@ -1957,7 +1980,7 @@ impl<'ast, T: Field> Block<'ast, T> for UExpression<'ast, T> {
 
 impl<'ast, T: Field> Block<'ast, T> for ArrayExpression<'ast, T> {
     fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
-        let array_ty = value.ty();
+        let array_ty = value.ty().clone();
         ArrayExpressionInner::Block(BlockExpression::new(statements, value))
             .annotate(*array_ty.ty, array_ty.size)
     }
@@ -1972,8 +1995,11 @@ impl<'ast, T: Field> Block<'ast, T> for StructExpression<'ast, T> {
 }
 
 pub trait Constant: Sized {
+    // return whether this is constant
     fn is_constant(&self) -> bool;
 
+    // canonicalize an expression *that we know to be constant*
+    // for example for [0; 3] -> [0, 0, 0], [...[1], 2] -> [1, 2], etc
     fn into_canonical_constant(self) -> Self {
         self
     }
@@ -2060,7 +2086,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
             }
         }
 
-        let array_ty = self.ty();
+        let array_ty = self.ty().clone();
 
         match self.into_inner() {
             ArrayExpressionInner::Value(v) => ArrayExpressionInner::Value(
@@ -2091,9 +2117,8 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                     v.into_iter()
                         .flat_map(into_canonical_constant_aux)
                         .map(|e| e.into())
-                        .enumerate()
-                        .filter(|(index, _)| index >= &from && index < &to)
-                        .map(|(_, e)| e)
+                        .skip(from)
+                        .take(to - from)
                         .collect::<Vec<_>>()
                         .into(),
                 )
@@ -2153,7 +2178,6 @@ impl<'ast, T: Field> Constant for TypedExpression<'ast, T> {
         }
     }
 
-    // in the constant map, we only want canonical constants: [0; 3] -> [0, 0, 0], [...[1], 2] -> [1, 2], etc
     fn into_canonical_constant(self) -> Self {
         match self {
             TypedExpression::FieldElement(e) => e.into_canonical_constant().into(),
