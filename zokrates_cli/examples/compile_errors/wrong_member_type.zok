@@ -1,0 +1,15 @@
+struct B {
+    field a
+}
+
+struct A {
+    B a
+}
+
+def main():
+    A a = A {
+        a: B {
+            a: false
+        }
+    }
+    return
