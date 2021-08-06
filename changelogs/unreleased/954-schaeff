@@ -1,0 +1,1 @@
+Fix constant range check in uint lt check

@@ -75,31 +75,59 @@ impl fmt::Display for Error {
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         // inline user-defined constants
+        log::debug!("Static analyser: Inline constants");
         let r = ConstantInliner::inline(self);
+        log::trace!("\n{}", r);
+
         // isolate branches
         let r = if config.isolate_branches {
-            Isolator::isolate(r)
+            log::debug!("Static analyser: Isolate branches");
+            let r = Isolator::isolate(r);
+            log::trace!("\n{}", r);
+            r
         } else {
+            log::debug!("Static analyser: Branch isolation skipped");
             r
         };
 
         // reduce the program to a single function
+        log::debug!("Static analyser: Reduce program");
         let r = reduce_program(r).map_err(Error::from)?;
+        log::trace!("\n{}", r);
+
         // generate abi
+        log::debug!("Static analyser: Generate abi");
         let abi = r.abi();
 
         // propagate
+        log::debug!("Static analyser: Propagate");
         let r = Propagator::propagate(r).map_err(Error::from)?;
+        log::trace!("\n{}", r);
+
         // remove assignment to variable index
+        log::debug!("Static analyser: Remove variable index");
         let r = VariableWriteRemover::apply(r);
+        log::trace!("\n{}", r);
+
         // detect non constant shifts
+        log::debug!("Static analyser: Detect non constant shifts");
         let r = ShiftChecker::check(r).map_err(Error::from)?;
+        log::trace!("\n{}", r);
+
         // convert to zir, removing complex types
+        log::debug!("Static analyser: Convert to zir");
         let zir = Flattener::flatten(r);
-        // apply propagation to zir
+        log::trace!("\n{}", zir);
+
+        // apply propagation in zir
+        log::debug!("Static analyser: Apply propagation in zir");
         let zir = ZirPropagator::propagate(zir);
+        log::trace!("\n{}", zir);
+
         // optimize uint expressions
+        log::debug!("Static analyser: Optimize uints");
         let zir = UintOptimizer::optimize(zir);
+        log::trace!("\n{}", zir);
 
         Ok((zir, abi))
     }
@@ -107,12 +135,14 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 
 impl<T: Field> Analyse for FlatProg<T> {
     fn analyse(self) -> Self {
+        log::debug!("Static analyser: Propagate flat");
         self.propagate()
     }
 }
 
 impl<T: Field> Analyse for Prog<T> {
     fn analyse(self) -> Self {
+        log::debug!("Static analyser: Detect unconstrained zir");
         UnconstrainedVariableDetector::detect(self)
     }
 }
