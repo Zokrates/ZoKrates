@@ -163,8 +163,8 @@ pub struct UExpression<'ast, T> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UExpressionInner<'ast, T> {
-    Identifier(Identifier<'ast>),
     Value(u128),
+    Identifier(Identifier<'ast>),
     Select(Vec<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),

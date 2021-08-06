@@ -14,6 +14,7 @@ mod shift_checker;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod variable_write_remover;
+mod zir_propagation;
 
 use self::branch_isolator::Isolator;
 use self::flatten_complex_types::Flattener;
@@ -27,6 +28,7 @@ use crate::compile::CompileConfig;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::static_analysis::constant_inliner::ConstantInliner;
+use crate::static_analysis::zir_propagation::ZirPropagator;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;
 use std::fmt;
@@ -94,6 +96,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = ShiftChecker::check(r).map_err(Error::from)?;
         // convert to zir, removing complex types
         let zir = Flattener::flatten(r);
+        // apply propagation to zir
+        let zir = ZirPropagator::propagate(zir);
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);
 
