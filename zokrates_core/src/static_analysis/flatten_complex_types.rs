@@ -129,7 +129,7 @@ impl<'ast, T: Field> Flattener<T> {
         p: typed_absy::DeclarationParameter<'ast>,
     ) -> Vec<zir::Parameter<'ast>> {
         let private = p.private;
-        self.fold_variable(p.id.try_into().unwrap())
+        self.fold_variable(crate::typed_absy::variable::try_from_g_variable(p.id).unwrap())
             .into_iter()
             .map(|v| zir::Parameter { id: v, private })
             .collect()
@@ -1101,7 +1101,11 @@ fn fold_function<'ast, T: Field>(
             .collect(),
         statements: main_statements_buffer,
         signature: typed_absy::types::ConcreteSignature::try_from(
-            typed_absy::types::Signature::<T>::try_from(fun.signature).unwrap(),
+            crate::typed_absy::types::try_from_g_signature::<
+                crate::typed_absy::types::DeclarationConstant<'ast>,
+                crate::typed_absy::UExpression<'ast, T>,
+            >(fun.signature)
+            .unwrap(),
         )
         .unwrap()
         .into(),

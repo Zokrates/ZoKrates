@@ -230,16 +230,21 @@ mod tests {
                 public: true,
                 ty: ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
-                    "Foo".into(),
-                    vec![
-                        ConcreteStructMember::new(String::from("a"), ConcreteType::FieldElement),
-                        ConcreteStructMember::new(String::from("b"), ConcreteType::Boolean),
-                    ],
+                    "Bar".into(),
+                    vec![Some(1usize)],
+                    vec![ConcreteStructMember::new(
+                        String::from("a"),
+                        ConcreteType::Array(ConcreteArrayType::new(
+                            ConcreteType::FieldElement,
+                            1usize,
+                        )),
+                    )],
                 )),
             }],
             outputs: vec![ConcreteType::Struct(ConcreteStructType::new(
                 "".into(),
                 "Foo".into(),
+                vec![],
                 vec![
                     ConcreteStructMember::new(String::from("a"), ConcreteType::FieldElement),
                     ConcreteStructMember::new(String::from("b"), ConcreteType::Boolean),
@@ -257,15 +262,18 @@ mod tests {
       "public": true,
       "type": "struct",
       "components": {
-        "name": "Foo",
+        "name": "Bar",
+        "generics": [
+          1
+        ],
         "members": [
           {
             "name": "a",
-            "type": "field"
-          },
-          {
-            "name": "b",
-            "type": "bool"
+            "type": "array",
+            "components": {
+              "size": 1,
+              "type": "field"
+            }
           }
         ]
       }
@@ -276,6 +284,7 @@ mod tests {
       "type": "struct",
       "components": {
         "name": "Foo",
+        "generics": [],
         "members": [
           {
             "name": "a",
@@ -305,11 +314,13 @@ mod tests {
                 ty: ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "Foo".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         String::from("bar"),
                         ConcreteType::Struct(ConcreteStructType::new(
                             "".into(),
                             "Bar".into(),
+                            vec![],
                             vec![
                                 ConcreteStructMember::new(
                                     String::from("a"),
@@ -338,12 +349,14 @@ mod tests {
       "type": "struct",
       "components": {
         "name": "Foo",
+        "generics": [],
         "members": [
           {
             "name": "bar",
             "type": "struct",
             "components": {
               "name": "Bar",
+              "generics": [],
               "members": [
                 {
                   "name": "a",
@@ -378,6 +391,7 @@ mod tests {
                     ConcreteType::Struct(ConcreteStructType::new(
                         "".into(),
                         "Foo".into(),
+                        vec![],
                         vec![
                             ConcreteStructMember::new(
                                 String::from("b"),
@@ -386,7 +400,7 @@ mod tests {
                             ConcreteStructMember::new(String::from("c"), ConcreteType::Boolean),
                         ],
                     )),
-                    2,
+                    2usize,
                 )),
             }],
             outputs: vec![ConcreteType::Boolean],
@@ -406,6 +420,7 @@ mod tests {
         "type": "struct",
         "components": {
           "name": "Foo",
+          "generics": [],
           "members": [
             {
               "name": "b",
@@ -439,8 +454,8 @@ mod tests {
                 name: String::from("a"),
                 public: false,
                 ty: ConcreteType::Array(ConcreteArrayType::new(
-                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2)),
-                    2,
+                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2usize)),
+                    2usize,
                 )),
             }],
             outputs: vec![ConcreteType::FieldElement],

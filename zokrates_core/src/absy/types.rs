@@ -3,9 +3,7 @@ use crate::absy::UnresolvedTypeNode;
 use std::fmt;
 
 pub type Identifier<'ast> = &'ast str;
-
 pub type MemberId = String;
-
 pub type UserTypeId = String;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -14,7 +12,7 @@ pub enum UnresolvedType<'ast> {
     Boolean,
     Uint(usize),
     Array(Box<UnresolvedTypeNode<'ast>>, ExpressionNode<'ast>),
-    User(UserTypeId),
+    User(UserTypeId, Option<Vec<Option<ExpressionNode<'ast>>>>),
 }
 
 impl<'ast> fmt::Display for UnresolvedType<'ast> {
@@ -24,7 +22,30 @@ impl<'ast> fmt::Display for UnresolvedType<'ast> {
             UnresolvedType::Boolean => write!(f, "bool"),
             UnresolvedType::Uint(bitwidth) => write!(f, "u{}", bitwidth),
             UnresolvedType::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
-            UnresolvedType::User(i) => write!(f, "{}", i),
+            UnresolvedType::User(ref id, ref generics) => {
+                write!(
+                    f,
+                    "{}{}",
+                    id,
+                    generics
+                        .as_ref()
+                        .map(|generics| {
+                            format!(
+                                "<{}>",
+                                generics
+                                    .iter()
+                                    .map(|e| {
+                                        e.as_ref()
+                                            .map(|e| e.to_string())
+                                            .unwrap_or_else(|| "_".to_string())
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            )
+                        })
+                        .unwrap_or_default()
+                )
+            }
         }
     }
 }
