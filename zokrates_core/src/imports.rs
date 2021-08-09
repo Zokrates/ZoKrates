@@ -5,7 +5,7 @@
 //! @date 2018
 
 use crate::absy::*;
-use crate::compile::compile_module;
+use crate::compile::parse_module;
 use crate::compile::{CompileErrorInner, CompileErrors};
 use crate::embed::FlatEmbed;
 use crate::parser::Position;
@@ -226,7 +226,7 @@ impl Importer {
                             Some(_) => {}
                             None => {
                                 let source = arena.alloc(source);
-                                let compiled = compile_module::<T, E>(
+                                let compiled = parse_module::<T, E>(
                                     source,
                                     new_location.clone(),
                                     resolver,
