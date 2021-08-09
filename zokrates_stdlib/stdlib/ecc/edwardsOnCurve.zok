@@ -6,8 +6,8 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // https://github.com/zcash/zips/blob/master/protocol/protocol.pdf
 def main(field[2] pt, BabyJubJubParams context) -> bool:
 
-    field a = context.JUBJUBA
-    field d = context.JUBJUBD
+    field a = context.JUBJUB_A
+    field d = context.JUBJUB_D
 
     field uu = pt[0] * pt[0]
     field vv = pt[1] * pt[1]
