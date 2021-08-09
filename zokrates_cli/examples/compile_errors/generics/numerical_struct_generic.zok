@@ -1,0 +1,6 @@
+struct A<1> {
+    field[1] a
+}
+
+def main():
+    return

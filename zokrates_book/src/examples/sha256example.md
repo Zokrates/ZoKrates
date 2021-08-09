@@ -16,7 +16,7 @@ We will start this tutorial by using ZoKrates to compute the hash for an arbitra
 First, we create a new file named `hashexample.zok` with the following content:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/hashexample.zok}}
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/hashexample.zok}}
 ```
 
 The first line imports the `sha256packed` function from the ZoKrates standard library.
@@ -31,22 +31,22 @@ Having our problem described in ZoKrates' DSL, we can now continue using ZoKrate
 
 First, we compile the program into an arithmetic circuit using the `compile` command.
 
-```sh
-./zokrates compile -i hashexample.zok
+```
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:10}}
 ```
 
 As a next step we can create a witness file using the following command:
 
-```sh
-./zokrates compute-witness -a 0 0 0 5
+```
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:11}}
 ```
 
 Using the flag `-a` we pass arguments to the program. Recall that our goal is to compute the hash for the number `5`. Consequently we set `a`, `b` and `c` to `0` and  `d` to  `5`.
 
 Still here? Great! At this point, we can check the `witness` file for the return values:
 
-```sh
-grep '~out' witness
+```
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:13}}
 ```
 
 which should lead to the following output:
@@ -70,22 +70,21 @@ To make it work, the two parties have to follow their roles in the protocol:
 First, Victor has to specify what hash he is interested in. Therefore, we have to adjust the zkSNARK circuit, compiled by ZoKrates, such that in addition to computing the digest, it also validates it against the digest of interest, provided by Victor. This leads to the following update for `hashexample.zok`:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/hashexample_updated.zok}}
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/hashexample_updated.zok}}
 ```
 
 Note that we now compare the result of `sha256packed` with the hard-coded correct solution defined by Victor. The lines which we added are treated as assertions: the verifier will not accept a proof where these constraints were not satisfied. Clearly, this program only returns 1 if all of the computed bits are equal.
 
 So, having defined the program, Victor is now ready to compile the code:
 
-```sh
-./zokrates compile -i hashexample.zok
+```
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:17}}
 ```
 
 Based on that Victor can run the setup phase and export a verifier smart contract as a Solidity file:
 
-```sh
-./zokrates setup
-./zokrates export-verifier
+```
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:18:19}}
 ```
 
 `setup` creates a `verifiation.key` file and a `proving.key` file. Victor gives the proving key to Peggy.
@@ -94,14 +93,14 @@ Based on that Victor can run the setup phase and export a verifier smart contrac
 
 Peggy provides the correct pre-image as an argument to the program.
 
-```sh
-./zokrates compute-witness -a 0 0 0 5
+```
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:20}}
 ```
 
 Finally, Peggy can run the command to construct the proof:
 
-```sh
-./zokrates generate-proof
+```
+{{#include ../../../zokrates_cli/examples/book/sha256_tutorial/test.sh:21}}
 ```
 
 As the inputs were declared as private in the program, they do not appear in the proof thanks to the zero-knowledge property of the protocol.

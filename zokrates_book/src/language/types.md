@@ -107,7 +107,7 @@ field[2] b = a[1..3]   // initialize an array copying a slice from `a`
 ```
 
 ### Structs
-A struct is a composite datatype representing a named collection of variables.
+A struct is a composite datatype representing a named collection of variables. Structs can be generic over constants, in order to wrap arrays of generic size. For more details on generic array sizes, see [constant generics](../language/generics.md)
 The contained variables can be of any type.
 
 The following code shows an example of how to use structs.
