@@ -1,0 +1,13 @@
+struct B<P> {
+    field[P] a
+}
+
+struct A<N> {
+    field[N] a
+    B<N> b
+}
+
+def main(A<2> a) -> bool:
+    u32 SIZE = 1 + 1
+    A<SIZE> b = A { a: [1, 2], b: B { a: [1, 2] } } 
+    return a == b

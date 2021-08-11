@@ -47,9 +47,10 @@ pub fn fold_module<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
 
 pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec<Statement<T>> {
     match s {
-        Statement::Constraint(quad, lin) => vec![Statement::Constraint(
+        Statement::Constraint(quad, lin, message) => vec![Statement::Constraint(
             f.fold_quadratic_combination(quad),
             f.fold_linear_combination(lin),
+            message,
         )],
         Statement::Directive(dir) => vec![Statement::Directive(f.fold_directive(dir))],
     }

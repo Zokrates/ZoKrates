@@ -2,7 +2,7 @@
 
 pub enum Inputs<T> {
     Raw(Vec<T>),
-    Abi(CheckedValues<T>),
+    Abi(Values<T>),
 }
 
 impl<T: From<usize>> Encode<T> for Inputs<T> {
@@ -14,14 +14,10 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
     }
 }
 
-use std::collections::BTreeMap;
-use std::convert::TryFrom;
 use std::fmt;
 use zokrates_core::typed_absy::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
-
-type Map<K, V> = BTreeMap<K, V>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -41,7 +37,7 @@ impl fmt::Display for Error {
 }
 
 #[derive(PartialEq, Debug)]
-enum Value<T> {
+pub enum Value<T> {
     U8(u8),
     U16(u16),
     U32(u32),
@@ -49,23 +45,11 @@ enum Value<T> {
     Field(T),
     Boolean(bool),
     Array(Vec<Value<T>>),
-    Struct(Map<String, Value<T>>),
+    Struct(Vec<(String, Value<T>)>),
 }
 
 #[derive(PartialEq, Debug)]
-enum CheckedValue<T> {
-    U8(u8),
-    U16(u16),
-    U32(u32),
-    U64(u64),
-    Field(T),
-    Boolean(bool),
-    Array(Vec<CheckedValue<T>>),
-    Struct(Vec<(String, CheckedValue<T>)>),
-}
-
-#[derive(PartialEq, Debug)]
-pub struct CheckedValues<T>(Vec<CheckedValue<T>>);
+pub struct Values<T>(Vec<Value<T>>);
 
 impl<T: Field> fmt::Display for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -96,59 +80,6 @@ impl<T: Field> fmt::Display for Value<T> {
     }
 }
 
-impl<T: Field> Value<T> {
-    fn check(self, ty: ConcreteType) -> Result<CheckedValue<T>, String> {
-        match (self, ty) {
-            (Value::Field(f), ConcreteType::FieldElement) => Ok(CheckedValue::Field(f)),
-            (Value::U8(f), ConcreteType::Uint(UBitwidth::B8)) => Ok(CheckedValue::U8(f)),
-            (Value::U16(f), ConcreteType::Uint(UBitwidth::B16)) => Ok(CheckedValue::U16(f)),
-            (Value::U32(f), ConcreteType::Uint(UBitwidth::B32)) => Ok(CheckedValue::U32(f)),
-            (Value::U64(f), ConcreteType::Uint(UBitwidth::B64)) => Ok(CheckedValue::U64(f)),
-            (Value::Boolean(b), ConcreteType::Boolean) => Ok(CheckedValue::Boolean(b)),
-            (Value::Array(a), ConcreteType::Array(array_type)) => {
-                let size = array_type.size;
-
-                if a.len() != size as usize {
-                    Err(format!(
-                        "Expected array of size {}, found array of size {}",
-                        size,
-                        a.len()
-                    ))
-                } else {
-                    let a = a
-                        .into_iter()
-                        .map(|val| val.check(*array_type.ty.clone()))
-                        .collect::<Result<Vec<_>, _>>()?;
-                    Ok(CheckedValue::Array(a))
-                }
-            }
-            (Value::Struct(mut s), ConcreteType::Struct(struc)) => {
-                if s.len() != struc.members_count() {
-                    Err(format!(
-                        "Expected {} member(s), found {}",
-                        struc.members_count(),
-                        s.len()
-                    ))
-                } else {
-                    let s = struc
-                        .members
-                        .into_iter()
-                        .map(|member| {
-                            s.remove(&member.id)
-                                .ok_or_else(|| format!("Member with id `{}` not found", member.id))
-                                .map(|v| v.check(*member.ty.clone()).map(|v| (member.id, v)))
-                        })
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter()
-                        .collect::<Result<_, _>>()?;
-                    Ok(CheckedValue::Struct(s))
-                }
-            }
-            (v, t) => Err(format!("Value `{}` doesn't match expected type `{}`", v, t)),
-        }
-    }
-}
-
 pub trait Encode<T> {
     fn encode(self) -> Vec<T>;
 }
@@ -159,31 +90,31 @@ pub trait Decode<T> {
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self;
 }
 
-impl<T: From<usize>> Encode<T> for CheckedValue<T> {
+impl<T: From<usize>> Encode<T> for Value<T> {
     fn encode(self) -> Vec<T> {
         match self {
-            CheckedValue::Field(t) => vec![t],
-            CheckedValue::U8(t) => vec![T::from(t as usize)],
-            CheckedValue::U16(t) => vec![T::from(t as usize)],
-            CheckedValue::U32(t) => vec![T::from(t as usize)],
-            CheckedValue::U64(t) => vec![T::from(t as usize)],
-            CheckedValue::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
-            CheckedValue::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
-            CheckedValue::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
+            Value::Field(t) => vec![t],
+            Value::U8(t) => vec![T::from(t as usize)],
+            Value::U16(t) => vec![T::from(t as usize)],
+            Value::U32(t) => vec![T::from(t as usize)],
+            Value::U64(t) => vec![T::from(t as usize)],
+            Value::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
+            Value::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
+            Value::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
         }
     }
 }
 
-impl<T: Field> Decode<T> for CheckedValues<T> {
+impl<T: Field> Decode<T> for Values<T> {
     type Expected = Vec<ConcreteType>;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
-        CheckedValues(
+        Values(
             expected
                 .into_iter()
                 .scan(0, |state, e| {
                     let new_state = *state + e.get_primitive_count();
-                    let res = CheckedValue::decode(raw[*state..new_state].to_vec(), e);
+                    let res = Value::decode(raw[*state..new_state].to_vec(), e);
                     *state = new_state;
                     Some(res)
                 })
@@ -192,7 +123,7 @@ impl<T: Field> Decode<T> for CheckedValues<T> {
     }
 }
 
-impl<T: Field> Decode<T> for CheckedValue<T> {
+impl<T: Field> Decode<T> for Value<T> {
     type Expected = ConcreteType;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
@@ -200,22 +131,22 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
 
         match expected {
             ConcreteType::Int => unreachable!(),
-            ConcreteType::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
+            ConcreteType::FieldElement => Value::Field(raw.pop().unwrap()),
             ConcreteType::Uint(UBitwidth::B8) => {
-                CheckedValue::U8(raw.pop().unwrap().to_dec_string().parse().unwrap())
+                Value::U8(raw.pop().unwrap().to_dec_string().parse().unwrap())
             }
             ConcreteType::Uint(UBitwidth::B16) => {
-                CheckedValue::U16(raw.pop().unwrap().to_dec_string().parse().unwrap())
+                Value::U16(raw.pop().unwrap().to_dec_string().parse().unwrap())
             }
             ConcreteType::Uint(UBitwidth::B32) => {
-                CheckedValue::U32(raw.pop().unwrap().to_dec_string().parse().unwrap())
+                Value::U32(raw.pop().unwrap().to_dec_string().parse().unwrap())
             }
             ConcreteType::Uint(UBitwidth::B64) => {
-                CheckedValue::U64(raw.pop().unwrap().to_dec_string().parse().unwrap())
+                Value::U64(raw.pop().unwrap().to_dec_string().parse().unwrap())
             }
             ConcreteType::Boolean => {
                 let v = raw.pop().unwrap();
-                CheckedValue::Boolean(if v == 0.into() {
+                Value::Boolean(if v == 0.into() {
                     false
                 } else if v == 1.into() {
                     true
@@ -223,17 +154,17 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
                     unreachable!()
                 })
             }
-            ConcreteType::Array(array_type) => CheckedValue::Array(
+            ConcreteType::Array(array_type) => Value::Array(
                 raw.chunks(array_type.ty.get_primitive_count())
-                    .map(|c| CheckedValue::decode(c.to_vec(), *array_type.ty.clone()))
+                    .map(|c| Value::decode(c.to_vec(), *array_type.ty.clone()))
                     .collect(),
             ),
-            ConcreteType::Struct(members) => CheckedValue::Struct(
+            ConcreteType::Struct(members) => Value::Struct(
                 members
                     .into_iter()
                     .scan(0, |state, member| {
                         let new_state = *state + member.ty.get_primitive_count();
-                        let res = CheckedValue::decode(raw[*state..new_state].to_vec(), *member.ty);
+                        let res = Value::decode(raw[*state..new_state].to_vec(), *member.ty);
                         *state = new_state;
                         Some((member.id, res))
                     })
@@ -243,86 +174,25 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
     }
 }
 
-impl<T: From<usize>> Encode<T> for CheckedValues<T> {
+impl<T: From<usize>> Encode<T> for Values<T> {
     fn encode(self) -> Vec<T> {
         self.0.into_iter().flat_map(|v| v.encode()).collect()
     }
 }
 
-#[derive(PartialEq, Debug)]
-struct Values<T>(Vec<Value<T>>);
-
-impl<T: Field> TryFrom<serde_json::Value> for Values<T> {
-    type Error = String;
-
-    fn try_from(v: serde_json::Value) -> Result<Values<T>, Self::Error> {
-        match v {
-            serde_json::Value::Array(a) => a
-                .into_iter()
-                .map(Value::try_from)
-                .collect::<Result<_, _>>()
-                .map(Values),
-            v => Err(format!("Expected an array of values, found `{}`", v)),
-        }
-    }
-}
-
-impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
-    type Error = String;
-    fn try_from(v: serde_json::Value) -> Result<Value<T>, Self::Error> {
-        match v {
-            serde_json::Value::String(s) => {
-                T::try_from_dec_str(&s)
-                    .map(Value::Field)
-                    .or_else(|_| match s.len() {
-                        4 => u8::from_str_radix(&s[2..], 16)
-                            .map(Value::U8)
-                            .map_err(|_| format!("Expected u8 value, found {}", s)),
-                        6 => u16::from_str_radix(&s[2..], 16)
-                            .map(Value::U16)
-                            .map_err(|_| format!("Expected u16 value, found {}", s)),
-                        10 => u32::from_str_radix(&s[2..], 16)
-                            .map(Value::U32)
-                            .map_err(|_| format!("Expected u32 value, found {}", s)),
-                        18 => u64::from_str_radix(&s[2..], 16)
-                            .map(Value::U64)
-                            .map_err(|_| format!("Expected u64 value, found {}", s)),
-                        _ => Err(format!("Cannot parse {} to any type", s)),
-                    })
-            }
-            serde_json::Value::Bool(b) => Ok(Value::Boolean(b)),
-            serde_json::Value::Number(n) => Err(format!(
-                "Value `{}` isn't allowed, did you mean `\"{}\"`?",
-                n, n
-            )),
-            serde_json::Value::Array(a) => a
-                .into_iter()
-                .map(Value::try_from)
-                .collect::<Result<_, _>>()
-                .map(Value::Array),
-            serde_json::Value::Object(o) => o
-                .into_iter()
-                .map(|(k, v)| Value::try_from(v).map(|v| (k, v)))
-                .collect::<Result<Map<_, _>, _>>()
-                .map(Value::Struct),
-            v => Err(format!("Value `{}` isn't allowed", v)),
-        }
-    }
-}
-
-impl<T: Field> CheckedValue<T> {
+impl<T: Field> Value<T> {
     pub fn into_serde_json(self) -> serde_json::Value {
         match self {
-            CheckedValue::Field(f) => serde_json::Value::String(f.to_dec_string()),
-            CheckedValue::U8(u) => serde_json::Value::String(format!("{:#04x}", u)),
-            CheckedValue::U16(u) => serde_json::Value::String(format!("{:#06x}", u)),
-            CheckedValue::U32(u) => serde_json::Value::String(format!("{:#010x}", u)),
-            CheckedValue::U64(u) => serde_json::Value::String(format!("{:#018x}", u)),
-            CheckedValue::Boolean(b) => serde_json::Value::Bool(b),
-            CheckedValue::Array(a) => {
+            Value::Field(f) => serde_json::Value::String(f.to_dec_string()),
+            Value::U8(u) => serde_json::Value::String(format!("{:#04x}", u)),
+            Value::U16(u) => serde_json::Value::String(format!("{:#06x}", u)),
+            Value::U32(u) => serde_json::Value::String(format!("{:#010x}", u)),
+            Value::U64(u) => serde_json::Value::String(format!("{:#018x}", u)),
+            Value::Boolean(b) => serde_json::Value::Bool(b),
+            Value::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into_serde_json()).collect())
             }
-            CheckedValue::Struct(s) => serde_json::Value::Object(
+            Value::Struct(s) => serde_json::Value::Object(
                 s.into_iter()
                     .map(|(k, v)| (k, v.into_serde_json()))
                     .collect(),
@@ -331,50 +201,150 @@ impl<T: Field> CheckedValue<T> {
     }
 }
 
-impl<T: Field> CheckedValues<T> {
+impl<T: Field> Values<T> {
     pub fn into_serde_json(self) -> serde_json::Value {
         serde_json::Value::Array(self.0.into_iter().map(|e| e.into_serde_json()).collect())
     }
 }
 
-fn parse<T: Field>(s: &str) -> Result<Values<T>, Error> {
-    let json_values: serde_json::Value =
-        serde_json::from_str(s).map_err(|e| Error::Json(e.to_string()))?;
-    Values::try_from(json_values).map_err(Error::Conversion)
+fn parse_value<T: Field>(
+    value: serde_json::Value,
+    expected_type: ConcreteType,
+) -> Result<Value<T>, Error> {
+    match (&expected_type, value) {
+        (ConcreteType::FieldElement, serde_json::Value::String(s)) => {
+            T::try_from_dec_str(s.as_str())
+                .or_else(|_| T::try_from_str(s.as_str().trim_start_matches("0x"), 16))
+                .map(Value::Field)
+                .map_err(|_| Error::Type(format!("Could not parse `{}` to field type", s)))
+        }
+        (ConcreteType::Uint(UBitwidth::B8), serde_json::Value::String(s)) => s
+            .as_str()
+            .parse::<u8>()
+            .or_else(|_| u8::from_str_radix(s.as_str().trim_start_matches("0x"), 16))
+            .map(Value::U8)
+            .map_err(|_| Error::Type(format!("Could not parse `{}` to u8 type", s))),
+        (ConcreteType::Uint(UBitwidth::B16), serde_json::Value::String(s)) => s
+            .as_str()
+            .parse::<u16>()
+            .or_else(|_| u16::from_str_radix(s.as_str().trim_start_matches("0x"), 16))
+            .map(Value::U16)
+            .map_err(|_| Error::Type(format!("Could not parse `{}` to u16 type", s))),
+        (ConcreteType::Uint(UBitwidth::B32), serde_json::Value::String(s)) => s
+            .as_str()
+            .parse::<u32>()
+            .or_else(|_| u32::from_str_radix(s.as_str().trim_start_matches("0x"), 16))
+            .map(Value::U32)
+            .map_err(|_| Error::Type(format!("Could not parse `{}` to u32 type", s))),
+        (ConcreteType::Uint(UBitwidth::B64), serde_json::Value::String(s)) => s
+            .as_str()
+            .parse::<u64>()
+            .or_else(|_| u64::from_str_radix(s.as_str().trim_start_matches("0x"), 16))
+            .map(Value::U64)
+            .map_err(|_| Error::Type(format!("Could not parse `{}` to u64 type", s))),
+        (ConcreteType::Boolean, serde_json::Value::Bool(b)) => Ok(Value::Boolean(b)),
+        (ConcreteType::Array(array_type), serde_json::Value::Array(a)) => {
+            let size = array_type.size;
+            if a.len() != size as usize {
+                Err(Error::Type(format!(
+                    "Expected array of size {}, found array of size {}",
+                    size,
+                    a.len()
+                )))
+            } else {
+                a.into_iter()
+                    .map(|v| parse_value(v, *array_type.ty.clone()))
+                    .collect::<Result<_, _>>()
+                    .map(Value::Array)
+            }
+        }
+        (ConcreteType::Struct(struct_type), serde_json::Value::Object(mut o)) => {
+            if o.len() != struct_type.members_count() {
+                Err(Error::Type(format!(
+                    "Expected {} member(s), found {}",
+                    struct_type.members_count(),
+                    o.len()
+                )))
+            } else {
+                Ok(Value::Struct(
+                    struct_type
+                        .members
+                        .iter()
+                        .map(|m| {
+                            o.remove(&m.id)
+                                .ok_or_else(|| {
+                                    Error::Type(format!("Member with id `{}` not found", m.id))
+                                })
+                                .map(|v| parse_value(v, *m.ty.clone()).map(|v| (m.id.clone(), v)))
+                        })
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .collect::<Result<_, _>>()?,
+                ))
+            }
+        }
+        (_, serde_json::Value::Number(n)) => Err(Error::Conversion(format!(
+            "Value `{}` isn't allowed, did you mean `\"{}\"`?",
+            n, n
+        ))),
+        (_, v) => Err(Error::Type(format!(
+            "Value `{}` doesn't match expected type `{}`",
+            v, expected_type
+        ))),
+    }
 }
 
-pub fn parse_strict<T: Field>(
-    s: &str,
+pub fn parse_strict<T: Field>(s: &str, types: Vec<ConcreteType>) -> Result<Values<T>, Error> {
+    let values: serde_json::Value =
+        serde_json::from_str(s).map_err(|e| Error::Json(e.to_string()))?;
+
+    match values {
+        serde_json::Value::Array(values) => parse_strict_json(values, types),
+        _ => Err(Error::Type(format!(
+            "Expected an array of values, found `{}`",
+            values
+        ))),
+    }
+}
+
+pub fn parse_strict_json<T: Field>(
+    values: Vec<serde_json::Value>,
     types: Vec<ConcreteType>,
-) -> Result<CheckedValues<T>, Error> {
-    let parsed = parse(s)?;
-    if parsed.0.len() != types.len() {
+) -> Result<Values<T>, Error> {
+    if values.len() != types.len() {
         return Err(Error::Type(format!(
             "Expected {} inputs, found {}",
             types.len(),
-            parsed.0.len()
+            values.len()
         )));
     }
-    let checked = parsed
-        .0
-        .into_iter()
-        .zip(types.into_iter())
-        .map(|(v, ty)| v.check(ty))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(Error::Type)?;
-    Ok(CheckedValues(checked))
+
+    Ok(Values(
+        types
+            .into_iter()
+            .zip(values.into_iter())
+            .map(|(ty, v)| parse_value(v, ty))
+            .collect::<Result<_, _>>()?,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zokrates_core::typed_absy::types::{
+        ConcreteStructMember, ConcreteStructType, ConcreteType,
+    };
     use zokrates_field::Bn128Field;
 
     #[test]
     fn numbers() {
         let s = "[1, 2]";
         assert_eq!(
-            parse::<Bn128Field>(s).unwrap_err(),
+            parse_strict::<Bn128Field>(
+                s,
+                vec![ConcreteType::FieldElement, ConcreteType::FieldElement]
+            )
+            .unwrap_err(),
             Error::Conversion(String::from(
                 "Value `1` isn't allowed, did you mean `\"1\"`?"
             ))
@@ -383,10 +353,49 @@ mod tests {
 
     #[test]
     fn fields() {
-        let s = r#"["1", "2"]"#;
+        let s = r#"["1", "0x42"]"#;
         assert_eq!(
-            parse::<Bn128Field>(s).unwrap(),
-            Values(vec![Value::Field(1.into()), Value::Field(2.into())])
+            parse_strict::<Bn128Field>(
+                s,
+                vec![ConcreteType::FieldElement, ConcreteType::FieldElement]
+            )
+            .unwrap(),
+            Values(vec![Value::Field(1.into()), Value::Field(66.into())])
+        );
+    }
+
+    #[test]
+    fn uints() {
+        let s = r#"["0x12", "0x1234", "0x12345678", "0x1234567812345678"]"#;
+        assert_eq!(
+            parse_strict::<Bn128Field>(
+                s,
+                vec![
+                    ConcreteType::Uint(UBitwidth::B8),
+                    ConcreteType::Uint(UBitwidth::B16),
+                    ConcreteType::Uint(UBitwidth::B32),
+                    ConcreteType::Uint(UBitwidth::B64)
+                ]
+            )
+            .unwrap(),
+            Values(vec![
+                Value::U8(18u8),
+                Value::U16(4660u16),
+                Value::U32(305419896u32),
+                Value::U64(1311768465173141112u64)
+            ])
+        );
+
+        let s = r#"["0x1234"]"#;
+        assert_eq!(
+            parse_strict::<Bn128Field>(s, vec![ConcreteType::Uint(UBitwidth::B32)]).unwrap(),
+            Values(vec![Value::U32(4660u32)])
+        );
+
+        let s = r#"["0x1234"]"#;
+        assert_eq!(
+            parse_strict::<Bn128Field>(s, vec![ConcreteType::Uint(UBitwidth::B8)]).unwrap_err(),
+            Error::Type("Could not parse `0x1234` to u8 type".into())
         );
     }
 
@@ -394,7 +403,8 @@ mod tests {
     fn bools() {
         let s = "[true, false]";
         assert_eq!(
-            parse::<Bn128Field>(s).unwrap(),
+            parse_strict::<Bn128Field>(s, vec![ConcreteType::Boolean, ConcreteType::Boolean])
+                .unwrap(),
             Values(vec![Value::Boolean(true), Value::Boolean(false)])
         );
     }
@@ -403,7 +413,11 @@ mod tests {
     fn array() {
         let s = "[[true, false]]";
         assert_eq!(
-            parse::<Bn128Field>(s).unwrap(),
+            parse_strict::<Bn128Field>(
+                s,
+                vec![ConcreteType::array((ConcreteType::Boolean, 2usize))]
+            )
+            .unwrap(),
             Values(vec![Value::Array(vec![
                 Value::Boolean(true),
                 Value::Boolean(false)
@@ -415,140 +429,115 @@ mod tests {
     fn struc() {
         let s = r#"[{"a": "42"}]"#;
         assert_eq!(
-            parse::<Bn128Field>(s).unwrap(),
+            parse_strict::<Bn128Field>(
+                s,
+                vec![ConcreteType::Struct(ConcreteStructType::new(
+                    "".into(),
+                    "".into(),
+                    vec![],
+                    vec![ConcreteStructMember::new(
+                        "a".into(),
+                        ConcreteType::FieldElement
+                    )]
+                ))]
+            )
+            .unwrap(),
             Values(vec![Value::Struct(
                 vec![("a".to_string(), Value::Field(42.into()))]
                     .into_iter()
                     .collect()
             )])
         );
+
+        let s = r#"[{"b": "42"}]"#;
+        assert_eq!(
+            parse_strict::<Bn128Field>(
+                s,
+                vec![ConcreteType::Struct(ConcreteStructType::new(
+                    "".into(),
+                    "".into(),
+                    vec![],
+                    vec![ConcreteStructMember::new(
+                        "a".into(),
+                        ConcreteType::FieldElement
+                    )]
+                ))]
+            )
+            .unwrap_err(),
+            Error::Type("Member with id `a` not found".into())
+        );
+
+        let s = r#"[{}]"#;
+        assert_eq!(
+            parse_strict::<Bn128Field>(
+                s,
+                vec![ConcreteType::Struct(ConcreteStructType::new(
+                    "".into(),
+                    "".into(),
+                    vec![],
+                    vec![ConcreteStructMember::new(
+                        "a".into(),
+                        ConcreteType::FieldElement
+                    )]
+                ))]
+            )
+            .unwrap_err(),
+            Error::Type("Expected 1 member(s), found 0".into())
+        );
+
+        let s = r#"[{"a": false}]"#;
+        assert_eq!(
+            parse_strict::<Bn128Field>(
+                s,
+                vec![ConcreteType::Struct(ConcreteStructType::new(
+                    "".into(),
+                    "".into(),
+                    vec![],
+                    vec![ConcreteStructMember::new(
+                        "a".into(),
+                        ConcreteType::FieldElement
+                    )]
+                ))]
+            )
+            .unwrap_err(),
+            Error::Type("Value `false` doesn't match expected type `field`".into())
+        );
     }
 
-    mod strict {
-        use super::*;
-        use zokrates_core::typed_absy::types::{
-            ConcreteStructMember, ConcreteStructType, ConcreteType,
-        };
+    #[test]
+    fn into_serde() {
+        let values = Values::<Bn128Field>(vec![
+            Value::Field(1.into()),
+            Value::U8(2u8),
+            Value::U16(3u16),
+            Value::U32(4u32),
+            Value::U64(5u64),
+            Value::Boolean(true),
+            Value::Array(vec![Value::Field(1.into()), Value::Field(2.into())]),
+            Value::Struct(vec![
+                ("a".to_string(), Value::Field(1.into())),
+                ("b".to_string(), Value::Field(2.into())),
+            ]),
+        ]);
 
-        #[test]
-        fn fields() {
-            let s = r#"["1", "2"]"#;
-            assert_eq!(
-                parse_strict::<Bn128Field>(
-                    s,
-                    vec![ConcreteType::FieldElement, ConcreteType::FieldElement]
-                )
-                .unwrap(),
-                CheckedValues(vec![
-                    CheckedValue::Field(1.into()),
-                    CheckedValue::Field(2.into())
-                ])
-            );
-        }
+        let serde_value = values.into_serde_json();
 
-        #[test]
-        fn bools() {
-            let s = "[true, false]";
-            assert_eq!(
-                parse_strict::<Bn128Field>(s, vec![ConcreteType::Boolean, ConcreteType::Boolean])
-                    .unwrap(),
-                CheckedValues(vec![
-                    CheckedValue::Boolean(true),
-                    CheckedValue::Boolean(false)
-                ])
-            );
-        }
-
-        #[test]
-        fn array() {
-            let s = "[[true, false]]";
-            assert_eq!(
-                parse_strict::<Bn128Field>(
-                    s,
-                    vec![ConcreteType::array((ConcreteType::Boolean, 2usize))]
-                )
-                .unwrap(),
-                CheckedValues(vec![CheckedValue::Array(vec![
-                    CheckedValue::Boolean(true),
-                    CheckedValue::Boolean(false)
-                ])])
-            );
-        }
-
-        #[test]
-        fn struc() {
-            let s = r#"[{"a": "42"}]"#;
-            assert_eq!(
-                parse_strict::<Bn128Field>(
-                    s,
-                    vec![ConcreteType::Struct(ConcreteStructType::new(
-                        "".into(),
-                        "".into(),
-                        vec![ConcreteStructMember::new(
-                            "a".into(),
-                            ConcreteType::FieldElement
-                        )]
-                    ))]
-                )
-                .unwrap(),
-                CheckedValues(vec![CheckedValue::Struct(
-                    vec![("a".to_string(), CheckedValue::Field(42.into()))]
-                        .into_iter()
-                        .collect()
-                )])
-            );
-
-            let s = r#"[{"b": "42"}]"#;
-            assert_eq!(
-                parse_strict::<Bn128Field>(
-                    s,
-                    vec![ConcreteType::Struct(ConcreteStructType::new(
-                        "".into(),
-                        "".into(),
-                        vec![ConcreteStructMember::new(
-                            "a".into(),
-                            ConcreteType::FieldElement
-                        )]
-                    ))]
-                )
-                .unwrap_err(),
-                Error::Type("Member with id `a` not found".into())
-            );
-
-            let s = r#"[{}]"#;
-            assert_eq!(
-                parse_strict::<Bn128Field>(
-                    s,
-                    vec![ConcreteType::Struct(ConcreteStructType::new(
-                        "".into(),
-                        "".into(),
-                        vec![ConcreteStructMember::new(
-                            "a".into(),
-                            ConcreteType::FieldElement
-                        )]
-                    ))]
-                )
-                .unwrap_err(),
-                Error::Type("Expected 1 member(s), found 0".into())
-            );
-
-            let s = r#"[{"a": false}]"#;
-            assert_eq!(
-                parse_strict::<Bn128Field>(
-                    s,
-                    vec![ConcreteType::Struct(ConcreteStructType::new(
-                        "".into(),
-                        "".into(),
-                        vec![ConcreteStructMember::new(
-                            "a".into(),
-                            ConcreteType::FieldElement
-                        )]
-                    ))]
-                )
-                .unwrap_err(),
-                Error::Type("Value `false` doesn't match expected type `field`".into())
-            );
-        }
+        assert_eq!(
+            serde_value,
+            serde_json::Value::Array(vec![
+                serde_json::Value::String("1".into()),
+                serde_json::Value::String("0x02".into()),
+                serde_json::Value::String("0x0003".into()),
+                serde_json::Value::String("0x00000004".into()),
+                serde_json::Value::String("0x0000000000000005".into()),
+                serde_json::Value::Bool(true),
+                serde_json::Value::Array(vec![
+                    serde_json::Value::String("1".into()),
+                    serde_json::Value::String("2".into())
+                ]),
+                serde_json::json!({ "a": "1", "b": "2" })
+            ])
+        )
     }
 
     mod encode {
@@ -556,38 +545,35 @@ mod tests {
 
         #[test]
         fn fields() {
-            let v = CheckedValues(vec![CheckedValue::Field(1), CheckedValue::Field(2)]);
+            let v = Values(vec![Value::Field(1), Value::Field(2)]);
             assert_eq!(v.encode(), vec![1, 2]);
         }
 
         #[test]
         fn u8s() {
-            let v = CheckedValues::<usize>(vec![CheckedValue::U8(1), CheckedValue::U8(2)]);
+            let v = Values::<usize>(vec![Value::U8(1), Value::U8(2)]);
             assert_eq!(v.encode(), vec![1, 2]);
         }
 
         #[test]
         fn bools() {
-            let v: CheckedValues<usize> = CheckedValues(vec![
-                CheckedValue::Boolean(true),
-                CheckedValue::Boolean(false),
-            ]);
+            let v: Values<usize> = Values(vec![Value::Boolean(true), Value::Boolean(false)]);
             assert_eq!(v.encode(), vec![1, 0]);
         }
 
         #[test]
         fn array() {
-            let v: CheckedValues<usize> = CheckedValues(vec![CheckedValue::Array(vec![
-                CheckedValue::Boolean(true),
-                CheckedValue::Boolean(false),
+            let v: Values<usize> = Values(vec![Value::Array(vec![
+                Value::Boolean(true),
+                Value::Boolean(false),
             ])]);
             assert_eq!(v.encode(), vec![1, 0]);
         }
 
         #[test]
         fn struc() {
-            let v: CheckedValues<usize> = CheckedValues(vec![CheckedValue::Struct(
-                vec![("a".to_string(), CheckedValue::Field(42))]
+            let v: Values<usize> = Values(vec![Value::Struct(
+                vec![("a".to_string(), Value::Field(42))]
                     .into_iter()
                     .collect(),
             )]);

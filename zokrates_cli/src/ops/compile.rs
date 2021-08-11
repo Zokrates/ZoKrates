@@ -99,6 +99,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
     let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
+    log::debug!("Load entry point file {}", path.display());
+
     let file = File::open(path.clone())
         .map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
 
@@ -131,6 +133,9 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         .isolate_branches(sub_matches.is_present("isolate-branches"));
 
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
+
+    log::debug!("Compile");
+
     let artifacts: CompilationArtifacts<T> = compile(source, path, Some(&resolver), &config)
         .map_err(|e| {
             format!(
@@ -148,6 +153,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let num_constraints = program_flattened.constraint_count();
 
     // serialize flattened program and write to binary file
+    log::debug!("Serialize program");
     let bin_output_file = File::create(&bin_output_path)
         .map_err(|why| format!("Could not create {}: {}", bin_output_path.display(), why))?;
 
@@ -156,6 +162,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     program_flattened.serialize(&mut writer);
 
     // serialize ABI spec and write to JSON file
+    log::debug!("Serialize ABI");
     let abi_spec_file = File::create(&abi_spec_path)
         .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
 
@@ -173,6 +180,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     if sub_matches.is_present("ztf") {
         // write human-readable output file
+        log::debug!("Serialize human readable program");
         let hr_output_file = File::create(&hr_output_path)
             .map_err(|why| format!("Could not create {}: {}", hr_output_path.display(), why))?;
 

@@ -9,6 +9,7 @@ pub enum CurveParameter {
     Bw6_761,
 }
 
+#[derive(Debug)]
 pub enum BackendParameter {
     #[cfg(feature = "bellman")]
     Bellman,
@@ -19,10 +20,12 @@ pub enum BackendParameter {
 }
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Debug)]
 pub enum SchemeParameter {
     G16,
     GM17,
     PGHR13,
+    MARLIN,
 }
 
 impl TryFrom<&str> for CurveParameter {
@@ -63,11 +66,13 @@ impl TryFrom<&str> for SchemeParameter {
             G16 => Ok(SchemeParameter::G16),
             GM17 => Ok(SchemeParameter::GM17),
             PGHR13 => Ok(SchemeParameter::PGHR13),
+            MARLIN => Ok(SchemeParameter::MARLIN),
             _ => Err(format!("Unknown proving scheme {}", s)),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Parameters(
     pub BackendParameter,
     pub CurveParameter,
@@ -93,6 +98,12 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
             (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => Ok(()),
             #[cfg(feature = "ark")]
             (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
+            #[cfg(feature = "ark")]
+            (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => Ok(()),
+            #[cfg(feature = "ark")]
+            (BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => Ok(()),
+            #[cfg(feature = "ark")]
+            (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => Ok(()),
             #[cfg(feature = "libsnark")]
             (BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
             #[cfg(feature = "libsnark")]

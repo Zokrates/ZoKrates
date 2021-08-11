@@ -4,6 +4,7 @@ extern crate serde_json;
 #[cfg(test)]
 mod integration {
 
+    use glob::glob;
     use serde_json::from_reader;
     use std::fs;
     use std::fs::File;
@@ -212,21 +213,33 @@ mod integration {
 
         #[cfg(feature = "libsnark")]
         let backends = map! {
-            "bellman" => ["g16"],
-            "libsnark" => ["pghr13"],
-            "ark" => ["gm17"]
+            "bellman" => vec!["g16"],
+            "libsnark" => vec!["pghr13"],
+            "ark" => vec!["gm17", "marlin"]
         };
 
         #[cfg(not(feature = "libsnark"))]
         let backends = map! {
-            "bellman" => ["g16"],
-            "ark" => ["gm17"]
+            "bellman" => vec!["g16"],
+            "ark" => vec!["gm17", "marlin"]
         };
+
+        // GENERATE A UNIVERSAL SETUP
+        assert_cli::Assert::command(&[
+            "../target/release/zokrates",
+            "universal-setup",
+            "--size",
+            "15",
+            "--proving-scheme",
+            "marlin",
+        ])
+        .succeeds()
+        .unwrap();
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
                 // SETUP
-                assert_cli::Assert::command(&[
+                let setup = assert_cli::Assert::command(&[
                     "../target/release/zokrates",
                     "setup",
                     "-i",
@@ -241,46 +254,48 @@ mod integration {
                     scheme,
                 ])
                 .succeeds()
-                .unwrap();
+                .stdout()
+                .doesnt_contain("This program is too small to generate a setup with Marlin")
+                .execute();
 
-                // GENERATE-PROOF
-                assert_cli::Assert::command(&[
-                    "../target/release/zokrates",
-                    "generate-proof",
-                    "-i",
-                    flattened_path.to_str().unwrap(),
-                    "-w",
-                    witness_path.to_str().unwrap(),
-                    "-p",
-                    proving_key_path.to_str().unwrap(),
-                    "--backend",
-                    backend,
-                    "--proving-scheme",
-                    scheme,
-                    "-j",
-                    proof_path.to_str().unwrap(),
-                ])
-                .succeeds()
-                .unwrap();
+                if setup.is_ok() {
+                    // GENERATE-PROOF
+                    assert_cli::Assert::command(&[
+                        "../target/release/zokrates",
+                        "generate-proof",
+                        "-i",
+                        flattened_path.to_str().unwrap(),
+                        "-w",
+                        witness_path.to_str().unwrap(),
+                        "-p",
+                        proving_key_path.to_str().unwrap(),
+                        "--backend",
+                        backend,
+                        "--proving-scheme",
+                        scheme,
+                        "-j",
+                        proof_path.to_str().unwrap(),
+                    ])
+                    .succeeds()
+                    .unwrap();
 
-                // CLI VERIFICATION
-                assert_cli::Assert::command(&[
-                    "../target/release/zokrates",
-                    "verify",
-                    "--backend",
-                    backend,
-                    "--proving-scheme",
-                    scheme,
-                    "-j",
-                    proof_path.to_str().unwrap(),
-                    "-v",
-                    verification_key_path.to_str().unwrap(),
-                ])
-                .succeeds()
-                .unwrap();
+                    // CLI VERIFICATION
+                    assert_cli::Assert::command(&[
+                        "../target/release/zokrates",
+                        "verify",
+                        "--backend",
+                        backend,
+                        "--proving-scheme",
+                        scheme,
+                        "-j",
+                        proof_path.to_str().unwrap(),
+                        "-v",
+                        verification_key_path.to_str().unwrap(),
+                    ])
+                    .succeeds()
+                    .unwrap();
 
-                if backend != "ark" {
-                    for abi_version in &["v1", "v2"] {
+                    if scheme != &"marlin" {
                         // EXPORT-VERIFIER
                         assert_cli::Assert::command(&[
                             "../target/release/zokrates",
@@ -291,8 +306,6 @@ mod integration {
                             verification_contract_path.to_str().unwrap(),
                             "--proving-scheme",
                             scheme,
-                            "-a",
-                            abi_version,
                         ])
                         .succeeds()
                         .unwrap();
@@ -304,7 +317,6 @@ mod integration {
                             verification_contract_path.to_str().unwrap(),
                             proof_path.to_str().unwrap(),
                             scheme,
-                            abi_version,
                         ])
                         .current_dir(concat!(env!("OUT_DIR"), "/contract"))
                         .succeeds()
@@ -375,6 +387,7 @@ mod integration {
     }
 
     #[test]
+    #[ignore]
     fn test_compile_and_smtlib2_dir() {
         let dir = Path::new("./tests/code");
         assert!(dir.is_dir());
@@ -387,5 +400,51 @@ mod integration {
                 test_compile_and_smtlib2(program_name.to_str().unwrap(), &prog, &path);
             }
         }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_rng_tutorial() {
+        let tmp_dir = TempDir::new(".tmp").unwrap();
+        let tmp_base = tmp_dir.path();
+
+        for p in glob("./examples/book/rng_tutorial/*").expect("Failed to read glob pattern") {
+            let path = p.unwrap();
+            std::fs::copy(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
+        }
+
+        let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+
+        assert_cli::Assert::command(&[
+            "./test.sh",
+            env!("CARGO_BIN_EXE_zokrates"),
+            stdlib.to_str().unwrap(),
+        ])
+        .current_dir(tmp_base)
+        .succeeds()
+        .unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn test_sha256_tutorial() {
+        let tmp_dir = TempDir::new(".tmp").unwrap();
+        let tmp_base = tmp_dir.path();
+
+        for p in glob("./examples/book/sha256_tutorial/*").expect("Failed to read glob pattern") {
+            let path = p.unwrap();
+            std::fs::copy(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
+        }
+
+        let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+
+        assert_cli::Assert::command(&[
+            "./test.sh",
+            env!("CARGO_BIN_EXE_zokrates"),
+            stdlib.to_str().unwrap(),
+        ])
+        .current_dir(tmp_base)
+        .succeeds()
+        .unwrap();
     }
 }

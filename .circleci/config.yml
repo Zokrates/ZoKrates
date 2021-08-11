@@ -106,6 +106,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run integration tests
+          no_output_timeout: "30m"
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./integration_test.sh
   deploy:
     docker:
@@ -148,15 +149,26 @@ jobs:
         type: executor
       target:
         type: string
+      add-target:
+        type: boolean
+        default: false
+      build-with:
+        type: string
+        default: cross
     executor: << parameters.os >>
     steps:
       - checkout
       - run:
           name: Calculate dependencies
           command: cargo generate-lockfile
+      - when:
+         condition: << parameters.add-target >>
+         steps:
+           - run: rustup target add << parameters.target >>
       - run:
+          name: Build
           no_output_timeout: "30m"
-          command: cross build --target << parameters.target >> --release
+          command: << parameters.build-with >> build --target << parameters.target >> --release
       - tar_artifacts:
           target: << parameters.target >>
   publish_artifacts:
@@ -252,7 +264,7 @@ workflows:
           <<: *tag-only
           pre-steps:
             - install_rust
-            - install_cross
+          build-with: cargo
           matrix:
             alias: cross-build-macos
             parameters:
@@ -260,11 +272,25 @@ workflows:
                 - macos
               target:
                 - x86_64-apple-darwin
+      - cross_build:
+          <<: *tag-only
+          pre-steps:
+            - install_rust
+          build-with: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo
+          add-target: true
+          matrix:
+            alias: cross-build-apple-silicon
+            parameters:
+              os:
+                - macos
+              target:
+                - aarch64-apple-darwin
       - publish_artifacts:
           <<: *tag-only
           requires:
             - cross-build-linux
             - cross-build-macos
+            - cross-build-apple-silicon
       - deploy:
           filters:
             branches:

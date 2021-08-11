@@ -38,6 +38,7 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
                             Statement::Constraint(
                                 QuadComb::from_flat_expression(expression),
                                 FlatVariable::public(index).into(),
+                                None,
                             )
                         }),
                 )
@@ -99,19 +100,21 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
 impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
         match flat_statement {
-            FlatStatement::Condition(linear, quadratic) => match quadratic {
+            FlatStatement::Condition(linear, quadratic, message) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
                     QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
                     linear.into(),
+                    Some(message),
                 ),
-                e => Statement::Constraint(LinComb::from(e).into(), linear.into()),
+                e => Statement::Constraint(LinComb::from(e).into(), linear.into(), Some(message)),
             },
             FlatStatement::Definition(var, quadratic) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
                     QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
                     var.into(),
+                    None,
                 ),
-                e => Statement::Constraint(LinComb::from(e).into(), var.into()),
+                e => Statement::Constraint(LinComb::from(e).into(), var.into(), None),
             },
             FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
             _ => panic!("return should be handled at the function level"),

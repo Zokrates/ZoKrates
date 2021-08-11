@@ -20,6 +20,8 @@ fn main() {
     // set a custom panic hook
     std::panic::set_hook(Box::new(panic_hook));
 
+    env_logger::init();
+
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
@@ -43,6 +45,8 @@ fn cli() -> Result<(), String> {
             compile::subcommand(),
             check::subcommand(),
             compute_witness::subcommand(),
+            #[cfg(feature = "ark")]
+            universal_setup::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
@@ -58,6 +62,8 @@ fn cli() -> Result<(), String> {
         ("compile", Some(sub_matches)) => compile::exec(sub_matches),
         ("check", Some(sub_matches)) => check::exec(sub_matches),
         ("compute-witness", Some(sub_matches)) => compute_witness::exec(sub_matches),
+        #[cfg(feature = "ark")]
+        ("universal-setup", Some(sub_matches)) => universal_setup::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
@@ -120,7 +126,7 @@ mod tests {
 
         builder
             .spawn(|| {
-                for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
+                for p in glob("./examples/**/!(*.sh)").expect("Failed to read glob pattern") {
                     let path = match p {
                         Ok(x) => x,
                         Err(why) => panic!("Error: {:?}", why),
@@ -131,8 +137,7 @@ mod tests {
                     }
 
                     println!("Testing {:?}", path);
-
-                    assert!(path.extension().expect("extension expected") == "zok");
+                    assert_eq!(path.extension().expect("extension expected"), "zok");
 
                     let should_error = path.to_str().unwrap().contains("compile_errors");
 
@@ -167,7 +172,9 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
             println!("Testing {:?}", path);
+            assert_eq!(path.extension().expect("extension expected"), "zok");
 
             let file = File::open(path.clone()).unwrap();
 
@@ -197,7 +204,9 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
             println!("Testing {:?}", path);
+            assert_eq!(path.extension().expect("extension expected"), "zok");
 
             let file = File::open(path.clone()).unwrap();
 

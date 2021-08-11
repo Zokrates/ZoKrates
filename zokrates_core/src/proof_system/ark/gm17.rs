@@ -12,9 +12,9 @@ use crate::proof_system::ark::Computation;
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
 use crate::proof_system::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
 use crate::proof_system::Scheme;
-use crate::proof_system::{Backend, Proof, SetupKeypair};
+use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 
-impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
+impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
     fn setup(program: Prog<T>) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
@@ -37,7 +37,9 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
 
         SetupKeypair::new(vk, pk)
     }
+}
 
+impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
     fn generate_proof(
         program: Prog<T>,
         witness: Witness<T>,
@@ -105,7 +107,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
     }
 }
 
-impl Backend<Bw6_761Field, GM17> for Ark {
+impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
     fn setup(
         program: Prog<Bw6_761Field>,
     ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
@@ -130,7 +132,9 @@ impl Backend<Bw6_761Field, GM17> for Ark {
 
         SetupKeypair::new(vk, pk)
     }
+}
 
+impl Backend<Bw6_761Field, GM17> for Ark {
     fn generate_proof(
         program: Prog<Bw6_761Field>,
         witness: Witness<Bw6_761Field>,
@@ -259,15 +263,15 @@ mod tests {
                 id: String::from("main"),
                 arguments: vec![FlatVariable::new(0)],
                 returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::Constraint(
-                    FlatVariable::new(0).into(),
-                    FlatVariable::public(0).into(),
+                statements: vec![Statement::constraint(
+                    FlatVariable::new(0),
+                    FlatVariable::public(0),
                 )],
             },
             private: vec![false],
         };
 
-        let keypair = <Ark as Backend<Bls12_377Field, GM17>>::setup(program.clone());
+        let keypair = <Ark as NonUniversalBackend<Bls12_377Field, GM17>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -288,15 +292,15 @@ mod tests {
                 id: String::from("main"),
                 arguments: vec![FlatVariable::new(0)],
                 returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::Constraint(
-                    FlatVariable::new(0).into(),
-                    FlatVariable::public(0).into(),
+                statements: vec![Statement::constraint(
+                    FlatVariable::new(0),
+                    FlatVariable::public(0),
                 )],
             },
             private: vec![false],
         };
 
-        let keypair = <Ark as Backend<Bw6_761Field, GM17>>::setup(program.clone());
+        let keypair = <Ark as NonUniversalBackend<Bw6_761Field, GM17>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter

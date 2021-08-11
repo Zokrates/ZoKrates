@@ -1,5 +1,6 @@
 from "utils/pack/bool/unpack.zok" import main as unpack
 from "utils/casts/u32_to_bits" import main as u32_to_bits
+from "field" import FIELD_MAX, FIELD_SIZE_IN_BITS
 
 // this comparison works for any N smaller than the field size, which is the case in practice
 def le<N>(bool[N] a_bits, bool[N] c_bits) -> bool:
@@ -17,11 +18,9 @@ def le<N>(bool[N] a_bits, bool[N] c_bits) -> bool:
 
     return verified_conditions == N // this checks that all conditions were verified
 
-// this instanciates comparison starting from field elements
+// this instantiates comparison starting from field elements
 def le<N>(field a, field c) -> bool:
-
-    field MAX = 21888242871839275222246405745257275088548364400416034343698204186575808495616
-    bool[N] MAX_BITS = unpack::<N>(MAX)
+    bool[N] MAX_BITS = unpack::<N>(FIELD_MAX)
 
     bool[N] a_bits = unpack(a)
     assert(le(a_bits, MAX_BITS))
@@ -38,10 +37,7 @@ def le(u32 a, u32 c) -> bool:
     return le(a_bits, c_bits)
 
 def main(field a, u32 b) -> (bool, bool):
-
-    u32 N = 254
     field c = 42
-
     u32 d = 42
 
-    return le::<N>(a, c), le(b, d)
+    return le::<FIELD_SIZE_IN_BITS>(a, c), le(b, d)

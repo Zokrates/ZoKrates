@@ -12,7 +12,9 @@ use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::groth16::G16;
-use zokrates_core::proof_system::{Backend, Proof, Scheme, SolidityAbi, SolidityCompatibleScheme};
+use zokrates_core::proof_system::{
+    Backend, NonUniversalBackend, Proof, Scheme, SolidityCompatibleScheme,
+};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::ConcreteSignature as Signature;
 use zokrates_field::Bn128Field;
@@ -148,8 +150,7 @@ pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<Js
         .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
     let return_values: serde_json::Value =
-        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
-            .into_serde_json();
+        zokrates_abi::Values::decode(witness.return_values(), signature.outputs).into_serde_json();
 
     let result = ComputationResult {
         witness: format!("{}", witness),
@@ -162,18 +163,14 @@ pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<Js
 #[wasm_bindgen]
 pub fn setup(program: &[u8]) -> Result<JsValue, JsValue> {
     let program_flattened = deserialize_program(program)?;
-    let keypair = <Bellman as Backend<Bn128Field, G16>>::setup(program_flattened);
+    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program_flattened);
     Ok(JsValue::from_serde(&keypair).unwrap())
 }
 
 #[wasm_bindgen]
-pub fn export_solidity_verifier(vk: JsValue, abi_version: JsValue) -> Result<JsValue, JsValue> {
-    let abi_version = SolidityAbi::from(abi_version.as_string().unwrap().as_str())
-        .map_err(|err| JsValue::from_str(err))?;
-
+pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
     let verifier = <G16 as SolidityCompatibleScheme<Bn128Field>>::export_solidity_verifier(
         vk.into_serde().unwrap(),
-        abi_version,
     );
 
     Ok(JsValue::from_str(verifier.as_str()))

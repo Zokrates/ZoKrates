@@ -30,7 +30,8 @@
 				"Err": {
 					"UnsatisfiedConstraint": {
 						"left": "9",
-						"right": "3"
+						"right": "3",
+						"message": "Argument bitness check failed"
 					}
 				}
 			}

@@ -1,13 +1,9 @@
 import "signatures/verifyEddsa" as verifyEddsa
-import "ecc/babyjubjubParams" as context
-from "ecc/babyjubjubParams" import BabyJubJubParams
+from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS
 
 // Code to create test case:
 // https://github.com/Zokrates/pycrypto
 def main():
-
-	BabyJubJubParams context = context()
-
     field[2] R = [20197911405516193152560090893341588680064377398162745404177962124159545390767, 9171190326927340493105240100684097896571028312802691203521747450053192554927]
     field S = 6050429445242986634735172402304257690628456074852538287769363221635064371045
 
@@ -17,7 +13,7 @@ def main():
     u32[8] M0 = [0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000]
     u32[8] M1 = [0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000005]
 
-    bool isVerified = verifyEddsa(R, S, A, M0, M1, context)
+    bool isVerified = verifyEddsa(R, S, A, M0, M1, BABYJUBJUB_PARAMS)
     assert(isVerified)
 
     return

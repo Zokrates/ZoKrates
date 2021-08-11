@@ -12,7 +12,8 @@
 				"Err": {
 					"UnsatisfiedConstraint": {
 						"left": "0",
-						"right": "1"
+						"right": "1",
+                        "message": "User assertion failed"
 					}
 				}
             }
@@ -27,7 +28,8 @@
 				"Err": {
 					"UnsatisfiedConstraint": {
 						"left": "1",
-						"right": "0"
+						"right": "0",
+                        "message": "User assertion failed"
 					}
 				}
             }
@@ -42,7 +44,8 @@
 				"Err": {
 					"UnsatisfiedConstraint": {
 						"left": "2",
-						"right": "0"
+						"right": "0",
+                        "message": "User assertion failed"
 					}
 				}
             }

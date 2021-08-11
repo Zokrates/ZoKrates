@@ -5,7 +5,7 @@
 //! @date 2018
 
 use crate::absy::*;
-use crate::compile::compile_module;
+use crate::compile::parse_module;
 use crate::compile::{CompileErrorInner, CompileErrors};
 use crate::embed::FlatEmbed;
 use crate::parser::Position;
@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use crate::absy::types::UnresolvedType;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
-use zokrates_field::{Bn128Field, Field};
+use zokrates_field::Field;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -104,10 +104,12 @@ impl Importer {
             "EMBED" => match symbol.id {
                 #[cfg(feature = "bellman")]
                 "sha256round" => {
+                    use zokrates_field::Bn128Field;
                     if T::id() != Bn128Field::id() {
                         return Err(CompileErrorInner::ImportError(
                             Error::new(format!(
-                                "Embed sha256round cannot be used with curve {}",
+                                "`sha256round` is expected to be compiled over `{}` curve, but found `{}`",
+                                Bn128Field::name(),
                                 T::name()
                             ))
                             .with_pos(Some(pos)),
@@ -118,6 +120,27 @@ impl Importer {
                         SymbolDeclaration {
                             id: symbol.get_alias(),
                             symbol: Symbol::Flat(FlatEmbed::Sha256Round),
+                        }
+                    }
+                }
+                #[cfg(feature = "ark")]
+                "snark_verify_bls12_377" => {
+                    use zokrates_field::Bw6_761Field;
+                    if T::id() != Bw6_761Field::id() {
+                        return Err(CompileErrorInner::ImportError(
+                            Error::new(format!(
+                                "`snark_verify_bls12_377` is expected to be compiled over `{}` curve, but found `{}`",
+                                Bw6_761Field::name(),
+                                T::name()
+                            ))
+                            .with_pos(Some(pos)),
+                        )
+                        .in_file(location)
+                        .into());
+                    } else {
+                        SymbolDeclaration {
+                            id: symbol.get_alias(),
+                            symbol: Symbol::Flat(FlatEmbed::SnarkVerifyBls12377),
                         }
                     }
                 }
@@ -199,7 +222,7 @@ impl Importer {
                             Some(_) => {}
                             None => {
                                 let source = arena.alloc(source);
-                                let compiled = compile_module::<T, E>(
+                                let compiled = parse_module::<T, E>(
                                     source,
                                     new_location.clone(),
                                     resolver,

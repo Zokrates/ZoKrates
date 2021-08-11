@@ -84,7 +84,7 @@ fn format_prefix_op_smtlib2<T: SMTLib2, Ts: SMTLib2>(
 impl<T: Field> SMTLib2 for Statement<T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Constraint(ref quad, ref lin) => {
+            Statement::Constraint(ref quad, ref lin, _) => {
                 write!(f, "(= (mod ")?;
                 quad.to_smtlib2(f)?;
                 write!(f, " |~prime|) (mod ")?;

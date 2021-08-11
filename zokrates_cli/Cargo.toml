@@ -1,8 +1,8 @@
 [package]
 name = "zokrates_cli"
-version = "0.7.4"
+version = "0.7.5"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>", "Thibaut Schaeffer <thibaut@schaeff.fr>"]
-repository = "https://github.com/JacobEberhardt/ZoKrates.git"
+repository = "https://github.com/Zokrates/ZoKrates.git"
 edition = "2018"
 
 [features]
@@ -12,6 +12,8 @@ bellman = ["zokrates_core/bellman"]
 ark = ["zokrates_core/ark"]
 
 [dependencies]
+log = "0.4"
+env_logger = "0.9.0"
 cfg-if = "0.1"
 clap = "2.26.2"
 bincode = "0.8.0"

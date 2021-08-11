@@ -192,18 +192,23 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     let (typed_ast, abi) = check_with_arena(source, location, resolver, config, &arena)?;
 
     // flatten input program
+    log::debug!("Flatten");
     let program_flattened = Flattener::flatten(typed_ast, config);
 
     // analyse (constant propagation after call resolution)
+    log::debug!("Analyse flat program");
     let program_flattened = program_flattened.analyse();
 
     // convert to ir
+    log::debug!("Convert to IR");
     let ir_prog = ir::Prog::from(program_flattened);
 
     // optimize
+    log::debug!("Optimise IR");
     let optimized_ir_prog = ir_prog.optimize();
 
     // analyse (check constraints)
+    log::debug!("Analyse IR");
     let optimized_ir_prog = optimized_ir_prog.analyse();
 
     Ok(CompilationArtifacts {
@@ -231,7 +236,12 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
-    let compiled = compile_program::<T, E>(source, location, resolver, &arena)?;
+
+    log::debug!("Parse program with entry file {}", location.display());
+
+    let compiled = parse_program::<T, E>(source, location, resolver, &arena)?;
+
+    log::debug!("Check semantics");
 
     // check semantics
     let typed_ast = Checker::check(compiled)
@@ -239,13 +249,15 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
 
     let main_module = typed_ast.main.clone();
 
+    log::debug!("Run static analysis");
+
     // analyse (unroll and constant propagation)
     typed_ast
         .analyse(config)
         .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
 }
 
-pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
+pub fn parse_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
@@ -253,7 +265,7 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 ) -> Result<Program<'ast>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = compile_module::<T, E>(&source, location.clone(), resolver, &mut modules, &arena)?;
+    let main = parse_module::<T, E>(&source, location.clone(), resolver, &mut modules, &arena)?;
 
     modules.insert(location.clone(), main);
 
@@ -263,20 +275,28 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     })
 }
 
-pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
+pub fn parse_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast>, CompileErrors> {
+    log::debug!("Generate pest AST for {}", location.display());
+
     let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
+
+    log::debug!("Process macros for {}", location.display());
 
     let ast = process_macros::<T>(ast)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
 
+    log::debug!("Generate absy for {}", location.display());
+
     let module_without_imports: Module = Module::from(ast);
+
+    log::debug!("Apply imports to absy for {}", location.display());
 
     Importer::apply_imports::<T, E>(
         module_without_imports,
@@ -417,11 +437,13 @@ struct Bar { field a }
                         ty: ConcreteType::Struct(ConcreteStructType::new(
                             "foo".into(),
                             "Foo".into(),
+                            vec![],
                             vec![ConcreteStructMember {
                                 id: "b".into(),
                                 ty: box ConcreteType::Struct(ConcreteStructType::new(
                                     "bar".into(),
                                     "Bar".into(),
+                                    vec![],
                                     vec![ConcreteStructMember {
                                         id: "a".into(),
                                         ty: box ConcreteType::FieldElement
