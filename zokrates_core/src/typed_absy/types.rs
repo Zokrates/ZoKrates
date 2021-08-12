@@ -969,13 +969,8 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
 }
 
 impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
-    fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
-        let bitwidth = match *c.ty {
-            DeclarationType::Uint(bitwidth) => bitwidth,
-            _ => unreachable!(),
-        };
-
-        UExpressionInner::Identifier(Identifier::from(c.id)).annotate(bitwidth)
+    fn from(_: CanonicalConstantIdentifier<'ast>) -> Self {
+        unreachable!("constants should have been removed in constant inlining")
     }
 }
 
