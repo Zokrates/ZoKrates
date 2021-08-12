@@ -1157,23 +1157,6 @@ pub struct StructExpression<'ast, T> {
     inner: StructExpressionInner<'ast, T>,
 }
 
-// <<<<<<< HEAD
-// impl<'ast, T: Field> StructExpression<'ast, T> {
-//     pub fn try_from_typed(
-//         e: TypedExpression<'ast, T>,
-//         target_struct_ty: StructType<'ast, T>,
-//     ) -> Result<Self, TypedExpression<'ast, T>> {
-//         match e {
-//             TypedExpression::Struct(e) => {
-//                 if e.ty() == &target_struct_ty {
-//                     Ok(e)
-//                 } else {
-//                     Err(TypedExpression::Struct(e))
-//                 }
-//             }
-//             e => Err(e),
-//         }
-// =======
 impl<'ast, T> StructExpression<'ast, T> {
     pub fn ty(&self) -> &StructType<'ast, T> {
         &self.ty
@@ -1189,7 +1172,6 @@ impl<'ast, T> StructExpression<'ast, T> {
 
     pub fn into_inner(self) -> StructExpressionInner<'ast, T> {
         self.inner
-        // >>>>>>> 5a02186fc1d5c8f438a9663112f444497e752ea6
     }
 }
 
