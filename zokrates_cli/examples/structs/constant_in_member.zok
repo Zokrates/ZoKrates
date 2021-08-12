@@ -6,6 +6,6 @@ struct Foo {
 
 def main():
     Foo f = Foo { 
-        foo: [42; SIZE]
+        foo: [42; SIZE] 
     }
     return
