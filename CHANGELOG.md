@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.6] - 2021-08-16
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.6 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Make the stdlib `unpack` function safe against overflows of bit decompositions for any size of output, introduce `unpack_unchecked` for cases that do not require determinism (#955, @schaeff)
+- Add explicit function generic parameters to docs (#962, @schaeff)
+- Add gm17 verifier to stdlib for bw6_761 (#948, @schaeff)
+- Enable constant generics on structs (#945, @schaeff)
+- Use constants in the standard library, make `mimcSponge` implementation generic (#942, @dark64)
+- Fix constant range check in uint lt check (#954, @schaeff)
+- Add compiler logs (#950, @schaeff)
+- Fix state corruption in the constant inliner (#949, @schaeff)
+- Fix abi encoder bug for struct values where the members are encoded in the wrong order (#947, @schaeff)
+- Bump Solidity version to latest breaking release and use Solidity's ABI v2. This means that the `export-verifier` CLI flag to choose the ABI coder was removed. (#844, @leonardoalt)
+
 ## [0.7.5] - 2021-07-10
 
 ### Release
