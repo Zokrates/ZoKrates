@@ -791,10 +791,7 @@ fn conjunction_tree<'ast, T: Field>(
         n => {
             let (x0, y0) = v.split_at(n / 2);
             let (x1, y1) = w.split_at(n / 2);
-            zir::BooleanExpression::And(
-                box conjunction_tree::<T>(x0, x1),
-                box conjunction_tree::<T>(y0, y1),
-            )
+            zir::BooleanExpression::And(box conjunction_tree(x0, x1), box conjunction_tree(y0, y1))
         }
     }
 }
