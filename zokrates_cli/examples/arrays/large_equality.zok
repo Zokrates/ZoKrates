@@ -1,0 +1,4 @@
+const u32 SIZE = 100
+def main(private field[SIZE][SIZE] a):
+    assert(a == [[0; SIZE]; SIZE])
+    return

@@ -1,0 +1,1 @@
+Fix stack overflow when testing equality on large arrays
