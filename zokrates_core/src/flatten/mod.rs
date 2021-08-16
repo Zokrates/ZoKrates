@@ -1447,7 +1447,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         // whether this value should be reduced, for example if it is then used in a bitwidth operation
         let should_reduce = metadata.should_reduce;
-        assert!(!should_reduce.is_unknown(), "should_reduce should be known");
 
         let should_reduce = should_reduce.to_bool();
 
