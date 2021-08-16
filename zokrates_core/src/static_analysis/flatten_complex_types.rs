@@ -765,6 +765,40 @@ fn fold_field_expression<'ast, T: Field>(
     }
 }
 
+// util function to output a boolean expression representing the equality of two lists of ZirExpression.
+// the two list are checked to have the same size
+// we build a binary tree with internal nodes `And(left, right)` and leaves `Eq(left, right)`
+fn conjunction_tree<'ast, T: Field>(
+    v: &[zir::ZirExpression<'ast, T>],
+    w: &[zir::ZirExpression<'ast, T>],
+) -> zir::BooleanExpression<'ast, T> {
+    assert_eq!(v.len(), w.len());
+
+    match v.len() {
+        0 => zir::BooleanExpression::Value(true),
+        1 => match (v[0].clone(), w[0].clone()) {
+            (zir::ZirExpression::Boolean(v), zir::ZirExpression::Boolean(w)) => {
+                zir::BooleanExpression::BoolEq(box v, box w)
+            }
+            (zir::ZirExpression::FieldElement(v), zir::ZirExpression::FieldElement(w)) => {
+                zir::BooleanExpression::FieldEq(box v, box w)
+            }
+            (zir::ZirExpression::Uint(v), zir::ZirExpression::Uint(w)) => {
+                zir::BooleanExpression::UintEq(box v, box w)
+            }
+            _ => unreachable!(),
+        },
+        n => {
+            let (x0, y0) = v.split_at(n / 2);
+            let (x1, y1) = w.split_at(n / 2);
+            zir::BooleanExpression::And(
+                box conjunction_tree::<T>(x0, x1),
+                box conjunction_tree::<T>(y0, y1),
+            )
+        }
+    }
+}
+
 fn fold_boolean_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
@@ -801,27 +835,7 @@ fn fold_boolean_expression<'ast, T: Field>(
 
             assert_eq!(e1.len(), e2.len());
 
-            e1.into_iter().zip(e2.into_iter()).fold(
-                zir::BooleanExpression::Value(true),
-                |acc, (e1, e2)| {
-                    zir::BooleanExpression::And(
-                        box acc,
-                        box match (e1, e2) {
-                            (
-                                zir::ZirExpression::FieldElement(e1),
-                                zir::ZirExpression::FieldElement(e2),
-                            ) => zir::BooleanExpression::FieldEq(box e1, box e2),
-                            (zir::ZirExpression::Boolean(e1), zir::ZirExpression::Boolean(e2)) => {
-                                zir::BooleanExpression::BoolEq(box e1, box e2)
-                            }
-                            (zir::ZirExpression::Uint(e1), zir::ZirExpression::Uint(e2)) => {
-                                zir::BooleanExpression::UintEq(box e1, box e2)
-                            }
-                            _ => unreachable!(),
-                        },
-                    )
-                },
-            )
+            conjunction_tree(&e1, &e2)
         }
         typed_absy::BooleanExpression::StructEq(box e1, box e2) => {
             let e1 = f.fold_struct_expression(statements_buffer, e1);
@@ -829,27 +843,7 @@ fn fold_boolean_expression<'ast, T: Field>(
 
             assert_eq!(e1.len(), e2.len());
 
-            e1.into_iter().zip(e2.into_iter()).fold(
-                zir::BooleanExpression::Value(true),
-                |acc, (e1, e2)| {
-                    zir::BooleanExpression::And(
-                        box acc,
-                        box match (e1, e2) {
-                            (
-                                zir::ZirExpression::FieldElement(e1),
-                                zir::ZirExpression::FieldElement(e2),
-                            ) => zir::BooleanExpression::FieldEq(box e1, box e2),
-                            (zir::ZirExpression::Boolean(e1), zir::ZirExpression::Boolean(e2)) => {
-                                zir::BooleanExpression::BoolEq(box e1, box e2)
-                            }
-                            (zir::ZirExpression::Uint(e1), zir::ZirExpression::Uint(e2)) => {
-                                zir::BooleanExpression::UintEq(box e1, box e2)
-                            }
-                            _ => unreachable!(),
-                        },
-                    )
-                },
-            )
+            conjunction_tree(&e1, &e2)
         }
         typed_absy::BooleanExpression::UintEq(box e1, box e2) => {
             let e1 = f.fold_uint_expression(statements_buffer, e1);
