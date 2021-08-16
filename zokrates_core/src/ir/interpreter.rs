@@ -1,5 +1,4 @@
 use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::Directive;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use crate::solvers::Solver;
 use serde::{Deserialize, Serialize};
@@ -66,30 +65,25 @@ impl Interpreter {
                     }
                 },
                 Statement::Directive(ref d) => {
-                    match (&d.solver, &d.inputs, self.should_try_out_of_range) {
-                        (Solver::Bits(bitwidth), inputs, true)
-                            if inputs[0].left.0.len() > 1
-                                || inputs[0].right.0.len() > 1
-                                    && *bitwidth == T::get_required_bits() =>
-                        {
-                            Self::try_solve_out_of_range(&d, &mut witness)
+                    let mut inputs: Vec<_> = d
+                        .inputs
+                        .iter()
+                        .map(|i| i.evaluate(&witness).unwrap())
+                        .collect();
+
+                    let res = match (&d.solver, self.should_try_out_of_range) {
+                        (Solver::Bits(bitwidth), true) if *bitwidth >= T::get_required_bits() => {
+                            Ok(Self::try_solve_with_out_of_range_bits(
+                                *bitwidth,
+                                inputs.pop().unwrap(),
+                            ))
                         }
-                        _ => {
-                            let inputs: Vec<_> = d
-                                .inputs
-                                .iter()
-                                .map(|i| i.evaluate(&witness).unwrap())
-                                .collect();
-                            match self.execute_solver(&d.solver, &inputs) {
-                                Ok(res) => {
-                                    for (i, o) in d.outputs.iter().enumerate() {
-                                        witness.insert(*o, res[i].clone());
-                                    }
-                                    continue;
-                                }
-                                Err(_) => return Err(Error::Solver),
-                            };
-                        }
+                        _ => Self::execute_solver(&d.solver, &inputs),
+                    }
+                    .map_err(|_| Error::Solver)?;
+
+                    for (i, o) in d.outputs.iter().enumerate() {
+                        witness.insert(*o, res[i].clone());
                     }
                 }
             }
@@ -98,34 +92,31 @@ impl Interpreter {
         Ok(Witness(witness))
     }
 
-    fn try_solve_out_of_range<T: Field>(d: &Directive<T>, witness: &mut BTreeMap<FlatVariable, T>) {
+    fn try_solve_with_out_of_range_bits<T: Field>(bit_width: usize, input: T) -> Vec<T> {
         use num::traits::Pow;
+        use num_bigint::BigUint;
 
-        // we target the `2a - 2b` part of the `<` check by only returning out-of-range results
-        // when the input is not a single summand
-        let value = d.inputs[0].evaluate(&witness).unwrap();
-        let candidate = value.to_biguint() + T::max_value().to_biguint() + T::from(1).to_biguint();
+        let candidate = input.to_biguint() + T::max_value().to_biguint() + T::from(1).to_biguint();
+
         let input = if candidate < T::from(2).to_biguint().pow(T::get_required_bits()) {
             candidate
         } else {
-            value.to_biguint()
+            input.to_biguint()
         };
 
-        let mut num = input;
-        let mut res = vec![];
-        let bits = T::get_required_bits();
-        for i in (0..bits).rev() {
-            if T::from(2).to_biguint().pow(i as usize) <= num {
-                num -= T::from(2).to_biguint().pow(i as usize);
-                res.push(T::one());
-            } else {
-                res.push(T::zero());
-            }
-        }
-        assert_eq!(num, T::zero().to_biguint());
-        for (i, o) in d.outputs.iter().enumerate() {
-            witness.insert(*o, res[i].clone());
-        }
+        let padding = bit_width - T::get_required_bits();
+
+        (0..padding)
+            .map(|_| T::zero())
+            .chain((0..T::get_required_bits()).rev().scan(input, |state, i| {
+                if BigUint::from(2usize).pow(i) <= *state {
+                    *state = (*state).clone() - BigUint::from(2usize).pow(i);
+                    Some(T::one())
+                } else {
+                    Some(T::zero())
+                }
+            }))
+            .collect()
     }
 
     fn check_inputs<T: Field, U>(&self, program: &Prog<T>, inputs: &[U]) -> Result<(), Error> {
@@ -139,11 +130,7 @@ impl Interpreter {
         }
     }
 
-    pub fn execute_solver<T: Field>(
-        &self,
-        solver: &Solver,
-        inputs: &[T],
-    ) -> Result<Vec<T>, String> {
+    pub fn execute_solver<T: Field>(solver: &Solver, inputs: &[T]) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = solver.get_signature();
         assert_eq!(inputs.len(), expected_input_count);
 
@@ -156,18 +143,23 @@ impl Interpreter {
                 ],
             },
             Solver::Bits(bit_width) => {
-                let mut num = inputs[0].clone();
-                let mut res = vec![];
+                let padding = bit_width.saturating_sub(T::get_required_bits());
 
-                for i in (0..*bit_width).rev() {
-                    if T::from(2).pow(i) <= num {
-                        num = num - T::from(2).pow(i);
-                        res.push(T::one());
-                    } else {
-                        res.push(T::zero());
-                    }
-                }
-                res
+                let bit_width = bit_width - padding;
+
+                let num = inputs[0].clone();
+
+                (0..padding)
+                    .map(|_| T::zero())
+                    .chain((0..bit_width).rev().scan(num, |state, i| {
+                        if T::from(2).pow(i) <= *state {
+                            *state = (*state).clone() - T::from(2).pow(i);
+                            Some(T::one())
+                        } else {
+                            Some(T::zero())
+                        }
+                    }))
+                    .collect()
             }
             Solver::Xor => {
                 let x = inputs[0].clone();
@@ -346,16 +338,14 @@ mod tests {
         fn execute() {
             let cond_eq = Solver::ConditionEq;
             let inputs = vec![0];
-            let interpreter = Interpreter::default();
-            let r = interpreter
-                .execute_solver(
-                    &cond_eq,
-                    &inputs
-                        .iter()
-                        .map(|&i| Bn128Field::from(i))
-                        .collect::<Vec<_>>(),
-                )
-                .unwrap();
+            let r = Interpreter::execute_solver(
+                &cond_eq,
+                &inputs
+                    .iter()
+                    .map(|&i| Bn128Field::from(i))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
             let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
@@ -364,16 +354,14 @@ mod tests {
         fn execute_non_eq() {
             let cond_eq = Solver::ConditionEq;
             let inputs = vec![1];
-            let interpreter = Interpreter::default();
-            let r = interpreter
-                .execute_solver(
-                    &cond_eq,
-                    &inputs
-                        .iter()
-                        .map(|&i| Bn128Field::from(i))
-                        .collect::<Vec<_>>(),
-                )
-                .unwrap();
+            let r = Interpreter::execute_solver(
+                &cond_eq,
+                &inputs
+                    .iter()
+                    .map(|&i| Bn128Field::from(i))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
             let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
@@ -382,10 +370,9 @@ mod tests {
     #[test]
     fn bits_of_one() {
         let inputs = vec![Bn128Field::from(1)];
-        let interpreter = Interpreter::default();
-        let res = interpreter
-            .execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
-            .unwrap();
+        let res =
+            Interpreter::execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
+                .unwrap();
         assert_eq!(res[253], Bn128Field::from(1));
         for r in &res[0..253] {
             assert_eq!(*r, Bn128Field::from(0));
@@ -395,10 +382,9 @@ mod tests {
     #[test]
     fn bits_of_42() {
         let inputs = vec![Bn128Field::from(42)];
-        let interpreter = Interpreter::default();
-        let res = interpreter
-            .execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
-            .unwrap();
+        let res =
+            Interpreter::execute_solver(&Solver::Bits(Bn128Field::get_required_bits()), &inputs)
+                .unwrap();
         assert_eq!(res[253], Bn128Field::from(0));
         assert_eq!(res[252], Bn128Field::from(1));
         assert_eq!(res[251], Bn128Field::from(0));
@@ -406,5 +392,16 @@ mod tests {
         assert_eq!(res[249], Bn128Field::from(0));
         assert_eq!(res[248], Bn128Field::from(1));
         assert_eq!(res[247], Bn128Field::from(0));
+    }
+
+    #[test]
+    fn five_hundred_bits_of_1() {
+        let inputs = vec![Bn128Field::from(1)];
+        let res = Interpreter::execute_solver(&Solver::Bits(500), &inputs).unwrap();
+
+        let mut expected = vec![Bn128Field::from(0); 500];
+        expected[499] = Bn128Field::from(1);
+
+        assert_eq!(res, expected);
     }
 }

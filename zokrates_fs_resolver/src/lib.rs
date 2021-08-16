@@ -26,17 +26,16 @@ impl<'a> Resolver<io::Error> for FileSystemResolver<'a> {
     ) -> Result<(String, PathBuf), io::Error> {
         let source = Path::new(&import_location);
 
-        if !current_location.is_file() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("{} was expected to be a file", current_location.display()),
-            ));
-        }
-
         // paths starting with `./` or `../` are interpreted relative to the current file
         // other paths `abc/def` are interpreted relative to the standard library root path
         let base = match source.components().next() {
             Some(Component::CurDir) | Some(Component::ParentDir) => {
+                if !current_location.is_file() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("{} was expected to be a file", current_location.display()),
+                    ));
+                }
                 current_location.parent().unwrap().into()
             }
             _ => PathBuf::from(self.stdlib_root_path.unwrap_or("")),

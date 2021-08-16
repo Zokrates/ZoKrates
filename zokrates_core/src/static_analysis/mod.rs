@@ -5,21 +5,21 @@
 //! @date 2018
 
 mod branch_isolator;
+mod constant_argument_checker;
 mod constant_inliner;
 mod flat_propagation;
 mod flatten_complex_types;
 mod propagation;
 mod reducer;
-mod shift_checker;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod variable_write_remover;
 
 use self::branch_isolator::Isolator;
+use self::constant_argument_checker::ConstantArgumentChecker;
 use self::flatten_complex_types::Flattener;
 use self::propagation::Propagator;
 use self::reducer::reduce_program;
-use self::shift_checker::ShiftChecker;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_write_remover::VariableWriteRemover;
@@ -39,7 +39,7 @@ pub trait Analyse {
 pub enum Error {
     Reducer(self::reducer::Error),
     Propagation(self::propagation::Error),
-    NonConstantShift(self::shift_checker::Error),
+    NonConstantArgument(self::constant_argument_checker::Error),
 }
 
 impl From<reducer::Error> for Error {
@@ -54,9 +54,9 @@ impl From<propagation::Error> for Error {
     }
 }
 
-impl From<shift_checker::Error> for Error {
-    fn from(e: shift_checker::Error) -> Self {
-        Error::NonConstantShift(e)
+impl From<constant_argument_checker::Error> for Error {
+    fn from(e: constant_argument_checker::Error) -> Self {
+        Error::NonConstantArgument(e)
     }
 }
 
@@ -65,7 +65,7 @@ impl fmt::Display for Error {
         match self {
             Error::Reducer(e) => write!(f, "{}", e),
             Error::Propagation(e) => write!(f, "{}", e),
-            Error::NonConstantShift(e) => write!(f, "{}", e),
+            Error::NonConstantArgument(e) => write!(f, "{}", e),
         }
     }
 }
@@ -107,9 +107,9 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = VariableWriteRemover::apply(r);
         log::trace!("\n{}", r);
 
-        // detect non constant shifts
-        log::debug!("Static analyser: Detect non constant shifts");
-        let r = ShiftChecker::check(r).map_err(Error::from)?;
+        // detect non constant shifts and constant lt bounds
+        log::debug!("Static analyser: Detect non constant arguments");
+        let r = ConstantArgumentChecker::check(r).map_err(Error::from)?;
         log::trace!("\n{}", r);
 
         // convert to zir, removing complex types

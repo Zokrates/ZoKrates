@@ -1273,13 +1273,8 @@ mod tests {
         // def main():
         //      # PUSH CALL to foo::<1>
         //          # PUSH CALL to bar::<2>
-        //              field[2] a_1 = [...[1]], 0]
-        //              field[2] #RET_0_1 = a_1
         //          # POP CALL
-        //          field[1] ret := #RET_0_1[0..1]
-        //          field[1] #RET_0 = ret
         //      # POP CALL
-        //      field[1] b_0 := #RET_0
         //      return
 
         let foo_signature = DeclarationSignature::new()
@@ -1452,71 +1447,8 @@ mod tests {
                             .collect(),
                     ),
                 ),
-                TypedStatement::Definition(
-                    Variable::array(Identifier::from("a").version(1), Type::FieldElement, 2u32)
-                        .into(),
-                    ArrayExpressionInner::Value(
-                        vec![
-                            TypedExpressionOrSpread::Spread(
-                                ArrayExpressionInner::Value(
-                                    vec![TypedExpressionOrSpread::Expression(
-                                        FieldElementExpression::Number(Bn128Field::from(1)).into(),
-                                    )]
-                                    .into(),
-                                )
-                                .annotate(Type::FieldElement, 1u32)
-                                .into(),
-                            ),
-                            FieldElementExpression::Number(Bn128Field::from(0)).into(),
-                        ]
-                        .into(),
-                    )
-                    .annotate(Type::FieldElement, 2u32)
-                    .into(),
-                ),
-                TypedStatement::Definition(
-                    Variable::array(
-                        Identifier::from(CoreIdentifier::Call(0)).version(1),
-                        Type::FieldElement,
-                        2u32,
-                    )
-                    .into(),
-                    ArrayExpressionInner::Identifier(Identifier::from("a").version(1))
-                        .annotate(Type::FieldElement, 2u32)
-                        .into(),
-                ),
                 TypedStatement::PopCallLog,
-                TypedStatement::Definition(
-                    Variable::array("ret", Type::FieldElement, 1u32).into(),
-                    ArrayExpressionInner::Slice(
-                        box ArrayExpressionInner::Identifier(
-                            Identifier::from(CoreIdentifier::Call(0)).version(1),
-                        )
-                        .annotate(Type::FieldElement, 2u32),
-                        box 0u32.into(),
-                        box 1u32.into(),
-                    )
-                    .annotate(Type::FieldElement, 1u32)
-                    .into(),
-                ),
-                TypedStatement::Definition(
-                    Variable::array(
-                        Identifier::from(CoreIdentifier::Call(0)),
-                        Type::FieldElement,
-                        1u32,
-                    )
-                    .into(),
-                    ArrayExpressionInner::Identifier("ret".into())
-                        .annotate(Type::FieldElement, 1u32)
-                        .into(),
-                ),
                 TypedStatement::PopCallLog,
-                TypedStatement::Definition(
-                    Variable::array("b", Type::FieldElement, 1u32).into(),
-                    ArrayExpressionInner::Identifier(Identifier::from(CoreIdentifier::Call(0)))
-                        .annotate(Type::FieldElement, 1u32)
-                        .into(),
-                ),
                 TypedStatement::Return(vec![]),
             ],
             signature: DeclarationSignature::new(),

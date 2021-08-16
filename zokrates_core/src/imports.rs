@@ -148,6 +148,10 @@ impl Importer {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::Unpack),
                 },
+                "bit_array_le" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Flat(FlatEmbed::BitArrayLe),
+                },
                 "u64_to_bits" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::U64ToBits),
