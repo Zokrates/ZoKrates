@@ -1,0 +1,11 @@
+const u32 SIZE = 42
+
+struct Foo {
+    field[SIZE] foo
+}
+
+def main():
+    Foo f = Foo { 
+        foo: [42; SIZE]
+    }
+    return

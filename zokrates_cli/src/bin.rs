@@ -126,13 +126,17 @@ mod tests {
 
         builder
             .spawn(|| {
-                for p in glob("./examples/**/!(*.sh)").expect("Failed to read glob pattern") {
+                for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
                     let path = match p {
                         Ok(x) => x,
                         Err(why) => panic!("Error: {:?}", why),
                     };
 
                     if !path.is_file() {
+                        continue;
+                    }
+
+                    if path.extension().expect("extension expected") == "sh" {
                         continue;
                     }
 
