@@ -367,7 +367,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 // reduce both terms
                 let e = self.fold_uint_expression(e);
 
-                let e_max: num_bigint::BigUint = e.metadata.clone().unwrap().max.to_biguint();
+                let e_max: num_bigint::BigUint = e.metadata.as_ref().unwrap().max.to_biguint();
                 let max = e_max
                     .shl(by as usize)
                     .bitand(&(2_u128.pow(range as u32) - 1).into());
@@ -380,7 +380,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 // reduce both terms
                 let e = self.fold_uint_expression(e);
 
-                let e_max: num_bigint::BigUint = e.metadata.clone().unwrap().max.to_biguint();
+                let e_max: num_bigint::BigUint = e.metadata.as_ref().unwrap().max.to_biguint();
                 let max = e_max
                     .bitand(&(2_u128.pow(range as u32) - 1).into())
                     .shr(by as usize);
