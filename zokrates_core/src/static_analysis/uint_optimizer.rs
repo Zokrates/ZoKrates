@@ -2,6 +2,7 @@ use crate::embed::FlatEmbed;
 use crate::zir::folder::*;
 use crate::zir::*;
 use std::collections::HashMap;
+use std::ops::{BitAnd, Shl, Shr};
 use zokrates_field::Field;
 
 #[derive(Default)]
@@ -366,16 +367,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 // reduce both terms
                 let e = self.fold_uint_expression(e);
 
-                let e_max: u128 = e
-                    .metadata
-                    .clone()
-                    .unwrap()
-                    .max
-                    .to_dec_string()
-                    .parse()
-                    .unwrap();
+                let e_max: num_bigint::BigUint = e.metadata.clone().unwrap().max.to_biguint();
+                let max = e_max
+                    .shl(by as usize)
+                    .bitand(&(2_u128.pow(range as u32) - 1).into());
 
-                let max = T::from((e_max << by) & (2_u128.pow(range as u32) - 1));
+                let max = T::try_from(max).unwrap();
 
                 UExpression::left_shift(force_reduce(e), by).with_max(max)
             }
@@ -383,18 +380,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 // reduce both terms
                 let e = self.fold_uint_expression(e);
 
-                let e_max: u128 = e
-                    .metadata
-                    .clone()
-                    .unwrap()
-                    .max
-                    .to_dec_string()
-                    .parse()
-                    .unwrap();
+                let e_max: num_bigint::BigUint = e.metadata.clone().unwrap().max.to_biguint();
+                let max = e_max
+                    .bitand(&(2_u128.pow(range as u32) - 1).into())
+                    .shr(by as usize);
 
-                let max = (e_max & (2_u128.pow(range as u32) - 1)) >> by;
-
-                let max = T::from(max);
+                let max = T::try_from(max).unwrap();
 
                 UExpression::right_shift(force_reduce(e), by).with_max(max)
             }
