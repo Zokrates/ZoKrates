@@ -718,7 +718,7 @@ mod tests {
 
     #[test]
     fn right_shift() {
-        fn right_shift_test(e_max: u128, by: u32, output_max: u32) {
+        fn right_shift_test<U: Into<Bn128Field>>(e_max: U, by: u32, output_max: u32) {
             let left = e_with_max(e_max);
 
             let right = by;
@@ -736,12 +736,12 @@ mod tests {
 
         right_shift_test(0xff_u128, 2, 0xff >> 2);
         right_shift_test(2, 2, 2 >> 2);
-        right_shift_test(0xffffffffffff_u128, 2, 0xffffffff >> 2);
+        right_shift_test(Bn128Field::max_unique_value(), 2, 0xffffffff >> 2);
     }
 
     #[test]
     fn left_shift() {
-        fn left_shift_test(e_max: u128, by: u32, output_max: u32) {
+        fn left_shift_test<U: Into<Bn128Field>>(e_max: U, by: u32, output_max: u32) {
             let left = e_with_max(e_max);
 
             let right = by;
@@ -759,7 +759,7 @@ mod tests {
 
         left_shift_test(0xff_u128, 2, 0xff << 2);
         left_shift_test(2, 2, 2 << 2);
-        left_shift_test(0xffffffffffff_u128, 2, 0xffffffff << 2);
+        left_shift_test(Bn128Field::max_unique_value(), 2, 0xffffffff << 2);
     }
 
     #[test]
