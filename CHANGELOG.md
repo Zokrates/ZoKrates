@@ -10,6 +10,7 @@ https://github.com/Zokrates/ZoKrates/compare/latest...develop
 - https://github.com/Zokrates/ZoKrates/releases/tag/0.7.6 <!-- markdown-link-check-disable-line -->
 
 ### Changes
+- Fix stack overflow when testing equality on large arrays (#969, @schaeff)
 - Make the stdlib `unpack` function safe against overflows of bit decompositions for any size of output, introduce `unpack_unchecked` for cases that do not require determinism (#955, @schaeff)
 - Add explicit function generic parameters to docs (#962, @schaeff)
 - Add gm17 verifier to stdlib for bw6_761 (#948, @schaeff)
