@@ -28,6 +28,7 @@ cfg_if::cfg_if! {
 /// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum FlatEmbed {
+    BitArrayLe,
     U32ToField,
     Unpack,
     U8ToBits,
@@ -47,6 +48,30 @@ pub enum FlatEmbed {
 impl FlatEmbed {
     pub fn signature(&self) -> DeclarationSignature<'static> {
         match self {
+            FlatEmbed::BitArrayLe => DeclarationSignature::new()
+                .generics(vec![Some(DeclarationConstant::Generic(
+                    GenericIdentifier {
+                        name: "N",
+                        index: 0,
+                    },
+                ))])
+                .inputs(vec![
+                    DeclarationType::array((
+                        DeclarationType::Boolean,
+                        GenericIdentifier {
+                            name: "N",
+                            index: 0,
+                        },
+                    )),
+                    DeclarationType::array((
+                        DeclarationType::Boolean,
+                        GenericIdentifier {
+                            name: "N",
+                            index: 0,
+                        },
+                    )),
+                ])
+                .outputs(vec![DeclarationType::Boolean]),
             FlatEmbed::U32ToField => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(32)])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -172,6 +197,7 @@ impl FlatEmbed {
 
     pub fn id(&self) -> &'static str {
         match self {
+            FlatEmbed::BitArrayLe => "_BIT_ARRAY_LT",
             FlatEmbed::U32ToField => "_U32_TO_FIELD",
             FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
@@ -449,14 +475,9 @@ fn use_variable(
 /// * bit_width the number of bits we want to decompose to
 ///
 /// # Remarks
-/// * the return value of the `FlatFunction` is not deterministic if `bit_width == T::get_required_bits()`
-///   as we decompose over `log_2(p) + 1 bits, some
-///   elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
+/// * the return value of the `FlatFunction` is not deterministic if `bit_width >= T::get_required_bits()`
+///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
-    let nbits = T::get_required_bits();
-
-    assert!(bit_width <= nbits);
-
     let mut counter = 0;
 
     let mut layout = HashMap::new();

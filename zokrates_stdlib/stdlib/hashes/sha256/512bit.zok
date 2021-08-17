@@ -5,5 +5,4 @@ import "./sha256" as sha256
 // Note: no padding is applied
 
 def main(u32[8] a, u32[8] b) -> u32[8]:
-
     return sha256([[...a, ...b]])

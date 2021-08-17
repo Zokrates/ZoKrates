@@ -1,0 +1,52 @@
+#pragma curve bw6_761
+from "EMBED" import snark_verify_bls12_377 as verify
+
+struct ProofInner {
+    field[2] a
+    field[2][2] b
+    field[2] c
+}
+
+struct Proof<N> {
+    ProofInner proof
+    field[N] inputs
+}
+struct VerificationKey<N> {
+    field[2][2] h
+    field[2] g_alpha
+    field[2][2] h_beta
+    field[2] g_gamma
+    field[2][2] h_gamma
+    field[N][2] query // input length + 1
+}
+
+def flat<N, F>(field[N][2] input) -> field[F]:
+    assert(F == N * 2)
+    field[F] out = [0; F]
+    for u32 i in 0..N do
+        for u32 j in 0..2 do
+            out[(i * 2) + j] = input[i][j]
+        endfor
+    endfor
+    return out
+
+def main<N, Q>(Proof<N> proof, VerificationKey<Q> vk) -> bool:
+    assert(Q == N + 1) // query length (Q) should be N + 1
+    field[8] flat_proof = [
+        ...proof.proof.a,
+        ...flat::<2, 4>(proof.proof.b),
+        ...proof.proof.c
+    ]
+
+    u32 two_Q = 2 * Q
+
+    field[16 + (2 * Q)] flat_vk = [
+        ...flat::<2, 4>(vk.h),
+        ...vk.g_alpha,
+        ...flat::<2, 4>(vk.h_beta),
+        ...vk.g_gamma,
+        ...flat::<2, 4>(vk.h_gamma),
+        ...flat::<Q, two_Q>(vk.query)
+    ]
+
+    return verify(proof.inputs, flat_proof, flat_vk)

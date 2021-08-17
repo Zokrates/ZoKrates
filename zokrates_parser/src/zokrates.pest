@@ -34,9 +34,9 @@ ty_array = { ty_basic_or_struct ~ ("[" ~ expression ~ "]")+ }
 ty = { ty_array | ty_basic | ty_struct }
 type_list = _{(ty ~ ("," ~ ty)*)?}
 // structs
-ty_struct = { identifier }
+ty_struct = { identifier ~ explicit_generics? }
 // type definitions
-ty_struct_definition = { "struct" ~ identifier ~ "{" ~ NEWLINE* ~ struct_field_list ~ NEWLINE* ~ "}" ~ NEWLINE* }
+ty_struct_definition = { "struct" ~ identifier ~ constant_generics_declaration? ~ "{" ~ NEWLINE* ~ struct_field_list ~ NEWLINE* ~ "}" ~ NEWLINE* }
 struct_field_list = _{(struct_field ~ (NEWLINE+ ~ struct_field)*)? }
 struct_field = { ty ~ identifier }
 
@@ -77,9 +77,9 @@ conditional_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ ex
 postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers
 access = { array_access | call_access | member_access }
 array_access = { "[" ~ range_or_expression ~ "]" }
-call_access = { explicit_generics? ~ "(" ~ arguments ~ ")" }
+call_access = { ("::" ~ explicit_generics)? ~ "(" ~ arguments ~ ")" }
 arguments = { expression_list }
-explicit_generics = { "::<" ~ constant_generics_values ~ ">" }
+explicit_generics = { "<" ~ constant_generics_values ~ ">" }
 constant_generics_values = _{ constant_generics_value ~ ("," ~ constant_generics_value)* }
 constant_generics_value = { literal | identifier | underscore }
 underscore = { "_" }

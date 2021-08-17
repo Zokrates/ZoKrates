@@ -11,7 +11,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/edwards.rs#L166
 def main(field[2] pt, BabyJubJubParams context) -> bool:
 
-    field cofactor = context.JUBJUBC
+    field cofactor = context.JUBJUB_C
 
     assert(cofactor == 8)
 

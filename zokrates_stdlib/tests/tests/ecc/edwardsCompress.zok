@@ -1,14 +1,11 @@
 import "ecc/edwardsCompress" as edwardsCompress
-import "ecc/babyjubjubParams" as context
-from "ecc/babyjubjubParams" import BabyJubJubParams
+from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
 def testCompress() -> bool:
-	BabyJubJubParams context = context()
-
-	field Gu = context.Gu
-	field Gv = context.Gv
+	field Gu = BABYJUBJUB_PARAMS.Gu
+	field Gv = BABYJUBJUB_PARAMS.Gv
 
 	bool[256] Gcompressed = edwardsCompress([Gu, Gv])
 

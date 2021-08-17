@@ -10,6 +10,7 @@ use zokrates_core::{
     ir::Interpreter,
 };
 use zokrates_field::Bn128Field;
+use zokrates_fs_resolver::FileSystemResolver;
 
 #[test]
 fn lt_field() {
@@ -73,4 +74,84 @@ fn lt_uint() {
             &[Bn128Field::from(10000), Bn128Field::from(5555)]
         )
         .is_err());
+}
+
+#[test]
+fn unpack256() {
+    let source = r#"
+        import "utils/pack/bool/unpack256"
+
+		def main(private field a):
+	        bool[256] bits = unpack256(a)
+			assert(bits[255])
+            return
+	"#
+    .to_string();
+
+    // let's try to prove that the least significant bit of 0 is 1
+    // we exploit the fact that the bits of 0 are the bits of p, and p is even
+    // we want this to still fail
+
+    let stdlib_path = std::fs::canonicalize(
+        std::env::current_dir()
+            .unwrap()
+            .join("../zokrates_stdlib/stdlib"),
+    )
+    .unwrap();
+
+    let res: CompilationArtifacts<Bn128Field> = compile(
+        source,
+        "./path/to/file".into(),
+        Some(&FileSystemResolver::with_stdlib_root(
+            stdlib_path.to_str().unwrap(),
+        )),
+        &CompileConfig::default(),
+    )
+    .unwrap();
+
+    let interpreter = Interpreter::try_out_of_range();
+
+    assert!(interpreter
+        .execute(&res.prog(), &[Bn128Field::from(0)])
+        .is_err());
+}
+
+#[test]
+fn unpack256_unchecked() {
+    let source = r#"
+        import "utils/pack/bool/nonStrictUnpack256"
+
+		def main(private field a):
+	        bool[256] bits = nonStrictUnpack256(a)
+			assert(bits[255])
+            return
+	"#
+    .to_string();
+
+    // let's try to prove that the least significant bit of 0 is 1
+    // we exploit the fact that the bits of 0 are the bits of p, and p is odd
+    // we want this to succeed as the non strict version does not enforce the bits to be in range
+
+    let stdlib_path = std::fs::canonicalize(
+        std::env::current_dir()
+            .unwrap()
+            .join("../zokrates_stdlib/stdlib"),
+    )
+    .unwrap();
+
+    let res: CompilationArtifacts<Bn128Field> = compile(
+        source,
+        "./path/to/file".into(),
+        Some(&FileSystemResolver::with_stdlib_root(
+            stdlib_path.to_str().unwrap(),
+        )),
+        &CompileConfig::default(),
+    )
+    .unwrap();
+
+    let interpreter = Interpreter::try_out_of_range();
+
+    assert!(interpreter
+        .execute(&res.prog(), &[Bn128Field::from(0)])
+        .is_ok());
 }

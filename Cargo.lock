@@ -2451,6 +2451,7 @@ dependencies = [
  "zokrates_common",
  "zokrates_embed",
  "zokrates_field",
+ "zokrates_fs_resolver",
  "zokrates_pest_ast",
 ]
 
@@ -2547,6 +2548,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "zokrates_abi",
  "zokrates_core",
  "zokrates_field",
  "zokrates_fs_resolver",

@@ -136,9 +136,12 @@ mod tests {
                         continue;
                     }
 
-                    println!("Testing {:?}", path);
+                    if path.extension().expect("extension expected") == "sh" {
+                        continue;
+                    }
 
-                    assert!(path.extension().expect("extension expected") == "zok");
+                    println!("Testing {:?}", path);
+                    assert_eq!(path.extension().expect("extension expected"), "zok");
 
                     let should_error = path.to_str().unwrap().contains("compile_errors");
 
@@ -173,7 +176,9 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
             println!("Testing {:?}", path);
+            assert_eq!(path.extension().expect("extension expected"), "zok");
 
             let file = File::open(path.clone()).unwrap();
 
@@ -203,7 +208,9 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
             println!("Testing {:?}", path);
+            assert_eq!(path.extension().expect("extension expected"), "zok");
 
             let file = File::open(path.clone()).unwrap();
 

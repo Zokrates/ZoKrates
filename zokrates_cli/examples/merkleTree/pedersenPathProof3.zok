@@ -1,15 +1,11 @@
 import "hashes/pedersen/512bit" as hash
 import "ecc/edwardsCompress" as edwardsCompress
-import "ecc/babyjubjubParams" as context
-from "ecc/babyjubjubParams" import BabyJubJubParams
 import "hashes/utils/256bitsDirectionHelper" as multiplex
 
 // Merke-Tree inclusion proof for tree depth 3 using SNARK efficient pedersen hashes
 // directionSelector=> true if current digest is on the rhs of the hash
 
 def main(u32[8] rootDigest, private u32[8] leafDigest, private bool[3] directionSelector, u32[8] PathDigest0, private u32[8] PathDigest1, private u32[8] PathDigest2):
-	BabyJubJubParams context = context()
-
 	//Setup
 	u32[8] currentDigest = leafDigest
 	

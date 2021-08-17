@@ -223,7 +223,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         b: &[bool],
     ) -> Vec<FlatExpression<T>> {
         let len = b.len();
-        assert_eq!(a.len(), T::get_required_bits());
         assert_eq!(a.len(), b.len());
 
         let mut is_not_smaller_run = vec![];
@@ -1164,6 +1163,58 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             crate::embed::FlatEmbed::U8FromBits => {
                 vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 8.into())]
             }
+            crate::embed::FlatEmbed::BitArrayLe => {
+                // get the length of the bit arrays
+                let len = generics[0];
+
+                // split the arguments into the two bit arrays of size `len`
+                let (expressions, constants) = (
+                    param_expressions[..len as usize].to_vec(),
+                    param_expressions[len as usize..].to_vec(),
+                );
+
+                // define variables for the variable bits
+                let variables: Vec<_> = expressions
+                    .into_iter()
+                    .map(|e| {
+                        let e = self
+                            .flatten_expression(statements_flattened, e)
+                            .get_field_unchecked();
+                        self.define(e, statements_flattened)
+                    })
+                    .collect();
+
+                // get constants for the constant bits
+                let constants: Vec<_> = constants
+                    .into_iter()
+                    .map(|e| {
+                        self.flatten_expression(statements_flattened, e)
+                            .get_field_unchecked()
+                    })
+                    .map(|e| match e {
+                        FlatExpression::Number(n) if n == T::one() => true,
+                        FlatExpression::Number(n) if n == T::zero() => false,
+                        _ => unreachable!(),
+                    })
+                    .collect();
+
+                // get the list of conditions which must hold iff the `<=` relation holds
+                let conditions =
+                    self.constant_le_check(statements_flattened, &variables, &constants);
+
+                // return `len(conditions) == sum(conditions)`
+                vec![FlatUExpression::with_field(
+                    self.eq_check(
+                        statements_flattened,
+                        T::from(conditions.len()).into(),
+                        conditions
+                            .into_iter()
+                            .fold(FlatExpression::Number(T::zero()), |acc, e| {
+                                FlatExpression::Add(box acc, box e)
+                            }),
+                    ),
+                )]
+            }
             funct => {
                 let funct = funct.synthetize(&generics);
 
@@ -1924,8 +1975,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         // constants do not require directives
         if let Some(FlatExpression::Number(ref x)) = e.field {
-            let bits: Vec<_> = Interpreter::default()
-                .execute_solver(&Solver::bits(to), &[x.clone()])
+            let bits: Vec<_> = Interpreter::execute_solver(&Solver::bits(to), &[x.clone()])
                 .unwrap()
                 .into_iter()
                 .map(FlatExpression::Number)
