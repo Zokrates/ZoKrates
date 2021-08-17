@@ -14,15 +14,15 @@ mod integer;
 mod parameter;
 pub mod types;
 mod uint;
-mod variable;
+pub mod variable;
 
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteType,
-    ConstantIdentifier, DeclarationFunctionKey, DeclarationSignature, DeclarationType, GArrayType,
-    GStructType, GType, GenericIdentifier, IntoTypes, Signature, StructType, Type, Types,
-    UBitwidth,
+    ConstantIdentifier, DeclarationArrayType, DeclarationFunctionKey, DeclarationSignature,
+    DeclarationStructType, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
+    IntoTypes, Signature, StructType, Type, Types, UBitwidth,
 };
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
@@ -107,13 +107,19 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .arguments
                 .iter()
                 .map(|p| {
-                    types::ConcreteType::try_from(types::Type::<T>::from(p.id._type.clone()))
-                        .map(|ty| AbiInput {
-                            public: !p.private,
-                            name: p.id.id.to_string(),
-                            ty,
-                        })
-                        .unwrap()
+                    types::ConcreteType::try_from(
+                        crate::typed_absy::types::try_from_g_type::<
+                            crate::typed_absy::types::DeclarationConstant<'ast>,
+                            UExpression<'ast, T>,
+                        >(p.id._type.clone())
+                        .unwrap(),
+                    )
+                    .map(|ty| AbiInput {
+                        public: !p.private,
+                        name: p.id.id.to_string(),
+                        ty,
+                    })
+                    .unwrap()
                 })
                 .collect(),
             outputs: main
@@ -121,7 +127,14 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .outputs
                 .iter()
                 .map(|ty| {
-                    types::ConcreteType::try_from(types::Type::<T>::from(ty.clone())).unwrap()
+                    types::ConcreteType::try_from(
+                        crate::typed_absy::types::try_from_g_type::<
+                            crate::typed_absy::types::DeclarationConstant<'ast>,
+                            UExpression<'ast, T>,
+                        >(ty.clone())
+                        .unwrap(),
+                    )
+                    .unwrap()
                 })
                 .collect(),
         }
@@ -192,7 +205,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
             .iter()
             .map(|(id, symbol)| match symbol {
                 TypedConstantSymbol::Here(ref tc) => {
-                    format!("const {} {} = {}", tc.ty, id.id, tc.expression)
+                    format!("const {} {} = {}", id.ty, id.id, tc)
                 }
                 TypedConstantSymbol::There(ref imported_id) => {
                     format!(
@@ -298,27 +311,24 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedConstant<'ast, T> {
-    // the type is already stored in the TypedExpression, but we want to avoid awkward trait bounds in `fmt::Display`
-    pub ty: Type<'ast, T>,
     pub expression: TypedExpression<'ast, T>,
 }
 
 impl<'ast, T> TypedConstant<'ast, T> {
-    pub fn new(ty: Type<'ast, T>, expression: TypedExpression<'ast, T>) -> Self {
-        TypedConstant { ty, expression }
+    pub fn new(expression: TypedExpression<'ast, T>) -> Self {
+        TypedConstant { expression }
     }
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // using `self.expression.get_type()` would be better here but ends up requiring stronger trait bounds
-        write!(f, "const {}({})", self.ty, self.expression)
+        write!(f, "{}", self.expression)
     }
 }
 
-impl<'ast, T: Clone> Typed<'ast, T> for TypedConstant<'ast, T> {
+impl<'ast, T: Field> Typed<'ast, T> for TypedConstant<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
-        self.ty.clone()
+        self.expression.get_type()
     }
 }
 
@@ -1019,8 +1029,8 @@ impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
 /// type checking
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub struct ArrayExpression<'ast, T> {
-    ty: Box<ArrayType<'ast, T>>,
-    inner: ArrayExpressionInner<'ast, T>,
+    pub ty: Box<ArrayType<'ast, T>>,
+    pub inner: ArrayExpressionInner<'ast, T>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -1139,49 +1149,12 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     pub fn size(&self) -> UExpression<'ast, T> {
         self.ty.size.clone()
     }
-
-    pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {
-        &self.inner
-    }
-
-    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
-        &mut self.inner
-    }
-
-    pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
-        self.inner
-    }
-
-    pub fn ty(&self) -> ArrayType<'ast, T> {
-        ArrayType {
-            size: self.size(),
-            ty: box self.inner_type().clone(),
-        }
-    }
 }
 
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub struct StructExpression<'ast, T> {
     ty: StructType<'ast, T>,
     inner: StructExpressionInner<'ast, T>,
-}
-
-impl<'ast, T: Field> StructExpression<'ast, T> {
-    pub fn try_from_typed(
-        e: TypedExpression<'ast, T>,
-        target_struct_ty: StructType<'ast, T>,
-    ) -> Result<Self, TypedExpression<'ast, T>> {
-        match e {
-            TypedExpression::Struct(e) => {
-                if e.ty() == &target_struct_ty {
-                    Ok(e)
-                } else {
-                    Err(TypedExpression::Struct(e))
-                }
-            }
-            e => Err(e),
-        }
-    }
 }
 
 impl<'ast, T> StructExpression<'ast, T> {
@@ -1503,14 +1476,22 @@ pub trait Expr<'ast, T>: From<TypedExpression<'ast, T>> {
     type Inner;
     type Ty: Clone + IntoTypes<'ast, T>;
 
+    fn ty(&self) -> &Self::Ty;
+
     fn into_inner(self) -> Self::Inner;
 
     fn as_inner(&self) -> &Self::Inner;
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner;
 }
 
 impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+
+    fn ty(&self) -> &Self::Ty {
+        &Type::FieldElement
+    }
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1518,6 +1499,10 @@ impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
 
     fn as_inner(&self) -> &Self::Inner {
         &self
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
     }
 }
 
@@ -1525,12 +1510,20 @@ impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
 
+    fn ty(&self) -> &Self::Ty {
+        &Type::Boolean
+    }
+
     fn into_inner(self) -> Self::Inner {
         self
     }
 
     fn as_inner(&self) -> &Self::Inner {
         &self
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
     }
 }
 
@@ -1538,12 +1531,20 @@ impl<'ast, T: Clone> Expr<'ast, T> for UExpression<'ast, T> {
     type Inner = UExpressionInner<'ast, T>;
     type Ty = UBitwidth;
 
+    fn ty(&self) -> &Self::Ty {
+        &self.bitwidth
+    }
+
     fn into_inner(self) -> Self::Inner {
         self.inner
     }
 
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
     }
 }
 
@@ -1551,12 +1552,20 @@ impl<'ast, T: Clone> Expr<'ast, T> for StructExpression<'ast, T> {
     type Inner = StructExpressionInner<'ast, T>;
     type Ty = StructType<'ast, T>;
 
+    fn ty(&self) -> &Self::Ty {
+        &self.ty
+    }
+
     fn into_inner(self) -> Self::Inner {
         self.inner
     }
 
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
     }
 }
 
@@ -1564,6 +1573,10 @@ impl<'ast, T: Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
     type Ty = ArrayType<'ast, T>;
 
+    fn ty(&self) -> &Self::Ty {
+        &self.ty
+    }
+
     fn into_inner(self) -> Self::Inner {
         self.inner
     }
@@ -1571,11 +1584,19 @@ impl<'ast, T: Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
     }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
+    }
 }
 
 impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
+
+    fn ty(&self) -> &Self::Ty {
+        &Type::Int
+    }
 
     fn into_inner(self) -> Self::Inner {
         self
@@ -1584,11 +1605,19 @@ impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     fn as_inner(&self) -> &Self::Inner {
         &self
     }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
+    }
 }
 
 impl<'ast, T: Clone> Expr<'ast, T> for TypedExpressionList<'ast, T> {
     type Inner = TypedExpressionListInner<'ast, T>;
     type Ty = Types<'ast, T>;
+
+    fn ty(&self) -> &Self::Ty {
+        &self.types
+    }
 
     fn into_inner(self) -> Self::Inner {
         self.inner
@@ -1596,6 +1625,10 @@ impl<'ast, T: Clone> Expr<'ast, T> for TypedExpressionList<'ast, T> {
 
     fn as_inner(&self) -> &Self::Inner {
         &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
     }
 }
 
@@ -1777,7 +1810,7 @@ impl<'ast, T> Member<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Clone> Member<'ast, T> for UExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
         let ty = s.ty().members.iter().find(|member| id == member.id);
         let bitwidth = match ty {
@@ -1957,7 +1990,7 @@ impl<'ast, T: Field> Block<'ast, T> for UExpression<'ast, T> {
 
 impl<'ast, T: Field> Block<'ast, T> for ArrayExpression<'ast, T> {
     fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
-        let array_ty = value.ty();
+        let array_ty = value.ty().clone();
         ArrayExpressionInner::Block(BlockExpression::new(statements, value))
             .annotate(*array_ty.ty, array_ty.size)
     }
@@ -1968,5 +2001,201 @@ impl<'ast, T: Field> Block<'ast, T> for StructExpression<'ast, T> {
         let struct_ty = value.ty().clone();
 
         StructExpressionInner::Block(BlockExpression::new(statements, value)).annotate(struct_ty)
+    }
+}
+
+pub trait Constant: Sized {
+    // return whether this is constant
+    fn is_constant(&self) -> bool;
+
+    // canonicalize an expression *that we know to be constant*
+    // for example for [0; 3] -> [0, 0, 0], [...[1], 2] -> [1, 2], etc
+    fn into_canonical_constant(self) -> Self {
+        self
+    }
+}
+
+impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, FieldElementExpression::Number(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for BooleanExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, BooleanExpression::Value(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for UExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self.as_inner(), UExpressionInner::Value(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self.as_inner() {
+            ArrayExpressionInner::Value(v) => v.0.iter().all(|e| match e {
+                TypedExpressionOrSpread::Expression(e) => e.is_constant(),
+                TypedExpressionOrSpread::Spread(s) => s.array.is_constant(),
+            }),
+            ArrayExpressionInner::Slice(box a, box from, box to) => {
+                from.is_constant() && to.is_constant() && a.is_constant()
+            }
+            ArrayExpressionInner::Repeat(box e, box count) => {
+                count.is_constant() && e.is_constant()
+            }
+            _ => false,
+        }
+    }
+
+    fn into_canonical_constant(self) -> Self {
+        fn into_canonical_constant_aux<T: Field>(
+            e: TypedExpressionOrSpread<T>,
+        ) -> Vec<TypedExpression<T>> {
+            match e {
+                TypedExpressionOrSpread::Expression(e) => vec![e],
+                TypedExpressionOrSpread::Spread(s) => match s.array.into_inner() {
+                    ArrayExpressionInner::Value(v) => v
+                        .into_iter()
+                        .flat_map(into_canonical_constant_aux)
+                        .collect(),
+                    ArrayExpressionInner::Slice(box v, box from, box to) => {
+                        let from = match from.into_inner() {
+                            UExpressionInner::Value(v) => v,
+                            _ => unreachable!(),
+                        };
+
+                        let to = match to.into_inner() {
+                            UExpressionInner::Value(v) => v,
+                            _ => unreachable!(),
+                        };
+
+                        let v = match v.into_inner() {
+                            ArrayExpressionInner::Value(v) => v,
+                            _ => unreachable!(),
+                        };
+
+                        v.into_iter()
+                            .flat_map(into_canonical_constant_aux)
+                            .skip(from as usize)
+                            .take(to as usize - from as usize)
+                            .collect()
+                    }
+                    ArrayExpressionInner::Repeat(box e, box count) => {
+                        let count = match count.into_inner() {
+                            UExpressionInner::Value(count) => count,
+                            _ => unreachable!(),
+                        };
+
+                        vec![e; count as usize]
+                    }
+                    a => unreachable!("{}", a),
+                },
+            }
+        }
+
+        let array_ty = self.ty().clone();
+
+        match self.into_inner() {
+            ArrayExpressionInner::Value(v) => ArrayExpressionInner::Value(
+                v.into_iter()
+                    .flat_map(into_canonical_constant_aux)
+                    .map(|e| e.into())
+                    .collect::<Vec<_>>()
+                    .into(),
+            )
+            .annotate(*array_ty.ty, array_ty.size),
+            ArrayExpressionInner::Slice(box a, box from, box to) => {
+                let from = match from.into_inner() {
+                    UExpressionInner::Value(from) => from as usize,
+                    _ => unreachable!("should be a uint value"),
+                };
+
+                let to = match to.into_inner() {
+                    UExpressionInner::Value(to) => to as usize,
+                    _ => unreachable!("should be a uint value"),
+                };
+
+                let v = match a.into_inner() {
+                    ArrayExpressionInner::Value(v) => v,
+                    _ => unreachable!("should be an array value"),
+                };
+
+                ArrayExpressionInner::Value(
+                    v.into_iter()
+                        .flat_map(into_canonical_constant_aux)
+                        .map(|e| e.into())
+                        .skip(from)
+                        .take(to - from)
+                        .collect::<Vec<_>>()
+                        .into(),
+                )
+                .annotate(*array_ty.ty, array_ty.size)
+            }
+            ArrayExpressionInner::Repeat(box e, box count) => {
+                let count = match count.into_inner() {
+                    UExpressionInner::Value(from) => from as usize,
+                    _ => unreachable!("should be a uint value"),
+                };
+
+                let e = e.into_canonical_constant();
+
+                ArrayExpressionInner::Value(
+                    vec![TypedExpressionOrSpread::Expression(e); count].into(),
+                )
+                .annotate(*array_ty.ty, array_ty.size)
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<'ast, T: Field> Constant for StructExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self.as_inner() {
+            StructExpressionInner::Value(v) => v.iter().all(|e| e.is_constant()),
+            _ => false,
+        }
+    }
+
+    fn into_canonical_constant(self) -> Self {
+        let struct_ty = self.ty().clone();
+
+        match self.into_inner() {
+            StructExpressionInner::Value(expressions) => StructExpressionInner::Value(
+                expressions
+                    .into_iter()
+                    .map(|e| e.into_canonical_constant())
+                    .collect(),
+            )
+            .annotate(struct_ty),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<'ast, T: Field> Constant for TypedExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        match self {
+            TypedExpression::FieldElement(e) => e.is_constant(),
+            TypedExpression::Boolean(e) => e.is_constant(),
+            TypedExpression::Array(e) => e.is_constant(),
+            TypedExpression::Struct(e) => e.is_constant(),
+            TypedExpression::Uint(e) => e.is_constant(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn into_canonical_constant(self) -> Self {
+        match self {
+            TypedExpression::FieldElement(e) => e.into_canonical_constant().into(),
+            TypedExpression::Boolean(e) => e.into_canonical_constant().into(),
+            TypedExpression::Array(e) => e.into_canonical_constant().into(),
+            TypedExpression::Struct(e) => e.into_canonical_constant().into(),
+            TypedExpression::Uint(e) => e.into_canonical_constant().into(),
+            _ => unreachable!(),
+        }
     }
 }

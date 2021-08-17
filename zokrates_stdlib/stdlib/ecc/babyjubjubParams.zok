@@ -4,41 +4,33 @@
 // Note: parameters will be updated soon to be more compatible with zCash's implementation
 
 struct BabyJubJubParams {
-	field JUBJUBC
-	field JUBJUBA
-	field JUBJUBD
-	field MONTA
-	field MONTB
+	field JUBJUB_C
+	field JUBJUB_A
+	field JUBJUB_D
+	field MONT_A
+	field MONT_B
 	field[2] INFINITY
 	field Gu
 	field Gv
 }
 
-def main() -> BabyJubJubParams:
+const BabyJubJubParams BABYJUBJUB_PARAMS = BabyJubJubParams {
+    // Order of the curve for reference: 21888242871839275222246405745257275088614511777268538073601725287587578984328
+    JUBJUB_C: 8, // Cofactor
+    JUBJUB_A: 168700, // Coefficient A
+    JUBJUB_D: 168696, // Coefficient D
 
-	// Order of the curve for reference: 21888242871839275222246405745257275088614511777268538073601725287587578984328
-    field JUBJUBC = 8   // Cofactor
-    field JUBJUBA = 168700    // Coefficient A
-    field JUBJUBD = 168696    // Coefficient D
-    field MONTA = 168698    // int(2*(JUBJUB_A+JUBJUB_D)/(JUBJUB_A-JUBJUB_D))
-    field MONTB = 1    // int(4/(JUBJUB_A-JUBJUB_D))
+    // Montgomery parameters
+    MONT_A: 168698,
+    MONT_B: 1,
 
-// Point at infinity
-    field[2] INFINITY = [0, 1]
+    // Point at infinity
+    INFINITY: [0, 1],
 
-//  Generator
-    field Gu = 16540640123574156134436876038791482806971768689494387082833631921987005038935
-    field Gv = 20819045374670962167435360035096875258406992893633759881276124905556507972311
-
-// Index
-//         0       1         2            3         4   5      6       7        8      10
-return BabyJubJubParams {
-	JUBJUBA: JUBJUBA,
-	JUBJUBD: JUBJUBD,
-	INFINITY: INFINITY,
-	Gu: Gu,
-	Gv: Gv,
-	JUBJUBC: JUBJUBC,
-	MONTA: MONTA,
-	MONTB: MONTB
+    // Generator
+    Gu: 16540640123574156134436876038791482806971768689494387082833631921987005038935,
+    Gv: 20819045374670962167435360035096875258406992893633759881276124905556507972311
 }
+
+def main() -> BabyJubJubParams:
+    return BABYJUBJUB_PARAMS

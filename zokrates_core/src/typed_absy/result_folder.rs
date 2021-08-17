@@ -121,6 +121,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         Ok(CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module)?,
             id: i.id,
+            ty: box self.fold_declaration_type(*i.ty)?,
         })
     }
 
@@ -225,6 +226,11 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         t: StructType<'ast, T>,
     ) -> Result<StructType<'ast, T>, Self::Error> {
         Ok(StructType {
+            generics: t
+                .generics
+                .into_iter()
+                .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
+                .collect::<Result<Vec<_>, _>>()?,
             members: t
                 .members
                 .into_iter()
@@ -260,6 +266,11 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         t: DeclarationStructType<'ast>,
     ) -> Result<DeclarationStructType<'ast>, Self::Error> {
         Ok(DeclarationStructType {
+            generics: t
+                .generics
+                .into_iter()
+                .map(|g| g.map(|g| self.fold_declaration_constant(g)).transpose())
+                .collect::<Result<Vec<_>, _>>()?,
             members: t
                 .members
                 .into_iter()
@@ -1092,7 +1103,6 @@ pub fn fold_constant<'ast, T: Field, F: ResultFolder<'ast, T>>(
     c: TypedConstant<'ast, T>,
 ) -> Result<TypedConstant<'ast, T>, F::Error> {
     Ok(TypedConstant {
-        ty: f.fold_type(c.ty)?,
         expression: f.fold_expression(c.expression)?,
     })
 }

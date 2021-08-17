@@ -52,16 +52,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .possible_values(constants::SCHEMES)
                 .default_value(constants::G16),
         )
-        .arg(
-            Arg::with_name("solidity-abi")
-                .short("a")
-                .long("solidity-abi")
-                .help("Flag for setting the version of the ABI Encoder used in the contract")
-                .takes_value(true)
-                .possible_values(&["v1", "v2"])
-                .default_value("v1")
-                .required(false),
-        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -99,9 +89,7 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
     let vk = serde_json::from_reader(reader)
         .map_err(|why| format!("Could not deserialize verification key: {}", why))?;
 
-    let abi = SolidityAbi::from(sub_matches.value_of("solidity-abi").unwrap())?;
-
-    let verifier = S::export_solidity_verifier(vk, abi);
+    let verifier = S::export_solidity_verifier(vk);
 
     //write output file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());

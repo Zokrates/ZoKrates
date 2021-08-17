@@ -1,20 +1,22 @@
+use crate::embed::FlatEmbed;
 use crate::typed_absy::TypedProgram;
 use crate::typed_absy::{
-    result_folder::fold_uint_expression_inner, result_folder::ResultFolder, UBitwidth,
-    UExpressionInner,
+    result_folder::ResultFolder,
+    result_folder::{fold_expression_list_inner, fold_uint_expression_inner},
+    Constant, TypedExpressionListInner, Types, UBitwidth, UExpressionInner,
 };
 use zokrates_field::Field;
-pub struct ShiftChecker;
+pub struct ConstantArgumentChecker;
 
-impl ShiftChecker {
+impl ConstantArgumentChecker {
     pub fn check<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
-        ShiftChecker.fold_program(p)
+        ConstantArgumentChecker.fold_program(p)
     }
 }
 
 pub type Error = String;
 
-impl<'ast, T: Field> ResultFolder<'ast, T> for ShiftChecker {
+impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
     type Error = Error;
 
     fn fold_uint_expression_inner(
@@ -50,6 +52,35 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ShiftChecker {
                 }
             }
             e => fold_uint_expression_inner(self, bitwidth, e),
+        }
+    }
+
+    fn fold_expression_list_inner(
+        &mut self,
+        tys: &Types<'ast, T>,
+        l: TypedExpressionListInner<'ast, T>,
+    ) -> Result<TypedExpressionListInner<'ast, T>, Error> {
+        match l {
+            TypedExpressionListInner::EmbedCall(FlatEmbed::BitArrayLe, generics, arguments) => {
+                let arguments = arguments
+                    .into_iter()
+                    .map(|a| self.fold_expression(a))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                if arguments[1].is_constant() {
+                    Ok(TypedExpressionListInner::EmbedCall(
+                        FlatEmbed::BitArrayLe,
+                        generics,
+                        arguments,
+                    ))
+                } else {
+                    Err(format!(
+                        "Cannot compare to a variable value, found `{}`",
+                        arguments[1]
+                    ))
+                }
+            }
+            l => fold_expression_list_inner(self, tys, l),
         }
     }
 }

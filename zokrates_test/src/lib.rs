@@ -5,8 +5,11 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
-use zokrates_core::compile::{compile, CompileConfig};
 use zokrates_core::ir;
+use zokrates_core::{
+    compile::{compile, CompileConfig},
+    typed_absy::ConcreteType,
+};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -34,6 +37,7 @@ struct Input {
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Test {
+    pub abi: Option<bool>,
     pub input: Input,
     pub output: TestResult,
 }
@@ -48,11 +52,24 @@ struct Output {
     values: Vec<Val>,
 }
 
-type Val = String;
+type Val = serde_json::Value;
 
-fn parse_val<T: Field>(s: String) -> T {
-    let radix = if s.starts_with("0x") { 16 } else { 10 };
-    T::try_from_str(s.trim_start_matches("0x"), radix).unwrap()
+fn try_parse_raw_val<T: Field>(s: serde_json::Value) -> Result<T, ()> {
+    match s {
+        serde_json::Value::String(s) => {
+            let radix = if s.starts_with("0x") { 16 } else { 10 };
+            T::try_from_str(s.trim_start_matches("0x"), radix).map_err(|_| ())
+        }
+        _ => Err(()),
+    }
+}
+
+fn try_parse_abi_val<T: Field>(
+    s: Vec<Val>,
+    types: Vec<ConcreteType>,
+) -> Result<Vec<T>, zokrates_abi::Error> {
+    use zokrates_abi::Encode;
+    zokrates_abi::parse_strict_json(s, types).map(|v| v.encode())
 }
 
 impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
@@ -63,7 +80,12 @@ impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
 
 impl<T: Field> From<TestResult> for ComparableResult<T> {
     fn from(r: TestResult) -> ComparableResult<T> {
-        ComparableResult(r.map(|v| v.values.into_iter().map(parse_val).collect()))
+        ComparableResult(r.map(|v| {
+            v.values
+                .into_iter()
+                .map(|v| try_parse_raw_val(v).unwrap())
+                .collect()
+        }))
     }
 }
 
@@ -130,6 +152,7 @@ fn compile_and_run<T: Field>(t: Tests) {
     let artifacts = compile::<T, _>(code, entry_point.clone(), Some(&resolver), &config).unwrap();
 
     let bin = artifacts.prog();
+    let abi = artifacts.abi();
 
     if let Some(target_count) = t.max_constraint_count {
         let count = bin.constraint_count();
@@ -148,12 +171,21 @@ fn compile_and_run<T: Field>(t: Tests) {
     let interpreter = zokrates_core::ir::Interpreter::default();
 
     for test in t.tests.into_iter() {
-        let input = &test.input.values;
+        let with_abi = test.abi.unwrap_or(false);
 
-        let output = interpreter.execute(
-            bin,
-            &(input.iter().cloned().map(parse_val).collect::<Vec<_>>()),
-        );
+        let input = if with_abi {
+            try_parse_abi_val(test.input.values, abi.signature().inputs).unwrap()
+        } else {
+            test.input
+                .values
+                .iter()
+                .cloned()
+                .map(try_parse_raw_val)
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()
+        };
+
+        let output = interpreter.execute(bin, &input);
 
         if let Err(e) = compare(output, test.output) {
             let mut code = File::open(&entry_point).unwrap();

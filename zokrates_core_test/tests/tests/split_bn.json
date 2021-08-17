@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/split_bn.zok",
+	"entry_point": "./tests/tests/split.zok",
 	"curves": ["Bn128"],
 	"tests": [
 		{

@@ -1,7 +1,5 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::{
-    SolidityAbi, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
-};
+use crate::proof_system::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
 use crate::proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -42,20 +40,11 @@ impl<T: Field> Scheme<T> for PGHR13 {
 impl<T: Field> NonUniversalScheme<T> for PGHR13 {}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
-    fn export_solidity_verifier(
-        vk: <PGHR13 as Scheme<T>>::VerificationKey,
-        abi: SolidityAbi,
-    ) -> String {
-        let (mut template_text, solidity_pairing_lib) = match abi {
-            SolidityAbi::V1 => (
-                String::from(CONTRACT_TEMPLATE),
-                String::from(SOLIDITY_PAIRING_LIB),
-            ),
-            SolidityAbi::V2 => (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            ),
-        };
+    fn export_solidity_verifier(vk: <PGHR13 as Scheme<T>>::VerificationKey) -> String {
+        let (mut template_text, solidity_pairing_lib) = (
+            String::from(CONTRACT_TEMPLATE),
+            String::from(SOLIDITY_PAIRING_LIB),
+        );
 
         // replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
@@ -156,7 +145,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
     }
 }
 
-const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
+const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
         Pairing.G2Point a;
@@ -218,95 +207,6 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
     function verifyTx(
             Proof memory proof<%input_argument%>
         ) public view returns (bool r) {
-        uint[] memory inputValues = new uint[](<%vk_input_length%>);
-        <%input_loop%>
-        if (verify(inputValues, proof) == 0) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-}
-"#;
-
-const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
-    using Pairing for *;
-    struct VerifyingKey {
-        Pairing.G2Point a;
-        Pairing.G1Point b;
-        Pairing.G2Point c;
-        Pairing.G2Point gamma;
-        Pairing.G1Point gamma_beta_1;
-        Pairing.G2Point gamma_beta_2;
-        Pairing.G2Point z;
-        Pairing.G1Point[] ic;
-    }
-    struct Proof {
-        Pairing.G1Point a;
-        Pairing.G1Point a_p;
-        Pairing.G2Point b;
-        Pairing.G1Point b_p;
-        Pairing.G1Point c;
-        Pairing.G1Point c_p;
-        Pairing.G1Point h;
-        Pairing.G1Point k;
-    }
-    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.a = Pairing.G2Point(<%vk_a%>);
-        vk.b = Pairing.G1Point(<%vk_b%>);
-        vk.c = Pairing.G2Point(<%vk_c%>);
-        vk.gamma = Pairing.G2Point(<%vk_g%>);
-        vk.gamma_beta_1 = Pairing.G1Point(<%vk_gb1%>);
-        vk.gamma_beta_2 = Pairing.G2Point(<%vk_gb2%>);
-        vk.z = Pairing.G2Point(<%vk_z%>);
-        vk.ic = new Pairing.G1Point[](<%vk_ic_length%>);
-        <%vk_ic_pts%>
-    }
-    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
-        uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-        VerifyingKey memory vk = verifyingKey();
-        require(input.length + 1 == vk.ic.length);
-        // Compute the linear combination vk_x
-        Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
-        for (uint i = 0; i < input.length; i++) {
-            require(input[i] < snark_scalar_field);
-            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.ic[i + 1], input[i]));
-        }
-        vk_x = Pairing.addition(vk_x, vk.ic[0]);
-        if (!Pairing.pairingProd2(proof.a, vk.a, Pairing.negate(proof.a_p), Pairing.P2())) return 1;
-        if (!Pairing.pairingProd2(vk.b, proof.b, Pairing.negate(proof.b_p), Pairing.P2())) return 2;
-        if (!Pairing.pairingProd2(proof.c, vk.c, Pairing.negate(proof.c_p), Pairing.P2())) return 3;
-        if (!Pairing.pairingProd3(
-            proof.k, vk.gamma,
-            Pairing.negate(Pairing.addition(vk_x, Pairing.addition(proof.a, proof.c))), vk.gamma_beta_2,
-            Pairing.negate(vk.gamma_beta_1), proof.b
-        )) return 4;
-        if (!Pairing.pairingProd3(
-                Pairing.addition(vk_x, proof.a), proof.b,
-                Pairing.negate(proof.h), vk.z,
-                Pairing.negate(proof.c), Pairing.P2()
-        )) return 5;
-        return 0;
-    }
-    function verifyTx(
-            uint[2] memory a,
-            uint[2] memory a_p,
-            uint[2][2] memory b,
-            uint[2] memory b_p,
-            uint[2] memory c,
-            uint[2] memory c_p,
-            uint[2] memory h,
-            uint[2] memory k<%input_argument%>
-        ) public view returns (bool r) {
-        Proof memory proof;
-        proof.a = Pairing.G1Point(a[0], a[1]);
-        proof.a_p = Pairing.G1Point(a_p[0], a_p[1]);
-        proof.b = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
-        proof.b_p = Pairing.G1Point(b_p[0], b_p[1]);
-        proof.c = Pairing.G1Point(c[0], c[1]);
-        proof.c_p = Pairing.G1Point(c_p[0], c_p[1]);
-        proof.h = Pairing.G1Point(h[0], h[1]);
-        proof.k = Pairing.G1Point(k[0], k[1]);
         uint[] memory inputValues = new uint[](<%vk_input_length%>);
         <%input_loop%>
         if (verify(inputValues, proof) == 0) {

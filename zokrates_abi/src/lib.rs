@@ -14,13 +14,10 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
     }
 }
 
-use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_core::typed_absy::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
-
-type Map<K, V> = BTreeMap<K, V>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -48,7 +45,7 @@ pub enum Value<T> {
     Field(T),
     Boolean(bool),
     Array(Vec<Value<T>>),
-    Struct(Map<String, Value<T>>),
+    Struct(Vec<(String, Value<T>)>),
 }
 
 #[derive(PartialEq, Debug)]
@@ -302,22 +299,7 @@ pub fn parse_strict<T: Field>(s: &str, types: Vec<ConcreteType>) -> Result<Value
         serde_json::from_str(s).map_err(|e| Error::Json(e.to_string()))?;
 
     match values {
-        serde_json::Value::Array(values) => {
-            if values.len() != types.len() {
-                return Err(Error::Type(format!(
-                    "Expected {} inputs, found {}",
-                    types.len(),
-                    values.len()
-                )));
-            }
-            Ok(Values(
-                types
-                    .into_iter()
-                    .zip(values.into_iter())
-                    .map(|(ty, v)| parse_value(v, ty))
-                    .collect::<Result<_, _>>()?,
-            ))
-        }
+        serde_json::Value::Array(values) => parse_strict_json(values, types),
         _ => Err(Error::Type(format!(
             "Expected an array of values, found `{}`",
             values
@@ -325,10 +307,30 @@ pub fn parse_strict<T: Field>(s: &str, types: Vec<ConcreteType>) -> Result<Value
     }
 }
 
+pub fn parse_strict_json<T: Field>(
+    values: Vec<serde_json::Value>,
+    types: Vec<ConcreteType>,
+) -> Result<Values<T>, Error> {
+    if values.len() != types.len() {
+        return Err(Error::Type(format!(
+            "Expected {} inputs, found {}",
+            types.len(),
+            values.len()
+        )));
+    }
+
+    Ok(Values(
+        types
+            .into_iter()
+            .zip(values.into_iter())
+            .map(|(ty, v)| parse_value(v, ty))
+            .collect::<Result<_, _>>()?,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::iter::FromIterator;
     use zokrates_core::typed_absy::types::{
         ConcreteStructMember, ConcreteStructType, ConcreteType,
     };
@@ -432,6 +434,7 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -453,6 +456,7 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -470,6 +474,7 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -487,6 +492,7 @@ mod tests {
                 vec![ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "".into(),
+                    vec![],
                     vec![ConcreteStructMember::new(
                         "a".into(),
                         ConcreteType::FieldElement
@@ -508,10 +514,10 @@ mod tests {
             Value::U64(5u64),
             Value::Boolean(true),
             Value::Array(vec![Value::Field(1.into()), Value::Field(2.into())]),
-            Value::Struct(BTreeMap::from_iter(vec![
+            Value::Struct(vec![
                 ("a".to_string(), Value::Field(1.into())),
                 ("b".to_string(), Value::Field(2.into())),
-            ])),
+            ]),
         ]);
 
         let serde_value = values.into_serde_json();

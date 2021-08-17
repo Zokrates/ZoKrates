@@ -138,6 +138,11 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_struct_type(&mut self, t: StructType<'ast, T>) -> StructType<'ast, T> {
         StructType {
+            generics: t
+                .generics
+                .into_iter()
+                .map(|g| g.map(|g| self.fold_uint_expression(g)))
+                .collect(),
             members: t
                 .members
                 .into_iter()
@@ -175,6 +180,11 @@ pub trait Folder<'ast, T: Field>: Sized {
         t: DeclarationStructType<'ast>,
     ) -> DeclarationStructType<'ast> {
         DeclarationStructType {
+            generics: t
+                .generics
+                .into_iter()
+                .map(|g| g.map(|g| self.fold_declaration_constant(g)))
+                .collect(),
             members: t
                 .members
                 .into_iter()
@@ -222,6 +232,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module),
             id: i.id,
+            ty: box self.fold_declaration_type(*i.ty),
         }
     }
 
@@ -1044,7 +1055,6 @@ pub fn fold_constant<'ast, T: Field, F: Folder<'ast, T>>(
     c: TypedConstant<'ast, T>,
 ) -> TypedConstant<'ast, T> {
     TypedConstant {
-        ty: f.fold_type(c.ty),
         expression: f.fold_expression(c.expression),
     }
 }
