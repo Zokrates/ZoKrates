@@ -2,6 +2,7 @@ pub mod folder;
 mod from_typed;
 mod identifier;
 mod parameter;
+pub mod result_folder;
 pub mod types;
 mod uint;
 mod variable;

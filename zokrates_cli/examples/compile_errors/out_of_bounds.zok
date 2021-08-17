@@ -1,0 +1,4 @@
+def main() -> field:
+    field[10] a = [0; 10]
+    u32 index = if [0f] != [1f] then 1000 else 0 fi
+    return a[index]

@@ -41,6 +41,7 @@ pub trait Analyse {
 pub enum Error {
     Reducer(self::reducer::Error),
     Propagation(self::propagation::Error),
+    ZirPropagation(self::zir_propagation::Error),
     NonConstantShift(self::shift_checker::Error),
 }
 
@@ -56,6 +57,12 @@ impl From<propagation::Error> for Error {
     }
 }
 
+impl From<zir_propagation::Error> for Error {
+    fn from(e: zir_propagation::Error) -> Self {
+        Error::ZirPropagation(e)
+    }
+}
+
 impl From<shift_checker::Error> for Error {
     fn from(e: shift_checker::Error) -> Self {
         Error::NonConstantShift(e)
@@ -67,6 +74,7 @@ impl fmt::Display for Error {
         match self {
             Error::Reducer(e) => write!(f, "{}", e),
             Error::Propagation(e) => write!(f, "{}", e),
+            Error::ZirPropagation(e) => write!(f, "{}", e),
             Error::NonConstantShift(e) => write!(f, "{}", e),
         }
     }
@@ -121,7 +129,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 
         // apply propagation in zir
         log::debug!("Static analyser: Apply propagation in zir");
-        let zir = ZirPropagator::propagate(zir);
+        let zir = ZirPropagator::propagate(zir).map_err(Error::from)?;
         log::trace!("\n{}", zir);
 
         // optimize uint expressions
