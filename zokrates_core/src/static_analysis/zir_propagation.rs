@@ -14,6 +14,7 @@ type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
 #[derive(Debug, PartialEq)]
 pub enum Error {
     OutOfBounds(u128, u128),
+    DivisionByZero,
 }
 
 impl fmt::Display for Error {
@@ -24,6 +25,9 @@ impl fmt::Display for Error {
                 "Out of bounds index ({} >= {}) found in zir during static analysis",
                 index, size
             ),
+            Error::DivisionByZero => {
+                write!(f, "Division by zero detected in zir during static analysis",)
+            }
         }
     }
 }
@@ -105,7 +109,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(v, e.len() as u128)),
+                        .ok_or_else(|| Error::OutOfBounds(v, e.len() as u128)),
                     i => Ok(FieldElementExpression::Select(
                         e,
                         box i.annotate(UBitwidth::B32),
@@ -169,6 +173,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     self.fold_field_expression(e1)?,
                     self.fold_field_expression(e2)?,
                 ) {
+                    (_, FieldElementExpression::Number(n)) if n == T::from(0) => {
+                        Err(Error::DivisionByZero)
+                    }
                     (e, FieldElementExpression::Number(n)) if n == T::from(1) => Ok(e),
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         Ok(FieldElementExpression::Number(n1 / n2))
@@ -234,7 +241,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(*v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(*v, e.len() as u128)),
+                        .ok_or_else(|| Error::OutOfBounds(*v, e.len() as u128)),
                     _ => Ok(BooleanExpression::Select(e, box index)),
                 }
             }
@@ -453,7 +460,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(v, e.len() as u128))
+                        .ok_or_else(|| Error::OutOfBounds(v, e.len() as u128))
                         .map(|e| e.into_inner()),
                     i => Ok(UExpressionInner::Select(e, box i.annotate(bitwidth))),
                 }
@@ -513,6 +520,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 let e2 = self.fold_uint_expression(e2)?;
 
                 match (e1.into_inner(), e2.into_inner()) {
+                    (_, UExpressionInner::Value(n)) if n == 0 => Err(Error::DivisionByZero),
                     (e, UExpressionInner::Value(n)) if n == 1 => Ok(e),
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => Ok(
                         UExpressionInner::Value((n1 / n2) % 2_u128.pow(bitwidth.to_usize() as u32)),
@@ -805,6 +813,14 @@ mod tests {
                     box FieldElementExpression::Number(Bn128Field::from(1)),
                 )),
                 Ok(FieldElementExpression::Identifier("a".into()))
+            );
+
+            assert_eq!(
+                propagator.fold_field_expression(FieldElementExpression::Div(
+                    box FieldElementExpression::Identifier("a".into()),
+                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                )),
+                Err(Error::DivisionByZero)
             );
         }
 
@@ -1401,6 +1417,17 @@ mod tests {
                     )
                 ),
                 Ok(UExpressionInner::Identifier("a".into()))
+            );
+
+            assert_eq!(
+                propagator.fold_uint_expression_inner(
+                    UBitwidth::B32,
+                    UExpressionInner::Div(
+                        box UExpressionInner::Identifier("a".into()).annotate(UBitwidth::B32),
+                        box UExpressionInner::Value(0).annotate(UBitwidth::B32),
+                    )
+                ),
+                Err(Error::DivisionByZero)
             );
         }
 
