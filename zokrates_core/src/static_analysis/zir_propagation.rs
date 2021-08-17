@@ -168,14 +168,11 @@ impl<'ast, T: Field> Folder<'ast, T> for ZirPropagator<'ast, T> {
                 let consequence = self.fold_field_expression(consequence);
                 let alternative = self.fold_field_expression(alternative);
 
-                if consequence.eq(&alternative) {
-                    return consequence;
-                }
-
-                match condition {
-                    BooleanExpression::Value(true) => consequence,
-                    BooleanExpression::Value(false) => alternative,
-                    _ => FieldElementExpression::IfElse(
+                match (condition, consequence, alternative) {
+                    (_, consequence, alternative) if consequence == alternative => consequence,
+                    (BooleanExpression::Value(true), consequence, _) => consequence,
+                    (BooleanExpression::Value(false), _, alternative) => alternative,
+                    (condition, consequence, alternative) => FieldElementExpression::IfElse(
                         box condition,
                         box consequence,
                         box alternative,
@@ -388,14 +385,13 @@ impl<'ast, T: Field> Folder<'ast, T> for ZirPropagator<'ast, T> {
                 let consequence = self.fold_boolean_expression(consequence);
                 let alternative = self.fold_boolean_expression(alternative);
 
-                if consequence.eq(&alternative) {
-                    return consequence;
-                }
-
-                match condition {
-                    BooleanExpression::Value(true) => consequence,
-                    BooleanExpression::Value(false) => alternative,
-                    _ => BooleanExpression::IfElse(box condition, box consequence, box alternative),
+                match (condition, consequence, alternative) {
+                    (_, consequence, alternative) if consequence == alternative => consequence,
+                    (BooleanExpression::Value(true), consequence, _) => consequence,
+                    (BooleanExpression::Value(false), _, alternative) => alternative,
+                    (condition, consequence, alternative) => {
+                        BooleanExpression::IfElse(box condition, box consequence, box alternative)
+                    }
                 }
             }
         }
@@ -521,12 +517,14 @@ impl<'ast, T: Field> Folder<'ast, T> for ZirPropagator<'ast, T> {
                 let e2 = self.fold_uint_expression(e2);
 
                 match (e1.into_inner(), e2.into_inner()) {
-                    (e, UExpressionInner::Value(n))
+                    (e, UExpressionInner::Value(n)) | (UExpressionInner::Value(n), e)
                         if n == 2_u128.pow(bitwidth.to_usize() as u32) - 1 =>
                     {
                         e
                     }
-                    (_, UExpressionInner::Value(0)) => UExpressionInner::Value(0),
+                    (_, UExpressionInner::Value(0)) | (UExpressionInner::Value(0), _) => {
+                        UExpressionInner::Value(0)
+                    }
                     (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
                         UExpressionInner::Value(n1 & n2)
                     }
@@ -540,8 +538,8 @@ impl<'ast, T: Field> Folder<'ast, T> for ZirPropagator<'ast, T> {
                 let e2 = self.fold_uint_expression(e2);
 
                 match (e1.into_inner(), e2.into_inner()) {
-                    (e, UExpressionInner::Value(0)) => e,
-                    (_, UExpressionInner::Value(n))
+                    (e, UExpressionInner::Value(0)) | (UExpressionInner::Value(0), e) => e,
+                    (_, UExpressionInner::Value(n)) | (UExpressionInner::Value(n), _)
                         if n == 2_u128.pow(bitwidth.to_usize() as u32) - 1 =>
                     {
                         UExpressionInner::Value(n)
@@ -588,14 +586,11 @@ impl<'ast, T: Field> Folder<'ast, T> for ZirPropagator<'ast, T> {
                 let consequence = self.fold_uint_expression(consequence).into_inner();
                 let alternative = self.fold_uint_expression(alternative).into_inner();
 
-                if consequence.eq(&alternative) {
-                    return consequence;
-                }
-
-                match condition {
-                    BooleanExpression::Value(true) => consequence,
-                    BooleanExpression::Value(false) => alternative,
-                    _ => UExpressionInner::IfElse(
+                match (condition, consequence, alternative) {
+                    (_, consequence, alternative) if consequence == alternative => consequence,
+                    (BooleanExpression::Value(true), consequence, _) => consequence,
+                    (BooleanExpression::Value(false), _, alternative) => alternative,
+                    (condition, consequence, alternative) => UExpressionInner::IfElse(
                         box condition,
                         box consequence.annotate(bitwidth),
                         box alternative.annotate(bitwidth),
