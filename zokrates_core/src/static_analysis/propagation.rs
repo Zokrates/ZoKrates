@@ -82,12 +82,15 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                     Ok((variable, constant)) => match index.as_inner() {
                         UExpressionInner::Value(n) => match constant {
                             TypedExpression::Array(a) => match a.as_inner_mut() {
-                                ArrayExpressionInner::Value(value) => match value.0[*n as usize] {
-                                    TypedExpressionOrSpread::Expression(ref mut e) => {
-                                        Ok((variable, e))
+                                ArrayExpressionInner::Value(value) => {
+                                    match value.0.get_mut(*n as usize) {
+                                        Some(TypedExpressionOrSpread::Expression(ref mut e)) => {
+                                            Ok((variable, e))
+                                        }
+                                        None => Err(variable),
+                                        _ => unreachable!(),
                                     }
-                                    _ => unreachable!(),
-                                },
+                                }
                                 _ => unreachable!("should be an array value"),
                             },
                             _ => unreachable!("should be an array expression"),
