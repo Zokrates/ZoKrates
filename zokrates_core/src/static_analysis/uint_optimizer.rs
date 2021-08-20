@@ -492,24 +492,44 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     _ => {}
                 };
 
-                vec![ZirStatement::MultipleDefinition(
-                    lhs,
-                    ZirExpressionList::EmbedCall(
-                        embed,
-                        generics,
-                        arguments
-                            .into_iter()
-                            .map(|e| match e {
-                                ZirExpression::Uint(e) => {
-                                    let e = self.fold_uint_expression(e);
-                                    let e = force_no_reduce(e);
-                                    ZirExpression::Uint(e)
-                                }
-                                e => self.fold_expression(e),
-                            })
-                            .collect(),
-                    ),
-                )]
+                match embed {
+                    FlatEmbed::U8ToBits
+                    | FlatEmbed::U16ToBits
+                    | FlatEmbed::U32ToBits
+                    | FlatEmbed::U64ToBits => {
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::EmbedCall(
+                                embed,
+                                generics,
+                                arguments
+                                    .into_iter()
+                                    .map(|e| match e {
+                                        ZirExpression::Uint(e) => {
+                                            let e = self.fold_uint_expression(e);
+                                            let e = force_reduce(e);
+                                            ZirExpression::Uint(e)
+                                        }
+                                        e => self.fold_expression(e),
+                                    })
+                                    .collect(),
+                            ),
+                        )]
+                    }
+                    _ => {
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::EmbedCall(
+                                embed,
+                                generics,
+                                arguments
+                                    .into_iter()
+                                    .map(|e| self.fold_expression(e))
+                                    .collect(),
+                            ),
+                        )]
+                    }
+                }
             }
             ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right)) => {
                 let left = self.fold_uint_expression(left);

@@ -1089,7 +1089,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         bitwidth: UBitwidth,
     ) -> Vec<FlatUExpression<T>> {
         let expression = UExpression::try_from(expression).unwrap();
-        let from = expression.metadata.as_ref().unwrap().bitwidth();
+        let metadata = expression.metadata.as_ref().unwrap();
+        assert!(!metadata.should_reduce.is_unknown());
+
+        let from = metadata.bitwidth();
         let p = self.flatten_uint_expression(statements_flattened, expression);
         self.get_bits(&p, from as usize, bitwidth, statements_flattened)
             .into_iter()
