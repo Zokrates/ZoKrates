@@ -1,3 +1,4 @@
+use crate::typed_absy::CanonicalConstantIdentifier;
 use std::convert::TryInto;
 use std::fmt;
 
@@ -5,6 +6,7 @@ use std::fmt;
 pub enum CoreIdentifier<'ast> {
     Source(&'ast str),
     Call(usize),
+    Constant(CanonicalConstantIdentifier<'ast>),
 }
 
 impl<'ast> fmt::Display for CoreIdentifier<'ast> {
@@ -12,6 +14,7 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
         match self {
             CoreIdentifier::Source(s) => write!(f, "{}", s),
             CoreIdentifier::Call(i) => write!(f, "#CALL_RETURN_AT_INDEX_{}", i),
+            CoreIdentifier::Constant(c) => write!(f, "{}/{}", c.module.display(), c.id),
         }
     }
 }
@@ -19,6 +22,12 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
 impl<'ast> From<&'ast str> for CoreIdentifier<'ast> {
     fn from(s: &str) -> CoreIdentifier {
         CoreIdentifier::Source(s)
+    }
+}
+
+impl<'ast> From<CanonicalConstantIdentifier<'ast>> for CoreIdentifier<'ast> {
+    fn from(s: CanonicalConstantIdentifier<'ast>) -> CoreIdentifier<'ast> {
+        CoreIdentifier::Constant(s)
     }
 }
 

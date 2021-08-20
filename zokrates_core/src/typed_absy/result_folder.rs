@@ -121,7 +121,6 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         Ok(CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module)?,
             id: i.id,
-            ty: box self.fold_declaration_type(*i.ty)?,
         })
     }
 
@@ -1110,6 +1109,7 @@ pub fn fold_constant<'ast, T: Field, F: ResultFolder<'ast, T>>(
 ) -> Result<TypedConstant<'ast, T>, F::Error> {
     Ok(TypedConstant {
         expression: f.fold_expression(c.expression)?,
+        ty: f.fold_declaration_type(c.ty)?,
     })
 }
 

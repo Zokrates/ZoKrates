@@ -1,0 +1,9 @@
+// calling a function inside a constant definition is not possible yet
+
+def yes() -> bool:
+    return true
+
+const TRUE = yes()
+
+def main():
+    return

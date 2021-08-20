@@ -8,7 +8,7 @@ use std::fmt;
 use zokrates_field::Field;
 
 type ProgramConstants<'ast, T> =
-    HashMap<OwnedTypedModuleId, HashMap<Identifier<'ast>, TypedExpression<'ast, T>>>;
+    HashMap<OwnedTypedModuleId, HashMap<ConstantIdentifier<'ast>, TypedConstant<'ast, T>>>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -60,21 +60,25 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
     fn get_constant(
         &self,
         id: &CanonicalConstantIdentifier<'ast>,
-    ) -> Option<TypedExpression<'ast, T>> {
+    ) -> Option<TypedConstant<'ast, T>> {
         self.constants
             .get(&id.module)
-            .and_then(|constants| constants.get(&id.id.into()))
+            .and_then(|constants| constants.get(&id.id))
             .cloned()
     }
 
-    fn get_constant_for_identifier(
-        &self,
-        id: &Identifier<'ast>,
-    ) -> Option<TypedExpression<'ast, T>> {
-        self.constants
-            .get(&self.location)
-            .and_then(|constants| constants.get(&id))
-            .cloned()
+    fn get_constant_for_identifier(&self, id: &Identifier<'ast>) -> Option<TypedConstant<'ast, T>> {
+        match &id.id {
+            // canonical constants can be accessed directly in the constant map
+            CoreIdentifier::Constant(c) => self.get_constant(c),
+            // source ids are checked against the canonical constant map, setting the module to the current module
+            CoreIdentifier::Source(id) => self
+                .constants
+                .get(&self.location)
+                .and_then(|constants| constants.get(id))
+                .cloned(),
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -129,16 +133,16 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
                             self.get_constant(&imported_id).unwrap()
                         }
                         TypedConstantSymbol::Here(c) => {
-                            let non_propagated_constant = fold_constant(self, c)?.expression;
+                            let non_propagated_constant = fold_constant(self, c)?;
                             // folding the constant above only reduces it to an expression containing only literals, not to a single literal.
                             // propagating with an empty map of constants reduces it to a single literal
                             Propagator::with_constants(&mut HashMap::default())
-                                .fold_expression(non_propagated_constant)
+                                .fold_constant(non_propagated_constant)
                                 .unwrap()
                         }
                     };
 
-                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(*id.ty.clone()).unwrap() == constant.get_type() {
+                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(constant.ty.clone()).unwrap() == constant.expression.get_type() {
                         // add to the constant map. The value added is always a single litteral
                             self.constants
                             .get_mut(&self.location)
@@ -147,12 +151,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
 
                         Ok((
                             id,
-                            TypedConstantSymbol::Here(TypedConstant {
-                                expression: constant,
-                            }),
+                            TypedConstantSymbol::Here(constant),
                         ))
                     } else {
-                        Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant.get_type(), id.id, id.ty)))
+                        Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant.expression.get_type(), id.id, constant.ty)))
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?,
@@ -185,10 +187,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
                 };
 
                 Ok(DeclarationConstant::Concrete(match self.get_constant(&id).unwrap() {
-                    TypedExpression::Uint(UExpression {
+                    TypedConstant {
+                        expression: TypedExpression::Uint(UExpression {
                         inner: UExpressionInner::Value(v),
                         ..
-                    }) => v as u32,
+                    }),
+                        ty: DeclarationType::Uint(UBitwidth::B32)
+                 } => v as u32,
                     _ => unreachable!("all constants found in declaration types should be reduceable to u32 literals"),
                 }))
             }
@@ -309,14 +314,11 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            CanonicalConstantIdentifier::new(
-                const_id,
-                "main".into(),
+            CanonicalConstantIdentifier::new(const_id, "main".into()),
+            TypedConstantSymbol::Here(TypedConstant::new(
+                TypedExpression::FieldElement(FieldElementExpression::Number(Bn128Field::from(1))),
                 DeclarationType::FieldElement,
-            ),
-            TypedConstantSymbol::Here(TypedConstant::new(TypedExpression::FieldElement(
-                FieldElementExpression::Number(Bn128Field::from(1)),
-            ))),
+            )),
         )]
         .into_iter()
         .collect();
@@ -377,7 +379,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -400,10 +402,11 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            CanonicalConstantIdentifier::new(const_id, "main".into(), DeclarationType::Boolean),
-            TypedConstantSymbol::Here(TypedConstant::new(TypedExpression::Boolean(
-                BooleanExpression::Value(true),
-            ))),
+            CanonicalConstantIdentifier::new(const_id, "main".into()),
+            TypedConstantSymbol::Here(TypedConstant::new(
+                TypedExpression::Boolean(BooleanExpression::Value(true)),
+                DeclarationType::Boolean,
+            )),
         )]
         .into_iter()
         .collect();
@@ -464,7 +467,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -488,15 +491,12 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            CanonicalConstantIdentifier::new(
-                const_id,
-                "main".into(),
-                DeclarationType::Uint(UBitwidth::B32),
-            ),
+            CanonicalConstantIdentifier::new(const_id, "main".into()),
             TypedConstantSymbol::Here(TypedConstant::new(
                 UExpressionInner::Value(1u128)
                     .annotate(UBitwidth::B32)
                     .into(),
+                DeclarationType::Uint(UBitwidth::B32),
             )),
         )]
         .into_iter()
@@ -558,7 +558,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -592,24 +592,23 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            CanonicalConstantIdentifier::new(
-                const_id,
-                "main".into(),
+            CanonicalConstantIdentifier::new(const_id, "main".into()),
+            TypedConstantSymbol::Here(TypedConstant::new(
+                TypedExpression::Array(
+                    ArrayExpressionInner::Value(
+                        vec![
+                            FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                            FieldElementExpression::Number(Bn128Field::from(2)).into(),
+                        ]
+                        .into(),
+                    )
+                    .annotate(GType::FieldElement, 2usize),
+                ),
                 DeclarationType::Array(DeclarationArrayType::new(
                     DeclarationType::FieldElement,
                     2u32,
                 )),
-            ),
-            TypedConstantSymbol::Here(TypedConstant::new(TypedExpression::Array(
-                ArrayExpressionInner::Value(
-                    vec![
-                        FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                        FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                    ]
-                    .into(),
-                )
-                .annotate(GType::FieldElement, 2usize),
-            ))),
+            )),
         )]
         .into_iter()
         .collect();
@@ -694,7 +693,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -735,23 +734,16 @@ mod tests {
                     .collect(),
                     constants: vec![
                         (
-                            CanonicalConstantIdentifier::new(
-                                const_a_id,
-                                "main".into(),
-                                DeclarationType::FieldElement,
-                            ),
+                            CanonicalConstantIdentifier::new(const_a_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::FieldElement(FieldElementExpression::Number(
                                     Bn128Field::from(1),
                                 )),
+                                DeclarationType::FieldElement,
                             )),
                         ),
                         (
-                            CanonicalConstantIdentifier::new(
-                                const_b_id,
-                                "main".into(),
-                                DeclarationType::FieldElement,
-                            ),
+                            CanonicalConstantIdentifier::new(const_b_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::FieldElement(FieldElementExpression::Add(
                                     box FieldElementExpression::Identifier(Identifier::from(
@@ -759,6 +751,7 @@ mod tests {
                                     )),
                                     box FieldElementExpression::Number(Bn128Field::from(1)),
                                 )),
+                                DeclarationType::FieldElement,
                             )),
                         ),
                     ]
@@ -799,27 +792,21 @@ mod tests {
                     .collect(),
                     constants: vec![
                         (
-                            CanonicalConstantIdentifier::new(
-                                const_a_id,
-                                "main".into(),
-                                DeclarationType::FieldElement,
-                            ),
+                            CanonicalConstantIdentifier::new(const_a_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::FieldElement(FieldElementExpression::Number(
                                     Bn128Field::from(1),
                                 )),
+                                DeclarationType::FieldElement,
                             )),
                         ),
                         (
-                            CanonicalConstantIdentifier::new(
-                                const_b_id,
-                                "main".into(),
-                                DeclarationType::FieldElement,
-                            ),
+                            CanonicalConstantIdentifier::new(const_b_id, "main".into()),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::FieldElement(FieldElementExpression::Number(
                                     Bn128Field::from(2),
                                 )),
+                                DeclarationType::FieldElement,
                             )),
                         ),
                     ]
@@ -831,7 +818,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -866,14 +853,13 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                CanonicalConstantIdentifier::new(
-                    foo_const_id,
-                    "foo".into(),
+                CanonicalConstantIdentifier::new(foo_const_id, "foo".into()),
+                TypedConstantSymbol::Here(TypedConstant::new(
+                    TypedExpression::FieldElement(FieldElementExpression::Number(
+                        Bn128Field::from(42),
+                    )),
                     DeclarationType::FieldElement,
-                ),
-                TypedConstantSymbol::Here(TypedConstant::new(TypedExpression::FieldElement(
-                    FieldElementExpression::Number(Bn128Field::from(42)),
-                ))),
+                )),
             )]
             .into_iter()
             .collect(),
@@ -899,15 +885,10 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                CanonicalConstantIdentifier::new(
-                    foo_const_id,
-                    "main".into(),
-                    DeclarationType::FieldElement,
-                ),
+                CanonicalConstantIdentifier::new(foo_const_id, "main".into()),
                 TypedConstantSymbol::There(CanonicalConstantIdentifier::new(
                     foo_const_id,
                     "foo".into(),
-                    DeclarationType::FieldElement,
                 )),
             )]
             .into_iter()
@@ -945,14 +926,13 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                CanonicalConstantIdentifier::new(
-                    foo_const_id,
-                    "main".into(),
+                CanonicalConstantIdentifier::new(foo_const_id, "main".into()),
+                TypedConstantSymbol::Here(TypedConstant::new(
+                    TypedExpression::FieldElement(FieldElementExpression::Number(
+                        Bn128Field::from(42),
+                    )),
                     DeclarationType::FieldElement,
-                ),
-                TypedConstantSymbol::Here(TypedConstant::new(TypedExpression::FieldElement(
-                    FieldElementExpression::Number(Bn128Field::from(42)),
-                ))),
+                )),
             )]
             .into_iter()
             .collect(),
@@ -968,6 +948,6 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 }

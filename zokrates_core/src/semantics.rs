@@ -355,7 +355,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         c: ConstantDefinitionNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
-    ) -> Result<(DeclarationType<'ast>, TypedConstant<'ast, T>), ErrorInner> {
+    ) -> Result<TypedConstant<'ast, T>, ErrorInner> {
         let pos = c.pos();
 
         let ty = self.check_declaration_type(
@@ -397,7 +397,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 ty
             ),
         })
-        .map(|e| (ty, TypedConstant::new(e)))
+        .map(|e| TypedConstant::new(e, ty))
     }
 
     fn check_struct_type_declaration(
@@ -501,6 +501,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
         )))
     }
 
+    // pb: we convert canonical constants into identifiers inside rhs of constant definitions, loosing the module they are from. but then we want to reduce them to literals, which requires knowing which module they come
+    // if we don't convert, we end up with a new type of core identifier (implemented now) which confuses propagation because they are not equal to the identifier of the same name
+
     fn check_symbol_declaration(
         &mut self,
         declaration: SymbolDeclarationNode<'ast>,
@@ -554,7 +557,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
             Symbol::Here(SymbolDefinition::Constant(c)) => {
                 match self.check_constant_definition(declaration.id, c, module_id, state) {
-                    Ok((d_t, c)) => {
+                    Ok(c) => {
                         match symbol_unifier.insert_constant(declaration.id) {
                             false => errors.push(
                                 ErrorInner {
@@ -571,7 +574,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     CanonicalConstantIdentifier::new(
                                         declaration.id,
                                         module_id.into(),
-                                        d_t.clone(),
                                     ),
                                     TypedConstantSymbol::Here(c.clone()),
                                 ));
@@ -583,7 +585,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .constants
                                     .entry(module_id.to_path_buf())
                                     .or_default()
-                                    .insert(declaration.id, d_t)
+                                    .insert(declaration.id, c.ty)
                                     .is_none());
                             }
                         };
@@ -722,8 +724,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             }});
                                     }
                                     true => {
-                                        let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id, ty.clone());
-                                        let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into(), ty.clone());
+                                        let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id);
+                                        let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into());
 
                                         constants.push((id.clone(), TypedConstantSymbol::There(imported_id)));
                                         self.insert_into_scope(Variable::with_id_and_type(declaration.id, crate::typed_absy::types::try_from_g_type(ty.clone()).unwrap()));
@@ -1301,7 +1303,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match (constants_map.get(name), generics_map.get(&name)) {
                     (Some(ty), None) => {
                         match ty {
-                            DeclarationType::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(CanonicalConstantIdentifier::new(name, module_id.into(), DeclarationType::Uint(UBitwidth::B32)))),
+                            DeclarationType::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(CanonicalConstantIdentifier::new(name, module_id.into()))),
                             _ => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(

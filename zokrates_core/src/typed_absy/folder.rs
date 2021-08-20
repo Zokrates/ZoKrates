@@ -232,7 +232,6 @@ pub trait Folder<'ast, T: Field>: Sized {
         CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module),
             id: i.id,
-            ty: box self.fold_declaration_type(*i.ty),
         }
     }
 
@@ -1056,6 +1055,7 @@ pub fn fold_constant<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> TypedConstant<'ast, T> {
     TypedConstant {
         expression: f.fold_expression(c.expression),
+        ty: f.fold_declaration_type(c.ty),
     }
 }
 

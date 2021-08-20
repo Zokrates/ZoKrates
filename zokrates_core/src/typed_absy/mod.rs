@@ -205,7 +205,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
             .iter()
             .map(|(id, symbol)| match symbol {
                 TypedConstantSymbol::Here(ref tc) => {
-                    format!("const {} {} = {}", id.ty, id.id, tc)
+                    format!("const {} {} = {}", tc.ty, id.id, tc.expression)
                 }
                 TypedConstantSymbol::There(ref imported_id) => {
                     format!(
@@ -312,11 +312,12 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedConstant<'ast, T> {
     pub expression: TypedExpression<'ast, T>,
+    pub ty: DeclarationType<'ast>,
 }
 
 impl<'ast, T> TypedConstant<'ast, T> {
-    pub fn new(expression: TypedExpression<'ast, T>) -> Self {
-        TypedConstant { expression }
+    pub fn new(expression: TypedExpression<'ast, T>, ty: DeclarationType<'ast>) -> Self {
+        TypedConstant { expression, ty }
     }
 }
 

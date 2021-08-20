@@ -1,4 +1,6 @@
-use crate::typed_absy::{Identifier, OwnedTypedModuleId, UExpression, UExpressionInner};
+use crate::typed_absy::{
+    CoreIdentifier, Identifier, OwnedTypedModuleId, UExpression, UExpressionInner,
+};
 use crate::typed_absy::{TryFrom, TryInto};
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
@@ -107,20 +109,11 @@ pub type ConstantIdentifier<'ast> = &'ast str;
 pub struct CanonicalConstantIdentifier<'ast> {
     pub module: OwnedTypedModuleId,
     pub id: ConstantIdentifier<'ast>,
-    pub ty: Box<DeclarationType<'ast>>,
 }
 
 impl<'ast> CanonicalConstantIdentifier<'ast> {
-    pub fn new(
-        id: ConstantIdentifier<'ast>,
-        module: OwnedTypedModuleId,
-        ty: DeclarationType<'ast>,
-    ) -> Self {
-        CanonicalConstantIdentifier {
-            module,
-            id,
-            ty: box ty,
-        }
+    pub fn new(id: ConstantIdentifier<'ast>, module: OwnedTypedModuleId) -> Self {
+        CanonicalConstantIdentifier { module, id }
     }
 }
 
@@ -970,12 +963,8 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
 
 impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
     fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
-        let bitwidth = match *c.ty {
-            DeclarationType::Uint(bitwidth) => bitwidth,
-            _ => unreachable!(),
-        };
-
-        UExpressionInner::Identifier(Identifier::from(c.id)).annotate(bitwidth)
+        UExpressionInner::Identifier(Identifier::from(CoreIdentifier::Constant(c)))
+            .annotate(UBitwidth::B32)
     }
 }
 
