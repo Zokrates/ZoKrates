@@ -147,7 +147,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
                             self.constants
                             .get_mut(&self.location)
                             .unwrap()
-                            .insert(id.id.into(), constant.clone());
+                            .insert(id.id, constant.clone());
 
                         Ok((
                             id,
