@@ -3,11 +3,26 @@ use crate::ir::folder::Folder;
 use crate::ir::Directive;
 use crate::ir::Prog;
 use std::collections::HashSet;
+use std::fmt;
 use zokrates_field::Field;
 
 #[derive(Debug)]
 pub struct UnconstrainedVariableDetector {
     pub(self) variables: HashSet<FlatVariable>,
+}
+
+#[derive(Debug)]
+pub struct Error(usize);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Found unconstrained variables during IR analysis (found {} occurrence{})",
+            self.0,
+            if self.0 == 1 { "" } else { "s" }
+        )
+    }
 }
 
 impl UnconstrainedVariableDetector {
@@ -21,22 +36,16 @@ impl UnconstrainedVariableDetector {
                 .collect(),
         }
     }
-    pub fn detect<T: Field>(p: Prog<T>) -> Prog<T> {
+
+    pub fn detect<T: Field>(p: Prog<T>) -> Result<Prog<T>, Error> {
         let mut instance = Self::new(&p);
         let p = instance.fold_module(p);
 
-        // we should probably handle this case instead of asserting at some point
-        assert!(
-            instance.variables.is_empty(),
-            "Unconstrained variables are not allowed (found {} occurrence{})",
-            instance.variables.len(),
-            if instance.variables.len() == 1 {
-                ""
-            } else {
-                "s"
-            }
-        );
-        p
+        if instance.variables.is_empty() {
+            Ok(p)
+        } else {
+            Err(Error(instance.variables.len()))
+        }
     }
 }
 
@@ -63,7 +72,6 @@ mod tests {
     use zokrates_field::Bn128Field;
 
     #[test]
-    #[should_panic]
     fn should_detect_unconstrained_private_input() {
         // def main(_0) -> (1):
         //     (1 * ~one) * (42 * ~one) == 1 * ~out_0
@@ -92,7 +100,8 @@ mod tests {
             main,
         };
 
-        UnconstrainedVariableDetector::detect(p);
+        let p = UnconstrainedVariableDetector::detect(p);
+        assert!(p.is_err());
     }
 
     #[test]
@@ -116,7 +125,8 @@ mod tests {
             main,
         };
 
-        UnconstrainedVariableDetector::detect(p);
+        let p = UnconstrainedVariableDetector::detect(p);
+        assert!(p.is_ok());
     }
 
     #[test]
@@ -174,6 +184,7 @@ mod tests {
             main,
         };
 
-        UnconstrainedVariableDetector::detect(p);
+        let p = UnconstrainedVariableDetector::detect(p);
+        assert!(p.is_ok());
     }
 }

@@ -33,13 +33,18 @@ use std::fmt;
 use zokrates_field::Field;
 
 pub trait Analyse {
-    fn analyse(self) -> Self;
+    type Error;
+
+    fn analyse(self) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
 }
 #[derive(Debug)]
 pub enum Error {
     Reducer(self::reducer::Error),
     Propagation(self::propagation::Error),
     NonConstantArgument(self::constant_argument_checker::Error),
+    UnconstrainedVariable(self::unconstrained_vars::Error),
 }
 
 impl From<reducer::Error> for Error {
@@ -60,12 +65,19 @@ impl From<constant_argument_checker::Error> for Error {
     }
 }
 
+impl From<unconstrained_vars::Error> for Error {
+    fn from(e: unconstrained_vars::Error) -> Self {
+        Error::UnconstrainedVariable(e)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Reducer(e) => write!(f, "{}", e),
             Error::Propagation(e) => write!(f, "{}", e),
             Error::NonConstantArgument(e) => write!(f, "{}", e),
+            Error::UnconstrainedVariable(e) => write!(f, "{}", e),
         }
     }
 }
@@ -126,16 +138,11 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     }
 }
 
-impl<T: Field> Analyse for FlatProg<T> {
-    fn analyse(self) -> Self {
-        log::debug!("Static analyser: Propagate flat");
-        self.propagate()
-    }
-}
-
 impl<T: Field> Analyse for Prog<T> {
-    fn analyse(self) -> Self {
+    type Error = Error;
+
+    fn analyse(self) -> Result<Self, Self::Error> {
         log::debug!("Static analyser: Detect unconstrained zir");
-        UnconstrainedVariableDetector::detect(self)
+        UnconstrainedVariableDetector::detect(self).map_err(|e| e.into())
     }
 }
