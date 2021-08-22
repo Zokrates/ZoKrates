@@ -377,7 +377,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -464,7 +464,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -558,7 +558,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -694,7 +694,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -831,7 +831,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -968,6 +968,6 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 }
