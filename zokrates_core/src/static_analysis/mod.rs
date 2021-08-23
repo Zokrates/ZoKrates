@@ -43,7 +43,14 @@ pub enum Error {
     Reducer(self::reducer::Error),
     Propagation(self::propagation::Error),
     NonConstantArgument(self::constant_argument_checker::Error),
+    ConstantInliner(self::constant_inliner::Error),
     UnconstrainedVariable(self::unconstrained_vars::Error),
+}
+
+impl From<constant_inliner::Error> for Error {
+    fn from(e: self::constant_inliner::Error) -> Self {
+        Error::ConstantInliner(e)
+    }
 }
 
 impl From<reducer::Error> for Error {
@@ -76,6 +83,7 @@ impl fmt::Display for Error {
             Error::Reducer(e) => write!(f, "{}", e),
             Error::Propagation(e) => write!(f, "{}", e),
             Error::NonConstantArgument(e) => write!(f, "{}", e),
+            Error::ConstantInliner(e) => write!(f, "{}", e),
             Error::UnconstrainedVariable(e) => write!(f, "{}", e),
         }
     }
@@ -85,7 +93,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         // inline user-defined constants
         log::debug!("Static analyser: Inline constants");
-        let r = ConstantInliner::inline(self);
+        let r = ConstantInliner::inline(self).map_err(Error::from)?;
         log::trace!("\n{}", r);
 
         // isolate branches

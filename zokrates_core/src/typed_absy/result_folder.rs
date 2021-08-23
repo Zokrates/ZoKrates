@@ -248,7 +248,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         t: DeclarationType<'ast>,
     ) -> Result<DeclarationType<'ast>, Self::Error> {
-        Ok(t)
+        use self::GType::*;
+
+        match t {
+            Array(array_type) => Ok(Array(self.fold_declaration_array_type(array_type)?)),
+            Struct(struct_type) => Ok(Struct(self.fold_declaration_struct_type(struct_type)?)),
+            t => Ok(t),
+        }
     }
 
     fn fold_declaration_array_type(

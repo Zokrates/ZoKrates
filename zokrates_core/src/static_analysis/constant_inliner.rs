@@ -1,15 +1,27 @@
 use crate::static_analysis::Propagator;
-use crate::typed_absy::folder::*;
-use crate::typed_absy::result_folder::ResultFolder;
+use crate::typed_absy::result_folder::*;
 use crate::typed_absy::types::DeclarationConstant;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::fmt;
 use zokrates_field::Field;
 
 type ProgramConstants<'ast, T> =
     HashMap<OwnedTypedModuleId, HashMap<Identifier<'ast>, TypedExpression<'ast, T>>>;
 
+#[derive(Debug, PartialEq)]
+pub enum Error {
+    Type(String),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Type(s) => write!(f, "{}", s),
+        }
+    }
+}
 pub struct ConstantInliner<'ast, T> {
     modules: TypedModules<'ast, T>,
     location: OwnedTypedModuleId,
@@ -28,7 +40,7 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
             constants,
         }
     }
-    pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+    pub fn inline(p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, Error> {
         let constants = ProgramConstants::new();
         let mut inliner = ConstantInliner::new(p.modules.clone(), p.main.clone(), constants);
         inliner.fold_program(p)
@@ -66,44 +78,58 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
-    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        self.fold_module_id(p.main.clone());
+impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
+    type Error = Error;
 
-        TypedProgram {
+    fn fold_program(
+        &mut self,
+        p: TypedProgram<'ast, T>,
+    ) -> Result<TypedProgram<'ast, T>, Self::Error> {
+        self.fold_module_id(p.main.clone())?;
+
+        Ok(TypedProgram {
             modules: std::mem::take(&mut self.modules),
             ..p
-        }
+        })
     }
 
-    fn fold_module_id(&mut self, id: OwnedTypedModuleId) -> OwnedTypedModuleId {
+    fn fold_module_id(
+        &mut self,
+        id: OwnedTypedModuleId,
+    ) -> Result<OwnedTypedModuleId, Self::Error> {
         // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
         if !self.treated(&id) {
             let current_m_id = self.change_location(id.clone());
             let m = self.modules.remove(&id).unwrap();
-            let m = self.fold_module(m);
+            let m = self.fold_module(m)?;
             self.modules.insert(id.clone(), m);
             self.change_location(current_m_id);
         }
-        id
+        Ok(id)
     }
 
-    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
-        TypedModule {
+    fn fold_module(
+        &mut self,
+        m: TypedModule<'ast, T>,
+    ) -> Result<TypedModule<'ast, T>, Self::Error> {
+        Ok(TypedModule {
             constants: m
                 .constants
                 .into_iter()
                 .map(|(id, tc)| {
+
+                    let id = self.fold_canonical_constant_identifier(id)?;
+
                     let constant = match tc {
                         TypedConstantSymbol::There(imported_id) => {
                             // visit the imported symbol. This triggers visiting the corresponding module if needed
-                            let imported_id = self.fold_canonical_constant_identifier(imported_id);
+                            let imported_id = self.fold_canonical_constant_identifier(imported_id)?;
                             // after that, the constant must have been defined defined in the global map. It is already reduced
                             // to a literal, so running propagation isn't required
                             self.get_constant(&imported_id).unwrap()
                         }
                         TypedConstantSymbol::Here(c) => {
-                            let non_propagated_constant = fold_constant(self, c).expression;
+                            let non_propagated_constant = fold_constant(self, c)?.expression;
                             // folding the constant above only reduces it to an expression containing only literals, not to a single literal.
                             // propagating with an empty map of constants reduces it to a single literal
                             Propagator::with_constants(&mut HashMap::default())
@@ -112,65 +138,72 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
                         }
                     };
 
-                    // add to the constant map. The value added is always a single litteral
-                    self.constants
-                        .get_mut(&self.location)
-                        .unwrap()
-                        .insert(id.id.into(), constant.clone());
+                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(*id.ty.clone()).unwrap() == constant.get_type() {
+                        // add to the constant map. The value added is always a single litteral
+                            self.constants
+                            .get_mut(&self.location)
+                            .unwrap()
+                            .insert(id.id.into(), constant.clone());
 
-                    (
-                        id,
-                        TypedConstantSymbol::Here(TypedConstant {
-                            expression: constant,
-                        }),
-                    )
+                        Ok((
+                            id,
+                            TypedConstantSymbol::Here(TypedConstant {
+                                expression: constant,
+                            }),
+                        ))
+                    } else {
+                        Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant.get_type(), id.id, id.ty)))
+                    }
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()?,
             functions: m
                 .functions
                 .into_iter()
-                .map(|(key, fun)| {
-                    (
-                        self.fold_declaration_function_key(key),
-                        self.fold_function_symbol(fun),
-                    )
+                .map::<Result<_, Self::Error>, _>(|(key, fun)| {
+                    Ok((
+                        self.fold_declaration_function_key(key)?,
+                        self.fold_function_symbol(fun)?,
+                    ))
                 })
+                .collect::<Result<Vec<_>, _>>()
+                .into_iter()
+                .flatten()
                 .collect(),
-        }
+        })
     }
 
     fn fold_declaration_constant(
         &mut self,
         c: DeclarationConstant<'ast>,
-    ) -> DeclarationConstant<'ast> {
+    ) -> Result<DeclarationConstant<'ast>, Self::Error> {
         match c {
             // replace constants by their concrete value in declaration types
             DeclarationConstant::Constant(id) => {
                 let id = CanonicalConstantIdentifier {
-                    module: self.fold_module_id(id.module),
+                    module: self.fold_module_id(id.module)?,
                     ..id
                 };
 
-                DeclarationConstant::Concrete(match self.get_constant(&id).unwrap() {
+                Ok(DeclarationConstant::Concrete(match self.get_constant(&id).unwrap() {
                     TypedExpression::Uint(UExpression {
                         inner: UExpressionInner::Value(v),
                         ..
                     }) => v as u32,
                     _ => unreachable!("all constants found in declaration types should be reduceable to u32 literals"),
-                })
+                }))
             }
-            c => c,
+            c => Ok(c),
         }
     }
 
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
-    ) -> FieldElementExpression<'ast, T> {
+    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
         match e {
             FieldElementExpression::Identifier(ref id) => {
                 match self.get_constant_for_identifier(id) {
-                    Some(c) => c.try_into().unwrap(),
+                    Some(c) => Ok(c.try_into().unwrap()),
                     None => fold_field_expression(self, e),
                 }
             }
@@ -181,10 +214,10 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
-    ) -> BooleanExpression<'ast, T> {
+    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
         match e {
             BooleanExpression::Identifier(ref id) => match self.get_constant_for_identifier(id) {
-                Some(c) => c.try_into().unwrap(),
+                Some(c) => Ok(c.try_into().unwrap()),
                 None => fold_boolean_expression(self, e),
             },
             e => fold_boolean_expression(self, e),
@@ -195,12 +228,12 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         &mut self,
         size: UBitwidth,
         e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
+    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
         match e {
             UExpressionInner::Identifier(ref id) => match self.get_constant_for_identifier(id) {
                 Some(c) => {
                     let e: UExpression<'ast, T> = c.try_into().unwrap();
-                    e.into_inner()
+                    Ok(e.into_inner())
                 }
                 None => fold_uint_expression_inner(self, size, e),
             },
@@ -212,13 +245,13 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         &mut self,
         ty: &ArrayType<'ast, T>,
         e: ArrayExpressionInner<'ast, T>,
-    ) -> ArrayExpressionInner<'ast, T> {
+    ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
         match e {
             ArrayExpressionInner::Identifier(ref id) => {
                 match self.get_constant_for_identifier(id) {
                     Some(c) => {
                         let e: ArrayExpression<'ast, T> = c.try_into().unwrap();
-                        e.into_inner()
+                        Ok(e.into_inner())
                     }
                     None => fold_array_expression_inner(self, ty, e),
                 }
@@ -231,13 +264,13 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
         &mut self,
         ty: &StructType<'ast, T>,
         e: StructExpressionInner<'ast, T>,
-    ) -> StructExpressionInner<'ast, T> {
+    ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
         match e {
             StructExpressionInner::Identifier(ref id) => match self.get_constant_for_identifier(id)
             {
                 Some(c) => {
                     let e: StructExpression<'ast, T> = c.try_into().unwrap();
-                    e.into_inner()
+                    Ok(e.into_inner())
                 }
                 None => fold_struct_expression_inner(self, ty, e),
             },
@@ -344,7 +377,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -431,7 +464,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -525,7 +558,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -661,7 +694,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -798,7 +831,7 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 
     #[test]
@@ -935,6 +968,6 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, expected_program)
+        assert_eq!(program, Ok(expected_program))
     }
 }
