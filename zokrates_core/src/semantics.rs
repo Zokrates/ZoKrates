@@ -501,9 +501,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
         )))
     }
 
-    // pb: we convert canonical constants into identifiers inside rhs of constant definitions, loosing the module they are from. but then we want to reduce them to literals, which requires knowing which module they come
-    // if we don't convert, we end up with a new type of core identifier (implemented now) which confuses propagation because they are not equal to the identifier of the same name
-
     fn check_symbol_declaration(
         &mut self,
         declaration: SymbolDeclarationNode<'ast>,
