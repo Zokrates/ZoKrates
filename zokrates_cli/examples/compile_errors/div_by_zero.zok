@@ -1,3 +1,3 @@
 def main(field input) -> field:
-    field divisor = if true then 0 else 1 fi
+    field divisor = if [input, 0] != [input, 1] then 0 else 1 fi
     return input / divisor
