@@ -166,7 +166,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
             functions: m
                 .functions
                 .into_iter()
-                .map::<Result<_, Self::Error>, _>(|(key, fun)| {
+                .map(|(key, fun)| {
                     Ok((
                         self.fold_declaration_function_key(key)?,
                         self.fold_function_symbol(fun)?,
