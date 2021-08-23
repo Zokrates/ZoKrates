@@ -1,5 +1,3 @@
-#![allow(clippy::needless_collect)]
-
 //! Module containing the `Flattener` to process a program that is R1CS-able.
 //!
 //! @file flatten.rs
@@ -1082,38 +1080,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    fn flatten_u_to_bits(
+    fn u_to_bits(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
-        expression: ZirExpression<'ast, T>,
+        expression: FlatUExpression<T>,
         bitwidth: UBitwidth,
     ) -> Vec<FlatUExpression<T>> {
-        let expression = UExpression::try_from(expression).unwrap();
-        let metadata = expression.metadata.as_ref().unwrap();
-        assert!(!metadata.should_reduce.is_unknown());
+        let bits = expression.bits.unwrap();
+        assert_eq!(bits.len(), bitwidth.to_usize());
 
-        let from = metadata.bitwidth();
-        let p = self.flatten_uint_expression(statements_flattened, expression);
-        self.get_bits(&p, from as usize, bitwidth, statements_flattened)
-            .into_iter()
-            .map(FlatUExpression::with_field)
-            .collect()
+        bits.into_iter().map(FlatUExpression::with_field).collect()
     }
 
-    fn flatten_bits_to_u(
+    fn bits_to_u(
         &mut self,
-        statements_flattened: &mut FlatStatements<T>,
-        bits: Vec<ZirExpression<'ast, T>>,
+        bits: Vec<FlatUExpression<T>>,
         bitwidth: UBitwidth,
     ) -> FlatUExpression<T> {
+        let bits: Vec<_> = bits.into_iter().map(|e| e.get_field_unchecked()).collect();
         assert_eq!(bits.len(), bitwidth.to_usize());
-        let bits: Vec<_> = bits
-            .into_iter()
-            .map(|p| {
-                self.flatten_expression(statements_flattened, p)
-                    .get_field_unchecked()
-            })
-            .collect();
 
         FlatUExpression::with_bits(bits)
     }
@@ -1131,70 +1115,55 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         embed: FlatEmbed,
         generics: Vec<u32>,
-        mut param_expressions: Vec<ZirExpression<'ast, T>>,
+        param_expressions: Vec<ZirExpression<'ast, T>>,
     ) -> Vec<FlatUExpression<T>> {
+        let mut params: Vec<_> = param_expressions
+            .into_iter()
+            .map(|p| {
+                if let ZirExpression::Uint(e) = &p {
+                    assert!(e.metadata.as_ref().unwrap().should_reduce.is_true());
+                }
+                self.flatten_expression(statements_flattened, p)
+            })
+            .collect();
+
         match embed {
-            crate::embed::FlatEmbed::U64ToBits => self.flatten_u_to_bits(
-                statements_flattened,
-                param_expressions.pop().unwrap(),
-                64.into(),
-            ),
-            crate::embed::FlatEmbed::U32ToBits => self.flatten_u_to_bits(
-                statements_flattened,
-                param_expressions.pop().unwrap(),
-                32.into(),
-            ),
-            crate::embed::FlatEmbed::U16ToBits => self.flatten_u_to_bits(
-                statements_flattened,
-                param_expressions.pop().unwrap(),
-                16.into(),
-            ),
-            crate::embed::FlatEmbed::U8ToBits => self.flatten_u_to_bits(
-                statements_flattened,
-                param_expressions.pop().unwrap(),
-                8.into(),
-            ),
-            crate::embed::FlatEmbed::U64FromBits => {
-                vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 64.into())]
+            FlatEmbed::U8ToBits => self.u_to_bits(params.pop().unwrap(), 8.into()),
+            FlatEmbed::U16ToBits => self.u_to_bits(params.pop().unwrap(), 16.into()),
+            FlatEmbed::U32ToBits => self.u_to_bits(params.pop().unwrap(), 32.into()),
+            FlatEmbed::U64ToBits => self.u_to_bits(params.pop().unwrap(), 64.into()),
+            FlatEmbed::U8FromBits => {
+                vec![self.bits_to_u(params, 8.into())]
             }
-            crate::embed::FlatEmbed::U32FromBits => {
-                vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 32.into())]
+            FlatEmbed::U16FromBits => {
+                vec![self.bits_to_u(params, 16.into())]
             }
-            crate::embed::FlatEmbed::U16FromBits => {
-                vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 16.into())]
+            FlatEmbed::U32FromBits => {
+                vec![self.bits_to_u(params, 32.into())]
             }
-            crate::embed::FlatEmbed::U8FromBits => {
-                vec![self.flatten_bits_to_u(statements_flattened, param_expressions, 8.into())]
+            FlatEmbed::U64FromBits => {
+                vec![self.bits_to_u(params, 64.into())]
             }
-            crate::embed::FlatEmbed::BitArrayLe => {
+            FlatEmbed::BitArrayLe => {
                 // get the length of the bit arrays
                 let len = generics[0];
 
                 // split the arguments into the two bit arrays of size `len`
                 let (expressions, constants) = (
-                    param_expressions[..len as usize].to_vec(),
-                    param_expressions[len as usize..].to_vec(),
+                    params[..len as usize].to_vec(),
+                    params[len as usize..].to_vec(),
                 );
 
                 // define variables for the variable bits
                 let variables: Vec<_> = expressions
                     .into_iter()
-                    .map(|e| {
-                        let e = self
-                            .flatten_expression(statements_flattened, e)
-                            .get_field_unchecked();
-                        self.define(e, statements_flattened)
-                    })
+                    .map(|e| self.define(e.get_field_unchecked(), statements_flattened))
                     .collect();
 
                 // get constants for the constant bits
                 let constants: Vec<_> = constants
                     .into_iter()
-                    .map(|e| {
-                        self.flatten_expression(statements_flattened, e)
-                            .get_field_unchecked()
-                    })
-                    .map(|e| match e {
+                    .map(|e| match e.get_field_unchecked() {
                         FlatExpression::Number(n) if n == T::one() => true,
                         FlatExpression::Number(n) if n == T::zero() => false,
                         _ => unreachable!(),
@@ -1225,19 +1194,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
-                // Clippy doesn't like the fact that we're collecting here, however not doing so leads to a borrow issue
-                // of `self` in the for-loop just after. This is why the `needless_collect` lint is disabled for this file
-                // (it does not work for this single line)
-                let params_flattened = param_expressions
-                    .into_iter()
-                    .map(|param_expr| self.flatten_expression(statements_flattened, param_expr))
-                    .into_iter()
-                    .map(|x| x.get_field_unchecked())
-                    .collect::<Vec<_>>();
+                let params_flattened = params.into_iter().map(|e| e.get_field_unchecked());
 
-                for (concrete_argument, formal_argument) in
-                    params_flattened.into_iter().zip(funct.arguments)
-                {
+                for (concrete_argument, formal_argument) in params_flattened.zip(funct.arguments) {
                     let new_var = self.define(concrete_argument, statements_flattened);
                     replacement_map.insert(formal_argument.id, new_var);
                 }
