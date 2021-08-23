@@ -1,5 +1,5 @@
 use crate::flat_absy::FlatVariable;
-use crate::ir::folder::Folder;
+use crate::ir::visitor::Visitor;
 use crate::ir::Directive;
 use crate::ir::Prog;
 use std::collections::HashSet;
@@ -39,7 +39,7 @@ impl UnconstrainedVariableDetector {
 
     pub fn detect<T: Field>(p: Prog<T>) -> Result<Prog<T>, Error> {
         let mut instance = Self::new(&p);
-        let p = instance.fold_module(p);
+        instance.visit_module(&p);
 
         if instance.variables.is_empty() {
             Ok(p)
@@ -49,17 +49,13 @@ impl UnconstrainedVariableDetector {
     }
 }
 
-impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
-    fn fold_argument(&mut self, p: FlatVariable) -> FlatVariable {
-        p
+impl<T: Field> Visitor<T> for UnconstrainedVariableDetector {
+    fn visit_argument(&mut self, _: &FlatVariable) {}
+    fn visit_variable(&mut self, v: &FlatVariable) {
+        self.variables.remove(v);
     }
-    fn fold_variable(&mut self, v: FlatVariable) -> FlatVariable {
-        self.variables.remove(&v);
-        v
-    }
-    fn fold_directive(&mut self, d: Directive<T>) -> Directive<T> {
+    fn visit_directive(&mut self, d: &Directive<T>) {
         self.variables.extend(d.outputs.iter());
-        d
     }
 }
 
