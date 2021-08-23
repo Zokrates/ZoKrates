@@ -189,8 +189,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let (typed_ast, abi) =
-        check_with_arena(source, location.to_path_buf(), resolver, config, &arena)?;
+    let (typed_ast, abi) = check_with_arena(source, location.clone(), resolver, config, &arena)?;
 
     // flatten input program
     log::debug!("Flatten");

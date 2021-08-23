@@ -24,7 +24,6 @@ use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::compile::CompileConfig;
-use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::static_analysis::constant_inliner::ConstantInliner;
 use crate::typed_absy::{abi::Abi, TypedProgram};
@@ -143,6 +142,6 @@ impl<T: Field> Analyse for Prog<T> {
 
     fn analyse(self) -> Result<Self, Self::Error> {
         log::debug!("Static analyser: Detect unconstrained zir");
-        UnconstrainedVariableDetector::detect(self).map_err(|e| e.into())
+        UnconstrainedVariableDetector::detect(self).map_err(Error::from)
     }
 }
