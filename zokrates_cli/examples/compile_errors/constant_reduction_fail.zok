@@ -1,0 +1,7 @@
+def constant() -> u32:
+    return 3
+
+const u32 CONSTANT = constant()
+
+def main(field[CONSTANT] a):
+    return

@@ -7,18 +7,23 @@ use std::convert::TryInto;
 use std::fmt;
 use zokrates_field::Field;
 
+// a map of the constants in this program
+// the values are constants whose expression does not include any identifier. It does not have to be a single literal, as
+// we keep function calls here to be inlined later
 type ProgramConstants<'ast, T> =
     HashMap<OwnedTypedModuleId, HashMap<ConstantIdentifier<'ast>, TypedConstant<'ast, T>>>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
     Type(String),
+    Propagation(String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Type(s) => write!(f, "{}", s),
+            Error::Propagation(s) => write!(f, "{}", s),
         }
     }
 }
@@ -129,13 +134,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
                             // visit the imported symbol. This triggers visiting the corresponding module if needed
                             let imported_id = self.fold_canonical_constant_identifier(imported_id)?;
                             // after that, the constant must have been defined defined in the global map. It is already reduced
-                            // to a literal, so running propagation isn't required
+                            // to the maximum, so running propagation isn't required
                             self.get_constant(&imported_id).unwrap()
                         }
                         TypedConstantSymbol::Here(c) => {
                             let non_propagated_constant = fold_constant(self, c)?;
                             // folding the constant above only reduces it to an expression containing only literals, not to a single literal.
-                            // propagating with an empty map of constants reduces it to a single literal
+                            // propagating with an empty map of constants reduces it to the maximum
                             Propagator::with_constants(&mut HashMap::default())
                                 .fold_constant(non_propagated_constant)
                                 .unwrap()
@@ -143,7 +148,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
                     };
 
                     if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(constant.ty.clone()).unwrap() == constant.expression.get_type() {
-                        // add to the constant map. The value added is always a single litteral
+                        // add to the constant map
                             self.constants
                             .get_mut(&self.location)
                             .unwrap()
@@ -167,9 +172,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
                         self.fold_function_symbol(fun)?,
                     ))
                 })
-                .collect::<Result<Vec<_>, _>>()
+                .collect::<Result<Vec<_>, _>>()?
                 .into_iter()
-                .flatten()
                 .collect(),
         })
     }
@@ -186,16 +190,16 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
                     ..id
                 };
 
-                Ok(DeclarationConstant::Concrete(match self.get_constant(&id).unwrap() {
+                match self.get_constant(&id).unwrap() {
                     TypedConstant {
                         expression: TypedExpression::Uint(UExpression {
                         inner: UExpressionInner::Value(v),
                         ..
                     }),
                         ty: DeclarationType::Uint(UBitwidth::B32)
-                 } => v as u32,
-                    _ => unreachable!("all constants found in declaration types should be reduceable to u32 literals"),
-                }))
+                 } => Ok(DeclarationConstant::Concrete(v as u32)),
+                    c => Err(Error::Propagation(format!("Failed to reduce `{}` to a single u32 literal, try avoiding function calls in the definition of `{}` in {}", c, id.id, id.module.display())))
+                }
             }
             c => Ok(c),
         }
