@@ -17,8 +17,8 @@ pub use ast::{
     InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression, Parameter,
     PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
     Statement, StructDefinition, StructField, SymbolDeclaration, TernaryExpression, ToExpression,
-    Type, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression, UnaryOperator, Underscore,
-    Visibility,
+    Type, TypeDefinition, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression,
+    UnaryOperator, Underscore, Visibility,
 };
 
 mod ast {
@@ -140,6 +140,7 @@ mod ast {
         Import(ImportDirective<'ast>),
         Constant(ConstantDefinition<'ast>),
         Struct(StructDefinition<'ast>),
+        Type(TypeDefinition<'ast>),
         Function(FunctionDefinition<'ast>),
     }
 
@@ -180,6 +181,16 @@ mod ast {
         pub ty: Type<'ast>,
         pub id: IdentifierExpression<'ast>,
         pub expression: Expression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::type_definition))]
+    pub struct TypeDefinition<'ast> {
+        pub id: IdentifierExpression<'ast>,
+        pub generics: Vec<IdentifierExpression<'ast>>,
+        pub ty: Type<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
