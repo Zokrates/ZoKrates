@@ -5679,6 +5679,7 @@ mod tests {
                         .get(&*MODULE_ID)
                         .unwrap()
                         .get(&"Bar".to_string())
+                        .map(|(ty, _)| ty)
                         .unwrap(),
                     &DeclarationType::Struct(DeclarationStructType::new(
                         (*MODULE_ID).clone(),
