@@ -170,7 +170,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                                 }),
                             ))
                         } else {
-                            return Err(Error::ConstantReduction(key.id.to_string(), key.module));
+                            Err(Error::ConstantReduction(key.id.to_string(), key.module));
                         }
                     }
                     _ => unreachable!("all constants should be local"),
