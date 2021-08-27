@@ -16,7 +16,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use zokrates_field::Field;
 
-type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;
+pub type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -45,6 +45,7 @@ impl fmt::Display for Error {
     }
 }
 
+#[derive(Debug)]
 pub struct Propagator<'ast, 'a, T: Field> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is

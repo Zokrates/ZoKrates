@@ -2,7 +2,7 @@ use crate::typed_absy::CanonicalConstantIdentifier;
 use std::convert::TryInto;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
 pub enum CoreIdentifier<'ast> {
     Source(&'ast str),
     Call(usize),
@@ -32,7 +32,7 @@ impl<'ast> From<CanonicalConstantIdentifier<'ast>> for CoreIdentifier<'ast> {
 }
 
 /// A identifier for a variable
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
 pub struct Identifier<'ast> {
     /// the id of the variable
     pub id: CoreIdentifier<'ast>,

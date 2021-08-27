@@ -18,25 +18,172 @@ use self::inline::{inline_call, InlineError};
 use crate::typed_absy::result_folder::*;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::types::GGenericsAssignment;
+use crate::typed_absy::CanonicalConstantIdentifier;
 use crate::typed_absy::Folder;
+use crate::typed_absy::UBitwidth;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
-    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
-    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, TypedExpression,
-    TypedExpressionList, TypedExpressionListInner, TypedFunction, TypedFunctionSymbol, TypedModule,
-    TypedProgram, TypedStatement, UExpression, UExpressionInner, Variable,
+    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, DeclarationConstant,
+    DeclarationSignature, Expr, FieldElementExpression, FunctionCall, FunctionCallExpression,
+    FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId, TypedConstant,
+    TypedConstantSymbol, TypedExpression, TypedExpressionList, TypedExpressionListInner,
+    TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, TypedStatement, UExpression,
+    UExpressionInner, Variable,
 };
 
+use std::convert::{TryFrom, TryInto};
 use zokrates_field::Field;
 
 use self::shallow_ssa::ShallowTransformer;
 
-use crate::static_analysis::Propagator;
+use crate::static_analysis::propagation::{Constants, Propagator};
 
 use std::fmt;
 
 const MAX_FOR_LOOP_SIZE: u128 = 2u128.pow(20);
+
+// A map to register the canonical value of all constants. The values must be literals.
+type ConstantDefinitions<'ast, T> =
+    HashMap<CanonicalConstantIdentifier<'ast>, TypedExpression<'ast, T>>;
+
+// A folder to inline all constant definitions down to a single litteral. Also register them in the state for later use.
+struct ConstantCallsInliner<'ast, T> {
+    constants: ConstantDefinitions<'ast, T>,
+    program: TypedProgram<'ast, T>,
+}
+
+impl<'ast, T> ConstantCallsInliner<'ast, T> {
+    fn with_program(program: TypedProgram<'ast, T>) -> Self {
+        ConstantCallsInliner {
+            constants: ConstantDefinitions::default(),
+            program,
+        }
+    }
+}
+
+impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
+    type Error = Error;
+
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+        match dbg!(e) {
+            FieldElementExpression::Identifier(Identifier {
+                id: CoreIdentifier::Constant(c),
+                version,
+            }) => {
+                assert_eq!(version, 0);
+                Ok(self.constants.get(&c).cloned().unwrap().try_into().unwrap())
+            }
+            e => fold_field_expression(self, e),
+        }
+    }
+
+    fn fold_uint_expression_inner(
+        &mut self,
+        ty: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
+        match dbg!(e) {
+            UExpressionInner::Identifier(Identifier {
+                id: CoreIdentifier::Constant(c),
+                version,
+            }) => {
+                assert_eq!(version, 0);
+                Ok(
+                    UExpression::try_from(self.constants.get(&c).cloned().unwrap())
+                        .unwrap()
+                        .into_inner(),
+                )
+            }
+            e => fold_uint_expression_inner(self, ty, e),
+        }
+    }
+
+    fn fold_declaration_constant(
+        &mut self,
+        c: DeclarationConstant<'ast, T>,
+    ) -> Result<DeclarationConstant<'ast, T>, Self::Error> {
+        match c {
+            DeclarationConstant::Constant(c) => {
+                if let UExpressionInner::Value(v) =
+                    UExpression::try_from(self.constants.get(&c).cloned().unwrap())
+                        .unwrap()
+                        .into_inner()
+                {
+                    Ok(DeclarationConstant::Concrete(v as u32))
+                } else {
+                    unreachable!()
+                }
+            }
+            c => fold_declaration_constant(self, c),
+        }
+    }
+
+    fn fold_module(
+        &mut self,
+        m: TypedModule<'ast, T>,
+    ) -> Result<TypedModule<'ast, T>, Self::Error> {
+        Ok(TypedModule {
+            constants: m
+                .constants
+                .into_iter()
+                .map(|(key, tc)| match tc {
+                    TypedConstantSymbol::Here(c) => {
+                        let wrapper = TypedFunction {
+                            arguments: vec![],
+                            statements: vec![TypedStatement::Return(vec![c.expression])],
+                            signature: DeclarationSignature::new().outputs(vec![c.ty.clone()]),
+                        };
+
+                        let mut inlined_wrapper = reduce_function(
+                            wrapper,
+                            ConcreteGenericsAssignment::default(),
+                            &self.program,
+                        )?;
+
+                        if inlined_wrapper.statements.len() > 1 {
+                            return Err(Error::ConstantReduction(key.id.to_string(), key.module));
+                        };
+
+                        if let TypedStatement::Return(mut expressions) =
+                            inlined_wrapper.statements.pop().unwrap()
+                        {
+                            assert_eq!(expressions.len(), 1);
+                            let constant_expression = expressions.pop().unwrap();
+                            use crate::typed_absy::Constant;
+                            if !constant_expression.is_constant() {
+                                return Err(Error::ConstantReduction(
+                                    key.id.to_string(),
+                                    key.module,
+                                ));
+                            };
+                            self.constants
+                                .insert(key.clone(), constant_expression.clone());
+                            Ok((
+                                key,
+                                TypedConstantSymbol::Here(TypedConstant {
+                                    expression: constant_expression,
+                                    ty: c.ty,
+                                }),
+                            ))
+                        } else {
+                            return Err(Error::ConstantReduction(key.id.to_string(), key.module));
+                        }
+                    }
+                    _ => unreachable!("all constants should be local"),
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+            functions: m
+                .functions
+                .into_iter()
+                .map(|(key, fun)| self.fold_function_symbol(fun).map(|f| (key, f)))
+                .collect::<Result<_, _>>()?,
+        })
+    }
+}
 
 // An SSA version map, giving access to the latest version number for each identifier
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
@@ -55,6 +202,7 @@ pub enum Error {
     // TODO: give more details about what's blocking the progress
     NoProgress,
     LoopTooLarge(u128),
+    ConstantReduction(String, OwnedTypedModuleId),
 }
 
 impl fmt::Display for Error {
@@ -68,6 +216,7 @@ impl fmt::Display for Error {
             Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
             Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds"),
             Error::LoopTooLarge(size) => write!(f, "Found a loop of size {}, which is larger than the maximum allowed of {}. Check the loop bounds, especially for underflows", size, MAX_FOR_LOOP_SIZE),
+            Error::ConstantReduction(name, module) => write!(f, "Failed to reduce constant `{}` in module `{}` to a literal, try simplifying its declaration", name, module.display()),
         }
     }
 }
@@ -159,6 +308,7 @@ fn register<'ast>(
     }
 }
 
+#[derive(Debug)]
 struct Reducer<'ast, 'a, T> {
     statement_buffer: Vec<TypedStatement<'ast, T>>,
     for_loop_versions: Vec<Versions<'ast>>,
@@ -304,10 +454,19 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         })
     }
 
+    fn fold_canonical_constant_identifier(
+        &mut self,
+        _: CanonicalConstantIdentifier<'ast>,
+    ) -> Result<CanonicalConstantIdentifier<'ast>, Self::Error> {
+        unreachable!("canonical constant identifiers should not be folded, they should be inlined")
+    }
+
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        println!("STAT {}", s);
+
         let res = match s {
             TypedStatement::MultipleDefinition(
                 v,
@@ -487,6 +646,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 }
 
 pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
+    // inline all constants and replace them in the  program
+    let mut constant_calls_inliner = ConstantCallsInliner::with_program(p.clone());
+
+    let p = constant_calls_inliner.fold_program(p)?;
+
+    // inline starting from main
     let main_module = p.modules.get(&p.main).unwrap().clone();
 
     let (main_key, main_function) = main_module
@@ -542,7 +707,7 @@ fn reduce_function<'ast, T: Field>(
 
             let mut substitutions = Substitutions::default();
 
-            let mut constants: HashMap<Identifier<'ast>, TypedExpression<'ast, T>> = HashMap::new();
+            let mut constants = Constants::default();
 
             let mut hash = None;
 

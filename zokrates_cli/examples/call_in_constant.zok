@@ -3,7 +3,7 @@
 def yes() -> bool:
     return true
 
-const TRUE = yes()
+const bool TRUE = yes()
 
 def main():
     return

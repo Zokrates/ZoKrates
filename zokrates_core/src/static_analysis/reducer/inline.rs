@@ -41,7 +41,7 @@ use crate::typed_absy::{
 use zokrates_field::Field;
 
 pub enum InlineError<'ast, T> {
-    Generic(DeclarationFunctionKey<'ast>, ConcreteFunctionKey<'ast>),
+    Generic(DeclarationFunctionKey<'ast, T>, ConcreteFunctionKey<'ast>),
     Flat(
         FlatEmbed,
         Vec<u32>,
@@ -49,7 +49,7 @@ pub enum InlineError<'ast, T> {
         Types<'ast, T>,
     ),
     NonConstant(
-        DeclarationFunctionKey<'ast>,
+        DeclarationFunctionKey<'ast, T>,
         Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
         Types<'ast, T>,
@@ -57,9 +57,12 @@ pub enum InlineError<'ast, T> {
 }
 
 fn get_canonical_function<'ast, T: Field>(
-    function_key: DeclarationFunctionKey<'ast>,
+    function_key: DeclarationFunctionKey<'ast, T>,
     program: &TypedProgram<'ast, T>,
-) -> (DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>) {
+) -> (
+    DeclarationFunctionKey<'ast, T>,
+    TypedFunctionSymbol<'ast, T>,
+) {
     match program
         .modules
         .get(&function_key.module)
@@ -80,7 +83,7 @@ type InlineResult<'ast, T> = Result<
 >;
 
 pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
-    k: DeclarationFunctionKey<'ast>,
+    k: DeclarationFunctionKey<'ast, T>,
     generics: Vec<Option<UExpression<'ast, T>>>,
     arguments: Vec<TypedExpression<'ast, T>>,
     output: &E::Ty,
@@ -155,7 +158,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         TypedFunctionSymbol::Here(f) => Ok(f),
         TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(
             e,
-            e.generics(&assignment),
+            e.generics::<T>(&assignment),
             arguments.clone(),
             output_types,
         )),

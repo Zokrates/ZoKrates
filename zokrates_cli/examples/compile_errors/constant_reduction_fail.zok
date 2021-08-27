@@ -1,7 +1,6 @@
-def constant() -> u32:
-    return 3
+from "EMBED" import bit_array_le
 
-const u32 CONSTANT = constant()
+const bool CONST = bit_array_le([true], [true])
 
-def main(field[CONSTANT] a):
-    return
+def main() -> bool:
+    return CONST
