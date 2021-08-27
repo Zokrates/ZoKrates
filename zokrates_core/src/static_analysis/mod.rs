@@ -14,6 +14,7 @@ mod reducer;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod variable_write_remover;
+mod zir_propagation;
 
 use self::branch_isolator::Isolator;
 use self::constant_argument_checker::ConstantArgumentChecker;
@@ -27,6 +28,7 @@ use crate::compile::CompileConfig;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::static_analysis::constant_inliner::ConstantInliner;
+use crate::static_analysis::zir_propagation::ZirPropagator;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;
 use std::fmt;
@@ -39,6 +41,7 @@ pub trait Analyse {
 pub enum Error {
     Reducer(self::reducer::Error),
     Propagation(self::propagation::Error),
+    ZirPropagation(self::zir_propagation::Error),
     NonConstantArgument(self::constant_argument_checker::Error),
     ConstantInliner(self::constant_inliner::Error),
 }
@@ -61,6 +64,12 @@ impl From<propagation::Error> for Error {
     }
 }
 
+impl From<zir_propagation::Error> for Error {
+    fn from(e: zir_propagation::Error) -> Self {
+        Error::ZirPropagation(e)
+    }
+}
+
 impl From<constant_argument_checker::Error> for Error {
     fn from(e: constant_argument_checker::Error) -> Self {
         Error::NonConstantArgument(e)
@@ -72,6 +81,7 @@ impl fmt::Display for Error {
         match self {
             Error::Reducer(e) => write!(f, "{}", e),
             Error::Propagation(e) => write!(f, "{}", e),
+            Error::ZirPropagation(e) => write!(f, "{}", e),
             Error::NonConstantArgument(e) => write!(f, "{}", e),
             Error::ConstantInliner(e) => write!(f, "{}", e),
         }
@@ -123,6 +133,11 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // convert to zir, removing complex types
         log::debug!("Static analyser: Convert to zir");
         let zir = Flattener::flatten(r);
+        log::trace!("\n{}", zir);
+
+        // apply propagation in zir
+        log::debug!("Static analyser: Apply propagation in zir");
+        let zir = ZirPropagator::propagate(zir).map_err(Error::from)?;
         log::trace!("\n{}", zir);
 
         // optimize uint expressions
