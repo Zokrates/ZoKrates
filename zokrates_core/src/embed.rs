@@ -29,7 +29,6 @@ cfg_if::cfg_if! {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum FlatEmbed {
     BitArrayLe,
-    U32ToField,
     Unpack,
     U8ToBits,
     U16ToBits,
@@ -72,9 +71,6 @@ impl FlatEmbed {
                     )),
                 ])
                 .outputs(vec![DeclarationType::Boolean]),
-            FlatEmbed::U32ToField => DeclarationSignature::new()
-                .inputs(vec![DeclarationType::uint(32)])
-                .outputs(vec![DeclarationType::FieldElement]),
             FlatEmbed::Unpack => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
                     GenericIdentifier {
@@ -198,7 +194,6 @@ impl FlatEmbed {
     pub fn id(&self) -> &'static str {
         match self {
             FlatEmbed::BitArrayLe => "_BIT_ARRAY_LT",
-            FlatEmbed::U32ToField => "_U32_TO_FIELD",
             FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
