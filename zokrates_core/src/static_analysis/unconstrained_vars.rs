@@ -1,4 +1,4 @@
-use crate::flat_absy::FlatVariable;
+use crate::flat_absy::{FlatParameter, FlatVariable};
 use crate::ir::visitor::Visitor;
 use crate::ir::Directive;
 use crate::ir::Prog;
@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::fmt;
 use zokrates_field::Field;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct UnconstrainedVariableDetector {
     pub(self) variables: HashSet<FlatVariable>,
 }
@@ -26,19 +26,8 @@ impl fmt::Display for Error {
 }
 
 impl UnconstrainedVariableDetector {
-    fn new<T: Field>(p: &Prog<T>) -> Self {
-        UnconstrainedVariableDetector {
-            variables: p
-                .parameters()
-                .iter()
-                .filter(|p| p.private)
-                .map(|p| p.id)
-                .collect(),
-        }
-    }
-
     pub fn detect<T: Field>(p: Prog<T>) -> Result<Prog<T>, Error> {
-        let mut instance = Self::new(&p);
+        let mut instance = Self::default();
         instance.visit_module(&p);
 
         if instance.variables.is_empty() {
@@ -50,7 +39,11 @@ impl UnconstrainedVariableDetector {
 }
 
 impl<T: Field> Visitor<T> for UnconstrainedVariableDetector {
-    fn visit_argument(&mut self, _: &FlatVariable) {}
+    fn visit_argument(&mut self, p: &FlatParameter) {
+        if p.private {
+            self.variables.insert(p.id);
+        }
+    }
     fn visit_variable(&mut self, v: &FlatVariable) {
         self.variables.remove(v);
     }
@@ -63,7 +56,7 @@ impl<T: Field> Visitor<T> for UnconstrainedVariableDetector {
 mod tests {
     use super::*;
     use crate::flat_absy::FlatVariable;
-    use crate::ir::{Function, LinComb, Prog, QuadComb, Statement};
+    use crate::ir::{LinComb, Prog, QuadComb, Statement};
     use crate::solvers::Solver;
     use zokrates_field::Bn128Field;
 
@@ -73,13 +66,12 @@ mod tests {
         //     (1 * ~one) * (42 * ~one) == 1 * ~out_0
         //     return ~out_0
 
-        let _0 = FlatVariable::new(0); // unused var
+        let _0 = FlatParameter::private(FlatVariable::new(0)); // unused var
 
         let one = FlatVariable::one();
         let out_0 = FlatVariable::public(0);
 
-        let main: Function<Bn128Field> = Function {
-            id: "main".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![_0],
             statements: vec![Statement::constraint(
                 QuadComb::from_linear_combinations(
@@ -89,11 +81,6 @@ mod tests {
                 LinComb::summand(1, out_0),
             )],
             returns: vec![out_0],
-        };
-
-        let p: Prog<Bn128Field> = Prog {
-            private: vec![true],
-            main,
         };
 
         let p = UnconstrainedVariableDetector::detect(p);
@@ -106,19 +93,13 @@ mod tests {
         //     (1 * ~one) * (1 * _0) == 1 * ~out_0
         //     return ~out_0
 
-        let _0 = FlatVariable::new(0);
+        let _0 = FlatParameter::private(FlatVariable::new(0));
         let out_0 = FlatVariable::public(0);
 
-        let main: Function<Bn128Field> = Function {
-            id: "main".to_string(),
-            arguments: vec![_0],
-            statements: vec![Statement::definition(out_0, LinComb::from(_0))],
-            returns: vec![out_0],
-        };
-
         let p: Prog<Bn128Field> = Prog {
-            private: vec![true],
-            main,
+            arguments: vec![_0],
+            statements: vec![Statement::definition(out_0, LinComb::from(_0.id))],
+            returns: vec![out_0],
         };
 
         let p = UnconstrainedVariableDetector::detect(p);
@@ -134,25 +115,24 @@ mod tests {
         //     (1 * ~one) * (1 * ~one + (-1) * _1) == 1 * ~out_0
         //     return ~out_0
 
-        let _0 = FlatVariable::new(0);
+        let _0 = FlatParameter::private(FlatVariable::new(0));
         let _1 = FlatVariable::new(1);
         let _2 = FlatVariable::new(2);
 
         let out_0 = FlatVariable::public(0);
         let one = FlatVariable::one();
 
-        let main: Function<Bn128Field> = Function {
-            id: "main".to_string(),
+        let p: Prog<Bn128Field> = Prog {
             arguments: vec![_0],
             statements: vec![
                 Statement::Directive(Directive {
-                    inputs: vec![(LinComb::summand(-42, one) + LinComb::summand(1, _0)).into()],
+                    inputs: vec![(LinComb::summand(-42, one) + LinComb::summand(1, _0.id)).into()],
                     outputs: vec![_1, _2],
                     solver: Solver::ConditionEq,
                 }),
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::summand(-42, one) + LinComb::summand(1, _0),
+                        LinComb::summand(-42, one) + LinComb::summand(1, _0.id),
                         LinComb::summand(1, _2),
                     ),
                     LinComb::summand(1, _1),
@@ -160,7 +140,7 @@ mod tests {
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
                         LinComb::summand(1, one) + LinComb::summand(-1, _1),
-                        LinComb::summand(-42, one) + LinComb::summand(1, _0),
+                        LinComb::summand(-42, one) + LinComb::summand(1, _0.id),
                     ),
                     LinComb::zero(),
                 ),
@@ -173,11 +153,6 @@ mod tests {
                 ),
             ],
             returns: vec![out_0],
-        };
-
-        let p: Prog<Bn128Field> = Prog {
-            private: vec![true],
-            main,
         };
 
         let p = UnconstrainedVariableDetector::detect(p);
