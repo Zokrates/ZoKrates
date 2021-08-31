@@ -9,6 +9,10 @@ pub const UNIVERSAL_SETUP_DEFAULT_PATH: &str = "universal_setup.dat";
 pub const UNIVERSAL_SETUP_DEFAULT_SIZE: &str = "10";
 pub const SMTLIB2_DEFAULT_PATH: &str = "out.smt2";
 
+pub const COMPILATION_MODE_BIN: &str = "bin";
+pub const COMPILATION_MODE_LIB: &str = "lib";
+pub const COMPILATION_MODES: &[&str] = &[COMPILATION_MODE_BIN, COMPILATION_MODE_LIB];
+
 pub const BELLMAN: &str = "bellman";
 pub const LIBSNARK: &str = "libsnark";
 pub const ARK: &str = "ark";

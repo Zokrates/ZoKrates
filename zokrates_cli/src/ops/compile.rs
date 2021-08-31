@@ -6,7 +6,10 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
-use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig, CompileError};
+use zokrates_core::{
+    compile::{compile, CompilationArtifacts, CompileConfig, CompileError, CompileMode},
+    ir::Prog,
+};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -130,13 +133,14 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let config = CompileConfig::default()
         .allow_unconstrained_variables(sub_matches.is_present("allow-unconstrained-variables"))
-        .isolate_branches(sub_matches.is_present("isolate-branches"));
+        .isolate_branches(sub_matches.is_present("isolate-branches"))
+        .mode(CompileMode::Bin);
 
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
 
     log::debug!("Compile");
 
-    let artifacts: CompilationArtifacts<T> = compile(source, path, Some(&resolver), &config)
+    let artifacts: CompilationArtifacts<Prog<T>> = compile(source, path, Some(&resolver), &config)
         .map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
@@ -147,53 +151,63 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             )
         })?;
 
-    let program_flattened = artifacts.prog();
+    match artifacts {
+        CompilationArtifacts::Lib => {
+            unreachable!("compilation should always be called in Bin mode")
+        }
+        CompilationArtifacts::Bin(artifacts) => {
+            let program_flattened = artifacts.prog();
 
-    // number of constraints the flattened program will translate to.
-    let num_constraints = program_flattened.constraint_count();
+            // number of constraints the flattened program will translate to.
+            let num_constraints = program_flattened.constraint_count();
 
-    // serialize flattened program and write to binary file
-    log::debug!("Serialize program");
-    let bin_output_file = File::create(&bin_output_path)
-        .map_err(|why| format!("Could not create {}: {}", bin_output_path.display(), why))?;
+            // serialize flattened program and write to binary file
+            log::debug!("Serialize program");
+            let bin_output_file = File::create(&bin_output_path).map_err(|why| {
+                format!("Could not create {}: {}", bin_output_path.display(), why)
+            })?;
 
-    let mut writer = BufWriter::new(bin_output_file);
+            let mut writer = BufWriter::new(bin_output_file);
 
-    program_flattened.serialize(&mut writer);
+            program_flattened.serialize(&mut writer);
 
-    // serialize ABI spec and write to JSON file
-    log::debug!("Serialize ABI");
-    let abi_spec_file = File::create(&abi_spec_path)
-        .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
+            // serialize ABI spec and write to JSON file
+            log::debug!("Serialize ABI");
+            let abi_spec_file = File::create(&abi_spec_path)
+                .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
 
-    let abi = artifacts.abi();
+            let abi = artifacts.abi();
 
-    let mut writer = BufWriter::new(abi_spec_file);
-    to_writer_pretty(&mut writer, &abi).map_err(|_| "Unable to write data to file.".to_string())?;
+            let mut writer = BufWriter::new(abi_spec_file);
+            to_writer_pretty(&mut writer, &abi)
+                .map_err(|_| "Unable to write data to file.".to_string())?;
 
-    if sub_matches.is_present("verbose") {
-        // debugging output
-        println!("Compiled program:\n{}", program_flattened);
+            if sub_matches.is_present("verbose") {
+                // debugging output
+                println!("Compiled program:\n{}", program_flattened);
+            }
+
+            println!("Compiled code written to '{}'", bin_output_path.display());
+
+            if sub_matches.is_present("ztf") {
+                // write human-readable output file
+                log::debug!("Serialize human readable program");
+                let hr_output_file = File::create(&hr_output_path).map_err(|why| {
+                    format!("Could not create {}: {}", hr_output_path.display(), why)
+                })?;
+
+                let mut hrofb = BufWriter::new(hr_output_file);
+                writeln!(&mut hrofb, "{}", program_flattened)
+                    .map_err(|_| "Unable to write data to file".to_string())?;
+                hrofb
+                    .flush()
+                    .map_err(|_| "Unable to flush buffer".to_string())?;
+
+                println!("Human readable code to '{}'", hr_output_path.display());
+            }
+
+            println!("Number of constraints: {}", num_constraints);
+            Ok(())
+        }
     }
-
-    println!("Compiled code written to '{}'", bin_output_path.display());
-
-    if sub_matches.is_present("ztf") {
-        // write human-readable output file
-        log::debug!("Serialize human readable program");
-        let hr_output_file = File::create(&hr_output_path)
-            .map_err(|why| format!("Could not create {}: {}", hr_output_path.display(), why))?;
-
-        let mut hrofb = BufWriter::new(hr_output_file);
-        writeln!(&mut hrofb, "{}", program_flattened)
-            .map_err(|_| "Unable to write data to file".to_string())?;
-        hrofb
-            .flush()
-            .map_err(|_| "Unable to flush buffer".to_string())?;
-
-        println!("Human readable code to '{}'", hr_output_path.display());
-    }
-
-    println!("Number of constraints: {}", num_constraints);
-    Ok(())
 }
