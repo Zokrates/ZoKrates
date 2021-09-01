@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use zokrates_core::ir;
 use zokrates_core::{
-    compile::{compile, CompilationArtifacts, CompileConfig},
+    compile::{compile, CompileConfig},
     typed_absy::ConcreteType,
 };
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
@@ -150,11 +150,6 @@ fn compile_and_run<T: Field>(t: Tests) {
     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
     let artifacts = compile::<T, _>(code, entry_point.clone(), Some(&resolver), &config).unwrap();
-
-    let artifacts = match artifacts {
-        CompilationArtifacts::Bin(a) => a,
-        _ => unimplemented!(),
-    };
 
     let bin = artifacts.prog();
     let abi = artifacts.abi();

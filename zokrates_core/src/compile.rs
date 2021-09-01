@@ -209,13 +209,13 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     config: &CompileConfig,
-) -> Result<CompilationArtifacts<ir::Prog<T>>, CompileErrors> {
+) -> Result<BinCompilationArtifacts<ir::Prog<T>>, CompileErrors> {
     let arena = Arena::new();
 
     let artifacts = check_with_arena(source, location, resolver, config, &arena)?;
 
     match artifacts {
-        CompilationArtifacts::Lib => Ok(CompilationArtifacts::Lib),
+        CompilationArtifacts::Lib => unreachable!(),
         CompilationArtifacts::Bin(artifacts) => {
             // flatten input program
             log::debug!("Flatten");
@@ -237,10 +237,10 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
             log::debug!("Analyse IR");
             let optimized_ir_prog = optimized_ir_prog.analyse();
 
-            Ok(CompilationArtifacts::Bin(BinCompilationArtifacts {
+            Ok(BinCompilationArtifacts {
                 prog: optimized_ir_prog,
                 abi: artifacts.abi,
-            }))
+            })
         }
     }
 }
@@ -358,7 +358,7 @@ mod test {
 			   return foo()
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
+        let res: Result<BinCompilationArtifacts<ir::Prog<Bn128Field>>, CompileErrors> = compile(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
@@ -377,7 +377,7 @@ mod test {
 			   return 1
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
+        let res: Result<BinCompilationArtifacts<ir::Prog<Bn128Field>>, CompileErrors> = compile(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,

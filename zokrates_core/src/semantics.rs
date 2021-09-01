@@ -4030,6 +4030,7 @@ mod tests {
             functions,
             level,
             return_types: None,
+            mode: CompileMode::default(),
         }
     }
 
