@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
 use zokrates_common::Resolver;
 use zokrates_core::compile::{
-    compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
+    compile as core_compile, BinCompilationArtifacts, CompileConfig, CompileError,
 };
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
@@ -106,7 +106,7 @@ pub fn compile(
     let config: CompileConfig = config.into_serde().unwrap_or_default();
 
     let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
-    let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
+    let artifacts: BinCompilationArtifacts<ir::Prog<Bn128Field>> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
