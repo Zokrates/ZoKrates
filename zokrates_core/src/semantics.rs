@@ -6,7 +6,7 @@
 
 use crate::absy::Identifier;
 use crate::absy::*;
-use crate::typed_absy::types::GGenericsAssignment;
+use crate::typed_absy::types::{try_from_g_type, GGenericsAssignment};
 use crate::typed_absy::*;
 use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
 use num_bigint::BigUint;
@@ -55,9 +55,17 @@ impl ErrorInner {
     }
 }
 
-type GenericDeclarations<'ast> = Option<Vec<Option<DeclarationConstant<'ast>>>>;
-type TypeMap<'ast> =
-    HashMap<OwnedModuleId, HashMap<UserTypeId, (DeclarationType<'ast>, GenericDeclarations<'ast>)>>;
+#[derive(Clone, Debug)]
+enum TypeKind<'ast> {
+    Canonical(DeclarationType<'ast>),
+    Alias(
+        DeclarationType<'ast>,
+        Vec<Option<DeclarationConstant<'ast>>>,
+    ),
+}
+
+type TypeMap<'ast> = HashMap<OwnedModuleId, HashMap<UserTypeId, TypeKind<'ast>>>;
+
 type ConstantMap<'ast> =
     HashMap<OwnedModuleId, HashMap<ConstantIdentifier<'ast>, DeclarationType<'ast>>>;
 
@@ -356,7 +364,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
         ty: TypeDefinitionNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
-    ) -> Result<(DeclarationType<'ast>, GenericDeclarations<'ast>), Vec<ErrorInner>> {
+    ) -> Result<
+        (
+            DeclarationType<'ast>,
+            Vec<Option<DeclarationConstant<'ast>>>,
+        ),
+        Vec<ErrorInner>,
+    > {
         let pos = ty.pos();
         let ty = ty.value;
 
@@ -421,7 +435,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     return Err(errors);
                 }
 
-                Ok((ty, Some(generics)))
+                Ok((ty, generics))
             }
             Err(e) => {
                 errors.push(e);
@@ -622,7 +636,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .types
                                     .entry(module_id.to_path_buf())
                                     .or_default()
-                                    .insert(declaration.id.to_string(), (ty, None))
+                                    .insert(declaration.id.to_string(), TypeKind::Canonical(ty))
                                     .is_none());
                             }
                         };
@@ -676,7 +690,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
             Symbol::Here(SymbolDefinition::Type(t)) => {
                 match self.check_type_definition(t, module_id, state) {
-                    Ok(ty) => {
+                    Ok((ty, generics)) => {
                         match symbol_unifier.insert_type(declaration.id) {
                             false => errors.push(
                                 ErrorInner {
@@ -693,7 +707,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .types
                                     .entry(module_id.to_path_buf())
                                     .or_default()
-                                    .insert(declaration.id.to_string(), ty)
+                                    .insert(
+                                        declaration.id.to_string(),
+                                        TypeKind::Alias(ty, generics)
+                                    )
                                     .is_none());
                             }
                         };
@@ -783,18 +800,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .cloned();
 
                         match (function_candidates.len(), type_candidate, const_candidate) {
-                            (0, Some((t, alias_generics)), None) => {
+                            (0, Some(ty), None) => {
 
                                 // rename the type to the declared symbol
-                                let t = match t {
-                                    DeclarationType::Struct(t) => DeclarationType::Struct(DeclarationStructType {
-                                        location: Some(StructLocation {
-                                            name: declaration.id.into(),
-                                            module: module_id.to_path_buf()
-                                        }),
+                                let ty = match ty {
+                                    TypeKind::Canonical(DeclarationType::Struct(t)) => TypeKind::Canonical(
+                                        DeclarationType::Struct(DeclarationStructType {
+                                            location: Some(StructLocation {
+                                                name: declaration.id.into(),
+                                                module: module_id.to_path_buf()
+                                            }),
                                         ..t
-                                    }),
-                                    _ => t // type alias
+                                    })),
+                                    _ => ty // type alias
                                 };
 
                                 // we imported a type, so the symbol it gets bound to should not already exist
@@ -816,7 +834,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .types
                                     .entry(module_id.to_path_buf())
                                     .or_default()
-                                    .insert(declaration.id.to_string(), (t, alias_generics));
+                                    .insert(declaration.id.to_string(), ty);
                             }
                             (0, None, Some(ty)) => {
                                 match symbol_unifier.insert_constant(declaration.id) {
@@ -836,7 +854,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into(), ty.clone());
 
                                         constants.push((id.clone(), TypedConstantSymbol::There(imported_id)));
-                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, crate::typed_absy::types::try_from_g_type(ty.clone()).unwrap()));
+                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, try_from_g_type(ty.clone()).unwrap()));
 
                                         state
                                             .constants
@@ -1297,7 +1315,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 )))
             }
             UnresolvedType::User(id, generics) => {
-                let (declaration_type, alias_generics) = types
+                let ty = types
                     .get(module_id)
                     .unwrap()
                     .get(&id)
@@ -1307,49 +1325,50 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         message: format!("Undefined type {}", id),
                     })?;
 
-                // absence of generics is treated as 0 generics, as we do not provide inference for now
-                let generics = generics.unwrap_or_default();
-
-                // check generics
-                match (declaration_type, alias_generics) {
-                    (DeclarationType::Struct(struct_type), None) => {
-                        match struct_type.generics.len() == generics.len() {
-                            true => {
-                                // downcast the generics to identifiers, as this is the only possibility here
-                                let generic_identifiers = struct_type.generics.iter().map(|c| {
-                                    match c.as_ref().unwrap() {
-                                        DeclarationConstant::Generic(g) => g.clone(),
-                                        _ => unreachable!(),
-                                    }
-                                });
-
-                                // build the generic assignment for this type
-                                let assignment = GGenericsAssignment(generics
-                                    .into_iter()
-                                    .zip(generic_identifiers)
-                                    .map(|(e, g)| match e {
-                                        Some(e) => {
-                                            self
-                                                .check_expression(e, module_id, types)
-                                                .and_then(|e| {
-                                                    UExpression::try_from_typed(e, &UBitwidth::B32)
-                                                        .map(|e| (g, e))
-                                                        .map_err(|e| ErrorInner {
-                                                            pos: Some(pos),
-                                                            message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
-                                                        })
-                                                })
-                                        },
-                                        None => Err(ErrorInner {
+                let checked_generics = generics
+                    .unwrap_or_default() // absence of generics is treated as 0 generics, as we do not provide inference for now
+                    .into_iter()
+                    .map(|e| match e {
+                        Some(e) => {
+                            self
+                                .check_expression(e, module_id, types)
+                                .and_then(|e| {
+                                    UExpression::try_from_typed(e, &UBitwidth::B32)
+                                        .map(Some)
+                                        .map_err(|e| ErrorInner {
                                             pos: Some(pos),
-                                            message:
-                                                "Expected u32 constant or identifier, but found `_`. Generic inference is not supported yet."
-                                                    .into(),
+                                            message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
                                         })
-                                    })
-                                    .collect::<Result<_, _>>()?);
+                                })
+                        },
+                        None => Err(ErrorInner {
+                            pos: Some(pos),
+                            message:
+                            "Expected u32 constant or identifier, but found `_`. Generic inference is not supported yet."
+                                .into(),
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
 
-                                // specialize the declared type using the generic assignment
+                match ty {
+                    TypeKind::Canonical(DeclarationType::Struct(struct_type)) => {
+                        match struct_type.generics.len() == checked_generics.len() {
+                            true => {
+                                let mut assignment = GGenericsAssignment::default();
+
+                                assignment.0.extend(
+                                    struct_type
+                                        .generics
+                                        .iter()
+                                        .zip(checked_generics.iter())
+                                        .map(|(decl_g, g_val)| match decl_g {
+                                            Some(DeclarationConstant::Generic(g)) => {
+                                                (g.clone(), g_val.clone().unwrap())
+                                            }
+                                            _ => unreachable!(),
+                                        }),
+                                );
+
                                 Ok(specialize_declaration_type(
                                     DeclarationType::Struct(struct_type),
                                     &assignment,
@@ -1367,63 +1386,43 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         "s"
                                     },
                                     id,
-                                    generics.len()
+                                    checked_generics.len()
                                 ),
                             }),
                         }
                     }
-                    (declaration_type, Some(alias_generics)) => {
-                        match alias_generics.len() == generics.len() {
+                    TypeKind::Canonical(ty) => Ok(try_from_g_type(ty).unwrap()),
+                    TypeKind::Alias(declaration_type, ref alias_generics) => {
+                        match alias_generics.len() == checked_generics.len() {
                             true => {
-                                let generic_identifiers =
-                                    alias_generics.iter().map(|c| match c.as_ref().unwrap() {
-                                        DeclarationConstant::Generic(g) => g.clone(),
-                                        _ => unreachable!(),
-                                    });
+                                let mut assignment = GGenericsAssignment::default();
 
-                                // build the generic assignment for this type
-                                let assignment = GGenericsAssignment(generics
-                                    .into_iter()
-                                    .zip(generic_identifiers)
-                                    .map(|(e, g)| match e {
-                                        Some(e) => {
-                                            self
-                                                .check_expression(e, module_id, types)
-                                                .and_then(|e| {
-                                                    UExpression::try_from_typed(e, &UBitwidth::B32)
-                                                        .map(|e| (g, e))
-                                                        .map_err(|e| ErrorInner {
-                                                            pos: Some(pos),
-                                                            message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
-                                                        })
-                                                })
+                                assignment.0.extend(
+                                    alias_generics.iter().zip(checked_generics.iter()).map(
+                                        |(decl_g, g_val)| match decl_g {
+                                            Some(DeclarationConstant::Generic(g)) => {
+                                                (g.clone(), g_val.clone().unwrap())
+                                            }
+                                            _ => unreachable!(),
                                         },
-                                        None => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message:
-                                            "Expected u32 constant or identifier, but found `_`. Generic inference is not supported yet."
-                                                .into(),
-                                        })
-                                    })
-                                    .collect::<Result<_, _>>()?);
+                                    ),
+                                );
 
-                                // specialize the declared type using the generic assignment
                                 Ok(specialize_declaration_type(declaration_type, &assignment)
                                     .unwrap())
                             }
                             false => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
-                                    "Expected {} generic argument{} on type {}, but got {}",
+                                    "Expected {} generic argument{} on type alias {}, but got {}",
                                     alias_generics.len(),
                                     if alias_generics.len() == 1 { "" } else { "s" },
                                     id,
-                                    generics.len()
+                                    checked_generics.len()
                                 ),
                             }),
                         }
                     }
-                    _ => unreachable!(),
                 }
             }
         }
@@ -1518,7 +1517,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 )))
             }
             UnresolvedType::User(id, generics) => {
-                let (declared_ty, alias_generics) = state
+                let ty = state
                     .types
                     .get(module_id)
                     .unwrap()
@@ -1529,76 +1528,44 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         message: format!("Undefined type {}", id),
                     })?;
 
-                match (declared_ty, alias_generics) {
-                    (ty, Some(alias_generics)) => {
-                        let generics = generics.unwrap_or_default();
-                        let checked_generics: Vec<_> = generics
-                            .into_iter()
-                            .map(|e| match e {
-                                Some(e) => self
-                                    .check_generic_expression(
-                                        e,
-                                        module_id,
-                                        state.constants.get(module_id).unwrap_or(&HashMap::new()),
-                                        generics_map,
-                                        used_generics,
-                                    )
-                                    .map(Some),
-                                None => Err(ErrorInner {
-                                    pos: Some(pos),
-                                    message: "Expected u32 constant or identifier, but found `_`"
-                                        .into(),
-                                }),
-                            })
-                            .collect::<Result<_, _>>()?;
+                let checked_generics: Vec<_> = generics
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|e| match e {
+                        Some(e) => self
+                            .check_generic_expression(
+                                e,
+                                module_id,
+                                state.constants.get(module_id).unwrap_or(&HashMap::new()),
+                                generics_map,
+                                used_generics,
+                            )
+                            .map(Some),
+                        None => Err(ErrorInner {
+                            pos: Some(pos),
+                            message: "Expected u32 constant or identifier, but found `_`".into(),
+                        }),
+                    })
+                    .collect::<Result<_, _>>()?;
 
-                        let mut assignment = GGenericsAssignment::default();
-
-                        assignment.0.extend(
-                            alias_generics.iter().zip(checked_generics.iter()).map(
-                                |(decl_g, g_val)| match decl_g.clone().unwrap() {
-                                    DeclarationConstant::Generic(g) => (g, g_val.clone().unwrap()),
-                                    _ => unreachable!(),
-                                },
-                            ),
-                        );
-
-                        Ok(specialize_declaration_type(ty, &assignment).unwrap())
-                    }
-                    (DeclarationType::Struct(declared_struct_ty), None) => {
-                        let generics = generics.unwrap_or_default();
-                        match declared_struct_ty.generics.len() == generics.len() {
+                match ty {
+                    TypeKind::Canonical(DeclarationType::Struct(declared_struct_ty)) => {
+                        match declared_struct_ty.generics.len() == checked_generics.len() {
                             true => {
-                                let checked_generics: Vec<_> = generics
-                                    .into_iter()
-                                    .map(|e| match e {
-                                        Some(e) => self
-                                            .check_generic_expression(
-                                                e,
-                                                module_id,
-                                                state
-                                                    .constants
-                                                    .get(module_id)
-                                                    .unwrap_or(&HashMap::new()),
-                                                generics_map,
-                                                used_generics,
-                                            )
-                                            .map(Some),
-                                        None => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message:
-                                                "Expected u32 constant or identifier, but found `_`"
-                                                    .into(),
-                                        }),
-                                    })
-                                    .collect::<Result<_, _>>()?;
-
                                 let mut assignment = GGenericsAssignment::default();
 
-                                assignment.0.extend(declared_struct_ty.generics.iter().zip(checked_generics.iter()).map(|(decl_g, g_val)| match decl_g.clone().unwrap() {
-                                    DeclarationConstant::Generic(g) => (g, g_val.clone().unwrap()),
-                                    _ => unreachable!("generic on declaration struct types must be generic identifiers")
-                                }));
+                                assignment.0.extend(
+                                    declared_struct_ty
+                                        .generics
+                                        .iter()
+                                        .zip(checked_generics.iter())
+                                        .map(|(decl_g, g_val)| match decl_g {
+                                            Some(DeclarationConstant::Generic(g)) => {
+                                                (g.clone(), g_val.clone().unwrap())
+                                            }
+                                            _ => unreachable!(),
+                                        }),
+                                );
 
                                 // generate actual type based on generic type and concrete generics
                                 let members = declared_struct_ty
@@ -1631,12 +1598,40 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         "s"
                                     },
                                     id,
-                                    generics.len()
+                                    checked_generics.len()
                                 ),
                             }),
                         }
                     }
-                    (declared_ty, _) => Ok(declared_ty),
+                    TypeKind::Canonical(ty) => Ok(ty),
+                    TypeKind::Alias(ty, ref alias_generics) => {
+                        match alias_generics.len() == checked_generics.len() {
+                            true => {
+                                let mut assignment = GGenericsAssignment::default();
+                                assignment.0.extend(
+                                    alias_generics.iter().zip(checked_generics.iter()).map(
+                                        |(decl_g, g_val)| match decl_g {
+                                            Some(DeclarationConstant::Generic(g)) => {
+                                                (g.clone(), g_val.clone().unwrap())
+                                            }
+                                            _ => unreachable!(),
+                                        },
+                                    ),
+                                );
+                                Ok(specialize_declaration_type(ty, &assignment).unwrap())
+                            }
+                            false => Err(ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Expected {} generic argument{} on type alias {}, but got {}",
+                                    alias_generics.len(),
+                                    if alias_generics.len() == 1 { "" } else { "s" },
+                                    id,
+                                    checked_generics.len()
+                                ),
+                            }),
+                        }
+                    }
                 }
             }
         }
@@ -1777,12 +1772,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         .zip(return_types.iter())
                         .map(|(e, t)| TypedExpression::align_to_type(e, t))
                         .collect::<Result<Vec<_>, _>>()
-                        .map_err(|e| {
+                        .map_err(|(e, ty)| {
                             vec![ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
-                                    "Expected return value to be of type {}, found {}",
-                                    e.1, e.0
+                                    "Expected return value to be of type {}, found {} of type {}",
+                                    ty,
+                                    e,
+                                    e.get_type()
                                 ),
                             }]
                         }) {
@@ -3105,7 +3102,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .into())
             }
             Expression::InlineStruct(id, inline_members) => {
-                let (ty, _) = match types.get(module_id).unwrap().get(&id).cloned() {
+                let ty = match types.get(module_id).unwrap().get(&id).cloned() {
                     None => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Undefined type `{}`", id),
@@ -3114,7 +3111,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }?;
 
                 let declared_struct_type = match ty {
-                    DeclarationType::Struct(struct_type) => struct_type,
+                    TypeKind::Canonical(DeclarationType::Struct(struct_type))
+                    | TypeKind::Alias(DeclarationType::Struct(struct_type), _) => struct_type,
                     _ => unreachable!(),
                 };
 

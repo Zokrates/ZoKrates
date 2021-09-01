@@ -1,0 +1,9 @@
+struct Foo<N> {
+    field[N] value
+}
+
+type Bar<N> = Foo<N>
+
+def main():
+    Bar<2> bar = Bar { value: [1, 2, 3] }
+    return

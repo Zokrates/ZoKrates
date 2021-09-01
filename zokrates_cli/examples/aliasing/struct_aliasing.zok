@@ -1,0 +1,16 @@
+type FieldArray<N> = field[N]
+
+struct Foo<A, B> {
+    FieldArray<A> a
+    FieldArray<B> b
+}
+
+type Bar = Foo<3, 2>
+type Buzz<B> = Foo<3, B>
+
+def main(Buzz<2> a, Bar b) -> Buzz<2>:
+    Foo<3, 3> foo = Foo { a: [1, 2, 3], b: [1, 2, 3] }
+    Bar bar = Bar { a: [1, 2, 3], b: [1, 2] }
+    Buzz<2> buzz = Buzz { a: [1, 2, 3], b: [1, 2] }
+    assert(bar == buzz)
+    return buzz
