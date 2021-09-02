@@ -5237,7 +5237,7 @@ mod tests {
             Err(vec![Error {
                 inner: ErrorInner {
                     pos: None,
-                    message: "Only one main function allowed, found 2".into()
+                    message: "Expected a single entry point, found 2".into()
                 },
                 module_id: (*MODULE_ID).clone()
             }])
