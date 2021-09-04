@@ -194,7 +194,8 @@ impl<'ast, T> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
-                UExpressionInner::Identifier(Identifier::from(v.id)).annotate(UBitwidth::B32)
+                UExpressionInner::Identifier(CoreIdentifier::from(v).into())
+                    .annotate(UBitwidth::B32)
             }
             DeclarationConstant::Expression(e) => e.try_into().unwrap(),
         }
@@ -968,6 +969,11 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<usize>>(
         (DeclarationType::Uint(b0), GType::Uint(b1)) => b0 == b1,
         (DeclarationType::Struct(s0), GType::Struct(s1)) => {
             s0.canonical_location == s1.canonical_location
+                && s0
+                    .members
+                    .iter()
+                    .zip(s1.members.iter())
+                    .all(|(m0, m1)| check_type(&*m0.ty, &*m1.ty, constants))
         }
         _ => false,
     }
@@ -1347,6 +1353,7 @@ pub mod signature {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use zokrates_field::Bn128Field;
 
         #[test]
         fn signature() {
@@ -1363,7 +1370,7 @@ pub mod signature {
             // <P>(field[P])
             // <Q>(field[Q])
 
-            let generic1 = DeclarationSignature::new()
+            let generic1 = DeclarationSignature::<Bn128Field>::new()
                 .generics(vec![Some(
                     GenericIdentifier {
                         name: "P",

@@ -1007,7 +1007,11 @@ pub fn fold_signature<'ast, T: Field, F: ResultFolder<'ast, T>>(
     s: DeclarationSignature<'ast, T>,
 ) -> Result<DeclarationSignature<'ast, T>, F::Error> {
     Ok(DeclarationSignature {
-        generics: s.generics,
+        generics: s
+            .generics
+            .into_iter()
+            .map(|g| g.map(|g| f.fold_declaration_constant(g)).transpose())
+            .collect::<Result<_, _>>()?,
         inputs: s
             .inputs
             .into_iter()
@@ -1156,7 +1160,11 @@ pub fn fold_module<'ast, T: Field, F: ResultFolder<'ast, T>>(
         functions: m
             .functions
             .into_iter()
-            .map(|(key, fun)| f.fold_function_symbol(fun).map(|f| (key, f)))
+            .map(|(key, fun)| {
+                let key = f.fold_declaration_function_key(key)?;
+                let fun = f.fold_function_symbol(fun)?;
+                Ok((key, fun))
+            })
             .collect::<Result<_, _>>()?,
     })
 }

@@ -149,124 +149,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
                 .collect::<Result<Vec<_>, _>>()?,
             functions: m
                 .functions
-                .into_iter()
-                .map(|(key, fun)| {
-                    Ok((
-                        self.fold_declaration_function_key(key)?,
-                        self.fold_function_symbol(fun)?,
-                    ))
-                })
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter()
-                .collect(),
         })
     }
-
-    // fn fold_declaration_constant(
-    //     &mut self,
-    //     c: DeclarationConstant<'ast, T>,
-    // ) -> Result<DeclarationConstant<'ast, T>, Self::Error> {
-    //     match c {
-    //         // replace constants by their concrete value in declaration types
-    //         DeclarationConstant::Constant(id) => {
-    //             let id = CanonicalConstantIdentifier {
-    //                 module: self.fold_module_id(id.module)?,
-    //                 ..id
-    //             };
-
-    //             match self.get_constant(&id).unwrap() {
-    //                 TypedConstant {
-    //                     ty: DeclarationType::Uint(UBitwidth::B32),
-    //                     expression
-    //              } => Ok(DeclarationConstant::Expression(expression)),
-    //                 c => Err(Error::Propagation(format!("Failed to reduce `{}` to a single u32 literal, try avoiding function calls in the definition of `{}` in {}", c, id.id, id.module.display())))
-    //             }
-    //         }
-    //         c => Ok(c),
-    //     }
-    // }
-
-    // fn fold_field_expression(
-    //     &mut self,
-    //     e: FieldElementExpression<'ast, T>,
-    // ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
-    //     match e {
-    //         FieldElementExpression::Identifier(ref id) => {
-    //             match self.get_constant_for_identifier(id) {
-    //                 Some(c) => Ok(c.try_into().unwrap()),
-    //                 None => fold_field_expression(self, e),
-    //             }
-    //         }
-    //         e => fold_field_expression(self, e),
-    //     }
-    // }
-
-    // fn fold_boolean_expression(
-    //     &mut self,
-    //     e: BooleanExpression<'ast, T>,
-    // ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
-    //     match e {
-    //         BooleanExpression::Identifier(ref id) => match self.get_constant_for_identifier(id) {
-    //             Some(c) => Ok(c.try_into().unwrap()),
-    //             None => fold_boolean_expression(self, e),
-    //         },
-    //         e => fold_boolean_expression(self, e),
-    //     }
-    // }
-
-    // fn fold_uint_expression_inner(
-    //     &mut self,
-    //     size: UBitwidth,
-    //     e: UExpressionInner<'ast, T>,
-    // ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
-    //     match e {
-    //         UExpressionInner::Identifier(ref id) => match self.get_constant_for_identifier(id) {
-    //             Some(c) => {
-    //                 let e: UExpression<'ast, T> = c.try_into().unwrap();
-    //                 Ok(e.into_inner())
-    //             }
-    //             None => fold_uint_expression_inner(self, size, e),
-    //         },
-    //         e => fold_uint_expression_inner(self, size, e),
-    //     }
-    // }
-
-    // fn fold_array_expression_inner(
-    //     &mut self,
-    //     ty: &ArrayType<'ast, T>,
-    //     e: ArrayExpressionInner<'ast, T>,
-    // ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
-    //     match e {
-    //         ArrayExpressionInner::Identifier(ref id) => {
-    //             match self.get_constant_for_identifier(id) {
-    //                 Some(c) => {
-    //                     let e: ArrayExpression<'ast, T> = c.try_into().unwrap();
-    //                     Ok(e.into_inner())
-    //                 }
-    //                 None => fold_array_expression_inner(self, ty, e),
-    //             }
-    //         }
-    //         e => fold_array_expression_inner(self, ty, e),
-    //     }
-    // }
-
-    // fn fold_struct_expression_inner(
-    //     &mut self,
-    //     ty: &StructType<'ast, T>,
-    //     e: StructExpressionInner<'ast, T>,
-    // ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
-    //     match e {
-    //         StructExpressionInner::Identifier(ref id) => match self.get_constant_for_identifier(id)
-    //         {
-    //             Some(c) => {
-    //                 let e: StructExpression<'ast, T> = c.try_into().unwrap();
-    //                 Ok(e.into_inner())
-    //             }
-    //             None => fold_struct_expression_inner(self, ty, e),
-    //         },
-    //         e => fold_struct_expression_inner(self, ty, e),
-    //     }
-    // }
 }
 
 #[cfg(test)]
@@ -330,39 +214,9 @@ mod tests {
             .collect(),
         };
 
+        let expected_program = program.clone();
+
         let program = ConstantInliner::inline(program);
-
-        let expected_main = TypedFunction {
-            arguments: vec![],
-            statements: vec![TypedStatement::Return(vec![
-                FieldElementExpression::Number(Bn128Field::from(1)).into(),
-            ])],
-            signature: DeclarationSignature::new()
-                .inputs(vec![])
-                .outputs(vec![DeclarationType::FieldElement]),
-        };
-
-        let expected_program: TypedProgram<Bn128Field> = TypedProgram {
-            main: "main".into(),
-            modules: vec![(
-                "main".into(),
-                TypedModule {
-                    functions: vec![(
-                        DeclarationFunctionKey::with_location("main", "main").signature(
-                            DeclarationSignature::new()
-                                .inputs(vec![])
-                                .outputs(vec![DeclarationType::FieldElement]),
-                        ),
-                        TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants,
-                },
-            )]
-            .into_iter()
-            .collect(),
-        };
 
         assert_eq!(program, Ok(expected_program))
     }
@@ -372,13 +226,13 @@ mod tests {
         // const bool a = true
         //
         // def main() -> bool:
-        //      return a
+        //      return main.zok/a
 
-        let const_id = "a";
+        let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![BooleanExpression::Identifier(
-                Identifier::from(const_id),
+                Identifier::from(const_id.clone()),
             )
             .into()])],
             signature: DeclarationSignature::new()
@@ -387,7 +241,7 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            CanonicalConstantIdentifier::new(const_id, "main".into()),
+            const_id,
             TypedConstantSymbol::Here(TypedConstant::new(
                 TypedExpression::Boolean(BooleanExpression::Value(true)),
                 DeclarationType::Boolean,
@@ -418,39 +272,9 @@ mod tests {
             .collect(),
         };
 
+        let expected_program = program.clone();
+
         let program = ConstantInliner::inline(program);
-
-        let expected_main = TypedFunction {
-            arguments: vec![],
-            statements: vec![TypedStatement::Return(vec![
-                BooleanExpression::Value(true).into()
-            ])],
-            signature: DeclarationSignature::new()
-                .inputs(vec![])
-                .outputs(vec![DeclarationType::Boolean]),
-        };
-
-        let expected_program: TypedProgram<Bn128Field> = TypedProgram {
-            main: "main".into(),
-            modules: vec![(
-                "main".into(),
-                TypedModule {
-                    functions: vec![(
-                        DeclarationFunctionKey::with_location("main", "main").signature(
-                            DeclarationSignature::new()
-                                .inputs(vec![])
-                                .outputs(vec![DeclarationType::Boolean]),
-                        ),
-                        TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants,
-                },
-            )]
-            .into_iter()
-            .collect(),
-        };
 
         assert_eq!(program, Ok(expected_program))
     }
@@ -462,11 +286,11 @@ mod tests {
         // def main() -> u32:
         //      return a
 
-        let const_id = "a";
+        let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![UExpressionInner::Identifier(
-                Identifier::from(const_id),
+                Identifier::from(const_id.clone()),
             )
             .annotate(UBitwidth::B32)
             .into()])],
@@ -476,7 +300,7 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            CanonicalConstantIdentifier::new(const_id, "main".into()),
+            const_id,
             TypedConstantSymbol::Here(TypedConstant::new(
                 UExpressionInner::Value(1u128)
                     .annotate(UBitwidth::B32)
@@ -509,39 +333,9 @@ mod tests {
             .collect(),
         };
 
+        let expected_program = program.clone();
+
         let program = ConstantInliner::inline(program);
-
-        let expected_main = TypedFunction {
-            arguments: vec![],
-            statements: vec![TypedStatement::Return(vec![UExpressionInner::Value(1u128)
-                .annotate(UBitwidth::B32)
-                .into()])],
-            signature: DeclarationSignature::new()
-                .inputs(vec![])
-                .outputs(vec![DeclarationType::Uint(UBitwidth::B32)]),
-        };
-
-        let expected_program: TypedProgram<Bn128Field> = TypedProgram {
-            main: "main".into(),
-            modules: vec![(
-                "main".into(),
-                TypedModule {
-                    functions: vec![(
-                        DeclarationFunctionKey::with_location("main", "main").signature(
-                            DeclarationSignature::new()
-                                .inputs(vec![])
-                                .outputs(vec![DeclarationType::Uint(UBitwidth::B32)]),
-                        ),
-                        TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants,
-                },
-            )]
-            .into_iter()
-            .collect(),
-        };
 
         assert_eq!(program, Ok(expected_program))
     }
@@ -553,18 +347,18 @@ mod tests {
         // def main() -> field:
         //      return a[0] + a[1]
 
-        let const_id = "a";
+        let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
                 FieldElementExpression::select(
-                    ArrayExpressionInner::Identifier(Identifier::from(const_id))
+                    ArrayExpressionInner::Identifier(Identifier::from(const_id.clone()))
                         .annotate(GType::FieldElement, 2usize),
                     UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
                 )
                 .into(),
                 FieldElementExpression::select(
-                    ArrayExpressionInner::Identifier(Identifier::from(const_id))
+                    ArrayExpressionInner::Identifier(Identifier::from(const_id.clone()))
                         .annotate(GType::FieldElement, 2usize),
                     UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
                 )
@@ -577,7 +371,7 @@ mod tests {
         };
 
         let constants: TypedConstantSymbols<_> = vec![(
-            CanonicalConstantIdentifier::new(const_id, "main".into()),
+            const_id.clone(),
             TypedConstantSymbol::Here(TypedConstant::new(
                 TypedExpression::Array(
                     ArrayExpressionInner::Value(
@@ -620,63 +414,9 @@ mod tests {
             .collect(),
         };
 
+        let expected_program = program.clone();
+
         let program = ConstantInliner::inline(program);
-
-        let expected_main = TypedFunction {
-            arguments: vec![],
-            statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
-                FieldElementExpression::select(
-                    ArrayExpressionInner::Value(
-                        vec![
-                            FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                            FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                        ]
-                        .into(),
-                    )
-                    .annotate(GType::FieldElement, 2usize),
-                    UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
-                )
-                .into(),
-                FieldElementExpression::select(
-                    ArrayExpressionInner::Value(
-                        vec![
-                            FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                            FieldElementExpression::Number(Bn128Field::from(2)).into(),
-                        ]
-                        .into(),
-                    )
-                    .annotate(GType::FieldElement, 2usize),
-                    UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
-                )
-                .into(),
-            )
-            .into()])],
-            signature: DeclarationSignature::new()
-                .inputs(vec![])
-                .outputs(vec![DeclarationType::FieldElement]),
-        };
-
-        let expected_program: TypedProgram<Bn128Field> = TypedProgram {
-            main: "main".into(),
-            modules: vec![(
-                "main".into(),
-                TypedModule {
-                    functions: vec![(
-                        DeclarationFunctionKey::with_location("main", "main").signature(
-                            DeclarationSignature::new()
-                                .inputs(vec![])
-                                .outputs(vec![DeclarationType::FieldElement]),
-                        ),
-                        TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants,
-                },
-            )]
-            .into_iter()
-            .collect(),
-        };
 
         assert_eq!(program, Ok(expected_program))
     }
@@ -689,13 +429,13 @@ mod tests {
         // def main() -> field:
         //      return b
 
-        let const_a_id = "a";
-        let const_b_id = "b";
+        let const_a_id = CanonicalConstantIdentifier::new("a", "main".into());
+        let const_b_id = CanonicalConstantIdentifier::new("a", "main".into());
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![
-                FieldElementExpression::Identifier(Identifier::from(const_b_id)).into(),
+                FieldElementExpression::Identifier(Identifier::from(const_b_id.clone())).into(),
             ])],
             signature: DeclarationSignature::new()
                 .inputs(vec![])
@@ -719,7 +459,7 @@ mod tests {
                     .collect(),
                     constants: vec![
                         (
-                            CanonicalConstantIdentifier::new(const_a_id, "main".into()),
+                            const_a_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::FieldElement(FieldElementExpression::Number(
                                     Bn128Field::from(1),
@@ -728,11 +468,11 @@ mod tests {
                             )),
                         ),
                         (
-                            CanonicalConstantIdentifier::new(const_b_id, "main".into()),
+                            const_b_id.clone(),
                             TypedConstantSymbol::Here(TypedConstant::new(
                                 TypedExpression::FieldElement(FieldElementExpression::Add(
                                     box FieldElementExpression::Identifier(Identifier::from(
-                                        const_a_id,
+                                        const_a_id.clone(),
                                     )),
                                     box FieldElementExpression::Number(Bn128Field::from(1)),
                                 )),
@@ -748,60 +488,9 @@ mod tests {
             .collect(),
         };
 
+        let expected_program = program.clone();
+
         let program = ConstantInliner::inline(program);
-
-        let expected_main = TypedFunction {
-            arguments: vec![],
-            statements: vec![TypedStatement::Return(vec![
-                FieldElementExpression::Number(Bn128Field::from(2)).into(),
-            ])],
-            signature: DeclarationSignature::new()
-                .inputs(vec![])
-                .outputs(vec![DeclarationType::FieldElement]),
-        };
-
-        let expected_program: TypedProgram<Bn128Field> = TypedProgram {
-            main: "main".into(),
-            modules: vec![(
-                "main".into(),
-                TypedModule {
-                    functions: vec![(
-                        DeclarationFunctionKey::with_location("main", "main").signature(
-                            DeclarationSignature::new()
-                                .inputs(vec![])
-                                .outputs(vec![DeclarationType::FieldElement]),
-                        ),
-                        TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: vec![
-                        (
-                            CanonicalConstantIdentifier::new(const_a_id, "main".into()),
-                            TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::FieldElement(FieldElementExpression::Number(
-                                    Bn128Field::from(1),
-                                )),
-                                DeclarationType::FieldElement,
-                            )),
-                        ),
-                        (
-                            CanonicalConstantIdentifier::new(const_b_id, "main".into()),
-                            TypedConstantSymbol::Here(TypedConstant::new(
-                                TypedExpression::FieldElement(FieldElementExpression::Number(
-                                    Bn128Field::from(2),
-                                )),
-                                DeclarationType::FieldElement,
-                            )),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                },
-            )]
-            .into_iter()
-            .collect(),
-        };
 
         assert_eq!(program, Ok(expected_program))
     }
@@ -824,10 +513,10 @@ mod tests {
         // def main() -> field:
         //     return FOO
 
-        let foo_const_id = "FOO";
+        let foo_const_id = CanonicalConstantIdentifier::new("FOO", "foo".into());
         let foo_module = TypedModule {
             functions: vec![(
-                DeclarationFunctionKey::with_location("main", "main")
+                DeclarationFunctionKey::with_location("foo", "main")
                     .signature(DeclarationSignature::new().inputs(vec![]).outputs(vec![])),
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
@@ -838,7 +527,7 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                CanonicalConstantIdentifier::new(foo_const_id, "foo".into()),
+                foo_const_id.clone(),
                 TypedConstantSymbol::Here(TypedConstant::new(
                     TypedExpression::FieldElement(FieldElementExpression::Number(
                         Bn128Field::from(42),
@@ -850,6 +539,7 @@ mod tests {
             .collect(),
         };
 
+        let main_const_id = CanonicalConstantIdentifier::new("FOO", "main".into());
         let main_module = TypedModule {
             functions: vec![(
                 DeclarationFunctionKey::with_location("main", "main").signature(
@@ -860,7 +550,8 @@ mod tests {
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
                     statements: vec![TypedStatement::Return(vec![
-                        FieldElementExpression::Identifier(Identifier::from(foo_const_id)).into(),
+                        FieldElementExpression::Identifier(Identifier::from(main_const_id.clone()))
+                            .into(),
                     ])],
                     signature: DeclarationSignature::new()
                         .inputs(vec![])
@@ -870,11 +561,8 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                CanonicalConstantIdentifier::new(foo_const_id, "main".into()),
-                TypedConstantSymbol::There(CanonicalConstantIdentifier::new(
-                    foo_const_id,
-                    "foo".into(),
-                )),
+                main_const_id.clone(),
+                TypedConstantSymbol::There(foo_const_id),
             )]
             .into_iter()
             .collect(),
@@ -901,7 +589,8 @@ mod tests {
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
                     statements: vec![TypedStatement::Return(vec![
-                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
+                        FieldElementExpression::Identifier(Identifier::from(main_const_id.clone()))
+                            .into(),
                     ])],
                     signature: DeclarationSignature::new()
                         .inputs(vec![])
@@ -911,7 +600,7 @@ mod tests {
             .into_iter()
             .collect(),
             constants: vec![(
-                CanonicalConstantIdentifier::new(foo_const_id, "main".into()),
+                main_const_id,
                 TypedConstantSymbol::Here(TypedConstant::new(
                     TypedExpression::FieldElement(FieldElementExpression::Number(
                         Bn128Field::from(42),

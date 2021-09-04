@@ -739,7 +739,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into());
 
                                         constants.push((id.clone(), TypedConstantSymbol::There(imported_id)));
-                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, crate::typed_absy::types::try_from_g_type(ty.clone()).unwrap()));
+                                        self.insert_into_scope(Variable::with_id_and_type(CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
+                                            declaration.id,
+                                            module_id.into(),
+                                        )), crate::typed_absy::types::try_from_g_type(ty.clone()).unwrap()));
 
                                         state
                                             .constants
@@ -853,7 +856,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 // we go through symbol declarations and check them
                 for declaration in module.symbols {
-                    println!("{:#?}", self.scope);
                     self.check_symbol_declaration(
                         declaration,
                         module_id,
@@ -970,6 +972,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             });
                         }
                     };
+
                     arguments_checked.push(DeclarationParameter {
                         id: decl_v,
                         private: arg.private,
@@ -3328,7 +3331,7 @@ mod tests {
         fn field_in_range() {
             // The value of `P - 1` is a valid field literal
             let expr = Expression::FieldConstant(Bn128Field::max_value().to_biguint()).mock();
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(expr, &*MODULE_ID, &TypeMap::new())
                 .is_ok());
         }
@@ -3339,7 +3342,7 @@ mod tests {
             let value = Bn128Field::max_value().to_biguint().add(1u32);
             let expr = Expression::FieldConstant(value).mock();
 
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(expr, &*MODULE_ID, &TypeMap::new())
                 .is_err());
         }
@@ -3362,7 +3365,7 @@ mod tests {
                 Expression::BooleanConstant(true).mock().into(),
             ])
             .mock();
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(a, &*MODULE_ID, &types)
                 .is_err());
 
@@ -3382,7 +3385,7 @@ mod tests {
                 .into(),
             ])
             .mock();
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(a, &*MODULE_ID, &types)
                 .is_ok());
 
@@ -3398,7 +3401,7 @@ mod tests {
                     .into(),
             ])
             .mock();
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(a, &*MODULE_ID, &types)
                 .is_err());
         }
@@ -3480,7 +3483,7 @@ mod tests {
         fn unifier() {
             // the unifier should only accept either a single type or many functions of different signatures for each symbol
 
-            let mut unifier = SymbolUnifier::default();
+            let mut unifier = SymbolUnifier::<Bn128Field>::default();
 
             // the `foo` type
             assert!(unifier.insert_type("foo"));
@@ -3567,7 +3570,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
 
             assert_eq!(
                 checker.check_module(&OwnedTypedModuleId::from("bar"), &mut state),
@@ -3619,7 +3622,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -3695,7 +3698,7 @@ mod tests {
 
             let mut state = State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
         }
 
@@ -3733,7 +3736,7 @@ mod tests {
                 let mut state =
                     State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-                let mut checker: Checker<Bn128Field> = Checker::new();
+                let mut checker: Checker<Bn128Field> = Checker::default();
                 assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
             }
 
@@ -3785,7 +3788,7 @@ mod tests {
                 let mut state =
                     State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-                let mut checker: Checker<Bn128Field> = Checker::new();
+                let mut checker: Checker<Bn128Field> = Checker::default();
                 assert_eq!(
                     checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                         .inner
@@ -3823,7 +3826,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(checker.check_module(&*MODULE_ID, &mut state), Ok(()));
             assert!(state
                 .typed_modules
@@ -3872,7 +3875,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -3914,7 +3917,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -3965,7 +3968,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -4013,7 +4016,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -4051,7 +4054,7 @@ mod tests {
             )
             .mock()]);
             assert_eq!(
-                Checker::<Bn128Field>::new().check_signature(signature, &*MODULE_ID, &state),
+                Checker::<Bn128Field>::default().check_signature(signature, &*MODULE_ID, &state),
                 Err(vec![ErrorInner {
                     pos: Some((Position::mock(), Position::mock())),
                     message: "Undeclared symbol `K`".to_string()
@@ -4086,7 +4089,7 @@ mod tests {
                 )
                 .mock()]);
             assert_eq!(
-                Checker::<Bn128Field>::new().check_signature(signature, &*MODULE_ID, &state),
+                Checker::<Bn128Field>::default().check_signature(signature, &*MODULE_ID, &state),
                 Ok(DeclarationSignature::new()
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::array((
@@ -4116,7 +4119,7 @@ mod tests {
         )
         .mock();
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         checker.enter_scope();
 
         assert_eq!(
@@ -4233,7 +4236,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
@@ -4350,7 +4353,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
     }
 
@@ -4389,7 +4392,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
             checker.check_function(foo, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4473,7 +4476,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
             checker.check_function(foo, &*MODULE_ID, &state),
             Ok(foo_checked)
@@ -4527,7 +4530,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4586,7 +4589,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4632,7 +4635,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4735,7 +4738,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
@@ -4821,7 +4824,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![
@@ -4936,7 +4939,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
     }
 
@@ -4975,7 +4978,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -5016,7 +5019,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -5124,7 +5127,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Ok(bar_checked)
@@ -5157,7 +5160,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker
                 .check_function(f, &*MODULE_ID, &state)
@@ -5239,7 +5242,7 @@ mod tests {
             main: (*MODULE_ID).clone(),
         };
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
             checker.check_program(program),
             Err(vec![Error {
@@ -5259,7 +5262,7 @@ mod tests {
         //
         // should fail
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
@@ -5293,7 +5296,7 @@ mod tests {
         //
         // should fail
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
@@ -5340,7 +5343,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
 
             checker.check_module(&*MODULE_ID, &mut state).unwrap();
 
@@ -5371,7 +5374,7 @@ mod tests {
                 ));
 
                 assert_eq!(
-                    Checker::<Bn128Field>::new().check_struct_type_declaration(
+                    Checker::<Bn128Field>::default().check_struct_type_declaration(
                         "Foo".into(),
                         declaration,
                         &*MODULE_ID,
@@ -5415,7 +5418,7 @@ mod tests {
                 ));
 
                 assert_eq!(
-                    Checker::<Bn128Field>::new().check_struct_type_declaration(
+                    Checker::<Bn128Field>::default().check_struct_type_declaration(
                         "Foo".into(),
                         declaration,
                         &*MODULE_ID,
@@ -5449,7 +5452,7 @@ mod tests {
                 .mock();
 
                 assert_eq!(
-                    Checker::<Bn128Field>::new()
+                    Checker::<Bn128Field>::default()
                         .check_struct_type_declaration(
                             "Foo".into(),
                             declaration,
@@ -5508,7 +5511,9 @@ mod tests {
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
                 );
 
-                assert!(Checker::new().check_module(&*MODULE_ID, &mut state).is_ok());
+                assert!(Checker::default()
+                    .check_module(&*MODULE_ID, &mut state)
+                    .is_ok());
                 assert_eq!(
                     state
                         .types
@@ -5564,7 +5569,7 @@ mod tests {
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
                 );
 
-                assert!(Checker::new()
+                assert!(Checker::default()
                     .check_module(&*MODULE_ID, &mut state)
                     .is_err());
             }
@@ -5597,7 +5602,7 @@ mod tests {
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
                 );
 
-                assert!(Checker::new()
+                assert!(Checker::default()
                     .check_module(&*MODULE_ID, &mut state)
                     .is_err());
             }
@@ -5648,7 +5653,7 @@ mod tests {
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
                 );
 
-                assert!(Checker::new()
+                assert!(Checker::default()
                     .check_module(&*MODULE_ID, &mut state)
                     .is_err());
             }
@@ -6139,7 +6144,9 @@ mod tests {
                 modules: vec![("".into(), m)].into_iter().collect(),
             };
 
-            let errors = Checker::<Bn128Field>::new().check_program(p).unwrap_err();
+            let errors = Checker::<Bn128Field>::default()
+                .check_program(p)
+                .unwrap_err();
 
             assert_eq!(errors.len(), 1);
 
@@ -6158,7 +6165,7 @@ mod tests {
             // a = 42
             let a = Assignee::Identifier("a").mock();
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             checker.enter_scope();
 
             checker
@@ -6190,7 +6197,7 @@ mod tests {
             )
             .mock();
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             checker.enter_scope();
 
             checker
@@ -6240,7 +6247,7 @@ mod tests {
             )
             .mock();
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             checker.enter_scope();
 
             checker

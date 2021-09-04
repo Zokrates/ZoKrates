@@ -24,9 +24,10 @@ use crate::typed_absy::UBitwidth;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
-    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, DeclarationConstant,
-    DeclarationSignature, Expr, FieldElementExpression, FunctionCall, FunctionCallExpression,
-    FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId, TypedConstant,
+    ArrayExpression, ArrayExpressionInner, ArrayType, BlockExpression, BooleanExpression,
+    CoreIdentifier, DeclarationConstant, DeclarationSignature, Expr, FieldElementExpression,
+    FunctionCall, FunctionCallExpression, FunctionCallOrExpression, Id, Identifier,
+    OwnedTypedModuleId, StructExpression, StructExpressionInner, StructType, TypedConstant,
     TypedConstantSymbol, TypedExpression, TypedExpressionList, TypedExpressionListInner,
     TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, TypedStatement, UExpression,
     UExpressionInner, Variable,
@@ -69,7 +70,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
         &mut self,
         e: FieldElementExpression<'ast, T>,
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
-        match dbg!(e) {
+        match e {
             FieldElementExpression::Identifier(Identifier {
                 id: CoreIdentifier::Constant(c),
                 version,
@@ -81,12 +82,28 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
         }
     }
 
+    fn fold_boolean_expression(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
+        match e {
+            BooleanExpression::Identifier(Identifier {
+                id: CoreIdentifier::Constant(c),
+                version,
+            }) => {
+                assert_eq!(version, 0);
+                Ok(self.constants.get(&c).cloned().unwrap().try_into().unwrap())
+            }
+            e => fold_boolean_expression(self, e),
+        }
+    }
+
     fn fold_uint_expression_inner(
         &mut self,
         ty: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
-        match dbg!(e) {
+        match e {
             UExpressionInner::Identifier(Identifier {
                 id: CoreIdentifier::Constant(c),
                 version,
@@ -99,6 +116,48 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                 )
             }
             e => fold_uint_expression_inner(self, ty, e),
+        }
+    }
+
+    fn fold_array_expression_inner(
+        &mut self,
+        ty: &ArrayType<'ast, T>,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
+        match e {
+            ArrayExpressionInner::Identifier(Identifier {
+                id: CoreIdentifier::Constant(c),
+                version,
+            }) => {
+                assert_eq!(version, 0);
+                Ok(
+                    ArrayExpression::try_from(self.constants.get(&c).cloned().unwrap())
+                        .unwrap()
+                        .into_inner(),
+                )
+            }
+            e => fold_array_expression_inner(self, ty, e),
+        }
+    }
+
+    fn fold_struct_expression_inner(
+        &mut self,
+        ty: &StructType<'ast, T>,
+        e: StructExpressionInner<'ast, T>,
+    ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
+        match e {
+            StructExpressionInner::Identifier(Identifier {
+                id: CoreIdentifier::Constant(c),
+                version,
+            }) => {
+                assert_eq!(version, 0);
+                Ok(
+                    StructExpression::try_from(self.constants.get(&c).cloned().unwrap())
+                        .unwrap()
+                        .into_inner(),
+                )
+            }
+            e => fold_struct_expression_inner(self, ty, e),
         }
     }
 
@@ -132,9 +191,17 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                 .into_iter()
                 .map(|(key, tc)| match tc {
                     TypedConstantSymbol::Here(c) => {
+                        let c = self.fold_constant(c)?;
+
+                        // replace the existing constants in this expression
+                        let constant_replaced_expression = self.fold_expression(c.expression)?;
+
+                        // wrap this expression in a function
                         let wrapper = TypedFunction {
                             arguments: vec![],
-                            statements: vec![TypedStatement::Return(vec![c.expression])],
+                            statements: vec![TypedStatement::Return(vec![
+                                constant_replaced_expression,
+                            ])],
                             signature: DeclarationSignature::new().outputs(vec![c.ty.clone()]),
                         };
 
@@ -153,6 +220,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                         {
                             assert_eq!(expressions.len(), 1);
                             let constant_expression = expressions.pop().unwrap();
+
                             use crate::typed_absy::Constant;
                             if !constant_expression.is_constant() {
                                 return Err(Error::ConstantReduction(
@@ -162,6 +230,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                             };
                             self.constants
                                 .insert(key.clone(), constant_expression.clone());
+
                             Ok((
                                 key,
                                 TypedConstantSymbol::Here(TypedConstant {
@@ -170,7 +239,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                                 }),
                             ))
                         } else {
-                            Err(Error::ConstantReduction(key.id.to_string(), key.module));
+                            Err(Error::ConstantReduction(key.id.to_string(), key.module))
                         }
                     }
                     _ => unreachable!("all constants should be local"),
@@ -179,7 +248,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
             functions: m
                 .functions
                 .into_iter()
-                .map(|(key, fun)| self.fold_function_symbol(fun).map(|f| (key, f)))
+                .map(|(key, fun)| {
+                    let key = self.fold_declaration_function_key(key)?;
+                    let fun = self.fold_function_symbol(fun)?;
+                    Ok((key, fun))
+                })
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -465,8 +538,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         &mut self,
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
-        println!("STAT {}", s);
-
         let res = match s {
             TypedStatement::MultipleDefinition(
                 v,
@@ -647,6 +718,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
 pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
     // inline all constants and replace them in the  program
+
     let mut constant_calls_inliner = ConstantCallsInliner::with_program(p.clone());
 
     let p = constant_calls_inliner.fold_program(p)?;
@@ -698,7 +770,9 @@ fn reduce_function<'ast, T: Field>(
 ) -> Result<TypedFunction<'ast, T>, Error> {
     let mut versions = Versions::default();
 
-    match ShallowTransformer::transform(f, &generics, &mut versions) {
+    let mut constants = Constants::default();
+
+    let f = match ShallowTransformer::transform(f, &generics, &mut versions) {
         Output::Complete(f) => Ok(f),
         Output::Incomplete(new_f, new_for_loop_versions) => {
             let mut for_loop_versions = new_for_loop_versions;
@@ -706,8 +780,6 @@ fn reduce_function<'ast, T: Field>(
             let mut f = new_f;
 
             let mut substitutions = Substitutions::default();
-
-            let mut constants = Constants::default();
 
             let mut hash = None;
 
@@ -765,7 +837,11 @@ fn reduce_function<'ast, T: Field>(
                 }
             }
         }
-    }
+    }?;
+
+    Propagator::with_constants(&mut constants)
+        .fold_function(f)
+        .map_err(|e| Error::Incompatible(format!("{}", e)))
 }
 
 fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {

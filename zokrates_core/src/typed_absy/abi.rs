@@ -37,12 +37,12 @@ mod tests {
         parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType,
         TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
     };
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use zokrates_field::Bn128Field;
 
     #[test]
     fn generate_abi_from_typed_ast() {
-        let mut functions = HashMap::new();
+        let mut functions = BTreeMap::new();
         functions.insert(
             ConcreteFunctionKey::with_location("main", "main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
@@ -64,7 +64,7 @@ mod tests {
             }),
         );
 
-        let mut modules = HashMap::new();
+        let mut modules = BTreeMap::new();
         modules.insert(
             "main".into(),
             TypedModule {

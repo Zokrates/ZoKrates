@@ -61,6 +61,12 @@ impl<'ast> fmt::Display for Identifier<'ast> {
     }
 }
 
+impl<'ast> From<CanonicalConstantIdentifier<'ast>> for Identifier<'ast> {
+    fn from(id: CanonicalConstantIdentifier<'ast>) -> Identifier<'ast> {
+        Identifier::from(CoreIdentifier::Constant(id))
+    }
+}
+
 impl<'ast> From<&'ast str> for Identifier<'ast> {
     fn from(id: &'ast str) -> Identifier<'ast> {
         Identifier::from(CoreIdentifier::Source(id))
