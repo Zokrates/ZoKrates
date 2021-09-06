@@ -29,8 +29,8 @@ use crate::typed_absy::{
     FunctionCall, FunctionCallExpression, FunctionCallOrExpression, Id, Identifier,
     OwnedTypedModuleId, StructExpression, StructExpressionInner, StructType, TypedConstant,
     TypedConstantSymbol, TypedExpression, TypedExpressionList, TypedExpressionListInner,
-    TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, TypedStatement, UExpression,
-    UExpressionInner, Variable,
+    TypedFunction, TypedFunctionSymbol, TypedModule, TypedModuleId, TypedProgram, TypedStatement,
+    UExpression, UExpressionInner, Variable,
 };
 
 use std::convert::{TryFrom, TryInto};
@@ -73,7 +73,7 @@ impl<'ast, T> ConstantCallsInliner<'ast, T> {
         prev
     }
 
-    fn treated(&self, id: &OwnedTypedModuleId) -> bool {
+    fn treated(&self, id: &TypedModuleId) -> bool {
         self.treated.contains(id)
     }
 }
