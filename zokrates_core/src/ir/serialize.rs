@@ -76,15 +76,7 @@ mod tests {
 
     #[test]
     fn ser_deser_v1() {
-        let p: ir::Prog<Bn128Field> = ir::Prog {
-            main: ir::Function {
-                arguments: vec![],
-                id: "something".to_string(),
-                returns: vec![],
-                statements: vec![],
-            },
-            private: vec![],
-        };
+        let p: ir::Prog<Bn128Field> = ir::Prog::default();
 
         let mut buffer = Cursor::new(vec![]);
         p.serialize(&mut buffer);
@@ -97,15 +89,7 @@ mod tests {
 
         assert_eq!(ProgEnum::Bn128Program(p), deserialized_p);
 
-        let p: ir::Prog<Bls12_381Field> = ir::Prog {
-            main: ir::Function {
-                arguments: vec![],
-                id: "something".to_string(),
-                returns: vec![],
-                statements: vec![],
-            },
-            private: vec![],
-        };
+        let p: ir::Prog<Bls12_381Field> = ir::Prog::default();
 
         let mut buffer = Cursor::new(vec![]);
         p.serialize(&mut buffer);

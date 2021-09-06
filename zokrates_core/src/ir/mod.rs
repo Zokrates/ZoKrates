@@ -74,20 +74,40 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
-pub struct Function<T> {
-    pub id: String,
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Default)]
+pub struct Prog<T> {
     pub statements: Vec<Statement<T>>,
-    pub arguments: Vec<FlatVariable>,
+    pub arguments: Vec<FlatParameter>,
     pub returns: Vec<FlatVariable>,
 }
 
-impl<T: Field> fmt::Display for Function<T> {
+impl<T: Field> Prog<T> {
+    pub fn constraint_count(&self) -> usize {
+        self.statements
+            .iter()
+            .filter(|s| matches!(s, Statement::Constraint(..)))
+            .count()
+    }
+
+    pub fn arguments_count(&self) -> usize {
+        self.arguments.len()
+    }
+
+    pub fn public_inputs(&self, witness: &Witness<T>) -> Vec<T> {
+        self.arguments
+            .iter()
+            .filter(|p| !p.private)
+            .map(|p| witness.0.get(&p.id).unwrap().clone())
+            .chain(witness.return_values())
+            .collect()
+    }
+}
+
+impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}) -> ({}):\n{}\n\t return {}",
-            self.id,
+            "def main({}) -> ({}):\n{}\n\treturn {}",
             self.arguments
                 .iter()
                 .map(|v| format!("{}", v))
@@ -105,56 +125,6 @@ impl<T: Field> fmt::Display for Function<T> {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Prog<T> {
-    pub main: Function<T>,
-    pub private: Vec<bool>,
-}
-
-impl<T: Field> Prog<T> {
-    pub fn constraint_count(&self) -> usize {
-        self.main
-            .statements
-            .iter()
-            .filter(|s| matches!(s, Statement::Constraint(..)))
-            .count()
-    }
-
-    pub fn arguments_count(&self) -> usize {
-        self.private.len()
-    }
-
-    pub fn parameters(&self) -> Vec<FlatParameter> {
-        self.main
-            .arguments
-            .iter()
-            .zip(self.private.iter())
-            .map(|(id, private)| FlatParameter {
-                private: *private,
-                id: *id,
-            })
-            .collect()
-    }
-
-    pub fn public_inputs(&self, witness: &Witness<T>) -> Vec<T> {
-        self.main
-            .arguments
-            .clone()
-            .iter()
-            .zip(self.private.iter())
-            .filter(|(_, p)| !**p)
-            .map(|(v, _)| witness.0.get(v).unwrap().clone())
-            .chain(witness.return_values())
-            .collect()
-    }
-}
-
-impl<T: Field> fmt::Display for Prog<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.main)
     }
 }
 

@@ -25,7 +25,6 @@ use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::compile::CompileConfig;
-use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::static_analysis::constant_inliner::ConstantInliner;
 use crate::static_analysis::zir_propagation::ZirPropagator;
@@ -35,7 +34,11 @@ use std::fmt;
 use zokrates_field::Field;
 
 pub trait Analyse {
-    fn analyse(self) -> Self;
+    type Error;
+
+    fn analyse(self) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
 }
 #[derive(Debug)]
 pub enum Error {
@@ -44,6 +47,7 @@ pub enum Error {
     ZirPropagation(self::zir_propagation::Error),
     NonConstantArgument(self::constant_argument_checker::Error),
     ConstantInliner(self::constant_inliner::Error),
+    UnconstrainedVariable(self::unconstrained_vars::Error),
 }
 
 impl From<constant_inliner::Error> for Error {
@@ -76,6 +80,12 @@ impl From<constant_argument_checker::Error> for Error {
     }
 }
 
+impl From<unconstrained_vars::Error> for Error {
+    fn from(e: unconstrained_vars::Error) -> Self {
+        Error::UnconstrainedVariable(e)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -84,6 +94,7 @@ impl fmt::Display for Error {
             Error::ZirPropagation(e) => write!(f, "{}", e),
             Error::NonConstantArgument(e) => write!(f, "{}", e),
             Error::ConstantInliner(e) => write!(f, "{}", e),
+            Error::UnconstrainedVariable(e) => write!(f, "{}", e),
         }
     }
 }
@@ -149,16 +160,12 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     }
 }
 
-impl<T: Field> Analyse for FlatProg<T> {
-    fn analyse(self) -> Self {
-        log::debug!("Static analyser: Propagate flat");
-        self.propagate()
-    }
-}
-
 impl<T: Field> Analyse for Prog<T> {
-    fn analyse(self) -> Self {
+    type Error = Error;
+
+    fn analyse(self) -> Result<Self, Self::Error> {
         log::debug!("Static analyser: Detect unconstrained zir");
-        UnconstrainedVariableDetector::detect(self)
+        UnconstrainedVariableDetector::detect(&self).map_err(Error::from)?;
+        Ok(self)
     }
 }

@@ -189,15 +189,15 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let (typed_ast, abi) = check_with_arena(source, location, resolver, config, &arena)?;
+    let (typed_ast, abi) = check_with_arena(source, location.clone(), resolver, config, &arena)?;
 
     // flatten input program
     log::debug!("Flatten");
     let program_flattened = Flattener::flatten(typed_ast, config);
 
-    // analyse (constant propagation after call resolution)
-    log::debug!("Analyse flat program");
-    let program_flattened = program_flattened.analyse();
+    // constant propagation after call resolution
+    log::debug!("Propagate flat program");
+    let program_flattened = program_flattened.propagate();
 
     // convert to ir
     log::debug!("Convert to IR");
@@ -207,9 +207,11 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     log::debug!("Optimise IR");
     let optimized_ir_prog = ir_prog.optimize();
 
-    // analyse (check constraints)
+    // analyse ir (check constraints)
     log::debug!("Analyse IR");
-    let optimized_ir_prog = optimized_ir_prog.analyse();
+    let optimized_ir_prog = optimized_ir_prog
+        .analyse()
+        .map_err(|e| CompileErrorInner::from(e).in_file(location.as_path()))?;
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,
