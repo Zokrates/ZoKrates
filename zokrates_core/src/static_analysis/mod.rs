@@ -14,6 +14,7 @@ mod reducer;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod variable_write_remover;
+mod zir_propagation;
 
 use self::branch_isolator::Isolator;
 use self::constant_argument_checker::ConstantArgumentChecker;
@@ -24,22 +25,28 @@ use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::compile::CompileConfig;
-use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::static_analysis::constant_inliner::ConstantInliner;
+use crate::static_analysis::zir_propagation::ZirPropagator;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;
 use std::fmt;
 use zokrates_field::Field;
 
 pub trait Analyse {
-    fn analyse(self) -> Self;
+    type Error;
+
+    fn analyse(self) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
 }
 #[derive(Debug)]
 pub enum Error {
     Reducer(self::reducer::Error),
     Propagation(self::propagation::Error),
+    ZirPropagation(self::zir_propagation::Error),
     NonConstantArgument(self::constant_argument_checker::Error),
+    UnconstrainedVariable(self::unconstrained_vars::Error),
 }
 
 impl From<reducer::Error> for Error {
@@ -54,9 +61,21 @@ impl From<propagation::Error> for Error {
     }
 }
 
+impl From<zir_propagation::Error> for Error {
+    fn from(e: zir_propagation::Error) -> Self {
+        Error::ZirPropagation(e)
+    }
+}
+
 impl From<constant_argument_checker::Error> for Error {
     fn from(e: constant_argument_checker::Error) -> Self {
         Error::NonConstantArgument(e)
+    }
+}
+
+impl From<unconstrained_vars::Error> for Error {
+    fn from(e: unconstrained_vars::Error) -> Self {
+        Error::UnconstrainedVariable(e)
     }
 }
 
@@ -65,7 +84,9 @@ impl fmt::Display for Error {
         match self {
             Error::Reducer(e) => write!(f, "{}", e),
             Error::Propagation(e) => write!(f, "{}", e),
+            Error::ZirPropagation(e) => write!(f, "{}", e),
             Error::NonConstantArgument(e) => write!(f, "{}", e),
+            Error::UnconstrainedVariable(e) => write!(f, "{}", e),
         }
     }
 }
@@ -117,6 +138,11 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let zir = Flattener::flatten(r);
         log::trace!("\n{}", zir);
 
+        // apply propagation in zir
+        log::debug!("Static analyser: Apply propagation in zir");
+        let zir = ZirPropagator::propagate(zir).map_err(Error::from)?;
+        log::trace!("\n{}", zir);
+
         // optimize uint expressions
         log::debug!("Static analyser: Optimize uints");
         let zir = UintOptimizer::optimize(zir);
@@ -126,16 +152,12 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     }
 }
 
-impl<T: Field> Analyse for FlatProg<T> {
-    fn analyse(self) -> Self {
-        log::debug!("Static analyser: Propagate flat");
-        self.propagate()
-    }
-}
-
 impl<T: Field> Analyse for Prog<T> {
-    fn analyse(self) -> Self {
+    type Error = Error;
+
+    fn analyse(self) -> Result<Self, Self::Error> {
         log::debug!("Static analyser: Detect unconstrained zir");
-        UnconstrainedVariableDetector::detect(self)
+        UnconstrainedVariableDetector::detect(&self).map_err(Error::from)?;
+        Ok(self)
     }
 }

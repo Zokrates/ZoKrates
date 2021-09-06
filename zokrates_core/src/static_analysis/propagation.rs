@@ -385,7 +385,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         match arguments.iter().all(|a| a.is_constant()) {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match embed {
-                                    FlatEmbed::U32ToField => None, // todo
                                     FlatEmbed::BitArrayLe => None, // todo
                                     FlatEmbed::U64FromBits => Some(process_u_from_bits(
                                         assignees.clone(),
@@ -1080,7 +1079,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         })
                         // ignore spreads over empty arrays
                         .filter_map(|e| match e {
-                            TypedExpressionOrSpread::Spread(s) if s.array.size() == 0 => None,
+                            TypedExpressionOrSpread::Spread(s)
+                                if s.array.size() == UExpression::from(0u32) =>
+                            {
+                                None
+                            }
                             e => Some(e),
                         })
                         .collect(),

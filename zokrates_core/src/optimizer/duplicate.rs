@@ -34,20 +34,20 @@ impl DuplicateOptimizer {
 }
 
 impl<T: Field> Folder<T> for DuplicateOptimizer {
-    fn fold_function(&mut self, f: Function<T>) -> Function<T> {
-        // in order to correcty identify duplicates, we need to first canonicalize the statements
+    fn fold_module(&mut self, p: Prog<T>) -> Prog<T> {
+        // in order to correctly identify duplicates, we need to first canonicalize the statements
         let mut canonicalizer = Canonicalizer;
 
-        let f = Function {
-            statements: f
+        let p = Prog {
+            statements: p
                 .statements
                 .into_iter()
                 .flat_map(|s| canonicalizer.fold_statement(s))
                 .collect(),
-            ..f
+            ..p
         };
 
-        fold_function(self, f)
+        fold_module(self, p)
     }
 
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
@@ -71,28 +71,24 @@ mod tests {
     #[test]
     fn identity() {
         let p: Prog<Bn128Field> = Prog {
-            private: vec![],
-            main: Function {
-                id: "main".to_string(),
-                statements: vec![
-                    Statement::constraint(
-                        QuadComb::from_linear_combinations(
-                            LinComb::summand(3, FlatVariable::new(3)),
-                            LinComb::summand(3, FlatVariable::new(3)),
-                        ),
-                        LinComb::one(),
+            statements: vec![
+                Statement::constraint(
+                    QuadComb::from_linear_combinations(
+                        LinComb::summand(3, FlatVariable::new(3)),
+                        LinComb::summand(3, FlatVariable::new(3)),
                     ),
-                    Statement::constraint(
-                        QuadComb::from_linear_combinations(
-                            LinComb::summand(3, FlatVariable::new(42)),
-                            LinComb::summand(3, FlatVariable::new(3)),
-                        ),
-                        LinComb::zero(),
+                    LinComb::one(),
+                ),
+                Statement::constraint(
+                    QuadComb::from_linear_combinations(
+                        LinComb::summand(3, FlatVariable::new(42)),
+                        LinComb::summand(3, FlatVariable::new(3)),
                     ),
-                ],
-                returns: vec![],
-                arguments: vec![],
-            },
+                    LinComb::zero(),
+                ),
+            ],
+            returns: vec![],
+            arguments: vec![],
         };
 
         let expected = p.clone();
@@ -111,44 +107,36 @@ mod tests {
         );
 
         let p: Prog<Bn128Field> = Prog {
-            private: vec![],
-            main: Function {
-                id: "main".to_string(),
-                statements: vec![
-                    constraint.clone(),
-                    constraint.clone(),
-                    Statement::constraint(
-                        QuadComb::from_linear_combinations(
-                            LinComb::summand(3, FlatVariable::new(42)),
-                            LinComb::summand(3, FlatVariable::new(3)),
-                        ),
-                        LinComb::zero(),
+            statements: vec![
+                constraint.clone(),
+                constraint.clone(),
+                Statement::constraint(
+                    QuadComb::from_linear_combinations(
+                        LinComb::summand(3, FlatVariable::new(42)),
+                        LinComb::summand(3, FlatVariable::new(3)),
                     ),
-                    constraint.clone(),
-                    constraint.clone(),
-                ],
-                returns: vec![],
-                arguments: vec![],
-            },
+                    LinComb::zero(),
+                ),
+                constraint.clone(),
+                constraint.clone(),
+            ],
+            returns: vec![],
+            arguments: vec![],
         };
 
         let expected = Prog {
-            private: vec![],
-            main: Function {
-                id: "main".to_string(),
-                statements: vec![
-                    constraint,
-                    Statement::constraint(
-                        QuadComb::from_linear_combinations(
-                            LinComb::summand(3, FlatVariable::new(42)),
-                            LinComb::summand(3, FlatVariable::new(3)),
-                        ),
-                        LinComb::zero(),
+            statements: vec![
+                constraint,
+                Statement::constraint(
+                    QuadComb::from_linear_combinations(
+                        LinComb::summand(3, FlatVariable::new(42)),
+                        LinComb::summand(3, FlatVariable::new(3)),
                     ),
-                ],
-                returns: vec![],
-                arguments: vec![],
-            },
+                    LinComb::zero(),
+                ),
+            ],
+            returns: vec![],
+            arguments: vec![],
         };
 
         assert_eq!(DuplicateOptimizer::optimize(p), expected);

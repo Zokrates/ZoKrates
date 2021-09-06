@@ -222,23 +222,19 @@ impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flat_absy::FlatVariable;
-    use crate::ir::{Function, Interpreter, Prog, Statement};
+    use crate::flat_absy::{FlatParameter, FlatVariable};
+    use crate::ir::{Interpreter, Prog, Statement};
     use zokrates_field::Bn128Field;
 
     #[test]
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
-            main: Function {
-                id: String::from("main"),
-                arguments: vec![FlatVariable::new(0)],
-                returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::constraint(
-                    FlatVariable::new(0),
-                    FlatVariable::public(0),
-                )],
-            },
-            private: vec![true],
+            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+            returns: vec![FlatVariable::public(0)],
+            statements: vec![Statement::constraint(
+                FlatVariable::new(0),
+                FlatVariable::public(0),
+            )],
         };
 
         let keypair = <Libsnark as NonUniversalBackend<Bn128Field, PGHR13>>::setup(program.clone());

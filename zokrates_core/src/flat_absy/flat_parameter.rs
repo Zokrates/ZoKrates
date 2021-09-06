@@ -1,8 +1,9 @@
 use crate::flat_absy::flat_variable::FlatVariable;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-#[derive(Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Hash, Eq, PartialEq, Clone, Copy)]
 pub struct FlatParameter {
     pub id: FlatVariable,
     pub private: bool,

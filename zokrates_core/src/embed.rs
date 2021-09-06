@@ -33,7 +33,6 @@ cfg_if::cfg_if! {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord)]
 pub enum FlatEmbed {
     BitArrayLe,
-    U32ToField,
     Unpack,
     U8ToBits,
     U16ToBits,
@@ -67,9 +66,6 @@ impl FlatEmbed {
                     .into(),
                 ])
                 .outputs(vec![UnresolvedType::Boolean.into()]),
-            FlatEmbed::U32ToField => UnresolvedSignature::new()
-                .inputs(vec![UnresolvedType::Uint(32).into()])
-                .outputs(vec![UnresolvedType::FieldElement.into()]),
             FlatEmbed::Unpack => UnresolvedSignature::new()
                 .generics(vec!["N".into()])
                 .inputs(vec![UnresolvedType::FieldElement.into()])
@@ -203,9 +199,6 @@ impl FlatEmbed {
                     )),
                 ])
                 .outputs(vec![DeclarationType::Boolean]),
-            FlatEmbed::U32ToField => DeclarationSignature::new()
-                .inputs(vec![DeclarationType::uint(32)])
-                .outputs(vec![DeclarationType::FieldElement]),
             FlatEmbed::Unpack => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
                     GenericIdentifier {
@@ -327,7 +320,6 @@ impl FlatEmbed {
     pub fn id(&self) -> &'static str {
         match self {
             FlatEmbed::BitArrayLe => "_BIT_ARRAY_LT",
-            FlatEmbed::U32ToField => "_U32_TO_FIELD",
             FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
@@ -799,11 +791,9 @@ mod tests {
                 )
             );
 
-            let f = crate::ir::Function::from(compiled);
-            let prog = crate::ir::Prog {
-                main: f,
-                private: vec![true; 768],
-            };
+            let flat_prog = crate::flat_absy::FlatProg { main: compiled };
+
+            let prog = crate::ir::Prog::from(flat_prog);
 
             let input: Vec<_> = (0..512)
                 .map(|_| 0)

@@ -95,37 +95,28 @@ impl<T: Field + ArkFieldExtensions> Prog<T> {
         match cs {
             ConstraintSystemRef::CS(rc) => {
                 let mut cs = rc.borrow_mut();
-                symbols.extend(
-                    self.main
-                        .arguments
-                        .iter()
-                        .zip(self.private)
-                        .enumerate()
-                        .map(|(_, (var, private))| {
-                            let wire = match private {
-                                true => cs.new_witness_variable(|| {
-                                    Ok(witness
-                                        .0
-                                        .remove(&var)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_ark())
-                                }),
-                                false => cs.new_input_variable(|| {
-                                    Ok(witness
-                                        .0
-                                        .remove(&var)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_ark())
-                                }),
-                            }
-                            .unwrap();
-                            (*var, wire)
+                symbols.extend(self.arguments.iter().enumerate().map(|(_, p)| {
+                    let wire = match p.private {
+                        true => cs.new_witness_variable(|| {
+                            Ok(witness
+                                .0
+                                .remove(&p.id)
+                                .ok_or(SynthesisError::AssignmentMissing)?
+                                .into_ark())
                         }),
-                );
+                        false => cs.new_input_variable(|| {
+                            Ok(witness
+                                .0
+                                .remove(&p.id)
+                                .ok_or(SynthesisError::AssignmentMissing)?
+                                .into_ark())
+                        }),
+                    }
+                    .unwrap();
+                    (p.id, wire)
+                }));
 
-                let main = self.main;
-
-                for statement in main.statements {
+                for statement in self.statements {
                     if let Statement::Constraint(quad, lin, _) = statement {
                         let a = ark_combination(
                             quad.left.clone().into_canonical(),

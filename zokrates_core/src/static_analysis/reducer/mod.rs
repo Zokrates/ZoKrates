@@ -21,7 +21,7 @@ use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::CanonicalConstantIdentifier;
 use crate::typed_absy::Folder;
 use crate::typed_absy::UBitwidth;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, ArrayType, BlockExpression, BooleanExpression,
@@ -50,7 +50,9 @@ type ConstantDefinitions<'ast, T> =
 
 // A folder to inline all constant definitions down to a single litteral. Also register them in the state for later use.
 struct ConstantCallsInliner<'ast, T> {
+    treated: HashSet<OwnedTypedModuleId>,
     constants: ConstantDefinitions<'ast, T>,
+    location: OwnedTypedModuleId,
     program: TypedProgram<'ast, T>,
 }
 
@@ -58,13 +60,41 @@ impl<'ast, T> ConstantCallsInliner<'ast, T> {
     fn with_program(program: TypedProgram<'ast, T>) -> Self {
         ConstantCallsInliner {
             constants: ConstantDefinitions::default(),
+            location: program.main.clone(),
+            treated: HashSet::default(),
             program,
         }
+    }
+
+    fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
+        let prev = self.location.clone();
+        self.location = location;
+        self.treated.insert(self.location.clone());
+        prev
+    }
+
+    fn treated(&self, id: &OwnedTypedModuleId) -> bool {
+        self.treated.contains(id)
     }
 }
 
 impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
     type Error = Error;
+
+    fn fold_module_id(
+        &mut self,
+        id: OwnedTypedModuleId,
+    ) -> Result<OwnedTypedModuleId, Self::Error> {
+        // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
+        if !self.treated(&id) {
+            let current_m_id = self.change_location(id.clone());
+            let m = self.program.modules.remove(&id).unwrap();
+            let m = self.fold_module(m)?;
+            self.program.modules.insert(id.clone(), m);
+            self.change_location(current_m_id);
+        }
+        Ok(id)
+    }
 
     fn fold_field_expression(
         &mut self,
@@ -167,6 +197,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
     ) -> Result<DeclarationConstant<'ast, T>, Self::Error> {
         match c {
             DeclarationConstant::Constant(c) => {
+                let c = self.fold_canonical_constant_identifier(c)?;
+
                 if let UExpressionInner::Value(v) =
                     UExpression::try_from(self.constants.get(&c).cloned().unwrap())
                         .unwrap()
