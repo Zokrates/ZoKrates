@@ -189,9 +189,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
             constants: m
                 .constants
                 .into_iter()
-                .map(|(key, tc)| match tc {
+                .map(|(id, tc)| match tc {
                     TypedConstantSymbol::Here(c) => {
                         let c = self.fold_constant(c)?;
+
+                        let ty = c.ty;
 
                         // replace the existing constants in this expression
                         let constant_replaced_expression = self.fold_expression(c.expression)?;
@@ -202,7 +204,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                             statements: vec![TypedStatement::Return(vec![
                                 constant_replaced_expression,
                             ])],
-                            signature: DeclarationSignature::new().outputs(vec![c.ty.clone()]),
+                            signature: DeclarationSignature::new().outputs(vec![ty.clone()]),
                         };
 
                         let mut inlined_wrapper = reduce_function(
@@ -220,22 +222,27 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                             use crate::typed_absy::Constant;
                             if !constant_expression.is_constant() {
                                 return Err(Error::ConstantReduction(
-                                    key.id.to_string(),
-                                    key.module,
+                                    id.id.to_string(),
+                                    id.module,
                                 ));
                             };
-                            self.constants
-                                .insert(key.clone(), constant_expression.clone());
 
-                            Ok((
-                                key,
-                                TypedConstantSymbol::Here(TypedConstant {
-                                    expression: constant_expression,
-                                    ty: c.ty,
-                                }),
-                            ))
+                            use crate::typed_absy::Typed;
+                            if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(ty.clone()).unwrap() == constant_expression.get_type() {
+                                // add to the constant map
+                                self.constants.insert(id.clone(), constant_expression.clone());
+                                Ok((
+                                    id,
+                                    TypedConstantSymbol::Here(TypedConstant {
+                                        expression: constant_expression,
+                                        ty,
+                                    }),
+                                ))
+                            } else {
+                                Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant_expression.get_type(), id, ty)))
+                            }
                         } else {
-                            Err(Error::ConstantReduction(key.id.to_string(), key.module))
+                            Err(Error::ConstantReduction(id.id.to_string(), id.module))
                         }
                     }
                     _ => unreachable!("all constants should be local"),
@@ -272,6 +279,7 @@ pub enum Error {
     NoProgress,
     LoopTooLarge(u128),
     ConstantReduction(String, OwnedTypedModuleId),
+    Type(String),
 }
 
 impl fmt::Display for Error {
@@ -286,6 +294,7 @@ impl fmt::Display for Error {
             Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds"),
             Error::LoopTooLarge(size) => write!(f, "Found a loop of size {}, which is larger than the maximum allowed of {}. Check the loop bounds, especially for underflows", size, MAX_FOR_LOOP_SIZE),
             Error::ConstantReduction(name, module) => write!(f, "Failed to reduce constant `{}` in module `{}` to a literal, try simplifying its declaration", name, module.display()),
+            Error::Type(message) => write!(f, "{}", message),
         }
     }
 }
