@@ -150,6 +150,7 @@ impl<T: Field> Analyse for Prog<T> {
 
     fn analyse(self) -> Result<Self, Self::Error> {
         log::debug!("Static analyser: Detect unconstrained zir");
-        UnconstrainedVariableDetector::detect(self).map_err(Error::from)
+        UnconstrainedVariableDetector::detect(&self).map_err(Error::from)?;
+        Ok(self)
     }
 }
