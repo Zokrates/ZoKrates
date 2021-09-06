@@ -211,10 +211,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
                             &self.program,
                         )?;
 
-                        if inlined_wrapper.statements.len() > 1 {
-                            return Err(Error::ConstantReduction(key.id.to_string(), key.module));
-                        };
-
                         if let TypedStatement::Return(mut expressions) =
                             inlined_wrapper.statements.pop().unwrap()
                         {

@@ -111,6 +111,12 @@ pub struct CanonicalConstantIdentifier<'ast> {
     pub id: ConstantIdentifier<'ast>,
 }
 
+impl<'ast> fmt::Display for CanonicalConstantIdentifier<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}/{}", self.module.display(), self.id)
+    }
+}
+
 impl<'ast> CanonicalConstantIdentifier<'ast> {
     pub fn new(id: ConstantIdentifier<'ast>, module: OwnedTypedModuleId) -> Self {
         CanonicalConstantIdentifier { module, id }

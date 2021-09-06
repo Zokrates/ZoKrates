@@ -1,30 +1,16 @@
-use crate::static_analysis::Propagator;
-use crate::typed_absy::result_folder::*;
+// Static analysis step to replace all imported constants with the imported value
+// This does *not* reduce constants to their literal value
+// This step cannot fail as the imports were checked during semantics
+
+use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
-use std::fmt;
 use zokrates_field::Field;
 
-// a map of the constants in this program
-// the values are constants whose expression does not include any identifier. It does not have to be a single literal, as
-// we keep function calls here to be inlined later
+// a map of the canonical constants in this program. with all imported constants reduced to their canonical value
 type ProgramConstants<'ast, T> =
     HashMap<OwnedTypedModuleId, HashMap<ConstantIdentifier<'ast>, TypedConstant<'ast, T>>>;
 
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    Type(String),
-    Propagation(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::Type(s) => write!(f, "{}", s),
-            Error::Propagation(s) => write!(f, "{}", s),
-        }
-    }
-}
 pub struct ConstantInliner<'ast, T> {
     modules: TypedModules<'ast, T>,
     location: OwnedTypedModuleId,
@@ -43,7 +29,7 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
             constants,
         }
     }
-    pub fn inline(p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, Error> {
+    pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         let constants = ProgramConstants::new();
         let mut inliner = ConstantInliner::new(p.modules.clone(), p.main.clone(), constants);
         inliner.fold_program(p)
@@ -71,85 +57,64 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantInliner<'ast, T> {
-    type Error = Error;
+impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
+    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        self.fold_module_id(p.main.clone());
 
-    fn fold_program(
-        &mut self,
-        p: TypedProgram<'ast, T>,
-    ) -> Result<TypedProgram<'ast, T>, Self::Error> {
-        self.fold_module_id(p.main.clone())?;
-
-        Ok(TypedProgram {
+        TypedProgram {
             modules: std::mem::take(&mut self.modules),
             ..p
-        })
+        }
     }
 
-    fn fold_module_id(
-        &mut self,
-        id: OwnedTypedModuleId,
-    ) -> Result<OwnedTypedModuleId, Self::Error> {
+    fn fold_module_id(&mut self, id: OwnedTypedModuleId) -> OwnedTypedModuleId {
         // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
         if !self.treated(&id) {
             let current_m_id = self.change_location(id.clone());
             let m = self.modules.remove(&id).unwrap();
-            let m = self.fold_module(m)?;
+            let m = self.fold_module(m);
             self.modules.insert(id.clone(), m);
             self.change_location(current_m_id);
         }
-        Ok(id)
+        id
     }
 
-    fn fold_module(
-        &mut self,
-        m: TypedModule<'ast, T>,
-    ) -> Result<TypedModule<'ast, T>, Self::Error> {
-        Ok(TypedModule {
+    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
+        TypedModule {
             constants: m
                 .constants
                 .into_iter()
                 .map(|(id, tc)| {
-
-                    let id = self.fold_canonical_constant_identifier(id)?;
+                    let id = self.fold_canonical_constant_identifier(id);
 
                     let constant = match tc {
                         TypedConstantSymbol::There(imported_id) => {
                             // visit the imported symbol. This triggers visiting the corresponding module if needed
-                            let imported_id = self.fold_canonical_constant_identifier(imported_id)?;
-                            // after that, the constant must have been defined defined in the global map. It is already reduced
-                            // to the maximum, so running propagation isn't required
+                            let imported_id = self.fold_canonical_constant_identifier(imported_id);
+                            // after that, the constant must have been defined defined in the global map
                             self.get_constant(&imported_id).unwrap()
                         }
-                        TypedConstantSymbol::Here(c) => {
-                            let non_propagated_constant = fold_constant(self, c)?;
-                            // folding the constant above only reduces it to an expression containing only literals, not to a single literal.
-                            // propagating with an empty map of constants reduces it to the maximum
-                            Propagator::with_constants(&mut HashMap::default())
-                                .fold_constant(non_propagated_constant)
-                                .unwrap()
-                        }
+                        TypedConstantSymbol::Here(c) => fold_constant(self, c),
                     };
+                    self.constants
+                        .get_mut(&self.location)
+                        .unwrap()
+                        .insert(id.id, constant.clone());
 
-                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(constant.ty.clone()).unwrap() == constant.expression.get_type() {
-                        // add to the constant map
-                            self.constants
-                            .get_mut(&self.location)
-                            .unwrap()
-                            .insert(id.id, constant.clone());
-
-                        Ok((
-                            id,
-                            TypedConstantSymbol::Here(constant),
-                        ))
-                    } else {
-                        Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant.expression.get_type(), id.id, constant.ty)))
-                    }
+                    (id, TypedConstantSymbol::Here(constant))
                 })
-                .collect::<Result<Vec<_>, _>>()?,
+                .collect(),
             functions: m
                 .functions
-        })
+                .into_iter()
+                .map(|(key, fun)| {
+                    (
+                        self.fold_declaration_function_key(key),
+                        self.fold_function_symbol(fun),
+                    )
+                })
+                .collect(),
+        }
     }
 }
 
@@ -218,7 +183,7 @@ mod tests {
 
         let program = ConstantInliner::inline(program);
 
-        assert_eq!(program, Ok(expected_program))
+        assert_eq!(program, expected_program)
     }
 
     #[test]
@@ -276,7 +241,7 @@ mod tests {
 
         let program = ConstantInliner::inline(program);
 
-        assert_eq!(program, Ok(expected_program))
+        assert_eq!(program, expected_program)
     }
 
     #[test]
@@ -337,7 +302,7 @@ mod tests {
 
         let program = ConstantInliner::inline(program);
 
-        assert_eq!(program, Ok(expected_program))
+        assert_eq!(program, expected_program)
     }
 
     #[test]
@@ -418,7 +383,7 @@ mod tests {
 
         let program = ConstantInliner::inline(program);
 
-        assert_eq!(program, Ok(expected_program))
+        assert_eq!(program, expected_program)
     }
 
     #[test]
@@ -492,7 +457,7 @@ mod tests {
 
         let program = ConstantInliner::inline(program);
 
-        assert_eq!(program, Ok(expected_program))
+        assert_eq!(program, expected_program)
     }
 
     #[test]
@@ -622,6 +587,6 @@ mod tests {
             .collect(),
         };
 
-        assert_eq!(program, Ok(expected_program))
+        assert_eq!(program, expected_program)
     }
 }
