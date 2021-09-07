@@ -88,7 +88,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
         // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
         if !self.treated(&id) {
             let current_m_id = self.change_location(id.clone());
-            let m = self.program.modules.remove(&id).unwrap();
+            let m = self.program.modules.get(&id).cloned().unwrap();
             let m = self.fold_module(m)?;
             self.program.modules.insert(id.clone(), m);
             self.change_location(current_m_id);
