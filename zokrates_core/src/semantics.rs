@@ -517,8 +517,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         declaration: SymbolDeclarationNode<'ast>,
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
-        functions: &mut TypedFunctionSymbols<'ast, T>,
-        constants: &mut TypedConstantSymbols<'ast, T>,
+        symbols: &mut TypedSymbolDeclarations<'ast, T>,
         symbol_unifier: &mut SymbolUnifier<'ast, T>,
     ) -> Result<(), Vec<Error>> {
         let mut errors: Vec<Error> = vec![];
@@ -578,12 +577,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 .in_file(module_id),
                             ),
                             true => {
-                                constants.push((
-                                    CanonicalConstantIdentifier::new(
-                                        declaration.id,
-                                        module_id.into(),
-                                    ),
-                                    TypedConstantSymbol::Here(c.clone()),
+                                symbols.push(TypedSymbolDeclaration::Constant(
+                                    TypedConstantSymbolDeclaration {
+                                        id: CanonicalConstantIdentifier::new(
+                                            declaration.id,
+                                            module_id.into(),
+                                        ),
+                                        symbol: TypedConstantSymbol::Here(c.clone()),
+                                    },
                                 ));
                                 self.insert_into_scope(Variable::with_id_and_type(
                                     CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
@@ -632,14 +633,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             )
                             .signature(funct.signature.clone()),
                         );
-                        functions.insert(
-                            DeclarationFunctionKey::with_location(
-                                module_id.to_path_buf(),
-                                declaration.id,
-                            )
-                            .signature(funct.signature.clone()),
-                            TypedFunctionSymbol::Here(funct),
-                        );
+                        symbols.push(TypedSymbolDeclaration::Function(
+                            TypedFunctionSymbolDeclaration {
+                                key: DeclarationFunctionKey::with_location(
+                                    module_id.to_path_buf(),
+                                    declaration.id,
+                                )
+                                .signature(funct.signature.clone()),
+                                symbol: TypedFunctionSymbol::Here(funct),
+                            },
+                        ));
                     }
                     Err(e) => {
                         errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));
@@ -657,13 +660,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .typed_modules
                             .get(&import.module_id)
                             .unwrap()
-                            .functions
-                            .iter()
-                            .filter(|(k, _)| k.id == import.symbol_id)
-                            .map(|(_, v)| DeclarationFunctionKey {
+                            .functions_iter()
+                            .filter(|d| d.key.id == import.symbol_id)
+                            .map(|d| DeclarationFunctionKey {
                                 module: import.module_id.to_path_buf(),
                                 id: import.symbol_id,
-                                signature: v.signature(&state.typed_modules).clone(),
+                                signature: d.symbol.signature(&state.typed_modules).clone(),
                             })
                             .collect();
 
@@ -738,7 +740,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id);
                                         let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into());
 
-                                        constants.push((id.clone(), TypedConstantSymbol::There(imported_id)));
+                                        symbols.push(TypedSymbolDeclaration::Constant(TypedConstantSymbolDeclaration {
+                                            id: id.clone(),
+                                            symbol: TypedConstantSymbol::There(imported_id)
+                                        }));
                                         self.insert_into_scope(Variable::with_id_and_type(CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
                                             declaration.id,
                                             module_id.into(),
@@ -781,10 +786,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     let local_key = candidate.clone().id(declaration.id).module(module_id.to_path_buf());
 
                                     self.functions.insert(local_key.clone());
-                                    functions.insert(
-                                        local_key,
-                                        TypedFunctionSymbol::There(candidate,
-                                        ),
+                                    symbols.push(
+                                        TypedSymbolDeclaration::Function(TypedFunctionSymbolDeclaration {
+                                            key: local_key,
+                                            symbol: TypedFunctionSymbol::There(candidate,
+                                            ),
+                                        })
                                     );
                                 }
                             }
@@ -816,11 +823,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     DeclarationFunctionKey::with_location(module_id.to_path_buf(), declaration.id)
                         .signature(funct.typed_signature()),
                 );
-                functions.insert(
-                    DeclarationFunctionKey::with_location(module_id.to_path_buf(), declaration.id)
+                symbols.push(TypedSymbolDeclaration::Function(
+                    TypedFunctionSymbolDeclaration {
+                        key: DeclarationFunctionKey::with_location(
+                            module_id.to_path_buf(),
+                            declaration.id,
+                        )
                         .signature(funct.typed_signature()),
-                    TypedFunctionSymbol::Flat(funct),
-                );
+                        symbol: TypedFunctionSymbol::Flat(funct),
+                    },
+                ));
             }
             _ => unreachable!(),
         };
@@ -838,8 +850,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
     ) -> Result<(), Vec<Error>> {
-        let mut checked_functions = TypedFunctionSymbols::new();
-        let mut checked_constants = TypedConstantSymbols::new();
+        let mut checked_symbols = TypedSymbolDeclarations::new();
 
         // check if the module was already removed from the untyped ones
         let to_insert = match state.modules.remove(module_id) {
@@ -860,15 +871,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         declaration,
                         module_id,
                         state,
-                        &mut checked_functions,
-                        &mut checked_constants,
+                        &mut checked_symbols,
                         &mut symbol_unifier,
                     )?
                 }
 
                 Some(TypedModule {
-                    functions: checked_functions,
-                    constants: checked_constants,
+                    symbols: checked_symbols,
                 })
             }
         };
@@ -887,9 +896,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
     fn check_single_main(module: &TypedModule<T>) -> Result<(), ErrorInner> {
         match module
-            .functions
+            .symbols
             .iter()
-            .filter(|(key, _)| key.id == "main")
+            .filter(|s| matches!(s, TypedSymbolDeclaration::Function(d) if d.key.id == "main"))
             .count()
         {
             1 => Ok(()),
@@ -3579,17 +3588,17 @@ mod tests {
             assert_eq!(
                 state.typed_modules.get(&PathBuf::from("bar")),
                 Some(&TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("bar", "main")
                             .signature(DeclarationSignature::new()),
                         TypedFunctionSymbol::There(
                             DeclarationFunctionKey::with_location("foo", "main")
                                 .signature(DeclarationSignature::new()),
                         )
-                    )]
+                    )
+                    .into()]
                     .into_iter()
                     .collect(),
-                    constants: TypedConstantSymbols::default()
                 })
             );
         }
@@ -3832,21 +3841,23 @@ mod tests {
                 .typed_modules
                 .get(&*MODULE_ID)
                 .unwrap()
-                .functions
-                .contains_key(
-                    &DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
-                        .signature(DeclarationSignature::new())
-                ));
+                .functions_iter()
+                .find(|d| d.key
+                    == DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
+                        .signature(DeclarationSignature::new()))
+                .is_some());
+
             assert!(state
                 .typed_modules
                 .get(&*MODULE_ID)
                 .unwrap()
-                .functions
-                .contains_key(
-                    &DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo").signature(
-                        DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
-                    )
-                ))
+                .functions_iter()
+                .find(|d| d.key
+                    == DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
+                        .signature(
+                            DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
+                        ))
+                .is_some());
         }
 
         #[test]

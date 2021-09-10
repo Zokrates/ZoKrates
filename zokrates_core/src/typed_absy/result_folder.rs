@@ -55,6 +55,27 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_module(self, m)
     }
 
+    fn fold_symbol_declaration(
+        &mut self,
+        s: TypedSymbolDeclaration<'ast, T>,
+    ) -> Result<TypedSymbolDeclaration<'ast, T>, Self::Error> {
+        fold_symbol_declaration(self, s)
+    }
+
+    fn fold_function_symbol_declaration(
+        &mut self,
+        s: TypedFunctionSymbolDeclaration<'ast, T>,
+    ) -> Result<TypedFunctionSymbolDeclaration<'ast, T>, Self::Error> {
+        fold_function_symbol_declaration(self, s)
+    }
+
+    fn fold_constant_symbol_declaration(
+        &mut self,
+        s: TypedConstantSymbolDeclaration<'ast, T>,
+    ) -> Result<TypedConstantSymbolDeclaration<'ast, T>, Self::Error> {
+        fold_constant_symbol_declaration(self, s)
+    }
+
     fn fold_constant(
         &mut self,
         c: TypedConstant<'ast, T>,
@@ -1147,24 +1168,49 @@ pub fn fold_function_symbol<'ast, T: Field, F: ResultFolder<'ast, T>>(
     }
 }
 
+pub fn fold_symbol_declaration<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    d: TypedSymbolDeclaration<'ast, T>,
+) -> Result<TypedSymbolDeclaration<'ast, T>, F::Error> {
+    Ok(match d {
+        TypedSymbolDeclaration::Function(d) => {
+            TypedSymbolDeclaration::Function(f.fold_function_symbol_declaration(d)?)
+        }
+        TypedSymbolDeclaration::Constant(d) => {
+            TypedSymbolDeclaration::Constant(f.fold_constant_symbol_declaration(d)?)
+        }
+    })
+}
+
+pub fn fold_function_symbol_declaration<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    d: TypedFunctionSymbolDeclaration<'ast, T>,
+) -> Result<TypedFunctionSymbolDeclaration<'ast, T>, F::Error> {
+    Ok(TypedFunctionSymbolDeclaration {
+        key: f.fold_declaration_function_key(d.key)?,
+        symbol: f.fold_function_symbol(d.symbol)?,
+    })
+}
+
+pub fn fold_constant_symbol_declaration<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    d: TypedConstantSymbolDeclaration<'ast, T>,
+) -> Result<TypedConstantSymbolDeclaration<'ast, T>, F::Error> {
+    Ok(TypedConstantSymbolDeclaration {
+        id: f.fold_canonical_constant_identifier(d.id)?,
+        symbol: f.fold_constant_symbol(d.symbol)?,
+    })
+}
+
 pub fn fold_module<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     m: TypedModule<'ast, T>,
 ) -> Result<TypedModule<'ast, T>, F::Error> {
     Ok(TypedModule {
-        constants: m
-            .constants
+        symbols: m
+            .symbols
             .into_iter()
-            .map(|(key, tc)| f.fold_constant_symbol(tc).map(|tc| (key, tc)))
-            .collect::<Result<_, _>>()?,
-        functions: m
-            .functions
-            .into_iter()
-            .map(|(key, fun)| {
-                let key = f.fold_declaration_function_key(key)?;
-                let fun = f.fold_function_symbol(fun)?;
-                Ok((key, fun))
-            })
+            .map(|s| f.fold_symbol_declaration(s))
             .collect::<Result<_, _>>()?,
     })
 }

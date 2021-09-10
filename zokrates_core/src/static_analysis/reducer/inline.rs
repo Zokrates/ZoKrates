@@ -35,8 +35,8 @@ use crate::typed_absy::Identifier;
 use crate::typed_absy::TypedAssignee;
 use crate::typed_absy::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Expr,
-    Signature, TypedExpression, TypedFunctionSymbol, TypedProgram, TypedStatement, Types,
-    UExpression, UExpressionInner, Variable,
+    Signature, TypedExpression, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedProgram,
+    TypedStatement, Types, UExpression, UExpressionInner, Variable,
 };
 use zokrates_field::Field;
 
@@ -59,21 +59,18 @@ pub enum InlineError<'ast, T> {
 fn get_canonical_function<'ast, T: Field>(
     function_key: DeclarationFunctionKey<'ast, T>,
     program: &TypedProgram<'ast, T>,
-) -> (
-    DeclarationFunctionKey<'ast, T>,
-    TypedFunctionSymbol<'ast, T>,
-) {
-    match program
+) -> TypedFunctionSymbolDeclaration<'ast, T> {
+    let s = program
         .modules
         .get(&function_key.module)
         .unwrap()
-        .functions
-        .iter()
-        .find(|(key, _)| function_key == **key)
-        .unwrap()
-    {
-        (_, TypedFunctionSymbol::There(key)) => get_canonical_function(key.clone(), &program),
-        (key, s) => (key.clone(), s.clone()),
+        .functions_iter()
+        .find(|d| d.key == function_key)
+        .unwrap();
+
+    match &s.symbol {
+        TypedFunctionSymbol::There(key) => get_canonical_function(key.clone(), &program),
+        _ => s.clone(),
     }
 }
 
@@ -137,7 +134,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         }
     };
 
-    let (decl_key, symbol) = get_canonical_function(k.clone(), program);
+    let decl = get_canonical_function(k.clone(), program);
 
     // get an assignment of generics for this call site
     let assignment: ConcreteGenericsAssignment<'ast> = k
@@ -147,14 +144,14 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
             InlineError::Generic(
                 k.clone(),
                 ConcreteFunctionKey {
-                    module: decl_key.module.clone(),
-                    id: decl_key.id,
+                    module: decl.key.module.clone(),
+                    id: decl.key.id,
                     signature: inferred_signature.clone(),
                 },
             )
         })?;
 
-    let f = match symbol {
+    let f = match decl.symbol {
         TypedFunctionSymbol::Here(f) => Ok(f),
         TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(
             e,
@@ -172,7 +169,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         Output::Incomplete(statements, for_loop_versions) => (statements, Some(for_loop_versions)),
     };
 
-    let call_log = TypedStatement::PushCallLog(decl_key.clone(), assignment.clone());
+    let call_log = TypedStatement::PushCallLog(decl.key.clone(), assignment.clone());
 
     let input_bindings: Vec<TypedStatement<'ast, T>> = ssa_f
         .arguments

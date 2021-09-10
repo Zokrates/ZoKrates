@@ -1139,14 +1139,12 @@ fn fold_program<'ast, T: Field>(
     let main_module = p.modules.remove(&p.main).unwrap();
 
     let main_function = main_module
-        .functions
-        .into_iter()
-        .find(|(key, _)| key.id == "main")
+        .into_functions_iter()
+        .find(|d| d.key.id == "main")
         .unwrap()
-        .1;
-
+        .symbol;
     let main_function = match main_function {
-        typed_absy::TypedFunctionSymbol::Here(f) => f,
+        typed_absy::TypedFunctionSymbol::Here(main) => main,
         _ => unreachable!(),
     };
 

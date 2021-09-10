@@ -6,7 +6,7 @@
 
 mod branch_isolator;
 mod constant_argument_checker;
-mod constant_inliner;
+mod constant_resolver;
 mod flat_propagation;
 mod flatten_complex_types;
 mod propagation;
@@ -26,7 +26,7 @@ use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::compile::CompileConfig;
 use crate::ir::Prog;
-use crate::static_analysis::constant_inliner::ConstantInliner;
+use crate::static_analysis::constant_resolver::ConstantInliner;
 use crate::static_analysis::zir_propagation::ZirPropagator;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;

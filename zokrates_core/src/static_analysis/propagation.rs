@@ -150,21 +150,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         })
     }
 
-    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> Result<TypedModule<'ast, T>, Error> {
-        Ok(TypedModule {
-            functions: m
-                .functions
-                .into_iter()
-                .map(|(key, fun)| {
-                    if key.id == "main" {
-                        self.fold_function_symbol(fun).map(|f| (key, f))
-                    } else {
-                        Ok((key, fun))
-                    }
-                })
-                .collect::<Result<_, _>>()?,
-            ..m
-        })
+    fn fold_function_symbol_declaration(
+        &mut self,
+        s: TypedFunctionSymbolDeclaration<'ast, T>,
+    ) -> Result<TypedFunctionSymbolDeclaration<'ast, T>, Error> {
+        if s.key.id == "main" {
+            let key = s.key;
+            self.fold_function_symbol(s.symbol)
+                .map(|f| TypedFunctionSymbolDeclaration { key, symbol: f })
+        } else {
+            Ok(s)
+        }
     }
 
     fn fold_function(

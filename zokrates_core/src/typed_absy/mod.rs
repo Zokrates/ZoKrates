@@ -91,12 +91,11 @@ impl<'ast, T> TypedProgram<'ast, T> {
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn abi(&self) -> Abi {
-        let main = self.modules[&self.main]
-            .functions
-            .iter()
-            .find(|(id, _)| id.id == "main")
+        let main = &self.modules[&self.main]
+            .functions_iter()
+            .find(|s| s.key.id == "main")
             .unwrap()
-            .1;
+            .symbol;
         let main = match main {
             TypedFunctionSymbol::Here(main) => main,
             _ => unreachable!(),
@@ -163,13 +162,84 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
     }
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct TypedFunctionSymbolDeclaration<'ast, T> {
+    pub key: DeclarationFunctionKey<'ast, T>,
+    pub symbol: TypedFunctionSymbol<'ast, T>,
+}
+
+impl<'ast, T> TypedFunctionSymbolDeclaration<'ast, T> {
+    pub fn new(key: DeclarationFunctionKey<'ast, T>, symbol: TypedFunctionSymbol<'ast, T>) -> Self {
+        TypedFunctionSymbolDeclaration { key, symbol }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct TypedConstantSymbolDeclaration<'ast, T> {
+    pub id: CanonicalConstantIdentifier<'ast>,
+    pub symbol: TypedConstantSymbol<'ast, T>,
+}
+
+impl<'ast, T> TypedConstantSymbolDeclaration<'ast, T> {
+    pub fn new(
+        id: CanonicalConstantIdentifier<'ast>,
+        symbol: TypedConstantSymbol<'ast, T>,
+    ) -> Self {
+        TypedConstantSymbolDeclaration { id, symbol }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum TypedSymbolDeclaration<'ast, T> {
+    Function(TypedFunctionSymbolDeclaration<'ast, T>),
+    Constant(TypedConstantSymbolDeclaration<'ast, T>),
+}
+
+impl<'ast, T> From<TypedFunctionSymbolDeclaration<'ast, T>> for TypedSymbolDeclaration<'ast, T> {
+    fn from(d: TypedFunctionSymbolDeclaration<'ast, T>) -> Self {
+        Self::Function(d)
+    }
+}
+
+impl<'ast, T> From<TypedConstantSymbolDeclaration<'ast, T>> for TypedSymbolDeclaration<'ast, T> {
+    fn from(d: TypedConstantSymbolDeclaration<'ast, T>) -> Self {
+        Self::Constant(d)
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedSymbolDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TypedSymbolDeclaration::Function(fun) => write!(f, "{}", fun),
+            TypedSymbolDeclaration::Constant(c) => write!(f, "{}", c),
+        }
+    }
+}
+
+pub type TypedSymbolDeclarations<'ast, T> = Vec<TypedSymbolDeclaration<'ast, T>>;
+
 /// A typed module as a collection of functions. Types have been resolved during semantic checking.
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypedModule<'ast, T> {
-    /// Functions of the module
-    pub functions: TypedFunctionSymbols<'ast, T>,
-    /// Constants defined in module
-    pub constants: TypedConstantSymbols<'ast, T>,
+    pub symbols: TypedSymbolDeclarations<'ast, T>,
+}
+
+impl<'ast, T> TypedModule<'ast, T> {
+    pub fn functions_iter(&self) -> impl Iterator<Item = &TypedFunctionSymbolDeclaration<'ast, T>> {
+        self.symbols.iter().filter_map(|s| match s {
+            TypedSymbolDeclaration::Function(d) => Some(d),
+            _ => None,
+        })
+    }
+
+    pub fn into_functions_iter(
+        self,
+    ) -> impl Iterator<Item = TypedFunctionSymbolDeclaration<'ast, T>> {
+        self.symbols.into_iter().filter_map(|s| match s {
+            TypedSymbolDeclaration::Function(d) => Some(d),
+            _ => None,
+        })
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -189,11 +259,55 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
             TypedFunctionSymbol::There(key) => modules
                 .get(&key.module)
                 .unwrap()
-                .functions
-                .get(key)
+                .functions_iter()
+                .find(|d| d.key == *key)
                 .unwrap()
+                .symbol
                 .signature(&modules),
             TypedFunctionSymbol::Flat(flat_fun) => flat_fun.typed_signature(),
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedConstantSymbolDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.symbol {
+            TypedConstantSymbol::Here(ref tc) => {
+                write!(f, "const {} {} = {}", tc.ty, self.id, tc.expression)
+            }
+            TypedConstantSymbol::There(ref imported_id) => {
+                write!(
+                    f,
+                    "from \"{}\" import {} as {}",
+                    imported_id.module.display(),
+                    imported_id.id,
+                    self.id
+                )
+            }
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedFunctionSymbolDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.symbol {
+            TypedFunctionSymbol::Here(ref function) => write!(f, "def {}{}", self.key.id, function),
+            TypedFunctionSymbol::There(ref fun_key) => write!(
+                f,
+                "from \"{}\" import {} as {} // with signature {}",
+                fun_key.module.display(),
+                fun_key.id,
+                self.key.id,
+                self.key.signature
+            ),
+            TypedFunctionSymbol::Flat(ref flat_fun) => {
+                write!(
+                    f,
+                    "def {}{}:\n\t// hidden",
+                    self.key.id,
+                    flat_fun.typed_signature::<T>()
+                )
+            }
         }
     }
 }
@@ -201,38 +315,9 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = self
-            .constants
+            .symbols
             .iter()
-            .map(|(id, symbol)| match symbol {
-                TypedConstantSymbol::Here(ref tc) => {
-                    format!("const {} {} = {}", tc.ty, id.id, tc.expression)
-                }
-                TypedConstantSymbol::There(ref imported_id) => {
-                    format!(
-                        "from \"{}\" import {} as {}",
-                        imported_id.module.display(),
-                        imported_id.id,
-                        id.id
-                    )
-                }
-            })
-            .chain(self.functions.iter().map(|(key, symbol)| match symbol {
-                TypedFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
-                TypedFunctionSymbol::There(ref fun_key) => format!(
-                    "from \"{}\" import {} as {} // with signature {}",
-                    fun_key.module.display(),
-                    fun_key.id,
-                    key.id,
-                    key.signature
-                ),
-                TypedFunctionSymbol::Flat(ref flat_fun) => {
-                    format!(
-                        "def {}{}:\n\t// hidden",
-                        key.id,
-                        flat_fun.typed_signature::<T>()
-                    )
-                }
-            }))
+            .map(|s| format!("{}", s))
             .collect::<Vec<_>>();
 
         write!(f, "{}", res.join("\n"))

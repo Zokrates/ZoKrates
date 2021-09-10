@@ -11,6 +11,7 @@
 // - unroll loops
 // - inline function calls. This includes applying shallow-ssa on the target function
 
+mod constants_reader;
 mod inline;
 mod shallow_ssa;
 
@@ -20,22 +21,20 @@ use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::CanonicalConstantIdentifier;
 use crate::typed_absy::Folder;
-use crate::typed_absy::UBitwidth;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, ArrayType, BlockExpression, BooleanExpression,
-    CoreIdentifier, DeclarationConstant, DeclarationSignature, Expr, FieldElementExpression,
+    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, DeclarationSignature, Expr,
     FunctionCall, FunctionCallExpression, FunctionCallOrExpression, Id, Identifier,
-    OwnedTypedModuleId, StructExpression, StructExpressionInner, StructType, TypedConstant,
-    TypedConstantSymbol, TypedExpression, TypedExpressionList, TypedExpressionListInner,
-    TypedFunction, TypedFunctionSymbol, TypedModule, TypedModuleId, TypedProgram, TypedStatement,
-    UExpression, UExpressionInner, Variable,
+    OwnedTypedModuleId, TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration,
+    TypedExpression, TypedExpressionList, TypedExpressionListInner, TypedFunction,
+    TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedModuleId, TypedProgram,
+    TypedStatement, TypedSymbolDeclaration, UExpression, UExpressionInner, Variable,
 };
 
-use std::convert::{TryFrom, TryInto};
 use zokrates_field::Field;
 
+use self::constants_reader::ConstantsReader;
 use self::shallow_ssa::ShallowTransformer;
 
 use crate::static_analysis::propagation::{Constants, Propagator};
@@ -49,16 +48,16 @@ type ConstantDefinitions<'ast, T> =
     HashMap<CanonicalConstantIdentifier<'ast>, TypedExpression<'ast, T>>;
 
 // A folder to inline all constant definitions down to a single litteral. Also register them in the state for later use.
-struct ConstantCallsInliner<'ast, T> {
+struct ConstantsBuilder<'ast, T> {
     treated: HashSet<OwnedTypedModuleId>,
     constants: ConstantDefinitions<'ast, T>,
     location: OwnedTypedModuleId,
     program: TypedProgram<'ast, T>,
 }
 
-impl<'ast, T> ConstantCallsInliner<'ast, T> {
+impl<'ast, T: Field> ConstantsBuilder<'ast, T> {
     fn with_program(program: TypedProgram<'ast, T>) -> Self {
-        ConstantCallsInliner {
+        ConstantsBuilder {
             constants: ConstantDefinitions::default(),
             location: program.main.clone(),
             treated: HashSet::default(),
@@ -76,9 +75,27 @@ impl<'ast, T> ConstantCallsInliner<'ast, T> {
     fn treated(&self, id: &TypedModuleId) -> bool {
         self.treated.contains(id)
     }
+
+    fn update_program(&mut self) {
+        let mut p = TypedProgram {
+            main: "".into(),
+            modules: BTreeMap::default(),
+        };
+        std::mem::swap(&mut self.program, &mut p);
+        let mut reader = ConstantsReader::with_constants(&self.constants);
+        self.program = reader.fold_program(p);
+    }
+
+    fn update_symbol_declaration(
+        &self,
+        s: TypedSymbolDeclaration<'ast, T>,
+    ) -> TypedSymbolDeclaration<'ast, T> {
+        let mut reader = ConstantsReader::with_constants(&self.constants);
+        reader.fold_symbol_declaration(s)
+    }
 }
 
-impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
+impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsBuilder<'ast, T> {
     type Error = Error;
 
     fn fold_module_id(
@@ -88,6 +105,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
         // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
         if !self.treated(&id) {
             let current_m_id = self.change_location(id.clone());
+            // I did not find a way to achieve this without cloning the module. Assuming we do not clone:
+            // to fold the module, we need to consume it, so it gets removed from the modules
+            // but to inline the calls while folding the module, all modules must be present
+            // therefore we clone...
+            // this does not lead to a module being folded more than once, as the first time
+            // we change location to this module, it's added to the `treated` set
             let m = self.program.modules.get(&id).cloned().unwrap();
             let m = self.fold_module(m)?;
             self.program.modules.insert(id.clone(), m);
@@ -96,200 +119,80 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantCallsInliner<'ast, T> {
         Ok(id)
     }
 
-    fn fold_field_expression(
+    fn fold_symbol_declaration(
         &mut self,
-        e: FieldElementExpression<'ast, T>,
-    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
-        match e {
-            FieldElementExpression::Identifier(Identifier {
-                id: CoreIdentifier::Constant(c),
-                version,
-            }) => {
-                assert_eq!(version, 0);
-                Ok(self.constants.get(&c).cloned().unwrap().try_into().unwrap())
-            }
-            e => fold_field_expression(self, e),
-        }
+        s: TypedSymbolDeclaration<'ast, T>,
+    ) -> Result<TypedSymbolDeclaration<'ast, T>, Self::Error> {
+        // before we treat a symbol, propagate the constants into it
+        let s = self.update_symbol_declaration(s);
+
+        fold_symbol_declaration(self, s)
     }
 
-    fn fold_boolean_expression(
+    fn fold_constant_symbol_declaration(
         &mut self,
-        e: BooleanExpression<'ast, T>,
-    ) -> Result<BooleanExpression<'ast, T>, Self::Error> {
-        match e {
-            BooleanExpression::Identifier(Identifier {
-                id: CoreIdentifier::Constant(c),
-                version,
-            }) => {
-                assert_eq!(version, 0);
-                Ok(self.constants.get(&c).cloned().unwrap().try_into().unwrap())
-            }
-            e => fold_boolean_expression(self, e),
-        }
-    }
+        d: TypedConstantSymbolDeclaration<'ast, T>,
+    ) -> Result<TypedConstantSymbolDeclaration<'ast, T>, Self::Error> {
+        let id = self.fold_canonical_constant_identifier(d.id)?;
 
-    fn fold_uint_expression_inner(
-        &mut self,
-        ty: UBitwidth,
-        e: UExpressionInner<'ast, T>,
-    ) -> Result<UExpressionInner<'ast, T>, Self::Error> {
-        match e {
-            UExpressionInner::Identifier(Identifier {
-                id: CoreIdentifier::Constant(c),
-                version,
-            }) => {
-                assert_eq!(version, 0);
-                Ok(
-                    UExpression::try_from(self.constants.get(&c).cloned().unwrap())
-                        .unwrap()
-                        .into_inner(),
-                )
-            }
-            e => fold_uint_expression_inner(self, ty, e),
-        }
-    }
+        match d.symbol {
+            TypedConstantSymbol::Here(c) => {
+                let c = self.fold_constant(c)?;
 
-    fn fold_array_expression_inner(
-        &mut self,
-        ty: &ArrayType<'ast, T>,
-        e: ArrayExpressionInner<'ast, T>,
-    ) -> Result<ArrayExpressionInner<'ast, T>, Self::Error> {
-        match e {
-            ArrayExpressionInner::Identifier(Identifier {
-                id: CoreIdentifier::Constant(c),
-                version,
-            }) => {
-                assert_eq!(version, 0);
-                Ok(
-                    ArrayExpression::try_from(self.constants.get(&c).cloned().unwrap())
-                        .unwrap()
-                        .into_inner(),
-                )
-            }
-            e => fold_array_expression_inner(self, ty, e),
-        }
-    }
+                // wrap this expression in a function
+                let wrapper = TypedFunction {
+                    arguments: vec![],
+                    statements: vec![TypedStatement::Return(vec![c.expression])],
+                    signature: DeclarationSignature::new().outputs(vec![c.ty.clone()]),
+                };
 
-    fn fold_struct_expression_inner(
-        &mut self,
-        ty: &StructType<'ast, T>,
-        e: StructExpressionInner<'ast, T>,
-    ) -> Result<StructExpressionInner<'ast, T>, Self::Error> {
-        match e {
-            StructExpressionInner::Identifier(Identifier {
-                id: CoreIdentifier::Constant(c),
-                version,
-            }) => {
-                assert_eq!(version, 0);
-                Ok(
-                    StructExpression::try_from(self.constants.get(&c).cloned().unwrap())
-                        .unwrap()
-                        .into_inner(),
-                )
-            }
-            e => fold_struct_expression_inner(self, ty, e),
-        }
-    }
+                let mut inlined_wrapper = reduce_function(
+                    wrapper,
+                    ConcreteGenericsAssignment::default(),
+                    &self.program,
+                )?;
 
-    fn fold_declaration_constant(
-        &mut self,
-        c: DeclarationConstant<'ast, T>,
-    ) -> Result<DeclarationConstant<'ast, T>, Self::Error> {
-        match c {
-            DeclarationConstant::Constant(c) => {
-                let c = self.fold_canonical_constant_identifier(c)?;
-
-                if let UExpressionInner::Value(v) =
-                    UExpression::try_from(self.constants.get(&c).cloned().unwrap())
-                        .unwrap()
-                        .into_inner()
+                if let TypedStatement::Return(mut expressions) =
+                    inlined_wrapper.statements.pop().unwrap()
                 {
-                    Ok(DeclarationConstant::Concrete(v as u32))
+                    assert_eq!(expressions.len(), 1);
+                    let constant_expression = expressions.pop().unwrap();
+
+                    use crate::typed_absy::Constant;
+                    if !constant_expression.is_constant() {
+                        return Err(Error::ConstantReduction(id.id.to_string(), id.module));
+                    };
+
+                    use crate::typed_absy::Typed;
+                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(
+                        c.ty.clone(),
+                    )
+                    .unwrap()
+                        == constant_expression.get_type()
+                    {
+                        // add to the constant map
+                        self.constants
+                            .insert(id.clone(), constant_expression.clone());
+
+                        // after we reduced a constant, propagate it through the whole program
+                        self.update_program();
+
+                        Ok(TypedConstantSymbolDeclaration {
+                            id,
+                            symbol: TypedConstantSymbol::Here(TypedConstant {
+                                expression: constant_expression,
+                                ty: c.ty,
+                            }),
+                        })
+                    } else {
+                        Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant_expression.get_type(), id, c.ty)))
+                    }
                 } else {
-                    unreachable!()
+                    Err(Error::ConstantReduction(id.id.to_string(), id.module))
                 }
             }
-            c => fold_declaration_constant(self, c),
+            _ => unreachable!("all constants should be local"),
         }
-    }
-
-    fn fold_module(
-        &mut self,
-        m: TypedModule<'ast, T>,
-    ) -> Result<TypedModule<'ast, T>, Self::Error> {
-        Ok(TypedModule {
-            constants: m
-                .constants
-                .into_iter()
-                .map(|(id, tc)| match tc {
-                    TypedConstantSymbol::Here(c) => {
-                        let c = self.fold_constant(c)?;
-
-                        let ty = c.ty;
-
-                        // replace the existing constants in this expression
-                        let constant_replaced_expression = self.fold_expression(c.expression)?;
-
-                        // wrap this expression in a function
-                        let wrapper = TypedFunction {
-                            arguments: vec![],
-                            statements: vec![TypedStatement::Return(vec![
-                                constant_replaced_expression,
-                            ])],
-                            signature: DeclarationSignature::new().outputs(vec![ty.clone()]),
-                        };
-
-                        let mut inlined_wrapper = reduce_function(
-                            wrapper,
-                            ConcreteGenericsAssignment::default(),
-                            &self.program,
-                        )?;
-
-                        if let TypedStatement::Return(mut expressions) =
-                            inlined_wrapper.statements.pop().unwrap()
-                        {
-                            assert_eq!(expressions.len(), 1);
-                            let constant_expression = expressions.pop().unwrap();
-
-                            use crate::typed_absy::Constant;
-                            if !constant_expression.is_constant() {
-                                return Err(Error::ConstantReduction(
-                                    id.id.to_string(),
-                                    id.module,
-                                ));
-                            };
-
-                            use crate::typed_absy::Typed;
-                            if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(ty.clone()).unwrap() == constant_expression.get_type() {
-                                // add to the constant map
-                                self.constants.insert(id.clone(), constant_expression.clone());
-                                Ok((
-                                    id,
-                                    TypedConstantSymbol::Here(TypedConstant {
-                                        expression: constant_expression,
-                                        ty,
-                                    }),
-                                ))
-                            } else {
-                                Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant_expression.get_type(), id, ty)))
-                            }
-                        } else {
-                            Err(Error::ConstantReduction(id.id.to_string(), id.module))
-                        }
-                    }
-                    _ => unreachable!("all constants should be local"),
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-            functions: m
-                .functions
-                .into_iter()
-                .map(|(key, fun)| {
-                    let key = self.fold_declaration_function_key(key)?;
-                    let fun = self.fold_function_symbol(fun)?;
-                    Ok((key, fun))
-                })
-                .collect::<Result<_, _>>()?,
-        })
     }
 }
 
@@ -756,20 +659,19 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
     // inline all constants and replace them in the  program
 
-    let mut constant_calls_inliner = ConstantCallsInliner::with_program(p.clone());
+    let mut constant_calls_inliner = ConstantsBuilder::with_program(p.clone());
 
     let p = constant_calls_inliner.fold_program(p)?;
 
     // inline starting from main
     let main_module = p.modules.get(&p.main).unwrap().clone();
 
-    let (main_key, main_function) = main_module
-        .functions
-        .iter()
-        .find(|(k, _)| k.id == "main")
+    let decl = main_module
+        .functions_iter()
+        .find(|d| d.key.id == "main")
         .unwrap();
 
-    let main_function = match main_function {
+    let main_function = match &decl.symbol {
         TypedFunctionSymbol::Here(f) => f.clone(),
         _ => unreachable!(),
     };
@@ -783,13 +685,12 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
                 modules: vec![(
                     p.main.clone(),
                     TypedModule {
-                        functions: vec![(
-                            main_key.clone(),
-                            TypedFunctionSymbol::Here(main_function),
-                        )]
-                        .into_iter()
-                        .collect(),
-                        constants: Default::default(),
+                        symbols: vec![TypedSymbolDeclaration::Function(
+                            TypedFunctionSymbolDeclaration {
+                                key: decl.key.clone(),
+                                symbol: TypedFunctionSymbol::Here(main_function),
+                            },
+                        )],
                     },
                 )]
                 .into_iter()
@@ -988,27 +889,26 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo").signature(
                                 DeclarationSignature::new()
                                     .inputs(vec![DeclarationType::FieldElement])
                                     .outputs(vec![DeclarationType::FieldElement]),
                             ),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main").signature(
                                 DeclarationSignature::new()
                                     .inputs(vec![DeclarationType::FieldElement])
                                     .outputs(vec![DeclarationType::FieldElement]),
                             ),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
@@ -1064,17 +964,15 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("main", "main").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement]),
                         ),
                         TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                    )
+                    .into()],
                 },
             )]
             .into_iter()
@@ -1191,24 +1089,23 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo")
                                 .signature(foo_signature.clone()),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main").signature(
                                 DeclarationSignature::new()
                                     .inputs(vec![DeclarationType::FieldElement])
                                     .outputs(vec![DeclarationType::FieldElement]),
                             ),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
@@ -1283,17 +1180,15 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("main", "main").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement]),
                         ),
                         TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                    )
+                    .into()],
                 },
             )]
             .into_iter()
@@ -1419,24 +1314,23 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo")
                                 .signature(foo_signature.clone()),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main").signature(
                                 DeclarationSignature::new()
                                     .inputs(vec![DeclarationType::FieldElement])
                                     .outputs(vec![DeclarationType::FieldElement]),
                             ),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
@@ -1511,17 +1405,15 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("main", "main").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement]),
                         ),
                         TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                    )
+                    .into()],
                 },
             )]
             .into_iter()
@@ -1677,25 +1569,25 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "bar")
                                 .signature(bar_signature.clone()),
                             TypedFunctionSymbol::Here(bar),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo")
                                 .signature(foo_signature.clone()),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main"),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
@@ -1737,14 +1629,12 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("main", "main")
                             .signature(DeclarationSignature::new()),
                         TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                    )
+                    .into()],
                 },
             )]
             .into_iter()
@@ -1818,22 +1708,21 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo")
                                 .signature(foo_signature.clone()),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main").signature(
                                 DeclarationSignature::new().inputs(vec![]).outputs(vec![]),
                             ),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
