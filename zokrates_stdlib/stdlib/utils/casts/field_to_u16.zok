@@ -1,5 +1,9 @@
 from "EMBED" import unpack, u16_from_bits
 
-def main(field i) -> u16:
-    bool[16] bits = unpack(i)
+const field U16_MAX = 65535
+
+// Condition: field value is asserted to be in range [0, U16_MAX]
+def main(field input) -> u16:
+    assert(input <= U16_MAX)
+    bool[16] bits = unpack(input)
     return u16_from_bits(bits)

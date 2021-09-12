@@ -22,6 +22,7 @@ type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;
 pub enum Error {
     Type(String),
     AssertionFailed(String),
+    ValueTooLarge(String),
     OutOfBounds(u128, u128),
     NonConstantExponent(String),
 }
@@ -31,6 +32,7 @@ impl fmt::Display for Error {
         match self {
             Error::Type(s) => write!(f, "{}", s),
             Error::AssertionFailed(s) => write!(f, "{}", s),
+            Error::ValueTooLarge(s) => write!(f, "{}", s),
             Error::OutOfBounds(index, size) => write!(
                 f,
                 "Out of bounds index ({} >= {}) found during static analysis",
@@ -384,47 +386,47 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         match arguments.iter().all(|a| a.is_constant()) {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match embed {
-                                    FlatEmbed::BitArrayLe => None, // todo
-                                    FlatEmbed::U64FromBits => Some(process_u_from_bits(
+                                    FlatEmbed::BitArrayLe => Ok(None), // todo
+                                    FlatEmbed::U64FromBits => Ok(Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B64,
-                                    )),
-                                    FlatEmbed::U32FromBits => Some(process_u_from_bits(
+                                    ))),
+                                    FlatEmbed::U32FromBits => Ok(Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B32,
-                                    )),
-                                    FlatEmbed::U16FromBits => Some(process_u_from_bits(
+                                    ))),
+                                    FlatEmbed::U16FromBits => Ok(Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B16,
-                                    )),
-                                    FlatEmbed::U8FromBits => Some(process_u_from_bits(
+                                    ))),
+                                    FlatEmbed::U8FromBits => Ok(Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B8,
-                                    )),
-                                    FlatEmbed::U64ToBits => Some(process_u_to_bits(
+                                    ))),
+                                    FlatEmbed::U64ToBits => Ok(Some(process_u_to_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B64,
-                                    )),
-                                    FlatEmbed::U32ToBits => Some(process_u_to_bits(
+                                    ))),
+                                    FlatEmbed::U32ToBits => Ok(Some(process_u_to_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B32,
-                                    )),
-                                    FlatEmbed::U16ToBits => Some(process_u_to_bits(
+                                    ))),
+                                    FlatEmbed::U16ToBits => Ok(Some(process_u_to_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B16,
-                                    )),
-                                    FlatEmbed::U8ToBits => Some(process_u_to_bits(
+                                    ))),
+                                    FlatEmbed::U8ToBits => Ok(Some(process_u_to_bits(
                                         assignees.clone(),
                                         arguments.clone(),
                                         UBitwidth::B8,
-                                    )),
+                                    ))),
                                     FlatEmbed::Unpack => {
                                         assert_eq!(assignees.len(), 1);
                                         assert_eq!(arguments.len(), 1);
@@ -432,46 +434,55 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                                         let bit_width = generics[0];
 
-                                        match FieldElementExpression::try_from(arguments[0].clone())
-                                            .unwrap()
+                                        match FieldElementExpression::<T>::try_from(
+                                            arguments[0].clone(),
+                                        )
+                                        .unwrap()
                                         {
                                             FieldElementExpression::Number(num) => {
-                                                let mut num = num;
+                                                let mut acc = num.clone();
                                                 let mut res = vec![];
 
                                                 for i in (0..bit_width as usize).rev() {
-                                                    if T::from(2).pow(i) <= num {
-                                                        num = num - T::from(2).pow(i);
+                                                    if T::from(2).pow(i) <= acc {
+                                                        acc = acc - T::from(2).pow(i);
                                                         res.push(true);
                                                     } else {
                                                         res.push(false);
                                                     }
                                                 }
-                                                assert_eq!(num, T::zero());
 
-                                                Some(
-                                                    ArrayExpressionInner::Value(
-                                                        res.into_iter()
-                                                            .map(|v| {
-                                                                BooleanExpression::Value(v).into()
-                                                            })
-                                                            .collect::<Vec<_>>()
-                                                            .into(),
-                                                    )
-                                                    .annotate(Type::Boolean, bit_width)
-                                                    .into(),
-                                                )
+                                                if acc != T::zero() {
+                                                    Err(Error::ValueTooLarge(format!(
+                                                        "Cannot unpack `{}` to `{}`: value is too large",
+                                                        num, assignees.first().unwrap().get_type()
+                                                    )))
+                                                } else {
+                                                    Ok(Some(
+                                                        ArrayExpressionInner::Value(
+                                                            res.into_iter()
+                                                                .map(|v| {
+                                                                    BooleanExpression::Value(v)
+                                                                        .into()
+                                                                })
+                                                                .collect::<Vec<_>>()
+                                                                .into(),
+                                                        )
+                                                        .annotate(Type::Boolean, bit_width)
+                                                        .into(),
+                                                    ))
+                                                }
                                             }
                                             _ => unreachable!("should be a field value"),
                                         }
                                     }
                                     #[cfg(feature = "bellman")]
-                                    FlatEmbed::Sha256Round => None,
+                                    FlatEmbed::Sha256Round => Ok(None),
                                     #[cfg(feature = "ark")]
-                                    FlatEmbed::SnarkVerifyBls12377 => None,
-                                };
+                                    FlatEmbed::SnarkVerifyBls12377 => Ok(None),
+                                }?;
 
-                                match r {
+                                Ok(match r {
                                     // if the function call returns a constant
                                     Some(expr) => {
                                         let mut assignees = assignees;
@@ -497,9 +508,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                                 assignee, expr,
                                                             ),
                                                         ],
-                                                        None => vec![TypedStatement::Definition(
-                                                            assignee, expr,
-                                                        )],
+                                                        None => {
+                                                            vec![TypedStatement::Definition(
+                                                                assignee, expr,
+                                                            )]
+                                                        }
                                                     },
                                                 }
                                             }
@@ -537,7 +550,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                             )],
                                         }
                                     }
-                                }
+                                })
                             }
                             false => {
                                 // if the function arguments are not constant, invalidate the cache
@@ -562,7 +575,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     }
                                 });
 
-                                invalidations.chain(std::iter::once(def)).collect()
+                                Ok(invalidations.chain(std::iter::once(def)).collect())
                             }
                         }
                     }
@@ -604,9 +617,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             }
                         });
 
-                        invalidations.chain(std::iter::once(def)).collect()
+                        Ok(invalidations.chain(std::iter::once(def)).collect())
                     }
-                };
+                }?;
 
                 Ok(statements)
             }
