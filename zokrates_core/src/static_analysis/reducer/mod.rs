@@ -126,7 +126,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsBuilder<'ast, T> {
         // before we treat a symbol, propagate the constants into it
         let s = self.update_symbol_declaration(s);
 
-        fold_symbol_declaration(self, s)
+        let s = fold_symbol_declaration(self, s)?;
+
+        Ok(self.update_symbol_declaration(s))
     }
 
     fn fold_constant_symbol_declaration(
