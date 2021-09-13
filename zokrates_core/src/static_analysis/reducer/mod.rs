@@ -123,11 +123,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsBuilder<'ast, T> {
         &mut self,
         s: TypedSymbolDeclaration<'ast, T>,
     ) -> Result<TypedSymbolDeclaration<'ast, T>, Self::Error> {
-        // before we treat a symbol, propagate the constants into it
+        // before we treat the symbol, propagate the constants into it, as may be using constants defined earlier in this module.
         let s = self.update_symbol_declaration(s);
 
         let s = fold_symbol_declaration(self, s)?;
 
+        // after we treat the symbol, propagate again, as treating this symbol may have triggered checking another module, resolving new constants which this symbol may be using.
         Ok(self.update_symbol_declaration(s))
     }
 
