@@ -462,7 +462,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                         .cloned()
                         .ok_or_else(|| Error::OutOfBounds(v, e.len() as u128))
                         .map(|e| e.into_inner()),
-                    i => Ok(UExpressionInner::Select(e, box i.annotate(bitwidth))),
+                    i => Ok(UExpressionInner::Select(e, box i.annotate(UBitwidth::B32))),
                 }
             }
             UExpressionInner::Add(box e1, box e2) => {
