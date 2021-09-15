@@ -2225,7 +2225,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     )
                     .map_err(|(e1, e2)| ErrorInner {
                         pos: Some(pos),
-                        message: format!("{{consequence}} and {{alternative}} in `if/else` expression should have the same type, found {}, {}", e1.get_type(), e2.get_type()),
+                        message: format!("{{consequence}} and {{alternative}} in conditional expression should have the same type, found {}, {}", e1.get_type(), e2.get_type()),
                     })?;
 
                 match condition_checked {
@@ -2251,14 +2251,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             },
                             (c, a) => Err(ErrorInner {
                                 pos: Some(pos),
-                                message: format!("{{consequence}} and {{alternative}} in `if/else` expression should have the same type, found {}, {}", c.get_type(), a.get_type())
+                                message: format!("{{consequence}} and {{alternative}} in conditional expression should have the same type, found {}, {}", c.get_type(), a.get_type())
                             })
                         }
                     }
                     c => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "{{condition}} after `if` should be a boolean, found {}",
+                            "{{condition}} should be a boolean, found {}",
                             c.get_type()
                         ),
                     }),

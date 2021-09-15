@@ -38,6 +38,7 @@ mod ast {
     // based on https://docs.python.org/3/reference/expressions.html#operator-precedence
     fn build_precedence_climber() -> PrecClimber<Rule> {
         PrecClimber::new(vec![
+            Operator::new(Rule::op_ternary, Assoc::Right),
             Operator::new(Rule::op_or, Assoc::Left),
             Operator::new(Rule::op_and, Assoc::Left),
             Operator::new(Rule::op_lt, Assoc::Left)
@@ -89,6 +90,12 @@ mod ast {
             Rule::op_bit_or => Expression::binary(BinaryOperator::BitOr, lhs, rhs, span),
             Rule::op_right_shift => Expression::binary(BinaryOperator::RightShift, lhs, rhs, span),
             Rule::op_left_shift => Expression::binary(BinaryOperator::LeftShift, lhs, rhs, span),
+            Rule::op_ternary => dbg!(Expression::ternary(
+                lhs,
+                Box::new(Expression::from_pest(&mut pair.into_inner()).unwrap()),
+                rhs,
+                span,
+            )),
             _ => unreachable!(),
         })
     }

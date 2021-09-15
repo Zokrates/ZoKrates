@@ -154,8 +154,10 @@ op_neg = {"-"}
 op_pos = {"+"}
 op_left_shift = @{"<<"}
 op_right_shift = @{">>"}
+op_ternary = {"?" ~ expression ~ ":"}
+
 // `op_pow` is *not* in `op_binary` because its precedence is handled in this parser rather than down the line in precedence climbing
-op_binary = _ { op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div | op_rem }
+op_binary = _ { op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div | op_rem | op_ternary }
 op_unary = { op_pos | op_neg | op_not }
 
 WHITESPACE = _{ " " | "\t" | "\\" ~ COMMENT? ~ NEWLINE}
