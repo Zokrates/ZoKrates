@@ -90,12 +90,12 @@ mod ast {
             Rule::op_bit_or => Expression::binary(BinaryOperator::BitOr, lhs, rhs, span),
             Rule::op_right_shift => Expression::binary(BinaryOperator::RightShift, lhs, rhs, span),
             Rule::op_left_shift => Expression::binary(BinaryOperator::LeftShift, lhs, rhs, span),
-            Rule::op_ternary => dbg!(Expression::ternary(
+            Rule::op_ternary => Expression::ternary(
                 lhs,
                 Box::new(Expression::from_pest(&mut pair.into_inner()).unwrap()),
                 rhs,
                 span,
-            )),
+            ),
             _ => unreachable!(),
         })
     }
