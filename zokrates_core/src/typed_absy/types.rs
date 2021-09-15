@@ -57,7 +57,7 @@ impl<'ast, T> Types<'ast, T> {
     }
 }
 
-#[derive(Debug, Clone, Eq, Ord)]
+#[derive(Debug, Clone, Eq)]
 pub struct GenericIdentifier<'ast> {
     pub name: &'ast str,
     pub index: usize,
@@ -83,6 +83,12 @@ impl<'ast> PartialEq for GenericIdentifier<'ast> {
 impl<'ast> PartialOrd for GenericIdentifier<'ast> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.index.partial_cmp(&other.index)
+    }
+}
+
+impl<'ast> Ord for GenericIdentifier<'ast> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 
@@ -995,9 +1001,8 @@ pub fn specialize_declaration_type<
     Ok(match decl_ty {
         DeclarationType::Int => unreachable!(),
         DeclarationType::Array(t0) => {
-            // let s1 = t1.size.clone();
-
             let ty = box specialize_declaration_type(*t0.ty, &generics)?;
+
             let size = match t0.size {
                 DeclarationConstant::Generic(s) => generics.0.get(&s).cloned().ok_or(s),
                 DeclarationConstant::Concrete(s) => Ok(s.into()),
@@ -1009,37 +1014,63 @@ pub fn specialize_declaration_type<
         DeclarationType::FieldElement => GType::FieldElement,
         DeclarationType::Boolean => GType::Boolean,
         DeclarationType::Uint(b0) => GType::Uint(b0),
-        DeclarationType::Struct(s0) => GType::Struct(GStructType {
-            members: s0
-                .members
-                .into_iter()
-                .map(|m| {
-                    let id = m.id;
-                    specialize_declaration_type(*m.ty, generics)
-                        .map(|ty| GStructMember { ty: box ty, id })
-                })
-                .collect::<Result<_, _>>()?,
-            generics: s0
-                .generics
-                .into_iter()
-                .map(|g| match g {
-                    Some(constant) => match constant {
-                        DeclarationConstant::Generic(s) => {
-                            generics.0.get(&s).cloned().ok_or(s).map(Some)
-                        }
-                        DeclarationConstant::Concrete(s) => Ok(Some(s.into())),
-                        DeclarationConstant::Constant(..) => {
-                            unreachable!(
-                                "identifiers should have been removed in constant inlining"
-                            )
-                        }
-                    },
-                    _ => Ok(None),
-                })
-                .collect::<Result<_, _>>()?,
-            canonical_location: s0.canonical_location,
-            location: s0.location,
-        }),
+        DeclarationType::Struct(s0) => {
+            // here we specialize Foo<Generics> {FooDef<InsideGenerics>} with some values for Generics
+            // we need to remap these values for InsideGenerics to then visit the members
+
+            let inside_generics = GGenericsAssignment(
+                s0.generics
+                    .clone()
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, g)| {
+                        (
+                            GenericIdentifier::with_name("dummy").index(index),
+                            g.map(|g| match g {
+                                DeclarationConstant::Generic(s) => {
+                                    generics.0.get(&s).cloned().unwrap()
+                                }
+                                DeclarationConstant::Concrete(s) => s.into(),
+                                DeclarationConstant::Constant(c) => c.into(),
+                            })
+                            .unwrap(),
+                        )
+                    })
+                    .collect(),
+            );
+
+            GType::Struct(GStructType {
+                members: s0
+                    .members
+                    .into_iter()
+                    .map(|m| {
+                        let id = m.id;
+                        specialize_declaration_type(*m.ty, &inside_generics)
+                            .map(|ty| GStructMember { ty: box ty, id })
+                    })
+                    .collect::<Result<_, _>>()?,
+                generics: s0
+                    .generics
+                    .into_iter()
+                    .map(|g| match g {
+                        Some(constant) => match constant {
+                            DeclarationConstant::Generic(s) => {
+                                generics.0.get(&s).cloned().ok_or(s).map(Some)
+                            }
+                            DeclarationConstant::Concrete(s) => Ok(Some(s.into())),
+                            DeclarationConstant::Constant(..) => {
+                                unreachable!(
+                                    "identifiers should have been removed in constant inlining"
+                                )
+                            }
+                        },
+                        _ => Ok(None),
+                    })
+                    .collect::<Result<_, _>>()?,
+                canonical_location: s0.canonical_location,
+                location: s0.location,
+            })
+        }
     })
 }
 

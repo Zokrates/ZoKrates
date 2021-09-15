@@ -247,6 +247,8 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     let typed_ast = Checker::check(compiled)
         .map_err(|errors| CompileErrors(errors.into_iter().map(CompileError::from).collect()))?;
 
+    log::trace!("\n{}", typed_ast);
+
     let main_module = typed_ast.main.clone();
 
     log::debug!("Run static analysis");

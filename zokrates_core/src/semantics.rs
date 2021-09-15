@@ -1600,24 +1600,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     _ => unreachable!("generic on declaration struct types must be generic identifiers")
                                 }));
 
-                                // generate actual type based on generic type and concrete generics
-                                let members = declared_struct_ty
-                                    .members
-                                    .into_iter()
-                                    .map(|m| {
-                                        Ok(DeclarationStructMember {
-                                            ty: box specialize_declaration_type(*m.ty, &assignment)
-                                                .unwrap(),
-                                            ..m
-                                        })
-                                    })
-                                    .collect::<Result<Vec<_>, _>>()?;
-
                                 Ok(DeclarationType::Struct(DeclarationStructType {
-                                    canonical_location: declared_struct_ty.canonical_location,
-                                    location: declared_struct_ty.location,
                                     generics: checked_generics,
-                                    members,
+                                    ..declared_struct_ty
                                 }))
                             }
                             false => Err(ErrorInner {
@@ -3113,10 +3098,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Some(ty) => Ok(ty),
                 }?;
 
-                let declared_struct_type = match ty {
+                let mut declared_struct_type = match ty {
                     DeclarationType::Struct(struct_type) => struct_type,
                     _ => unreachable!(),
                 };
+
+                declared_struct_type.generics = (0..declared_struct_type.generics.len())
+                    .map(|index| {
+                        Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name("DUMMY").index(index),
+                        ))
+                    })
+                    .collect();
 
                 // check that we provided the required number of values
                 if declared_struct_type.members_count() != inline_members.len() {
