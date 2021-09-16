@@ -1194,16 +1194,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 let e1 = self.fold_struct_expression(e1)?;
                 let e2 = self.fold_struct_expression(e2)?;
 
-                if let (Ok(t1), Ok(t2)) = (
-                    ConcreteType::try_from(e1.get_type()),
-                    ConcreteType::try_from(e2.get_type()),
-                ) {
-                    if t1 != t2 {
-                        return Err(Error::Type(format!(
-                            "Cannot compare {} of type {} to {} of type {}",
-                            e1, t1, e2, t2
-                        )));
-                    }
+                let t1 = e1.get_type();
+                let t2 = e2.get_type();
+
+                if t1 != t2 {
+                    return Err(Error::Type(format!(
+                        "Cannot compare {} of type {} to {} of type {}",
+                        e1, t1, e2, t2
+                    )));
                 };
 
                 Ok(BooleanExpression::StructEq(box e1, box e2))

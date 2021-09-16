@@ -6,7 +6,7 @@
 
 use crate::absy::Identifier;
 use crate::absy::*;
-use crate::typed_absy::types::GGenericsAssignment;
+use crate::typed_absy::types::{GGenericsAssignment, GenericsAssignment};
 use crate::typed_absy::*;
 use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
 use num_bigint::BigUint;
@@ -1032,17 +1032,28 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         match self.check_signature(funct.signature, module_id, state) {
             Ok(s) => {
+                // initialise generics map
+                let mut generics: GenericsAssignment<'ast, T> = GGenericsAssignment::default();
+
                 // define variables for the constants
                 for generic in &s.generics {
-                    let generic = generic.clone().unwrap(); // for declaration signatures, generics cannot be ignored
+                    let generic = match generic.clone().unwrap() {
+                        DeclarationConstant::Generic(g) => g,
+                        _ => unreachable!(),
+                    };
+
+                    // for declaration signatures, generics cannot be ignored
 
                     let v = Variable::with_id_and_type(
-                        match generic {
-                            DeclarationConstant::Generic(g) => g.name,
-                            _ => unreachable!(),
-                        },
+                        generic.name.clone(),
                         Type::Uint(UBitwidth::B32),
                     );
+
+                    generics.0.insert(
+                        generic.clone(),
+                        UExpressionInner::Identifier(generic.name.into()).annotate(UBitwidth::B32),
+                    );
+
                     // we don't have to check for conflicts here, because this was done when checking the signature
                     self.insert_into_scope(v.clone());
                 }
@@ -1055,9 +1066,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v =
                         DeclarationVariable::with_id_and_type(arg.id.value.id, decl_ty.clone());
 
-                    match self.insert_into_scope(
-                        crate::typed_absy::variable::try_from_g_variable(decl_v.clone()).unwrap(),
-                    ) {
+                    let ty = specialize_declaration_type(decl_v.clone()._type, &generics).unwrap();
+
+                    match self.insert_into_scope(crate::typed_absy::variable::Variable {
+                        id: decl_v.clone().id,
+                        _type: ty,
+                    }) {
                         true => {}
                         false => {
                             errors.push(ErrorInner {

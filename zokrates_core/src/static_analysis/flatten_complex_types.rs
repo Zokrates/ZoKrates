@@ -1125,6 +1125,8 @@ fn fold_struct_expression<'ast, T: Field>(
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed_absy::StructExpression<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
+    println!("{:#?}", e.ty());
+
     f.fold_struct_expression_inner(
         statements_buffer,
         &typed_absy::types::ConcreteStructType::try_from(e.ty().clone()).unwrap(),

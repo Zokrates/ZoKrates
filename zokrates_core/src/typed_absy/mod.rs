@@ -663,7 +663,19 @@ impl<'ast, T: fmt::Display> fmt::Display for StructExpression<'ast, T> {
             StructExpressionInner::IfElse(ref c) => write!(f, "{}", c),
             StructExpressionInner::Member(ref m) => write!(f, "{}", m),
             StructExpressionInner::Select(ref select) => write!(f, "{}", select),
-        }
+        }?;
+
+        write!(
+            f,
+            "/* {} {{{}}} */",
+            self.ty,
+            self.ty
+                .members
+                .iter()
+                .map(|m| format!("{}: {}", m.id, m.ty))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
 

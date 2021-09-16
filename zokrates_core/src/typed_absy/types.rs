@@ -371,8 +371,7 @@ impl<'ast, S, R: PartialEq<S>> PartialEq<GStructType<S>> for GStructType<R> {
                 .zip(other.generics.iter())
                 .all(|(a, b)| match (a, b) {
                     (Some(a), Some(b)) => a == b,
-                    (None, None) => true,
-                    _ => false,
+                    _ => true,
                 })
     }
 }
