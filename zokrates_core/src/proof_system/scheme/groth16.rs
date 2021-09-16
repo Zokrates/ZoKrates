@@ -1,5 +1,5 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::{SOLIDITY_PAIRING_LIB_SANS_BN256G2};
+use crate::proof_system::solidity::SOLIDITY_PAIRING_LIB_SANS_BN256G2;
 use crate::proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -122,10 +122,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
         let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
         template_text = re.replace_all(&template_text, "uint256($v)").to_string();
 
-        format!(
-            "{}{}",
-            solidity_pairing_lib_sans_bn256g2, template_text
-        )
+        format!("{}{}", solidity_pairing_lib_sans_bn256g2, template_text)
     }
 }
 
