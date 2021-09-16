@@ -1,6 +1,6 @@
 {
   "entry_point": "./tests/tests/ternary.zok",
-  "max_constraint_count": 4,
+  "max_constraint_count": 6,
   "tests": [
     {
       "input": {
