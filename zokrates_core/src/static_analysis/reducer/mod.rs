@@ -12,6 +12,7 @@
 // - inline function calls. This includes applying shallow-ssa on the target function
 
 mod constants_reader;
+mod constants_writer;
 mod inline;
 mod shallow_ssa;
 
@@ -21,20 +22,19 @@ use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::CanonicalConstantIdentifier;
 use crate::typed_absy::Folder;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::typed_absy::{
-    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, DeclarationSignature, Expr,
-    FunctionCall, FunctionCallExpression, FunctionCallOrExpression, Id, Identifier,
-    OwnedTypedModuleId, TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration,
+    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
+    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId,
     TypedExpression, TypedExpressionList, TypedExpressionListInner, TypedFunction,
-    TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedModuleId, TypedProgram,
-    TypedStatement, TypedSymbolDeclaration, UExpression, UExpressionInner, Variable,
+    TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedProgram, TypedStatement,
+    UExpression, UExpressionInner, Variable,
 };
 
 use zokrates_field::Field;
 
-use self::constants_reader::ConstantsReader;
+use self::constants_writer::ConstantsWriter;
 use self::shallow_ssa::ShallowTransformer;
 
 use crate::static_analysis::propagation::{Constants, Propagator};
@@ -44,160 +44,8 @@ use std::fmt;
 const MAX_FOR_LOOP_SIZE: u128 = 2u128.pow(20);
 
 // A map to register the canonical value of all constants. The values must be literals.
-type ConstantDefinitions<'ast, T> =
+pub type ConstantDefinitions<'ast, T> =
     HashMap<CanonicalConstantIdentifier<'ast>, TypedExpression<'ast, T>>;
-
-// A folder to inline all constant definitions down to a single litteral. Also register them in the state for later use.
-struct ConstantsBuilder<'ast, T> {
-    treated: HashSet<OwnedTypedModuleId>,
-    constants: ConstantDefinitions<'ast, T>,
-    location: OwnedTypedModuleId,
-    program: TypedProgram<'ast, T>,
-}
-
-impl<'ast, T: Field> ConstantsBuilder<'ast, T> {
-    fn with_program(program: TypedProgram<'ast, T>) -> Self {
-        ConstantsBuilder {
-            constants: ConstantDefinitions::default(),
-            location: program.main.clone(),
-            treated: HashSet::default(),
-            program,
-        }
-    }
-
-    fn change_location(&mut self, location: OwnedTypedModuleId) -> OwnedTypedModuleId {
-        let prev = self.location.clone();
-        self.location = location;
-        self.treated.insert(self.location.clone());
-        prev
-    }
-
-    fn treated(&self, id: &TypedModuleId) -> bool {
-        self.treated.contains(id)
-    }
-
-    fn update_program(&mut self) {
-        let mut p = TypedProgram {
-            main: "".into(),
-            modules: BTreeMap::default(),
-        };
-        std::mem::swap(&mut self.program, &mut p);
-        let mut reader = ConstantsReader::with_constants(&self.constants);
-        self.program = reader.fold_program(p);
-    }
-
-    fn update_symbol_declaration(
-        &self,
-        s: TypedSymbolDeclaration<'ast, T>,
-    ) -> TypedSymbolDeclaration<'ast, T> {
-        let mut reader = ConstantsReader::with_constants(&self.constants);
-        reader.fold_symbol_declaration(s)
-    }
-}
-
-impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsBuilder<'ast, T> {
-    type Error = Error;
-
-    fn fold_module_id(
-        &mut self,
-        id: OwnedTypedModuleId,
-    ) -> Result<OwnedTypedModuleId, Self::Error> {
-        // anytime we encounter a module id, visit the corresponding module if it hasn't been done yet
-        if !self.treated(&id) {
-            let current_m_id = self.change_location(id.clone());
-            // I did not find a way to achieve this without cloning the module. Assuming we do not clone:
-            // to fold the module, we need to consume it, so it gets removed from the modules
-            // but to inline the calls while folding the module, all modules must be present
-            // therefore we clone...
-            // this does not lead to a module being folded more than once, as the first time
-            // we change location to this module, it's added to the `treated` set
-            let m = self.program.modules.get(&id).cloned().unwrap();
-            let m = self.fold_module(m)?;
-            self.program.modules.insert(id.clone(), m);
-            self.change_location(current_m_id);
-        }
-        Ok(id)
-    }
-
-    fn fold_symbol_declaration(
-        &mut self,
-        s: TypedSymbolDeclaration<'ast, T>,
-    ) -> Result<TypedSymbolDeclaration<'ast, T>, Self::Error> {
-        // before we treat the symbol, propagate the constants into it, as may be using constants defined earlier in this module.
-        let s = self.update_symbol_declaration(s);
-
-        let s = fold_symbol_declaration(self, s)?;
-
-        // after we treat the symbol, propagate again, as treating this symbol may have triggered checking another module, resolving new constants which this symbol may be using.
-        Ok(self.update_symbol_declaration(s))
-    }
-
-    fn fold_constant_symbol_declaration(
-        &mut self,
-        d: TypedConstantSymbolDeclaration<'ast, T>,
-    ) -> Result<TypedConstantSymbolDeclaration<'ast, T>, Self::Error> {
-        let id = self.fold_canonical_constant_identifier(d.id)?;
-
-        match d.symbol {
-            TypedConstantSymbol::Here(c) => {
-                let c = self.fold_constant(c)?;
-
-                // wrap this expression in a function
-                let wrapper = TypedFunction {
-                    arguments: vec![],
-                    statements: vec![TypedStatement::Return(vec![c.expression])],
-                    signature: DeclarationSignature::new().outputs(vec![c.ty.clone()]),
-                };
-
-                let mut inlined_wrapper = reduce_function(
-                    wrapper,
-                    ConcreteGenericsAssignment::default(),
-                    &self.program,
-                )?;
-
-                if let TypedStatement::Return(mut expressions) =
-                    inlined_wrapper.statements.pop().unwrap()
-                {
-                    assert_eq!(expressions.len(), 1);
-                    let constant_expression = expressions.pop().unwrap();
-
-                    use crate::typed_absy::Constant;
-                    if !constant_expression.is_constant() {
-                        return Err(Error::ConstantReduction(id.id.to_string(), id.module));
-                    };
-
-                    use crate::typed_absy::Typed;
-                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(
-                        c.ty.clone(),
-                    )
-                    .unwrap()
-                        == constant_expression.get_type()
-                    {
-                        // add to the constant map
-                        self.constants
-                            .insert(id.clone(), constant_expression.clone());
-
-                        // after we reduced a constant, propagate it through the whole program
-                        self.update_program();
-
-                        Ok(TypedConstantSymbolDeclaration {
-                            id,
-                            symbol: TypedConstantSymbol::Here(TypedConstant {
-                                expression: constant_expression,
-                                ty: c.ty,
-                            }),
-                        })
-                    } else {
-                        Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant_expression.get_type(), id, c.ty)))
-                    }
-                } else {
-                    Err(Error::ConstantReduction(id.id.to_string(), id.module))
-                }
-            }
-            _ => unreachable!("all constants should be local"),
-        }
-    }
-}
 
 // An SSA version map, giving access to the latest version number for each identifier
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
@@ -662,9 +510,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
     // inline all constants and replace them in the  program
 
-    let mut constant_calls_inliner = ConstantsBuilder::with_program(p.clone());
+    let mut constants_writer = ConstantsWriter::with_program(p.clone());
 
-    let p = constant_calls_inliner.fold_program(p)?;
+    let p = constants_writer.fold_program(p)?;
 
     // inline starting from main
     let main_module = p.modules.get(&p.main).unwrap().clone();
@@ -688,12 +536,11 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
                 modules: vec![(
                     p.main.clone(),
                     TypedModule {
-                        symbols: vec![TypedSymbolDeclaration::Function(
-                            TypedFunctionSymbolDeclaration {
-                                key: decl.key.clone(),
-                                symbol: TypedFunctionSymbol::Here(main_function),
-                            },
-                        )],
+                        symbols: vec![TypedFunctionSymbolDeclaration::new(
+                            decl.key.clone(),
+                            TypedFunctionSymbol::Here(main_function),
+                        )
+                        .into()],
                     },
                 )]
                 .into_iter()

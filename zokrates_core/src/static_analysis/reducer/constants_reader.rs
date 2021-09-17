@@ -1,8 +1,11 @@
+// given a (partial) map of values for program constants, replace where applicable constants by their value
+
 use crate::static_analysis::reducer::ConstantDefinitions;
 use crate::typed_absy::{
     folder::*, ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
     DeclarationConstant, Expr, FieldElementExpression, Identifier, StructExpression,
-    StructExpressionInner, StructType, UBitwidth, UExpression, UExpressionInner,
+    StructExpressionInner, StructType, TypedProgram, TypedSymbolDeclaration, UBitwidth,
+    UExpression, UExpressionInner,
 };
 use zokrates_field::Field;
 
@@ -12,9 +15,20 @@ pub struct ConstantsReader<'a, 'ast, T> {
     constants: &'a ConstantDefinitions<'ast, T>,
 }
 
-impl<'a, 'ast, T> ConstantsReader<'a, 'ast, T> {
+impl<'a, 'ast, T: Field> ConstantsReader<'a, 'ast, T> {
     pub fn with_constants(constants: &'a ConstantDefinitions<'ast, T>) -> Self {
         Self { constants }
+    }
+
+    pub fn read_into_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        self.fold_program(p)
+    }
+
+    pub fn read_into_symbol_declaration(
+        &mut self,
+        d: TypedSymbolDeclaration<'ast, T>,
+    ) -> TypedSymbolDeclaration<'ast, T> {
+        self.fold_symbol_declaration(d)
     }
 }
 
@@ -37,7 +51,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                     }),
                 }
             }
-            e => crate::typed_absy::folder::fold_field_expression(self, e),
+            e => fold_field_expression(self, e),
         }
     }
 
@@ -59,7 +73,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                     }),
                 }
             }
-            e => crate::typed_absy::folder::fold_boolean_expression(self, e),
+            e => fold_boolean_expression(self, e),
         }
     }
 
@@ -83,7 +97,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                     }),
                 }
             }
-            e => crate::typed_absy::folder::fold_uint_expression_inner(self, ty, e),
+            e => fold_uint_expression_inner(self, ty, e),
         }
     }
 
@@ -106,7 +120,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                     }),
                 }
             }
-            e => crate::typed_absy::folder::fold_array_expression_inner(self, ty, e),
+            e => fold_array_expression_inner(self, ty, e),
         }
     }
 
@@ -129,7 +143,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                     }),
                 }
             }
-            e => crate::typed_absy::folder::fold_struct_expression_inner(self, ty, e),
+            e => fold_struct_expression_inner(self, ty, e),
         }
     }
 
@@ -149,7 +163,7 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                     None => DeclarationConstant::Constant(c),
                 }
             }
-            c => crate::typed_absy::folder::fold_declaration_constant(self, c),
+            c => fold_declaration_constant(self, c),
         }
     }
 }

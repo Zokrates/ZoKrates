@@ -268,7 +268,13 @@ pub struct ScopedIdentifier<'ast> {
 
 impl<'ast> ScopedIdentifier<'ast> {
     fn is_constant(&self) -> bool {
-        self.level == 0
+        let res = self.level == 0;
+
+        // currently this is encoded twice: in the level and in the identifier itself.
+        // we add a sanity check to make sure the two agree
+        assert_eq!(res, matches!(self.id, CoreIdentifier::Constant(..)));
+
+        res
     }
 }
 
@@ -577,15 +583,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 .in_file(module_id),
                             ),
                             true => {
-                                symbols.push(TypedSymbolDeclaration::Constant(
-                                    TypedConstantSymbolDeclaration {
-                                        id: CanonicalConstantIdentifier::new(
+                                symbols.push(
+                                    TypedConstantSymbolDeclaration::new(
+                                        CanonicalConstantIdentifier::new(
                                             declaration.id,
                                             module_id.into(),
                                         ),
-                                        symbol: TypedConstantSymbol::Here(c.clone()),
-                                    },
-                                ));
+                                        TypedConstantSymbol::Here(c.clone()),
+                                    )
+                                    .into(),
+                                );
                                 self.insert_into_scope(Variable::with_id_and_type(
                                     CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
                                         declaration.id,
@@ -633,16 +640,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             )
                             .signature(funct.signature.clone()),
                         );
-                        symbols.push(TypedSymbolDeclaration::Function(
-                            TypedFunctionSymbolDeclaration {
-                                key: DeclarationFunctionKey::with_location(
+                        symbols.push(
+                            TypedFunctionSymbolDeclaration::new(
+                                DeclarationFunctionKey::with_location(
                                     module_id.to_path_buf(),
                                     declaration.id,
                                 )
                                 .signature(funct.signature.clone()),
-                                symbol: TypedFunctionSymbol::Here(funct),
-                            },
-                        ));
+                                TypedFunctionSymbol::Here(funct),
+                            )
+                            .into(),
+                        );
                     }
                     Err(e) => {
                         errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));
@@ -740,10 +748,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id);
                                         let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into());
 
-                                        symbols.push(TypedSymbolDeclaration::Constant(TypedConstantSymbolDeclaration {
-                                            id: id.clone(),
-                                            symbol: TypedConstantSymbol::There(imported_id)
-                                        }));
+                                        symbols.push(TypedConstantSymbolDeclaration::new(
+                                            id.clone(),
+                                            TypedConstantSymbol::There(imported_id)
+                                        ).into());
                                         self.insert_into_scope(Variable::with_id_and_type(CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
                                             declaration.id,
                                             module_id.into(),
@@ -787,11 +795,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                                     self.functions.insert(local_key.clone());
                                     symbols.push(
-                                        TypedSymbolDeclaration::Function(TypedFunctionSymbolDeclaration {
-                                            key: local_key,
-                                            symbol: TypedFunctionSymbol::There(candidate,
+                                        TypedFunctionSymbolDeclaration::new(
+                                            local_key,
+                                            TypedFunctionSymbol::There(candidate,
                                             ),
-                                        })
+                                        ).into()
                                     );
                                 }
                             }
@@ -823,16 +831,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     DeclarationFunctionKey::with_location(module_id.to_path_buf(), declaration.id)
                         .signature(funct.typed_signature()),
                 );
-                symbols.push(TypedSymbolDeclaration::Function(
-                    TypedFunctionSymbolDeclaration {
-                        key: DeclarationFunctionKey::with_location(
+                symbols.push(
+                    TypedFunctionSymbolDeclaration::new(
+                        DeclarationFunctionKey::with_location(
                             module_id.to_path_buf(),
                             declaration.id,
                         )
                         .signature(funct.typed_signature()),
-                        symbol: TypedFunctionSymbol::Flat(funct),
-                    },
-                ));
+                        TypedFunctionSymbol::Flat(funct),
+                    )
+                    .into(),
+                );
             }
             _ => unreachable!(),
         };
@@ -896,9 +905,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
     fn check_single_main(module: &TypedModule<T>) -> Result<(), ErrorInner> {
         match module
-            .symbols
-            .iter()
-            .filter(|s| matches!(s, TypedSymbolDeclaration::Function(d) if d.key.id == "main"))
+            .functions_iter()
+            .filter(|d| d.key.id == "main")
             .count()
         {
             1 => Ok(()),
