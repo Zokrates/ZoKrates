@@ -52,6 +52,7 @@ For loops are available with the following syntax:
 ```
 
 The bounds have to be constant at compile-time, therefore they cannot depend on execution inputs. They can depend on generic parameters.
+The range is half-open, meaning it is bounded inclusively below and exclusively above. The range `start..end` contains all values within `start <= x < end`. The range is empty if `start >= end`.
 
 > For loops are only syntactic sugar for repeating a block of statements many times. No condition of the type `index < max` is being checked at run-time after each iteration. Instead, at compile-time, the index is incremented and the block is executed again. Therefore, assigning to the loop index does not have any influence on the number of iterations performed and is considered bad practice.
 
