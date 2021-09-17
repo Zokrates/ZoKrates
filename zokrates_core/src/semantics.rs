@@ -1044,10 +1044,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     // for declaration signatures, generics cannot be ignored
 
-                    let v = Variable::with_id_and_type(
-                        generic.name.clone(),
-                        Type::Uint(UBitwidth::B32),
-                    );
+                    let v = Variable::with_id_and_type(generic.name, Type::Uint(UBitwidth::B32));
 
                     generics.0.insert(
                         generic.clone(),
