@@ -1,7 +1,7 @@
 {
     "entry_point": "./tests/tests/panics/loop_bound.zok",
     "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"tests": [
+    "tests": [
         {
             "input": {
                 "values": [
@@ -9,15 +9,15 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "0",
-						"right": "1",
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "0",
+                        "right": "1",
                         "error": {
                           "Source": "Assertion failed at ./tests/tests/panics/loop_bound.zok:2:3"
                         }
-					}
-				}
+                    }
+                }
             }
         },
         {
@@ -27,9 +27,9 @@
                 ]
             },
             "output": {
-				"Ok": {
-					"values": [] 
-				}
+                "Ok": {
+                    "values": [] 
+                }
             }
         }
     ]

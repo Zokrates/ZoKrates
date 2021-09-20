@@ -1,7 +1,7 @@
 {
     "entry_point": "./tests/tests/panics/internal_panic.zok",
     "curves": ["Bn128"],
-	"tests": [
+    "tests": [
         {
             "input": {
                 "values": [
@@ -9,9 +9,9 @@
                 ]
             },
             "output": {
-				"Ok": {
-					"values": ["1"] 
-				}
+                "Ok": {
+                    "values": ["1"] 
+                }
             }
         },
         {
@@ -21,13 +21,13 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "0",
-						"right": "1",
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "0",
+                        "right": "1",
                         "error": "Inverse"
-					}
-				}
+                    }
+                }
             }
         }
     ]

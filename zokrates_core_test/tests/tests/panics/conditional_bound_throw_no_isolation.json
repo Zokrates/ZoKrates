@@ -1,7 +1,7 @@
 {
     "entry_point": "./tests/tests/panics/conditional_bound_throw.zok",
     "curves": ["Bn128"],
-	"tests": [
+    "tests": [
         {
             "input": {
                 "values": [
@@ -9,15 +9,15 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "0",
-						"right": "1",
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "0",
+                        "right": "1",
                         "error": {
                           "Source": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
                         }
-					}
-				}
+                    }
+                }
             }
         },
         {
@@ -27,15 +27,15 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "1",
-						"right": "0",
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "1",
+                        "right": "0",
                         "error": {
                           "Source": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
                         }
-					}
-				}
+                    }
+                }
             }
         },
         {
@@ -45,15 +45,15 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "2",
-						"right": "0",
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "2",
+                        "right": "0",
                         "error": {
                           "Source": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
                         }
-					}
-				}
+                    }
+                }
             }
         }
     ]

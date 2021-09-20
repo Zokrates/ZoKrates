@@ -5,7 +5,7 @@
         "isolate_branches": false
     },
     "curves": ["Bn128"],
-	"tests": [
+    "tests": [
         {
             "input": {
                 "values": [
@@ -16,15 +16,15 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "1",
-						"right": "0",
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "1",
+                        "right": "0",
                         "error": {
                           "Source": "Assertion failed at ./tests/tests/panics/panic_isolation.zok:14:5"
                         }
-					}
-				}
+                    }
+                }
             }
         }
     ]
