@@ -11,7 +11,9 @@
 					"UnsatisfiedConstraint": {
 						"left": "0",
 						"right": "1",
-						"message": "User assertion failed"
+						"error": {
+							"Source": "Assertion failed at ./tests/tests/assert_one.zok:2:2"
+						}
 					}
 				}
 			}

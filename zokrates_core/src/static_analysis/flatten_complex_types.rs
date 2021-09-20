@@ -379,9 +379,9 @@ fn fold_statement<'ast, T: Field>(
         typed_absy::TypedStatement::Declaration(..) => {
             unreachable!()
         }
-        typed_absy::TypedStatement::Assertion(e) => {
+        typed_absy::TypedStatement::Assertion(e, m) => {
             let e = f.fold_boolean_expression(statements_buffer, e);
-            vec![zir::ZirStatement::Assertion(e)]
+            vec![zir::ZirStatement::Assertion(e, m)]
         }
         typed_absy::TypedStatement::For(..) => unreachable!(),
         typed_absy::TypedStatement::MultipleDefinition(variables, elist) => {

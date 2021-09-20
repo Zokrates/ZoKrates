@@ -21,6 +21,7 @@ use zokrates_field::Field;
 pub use self::folder::Folder;
 
 pub use self::identifier::{Identifier, SourceIdentifier};
+use crate::typed_absy::AssertionMetadata;
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug)]
@@ -87,7 +88,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirFunction<'ast, T> {
 pub type ZirAssignee<'ast> = Variable<'ast>;
 
 /// A statement in a `ZirFunction`
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum ZirStatement<'ast, T> {
     Return(Vec<ZirExpression<'ast, T>>),
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
@@ -96,35 +97,8 @@ pub enum ZirStatement<'ast, T> {
         Vec<ZirStatement<'ast, T>>,
         Vec<ZirStatement<'ast, T>>,
     ),
-    Assertion(BooleanExpression<'ast, T>),
+    Assertion(BooleanExpression<'ast, T>, Option<AssertionMetadata>),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
-}
-
-impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ZirStatement::Return(ref exprs) => {
-                write!(f, "Return(")?;
-                for (i, expr) in exprs.iter().enumerate() {
-                    write!(f, "{:?}", expr)?;
-                    if i < exprs.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ")")
-            }
-            ZirStatement::Definition(ref consequence, ref alternative) => {
-                write!(f, "Definition({:?}, {:?})", consequence, alternative)
-            }
-            ZirStatement::IfElse(ref condition, ref lhs, ref rhs) => {
-                write!(f, "IfElse({:?}, {:?}, {:?})", condition, lhs, rhs)
-            }
-            ZirStatement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
-            ZirStatement::MultipleDefinition(ref lhs, ref rhs) => {
-                write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
-            }
-        }
-    }
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
@@ -158,7 +132,15 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                         .join("\n")
                 )
             }
-            ZirStatement::Assertion(ref e) => write!(f, "assert({})", e),
+            ZirStatement::Assertion(ref e, ref metadata) => {
+                write!(f, "assert({}", e)?;
+                let metadata = metadata.as_ref().unwrap();
+                if metadata.message.is_some() {
+                    write!(f, ", \"{}\")", metadata.message.as_ref().unwrap())
+                } else {
+                    write!(f, ")")
+                }
+            }
             ZirStatement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
                     write!(f, "{}", id)?;

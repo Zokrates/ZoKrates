@@ -13,7 +13,7 @@ pub use ast::{
     CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber,
     DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
     FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
-    IdentifierExpression, ImportDirective, ImportSource, ImportSymbol, InlineArrayExpression,
+    IdentifierExpression, ImportDirective, ImportSymbol, InlineArrayExpression,
     InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression, Parameter,
     PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
     Statement, StructDefinition, StructField, SymbolDeclaration, TernaryExpression, ToExpression,
@@ -194,7 +194,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::main_import_directive))]
     pub struct MainImportDirective<'ast> {
-        pub source: ImportSource<'ast>,
+        pub source: AnyString<'ast>,
         pub alias: Option<IdentifierExpression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -212,17 +212,8 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::from_import_directive))]
     pub struct FromImportDirective<'ast> {
-        pub source: ImportSource<'ast>,
+        pub source: AnyString<'ast>,
         pub symbols: Vec<ImportSymbol<'ast>>,
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::import_source))]
-    pub struct ImportSource<'ast> {
-        #[pest_ast(outer(with(span_into_str)))]
-        pub value: String,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -358,9 +349,19 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::string))]
+    pub struct AnyString<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::expression_statement))]
     pub struct AssertionStatement<'ast> {
         pub expression: Expression<'ast>,
+        pub message: Option<AnyString<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -1076,7 +1077,7 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: ImportSource {
+                        source: AnyString {
                             value: String::from("foo"),
                             span: Span::new(&source, 8, 11).unwrap()
                         },
@@ -1137,7 +1138,7 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: ImportSource {
+                        source: AnyString {
                             value: String::from("foo"),
                             span: Span::new(&source, 8, 11).unwrap()
                         },
@@ -1222,7 +1223,7 @@ mod tests {
                 pragma: None,
                 declarations: vec![
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
-                        source: ImportSource {
+                        source: AnyString {
                             value: String::from("foo"),
                             span: Span::new(&source, 8, 11).unwrap()
                         },

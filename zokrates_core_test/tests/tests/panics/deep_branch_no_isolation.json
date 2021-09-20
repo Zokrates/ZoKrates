@@ -13,7 +13,9 @@
 					"UnsatisfiedConstraint": {
 						"left": "0",
 						"right": "1",
-                        "message": "User assertion failed"
+                        "error": {
+                          "Source": "Assertion failed at ./tests/tests/panics/deep_branch.zok:2:5"
+                        }
 					}
 				}
             }

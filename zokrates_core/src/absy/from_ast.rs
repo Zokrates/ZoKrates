@@ -346,8 +346,11 @@ impl<'ast> From<pest::AssertionStatement<'ast>> for absy::StatementNode<'ast> {
     fn from(statement: pest::AssertionStatement<'ast>) -> absy::StatementNode<'ast> {
         use crate::absy::NodeValue;
 
-        absy::Statement::Assertion(absy::ExpressionNode::from(statement.expression))
-            .span(statement.span)
+        absy::Statement::Assertion(
+            absy::ExpressionNode::from(statement.expression),
+            statement.message.map(|m| m.value),
+        )
+        .span(statement.span)
     }
 }
 

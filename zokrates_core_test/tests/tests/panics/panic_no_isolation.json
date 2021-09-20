@@ -20,7 +20,9 @@
 					"UnsatisfiedConstraint": {
 						"left": "1",
 						"right": "0",
-                        "message": "User assertion failed"
+                        "error": {
+                          "Source": "Assertion failed at ./tests/tests/panics/panic_isolation.zok:14:5"
+                        }
 					}
 				}
             }

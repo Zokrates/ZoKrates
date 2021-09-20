@@ -1700,13 +1700,20 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .map(|rhs| TypedStatement::Definition(var, rhs))
                 .map_err(|e| vec![e])
             }
-            Statement::Assertion(e) => {
+            Statement::Assertion(e, message) => {
                 let e = self
                     .check_expression(e, module_id, types)
                     .map_err(|e| vec![e])?;
 
                 match e {
-                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(e)),
+                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
+                        e,
+                        Some(AssertionMetadata {
+                            file: module_id.display().to_string(),
+                            position: pos.0,
+                            message,
+                        }),
+                    )),
                     e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
@@ -4523,6 +4530,7 @@ mod tests {
                     box Expression::FunctionCall("foo", None, vec![]).mock(),
                 )
                 .mock(),
+                None,
             )
             .mock(),
             Statement::Return(
@@ -4923,6 +4931,7 @@ mod tests {
                     box Expression::FunctionCall("foo", None, vec![]).mock(),
                 )
                 .mock(),
+                None,
             )
             .mock(),
             Statement::Return(

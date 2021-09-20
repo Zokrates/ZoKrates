@@ -3,13 +3,14 @@ file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ symbol_declaration* ~ EOI }
 
 pragma = { "#pragma" ~ "curve" ~ curve }
 curve = @{ (ASCII_ALPHANUMERIC | "_") * }
+string = @{(!"\"" ~ ANY)*}
+quoted_string = _{ "\"" ~ string ~ "\"" }
 
 symbol_declaration = { (import_directive | ty_struct_definition | const_definition | function_definition) ~ NEWLINE* }
 
 import_directive = { main_import_directive | from_import_directive }
-from_import_directive = { "from" ~ "\"" ~ import_source ~ "\"" ~ "import" ~ import_symbol_list ~ NEWLINE* }
-main_import_directive = { "import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+ }
-import_source = @{(!"\"" ~ ANY)*}
+from_import_directive = { "from" ~ quoted_string ~ "import" ~ import_symbol_list ~ NEWLINE* }
+main_import_directive = { "import" ~ quoted_string ~ ("as" ~ identifier)? ~ NEWLINE+ }
 import_symbol = { identifier ~ ("as" ~ identifier)? }
 import_symbol_list = _{ import_symbol ~ ("," ~ import_symbol)* }
 function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
@@ -55,7 +56,7 @@ statement = { (return_statement // does not require subsequent newline
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
 definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
-expression_statement = {"assert" ~ "(" ~ expression ~ ")"}
+expression_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")"}
 
 typed_identifier_or_assignee_list = _{ typed_identifier_or_assignee ~ ("," ~ typed_identifier_or_assignee)* }
 typed_identifier_or_assignee = { typed_identifier | assignee } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`

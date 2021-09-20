@@ -51,9 +51,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         s: ZirStatement<'ast, T>,
     ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
         match s {
-            ZirStatement::Assertion(e) => match self.fold_boolean_expression(e)? {
+            ZirStatement::Assertion(e, m) => match self.fold_boolean_expression(e)? {
                 BooleanExpression::Value(true) => Ok(vec![]),
-                e => Ok(vec![ZirStatement::Assertion(e)]),
+                e => Ok(vec![ZirStatement::Assertion(e, m)]),
             },
             ZirStatement::Definition(a, e) => {
                 let e = self.fold_expression(e)?;
@@ -659,16 +659,19 @@ mod tests {
     #[test]
     fn propagation() {
         // assert([x, 1] == [y, 1])
-        let statements = vec![ZirStatement::Assertion(BooleanExpression::And(
-            box BooleanExpression::FieldEq(
-                box FieldElementExpression::Identifier("x".into()),
-                box FieldElementExpression::Identifier("y".into()),
+        let statements = vec![ZirStatement::Assertion(
+            BooleanExpression::And(
+                box BooleanExpression::FieldEq(
+                    box FieldElementExpression::Identifier("x".into()),
+                    box FieldElementExpression::Identifier("y".into()),
+                ),
+                box BooleanExpression::FieldEq(
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                ),
             ),
-            box BooleanExpression::FieldEq(
-                box FieldElementExpression::Number(Bn128Field::from(1)),
-                box FieldElementExpression::Number(Bn128Field::from(1)),
-            ),
-        ))];
+            None,
+        )];
 
         let mut propagator = ZirPropagator::default();
         let statements: Vec<ZirStatement<_>> = statements
@@ -682,10 +685,13 @@ mod tests {
 
         assert_eq!(
             statements,
-            vec![ZirStatement::Assertion(BooleanExpression::FieldEq(
-                box FieldElementExpression::Identifier("x".into()),
-                box FieldElementExpression::Identifier("y".into()),
-            ))]
+            vec![ZirStatement::Assertion(
+                BooleanExpression::FieldEq(
+                    box FieldElementExpression::Identifier("x".into()),
+                    box FieldElementExpression::Identifier("y".into()),
+                ),
+                None
+            )]
         );
     }
 

@@ -13,7 +13,9 @@
 					"UnsatisfiedConstraint": {
 						"left": "0",
 						"right": "1",
-                        "message": "User assertion failed"
+                        "error": {
+                          "Source": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+                        }
 					}
 				}
             }
@@ -29,7 +31,9 @@
 					"UnsatisfiedConstraint": {
 						"left": "1",
 						"right": "0",
-                        "message": "User assertion failed"
+                        "error": {
+                          "Source": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+                        }
 					}
 				}
             }
@@ -45,7 +49,9 @@
 					"UnsatisfiedConstraint": {
 						"left": "2",
 						"right": "0",
-                        "message": "User assertion failed"
+                        "error": {
+                          "Source": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+                        }
 					}
 				}
             }

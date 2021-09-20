@@ -43,18 +43,18 @@ pub enum RuntimeError {
     Euclidean,
     ShaXor,
     Division,
-    Source,
+    Source(Option<String>),
     ArgumentBitness,
     SelectRangeCheck,
 }
 
 impl RuntimeError {
-    fn is_malicious(&self) -> bool {
+    pub(crate) fn is_malicious(&self) -> bool {
         use RuntimeError::*;
 
         !matches!(
             self,
-            Source | Inverse | LtSum | SelectRangeCheck | ArgumentBitness
+            Source(_) | Inverse | LtSum | SelectRangeCheck | ArgumentBitness
         )
     }
 }
@@ -87,19 +87,15 @@ impl fmt::Display for RuntimeError {
             Euclidean => "Euclidean check failed",
             ShaXor => "Internal Sha check failed",
             Division => "Division check failed",
-            Source => "User assertion failed",
+            Source(m) => m
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or("User assertion failed"),
             ArgumentBitness => "Argument bitness check failed",
             SelectRangeCheck => "Out of bounds array access",
         };
 
-        write!(f, "{}", msg)?;
-
-        if self.is_malicious() {
-            writeln!(f)?;
-            write!(f, "The default ZoKrates interpreter should not yield this error. Please open an issue")?;
-        }
-
-        write!(f, "")
+        write!(f, "{}", msg)
     }
 }
 

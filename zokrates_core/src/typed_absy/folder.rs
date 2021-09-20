@@ -416,7 +416,9 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
             TypedStatement::Definition(f.fold_assignee(a), f.fold_expression(e))
         }
         TypedStatement::Declaration(v) => TypedStatement::Declaration(f.fold_variable(v)),
-        TypedStatement::Assertion(e) => TypedStatement::Assertion(f.fold_boolean_expression(e)),
+        TypedStatement::Assertion(e, m) => {
+            TypedStatement::Assertion(f.fold_boolean_expression(e), m)
+        }
         TypedStatement::For(v, from, to, statements) => TypedStatement::For(
             f.fold_variable(v),
             f.fold_uint_expression(from),

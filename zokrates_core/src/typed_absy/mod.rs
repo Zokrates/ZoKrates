@@ -24,6 +24,7 @@ pub use self::types::{
     DeclarationStructType, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
     IntoTypes, Signature, StructType, Type, Types, UBitwidth,
 };
+use crate::parser::Position;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
@@ -485,6 +486,24 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Hash, Eq, Default)]
+pub struct AssertionMetadata {
+    pub file: String,
+    pub position: Position,
+    pub message: Option<String>,
+}
+
+impl fmt::Display for AssertionMetadata {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Assertion failed at {}:{}", self.file, self.position)?;
+        if self.message.is_some() {
+            write!(f, ": \"{}\"", self.message.as_ref().unwrap())
+        } else {
+            write!(f, "")
+        }
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
@@ -492,7 +511,7 @@ pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast, T>),
-    Assertion(BooleanExpression<'ast, T>),
+    Assertion(BooleanExpression<'ast, T>, Option<AssertionMetadata>),
     For(
         Variable<'ast, T>,
         UExpression<'ast, T>,
@@ -540,7 +559,15 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
+            TypedStatement::Assertion(ref e, ref metadata) => {
+                write!(f, "assert({}", e)?;
+                let metadata = metadata.as_ref().unwrap();
+                if metadata.message.is_some() {
+                    write!(f, ", \"{}\")", metadata.message.as_ref().unwrap())
+                } else {
+                    write!(f, ")")
+                }
+            }
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {

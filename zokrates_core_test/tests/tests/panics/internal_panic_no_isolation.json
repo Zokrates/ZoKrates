@@ -25,7 +25,7 @@
 					"UnsatisfiedConstraint": {
 						"left": "0",
 						"right": "1",
-                        "message": "Division by zero"
+                        "error": "Inverse"
 					}
 				}
             }

@@ -1,4 +1,5 @@
 use crate::flat_absy::flat_variable::FlatVariable;
+use crate::flat_absy::RuntimeError;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use crate::solvers::Solver;
 use serde::{Deserialize, Serialize};
@@ -44,7 +45,7 @@ impl Interpreter {
 
         for statement in program.statements.iter() {
             match statement {
-                Statement::Constraint(quad, lin, message) => match lin.is_assignee(&witness) {
+                Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
                     true => {
                         let val = quad.evaluate(&witness).unwrap();
                         witness.insert(lin.0.get(0).unwrap().0, val);
@@ -56,10 +57,7 @@ impl Interpreter {
                             return Err(Error::UnsatisfiedConstraint {
                                 left: lhs_value.to_dec_string(),
                                 right: rhs_value.to_dec_string(),
-                                message: message
-                                    .as_ref()
-                                    .map(|m| m.to_string())
-                                    .unwrap_or_else(|| "Unknown".to_string()),
+                                error: error.to_owned(),
                             });
                         }
                     }
@@ -285,7 +283,7 @@ pub enum Error {
     UnsatisfiedConstraint {
         left: String,
         right: String,
-        message: String,
+        error: Option<RuntimeError>,
     },
     Solver,
     WrongInputCount {
@@ -300,8 +298,28 @@ impl fmt::Display for Error {
             Error::UnsatisfiedConstraint {
                 ref left,
                 ref right,
-                ref message,
-            } => write!(f, "{}: expected {} to equal {}", message, left, right),
+                ref error,
+            } => {
+                write!(
+                    f,
+                    "{}",
+                    error
+                        .as_ref()
+                        .map(|m| m.to_string())
+                        .unwrap_or_else(|| format!(
+                            "Unsatisfied constraint: expected {} to equal {}",
+                            left, right
+                        ))
+                )?;
+
+                match error {
+                    Some(e) if e.is_malicious() => {
+                        writeln!(f)?;
+                        write!(f, "The default ZoKrates interpreter should not yield this error. Please open an issue.")
+                    }
+                    _ => write!(f, ""),
+                }
+            }
             Error::Solver => write!(f, ""),
             Error::WrongInputCount { expected, received } => write!(
                 f,
