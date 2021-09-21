@@ -59,18 +59,36 @@ impl<'ast, T> Types<'ast, T> {
 
 #[derive(Debug, Clone, Eq)]
 pub struct GenericIdentifier<'ast> {
-    pub name: &'ast str,
-    pub index: usize,
+    name: Option<&'ast str>,
+    index: usize,
 }
 
 impl<'ast> GenericIdentifier<'ast> {
-    pub fn with_name(name: &'ast str) -> Self {
-        Self { name, index: 0 }
+    pub fn without_name() -> Self {
+        Self {
+            name: None,
+            index: 0,
+        }
     }
 
-    pub fn index(mut self, index: usize) -> Self {
+    pub fn with_name(name: &'ast str) -> Self {
+        Self {
+            name: Some(name),
+            index: 0,
+        }
+    }
+
+    pub fn with_index(mut self, index: usize) -> Self {
         self.index = index;
         self
+    }
+
+    pub fn name(&self) -> &'ast str {
+        self.name.unwrap()
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
     }
 }
 
@@ -100,7 +118,7 @@ impl<'ast> Hash for GenericIdentifier<'ast> {
 
 impl<'ast> fmt::Display for GenericIdentifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{}", self.name())
     }
 }
 
@@ -210,7 +228,7 @@ impl<'ast, T> From<DeclarationConstant<'ast>> for UExpression<'ast, T> {
     fn from(c: DeclarationConstant<'ast>) -> Self {
         match c {
             DeclarationConstant::Generic(i) => {
-                UExpressionInner::Identifier(i.name.into()).annotate(UBitwidth::B32)
+                UExpressionInner::Identifier(i.name().into()).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
@@ -1031,7 +1049,7 @@ pub fn specialize_declaration_type<
                     .enumerate()
                     .map(|(index, g)| {
                         (
-                            GenericIdentifier::with_name("dummy").index(index),
+                            GenericIdentifier::without_name().with_index(index),
                             g.map(|g| g.map(generics).unwrap()).unwrap(),
                         )
                     })

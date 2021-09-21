@@ -14,24 +14,28 @@ use crate::typed_absy::{
     },
     DeclarationStructType, GenericIdentifier, TypedProgram,
 };
+use std::marker::PhantomData;
 use zokrates_field::Field;
 
-#[derive(Default)]
-pub struct StructConcretizer<'ast> {
+pub struct StructConcretizer<'ast, T> {
     generics: ConcreteGenericsAssignment<'ast>,
+    marker: PhantomData<T>,
 }
 
-impl<'ast> StructConcretizer<'ast> {
-    pub fn concretize<T: Field>(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        StructConcretizer::default().fold_program(p)
+impl<'ast, T: Field> StructConcretizer<'ast, T> {
+    pub fn concretize(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        StructConcretizer::with_generics(ConcreteGenericsAssignment::default()).fold_program(p)
     }
 
     pub fn with_generics(generics: ConcreteGenericsAssignment<'ast>) -> Self {
-        Self { generics }
+        Self {
+            generics,
+            marker: PhantomData,
+        }
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast> {
+impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast, T> {
     fn fold_declaration_struct_type(
         &mut self,
         ty: DeclarationStructType<'ast>,
@@ -47,11 +51,12 @@ impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast> {
             concrete_generics
                 .iter()
                 .enumerate()
-                .map(|(index, g)| (GenericIdentifier::with_name("DUMMY").index(index), *g))
+                .map(|(index, g)| (GenericIdentifier::without_name().with_index(index), *g))
                 .collect(),
         );
 
-        let mut internal_concretizer = StructConcretizer::with_generics(concrete_generics_map);
+        let mut internal_concretizer: StructConcretizer<'ast, T> =
+            StructConcretizer::with_generics(concrete_generics_map);
 
         DeclarationStructType {
             members: ty
@@ -60,10 +65,7 @@ impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast> {
                 .map(|member| {
                     DeclarationStructMember::new(
                         member.id,
-                        <StructConcretizer as Folder<'ast, T>>::fold_declaration_type(
-                            &mut internal_concretizer,
-                            *member.ty,
-                        ),
+                        internal_concretizer.fold_declaration_type(*member.ty),
                     )
                 })
                 .collect(),
@@ -79,15 +81,11 @@ impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast> {
         &mut self,
         ty: DeclarationArrayType<'ast>,
     ) -> DeclarationArrayType<'ast> {
-        let size = match ty.size {
-            DeclarationConstant::Generic(s) => self.generics.0.get(&s).cloned().unwrap() as u32,
-            DeclarationConstant::Concrete(s) => s,
-            DeclarationConstant::Constant(..) => unreachable!(),
-        };
+        let size = ty.size.map_concrete(&self.generics).unwrap();
 
         DeclarationArrayType {
             size: DeclarationConstant::Concrete(size),
-            ty: box <StructConcretizer as Folder<'ast, T>>::fold_declaration_type(self, *ty.ty),
+            ty: box self.fold_declaration_type(*ty.ty),
         }
     }
 }

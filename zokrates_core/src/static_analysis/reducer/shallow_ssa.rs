@@ -105,7 +105,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
             .map(|(g, v)| {
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::with_id_and_type(
-                        g.name,
+                        g.name(),
                         Type::Uint(UBitwidth::B32),
                     )),
                     UExpression::from(*v as u32).into(),

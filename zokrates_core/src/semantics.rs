@@ -382,10 +382,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
-                            name: g.value,
-                            index,
-                        })));
+                        generics.push(Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        )));
                     }
                     false => {
                         errors.push(ErrorInner {
@@ -515,10 +514,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
-                            name: g.value,
-                            index,
-                        })));
+                        generics.push(Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        )));
                     }
                     false => {
                         errors.push(ErrorInner {
@@ -1044,11 +1042,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     // for declaration signatures, generics cannot be ignored
 
-                    let v = Variable::with_id_and_type(generic.name, Type::Uint(UBitwidth::B32));
+                    let v = Variable::with_id_and_type(generic.name(), Type::Uint(UBitwidth::B32));
 
                     generics.0.insert(
                         generic.clone(),
-                        UExpressionInner::Identifier(generic.name.into()).annotate(UBitwidth::B32),
+                        UExpressionInner::Identifier(generic.name().into())
+                            .annotate(UBitwidth::B32),
                     );
 
                     // we don't have to check for conflicts here, because this was done when checking the signature
@@ -1191,10 +1190,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
-                            name: g.value,
-                            index,
-                        })));
+                        generics.push(Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        )));
                     }
                     false => {
                         errors.push(ErrorInner {
@@ -1482,7 +1480,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             })
                         }
                     }
-                    (None, Some(index)) => Ok(DeclarationConstant::Generic(GenericIdentifier { name, index: *index })),
+                    (None, Some(index)) => Ok(DeclarationConstant::Generic(GenericIdentifier::with_name(name).with_index(*index))),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Undeclared symbol `{}`", name)
@@ -3117,7 +3115,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 declared_struct_type.generics = (0..declared_struct_type.generics.len())
                     .map(|index| {
                         Some(DeclarationConstant::Generic(
-                            GenericIdentifier::with_name("DUMMY").index(index),
+                            GenericIdentifier::without_name().with_index(index),
                         ))
                     })
                     .collect();
@@ -3676,7 +3674,7 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into()
+                        GenericIdentifier::with_name("K").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
             ));
@@ -3685,11 +3683,11 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into()
+                        GenericIdentifier::with_name("K").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::FieldElement,
-                        GenericIdentifier::with_name("K").index(0)
+                        GenericIdentifier::with_name("K").with_index(0)
                     ))])
             ));
             // a `bar` function with an equivalent signature, just renaming generic parameters
@@ -3697,11 +3695,11 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("L").index(0).into()
+                        GenericIdentifier::with_name("L").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::FieldElement,
-                        GenericIdentifier::with_name("L").index(0)
+                        GenericIdentifier::with_name("L").with_index(0)
                     ))])
             ));
             // a `bar` type isn't allowed as the name is already taken by at least one function
@@ -4265,7 +4263,7 @@ mod tests {
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::array((
                             DeclarationType::FieldElement,
-                            GenericIdentifier::with_name("K").index(0)
+                            GenericIdentifier::with_name("K").with_index(0)
                         )),
                         GenericIdentifier::with_name("L").index(1)
                     ))])
@@ -4274,7 +4272,7 @@ mod tests {
                             DeclarationType::FieldElement,
                             GenericIdentifier::with_name("L").index(1)
                         )),
-                        GenericIdentifier::with_name("K").index(0)
+                        GenericIdentifier::with_name("K").with_index(0)
                     ))]))
             );
         }
