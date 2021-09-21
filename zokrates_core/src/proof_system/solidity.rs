@@ -407,7 +407,7 @@ library BN256G2 {
 "#;
 
 pub fn solidity_pairing_lib(with_g2_addition: bool) -> String {
-    let pairingLibBeginning = r#"// This file is MIT Licensed.
+    let pairing_lib_beginning = r#"// This file is MIT Licensed.
 //
 // Copyright 2017 Christian Reitwiessner
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -462,14 +462,14 @@ library Pairing {
     }
 "#;
 
-    let pairingLibG2Addition = r#"
+    let pairing_lib_g2_addition = r#"
     /// @return r the sum of two points of G2
     function addition(G2Point memory p1, G2Point memory p2) internal view returns (G2Point memory r) {
         (r.X[0], r.X[1], r.Y[0], r.Y[1]) = BN256G2.ECTwistAdd(p1.X[0],p1.X[1],p1.Y[0],p1.Y[1],p2.X[0],p2.X[1],p2.Y[0],p2.Y[1]);
     }
 "#;
 
-    let pairingLibEnding = r#"
+    let pairing_lib_ending = r#"
     /// @return r the product of a point on G1 and a scalar, i.e.
     /// p == p.scalar_mul(1) and p.addition(p) == p.scalar_mul(2) for all points p.
     function scalar_mul(G1Point memory p, uint s) internal view returns (G1Point memory r) {
@@ -561,10 +561,10 @@ library Pairing {
 }
 "#;
 
-    let pairingLib = if (!with_g2_addition) {
-        [pairingLibBeginning, pairingLibEnding].join("\n")
+    let pairing_lib = if !with_g2_addition {
+        [pairing_lib_beginning, pairing_lib_ending].join("\n")
     } else {
-        [pairingLibBeginning, pairingLibG2Addition, pairingLibEnding].join("\n")
+        [pairing_lib_beginning, pairing_lib_g2_addition, pairing_lib_ending].join("\n")
     };
-    return pairingLib;
+    return pairing_lib;
 }
