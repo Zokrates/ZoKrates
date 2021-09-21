@@ -231,12 +231,12 @@ mod tests {
                 ty: ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "Bar".into(),
-                    vec![Some(1usize)],
+                    vec![Some(1u32)],
                     vec![ConcreteStructMember::new(
                         String::from("a"),
                         ConcreteType::Array(ConcreteArrayType::new(
                             ConcreteType::FieldElement,
-                            1usize,
+                            1u32,
                         )),
                     )],
                 )),
@@ -400,7 +400,7 @@ mod tests {
                             ConcreteStructMember::new(String::from("c"), ConcreteType::Boolean),
                         ],
                     )),
-                    2usize,
+                    2u32,
                 )),
             }],
             outputs: vec![ConcreteType::Boolean],
@@ -454,8 +454,8 @@ mod tests {
                 name: String::from("a"),
                 public: false,
                 ty: ConcreteType::Array(ConcreteArrayType::new(
-                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2usize)),
-                    2usize,
+                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2u32)),
+                    2u32,
                 )),
             }],
             outputs: vec![ConcreteType::FieldElement],

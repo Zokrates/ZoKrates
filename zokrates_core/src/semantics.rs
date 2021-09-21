@@ -6,7 +6,7 @@
 
 use crate::absy::Identifier;
 use crate::absy::*;
-use crate::typed_absy::types::{try_from_g_type, GGenericsAssignment};
+use crate::typed_absy::types::{try_from_g_type, GGenericsAssignment, GenericsAssignment};
 use crate::typed_absy::*;
 use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
 use num_bigint::BigUint;
@@ -55,7 +55,7 @@ impl ErrorInner {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum TypeKind<'ast> {
     Canonical(DeclarationType<'ast>),
     Alias(
@@ -396,10 +396,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
-                            name: g.value,
-                            index,
-                        })));
+                        generics.push(Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        )));
                     }
                     false => {
                         errors.push(ErrorInner {
@@ -529,10 +528,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
-                            name: g.value,
-                            index,
-                        })));
+                        generics.push(Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        )));
                     }
                     false => {
                         errors.push(ErrorInner {
@@ -1050,17 +1048,26 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         match self.check_signature(funct.signature, module_id, state) {
             Ok(s) => {
+                // initialise generics map
+                let mut generics: GenericsAssignment<'ast, T> = GGenericsAssignment::default();
+
                 // define variables for the constants
                 for generic in &s.generics {
-                    let generic = generic.clone().unwrap(); // for declaration signatures, generics cannot be ignored
+                    let generic = match generic.clone().unwrap() {
+                        DeclarationConstant::Generic(g) => g,
+                        _ => unreachable!(),
+                    };
 
-                    let v = Variable::with_id_and_type(
-                        match generic {
-                            DeclarationConstant::Generic(g) => g.name,
-                            _ => unreachable!(),
-                        },
-                        Type::Uint(UBitwidth::B32),
+                    // for declaration signatures, generics cannot be ignored
+
+                    let v = Variable::with_id_and_type(generic.name(), Type::Uint(UBitwidth::B32));
+
+                    generics.0.insert(
+                        generic.clone(),
+                        UExpressionInner::Identifier(generic.name().into())
+                            .annotate(UBitwidth::B32),
                     );
+
                     // we don't have to check for conflicts here, because this was done when checking the signature
                     self.insert_into_scope(v.clone());
                 }
@@ -1073,9 +1080,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v =
                         DeclarationVariable::with_id_and_type(arg.id.value.id, decl_ty.clone());
 
-                    match self.insert_into_scope(
-                        crate::typed_absy::variable::try_from_g_variable(decl_v.clone()).unwrap(),
-                    ) {
+                    let ty = specialize_declaration_type(decl_v.clone()._type, &generics).unwrap();
+
+                    match self.insert_into_scope(crate::typed_absy::variable::Variable {
+                        id: decl_v.clone().id,
+                        _type: ty,
+                    }) {
                         true => {}
                         false => {
                             errors.push(ErrorInner {
@@ -1198,10 +1208,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
-                            name: g.value,
-                            index,
-                        })));
+                        generics.push(Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        )));
                     }
                     false => {
                         errors.push(ErrorInner {
@@ -1470,7 +1479,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             })
                         }
                     }
-                    (None, Some(index)) => Ok(DeclarationConstant::Generic(GenericIdentifier { name, index: *index })),
+                    (None, Some(index)) => Ok(DeclarationConstant::Generic(GenericIdentifier::with_name(name).with_index(*index))),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Undeclared symbol `{}`", name)
@@ -1567,24 +1576,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         }),
                                 );
 
-                                // generate actual type based on generic type and concrete generics
-                                let members = declared_struct_ty
-                                    .members
-                                    .into_iter()
-                                    .map(|m| {
-                                        Ok(DeclarationStructMember {
-                                            ty: box specialize_declaration_type(*m.ty, &assignment)
-                                                .unwrap(),
-                                            ..m
-                                        })
-                                    })
-                                    .collect::<Result<Vec<_>, _>>()?;
-
                                 Ok(DeclarationType::Struct(DeclarationStructType {
-                                    canonical_location: declared_struct_ty.canonical_location,
-                                    location: declared_struct_ty.location,
                                     generics: checked_generics,
-                                    members,
+                                    ..declared_struct_ty
                                 }))
                             }
                             false => Err(ErrorInner {
@@ -3110,11 +3104,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Some(ty) => Ok(ty),
                 }?;
 
-                let declared_struct_type = match ty {
+                let mut declared_struct_type = match ty {
                     TypeKind::Canonical(DeclarationType::Struct(struct_type))
                     | TypeKind::Alias(DeclarationType::Struct(struct_type), _) => struct_type,
                     _ => unreachable!(),
                 };
+
+                declared_struct_type.generics = (0..declared_struct_type.generics.len())
+                    .map(|index| {
+                        Some(DeclarationConstant::Generic(
+                            GenericIdentifier::without_name().with_index(index),
+                        ))
+                    })
+                    .collect();
 
                 // check that we provided the required number of values
                 if declared_struct_type.members_count() != inline_members.len() {
@@ -3670,7 +3672,7 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into()
+                        GenericIdentifier::with_name("K").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
             ));
@@ -3679,11 +3681,11 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into()
+                        GenericIdentifier::with_name("K").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::FieldElement,
-                        GenericIdentifier::with_name("K").index(0)
+                        GenericIdentifier::with_name("K").with_index(0)
                     ))])
             ));
             // a `bar` function with an equivalent signature, just renaming generic parameters
@@ -3691,11 +3693,11 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("L").index(0).into()
+                        GenericIdentifier::with_name("L").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::FieldElement,
-                        GenericIdentifier::with_name("L").index(0)
+                        GenericIdentifier::with_name("L").with_index(0)
                     ))])
             ));
             // a `bar` type isn't allowed as the name is already taken by at least one function
@@ -4259,16 +4261,16 @@ mod tests {
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::array((
                             DeclarationType::FieldElement,
-                            GenericIdentifier::with_name("K").index(0)
+                            GenericIdentifier::with_name("K").with_index(0)
                         )),
-                        GenericIdentifier::with_name("L").index(1)
+                        GenericIdentifier::with_name("L").with_index(1)
                     ))])
                     .outputs(vec![DeclarationType::array((
                         DeclarationType::array((
                             DeclarationType::FieldElement,
-                            GenericIdentifier::with_name("L").index(1)
+                            GenericIdentifier::with_name("L").with_index(1)
                         )),
-                        GenericIdentifier::with_name("K").index(0)
+                        GenericIdentifier::with_name("K").with_index(0)
                     ))]))
             );
         }
@@ -5677,9 +5679,8 @@ mod tests {
                         .get(&*MODULE_ID)
                         .unwrap()
                         .get(&"Bar".to_string())
-                        .map(|(ty, _)| ty)
                         .unwrap(),
-                    &DeclarationType::Struct(DeclarationStructType::new(
+                    &TypeKind::Canonical(DeclarationType::Struct(DeclarationStructType::new(
                         (*MODULE_ID).clone(),
                         "Bar".into(),
                         vec![],
@@ -5695,7 +5696,7 @@ mod tests {
                                 )]
                             ))
                         )]
-                    ))
+                    )))
                 );
             }
 
