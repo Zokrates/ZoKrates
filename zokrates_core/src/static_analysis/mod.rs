@@ -9,6 +9,7 @@ mod constant_argument_checker;
 mod constant_inliner;
 mod flat_propagation;
 mod flatten_complex_types;
+mod out_of_bounds;
 mod propagation;
 mod reducer;
 mod uint_optimizer;
@@ -19,6 +20,7 @@ mod zir_propagation;
 use self::branch_isolator::Isolator;
 use self::constant_argument_checker::ConstantArgumentChecker;
 use self::flatten_complex_types::Flattener;
+use self::out_of_bounds::OutOfBoundsChecker;
 use self::propagation::Propagator;
 use self::reducer::reduce_program;
 use self::uint_optimizer::UintOptimizer;
@@ -48,6 +50,7 @@ pub enum Error {
     NonConstantArgument(self::constant_argument_checker::Error),
     ConstantInliner(self::constant_inliner::Error),
     UnconstrainedVariable(self::unconstrained_vars::Error),
+    OutOfBounds(self::out_of_bounds::Error),
 }
 
 impl From<constant_inliner::Error> for Error {
@@ -74,6 +77,12 @@ impl From<zir_propagation::Error> for Error {
     }
 }
 
+impl From<out_of_bounds::Error> for Error {
+    fn from(e: out_of_bounds::Error) -> Self {
+        Error::OutOfBounds(e)
+    }
+}
+
 impl From<constant_argument_checker::Error> for Error {
     fn from(e: constant_argument_checker::Error) -> Self {
         Error::NonConstantArgument(e)
@@ -95,6 +104,7 @@ impl fmt::Display for Error {
             Error::NonConstantArgument(e) => write!(f, "{}", e),
             Error::ConstantInliner(e) => write!(f, "{}", e),
             Error::UnconstrainedVariable(e) => write!(f, "{}", e),
+            Error::OutOfBounds(e) => write!(f, "{}", e),
         }
     }
 }
@@ -139,6 +149,11 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // detect non constant shifts and constant lt bounds
         log::debug!("Static analyser: Detect non constant arguments");
         let r = ConstantArgumentChecker::check(r).map_err(Error::from)?;
+        log::trace!("\n{}", r);
+
+        // detect out of bounds reads and writes
+        log::debug!("Static analyser: Detect out of bound accesses");
+        let r = OutOfBoundsChecker::check(r).map_err(Error::from)?;
         log::trace!("\n{}", r);
 
         // convert to zir, removing complex types
