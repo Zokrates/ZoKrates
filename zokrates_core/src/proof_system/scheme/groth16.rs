@@ -1,5 +1,5 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::SOLIDITY_PAIRING_LIB_SANS_BN256G2;
+use crate::proof_system::solidity::solidity_pairing_lib;
 use crate::proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
     fn export_solidity_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
         let (mut template_text, solidity_pairing_lib_sans_bn256g2) = (
             String::from(CONTRACT_TEMPLATE),
-            String::from(SOLIDITY_PAIRING_LIB_SANS_BN256G2),
+            String::from(solidity_pairing_lib(false)),
         );
 
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();

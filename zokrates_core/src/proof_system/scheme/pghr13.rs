@@ -1,5 +1,5 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use crate::proof_system::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
 use crate::proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
     fn export_solidity_verifier(vk: <PGHR13 as Scheme<T>>::VerificationKey) -> String {
         let (mut template_text, solidity_pairing_lib) = (
             String::from(CONTRACT_TEMPLATE),
-            String::from(SOLIDITY_PAIRING_LIB),
+            String::from(solidity_pairing_lib(false)),
         );
 
         // replace things in template

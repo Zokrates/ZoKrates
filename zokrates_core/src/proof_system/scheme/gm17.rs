@@ -1,5 +1,5 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use crate::proof_system::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
 use crate::proof_system::{
     G1Affine, G2Affine, G2AffineFq, SolidityCompatibleField, SolidityCompatibleScheme,
 };
@@ -50,7 +50,7 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
     fn export_solidity_verifier(vk: <GM17 as Scheme<T>>::VerificationKey) -> String {
         let (mut template_text, solidity_pairing_lib) = (
             String::from(CONTRACT_TEMPLATE),
-            String::from(SOLIDITY_PAIRING_LIB),
+            String::from(solidity_pairing_lib(false)),
         );
 
         // replace things in template
