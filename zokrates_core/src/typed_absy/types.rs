@@ -137,6 +137,32 @@ pub enum DeclarationConstant<'ast> {
     Constant(CanonicalConstantIdentifier<'ast>),
 }
 
+impl<'ast> DeclarationConstant<'ast> {
+    pub fn map<S: From<CanonicalConstantIdentifier<'ast>> + From<u32> + Clone>(
+        self,
+        generics: &GGenericsAssignment<'ast, S>,
+    ) -> Result<S, GenericIdentifier<'ast>> {
+        match self {
+            DeclarationConstant::Generic(g) => generics.0.get(&g).cloned().ok_or(g),
+            DeclarationConstant::Concrete(v) => Ok(v.into()),
+            DeclarationConstant::Constant(c) => Ok(c.into()),
+        }
+    }
+
+    pub fn map_concrete<S: From<u32> + Clone>(
+        self,
+        generics: &GGenericsAssignment<'ast, S>,
+    ) -> Result<S, GenericIdentifier<'ast>> {
+        match self {
+            DeclarationConstant::Constant(_) => unreachable!(
+                "called map_concrete on a constant, it should have been resolved before"
+            ),
+            DeclarationConstant::Generic(g) => generics.0.get(&g).cloned().ok_or(g),
+            DeclarationConstant::Concrete(v) => Ok(v.into()),
+        }
+    }
+}
+
 impl<'ast, T> PartialEq<UExpression<'ast, T>> for DeclarationConstant<'ast> {
     fn eq(&self, other: &UExpression<'ast, T>) -> bool {
         match (self, other.as_inner()) {
@@ -158,12 +184,6 @@ impl<'ast> From<u32> for DeclarationConstant<'ast> {
     }
 }
 
-impl<'ast> From<usize> for DeclarationConstant<'ast> {
-    fn from(e: usize) -> Self {
-        DeclarationConstant::Concrete(e as u32)
-    }
-}
-
 impl<'ast> From<GenericIdentifier<'ast>> for DeclarationConstant<'ast> {
     fn from(e: GenericIdentifier<'ast>) -> Self {
         DeclarationConstant::Generic(e)
@@ -180,8 +200,8 @@ impl<'ast> fmt::Display for DeclarationConstant<'ast> {
     }
 }
 
-impl<'ast, T> From<usize> for UExpression<'ast, T> {
-    fn from(i: usize) -> Self {
+impl<'ast, T> From<u32> for UExpression<'ast, T> {
+    fn from(i: u32) -> Self {
         UExpressionInner::Value(i as u128).annotate(UBitwidth::B32)
     }
 }
@@ -202,25 +222,14 @@ impl<'ast, T> From<DeclarationConstant<'ast>> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> TryInto<usize> for UExpression<'ast, T> {
+impl<'ast, T> TryInto<u32> for UExpression<'ast, T> {
     type Error = SpecializationError;
 
-    fn try_into(self) -> Result<usize, Self::Error> {
+    fn try_into(self) -> Result<u32, Self::Error> {
         assert_eq!(self.bitwidth, UBitwidth::B32);
 
         match self.into_inner() {
-            UExpressionInner::Value(v) => Ok(v as usize),
-            _ => Err(SpecializationError),
-        }
-    }
-}
-
-impl<'ast> TryInto<usize> for DeclarationConstant<'ast> {
-    type Error = SpecializationError;
-
-    fn try_into(self) -> Result<usize, Self::Error> {
-        match self {
-            DeclarationConstant::Concrete(v) => Ok(v as usize),
+            UExpressionInner::Value(v) => Ok(v as u32),
             _ => Err(SpecializationError),
         }
     }
@@ -237,7 +246,7 @@ pub struct GStructMember<S> {
 }
 
 pub type DeclarationStructMember<'ast> = GStructMember<DeclarationConstant<'ast>>;
-pub type ConcreteStructMember = GStructMember<usize>;
+pub type ConcreteStructMember = GStructMember<u32>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
 impl<'ast, S, R: PartialEq<S>> PartialEq<GStructMember<S>> for GStructMember<R> {
@@ -277,7 +286,7 @@ pub struct GArrayType<S> {
 }
 
 pub type DeclarationArrayType<'ast> = GArrayType<DeclarationConstant<'ast>>;
-pub type ConcreteArrayType = GArrayType<usize>;
+pub type ConcreteArrayType = GArrayType<u32>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
 impl<'ast, S, R: PartialEq<S>> PartialEq<GArrayType<S>> for GArrayType<R> {
@@ -359,7 +368,7 @@ pub struct GStructType<S> {
 }
 
 pub type DeclarationStructType<'ast> = GStructType<DeclarationConstant<'ast>>;
-pub type ConcreteStructType = GStructType<usize>;
+pub type ConcreteStructType = GStructType<u32>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
 impl<'ast, S, R: PartialEq<S>> PartialEq<GStructType<S>> for GStructType<R> {
@@ -615,7 +624,7 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
 }
 
 pub type DeclarationType<'ast> = GType<DeclarationConstant<'ast>>;
-pub type ConcreteType = GType<usize>;
+pub type ConcreteType = GType<u32>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
 
 impl<'ast, S, R: PartialEq<S>> PartialEq<GType<S>> for GType<R> {
@@ -804,7 +813,9 @@ impl ConcreteType {
             GType::FieldElement => 1,
             GType::Boolean => 1,
             GType::Uint(_) => 1,
-            GType::Array(array_type) => array_type.size * array_type.ty.get_primitive_count(),
+            GType::Array(array_type) => {
+                array_type.size as usize * array_type.ty.get_primitive_count()
+            }
             GType::Int => unreachable!(),
             GType::Struct(struct_type) => struct_type
                 .iter()
@@ -824,7 +835,7 @@ pub struct GFunctionKey<'ast, S> {
 }
 
 pub type DeclarationFunctionKey<'ast> = GFunctionKey<'ast, DeclarationConstant<'ast>>;
-pub type ConcreteFunctionKey<'ast> = GFunctionKey<'ast, usize>;
+pub type ConcreteFunctionKey<'ast> = GFunctionKey<'ast, u32>;
 pub type FunctionKey<'ast, T> = GFunctionKey<'ast, UExpression<'ast, T>>;
 
 impl<'ast, S: fmt::Display> fmt::Display for GFunctionKey<'ast, S> {
@@ -836,7 +847,7 @@ impl<'ast, S: fmt::Display> fmt::Display for GFunctionKey<'ast, S> {
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct GGenericsAssignment<'ast, S>(pub BTreeMap<GenericIdentifier<'ast>, S>);
 
-pub type ConcreteGenericsAssignment<'ast> = GGenericsAssignment<'ast, usize>;
+pub type ConcreteGenericsAssignment<'ast> = GGenericsAssignment<'ast, u32>;
 pub type GenericsAssignment<'ast, T> = GGenericsAssignment<'ast, UExpression<'ast, T>>;
 
 impl<'ast, S> Default for GGenericsAssignment<'ast, S> {
@@ -936,7 +947,7 @@ impl<'ast> ConcreteFunctionKey<'ast> {
 
 use std::collections::btree_map::Entry;
 
-pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
+pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<u32>>(
     decl_ty: &DeclarationType<'ast>,
     ty: &GType<S>,
     constants: &mut GGenericsAssignment<'ast, S>,
@@ -957,7 +968,7 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<usize>>(
                             true
                         }
                     },
-                    DeclarationConstant::Concrete(s0) => s1 == *s0 as usize,
+                    DeclarationConstant::Concrete(s0) => s1 == *s0 as u32,
                     // in the case of a constant, we do not know the value yet, so we optimistically assume it's correct
                     // if it does not match, it will be caught during inlining
                     DeclarationConstant::Constant(..) => true,
@@ -1002,11 +1013,7 @@ pub fn specialize_declaration_type<
         DeclarationType::Array(t0) => {
             let ty = box specialize_declaration_type(*t0.ty, &generics)?;
 
-            let size = match t0.size {
-                DeclarationConstant::Generic(s) => generics.0.get(&s).cloned().ok_or(s),
-                DeclarationConstant::Concrete(s) => Ok(s.into()),
-                DeclarationConstant::Constant(c) => Ok(c.into()),
-            }?;
+            let size = t0.size.map(generics)?;
 
             GType::Array(GArrayType { size, ty })
         }
@@ -1025,14 +1032,7 @@ pub fn specialize_declaration_type<
                     .map(|(index, g)| {
                         (
                             GenericIdentifier::with_name("dummy").index(index),
-                            g.map(|g| match g {
-                                DeclarationConstant::Generic(s) => {
-                                    generics.0.get(&s).cloned().unwrap()
-                                }
-                                DeclarationConstant::Concrete(s) => s.into(),
-                                DeclarationConstant::Constant(c) => c.into(),
-                            })
-                            .unwrap(),
+                            g.map(|g| g.map(generics).unwrap()).unwrap(),
                         )
                     })
                     .collect(),
@@ -1052,17 +1052,7 @@ pub fn specialize_declaration_type<
                     .generics
                     .into_iter()
                     .map(|g| match g {
-                        Some(constant) => match constant {
-                            DeclarationConstant::Generic(s) => {
-                                generics.0.get(&s).cloned().ok_or(s).map(Some)
-                            }
-                            DeclarationConstant::Concrete(s) => Ok(Some(s.into())),
-                            DeclarationConstant::Constant(..) => {
-                                unreachable!(
-                                    "identifiers should have been removed in constant inlining"
-                                )
-                            }
-                        },
+                        Some(constant) => constant.map(generics).map(Some),
                         _ => Ok(None),
                     })
                     .collect::<Result<_, _>>()?,
@@ -1127,7 +1117,7 @@ pub mod signature {
     }
 
     pub type DeclarationSignature<'ast> = GSignature<DeclarationConstant<'ast>>;
-    pub type ConcreteSignature = GSignature<usize>;
+    pub type ConcreteSignature = GSignature<u32>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
     impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
@@ -1140,7 +1130,7 @@ pub mod signature {
                 .iter()
                 .chain(other.outputs.iter())
                 .zip(self.inputs.iter().chain(self.outputs.iter()))
-                .all(|(decl_ty, ty)| check_type::<usize>(decl_ty, ty, &mut constants))
+                .all(|(decl_ty, ty)| check_type::<u32>(decl_ty, ty, &mut constants))
         }
     }
 
@@ -1165,7 +1155,7 @@ pub mod signature {
             constants.0.extend(
                 decl_generics
                     .zip(values.into_iter())
-                    .filter_map(|(g, v)| v.map(|v| (g, v as usize))),
+                    .filter_map(|(g, v)| v.map(|v| (g, v))),
             );
 
             let condition = self
@@ -1488,8 +1478,8 @@ pub mod signature {
         fn array_slug() {
             let s = ConcreteSignature::new()
                 .inputs(vec![
-                    ConcreteType::array((ConcreteType::FieldElement, 42usize)),
-                    ConcreteType::array((ConcreteType::FieldElement, 21usize)),
+                    ConcreteType::array((ConcreteType::FieldElement, 42u32)),
+                    ConcreteType::array((ConcreteType::FieldElement, 21u32)),
                 ])
                 .outputs(vec![]);
 
@@ -1512,7 +1502,7 @@ mod tests {
     fn array_display() {
         // field[1][2]
         let t = ConcreteType::Array(ConcreteArrayType::new(
-            ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2usize)),
+            ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2u32)),
             1usize,
         ));
         assert_eq!(format!("{}", t), "field[1][2]");

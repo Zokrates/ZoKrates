@@ -94,59 +94,59 @@ impl FlatEmbed {
                 .inputs(vec![DeclarationType::uint(8)])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    8usize,
+                    8u32,
                 ))]),
             FlatEmbed::U16ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(16)])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    16usize,
+                    16u32,
                 ))]),
             FlatEmbed::U32ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(32)])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    32usize,
+                    32u32,
                 ))]),
             FlatEmbed::U64ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(64)])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    64usize,
+                    64u32,
                 ))]),
             FlatEmbed::U8FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(8)])
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    8usize,
+                    8u32,
                 ))]),
             FlatEmbed::U16FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(16)])
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    16usize,
+                    16u32,
                 ))]),
             FlatEmbed::U32FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(32)])
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    32usize,
+                    32u32,
                 ))]),
             FlatEmbed::U64FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(64)])
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    64usize,
+                    64u32,
                 ))]),
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => DeclarationSignature::new()
                 .inputs(vec![
-                    DeclarationType::array((DeclarationType::Boolean, 512usize)),
-                    DeclarationType::array((DeclarationType::Boolean, 256usize)),
+                    DeclarationType::array((DeclarationType::Boolean, 512u32)),
+                    DeclarationType::array((DeclarationType::Boolean, 256u32)),
                 ])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    256usize,
+                    256u32,
                 ))]),
             #[cfg(feature = "ark")]
             FlatEmbed::SnarkVerifyBls12377 => DeclarationSignature::new()
@@ -168,7 +168,7 @@ impl FlatEmbed {
                             index: 0,
                         },
                     )), // inputs
-                    DeclarationType::array((DeclarationType::FieldElement, 8usize)), // proof
+                    DeclarationType::array((DeclarationType::FieldElement, 8u32)), // proof
                     DeclarationType::array((
                         DeclarationType::FieldElement,
                         GenericIdentifier {

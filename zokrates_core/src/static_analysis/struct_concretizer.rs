@@ -36,14 +36,11 @@ impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast> {
         &mut self,
         ty: DeclarationStructType<'ast>,
     ) -> DeclarationStructType<'ast> {
-        let concrete_generics: Vec<_> = ty
+        let concrete_generics: Vec<u32> = ty
             .generics
-            .iter()
-            .map(|g| match g.as_ref().unwrap() {
-                DeclarationConstant::Generic(s) => self.generics.0.get(&s).cloned().unwrap(),
-                DeclarationConstant::Concrete(s) => *s as usize,
-                DeclarationConstant::Constant(..) => unreachable!(),
-            })
+            .clone()
+            .into_iter()
+            .map(|g| g.unwrap().map_concrete(&self.generics).unwrap())
             .collect();
 
         let concrete_generics_map: ConcreteGenericsAssignment = GGenericsAssignment(
