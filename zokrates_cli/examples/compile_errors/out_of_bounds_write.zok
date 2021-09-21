@@ -3,5 +3,5 @@ def foo(field[1] a) -> field[1]:
 
 def main(field a):
     field[1] h = foo([a])
-    field f = h[1]
+    h[1] = 1
     return
