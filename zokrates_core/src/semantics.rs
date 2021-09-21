@@ -4265,12 +4265,12 @@ mod tests {
                             DeclarationType::FieldElement,
                             GenericIdentifier::with_name("K").with_index(0)
                         )),
-                        GenericIdentifier::with_name("L").index(1)
+                        GenericIdentifier::with_name("L").with_index(1)
                     ))])
                     .outputs(vec![DeclarationType::array((
                         DeclarationType::array((
                             DeclarationType::FieldElement,
-                            GenericIdentifier::with_name("L").index(1)
+                            GenericIdentifier::with_name("L").with_index(1)
                         )),
                         GenericIdentifier::with_name("K").with_index(0)
                     ))]))

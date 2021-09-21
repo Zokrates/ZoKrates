@@ -662,7 +662,7 @@ mod tests {
                 ],
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into(),
+                        GenericIdentifier::with_name("K").with_index(0).into(),
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
@@ -673,7 +673,7 @@ mod tests {
             let ssa = ShallowTransformer::transform(
                 f,
                 &GGenericsAssignment(
-                    vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                    vec![(GenericIdentifier::with_name("K").with_index(0), 1)]
                         .into_iter()
                         .collect(),
                 ),
@@ -742,7 +742,7 @@ mod tests {
                 ],
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into(),
+                        GenericIdentifier::with_name("K").with_index(0).into(),
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
@@ -851,7 +851,7 @@ mod tests {
                 ],
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into(),
+                        GenericIdentifier::with_name("K").with_index(0).into(),
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
@@ -862,7 +862,7 @@ mod tests {
             let ssa = ShallowTransformer::transform(
                 f,
                 &GGenericsAssignment(
-                    vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                    vec![(GenericIdentifier::with_name("K").with_index(0), 1)]
                         .into_iter()
                         .collect(),
                 ),
@@ -934,7 +934,7 @@ mod tests {
                 ],
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into(),
+                        GenericIdentifier::with_name("K").with_index(0).into(),
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),

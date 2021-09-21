@@ -1463,7 +1463,7 @@ mod tests {
                         ]
                         .into(),
                     )
-                    .annotate(Type::FieldElement, 3usize),
+                    .annotate(Type::FieldElement, 3u32),
                     UExpressionInner::Add(box 1u32.into(), box 1u32.into())
                         .annotate(UBitwidth::B32),
                 );

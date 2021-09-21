@@ -1405,33 +1405,19 @@ pub mod signature {
 
             let generic1 = DeclarationSignature::new()
                 .generics(vec![Some(
-                    GenericIdentifier {
-                        name: "P",
-                        index: 0,
-                    }
-                    .into(),
+                    GenericIdentifier::with_name("P").with_index(0).into(),
                 )])
                 .inputs(vec![DeclarationType::array(DeclarationArrayType::new(
                     DeclarationType::FieldElement,
-                    GenericIdentifier {
-                        name: "P",
-                        index: 0,
-                    },
+                    GenericIdentifier::with_name("P").with_index(0),
                 ))]);
             let generic2 = DeclarationSignature::new()
                 .generics(vec![Some(
-                    GenericIdentifier {
-                        name: "Q",
-                        index: 0,
-                    }
-                    .into(),
+                    GenericIdentifier::with_name("Q").with_index(0).into(),
                 )])
                 .inputs(vec![DeclarationType::array(DeclarationArrayType::new(
                     DeclarationType::FieldElement,
-                    GenericIdentifier {
-                        name: "Q",
-                        index: 0,
-                    },
+                    GenericIdentifier::with_name("Q").with_index(0),
                 ))]);
 
             assert_eq!(generic1, generic2);
@@ -1512,7 +1498,7 @@ mod tests {
 
     #[test]
     fn array() {
-        let t = ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 42usize));
+        let t = ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 42u32));
         assert_eq!(t.get_primitive_count(), 42);
     }
 
@@ -1521,7 +1507,7 @@ mod tests {
         // field[1][2]
         let t = ConcreteType::Array(ConcreteArrayType::new(
             ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2u32)),
-            1usize,
+            1u32,
         ));
         assert_eq!(format!("{}", t), "field[1][2]");
     }
