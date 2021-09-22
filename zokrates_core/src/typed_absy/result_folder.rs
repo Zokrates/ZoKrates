@@ -294,16 +294,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         a: TypedAssignee<'ast, T>,
     ) -> Result<TypedAssignee<'ast, T>, Self::Error> {
-        match a {
-            TypedAssignee::Identifier(v) => Ok(TypedAssignee::Identifier(self.fold_variable(v)?)),
-            TypedAssignee::Select(box a, box index) => Ok(TypedAssignee::Select(
-                box self.fold_assignee(a)?,
-                box self.fold_uint_expression(index)?,
-            )),
-            TypedAssignee::Member(box s, m) => {
-                Ok(TypedAssignee::Member(box self.fold_assignee(s)?, m))
-            }
-        }
+        fold_assignee(self, a)
     }
 
     fn fold_statement(
@@ -516,6 +507,20 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
         }
     };
     Ok(e)
+}
+
+pub fn fold_assignee<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    a: TypedAssignee<'ast, T>,
+) -> Result<TypedAssignee<'ast, T>, F::Error> {
+    match a {
+        TypedAssignee::Identifier(v) => Ok(TypedAssignee::Identifier(f.fold_variable(v)?)),
+        TypedAssignee::Select(box a, box index) => Ok(TypedAssignee::Select(
+            box f.fold_assignee(a)?,
+            box f.fold_uint_expression(index)?,
+        )),
+        TypedAssignee::Member(box s, m) => Ok(TypedAssignee::Member(box f.fold_assignee(s)?, m)),
+    }
 }
 
 pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
