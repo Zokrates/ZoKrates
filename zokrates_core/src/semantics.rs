@@ -1542,7 +1542,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             _ => unreachable!("generic on declaration struct types must be generic identifiers")
                         }));
 
-                        Ok(specialize_declaration_type(ty.ty, &assignment).unwrap())
+                        let res = match ty.ty {
+                            // if the type is a struct, we do not specialize in the members.
+                            // we only remap the generics
+                            DeclarationType::Struct(declared_struct_ty) => {
+                                DeclarationType::Struct(DeclarationStructType {
+                                    generics: checked_generics,
+                                    ..declared_struct_ty
+                                })
+                            }
+                            ty => specialize_declaration_type(ty, &assignment).unwrap(),
+                        };
+
+                        Ok(res)
                     }
                     false => Err(ErrorInner {
                         pos: Some(pos),
