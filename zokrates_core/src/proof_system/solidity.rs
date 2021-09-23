@@ -564,7 +564,12 @@ library Pairing {
     let pairing_lib = if !with_g2_addition {
         [pairing_lib_beginning, pairing_lib_ending].join("\n")
     } else {
-        [pairing_lib_beginning, pairing_lib_g2_addition, pairing_lib_ending].join("\n")
+        [
+            pairing_lib_beginning,
+            pairing_lib_g2_addition,
+            pairing_lib_ending,
+        ]
+        .join("\n")
     };
     return pairing_lib;
 }
