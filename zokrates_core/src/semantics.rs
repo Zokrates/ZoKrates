@@ -1547,7 +1547,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             // we only remap the generics
                             DeclarationType::Struct(declared_struct_ty) => {
                                 DeclarationType::Struct(DeclarationStructType {
-                                    generics: checked_generics,
+                                    generics: declared_struct_ty
+                                        .generics
+                                        .into_iter()
+                                        .map(|g| g.map(|g| g.map(&assignment).unwrap()))
+                                        .collect(),
                                     ..declared_struct_ty
                                 })
                             }
