@@ -6,7 +6,7 @@ ZoKrates currently exposes two primitive types and two complex types:
 
 ### `field`
 
-This is the most basic type in ZoKrates, and it represents a field element with positive integer values in `[0,  p - 1]` where `p` is a (large) prime number. Standard arithmetic operations are supported; note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
+This is the most basic type in ZoKrates, and it represents a field element with positive integer values in `[0,  p - 1]` where `p` is a (large) prime number.
 
 As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](../toolbox/proving_schemes.md#curves) curve supported by Ethereum.
 
@@ -16,7 +16,18 @@ While `field` values mostly behave like unsigned integers, one should keep in mi
 {{#include ../../../zokrates_cli/examples/book/field_overflow.zok}}
 ```
 
-Note that for field elements, the division operation multiplies the numerator with the denominator's inverse field element. The results coincide with integer divisions for cases with remainder 0, but differ otherwise.
+#### Arithmetic operations
+
+| Symbol | Meaning                                          |
+| ------ | ------------------------------------------------ |
+| `+`    | Addition mod `p`                                 |
+| `-`    | Subtraction mod `p`                              |
+| `*`    | Product mod `p`                                  |
+| `/`    | Division (multiplication by the inverse) mod `p` |
+| `**`   | Power mod `p`                                    |
+
+Note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
+For field elements, the division operation multiplies the numerator with the denominator's inverse field element. The results coincide with integer divisions for cases with remainder 0, but differ otherwise.
 
 ### `bool`
 
