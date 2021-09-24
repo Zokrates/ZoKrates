@@ -11,19 +11,19 @@ use zokrates_field::Field;
 type ProgramConstants<'ast, T> =
     HashMap<OwnedTypedModuleId, HashMap<ConstantIdentifier<'ast>, TypedConstant<'ast, T>>>;
 
-pub struct ConstantInliner<'ast, T> {
+pub struct ConstantResolver<'ast, T> {
     modules: TypedModules<'ast, T>,
     location: OwnedTypedModuleId,
     constants: ProgramConstants<'ast, T>,
 }
 
-impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
+impl<'ast, 'a, T: Field> ConstantResolver<'ast, T> {
     pub fn new(
         modules: TypedModules<'ast, T>,
         location: OwnedTypedModuleId,
         constants: ProgramConstants<'ast, T>,
     ) -> Self {
-        ConstantInliner {
+        ConstantResolver {
             modules,
             location,
             constants,
@@ -31,7 +31,7 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
     }
     pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         let constants = ProgramConstants::new();
-        let mut inliner = ConstantInliner::new(p.modules.clone(), p.main.clone(), constants);
+        let mut inliner = ConstantResolver::new(p.modules.clone(), p.main.clone(), constants);
         inliner.fold_program(p)
     }
 
@@ -57,7 +57,7 @@ impl<'ast, 'a, T: Field> ConstantInliner<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
+impl<'ast, T: Field> Folder<'ast, T> for ConstantResolver<'ast, T> {
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         self.fold_module_id(p.main.clone());
 
@@ -89,7 +89,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantInliner<'ast, T> {
             TypedConstantSymbol::There(imported_id) => {
                 // visit the imported symbol. This triggers visiting the corresponding module if needed
                 let imported_id = self.fold_canonical_constant_identifier(imported_id);
-                // after that, the constant must have been defined defined in the global map
+                // after that, the constant must have been defined in the global map
                 self.get_constant(&imported_id).unwrap()
             }
             TypedConstantSymbol::Here(c) => fold_constant(self, c),
@@ -171,7 +171,7 @@ mod tests {
 
         let expected_program = program.clone();
 
-        let program = ConstantInliner::inline(program);
+        let program = ConstantResolver::inline(program);
 
         assert_eq!(program, expected_program)
     }
@@ -229,7 +229,7 @@ mod tests {
 
         let expected_program = program.clone();
 
-        let program = ConstantInliner::inline(program);
+        let program = ConstantResolver::inline(program);
 
         assert_eq!(program, expected_program)
     }
@@ -290,7 +290,7 @@ mod tests {
 
         let expected_program = program.clone();
 
-        let program = ConstantInliner::inline(program);
+        let program = ConstantResolver::inline(program);
 
         assert_eq!(program, expected_program)
     }
@@ -373,7 +373,7 @@ mod tests {
 
         let expected_program = program.clone();
 
-        let program = ConstantInliner::inline(program);
+        let program = ConstantResolver::inline(program);
 
         assert_eq!(program, expected_program)
     }
@@ -446,7 +446,7 @@ mod tests {
 
         let expected_program = program.clone();
 
-        let program = ConstantInliner::inline(program);
+        let program = ConstantResolver::inline(program);
 
         assert_eq!(program, expected_program)
     }
@@ -566,7 +566,7 @@ mod tests {
             .collect(),
         };
 
-        let program = ConstantInliner::inline(program);
+        let program = ConstantResolver::inline(program);
         let expected_main_module = TypedModule {
             symbols: vec![
                 TypedConstantSymbolDeclaration::new(
@@ -764,7 +764,7 @@ mod tests {
             .collect(),
         };
 
-        let program = ConstantInliner::inline(program);
+        let program = ConstantResolver::inline(program);
         let expected_main_module = TypedModule {
             symbols: vec![
                 TypedConstantSymbolDeclaration::new(

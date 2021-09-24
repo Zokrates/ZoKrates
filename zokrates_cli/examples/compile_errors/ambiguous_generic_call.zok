@@ -1,6 +1,6 @@
 // this should not compile, as A == B
 
-const u32 A = 2
+const u32 A = 1
 const u32 B = 1
 
 def foo(field[A] a) -> bool:

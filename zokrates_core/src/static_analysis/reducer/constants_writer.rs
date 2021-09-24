@@ -1,4 +1,4 @@
-// A folder to inline all constant definitions down to a single litteral and register them in the state for later use.
+// A folder to inline all constant definitions down to a single literal and register them in the state for later use.
 
 use crate::static_analysis::reducer::{
     constants_reader::ConstantsReader, reduce_function, ConstantDefinitions, Error,
