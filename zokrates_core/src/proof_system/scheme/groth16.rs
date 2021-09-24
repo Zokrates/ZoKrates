@@ -32,10 +32,8 @@ impl<T: Field> NonUniversalScheme<T> for G16 {}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
     fn export_solidity_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
-        let (mut template_text, solidity_pairing_lib_sans_bn256g2) = (
-            String::from(CONTRACT_TEMPLATE),
-            String::from(solidity_pairing_lib(false)),
-        );
+        let (mut template_text, solidity_pairing_lib_sans_bn256g2) =
+            (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));
 
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();

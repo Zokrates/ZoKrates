@@ -48,10 +48,8 @@ impl Scheme<Bw6_761Field> for GM17 {
 
 impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for GM17 {
     fn export_solidity_verifier(vk: <GM17 as Scheme<T>>::VerificationKey) -> String {
-        let (mut template_text, solidity_pairing_lib) = (
-            String::from(CONTRACT_TEMPLATE),
-            String::from(solidity_pairing_lib(false)),
-        );
+        let (mut template_text, solidity_pairing_lib) =
+            (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));
 
         // replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();

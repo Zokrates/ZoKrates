@@ -41,10 +41,8 @@ impl<T: Field> NonUniversalScheme<T> for PGHR13 {}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
     fn export_solidity_verifier(vk: <PGHR13 as Scheme<T>>::VerificationKey) -> String {
-        let (mut template_text, solidity_pairing_lib) = (
-            String::from(CONTRACT_TEMPLATE),
-            String::from(solidity_pairing_lib(false)),
-        );
+        let (mut template_text, solidity_pairing_lib) =
+            (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));
 
         // replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();

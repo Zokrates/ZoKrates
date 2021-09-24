@@ -561,7 +561,7 @@ library Pairing {
 }
 "#;
 
-    let pairing_lib = if !with_g2_addition {
+    if !with_g2_addition {
         [pairing_lib_beginning, pairing_lib_ending].join("\n")
     } else {
         [
@@ -570,6 +570,5 @@ library Pairing {
             pairing_lib_ending,
         ]
         .join("\n")
-    };
-    return pairing_lib;
+    }
 }
