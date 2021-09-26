@@ -414,10 +414,11 @@ mod integration {
         }
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+        let binary_path = std::fs::canonicalize("../target/release/zokrates").unwrap();
 
         assert_cli::Assert::command(&[
             "./test.sh",
-            "../target/release/zokrates",
+            binary_path.to_str().unwrap(),
             stdlib.to_str().unwrap(),
         ])
         .current_dir(tmp_base)
@@ -437,10 +438,11 @@ mod integration {
         }
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+        let binary_path = std::fs::canonicalize("../target/release/zokrates").unwrap();
 
         assert_cli::Assert::command(&[
             "./test.sh",
-            "../target/release/zokrates",
+            binary_path.to_str().unwrap(),
             stdlib.to_str().unwrap(),
         ])
         .current_dir(tmp_base)
