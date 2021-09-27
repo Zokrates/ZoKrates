@@ -621,12 +621,10 @@ impl<'ast, T: Clone> Expr<'ast, T> for UExpression<'ast, T> {
 
 pub enum SelectOrExpression<'ast, T, E: Expr<'ast, T>> {
     Select(SelectExpression<'ast, T, E>),
-    #[allow(dead_code)]
     Expression(E::Inner),
 }
 pub enum IfElseOrExpression<'ast, T, E: Expr<'ast, T>> {
     IfElse(IfElseExpression<'ast, T, E>),
-    #[allow(dead_code)]
     Expression(E::Inner),
 }
 
