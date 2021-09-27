@@ -2,6 +2,7 @@ pub mod folder;
 mod from_typed;
 mod identifier;
 mod parameter;
+pub mod result_folder;
 pub mod types;
 mod uint;
 mod variable;
@@ -350,9 +351,9 @@ pub enum FieldElementExpression<'ast, T> {
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum BooleanExpression<'ast, T> {
-    Identifier(Identifier<'ast>),
     Value(bool),
     Select(SelectExpression<'ast, T, Self>),
+    Identifier(Identifier<'ast>),
     FieldLt(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -369,19 +370,19 @@ pub enum BooleanExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    UintLt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     FieldEq(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+    UintLt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     BoolEq(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
     ),
-    UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,

@@ -94,43 +94,34 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
 
         assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
 
-        symbols.extend(
-            self.main
-                .arguments
-                .iter()
-                .zip(self.private)
-                .enumerate()
-                .map(|(index, (var, private))| {
-                    let wire = match private {
-                        true => cs.alloc(
-                            || format!("PRIVATE_INPUT_{}", index),
-                            || {
-                                Ok(witness
-                                    .0
-                                    .remove(&var)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into_bellman())
-                            },
-                        ),
-                        false => cs.alloc_input(
-                            || format!("PUBLIC_INPUT_{}", index),
-                            || {
-                                Ok(witness
-                                    .0
-                                    .remove(&var)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into_bellman())
-                            },
-                        ),
-                    }
-                    .unwrap();
-                    (*var, wire)
-                }),
-        );
+        symbols.extend(self.arguments.iter().enumerate().map(|(index, p)| {
+            let wire = match p.private {
+                true => cs.alloc(
+                    || format!("PRIVATE_INPUT_{}", index),
+                    || {
+                        Ok(witness
+                            .0
+                            .remove(&p.id)
+                            .ok_or(SynthesisError::AssignmentMissing)?
+                            .into_bellman())
+                    },
+                ),
+                false => cs.alloc_input(
+                    || format!("PUBLIC_INPUT_{}", index),
+                    || {
+                        Ok(witness
+                            .0
+                            .remove(&p.id)
+                            .ok_or(SynthesisError::AssignmentMissing)?
+                            .into_bellman())
+                    },
+                ),
+            }
+            .unwrap();
+            (p.id, wire)
+        }));
 
-        let main = self.main;
-
-        for statement in main.statements {
+        for statement in self.statements {
             if let Statement::Constraint(quad, lin, _) = statement {
                 let a = &bellman_combination(
                     quad.left.into_canonical(),
@@ -270,23 +261,16 @@ mod parse {
 mod tests {
     use super::*;
     use crate::ir::Interpreter;
-    use crate::ir::{Function, LinComb};
+    use crate::ir::LinComb;
     use zokrates_field::Bn128Field;
 
     mod prove {
         use super::*;
+        use crate::flat_absy::FlatParameter;
 
         #[test]
         fn empty() {
-            let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![],
-                    returns: vec![],
-                    statements: vec![],
-                },
-                private: vec![],
-            };
+            let program: Prog<Bn128Field> = Prog::default();
 
             let interpreter = Interpreter::default();
 
@@ -300,16 +284,12 @@ mod tests {
         #[test]
         fn identity() {
             let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(0)],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::constraint(
-                        FlatVariable::new(0),
-                        FlatVariable::public(0),
-                    )],
-                },
-                private: vec![true],
+                arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::constraint(
+                    FlatVariable::new(0),
+                    FlatVariable::public(0),
+                )],
             };
 
             let interpreter = Interpreter::default();
@@ -327,16 +307,12 @@ mod tests {
         #[test]
         fn public_identity() {
             let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(0)],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::constraint(
-                        FlatVariable::new(0),
-                        FlatVariable::public(0),
-                    )],
-                },
-                private: vec![false],
+                arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::constraint(
+                    FlatVariable::new(0),
+                    FlatVariable::public(0),
+                )],
             };
 
             let interpreter = Interpreter::default();
@@ -354,16 +330,12 @@ mod tests {
         #[test]
         fn no_arguments() {
             let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::constraint(
-                        FlatVariable::one(),
-                        FlatVariable::public(0),
-                    )],
-                },
-                private: vec![],
+                arguments: vec![],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::constraint(
+                    FlatVariable::one(),
+                    FlatVariable::public(0),
+                )],
             };
 
             let interpreter = Interpreter::default();
@@ -380,24 +352,21 @@ mod tests {
             // public variables must be ordered from 0
             // private variables can be unordered
             let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
-                    returns: vec![FlatVariable::public(0), FlatVariable::public(1)],
-                    statements: vec![
-                        Statement::constraint(
-                            LinComb::from(FlatVariable::new(42))
-                                + LinComb::from(FlatVariable::new(51)),
-                            FlatVariable::public(0),
-                        ),
-                        Statement::constraint(
-                            LinComb::from(FlatVariable::one())
-                                + LinComb::from(FlatVariable::new(42)),
-                            FlatVariable::public(1),
-                        ),
-                    ],
-                },
-                private: vec![true, false],
+                arguments: vec![
+                    FlatParameter::private(FlatVariable::new(42)),
+                    FlatParameter::public(FlatVariable::new(51)),
+                ],
+                returns: vec![FlatVariable::public(0), FlatVariable::public(1)],
+                statements: vec![
+                    Statement::constraint(
+                        LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
+                        FlatVariable::public(0),
+                    ),
+                    Statement::constraint(
+                        LinComb::from(FlatVariable::one()) + LinComb::from(FlatVariable::new(42)),
+                        FlatVariable::public(1),
+                    ),
+                ],
             };
 
             let interpreter = Interpreter::default();
@@ -414,16 +383,12 @@ mod tests {
         #[test]
         fn one() {
             let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(42)],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::constraint(
-                        LinComb::from(FlatVariable::new(42)) + LinComb::one(),
-                        FlatVariable::public(0),
-                    )],
-                },
-                private: vec![false],
+                arguments: vec![FlatParameter::public(FlatVariable::new(42))],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::constraint(
+                    LinComb::from(FlatVariable::new(42)) + LinComb::one(),
+                    FlatVariable::public(0),
+                )],
             };
 
             let interpreter = Interpreter::default();
@@ -441,16 +406,15 @@ mod tests {
         #[test]
         fn with_directives() {
             let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::constraint(
-                        LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
-                        FlatVariable::public(0),
-                    )],
-                },
-                private: vec![true, false],
+                arguments: vec![
+                    FlatParameter::private(FlatVariable::new(42)),
+                    FlatParameter::public(FlatVariable::new(51)),
+                ],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::constraint(
+                    LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
+                    FlatVariable::public(0),
+                )],
             };
 
             let interpreter = Interpreter::default();

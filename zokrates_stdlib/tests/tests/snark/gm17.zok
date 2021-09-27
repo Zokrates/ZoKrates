@@ -1,0 +1,57 @@
+// verify a snark
+// to reproduce the test cases:
+//
+// 1. Create a program
+// ```zokrates
+// def main(field a, field b) -> field:
+//     return a + b
+// ```
+//
+// 2. Compile it to bls12_377 
+// ```sh
+// zokrates compile -i program.zok --curve bls12_377
+// ```
+//
+// 3. Run a trusted setup for gm17
+// ```sh
+// zokrates setup --proving-scheme gm17 --backend ark
+// ```
+//
+// 4. Execute the program and generate a proof
+// ```sh
+// zokrates compute-witness -a 1 2
+// zokrates generate-proof --proving-scheme gm17 --backend ark
+// ```
+//
+// 5. Generate the test case
+// 
+// ```sh
+// cat > gm17.json << EOT
+// {
+//     "entry_point": "./tests/tests/snark/gm17.zok",
+//     "curves": ["Bw6_761"],
+//     "tests": [
+//         {
+//             "abi": true,
+//             "input": {
+//                 "values": [
+//                       $(cat proof.json && echo ", " && cat verification.key)
+//                 ]
+//             },
+//             "output": {
+//                 "Ok": {
+//                      "values": ["1"]
+//                 }
+//             }
+//         }
+//     ]
+// }
+// EOT
+// ```
+//
+// `gm17.json` can then be used as a test for this code file
+
+from "snark/gm17" import main as verify, Proof, VerificationKey
+
+def main(Proof<3> proof, VerificationKey<4> vk) -> bool:
+    return verify::<3, 4>(proof, vk)

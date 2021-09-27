@@ -1,4 +1,4 @@
-// Generic walk through a typed AST. Not mutating in place
+// Generic walk through ZIR. Not mutating in place
 
 use crate::zir::types::UBitwidth;
 use crate::zir::*;

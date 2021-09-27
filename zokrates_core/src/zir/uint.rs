@@ -108,6 +108,14 @@ impl ShouldReduce {
         *self == ShouldReduce::Unknown
     }
 
+    pub fn is_true(&self) -> bool {
+        *self == ShouldReduce::True
+    }
+
+    pub fn is_false(&self) -> bool {
+        *self == ShouldReduce::False
+    }
+
     // we can always enable a reduction
     pub fn make_true(self) -> Self {
         ShouldReduce::True
@@ -158,9 +166,9 @@ pub struct UExpression<'ast, T> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UExpressionInner<'ast, T> {
-    Identifier(Identifier<'ast>),
     Value(u128),
     Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
+    Identifier(Identifier<'ast>),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),

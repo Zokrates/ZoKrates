@@ -224,22 +224,13 @@ pub fn r1cs_program<T: Field>(
     let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
     provide_variable_idx(&mut variables, &FlatVariable::one());
 
-    for x in prog
-        .main
-        .arguments
-        .iter()
-        .enumerate()
-        .filter(|(index, _)| !prog.private[*index])
-    {
-        provide_variable_idx(&mut variables, &x.1);
+    for x in prog.arguments.iter().filter(|p| !p.private) {
+        provide_variable_idx(&mut variables, &x.id);
     }
 
-    //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
-    let main = prog.main;
-
-    //~out are added after main's arguments, since we want variables (columns)
-    //in the r1cs to be aligned like "public inputs | private inputs"
-    let main_return_count = main.returns.len();
+    // ~out are added after main's arguments, since we want variables (columns)
+    // in the r1cs to be aligned like "public inputs | private inputs"
+    let main_return_count = prog.returns.len();
 
     for i in 0..main_return_count {
         provide_variable_idx(&mut variables, &FlatVariable::public(i));
@@ -249,7 +240,7 @@ pub fn r1cs_program<T: Field>(
     let private_inputs_offset = variables.len();
 
     // first pass through statements to populate `variables`
-    for (quad, lin) in main.statements.iter().filter_map(|s| match s {
+    for (quad, lin) in prog.statements.iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
     }) {
@@ -269,7 +260,7 @@ pub fn r1cs_program<T: Field>(
     let mut c = vec![];
 
     // second pass to convert program to raw sparse vectors
-    for (quad, lin) in main.statements.into_iter().filter_map(|s| match s {
+    for (quad, lin) in prog.statements.into_iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
     }) {

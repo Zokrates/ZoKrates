@@ -6,4 +6,4 @@ def main(field[2] pt) -> field[2]:
     field u = pt[0]
     field v = pt[1]
 
-    return [0-u, v]
+    return [-u, v]

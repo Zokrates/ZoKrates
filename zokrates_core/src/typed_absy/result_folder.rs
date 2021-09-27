@@ -121,6 +121,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         Ok(CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module)?,
             id: i.id,
+            ty: box self.fold_declaration_type(*i.ty)?,
         })
     }
 
@@ -225,6 +226,11 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         t: StructType<'ast, T>,
     ) -> Result<StructType<'ast, T>, Self::Error> {
         Ok(StructType {
+            generics: t
+                .generics
+                .into_iter()
+                .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
+                .collect::<Result<Vec<_>, _>>()?,
             members: t
                 .members
                 .into_iter()
@@ -242,7 +248,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         t: DeclarationType<'ast>,
     ) -> Result<DeclarationType<'ast>, Self::Error> {
-        Ok(t)
+        use self::GType::*;
+
+        match t {
+            Array(array_type) => Ok(Array(self.fold_declaration_array_type(array_type)?)),
+            Struct(struct_type) => Ok(Struct(self.fold_declaration_struct_type(struct_type)?)),
+            t => Ok(t),
+        }
     }
 
     fn fold_declaration_array_type(
@@ -260,6 +272,11 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         t: DeclarationStructType<'ast>,
     ) -> Result<DeclarationStructType<'ast>, Self::Error> {
         Ok(DeclarationStructType {
+            generics: t
+                .generics
+                .into_iter()
+                .map(|g| g.map(|g| self.fold_declaration_constant(g)).transpose())
+                .collect::<Result<Vec<_>, _>>()?,
             members: t
                 .members
                 .into_iter()
@@ -277,16 +294,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         &mut self,
         a: TypedAssignee<'ast, T>,
     ) -> Result<TypedAssignee<'ast, T>, Self::Error> {
-        match a {
-            TypedAssignee::Identifier(v) => Ok(TypedAssignee::Identifier(self.fold_variable(v)?)),
-            TypedAssignee::Select(box a, box index) => Ok(TypedAssignee::Select(
-                box self.fold_assignee(a)?,
-                box self.fold_uint_expression(index)?,
-            )),
-            TypedAssignee::Member(box s, m) => {
-                Ok(TypedAssignee::Member(box self.fold_assignee(s)?, m))
-            }
-        }
+        fold_assignee(self, a)
     }
 
     fn fold_statement(
@@ -499,6 +507,20 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
         }
     };
     Ok(e)
+}
+
+pub fn fold_assignee<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    a: TypedAssignee<'ast, T>,
+) -> Result<TypedAssignee<'ast, T>, F::Error> {
+    match a {
+        TypedAssignee::Identifier(v) => Ok(TypedAssignee::Identifier(f.fold_variable(v)?)),
+        TypedAssignee::Select(box a, box index) => Ok(TypedAssignee::Select(
+            box f.fold_assignee(a)?,
+            box f.fold_uint_expression(index)?,
+        )),
+        TypedAssignee::Member(box s, m) => Ok(TypedAssignee::Member(box f.fold_assignee(s)?, m)),
+    }
 }
 
 pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
@@ -1092,7 +1114,6 @@ pub fn fold_constant<'ast, T: Field, F: ResultFolder<'ast, T>>(
     c: TypedConstant<'ast, T>,
 ) -> Result<TypedConstant<'ast, T>, F::Error> {
     Ok(TypedConstant {
-        ty: f.fold_type(c.ty)?,
         expression: f.fold_expression(c.expression)?,
     })
 }

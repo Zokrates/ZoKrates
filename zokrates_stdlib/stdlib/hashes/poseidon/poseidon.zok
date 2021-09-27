@@ -1,7 +1,6 @@
 // https://eprint.iacr.org/2019/458.pdf
 
-from "./constants.zok" import poseidon_c
-from "./constants.zok" import poseidon_m
+from "./constants.zok" import POSEIDON_C, POSEIDON_M
 
 def ark<N>(field[N] state, field[497] c, u32 it) -> field[N]:
     for u32 i in 0..N do
@@ -42,8 +41,8 @@ def main<N>(field[N] inputs) -> field:
     // and we do not want callers passing down constants.
     // This should be revisited once compiler limitations are gone.
 
-    field[497]  c = poseidon_c()[t - 2]
-    field[7][7] m = poseidon_m()[t - 2]
+    field[497]  c = POSEIDON_C[t - 2]
+    field[7][7] m = POSEIDON_M[t - 2]
 
     field[t] state = [0; t]
     for u32 i in 1..t do

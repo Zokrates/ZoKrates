@@ -28,7 +28,7 @@ cfg_if::cfg_if! {
 /// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum FlatEmbed {
-    U32ToField,
+    BitArrayLe,
     Unpack,
     U8ToBits,
     U16ToBits,
@@ -47,9 +47,30 @@ pub enum FlatEmbed {
 impl FlatEmbed {
     pub fn signature(&self) -> DeclarationSignature<'static> {
         match self {
-            FlatEmbed::U32ToField => DeclarationSignature::new()
-                .inputs(vec![DeclarationType::uint(32)])
-                .outputs(vec![DeclarationType::FieldElement]),
+            FlatEmbed::BitArrayLe => DeclarationSignature::new()
+                .generics(vec![Some(DeclarationConstant::Generic(
+                    GenericIdentifier {
+                        name: "N",
+                        index: 0,
+                    },
+                ))])
+                .inputs(vec![
+                    DeclarationType::array((
+                        DeclarationType::Boolean,
+                        GenericIdentifier {
+                            name: "N",
+                            index: 0,
+                        },
+                    )),
+                    DeclarationType::array((
+                        DeclarationType::Boolean,
+                        GenericIdentifier {
+                            name: "N",
+                            index: 0,
+                        },
+                    )),
+                ])
+                .outputs(vec![DeclarationType::Boolean]),
             FlatEmbed::Unpack => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
                     GenericIdentifier {
@@ -172,7 +193,7 @@ impl FlatEmbed {
 
     pub fn id(&self) -> &'static str {
         match self {
-            FlatEmbed::U32ToField => "_U32_TO_FIELD",
+            FlatEmbed::BitArrayLe => "_BIT_ARRAY_LT",
             FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
@@ -449,14 +470,9 @@ fn use_variable(
 /// * bit_width the number of bits we want to decompose to
 ///
 /// # Remarks
-/// * the return value of the `FlatFunction` is not deterministic if `bit_width == T::get_required_bits()`
-///   as we decompose over `log_2(p) + 1 bits, some
-///   elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
+/// * the return value of the `FlatFunction` is not deterministic if `bit_width >= T::get_required_bits()`
+///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
-    let nbits = T::get_required_bits();
-
-    assert!(bit_width <= nbits);
-
     let mut counter = 0;
 
     let mut layout = HashMap::new();
@@ -649,11 +665,9 @@ mod tests {
                 )
             );
 
-            let f = crate::ir::Function::from(compiled);
-            let prog = crate::ir::Prog {
-                main: f,
-                private: vec![true; 768],
-            };
+            let flat_prog = crate::flat_absy::FlatProg { main: compiled };
+
+            let prog = crate::ir::Prog::from(flat_prog);
 
             let input: Vec<_> = (0..512)
                 .map(|_| 0)

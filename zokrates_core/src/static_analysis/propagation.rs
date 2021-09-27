@@ -82,12 +82,15 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                     Ok((variable, constant)) => match index.as_inner() {
                         UExpressionInner::Value(n) => match constant {
                             TypedExpression::Array(a) => match a.as_inner_mut() {
-                                ArrayExpressionInner::Value(value) => match value.0[*n as usize] {
-                                    TypedExpressionOrSpread::Expression(ref mut e) => {
-                                        Ok((variable, e))
+                                ArrayExpressionInner::Value(value) => {
+                                    match value.0.get_mut(*n as usize) {
+                                        Some(TypedExpressionOrSpread::Expression(ref mut e)) => {
+                                            Ok((variable, e))
+                                        }
+                                        None => Err(variable),
+                                        _ => unreachable!(),
                                     }
-                                    _ => unreachable!(),
-                                },
+                                }
                                 _ => unreachable!("should be an array value"),
                             },
                             _ => unreachable!("should be an array expression"),
@@ -121,126 +124,6 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                 e => e,
             },
         }
-    }
-}
-
-fn is_constant<T: Field>(e: &TypedExpression<T>) -> bool {
-    match e {
-        TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
-        TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
-        TypedExpression::Array(a) => match a.as_inner() {
-            ArrayExpressionInner::Value(v) => v.0.iter().all(|e| match e {
-                TypedExpressionOrSpread::Expression(e) => is_constant(e),
-                _ => false,
-            }),
-            ArrayExpressionInner::Slice(box a, box from, box to) => {
-                is_constant(&from.clone().into())
-                    && is_constant(&to.clone().into())
-                    && is_constant(&a.clone().into())
-            }
-            ArrayExpressionInner::Repeat(box e, box count) => {
-                is_constant(&count.clone().into()) && is_constant(&e)
-            }
-            _ => false,
-        },
-        TypedExpression::Struct(a) => match a.as_inner() {
-            StructExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
-            _ => false,
-        },
-        TypedExpression::Uint(a) => matches!(a.as_inner(), UExpressionInner::Value(..)),
-        _ => false,
-    }
-}
-
-// in the constant map, we only want canonical constants: [0; 3] -> [0, 0, 0], [...[1], 2] -> [1, 2], etc
-fn to_canonical_constant<T: Field>(e: TypedExpression<T>) -> TypedExpression<T> {
-    fn to_canonical_constant_aux<T: Field>(
-        e: TypedExpressionOrSpread<T>,
-    ) -> Vec<TypedExpression<T>> {
-        match e {
-            TypedExpressionOrSpread::Expression(e) => vec![e],
-            TypedExpressionOrSpread::Spread(s) => match s.array.into_inner() {
-                ArrayExpressionInner::Value(v) => {
-                    v.into_iter().flat_map(to_canonical_constant_aux).collect()
-                }
-                _ => unimplemented!(),
-            },
-        }
-    }
-
-    match e {
-        TypedExpression::Array(a) => {
-            let array_ty = a.ty();
-
-            match a.into_inner() {
-                ArrayExpressionInner::Value(v) => ArrayExpressionInner::Value(
-                    v.into_iter()
-                        .flat_map(to_canonical_constant_aux)
-                        .map(|e| e.into())
-                        .collect::<Vec<_>>()
-                        .into(),
-                )
-                .annotate(*array_ty.ty, array_ty.size)
-                .into(),
-                ArrayExpressionInner::Slice(box a, box from, box to) => {
-                    let from = match from.into_inner() {
-                        UExpressionInner::Value(from) => from as usize,
-                        _ => unreachable!("should be a uint value"),
-                    };
-
-                    let to = match to.into_inner() {
-                        UExpressionInner::Value(to) => to as usize,
-                        _ => unreachable!("should be a uint value"),
-                    };
-
-                    let v = match a.into_inner() {
-                        ArrayExpressionInner::Value(v) => v,
-                        _ => unreachable!("should be an array value"),
-                    };
-
-                    ArrayExpressionInner::Value(
-                        v.into_iter()
-                            .flat_map(to_canonical_constant_aux)
-                            .map(|e| e.into())
-                            .enumerate()
-                            .filter(|(index, _)| index >= &from && index < &to)
-                            .map(|(_, e)| e)
-                            .collect::<Vec<_>>()
-                            .into(),
-                    )
-                    .annotate(*array_ty.ty, array_ty.size)
-                    .into()
-                }
-                ArrayExpressionInner::Repeat(box e, box count) => {
-                    let count = match count.into_inner() {
-                        UExpressionInner::Value(from) => from as usize,
-                        _ => unreachable!("should be a uint value"),
-                    };
-
-                    let e = to_canonical_constant(e);
-
-                    ArrayExpressionInner::Value(
-                        vec![TypedExpressionOrSpread::Expression(e); count].into(),
-                    )
-                    .annotate(*array_ty.ty, array_ty.size)
-                    .into()
-                }
-                _ => unreachable!(),
-            }
-        }
-        TypedExpression::Struct(s) => {
-            let struct_ty = s.ty().clone();
-
-            match s.into_inner() {
-                StructExpressionInner::Value(expressions) => StructExpressionInner::Value(
-                    expressions.into_iter().map(to_canonical_constant).collect(),
-                )
-                .annotate(struct_ty)
-                .into(),
-                _ => unreachable!(),
-            }
-        }
-        e => e,
     }
 }
 
@@ -341,10 +224,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     }
                 };
 
-                if is_constant(&expr) {
+                if expr.is_constant() {
                     match assignee {
                         TypedAssignee::Identifier(var) => {
-                            let expr = to_canonical_constant(expr);
+                            let expr = expr.into_canonical_constant();
 
                             assert!(self.constants.insert(var.id, expr).is_none());
 
@@ -352,7 +235,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         }
                         assignee => match self.try_get_constant_mut(&assignee) {
                             Ok((_, c)) => {
-                                *c = to_canonical_constant(expr);
+                                *c = expr.into_canonical_constant();
                                 Ok(vec![])
                             }
                             Err(v) => match self.constants.remove(&v.id) {
@@ -423,7 +306,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                             let argument = arguments.pop().unwrap();
 
-                            let argument = to_canonical_constant(argument);
+                            let argument = argument.into_canonical_constant();
 
                             match ArrayExpression::try_from(argument)
                                 .unwrap()
@@ -498,10 +381,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             }
                         }
 
-                        match arguments.iter().all(|a| is_constant(a)) {
+                        match arguments.iter().all(|a| a.is_constant()) {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match embed {
-                                    FlatEmbed::U32ToField => None, // todo
+                                    FlatEmbed::BitArrayLe => None, // todo
                                     FlatEmbed::U64FromBits => Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
@@ -1173,6 +1056,38 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 },
                 None => Ok(ArrayExpressionInner::Identifier(id)),
             },
+            ArrayExpressionInner::Value(exprs) => {
+                Ok(ArrayExpressionInner::Value(
+                    exprs
+                        .into_iter()
+                        .map(|e| self.fold_expression_or_spread(e))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flat_map(|e| {
+                            match e {
+                                // simplify `...[a, b]` to `a, b`
+                                TypedExpressionOrSpread::Spread(TypedSpread {
+                                    array:
+                                        ArrayExpression {
+                                            inner: ArrayExpressionInner::Value(v),
+                                            ..
+                                        },
+                                }) => v.0,
+                                e => vec![e],
+                            }
+                        })
+                        // ignore spreads over empty arrays
+                        .filter_map(|e| match e {
+                            TypedExpressionOrSpread::Spread(s)
+                                if s.array.size() == UExpression::from(0u32) =>
+                            {
+                                None
+                            }
+                            e => Some(e),
+                        })
+                        .collect(),
+                ))
+            }
             e => fold_array_expression_inner(self, ty, e),
         }
     }
@@ -1277,6 +1192,24 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 };
 
                 Ok(BooleanExpression::ArrayEq(box e1, box e2))
+            }
+            BooleanExpression::StructEq(box e1, box e2) => {
+                let e1 = self.fold_struct_expression(e1)?;
+                let e2 = self.fold_struct_expression(e2)?;
+
+                if let (Ok(t1), Ok(t2)) = (
+                    ConcreteType::try_from(e1.get_type()),
+                    ConcreteType::try_from(e2.get_type()),
+                ) {
+                    if t1 != t2 {
+                        return Err(Error::Type(format!(
+                            "Cannot compare {} of type {} to {} of type {}",
+                            e1, t1, e2, t2
+                        )));
+                    }
+                };
+
+                Ok(BooleanExpression::StructEq(box e1, box e2))
             }
             BooleanExpression::FieldLt(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1)?;

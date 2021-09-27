@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_core"
-version = "0.6.5"
+version = "0.6.6"
 edition = "2018"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/Zokrates/ZoKrates"
@@ -16,6 +16,7 @@ multicore = ["bellman_ce/multicore"]
 ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-serialize", "ark-relations", "ark-marlin", "ark-poly", "ark-poly-commit", "zokrates_field/ark", "sha2"]
 
 [dependencies]
+log = "0.4"
 cfg-if = "0.1"
 num = { version = "0.1.36", default-features = false }
 num-bigint = { version = "0.2", default-features = false }
@@ -59,6 +60,7 @@ sha2 = { version = "0.9.3", optional = true }
 [dev-dependencies]
 wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
+zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
