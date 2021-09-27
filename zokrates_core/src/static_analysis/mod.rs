@@ -26,7 +26,7 @@ use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::compile::CompileConfig;
 use crate::ir::Prog;
-use crate::static_analysis::constant_resolver::ConstantInliner;
+use crate::static_analysis::constant_resolver::ConstantResolver;
 use crate::static_analysis::zir_propagation::ZirPropagator;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;
@@ -95,7 +95,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         // inline user-defined constants
         log::debug!("Static analyser: Inline constants");
-        let r = ConstantInliner::inline(self);
+        let r = ConstantResolver::inline(self);
         log::trace!("\n{}", r);
 
         // isolate branches
