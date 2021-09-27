@@ -16,16 +16,6 @@ While `field` values mostly behave like unsigned integers, one should keep in mi
 {{#include ../../../zokrates_cli/examples/book/field_overflow.zok}}
 ```
 
-#### Arithmetic operations
-
-| Symbol | Meaning                                          |
-| ------ | ------------------------------------------------ |
-| `+`    | Addition mod `p`                                 |
-| `-`    | Subtraction mod `p`                              |
-| `*`    | Product mod `p`                                  |
-| `/`    | Division (multiplication by the inverse) mod `p` |
-| `**`   | Power mod `p`                                    |
-
 Note that [division in the finite field](https://en.wikipedia.org/wiki/Finite_field_arithmetic) behaves differently than in the case of integers.
 For field elements, the division operation multiplies the numerator with the denominator's inverse field element. The results coincide with integer divisions for cases with remainder 0, but differ otherwise.
 
