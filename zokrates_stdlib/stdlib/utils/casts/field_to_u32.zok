@@ -1,9 +1,7 @@
-from "EMBED" import unpack, u32_from_bits
+from "field" import FIELD_SIZE_IN_BITS
+import "utils/pack/bool/unpack"
+import "utils/casts/u32_from_bits"
 
-const field U32_MAX = 4294967295
-
-// Condition: field value is asserted to be in range [0, U32_MAX]
 def main(field input) -> u32:
-    assert(input <= U32_MAX)
-    bool[32] bits = unpack(input)
-    return u32_from_bits(bits)
+    bool[FIELD_SIZE_IN_BITS] bits = unpack(input)
+    return u32_from_bits(bits[FIELD_SIZE_IN_BITS-32..])
