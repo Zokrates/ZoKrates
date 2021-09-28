@@ -1,51 +1,6 @@
-use crate::flat_absy::{
-    FlatDirective, FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable,
-};
-use crate::ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
+use crate::flat_absy::{FlatDirective, FlatExpression, FlatProg, FlatStatement, FlatVariable};
+use crate::ir::{Directive, LinComb, Prog, QuadComb, Statement};
 use zokrates_field::Field;
-
-impl<T: Field> From<FlatFunction<T>> for Function<T> {
-    fn from(flat_function: FlatFunction<T>) -> Function<T> {
-        let return_expressions: Vec<FlatExpression<T>> = flat_function
-            .statements
-            .iter()
-            .filter_map(|s| match s {
-                FlatStatement::Return(el) => Some(el.expressions.clone()),
-                _ => None,
-            })
-            .next()
-            .unwrap();
-        Function {
-            id: String::from("main"),
-            arguments: flat_function.arguments.into_iter().map(|p| p.id).collect(),
-            returns: return_expressions
-                .iter()
-                .enumerate()
-                .map(|(index, _)| FlatVariable::public(index))
-                .collect(),
-            statements: flat_function
-                .statements
-                .into_iter()
-                .filter_map(|s| match s {
-                    FlatStatement::Return(..) => None,
-                    s => Some(s.into()),
-                })
-                .chain(
-                    return_expressions
-                        .into_iter()
-                        .enumerate()
-                        .map(|(index, expression)| {
-                            Statement::Constraint(
-                                QuadComb::from_flat_expression(expression),
-                                FlatVariable::public(index).into(),
-                                None,
-                            )
-                        }),
-                )
-                .collect(),
-        }
-    }
-}
 
 impl<T: Field> QuadComb<T> {
     fn from_flat_expression<U: Into<FlatExpression<T>>>(flat_expression: U) -> QuadComb<T> {
@@ -67,12 +22,44 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         // get the main function
         let main = flat_prog.main;
 
-        // get the interface of the program, i.e. which inputs are private and public
-        let private = main.arguments.iter().map(|p| p.private).collect();
+        let return_expressions: Vec<FlatExpression<T>> = main
+            .statements
+            .iter()
+            .filter_map(|s| match s {
+                FlatStatement::Return(el) => Some(el.expressions.clone()),
+                _ => None,
+            })
+            .next()
+            .unwrap();
 
-        let main = main.into();
-
-        Prog { main, private }
+        Prog {
+            arguments: main.arguments,
+            returns: return_expressions
+                .iter()
+                .enumerate()
+                .map(|(index, _)| FlatVariable::public(index))
+                .collect(),
+            statements: main
+                .statements
+                .into_iter()
+                .filter_map(|s| match s {
+                    FlatStatement::Return(..) => None,
+                    s => Some(s.into()),
+                })
+                .chain(
+                    return_expressions
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, expression)| {
+                            Statement::Constraint(
+                                QuadComb::from_flat_expression(expression),
+                                FlatVariable::public(index).into(),
+                                None,
+                            )
+                        }),
+                )
+                .collect(),
+        }
     }
 }
 

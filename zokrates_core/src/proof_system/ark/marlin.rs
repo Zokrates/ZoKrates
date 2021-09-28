@@ -188,8 +188,8 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
 #[cfg(test)]
 mod tests {
-    use crate::flat_absy::FlatVariable;
-    use crate::ir::{Function, Interpreter, Prog, QuadComb, Statement};
+    use crate::flat_absy::{FlatParameter, FlatVariable};
+    use crate::ir::{Interpreter, Prog, QuadComb, Statement};
 
     use super::*;
     use crate::proof_system::scheme::Marlin;
@@ -198,22 +198,18 @@ mod tests {
     #[test]
     fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
-            main: Function {
-                id: String::from("main"),
-                arguments: vec![FlatVariable::new(0)],
-                returns: vec![FlatVariable::public(0)],
-                statements: vec![
-                    Statement::constraint(
-                        QuadComb::from_linear_combinations(
-                            FlatVariable::new(0).into(),
-                            FlatVariable::new(0).into(),
-                        ),
-                        FlatVariable::new(1),
+            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+            returns: vec![FlatVariable::public(0)],
+            statements: vec![
+                Statement::constraint(
+                    QuadComb::from_linear_combinations(
+                        FlatVariable::new(0).into(),
+                        FlatVariable::new(0).into(),
                     ),
-                    Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
-                ],
-            },
-            private: vec![true],
+                    FlatVariable::new(1),
+                ),
+                Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
+            ],
         };
 
         let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
@@ -235,22 +231,18 @@ mod tests {
     #[test]
     fn verify_bw6_761_field() {
         let program: Prog<Bw6_761Field> = Prog {
-            main: Function {
-                id: String::from("main"),
-                arguments: vec![FlatVariable::new(0)],
-                returns: vec![FlatVariable::public(0)],
-                statements: vec![
-                    Statement::constraint(
-                        QuadComb::from_linear_combinations(
-                            FlatVariable::new(0).into(),
-                            FlatVariable::new(0).into(),
-                        ),
-                        FlatVariable::new(1),
+            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+            returns: vec![FlatVariable::public(0)],
+            statements: vec![
+                Statement::constraint(
+                    QuadComb::from_linear_combinations(
+                        FlatVariable::new(0).into(),
+                        FlatVariable::new(0).into(),
                     ),
-                    Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
-                ],
-            },
-            private: vec![true],
+                    FlatVariable::new(1),
+                ),
+                Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
+            ],
         };
 
         let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5);

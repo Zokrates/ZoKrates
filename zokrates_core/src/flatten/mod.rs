@@ -1465,7 +1465,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let res = match expr.into_inner() {
             UExpressionInner::Value(x) => {
-                FlatUExpression::with_field(FlatExpression::Number(T::from(x as usize)))
+                FlatUExpression::with_field(FlatExpression::Number(T::from(x)))
             } // force to be a field element
             UExpressionInner::Identifier(x) => {
                 let field = FlatExpression::Identifier(*self.layout.get(&x).unwrap());

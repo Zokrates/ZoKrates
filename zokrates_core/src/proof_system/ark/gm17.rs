@@ -250,8 +250,8 @@ pub mod serialization {
 
 #[cfg(test)]
 mod tests {
-    use crate::flat_absy::FlatVariable;
-    use crate::ir::{Function, Interpreter, Prog, Statement};
+    use crate::flat_absy::{FlatParameter, FlatVariable};
+    use crate::ir::{Interpreter, Prog, Statement};
 
     use super::*;
     use zokrates_field::{Bls12_377Field, Bw6_761Field};
@@ -259,16 +259,12 @@ mod tests {
     #[test]
     fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
-            main: Function {
-                id: String::from("main"),
-                arguments: vec![FlatVariable::new(0)],
-                returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::constraint(
-                    FlatVariable::new(0),
-                    FlatVariable::public(0),
-                )],
-            },
-            private: vec![false],
+            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+            returns: vec![FlatVariable::public(0)],
+            statements: vec![Statement::constraint(
+                FlatVariable::new(0),
+                FlatVariable::public(0),
+            )],
         };
 
         let keypair = <Ark as NonUniversalBackend<Bls12_377Field, GM17>>::setup(program.clone());
@@ -288,16 +284,12 @@ mod tests {
     #[test]
     fn verify_bw6_761_field() {
         let program: Prog<Bw6_761Field> = Prog {
-            main: Function {
-                id: String::from("main"),
-                arguments: vec![FlatVariable::new(0)],
-                returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::constraint(
-                    FlatVariable::new(0),
-                    FlatVariable::public(0),
-                )],
-            },
-            private: vec![false],
+            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+            returns: vec![FlatVariable::public(0)],
+            statements: vec![Statement::constraint(
+                FlatVariable::new(0),
+                FlatVariable::public(0),
+            )],
         };
 
         let keypair = <Ark as NonUniversalBackend<Bw6_761Field, GM17>>::setup(program.clone());

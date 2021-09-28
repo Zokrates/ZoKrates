@@ -136,22 +136,18 @@ mod tests {
     use zokrates_field::Bn128Field;
 
     use super::*;
-    use crate::flat_absy::FlatVariable;
-    use crate::ir::{Function, Interpreter, Prog, Statement};
+    use crate::flat_absy::{FlatParameter, FlatVariable};
+    use crate::ir::{Interpreter, Prog, Statement};
 
     #[test]
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
-            main: Function {
-                id: String::from("main"),
-                arguments: vec![FlatVariable::new(0)],
-                returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::constraint(
-                    FlatVariable::new(0),
-                    FlatVariable::public(0),
-                )],
-            },
-            private: vec![false],
+            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+            returns: vec![FlatVariable::public(0)],
+            statements: vec![Statement::constraint(
+                FlatVariable::new(0),
+                FlatVariable::public(0),
+            )],
         };
 
         let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());

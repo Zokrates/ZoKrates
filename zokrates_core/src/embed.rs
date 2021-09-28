@@ -665,11 +665,9 @@ mod tests {
                 )
             );
 
-            let f = crate::ir::Function::from(compiled);
-            let prog = crate::ir::Prog {
-                main: f,
-                private: vec![true; 768],
-            };
+            let flat_prog = crate::flat_absy::FlatProg { main: compiled };
+
+            let prog = crate::ir::Prog::from(flat_prog);
 
             let input: Vec<_> = (0..512)
                 .map(|_| 0)
