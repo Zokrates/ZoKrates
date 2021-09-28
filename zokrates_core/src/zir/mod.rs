@@ -135,10 +135,9 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
             ZirStatement::Assertion(ref e, ref metadata) => {
                 write!(f, "assert({}", e)?;
                 let metadata = metadata.as_ref().unwrap();
-                if metadata.message.is_some() {
-                    write!(f, ", \"{}\")", metadata.message.as_ref().unwrap())
-                } else {
-                    write!(f, ")")
+                match &metadata.message {
+                    Some(m) => write!(f, ", \"{}\")", m),
+                    None => write!(f, ")"),
                 }
             }
             ZirStatement::MultipleDefinition(ref ids, ref rhs) => {

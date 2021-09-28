@@ -357,10 +357,9 @@ impl<'ast> fmt::Display for Statement<'ast> {
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Assertion(ref e, ref message) => {
                 write!(f, "assert({}", e)?;
-                if message.is_some() {
-                    write!(f, ", \"{}\")", message.as_ref().unwrap())
-                } else {
-                    write!(f, ")")
+                match message {
+                    Some(m) => write!(f, ", \"{}\")", m),
+                    None => write!(f, ")"),
                 }
             }
             Statement::For(ref var, ref start, ref stop, ref list) => {

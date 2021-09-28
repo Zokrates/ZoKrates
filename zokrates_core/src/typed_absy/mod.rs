@@ -496,10 +496,9 @@ pub struct AssertionMetadata {
 impl fmt::Display for AssertionMetadata {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Assertion failed at {}:{}", self.file, self.position)?;
-        if self.message.is_some() {
-            write!(f, ": \"{}\"", self.message.as_ref().unwrap())
-        } else {
-            write!(f, "")
+        match &self.message {
+            Some(m) => write!(f, ": \"{}\"", m),
+            None => write!(f, ""),
         }
     }
 }
@@ -562,10 +561,9 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::Assertion(ref e, ref metadata) => {
                 write!(f, "assert({}", e)?;
                 let metadata = metadata.as_ref().unwrap();
-                if metadata.message.is_some() {
-                    write!(f, ", \"{}\")", metadata.message.as_ref().unwrap())
-                } else {
-                    write!(f, ")")
+                match &metadata.message {
+                    Some(m) => write!(f, ", \"{}\")", m),
+                    None => write!(f, ")"),
                 }
             }
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
