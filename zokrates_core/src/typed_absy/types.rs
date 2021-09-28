@@ -965,6 +965,33 @@ impl<'ast> ConcreteFunctionKey<'ast> {
 
 use std::collections::btree_map::Entry;
 
+// check an optional generic value against the corresponding declaration constant
+// if None is provided, return true
+// if some value is provided, insert it into the map or check that it doesn't conflict if a value is already thereq
+pub fn check_generic<'ast, S: Clone + PartialEq + PartialEq<u32>>(
+    generic: &DeclarationConstant<'ast>,
+    value: Option<&S>,
+    constants: &mut GGenericsAssignment<'ast, S>,
+) -> bool {
+    value
+        .map(|value| match generic {
+            // if the generic is an identifier, we insert into the map, or check if the concrete size
+            // matches if this identifier is already in the map
+            DeclarationConstant::Generic(id) => match constants.0.entry(id.clone()) {
+                Entry::Occupied(e) => *e.get() == *value,
+                Entry::Vacant(e) => {
+                    e.insert(value.clone());
+                    true
+                }
+            },
+            DeclarationConstant::Concrete(generic) => *value == *generic,
+            // in the case of a constant, we do not know the value yet, so we optimistically assume it's correct
+            // if it does not match, it will be caught during inlining
+            DeclarationConstant::Constant(..) => true,
+        })
+        .unwrap_or(true)
+}
+
 pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<u32>>(
     decl_ty: &DeclarationType<'ast>,
     ty: &GType<S>,
@@ -972,31 +999,20 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<u32>>(
 ) -> bool {
     match (decl_ty, ty) {
         (DeclarationType::Array(t0), GType::Array(t1)) => {
-            let s1 = t1.size.clone();
-
             // both the inner type and the size must match
             check_type(&t0.ty, &t1.ty, constants)
-                && match &t0.size {
-                    // if the declared size is an identifier, we insert into the map, or check if the concrete size
-                    // matches if this identifier is already in the map
-                    DeclarationConstant::Generic(id) => match constants.0.entry(id.clone()) {
-                        Entry::Occupied(e) => *e.get() == s1,
-                        Entry::Vacant(e) => {
-                            e.insert(s1);
-                            true
-                        }
-                    },
-                    DeclarationConstant::Concrete(s0) => s1 == *s0 as u32,
-                    // in the case of a constant, we do not know the value yet, so we optimistically assume it's correct
-                    // if it does not match, it will be caught during inlining
-                    DeclarationConstant::Constant(..) => true,
-                }
+                && check_generic(&t0.size, Some(&t1.size), constants)
         }
         (DeclarationType::FieldElement, GType::FieldElement)
         | (DeclarationType::Boolean, GType::Boolean) => true,
         (DeclarationType::Uint(b0), GType::Uint(b1)) => b0 == b1,
         (DeclarationType::Struct(s0), GType::Struct(s1)) => {
             s0.canonical_location == s1.canonical_location
+                && s0
+                    .generics
+                    .iter()
+                    .zip(s1.generics.iter())
+                    .all(|(g0, g1)| check_generic(g0.as_ref().unwrap(), g1.as_ref(), constants))
         }
         _ => false,
     }
