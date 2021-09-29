@@ -164,7 +164,9 @@ impl fmt::Display for CompileErrorInner {
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct CompileConfig {
+    #[serde(default)]
     pub allow_unconstrained_variables: bool,
+    #[serde(default)]
     pub isolate_branches: bool,
 }
 
