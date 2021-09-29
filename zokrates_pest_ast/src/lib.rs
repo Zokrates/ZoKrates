@@ -434,7 +434,7 @@ mod ast {
     pub enum Term<'ast> {
         Expression(Expression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
-        Ternary(IfElseExpression<'ast>),
+        IfElse(IfElseExpression<'ast>),
         Postfix(PostfixExpression<'ast>),
         Primary(PrimaryExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
@@ -519,7 +519,7 @@ mod ast {
         fn from(t: Term<'ast>) -> Self {
             match t {
                 Term::Expression(e) => e,
-                Term::Ternary(e) => Expression::IfElse(e),
+                Term::IfElse(e) => Expression::IfElse(e),
                 Term::Postfix(e) => Expression::Postfix(e),
                 Term::Primary(e) => e.into(),
                 Term::InlineArray(e) => Expression::InlineArray(e),
