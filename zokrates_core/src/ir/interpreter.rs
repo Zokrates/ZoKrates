@@ -55,8 +55,6 @@ impl Interpreter {
                         let rhs_value = lin.evaluate(&witness).unwrap();
                         if lhs_value != rhs_value {
                             return Err(Error::UnsatisfiedConstraint {
-                                left: lhs_value.to_dec_string(),
-                                right: rhs_value.to_dec_string(),
                                 error: error.to_owned(),
                             });
                         }
@@ -280,37 +278,16 @@ impl<T: Field> QuadComb<T> {
 
 #[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub enum Error {
-    UnsatisfiedConstraint {
-        left: String,
-        right: String,
-        error: Option<RuntimeError>,
-    },
+    UnsatisfiedConstraint { error: Option<RuntimeError> },
     Solver,
-    WrongInputCount {
-        expected: usize,
-        received: usize,
-    },
+    WrongInputCount { expected: usize, received: usize },
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::UnsatisfiedConstraint {
-                ref left,
-                ref right,
-                ref error,
-            } => {
-                write!(
-                    f,
-                    "{}",
-                    error
-                        .as_ref()
-                        .map(|m| m.to_string())
-                        .unwrap_or_else(|| format!(
-                            "Unsatisfied constraint: expected {} to equal {}",
-                            left, right
-                        ))
-                )?;
+            Error::UnsatisfiedConstraint { ref error } => {
+                write!(f, "{}", error.as_ref().map(|m| m.to_string()).unwrap())?;
 
                 match error {
                     Some(e) if e.is_malicious() => {
