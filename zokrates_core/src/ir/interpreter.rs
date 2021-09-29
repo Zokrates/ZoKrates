@@ -287,7 +287,14 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::UnsatisfiedConstraint { ref error } => {
-                write!(f, "{}", error.as_ref().map(|m| m.to_string()).unwrap())?;
+                write!(
+                    f,
+                    "{}",
+                    error
+                        .as_ref()
+                        .map(|m| m.to_string())
+                        .expect("Found an unsatisfied constraint without an attached error.")
+                )?;
 
                 match error {
                     Some(e) if e.is_malicious() => {
