@@ -1435,6 +1435,7 @@ mod tests {
                     BooleanExpression::Value(true),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                     FieldElementExpression::Number(Bn128Field::from(3)),
+                    ConditionalKind::IfElse,
                 );
 
                 assert_eq!(
@@ -1449,6 +1450,7 @@ mod tests {
                     BooleanExpression::Value(false),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                     FieldElementExpression::Number(Bn128Field::from(3)),
+                    ConditionalKind::IfElse,
                 );
 
                 assert_eq!(
