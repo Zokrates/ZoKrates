@@ -1,5 +1,5 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use crate::proof_system::solidity::solidity_pairing_lib;
 use crate::proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -41,10 +41,8 @@ impl<T: Field> NonUniversalScheme<T> for PGHR13 {}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
     fn export_solidity_verifier(vk: <PGHR13 as Scheme<T>>::VerificationKey) -> String {
-        let (mut template_text, solidity_pairing_lib) = (
-            String::from(CONTRACT_TEMPLATE),
-            String::from(SOLIDITY_PAIRING_LIB),
-        );
+        let (mut template_text, solidity_pairing_lib) =
+            (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));
 
         // replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
@@ -138,10 +136,7 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
         let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
         template_text = re.replace_all(&template_text, "uint256($v)").to_string();
 
-        format!(
-            "{}{}{}",
-            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
-        )
+        format!("{}{}", solidity_pairing_lib, template_text)
     }
 }
 
