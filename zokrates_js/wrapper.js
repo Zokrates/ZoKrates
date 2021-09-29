@@ -37,7 +37,6 @@ module.exports = (dep) => {
     return {
         compile: (source, options = {}) => {
             const { location = "main.zok", resolveCallback = () => null, config = {} } = options;
-            console.log(config);
             const callback = (currentLocation, importLocation) => {
                 return resolveFromStdlib(currentLocation, importLocation) || resolveCallback(currentLocation, importLocation);
             };
