@@ -6,6 +6,7 @@
 
 use crate::absy::Identifier;
 use crate::absy::*;
+use crate::compile::CompileMode;
 use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::*;
 use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
@@ -293,6 +294,7 @@ pub struct Checker<'ast, T> {
     scope: HashSet<ScopedVariable<'ast, T>>,
     functions: HashSet<DeclarationFunctionKey<'ast>>,
     level: usize,
+    mode: CompileMode,
 }
 
 impl<'ast, T: Field> Checker<'ast, T> {
@@ -301,8 +303,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
             return_types: None,
             scope: HashSet::new(),
             functions: HashSet::new(),
+            mode: CompileMode::default(),
             level: 0,
         }
+    }
+
+    fn with_mode(mode: CompileMode) -> Self {
+        let mut checker = Checker::new();
+        checker.mode = mode;
+        checker
     }
 
     /// Check a `Program`
@@ -310,8 +319,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
     /// # Arguments
     ///
     /// * `prog` - The `Program` to be checked
-    pub fn check(prog: Program<'ast>) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
-        Checker::new().check_program(prog)
+    pub fn check(
+        prog: Program<'ast>,
+        mode: CompileMode,
+    ) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
+        Checker::with_mode(mode).check_program(prog)
     }
 
     fn check_program(
@@ -334,14 +346,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         let main_id = program.main.clone();
 
-        Checker::check_single_main(state.typed_modules.get(&program.main).unwrap()).map_err(
-            |inner| {
-                vec![Error {
-                    inner,
-                    module_id: main_id,
-                }]
-            },
-        )?;
+        if self.mode == CompileMode::Bin {
+            Checker::check_entry_point(state.typed_modules.get(&program.main).unwrap()).map_err(
+                |inner| {
+                    vec![Error {
+                        inner,
+                        module_id: main_id,
+                    }]
+                },
+            )?
+        };
 
         Ok(TypedProgram {
             main: program.main,
@@ -869,21 +883,29 @@ impl<'ast, T: Field> Checker<'ast, T> {
         Ok(())
     }
 
-    fn check_single_main(module: &TypedModule<T>) -> Result<(), ErrorInner> {
-        match module
-            .functions
-            .iter()
-            .filter(|(key, _)| key.id == "main")
-            .count()
-        {
-            1 => Ok(()),
-            0 => Err(ErrorInner {
+    fn check_entry_point(module: &TypedModule<T>) -> Result<(), ErrorInner> {
+        let mut main_iterator = module.functions.iter().filter(|(key, _)| key.id == "main");
+
+        match main_iterator.next() {
+            Some((key, _)) => match key.signature.generics.len() {
+                0 => match main_iterator.count() {
+                    0 => Ok(()),
+                    n => Err(ErrorInner {
+                        pos: None,
+                        message: format!("Expected a single entry point, found {}", n + 1),
+                    }),
+                },
+                _ => Err(ErrorInner {
+                    pos: None,
+                    message: format!(
+                        "Expected the entry point of the program `{}` not to have generics",
+                        key
+                    ),
+                }),
+            },
+            None => Err(ErrorInner {
                 pos: None,
                 message: "No main function found".into(),
-            }),
-            n => Err(ErrorInner {
-                pos: None,
-                message: format!("Only one main function allowed, found {}", n),
             }),
         }
     }
@@ -4008,6 +4030,7 @@ mod tests {
             functions,
             level,
             return_types: None,
+            mode: CompileMode::default(),
         }
     }
 
@@ -5214,7 +5237,7 @@ mod tests {
             Err(vec![Error {
                 inner: ErrorInner {
                     pos: None,
-                    message: "Only one main function allowed, found 2".into()
+                    message: "Expected a single entry point, found 2".into()
                 },
                 module_id: (*MODULE_ID).clone()
             }])

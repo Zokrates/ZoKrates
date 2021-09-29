@@ -1,7 +1,6 @@
 {
     "entry_point": "./tests/tests/panics/panic_isolation.zok",
     "config": {
-        "allow_unconstrained_variables": false,
         "isolate_branches": false
     },
     "curves": ["Bn128"],

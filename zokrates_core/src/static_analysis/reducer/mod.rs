@@ -51,7 +51,6 @@ pub enum Output<U, V> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
     Incompatible(String),
-    GenericsInMain,
     // TODO: give more details about what's blocking the progress
     NoProgress,
     LoopTooLarge(u128),
@@ -65,7 +64,6 @@ impl fmt::Display for Error {
                 "{}",
                 s
             ),
-            Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
             Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds"),
             Error::LoopTooLarge(size) => write!(f, "Found a loop of size {}, which is larger than the maximum allowed of {}. Check the loop bounds, especially for underflows", size, MAX_FOR_LOOP_SIZE),
         }
@@ -500,30 +498,24 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
         _ => unreachable!(),
     };
 
-    match main_function.signature.generics.len() {
-        0 => {
-            let main_function = reduce_function(main_function, GGenericsAssignment::default(), &p)?;
+    assert!(main_function.signature.generics.is_empty());
 
-            Ok(TypedProgram {
-                main: p.main.clone(),
-                modules: vec![(
-                    p.main.clone(),
-                    TypedModule {
-                        functions: vec![(
-                            main_key.clone(),
-                            TypedFunctionSymbol::Here(main_function),
-                        )]
-                        .into_iter()
-                        .collect(),
-                        constants: Default::default(),
-                    },
-                )]
-                .into_iter()
-                .collect(),
-            })
-        }
-        _ => Err(Error::GenericsInMain),
-    }
+    let main_function = reduce_function(main_function, GGenericsAssignment::default(), &p)?;
+
+    Ok(TypedProgram {
+        main: p.main.clone(),
+        modules: vec![(
+            p.main.clone(),
+            TypedModule {
+                functions: vec![(main_key.clone(), TypedFunctionSymbol::Here(main_function))]
+                    .into_iter()
+                    .collect(),
+                constants: Default::default(),
+            },
+        )]
+        .into_iter()
+        .collect(),
+    })
 }
 
 fn reduce_function<'ast, T: Field>(

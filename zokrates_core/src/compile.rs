@@ -25,13 +25,19 @@ use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompilationArtifacts<T: Field> {
-    prog: ir::Prog<T>,
+pub struct BinCompilationArtifacts<P> {
+    prog: P,
     abi: Abi,
 }
 
-impl<T: Field> CompilationArtifacts<T> {
-    pub fn prog(&self) -> &ir::Prog<T> {
+#[derive(Debug)]
+pub enum CompilationArtifacts<P> {
+    Bin(BinCompilationArtifacts<P>),
+    Lib,
+}
+
+impl<P> BinCompilationArtifacts<P> {
+    pub fn prog(&self) -> &P {
         &self.prog
     }
 
@@ -162,9 +168,25 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub enum CompileMode {
+    Bin,
+    Lib,
+}
+
+impl Default for CompileMode {
+    fn default() -> Self {
+        Self::Bin
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct CompileConfig {
+    #[serde(default)]
+    pub mode: CompileMode,
+    #[serde(default)]
     pub allow_unconstrained_variables: bool,
+    #[serde(default)]
     pub isolate_branches: bool,
 }
 
@@ -177,6 +199,10 @@ impl CompileConfig {
         self.isolate_branches = flag;
         self
     }
+    pub fn mode(mut self, mode: CompileMode) -> Self {
+        self.mode = mode;
+        self
+    }
 }
 
 type FilePath = PathBuf;
@@ -186,37 +212,42 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     config: &CompileConfig,
-) -> Result<CompilationArtifacts<T>, CompileErrors> {
+) -> Result<BinCompilationArtifacts<ir::Prog<T>>, CompileErrors> {
     let arena = Arena::new();
 
-    let (typed_ast, abi) = check_with_arena(source, location.clone(), resolver, config, &arena)?;
+    let artifacts = check_with_arena(source, location.clone(), resolver, config, &arena)?;
 
-    // flatten input program
-    log::debug!("Flatten");
-    let program_flattened = Flattener::flatten(typed_ast, config);
+    match artifacts {
+        CompilationArtifacts::Lib => unreachable!(),
+        CompilationArtifacts::Bin(artifacts) => {
+            // flatten input program
+            log::debug!("Flatten");
+            let program_flattened = Flattener::flatten(artifacts.prog, config);
 
-    // constant propagation after call resolution
-    log::debug!("Propagate flat program");
-    let program_flattened = program_flattened.propagate();
+            // constant propagation after call resolution
+            log::debug!("Propagate flat program");
+            let program_flattened = program_flattened.propagate();
 
-    // convert to ir
-    log::debug!("Convert to IR");
-    let ir_prog = ir::Prog::from(program_flattened);
+            // convert to ir
+            log::debug!("Convert to IR");
+            let ir_prog = ir::Prog::from(program_flattened);
 
-    // optimize
-    log::debug!("Optimise IR");
-    let optimized_ir_prog = ir_prog.optimize();
+            // optimize
+            log::debug!("Optimise IR");
+            let optimized_ir_prog = ir_prog.optimize();
 
-    // analyse ir (check constraints)
-    log::debug!("Analyse IR");
-    let optimized_ir_prog = optimized_ir_prog
-        .analyse()
-        .map_err(|e| CompileErrorInner::from(e).in_file(location.as_path()))?;
+            // analyse ir (check constraints)
+            log::debug!("Analyse IR");
+            let optimized_ir_prog = optimized_ir_prog
+                .analyse()
+                .map_err(|e| CompileErrorInner::from(e).in_file(location.as_path()))?;
 
-    Ok(CompilationArtifacts {
-        prog: optimized_ir_prog,
-        abi,
-    })
+            Ok(BinCompilationArtifacts {
+                prog: optimized_ir_prog,
+                abi: artifacts.abi,
+            })
+        }
+    }
 }
 
 pub fn check<T: Field, E: Into<imports::Error>>(
@@ -236,7 +267,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: &CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
+) -> Result<CompilationArtifacts<ZirProgram<'ast, T>>, CompileErrors> {
     let source = arena.alloc(source);
 
     log::debug!("Parse program with entry file {}", location.display());
@@ -246,17 +277,27 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     log::debug!("Check semantics");
 
     // check semantics
-    let typed_ast = Checker::check(compiled)
+    let typed_ast = Checker::check(compiled, config.mode)
         .map_err(|errors| CompileErrors(errors.into_iter().map(CompileError::from).collect()))?;
 
-    let main_module = typed_ast.main.clone();
+    match config.mode {
+        CompileMode::Bin => {
+            let main_module = typed_ast.main.clone();
 
-    log::debug!("Run static analysis");
+            log::debug!("Run static analysis");
 
-    // analyse (unroll and constant propagation)
-    typed_ast
-        .analyse(config)
-        .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
+            // analyse (unroll and constant propagation)
+            let (prog, abi) = typed_ast.analyse(config).map_err(|e| {
+                CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)])
+            })?;
+
+            Ok(CompilationArtifacts::Bin(BinCompilationArtifacts {
+                prog,
+                abi,
+            }))
+        }
+        CompileMode::Lib => Ok(CompilationArtifacts::Lib),
+    }
 }
 
 pub fn parse_program<'ast, T: Field, E: Into<imports::Error>>(
@@ -322,7 +363,7 @@ mod test {
 			   return foo()
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
+        let res: Result<BinCompilationArtifacts<ir::Prog<Bn128Field>>, CompileErrors> = compile(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
@@ -341,7 +382,7 @@ mod test {
 			   return 1
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
+        let res: Result<BinCompilationArtifacts<ir::Prog<Bn128Field>>, CompileErrors> = compile(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,

@@ -1,0 +1,1 @@
+Introduce a check mode flag `--mode` and stop requiring a main function in `lib` mode

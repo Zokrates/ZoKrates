@@ -6,8 +6,8 @@ use std::io;
 use zokrates_common::Resolver;
 use zokrates_core::compile::CompileConfig;
 use zokrates_core::{
-    compile::{compile, CompilationArtifacts},
-    ir::Interpreter,
+    compile::{compile, BinCompilationArtifacts},
+    ir::{Interpreter, Prog},
 };
 use zokrates_field::Bn128Field;
 use zokrates_fs_resolver::FileSystemResolver;
@@ -26,7 +26,7 @@ fn lt_field() {
     // the fact that `2*10000 - 2*5555` has two distinct bit decompositions
     // we chose the one which is out of range, ie the sum check features an overflow
 
-    let res: CompilationArtifacts<Bn128Field> = compile(
+    let res: BinCompilationArtifacts<Prog<Bn128Field>> = compile(
         source,
         "./path/to/file".into(),
         None::<&dyn Resolver<io::Error>>,
@@ -58,7 +58,7 @@ fn lt_uint() {
     // the fact that `2*10000 - 2*5555` has two distinct bit decompositions
     // we chose the one which is out of range, ie the sum check features an overflow
 
-    let res: CompilationArtifacts<Bn128Field> = compile(
+    let res: BinCompilationArtifacts<Prog<Bn128Field>> = compile(
         source,
         "./path/to/file".into(),
         None::<&dyn Resolver<io::Error>>,
@@ -99,7 +99,7 @@ fn unpack256() {
     )
     .unwrap();
 
-    let res: CompilationArtifacts<Bn128Field> = compile(
+    let res: BinCompilationArtifacts<Prog<Bn128Field>> = compile(
         source,
         "./path/to/file".into(),
         Some(&FileSystemResolver::with_stdlib_root(
@@ -139,7 +139,7 @@ fn unpack256_unchecked() {
     )
     .unwrap();
 
-    let res: CompilationArtifacts<Bn128Field> = compile(
+    let res: BinCompilationArtifacts<Prog<Bn128Field>> = compile(
         source,
         "./path/to/file".into(),
         Some(&FileSystemResolver::with_stdlib_root(
