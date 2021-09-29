@@ -5,9 +5,10 @@ use crate::typed_absy::types::{
 };
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, BooleanExpression, Expr, FieldElementExpression, IfElse,
-    IfElseExpression, Select, SelectExpression, StructExpression, StructExpressionInner, Typed,
-    TypedExpression, TypedExpressionOrSpread, TypedSpread, UExpression, UExpressionInner,
+    ArrayExpression, ArrayExpressionInner, BooleanExpression, Conditional, ConditionalExpression,
+    Expr, FieldElementExpression, Select, SelectExpression, StructExpression,
+    StructExpressionInner, Typed, TypedExpression, TypedExpressionOrSpread, TypedSpread,
+    UExpression, UExpressionInner,
 };
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -239,7 +240,7 @@ pub enum IntExpression<'ast, T> {
     Div(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Rem(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     Pow(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
-    IfElse(IfElseExpression<'ast, T, IntExpression<'ast, T>>),
+    Conditional(ConditionalExpression<'ast, T, IntExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, IntExpression<'ast, T>>),
     Xor(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
     And(Box<IntExpression<'ast, T>>, Box<IntExpression<'ast, T>>),
@@ -354,7 +355,7 @@ impl<'ast, T: fmt::Display> fmt::Display for IntExpression<'ast, T> {
             IntExpression::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             IntExpression::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             IntExpression::Not(ref e) => write!(f, "!{}", e),
-            IntExpression::IfElse(ref c) => write!(f, "{}", c),
+            IntExpression::Conditional(ref c) => write!(f, "{}", c),
         }
     }
 }
@@ -404,10 +405,11 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
             )),
             IntExpression::Pos(box e) => Ok(Self::Pos(box Self::try_from_int(e)?)),
             IntExpression::Neg(box e) => Ok(Self::Neg(box Self::try_from_int(e)?)),
-            IntExpression::IfElse(c) => Ok(Self::IfElse(IfElseExpression::new(
+            IntExpression::Conditional(c) => Ok(Self::Conditional(ConditionalExpression::new(
                 *c.condition,
                 Self::try_from_int(*c.consequence)?,
                 Self::try_from_int(*c.alternative)?,
+                c.kind,
             ))),
             IntExpression::Select(select) => {
                 let array = *select.array;
@@ -523,10 +525,11 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 Self::try_from_int(e1, bitwidth)?,
                 e2,
             )),
-            IfElse(c) => Ok(UExpression::if_else(
+            Conditional(c) => Ok(UExpression::conditional(
                 *c.condition,
                 Self::try_from_int(*c.consequence, bitwidth)?,
                 Self::try_from_int(*c.alternative, bitwidth)?,
+                c.kind,
             )),
             Select(select) => {
                 let array = *select.array;
@@ -714,7 +717,7 @@ mod tests {
             n.clone() * n.clone(),
             IntExpression::pow(n.clone(), n.clone()),
             n.clone() / n.clone(),
-            IntExpression::if_else(c.clone(), n.clone(), n.clone()),
+            IntExpression::conditional(c.clone(), n.clone(), n.clone()),
             IntExpression::select(n_a.clone(), i.clone()),
         ];
 
@@ -725,7 +728,7 @@ mod tests {
             t.clone() * t.clone(),
             FieldElementExpression::pow(t.clone(), i.clone()),
             t.clone() / t.clone(),
-            FieldElementExpression::if_else(c.clone(), t.clone(), t.clone()),
+            FieldElementExpression::conditional(c.clone(), t.clone(), t.clone()),
             FieldElementExpression::select(t_a.clone(), i.clone()),
         ];
 
@@ -780,7 +783,7 @@ mod tests {
             IntExpression::left_shift(n.clone(), i.clone()),
             IntExpression::right_shift(n.clone(), i.clone()),
             !n.clone(),
-            IntExpression::if_else(c.clone(), n.clone(), n.clone()),
+            IntExpression::conditional(c.clone(), n.clone(), n.clone()),
             IntExpression::select(n_a.clone(), i.clone()),
         ];
 
@@ -797,7 +800,7 @@ mod tests {
             UExpression::left_shift(t.clone(), i.clone()),
             UExpression::right_shift(t.clone(), i.clone()),
             !t.clone(),
-            UExpression::if_else(c.clone(), t.clone(), t.clone()),
+            UExpression::conditional(c.clone(), t.clone(), t.clone()),
             UExpression::select(t_a.clone(), i.clone()),
         ];
 

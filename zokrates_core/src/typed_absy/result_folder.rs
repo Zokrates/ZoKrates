@@ -164,14 +164,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_types(self, tys)
     }
 
-    fn fold_if_else_expression<
-        E: Expr<'ast, T> + PartialEq + IfElse<'ast, T> + ResultFold<'ast, T>,
+    fn fold_conditional_expression<
+        E: Expr<'ast, T> + PartialEq + Conditional<'ast, T> + ResultFold<'ast, T>,
     >(
         &mut self,
         ty: &E::Ty,
-        e: IfElseExpression<'ast, T, E>,
-    ) -> Result<IfElseOrExpression<'ast, T, E>, Self::Error> {
-        fold_if_else_expression(self, ty, e)
+        e: ConditionalExpression<'ast, T, E>,
+    ) -> Result<ConditionalOrExpression<'ast, T, E>, Self::Error> {
+        fold_conditional_expression(self, ty, e)
     }
 
     fn fold_block_expression<E: ResultFold<'ast, T>>(
@@ -491,9 +491,9 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        ArrayExpressionInner::IfElse(c) => match f.fold_if_else_expression(ty, c)? {
-            IfElseOrExpression::IfElse(c) => ArrayExpressionInner::IfElse(c),
-            IfElseOrExpression::Expression(u) => u,
+        ArrayExpressionInner::Conditional(c) => match f.fold_conditional_expression(ty, c)? {
+            ConditionalOrExpression::Conditional(c) => ArrayExpressionInner::Conditional(c),
+            ConditionalOrExpression::Expression(u) => u,
         },
         ArrayExpressionInner::Member(m) => match f.fold_member_expression(ty, m)? {
             MemberOrExpression::Member(m) => ArrayExpressionInner::Member(m),
@@ -542,9 +542,9 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        StructExpressionInner::IfElse(c) => match f.fold_if_else_expression(ty, c)? {
-            IfElseOrExpression::IfElse(c) => StructExpressionInner::IfElse(c),
-            IfElseOrExpression::Expression(u) => u,
+        StructExpressionInner::Conditional(c) => match f.fold_conditional_expression(ty, c)? {
+            ConditionalOrExpression::Conditional(c) => StructExpressionInner::Conditional(c),
+            ConditionalOrExpression::Expression(u) => u,
         },
         StructExpressionInner::Member(m) => match f.fold_member_expression(ty, m)? {
             MemberOrExpression::Member(m) => StructExpressionInner::Member(m),
@@ -605,10 +605,10 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
             FieldElementExpression::Pos(box e)
         }
-        FieldElementExpression::IfElse(c) => {
-            match f.fold_if_else_expression(&Type::FieldElement, c)? {
-                IfElseOrExpression::IfElse(c) => FieldElementExpression::IfElse(c),
-                IfElseOrExpression::Expression(u) => u,
+        FieldElementExpression::Conditional(c) => {
+            match f.fold_conditional_expression(&Type::FieldElement, c)? {
+                ConditionalOrExpression::Conditional(c) => FieldElementExpression::Conditional(c),
+                ConditionalOrExpression::Expression(u) => u,
             }
         }
         FieldElementExpression::FunctionCall(function_call) => {
@@ -659,11 +659,11 @@ pub fn fold_block_expression<'ast, T: Field, E: ResultFold<'ast, T>, F: ResultFo
     })
 }
 
-pub fn fold_if_else_expression<
+pub fn fold_conditional_expression<
     'ast,
     T: Field,
     E: Expr<'ast, T>
-        + IfElse<'ast, T>
+        + Conditional<'ast, T>
         + PartialEq
         + ResultFold<'ast, T>
         + From<TypedExpression<'ast, T>>,
@@ -671,13 +671,16 @@ pub fn fold_if_else_expression<
 >(
     f: &mut F,
     _: &E::Ty,
-    e: IfElseExpression<'ast, T, E>,
-) -> Result<IfElseOrExpression<'ast, T, E>, F::Error> {
-    Ok(IfElseOrExpression::IfElse(IfElseExpression::new(
-        f.fold_boolean_expression(*e.condition)?,
-        e.consequence.fold(f)?,
-        e.alternative.fold(f)?,
-    )))
+    e: ConditionalExpression<'ast, T, E>,
+) -> Result<ConditionalOrExpression<'ast, T, E>, F::Error> {
+    Ok(ConditionalOrExpression::Conditional(
+        ConditionalExpression::new(
+            f.fold_boolean_expression(*e.condition)?,
+            e.consequence.fold(f)?,
+            e.alternative.fold(f)?,
+            e.kind,
+        ),
+    ))
 }
 
 pub fn fold_member_expression<
@@ -830,10 +833,12 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        BooleanExpression::IfElse(c) => match f.fold_if_else_expression(&Type::Boolean, c)? {
-            IfElseOrExpression::IfElse(c) => BooleanExpression::IfElse(c),
-            IfElseOrExpression::Expression(u) => u,
-        },
+        BooleanExpression::Conditional(c) => {
+            match f.fold_conditional_expression(&Type::Boolean, c)? {
+                ConditionalOrExpression::Conditional(c) => BooleanExpression::Conditional(c),
+                ConditionalOrExpression::Expression(u) => u,
+            }
+        }
         BooleanExpression::Select(select) => {
             match f.fold_select_expression(&Type::Boolean, select)? {
                 SelectOrExpression::Select(s) => BooleanExpression::Select(s),
@@ -958,9 +963,9 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
             SelectOrExpression::Select(s) => UExpressionInner::Select(s),
             SelectOrExpression::Expression(u) => u,
         },
-        UExpressionInner::IfElse(c) => match f.fold_if_else_expression(&ty, c)? {
-            IfElseOrExpression::IfElse(c) => UExpressionInner::IfElse(c),
-            IfElseOrExpression::Expression(u) => u,
+        UExpressionInner::Conditional(c) => match f.fold_conditional_expression(&ty, c)? {
+            ConditionalOrExpression::Conditional(c) => UExpressionInner::Conditional(c),
+            ConditionalOrExpression::Expression(u) => u,
         },
         UExpressionInner::Member(m) => match f.fold_member_expression(&ty, m)? {
             MemberOrExpression::Member(m) => UExpressionInner::Member(m),

@@ -55,7 +55,7 @@ impl<'ast> VariableWriteRemover {
                                 (0..size)
                                     .map(|i| match inner_ty {
                                         Type::Int => unreachable!(),
-                                        Type::Array(..) => ArrayExpression::if_else(
+                                        Type::Array(..) => ArrayExpression::conditional(
                                             BooleanExpression::UintEq(
                                                 box i.into(),
                                                 box head.clone(),
@@ -73,9 +73,10 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             ArrayExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
-                                        Type::Struct(..) => StructExpression::if_else(
+                                        Type::Struct(..) => StructExpression::conditional(
                                             BooleanExpression::UintEq(
                                                 box i.into(),
                                                 box head.clone(),
@@ -93,9 +94,10 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             StructExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
-                                        Type::FieldElement => FieldElementExpression::if_else(
+                                        Type::FieldElement => FieldElementExpression::conditional(
                                             BooleanExpression::UintEq(
                                                 box i.into(),
                                                 box head.clone(),
@@ -114,9 +116,10 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             FieldElementExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
-                                        Type::Boolean => BooleanExpression::if_else(
+                                        Type::Boolean => BooleanExpression::conditional(
                                             BooleanExpression::UintEq(
                                                 box i.into(),
                                                 box head.clone(),
@@ -134,9 +137,10 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             BooleanExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
-                                        Type::Uint(..) => UExpression::if_else(
+                                        Type::Uint(..) => UExpression::conditional(
                                             BooleanExpression::UintEq(
                                                 box i.into(),
                                                 box head.clone(),
@@ -154,6 +158,7 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             UExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
                                     })
