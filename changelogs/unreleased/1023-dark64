@@ -1,1 +1,0 @@
-Add serde `default` attribute to compile config to accept partial objects
