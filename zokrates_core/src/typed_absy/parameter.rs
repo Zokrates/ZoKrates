@@ -18,12 +18,12 @@ impl<'ast, S> From<GVariable<'ast, S>> for GParameter<'ast, S> {
     }
 }
 
-pub type DeclarationParameter<'ast> = GParameter<'ast, DeclarationConstant<'ast>>;
+pub type DeclarationParameter<'ast, T> = GParameter<'ast, DeclarationConstant<'ast, T>>;
 
-impl<'ast, S: fmt::Display + Clone> fmt::Display for GParameter<'ast, S> {
+impl<'ast, S: fmt::Display> fmt::Display for GParameter<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let visibility = if self.private { "private " } else { "" };
-        write!(f, "{}{} {}", visibility, self.id.get_type(), self.id.id)
+        write!(f, "{}{} {}", visibility, self.id._type, self.id.id)
     }
 }
 
