@@ -1,3 +1,7 @@
+use crate::absy::{
+    types::{UnresolvedSignature, UnresolvedType},
+    ConstantGenericNode, Expression,
+};
 use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
     FlatVariable, RuntimeError,
@@ -26,10 +30,9 @@ cfg_if::cfg_if! {
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord)]
 pub enum FlatEmbed {
     BitArrayLe,
-    U32ToField,
     Unpack,
     U8ToBits,
     U16ToBits,
@@ -46,7 +49,131 @@ pub enum FlatEmbed {
 }
 
 impl FlatEmbed {
-    pub fn signature(&self) -> DeclarationSignature<'static> {
+    pub fn signature(&self) -> UnresolvedSignature {
+        match self {
+            FlatEmbed::BitArrayLe => UnresolvedSignature::new()
+                .generics(vec![ConstantGenericNode::mock("N")])
+                .inputs(vec![
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::Identifier("N").into(),
+                    )
+                    .into(),
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::Identifier("N").into(),
+                    )
+                    .into(),
+                ])
+                .outputs(vec![UnresolvedType::Boolean.into()]),
+            FlatEmbed::Unpack => UnresolvedSignature::new()
+                .generics(vec!["N".into()])
+                .inputs(vec![UnresolvedType::FieldElement.into()])
+                .outputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::Identifier("N").into(),
+                )
+                .into()]),
+            FlatEmbed::U8ToBits => UnresolvedSignature::new()
+                .inputs(vec![UnresolvedType::Uint(8).into()])
+                .outputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(8).into(),
+                )
+                .into()]),
+            FlatEmbed::U16ToBits => UnresolvedSignature::new()
+                .inputs(vec![UnresolvedType::Uint(16).into()])
+                .outputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(16).into(),
+                )
+                .into()]),
+            FlatEmbed::U32ToBits => UnresolvedSignature::new()
+                .inputs(vec![UnresolvedType::Uint(32).into()])
+                .outputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(32).into(),
+                )
+                .into()]),
+            FlatEmbed::U64ToBits => UnresolvedSignature::new()
+                .inputs(vec![UnresolvedType::Uint(64).into()])
+                .outputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(64).into(),
+                )
+                .into()]),
+            FlatEmbed::U8FromBits => UnresolvedSignature::new()
+                .outputs(vec![UnresolvedType::Uint(8).into()])
+                .inputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(8).into(),
+                )
+                .into()]),
+            FlatEmbed::U16FromBits => UnresolvedSignature::new()
+                .outputs(vec![UnresolvedType::Uint(16).into()])
+                .inputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(16).into(),
+                )
+                .into()]),
+            FlatEmbed::U32FromBits => UnresolvedSignature::new()
+                .outputs(vec![UnresolvedType::Uint(32).into()])
+                .inputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(32).into(),
+                )
+                .into()]),
+            FlatEmbed::U64FromBits => UnresolvedSignature::new()
+                .outputs(vec![UnresolvedType::Uint(64).into()])
+                .inputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(64).into(),
+                )
+                .into()]),
+            #[cfg(feature = "bellman")]
+            FlatEmbed::Sha256Round => UnresolvedSignature::new()
+                .inputs(vec![
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::U32Constant(512).into(),
+                    )
+                    .into(),
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::U32Constant(256).into(),
+                    )
+                    .into(),
+                ])
+                .outputs(vec![UnresolvedType::array(
+                    UnresolvedType::Boolean.into(),
+                    Expression::U32Constant(256).into(),
+                )
+                .into()]),
+            #[cfg(feature = "ark")]
+            FlatEmbed::SnarkVerifyBls12377 => UnresolvedSignature::new()
+                .generics(vec!["N".into(), "V".into()])
+                .inputs(vec![
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.into(),
+                        Expression::Identifier("N").into(),
+                    )
+                    .into(), // inputs
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.into(),
+                        Expression::U32Constant(8).into(),
+                    )
+                    .into(), // proof
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.into(),
+                        Expression::Identifier("V").into(),
+                    )
+                    .into(), // 18 + (2 * n) // vk
+                ])
+                .outputs(vec![UnresolvedType::Boolean.into()]),
+        }
+    }
+
+    pub fn typed_signature<T>(&self) -> DeclarationSignature<'static, T> {
         match self {
             FlatEmbed::BitArrayLe => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
@@ -72,9 +199,6 @@ impl FlatEmbed {
                     )),
                 ])
                 .outputs(vec![DeclarationType::Boolean]),
-            FlatEmbed::U32ToField => DeclarationSignature::new()
-                .inputs(vec![DeclarationType::uint(32)])
-                .outputs(vec![DeclarationType::FieldElement]),
             FlatEmbed::Unpack => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
                     GenericIdentifier {
@@ -181,15 +305,13 @@ impl FlatEmbed {
         }
     }
 
-    pub fn generics<'ast>(&self, assignment: &ConcreteGenericsAssignment<'ast>) -> Vec<u32> {
-        let gen = self
-            .signature()
-            .generics
-            .into_iter()
-            .map(|c| match c.unwrap() {
+    pub fn generics<'ast, T>(&self, assignment: &ConcreteGenericsAssignment<'ast>) -> Vec<u32> {
+        let gen = self.typed_signature().generics.into_iter().map(
+            |c: Option<DeclarationConstant<'ast, T>>| match c.unwrap() {
                 DeclarationConstant::Generic(g) => g,
                 _ => unreachable!(),
-            });
+            },
+        );
 
         assert_eq!(gen.len(), assignment.0.len());
         gen.map(|g| *assignment.0.get(&g).unwrap() as u32).collect()
@@ -198,7 +320,6 @@ impl FlatEmbed {
     pub fn id(&self) -> &'static str {
         match self {
             FlatEmbed::BitArrayLe => "_BIT_ARRAY_LT",
-            FlatEmbed::U32ToField => "_U32_TO_FIELD",
             FlatEmbed::Unpack => "_UNPACK",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
@@ -670,11 +791,9 @@ mod tests {
                 )
             );
 
-            let f = crate::ir::Function::from(compiled);
-            let prog = crate::ir::Prog {
-                main: f,
-                private: vec![true; 768],
-            };
+            let flat_prog = crate::flat_absy::FlatProg { main: compiled };
+
+            let prog = crate::ir::Prog::from(flat_prog);
 
             let input: Vec<_> = (0..512)
                 .map(|_| 0)

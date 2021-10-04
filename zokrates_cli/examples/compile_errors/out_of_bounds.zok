@@ -1,0 +1,4 @@
+def main(field a, field b) -> field:
+    field[10] arr = [0; 10]
+    u32 index = if [a, 1] != [b, 0] then 1000 else 0 fi
+    return arr[index]

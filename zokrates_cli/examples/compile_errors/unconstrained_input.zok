@@ -1,0 +1,2 @@
+def main(private field a) -> field:
+    return 1

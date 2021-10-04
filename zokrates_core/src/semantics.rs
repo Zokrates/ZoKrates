@@ -10,7 +10,7 @@ use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::*;
 use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
 use num_bigint::BigUint;
-use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet};
+use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
 use zokrates_field::Field;
@@ -55,9 +55,9 @@ impl ErrorInner {
     }
 }
 
-type TypeMap<'ast> = HashMap<OwnedModuleId, HashMap<UserTypeId, DeclarationType<'ast>>>;
-type ConstantMap<'ast> =
-    HashMap<OwnedModuleId, HashMap<ConstantIdentifier<'ast>, DeclarationType<'ast>>>;
+type TypeMap<'ast, T> = BTreeMap<OwnedModuleId, BTreeMap<UserTypeId, DeclarationType<'ast, T>>>;
+type ConstantMap<'ast, T> =
+    BTreeMap<OwnedModuleId, BTreeMap<ConstantIdentifier<'ast>, DeclarationType<'ast, T>>>;
 
 /// The global state of the program during semantic checks
 #[derive(Debug)]
@@ -67,26 +67,26 @@ struct State<'ast, T> {
     /// The already checked modules, which we're returning at the end
     typed_modules: TypedModules<'ast, T>,
     /// The user-defined types, which we keep track at this phase only. In later phases, we rely only on basic types and combinations thereof
-    types: TypeMap<'ast>,
+    types: TypeMap<'ast, T>,
     // The user-defined constants
-    constants: ConstantMap<'ast>,
+    constants: ConstantMap<'ast, T>,
 }
 
 /// A symbol for a given name: either a type or a group of functions. Not both!
 #[derive(PartialEq, Hash, Eq, Debug)]
-enum SymbolType<'ast> {
+enum SymbolType<'ast, T> {
     Type,
     Constant,
-    Functions(BTreeSet<DeclarationSignature<'ast>>),
+    Functions(BTreeSet<DeclarationSignature<'ast, T>>),
 }
 
 /// A data structure to keep track of all symbols in a module
 #[derive(Default)]
-struct SymbolUnifier<'ast> {
-    symbols: HashMap<String, SymbolType<'ast>>,
+struct SymbolUnifier<'ast, T> {
+    symbols: BTreeMap<String, SymbolType<'ast, T>>,
 }
 
-impl<'ast> SymbolUnifier<'ast> {
+impl<'ast, T: std::cmp::Ord> SymbolUnifier<'ast, T> {
     fn insert_type<S: Into<String>>(&mut self, id: S) -> bool {
         let e = self.symbols.entry(id.into());
         match e {
@@ -116,7 +116,7 @@ impl<'ast> SymbolUnifier<'ast> {
     fn insert_function<S: Into<String>>(
         &mut self,
         id: S,
-        signature: DeclarationSignature<'ast>,
+        signature: DeclarationSignature<'ast, T>,
     ) -> bool {
         let s_type = self.symbols.entry(id.into());
         match s_type {
@@ -142,9 +142,9 @@ impl<'ast, T: Field> State<'ast, T> {
     fn new(modules: Modules<'ast>) -> Self {
         State {
             modules,
-            typed_modules: HashMap::new(),
-            types: HashMap::new(),
-            constants: HashMap::new(),
+            typed_modules: BTreeMap::new(),
+            types: BTreeMap::new(),
+            constants: BTreeMap::new(),
         }
     }
 }
@@ -225,7 +225,7 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
     }
 
     /// match a `FunctionKey` against this `FunctionQuery`
-    fn match_func(&self, func: &DeclarationFunctionKey<'ast>) -> bool {
+    fn match_func(&self, func: &DeclarationFunctionKey<'ast, T>) -> bool {
         self.id == func.id
             && self.generics_count.map(|count| count == func.signature.generics.len()).unwrap_or(true) // we do not look at the values here, this will be checked when inlining anyway
             && self.inputs.len() == func.signature.inputs.len()
@@ -249,8 +249,8 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
 
     fn match_funcs(
         &self,
-        funcs: &HashSet<DeclarationFunctionKey<'ast>>,
-    ) -> Vec<DeclarationFunctionKey<'ast>> {
+        funcs: &HashSet<DeclarationFunctionKey<'ast, T>>,
+    ) -> Vec<DeclarationFunctionKey<'ast, T>> {
         funcs
             .iter()
             .filter(|func| self.match_func(func))
@@ -261,57 +261,74 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
 
 /// A scoped variable, so that we can delete all variables of a given scope when exiting it
 #[derive(Clone, Debug)]
-pub struct ScopedVariable<'ast, T> {
-    id: Variable<'ast, T>,
+pub struct ScopedIdentifier<'ast> {
+    id: CoreIdentifier<'ast>,
     level: usize,
 }
 
-impl<'ast, T> ScopedVariable<'ast, T> {
+impl<'ast> ScopedIdentifier<'ast> {
     fn is_constant(&self) -> bool {
-        self.level == 0
+        let res = self.level == 0;
+
+        // currently this is encoded twice: in the level and in the identifier itself.
+        // we add a sanity check to make sure the two agree
+        assert_eq!(res, matches!(self.id, CoreIdentifier::Constant(..)));
+
+        res
     }
 }
 
-/// Identifiers of different `ScopedVariable`s should not conflict, so we define them as equivalent
-impl<'ast, T> PartialEq for ScopedVariable<'ast, T> {
+/// Identifiers coming from constants or variables are equivalent
+impl<'ast> PartialEq for ScopedIdentifier<'ast> {
     fn eq(&self, other: &Self) -> bool {
-        self.id.id == other.id.id
+        let i0 = match &self.id {
+            CoreIdentifier::Source(id) => id,
+            CoreIdentifier::Constant(c) => c.id,
+            _ => unreachable!(),
+        };
+
+        let i1 = match &other.id {
+            CoreIdentifier::Source(id) => id,
+            CoreIdentifier::Constant(c) => c.id,
+            _ => unreachable!(),
+        };
+
+        i0 == i1
     }
 }
 
-impl<'ast, T> Hash for ScopedVariable<'ast, T> {
+/// Identifiers coming from constants or variables hash to the same result
+impl<'ast> Hash for ScopedIdentifier<'ast> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.id.hash(state);
+        match &self.id {
+            CoreIdentifier::Source(id) => id.hash(state),
+            CoreIdentifier::Constant(c) => c.id.hash(state),
+            _ => unreachable!(),
+        }
     }
 }
 
-impl<'ast, T> Eq for ScopedVariable<'ast, T> {}
+impl<'ast> Eq for ScopedIdentifier<'ast> {}
+
+type Scope<'ast, T> = HashMap<ScopedIdentifier<'ast>, Type<'ast, T>>;
 
 /// Checker checks the semantics of a program, keeping track of functions and variables in scope
+#[derive(Default)]
 pub struct Checker<'ast, T> {
-    return_types: Option<Vec<DeclarationType<'ast>>>,
-    scope: HashSet<ScopedVariable<'ast, T>>,
-    functions: HashSet<DeclarationFunctionKey<'ast>>,
+    return_types: Option<Vec<DeclarationType<'ast, T>>>,
+    scope: Scope<'ast, T>,
+    functions: HashSet<DeclarationFunctionKey<'ast, T>>,
     level: usize,
 }
 
 impl<'ast, T: Field> Checker<'ast, T> {
-    fn new() -> Self {
-        Checker {
-            return_types: None,
-            scope: HashSet::new(),
-            functions: HashSet::new(),
-            level: 0,
-        }
-    }
-
     /// Check a `Program`
     ///
     /// # Arguments
     ///
     /// * `prog` - The `Program` to be checked
     pub fn check(prog: Program<'ast>) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
-        Checker::new().check_program(prog)
+        Checker::default().check_program(prog)
     }
 
     fn check_program(
@@ -355,14 +372,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
         c: ConstantDefinitionNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
-    ) -> Result<(DeclarationType<'ast>, TypedConstant<'ast, T>), ErrorInner> {
+    ) -> Result<TypedConstant<'ast, T>, ErrorInner> {
         let pos = c.pos();
 
         let ty = self.check_declaration_type(
             c.value.ty.clone(),
             module_id,
             &state,
-            &HashMap::default(),
+            &BTreeMap::default(),
             &mut HashSet::default(),
         )?;
         let checked_expr =
@@ -397,7 +414,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 ty
             ),
         })
-        .map(|e| (ty, TypedConstant::new(e)))
+        .map(|e| TypedConstant::new(e, ty))
     }
 
     fn check_struct_type_declaration(
@@ -406,7 +423,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         s: StructDefinitionNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
-    ) -> Result<DeclarationType<'ast>, Vec<ErrorInner>> {
+    ) -> Result<DeclarationType<'ast, T>, Vec<ErrorInner>> {
         let pos = s.pos();
         let s = s.value;
 
@@ -415,7 +432,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let mut fields_set = HashSet::new();
 
         let mut generics = vec![];
-        let mut generics_map = HashMap::new();
+        let mut generics_map = BTreeMap::new();
 
         for (index, g) in s.generics.iter().enumerate() {
             if state
@@ -506,9 +523,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         declaration: SymbolDeclarationNode<'ast>,
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
-        functions: &mut TypedFunctionSymbols<'ast, T>,
-        constants: &mut TypedConstantSymbols<'ast, T>,
-        symbol_unifier: &mut SymbolUnifier<'ast>,
+        symbols: &mut TypedSymbolDeclarations<'ast, T>,
+        symbol_unifier: &mut SymbolUnifier<'ast, T>,
     ) -> Result<(), Vec<Error>> {
         let mut errors: Vec<Error> = vec![];
 
@@ -554,7 +570,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
             Symbol::Here(SymbolDefinition::Constant(c)) => {
                 match self.check_constant_definition(declaration.id, c, module_id, state) {
-                    Ok((d_t, c)) => {
+                    Ok(c) => {
                         match symbol_unifier.insert_constant(declaration.id) {
                             false => errors.push(
                                 ErrorInner {
@@ -567,23 +583,28 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 .in_file(module_id),
                             ),
                             true => {
-                                constants.push((
-                                    CanonicalConstantIdentifier::new(
+                                symbols.push(
+                                    TypedConstantSymbolDeclaration::new(
+                                        CanonicalConstantIdentifier::new(
+                                            declaration.id,
+                                            module_id.into(),
+                                        ),
+                                        TypedConstantSymbol::Here(c.clone()),
+                                    )
+                                    .into(),
+                                );
+                                self.insert_into_scope(Variable::with_id_and_type(
+                                    CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
                                         declaration.id,
                                         module_id.into(),
-                                        d_t.clone(),
-                                    ),
-                                    TypedConstantSymbol::Here(c.clone()),
-                                ));
-                                self.insert_into_scope(Variable::with_id_and_type(
-                                    declaration.id,
+                                    )),
                                     c.get_type(),
                                 ));
                                 assert!(state
                                     .constants
                                     .entry(module_id.to_path_buf())
                                     .or_default()
-                                    .insert(declaration.id, d_t)
+                                    .insert(declaration.id, c.ty)
                                     .is_none());
                             }
                         };
@@ -619,13 +640,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             )
                             .signature(funct.signature.clone()),
                         );
-                        functions.insert(
-                            DeclarationFunctionKey::with_location(
-                                module_id.to_path_buf(),
-                                declaration.id,
+                        symbols.push(
+                            TypedFunctionSymbolDeclaration::new(
+                                DeclarationFunctionKey::with_location(
+                                    module_id.to_path_buf(),
+                                    declaration.id,
+                                )
+                                .signature(funct.signature.clone()),
+                                TypedFunctionSymbol::Here(funct),
                             )
-                            .signature(funct.signature.clone()),
-                            TypedFunctionSymbol::Here(funct),
+                            .into(),
                         );
                     }
                     Err(e) => {
@@ -637,20 +661,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let pos = import.pos();
                 let import = import.value;
 
-                match Checker::new().check_module(&import.module_id, state) {
+                match Checker::default().check_module(&import.module_id, state) {
                     Ok(()) => {
                         // find candidates in the checked module
                         let function_candidates: Vec<_> = state
                             .typed_modules
                             .get(&import.module_id)
                             .unwrap()
-                            .functions
-                            .iter()
-                            .filter(|(k, _)| k.id == import.symbol_id)
-                            .map(|(_, v)| DeclarationFunctionKey {
+                            .functions_iter()
+                            .filter(|d| d.key.id == import.symbol_id)
+                            .map(|d| DeclarationFunctionKey {
                                 module: import.module_id.to_path_buf(),
                                 id: import.symbol_id,
-                                signature: v.signature(&state.typed_modules).clone(),
+                                signature: d.symbol.signature(&state.typed_modules).clone(),
                             })
                             .collect();
 
@@ -722,11 +745,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             }});
                                     }
                                     true => {
-                                        let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id, ty.clone());
-                                        let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into(), ty.clone());
+                                        let imported_id = CanonicalConstantIdentifier::new(import.symbol_id, import.module_id);
+                                        let id = CanonicalConstantIdentifier::new(declaration.id, module_id.into());
 
-                                        constants.push((id.clone(), TypedConstantSymbol::There(imported_id)));
-                                        self.insert_into_scope(Variable::with_id_and_type(declaration.id, crate::typed_absy::types::try_from_g_type(ty.clone()).unwrap()));
+                                        symbols.push(TypedConstantSymbolDeclaration::new(
+                                            id.clone(),
+                                            TypedConstantSymbol::There(imported_id)
+                                        ).into());
+                                        self.insert_into_scope(Variable::with_id_and_type(CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
+                                            declaration.id,
+                                            module_id.into(),
+                                        )), crate::typed_absy::types::try_from_g_type(ty.clone()).unwrap()));
 
                                         state
                                             .constants
@@ -765,10 +794,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     let local_key = candidate.clone().id(declaration.id).module(module_id.to_path_buf());
 
                                     self.functions.insert(local_key.clone());
-                                    functions.insert(
-                                        local_key,
-                                        TypedFunctionSymbol::There(candidate,
-                                        ),
+                                    symbols.push(
+                                        TypedFunctionSymbolDeclaration::new(
+                                            local_key,
+                                            TypedFunctionSymbol::There(candidate,
+                                            ),
+                                        ).into()
                                     );
                                 }
                             }
@@ -780,7 +811,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 };
             }
             Symbol::Flat(funct) => {
-                match symbol_unifier.insert_function(declaration.id, funct.signature()) {
+                match symbol_unifier.insert_function(declaration.id, funct.typed_signature()) {
                     false => {
                         errors.push(
                             ErrorInner {
@@ -798,12 +829,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 self.functions.insert(
                     DeclarationFunctionKey::with_location(module_id.to_path_buf(), declaration.id)
-                        .signature(funct.signature()),
+                        .signature(funct.typed_signature()),
                 );
-                functions.insert(
-                    DeclarationFunctionKey::with_location(module_id.to_path_buf(), declaration.id)
-                        .signature(funct.signature()),
-                    TypedFunctionSymbol::Flat(funct),
+                symbols.push(
+                    TypedFunctionSymbolDeclaration::new(
+                        DeclarationFunctionKey::with_location(
+                            module_id.to_path_buf(),
+                            declaration.id,
+                        )
+                        .signature(funct.typed_signature()),
+                        TypedFunctionSymbol::Flat(funct),
+                    )
+                    .into(),
                 );
             }
             _ => unreachable!(),
@@ -822,8 +859,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
     ) -> Result<(), Vec<Error>> {
-        let mut checked_functions = TypedFunctionSymbols::new();
-        let mut checked_constants = TypedConstantSymbols::new();
+        let mut checked_symbols = TypedSymbolDeclarations::new();
 
         // check if the module was already removed from the untyped ones
         let to_insert = match state.modules.remove(module_id) {
@@ -844,15 +880,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         declaration,
                         module_id,
                         state,
-                        &mut checked_functions,
-                        &mut checked_constants,
+                        &mut checked_symbols,
                         &mut symbol_unifier,
                     )?
                 }
 
                 Some(TypedModule {
-                    functions: checked_functions,
-                    constants: checked_constants,
+                    symbols: checked_symbols,
                 })
             }
         };
@@ -871,9 +905,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
     fn check_single_main(module: &TypedModule<T>) -> Result<(), ErrorInner> {
         match module
-            .functions
-            .iter()
-            .filter(|(key, _)| key.id == "main")
+            .functions_iter()
+            .filter(|d| d.key.id == "main")
             .count()
         {
             1 => Ok(()),
@@ -956,6 +989,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             });
                         }
                     };
+
                     arguments_checked.push(DeclarationParameter {
                         id: decl_v,
                         private: arg.private,
@@ -1045,13 +1079,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
         signature: UnresolvedSignature<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
-    ) -> Result<DeclarationSignature<'ast>, Vec<ErrorInner>> {
+    ) -> Result<DeclarationSignature<'ast, T>, Vec<ErrorInner>> {
         let mut errors = vec![];
         let mut inputs = vec![];
         let mut outputs = vec![];
         let mut generics = vec![];
 
-        let mut generics_map = HashMap::new();
+        let mut generics_map = BTreeMap::new();
 
         for (index, g) in signature.generics.iter().enumerate() {
             if state
@@ -1136,7 +1170,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         ty: UnresolvedTypeNode<'ast>,
         module_id: &ModuleId,
-        types: &TypeMap<'ast>,
+        types: &TypeMap<'ast, T>,
     ) -> Result<Type<'ast, T>, ErrorInner> {
         let pos = ty.pos();
         let ty = ty.value;
@@ -1272,17 +1306,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         expr: ExpressionNode<'ast>,
         module_id: &ModuleId,
-        constants_map: &HashMap<ConstantIdentifier<'ast>, DeclarationType<'ast>>,
-        generics_map: &HashMap<Identifier<'ast>, usize>,
+        constants_map: &BTreeMap<ConstantIdentifier<'ast>, DeclarationType<'ast, T>>,
+        generics_map: &BTreeMap<Identifier<'ast>, usize>,
         used_generics: &mut HashSet<Identifier<'ast>>,
-    ) -> Result<DeclarationConstant<'ast>, ErrorInner> {
+    ) -> Result<DeclarationConstant<'ast, T>, ErrorInner> {
         let pos = expr.pos();
 
         match expr.value {
-            Expression::U32Constant(c) => Ok(DeclarationConstant::Concrete(c)),
+            Expression::U32Constant(c) => Ok(DeclarationConstant::from(c)),
             Expression::IntConstant(c) => {
                 if c <= BigUint::from(2u128.pow(32) - 1) {
-                    Ok(DeclarationConstant::Concrete(
+                    Ok(DeclarationConstant::from(
                         u32::from_str_radix(&c.to_str_radix(16), 16).unwrap(),
                     ))
                 } else {
@@ -1301,7 +1335,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match (constants_map.get(name), generics_map.get(&name)) {
                     (Some(ty), None) => {
                         match ty {
-                            DeclarationType::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(CanonicalConstantIdentifier::new(name, module_id.into(), DeclarationType::Uint(UBitwidth::B32)))),
+                            DeclarationType::Uint(UBitwidth::B32) => Ok(DeclarationConstant::Constant(CanonicalConstantIdentifier::new(name, module_id.into()))),
                             _ => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
@@ -1333,9 +1367,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
         ty: UnresolvedTypeNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
-        generics_map: &HashMap<Identifier<'ast>, usize>,
+        generics_map: &BTreeMap<Identifier<'ast>, usize>,
         used_generics: &mut HashSet<Identifier<'ast>>,
-    ) -> Result<DeclarationType<'ast>, ErrorInner> {
+    ) -> Result<DeclarationType<'ast, T>, ErrorInner> {
         let pos = ty.pos();
         let ty = ty.value;
 
@@ -1347,7 +1381,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let checked_size = self.check_generic_expression(
                     size.clone(),
                     module_id,
-                    state.constants.get(module_id).unwrap_or(&HashMap::new()),
+                    state.constants.get(module_id).unwrap_or(&BTreeMap::new()),
                     generics_map,
                     used_generics,
                 )?;
@@ -1384,7 +1418,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                                 state
                                                     .constants
                                                     .get(module_id)
-                                                    .unwrap_or(&HashMap::new()),
+                                                    .unwrap_or(&BTreeMap::new()),
                                                 generics_map,
                                                 used_generics,
                                             )
@@ -1451,7 +1485,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         v: crate::absy::VariableNode<'ast>,
         module_id: &ModuleId,
-        types: &TypeMap<'ast>,
+        types: &TypeMap<'ast, T>,
     ) -> Result<Variable<'ast, T>, Vec<ErrorInner>> {
         Ok(Variable::with_id_and_type(
             v.value.id,
@@ -1467,7 +1501,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         statements: Vec<StatementNode<'ast>>,
         pos: (Position, Position),
         module_id: &ModuleId,
-        types: &TypeMap<'ast>,
+        types: &TypeMap<'ast, T>,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
         self.check_for_var(&var).map_err(|e| vec![e])?;
 
@@ -1556,7 +1590,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         stat: StatementNode<'ast>,
         module_id: &ModuleId,
-        types: &TypeMap<'ast>,
+        types: &TypeMap<'ast, T>,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
         let pos = stat.pos();
 
@@ -1817,20 +1851,20 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         assignee: AssigneeNode<'ast>,
         module_id: &ModuleId,
-        types: &TypeMap<'ast>,
+        types: &TypeMap<'ast, T>,
     ) -> Result<TypedAssignee<'ast, T>, ErrorInner> {
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
-            Assignee::Identifier(variable_name) => match self.get_scope(&variable_name) {
-                Some(var) => match var.is_constant() {
+            Assignee::Identifier(variable_name) => match self.get_key_value_scope(&variable_name) {
+                Some((id, ty)) => match id.is_constant() {
                     true => Err(ErrorInner {
                         pos: Some(assignee.pos()),
                         message: format!("Assignment to constant variable `{}`", variable_name),
                     }),
                     false => Ok(TypedAssignee::Identifier(Variable::with_id_and_type(
                         variable_name,
-                        var.id._type.clone(),
+                        ty.clone(),
                     ))),
                 },
                 None => Err(ErrorInner {
@@ -1918,7 +1952,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         spread_or_expression: SpreadOrExpression<'ast>,
         module_id: &ModuleId,
-        types: &TypeMap<'ast>,
+        types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpressionOrSpread<'ast, T>, ErrorInner> {
         match spread_or_expression {
             SpreadOrExpression::Spread(s) => {
@@ -1948,7 +1982,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         &mut self,
         expr: ExpressionNode<'ast>,
         module_id: &ModuleId,
-        types: &TypeMap<'ast>,
+        types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
         let pos = expr.pos();
 
@@ -1957,23 +1991,28 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
-                match self.get_scope(&name) {
-                    Some(v) => match v.id.get_type() {
-                        Type::Boolean => Ok(BooleanExpression::Identifier(name.into()).into()),
-                        Type::Uint(bitwidth) => Ok(UExpressionInner::Identifier(name.into())
+                match self
+                    .get_key_value_scope(&name)
+                    .map(|(x, y)| (x.clone(), y.clone()))
+                {
+                    Some((id, ty)) => match ty {
+                        Type::Boolean => Ok(BooleanExpression::Identifier(id.id.into()).into()),
+                        Type::Uint(bitwidth) => Ok(UExpressionInner::Identifier(id.id.into())
                             .annotate(bitwidth)
                             .into()),
                         Type::FieldElement => {
-                            Ok(FieldElementExpression::Identifier(name.into()).into())
+                            Ok(FieldElementExpression::Identifier(id.id.into()).into())
                         }
                         Type::Array(array_type) => {
-                            Ok(ArrayExpressionInner::Identifier(name.into())
+                            Ok(ArrayExpressionInner::Identifier(id.id.into())
                                 .annotate(*array_type.ty, array_type.size)
                                 .into())
                         }
-                        Type::Struct(members) => Ok(StructExpressionInner::Identifier(name.into())
-                            .annotate(members)
-                            .into()),
+                        Type::Struct(members) => {
+                            Ok(StructExpressionInner::Identifier(id.id.into())
+                                .annotate(members)
+                                .into())
+                        }
                         Type::Int => unreachable!(),
                     },
                     None => Err(ErrorInner {
@@ -2948,7 +2987,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .clone()
                     .into_iter()
                     .map(|(id, v)| (id.to_string(), v))
-                    .collect::<HashMap<_, _>>();
+                    .collect::<BTreeMap<_, _>>();
 
                 let inferred_values = declared_struct_type
                     .iter()
@@ -3248,26 +3287,32 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
     }
 
-    fn get_scope<'a>(&'a self, variable_name: &'ast str) -> Option<&'a ScopedVariable<'ast, T>> {
-        // we take advantage of the fact that all ScopedVariable of the same identifier hash to the same thing
-        // and by construction only one can be in the set
-        self.scope.get(&ScopedVariable {
-            id: Variable::with_id_and_type(
-                crate::typed_absy::Identifier::from(variable_name),
-                Type::FieldElement,
-            ),
+    fn get_key_value_scope<'a>(
+        &'a self,
+        identifier: &'ast str,
+    ) -> Option<(&'a ScopedIdentifier<'ast>, &'a Type<'ast, T>)> {
+        self.scope.get_key_value(&ScopedIdentifier {
+            id: CoreIdentifier::Source(identifier),
             level: 0,
         })
     }
 
     fn insert_into_scope(&mut self, v: Variable<'ast, T>) -> bool {
-        self.scope.insert(ScopedVariable {
-            id: v,
-            level: self.level,
-        })
+        self.scope
+            .insert(
+                ScopedIdentifier {
+                    id: v.id.id,
+                    level: self.level,
+                },
+                v._type,
+            )
+            .is_none()
     }
 
-    fn find_functions(&self, query: &FunctionQuery<'ast, T>) -> Vec<DeclarationFunctionKey<'ast>> {
+    fn find_functions(
+        &self,
+        query: &FunctionQuery<'ast, T>,
+    ) -> Vec<DeclarationFunctionKey<'ast, T>> {
         query.match_funcs(&self.functions)
     }
 
@@ -3278,7 +3323,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn exit_scope(&mut self) {
         let current_level = self.level;
         self.scope
-            .retain(|ref scoped_variable| scoped_variable.level < current_level);
+            .retain(|ref scoped_variable, _| scoped_variable.level < current_level);
         self.level -= 1;
     }
 }
@@ -3303,7 +3348,7 @@ mod tests {
         fn field_in_range() {
             // The value of `P - 1` is a valid field literal
             let expr = Expression::FieldConstant(Bn128Field::max_value().to_biguint()).mock();
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(expr, &*MODULE_ID, &TypeMap::new())
                 .is_ok());
         }
@@ -3314,7 +3359,7 @@ mod tests {
             let value = Bn128Field::max_value().to_biguint().add(1u32);
             let expr = Expression::FieldConstant(value).mock();
 
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(expr, &*MODULE_ID, &TypeMap::new())
                 .is_err());
         }
@@ -3337,7 +3382,7 @@ mod tests {
                 Expression::BooleanConstant(true).mock().into(),
             ])
             .mock();
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(a, &*MODULE_ID, &types)
                 .is_err());
 
@@ -3357,7 +3402,7 @@ mod tests {
                 .into(),
             ])
             .mock();
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(a, &*MODULE_ID, &types)
                 .is_ok());
 
@@ -3373,7 +3418,7 @@ mod tests {
                     .into(),
             ])
             .mock();
-            assert!(Checker::<Bn128Field>::new()
+            assert!(Checker::<Bn128Field>::default()
                 .check_expression(a, &*MODULE_ID, &types)
                 .is_err());
         }
@@ -3455,7 +3500,7 @@ mod tests {
         fn unifier() {
             // the unifier should only accept either a single type or many functions of different signatures for each symbol
 
-            let mut unifier = SymbolUnifier::default();
+            let mut unifier = SymbolUnifier::<Bn128Field>::default();
 
             // the `foo` type
             assert!(unifier.insert_type("foo"));
@@ -3542,7 +3587,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
 
             assert_eq!(
                 checker.check_module(&OwnedTypedModuleId::from("bar"), &mut state),
@@ -3551,17 +3596,17 @@ mod tests {
             assert_eq!(
                 state.typed_modules.get(&PathBuf::from("bar")),
                 Some(&TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("bar", "main")
                             .signature(DeclarationSignature::new()),
                         TypedFunctionSymbol::There(
                             DeclarationFunctionKey::with_location("foo", "main")
                                 .signature(DeclarationSignature::new()),
                         )
-                    )]
+                    )
+                    .into()]
                     .into_iter()
                     .collect(),
-                    constants: TypedConstantSymbols::default()
                 })
             );
         }
@@ -3594,7 +3639,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -3670,7 +3715,7 @@ mod tests {
 
             let mut state = State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
         }
 
@@ -3708,7 +3753,7 @@ mod tests {
                 let mut state =
                     State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-                let mut checker: Checker<Bn128Field> = Checker::new();
+                let mut checker: Checker<Bn128Field> = Checker::default();
                 assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
             }
 
@@ -3760,7 +3805,7 @@ mod tests {
                 let mut state =
                     State::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-                let mut checker: Checker<Bn128Field> = Checker::new();
+                let mut checker: Checker<Bn128Field> = Checker::default();
                 assert_eq!(
                     checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                         .inner
@@ -3798,27 +3843,29 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(checker.check_module(&*MODULE_ID, &mut state), Ok(()));
             assert!(state
                 .typed_modules
                 .get(&*MODULE_ID)
                 .unwrap()
-                .functions
-                .contains_key(
-                    &DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
-                        .signature(DeclarationSignature::new())
-                ));
+                .functions_iter()
+                .find(|d| d.key
+                    == DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
+                        .signature(DeclarationSignature::new()))
+                .is_some());
+
             assert!(state
                 .typed_modules
                 .get(&*MODULE_ID)
                 .unwrap()
-                .functions
-                .contains_key(
-                    &DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo").signature(
-                        DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
-                    )
-                ))
+                .functions_iter()
+                .find(|d| d.key
+                    == DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
+                        .signature(
+                            DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
+                        ))
+                .is_some());
         }
 
         #[test]
@@ -3847,7 +3894,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -3889,7 +3936,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -3940,7 +3987,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -3988,7 +4035,7 @@ mod tests {
                     .collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             assert_eq!(
                 checker.check_module(&*MODULE_ID, &mut state).unwrap_err()[0]
                     .inner
@@ -3999,9 +4046,9 @@ mod tests {
     }
 
     pub fn new_with_args<'ast, T: Field>(
-        scope: HashSet<ScopedVariable<'ast, T>>,
+        scope: Scope<'ast, T>,
         level: usize,
-        functions: HashSet<DeclarationFunctionKey<'ast>>,
+        functions: HashSet<DeclarationFunctionKey<'ast, T>>,
     ) -> Checker<'ast, T> {
         Checker {
             scope,
@@ -4026,7 +4073,7 @@ mod tests {
             )
             .mock()]);
             assert_eq!(
-                Checker::<Bn128Field>::new().check_signature(signature, &*MODULE_ID, &state),
+                Checker::<Bn128Field>::default().check_signature(signature, &*MODULE_ID, &state),
                 Err(vec![ErrorInner {
                     pos: Some((Position::mock(), Position::mock())),
                     message: "Undeclared symbol `K`".to_string()
@@ -4061,7 +4108,7 @@ mod tests {
                 )
                 .mock()]);
             assert_eq!(
-                Checker::<Bn128Field>::new().check_signature(signature, &*MODULE_ID, &state),
+                Checker::<Bn128Field>::default().check_signature(signature, &*MODULE_ID, &state),
                 Ok(DeclarationSignature::new()
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::array((
@@ -4091,7 +4138,7 @@ mod tests {
         )
         .mock();
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         checker.enter_scope();
 
         assert_eq!(
@@ -4113,15 +4160,21 @@ mod tests {
         )
         .mock();
 
-        let mut scope = HashSet::new();
-        scope.insert(ScopedVariable {
-            id: Variable::field_element("a"),
-            level: 1,
-        });
-        scope.insert(ScopedVariable {
-            id: Variable::field_element("b"),
-            level: 1,
-        });
+        let mut scope = Scope::default();
+        scope.insert(
+            ScopedIdentifier {
+                id: CoreIdentifier::Source("a"),
+                level: 1,
+            },
+            Type::FieldElement,
+        );
+        scope.insert(
+            ScopedIdentifier {
+                id: CoreIdentifier::Source("b"),
+                level: 1,
+            },
+            Type::FieldElement,
+        );
 
         let mut checker: Checker<Bn128Field> = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
@@ -4202,7 +4255,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
@@ -4319,7 +4372,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
     }
 
@@ -4358,7 +4411,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
             checker.check_function(foo, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4442,7 +4495,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
             checker.check_function(foo, &*MODULE_ID, &state),
             Ok(foo_checked)
@@ -4496,7 +4549,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4555,7 +4608,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4601,7 +4654,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4704,7 +4757,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
@@ -4790,7 +4843,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![
@@ -4905,7 +4958,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
     }
 
@@ -4944,7 +4997,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4985,7 +5038,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -5093,7 +5146,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Ok(bar_checked)
@@ -5126,7 +5179,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashSet::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
         assert_eq!(
             checker
                 .check_function(f, &*MODULE_ID, &state)
@@ -5208,7 +5261,7 @@ mod tests {
             main: (*MODULE_ID).clone(),
         };
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         assert_eq!(
             checker.check_program(program),
             Err(vec![Error {
@@ -5228,7 +5281,7 @@ mod tests {
         //
         // should fail
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
@@ -5262,7 +5315,7 @@ mod tests {
         //
         // should fail
 
-        let mut checker: Checker<Bn128Field> = Checker::new();
+        let mut checker: Checker<Bn128Field> = Checker::default();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
@@ -5309,7 +5362,7 @@ mod tests {
                 vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
             );
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
 
             checker.check_module(&*MODULE_ID, &mut state).unwrap();
 
@@ -5340,7 +5393,7 @@ mod tests {
                 ));
 
                 assert_eq!(
-                    Checker::<Bn128Field>::new().check_struct_type_declaration(
+                    Checker::<Bn128Field>::default().check_struct_type_declaration(
                         "Foo".into(),
                         declaration,
                         &*MODULE_ID,
@@ -5384,7 +5437,7 @@ mod tests {
                 ));
 
                 assert_eq!(
-                    Checker::<Bn128Field>::new().check_struct_type_declaration(
+                    Checker::<Bn128Field>::default().check_struct_type_declaration(
                         "Foo".into(),
                         declaration,
                         &*MODULE_ID,
@@ -5418,7 +5471,7 @@ mod tests {
                 .mock();
 
                 assert_eq!(
-                    Checker::<Bn128Field>::new()
+                    Checker::<Bn128Field>::default()
                         .check_struct_type_declaration(
                             "Foo".into(),
                             declaration,
@@ -5477,7 +5530,9 @@ mod tests {
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
                 );
 
-                assert!(Checker::new().check_module(&*MODULE_ID, &mut state).is_ok());
+                assert!(Checker::default()
+                    .check_module(&*MODULE_ID, &mut state)
+                    .is_ok());
                 assert_eq!(
                     state
                         .types
@@ -5533,7 +5588,7 @@ mod tests {
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
                 );
 
-                assert!(Checker::new()
+                assert!(Checker::default()
                     .check_module(&*MODULE_ID, &mut state)
                     .is_err());
             }
@@ -5566,7 +5621,7 @@ mod tests {
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
                 );
 
-                assert!(Checker::new()
+                assert!(Checker::default()
                     .check_module(&*MODULE_ID, &mut state)
                     .is_err());
             }
@@ -5617,7 +5672,7 @@ mod tests {
                     vec![((*MODULE_ID).clone(), module)].into_iter().collect(),
                 );
 
-                assert!(Checker::new()
+                assert!(Checker::default()
                     .check_module(&*MODULE_ID, &mut state)
                     .is_err());
             }
@@ -6108,7 +6163,9 @@ mod tests {
                 modules: vec![("".into(), m)].into_iter().collect(),
             };
 
-            let errors = Checker::<Bn128Field>::new().check_program(p).unwrap_err();
+            let errors = Checker::<Bn128Field>::default()
+                .check_program(p)
+                .unwrap_err();
 
             assert_eq!(errors.len(), 1);
 
@@ -6127,7 +6184,7 @@ mod tests {
             // a = 42
             let a = Assignee::Identifier("a").mock();
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             checker.enter_scope();
 
             checker
@@ -6159,7 +6216,7 @@ mod tests {
             )
             .mock();
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             checker.enter_scope();
 
             checker
@@ -6209,7 +6266,7 @@ mod tests {
             )
             .mock();
 
-            let mut checker: Checker<Bn128Field> = Checker::new();
+            let mut checker: Checker<Bn128Field> = Checker::default();
             checker.enter_scope();
 
             checker
