@@ -38,8 +38,8 @@ impl<'ast, T: Field> StructConcretizer<'ast, T> {
 impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast, T> {
     fn fold_declaration_struct_type(
         &mut self,
-        ty: DeclarationStructType<'ast>,
-    ) -> DeclarationStructType<'ast> {
+        ty: DeclarationStructType<'ast, T>,
+    ) -> DeclarationStructType<'ast, T> {
         let concrete_generics: Vec<u32> = ty
             .generics
             .clone()
@@ -79,8 +79,8 @@ impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast, T> {
 
     fn fold_declaration_array_type(
         &mut self,
-        ty: DeclarationArrayType<'ast>,
-    ) -> DeclarationArrayType<'ast> {
+        ty: DeclarationArrayType<'ast, T>,
+    ) -> DeclarationArrayType<'ast, T> {
         let size = ty.size.map_concrete(&self.generics).unwrap();
 
         DeclarationArrayType {

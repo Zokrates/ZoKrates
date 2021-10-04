@@ -16,7 +16,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use zokrates_field::Field;
 
-type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;
+pub type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -45,6 +45,7 @@ impl fmt::Display for Error {
     }
 }
 
+#[derive(Debug)]
 pub struct Propagator<'ast, 'a, T: Field> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
@@ -149,21 +150,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         })
     }
 
-    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> Result<TypedModule<'ast, T>, Error> {
-        Ok(TypedModule {
-            functions: m
-                .functions
-                .into_iter()
-                .map(|(key, fun)| {
-                    if key.id == "main" {
-                        self.fold_function_symbol(fun).map(|f| (key, f))
-                    } else {
-                        Ok((key, fun))
-                    }
-                })
-                .collect::<Result<_, _>>()?,
-            ..m
-        })
+    fn fold_function_symbol_declaration(
+        &mut self,
+        s: TypedFunctionSymbolDeclaration<'ast, T>,
+    ) -> Result<TypedFunctionSymbolDeclaration<'ast, T>, Error> {
+        if s.key.id == "main" {
+            let key = s.key;
+            self.fold_function_symbol(s.symbol)
+                .map(|f| TypedFunctionSymbolDeclaration { key, symbol: f })
+        } else {
+            Ok(s)
+        }
     }
 
     fn fold_function(
@@ -384,7 +381,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         match arguments.iter().all(|a| a.is_constant()) {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match embed {
-                                    FlatEmbed::U32ToField => None, // todo
                                     FlatEmbed::BitArrayLe => None, // todo
                                     FlatEmbed::U64FromBits => Some(process_u_from_bits(
                                         assignees.clone(),
@@ -1079,7 +1075,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         })
                         // ignore spreads over empty arrays
                         .filter_map(|e| match e {
-                            TypedExpressionOrSpread::Spread(s) if s.array.size() == 0 => None,
+                            TypedExpressionOrSpread::Spread(s)
+                                if s.array.size() == UExpression::from(0u32) =>
+                            {
+                                None
+                            }
                             e => Some(e),
                         })
                         .collect(),

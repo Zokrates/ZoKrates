@@ -9,11 +9,7 @@ pub trait Folder<T: Field>: Sized {
         fold_module(self, p)
     }
 
-    fn fold_function(&mut self, f: Function<T>) -> Function<T> {
-        fold_function(self, f)
-    }
-
-    fn fold_argument(&mut self, p: FlatVariable) -> FlatVariable {
+    fn fold_argument(&mut self, p: FlatParameter) -> FlatParameter {
         fold_argument(self, p)
     }
 
@@ -40,8 +36,17 @@ pub trait Folder<T: Field>: Sized {
 
 pub fn fold_module<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
     Prog {
-        main: f.fold_function(p.main),
-        ..p
+        arguments: p
+            .arguments
+            .into_iter()
+            .map(|a| f.fold_argument(a))
+            .collect(),
+        statements: p
+            .statements
+            .into_iter()
+            .flat_map(|s| f.fold_statement(s))
+            .collect(),
+        returns: p.returns.into_iter().map(|v| f.fold_variable(v)).collect(),
     }
 }
 
@@ -86,29 +91,11 @@ pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: Directive<T>) -> Di
     }
 }
 
-pub fn fold_function<T: Field, F: Folder<T>>(f: &mut F, fun: Function<T>) -> Function<T> {
-    Function {
-        arguments: fun
-            .arguments
-            .into_iter()
-            .map(|a| f.fold_argument(a))
-            .collect(),
-        statements: fun
-            .statements
-            .into_iter()
-            .flat_map(|s| f.fold_statement(s))
-            .collect(),
-        returns: fun
-            .returns
-            .into_iter()
-            .map(|v| f.fold_variable(v))
-            .collect(),
-        ..fun
+pub fn fold_argument<T: Field, F: Folder<T>>(f: &mut F, a: FlatParameter) -> FlatParameter {
+    FlatParameter {
+        id: f.fold_variable(a.id),
+        private: a.private,
     }
-}
-
-pub fn fold_argument<T: Field, F: Folder<T>>(f: &mut F, a: FlatVariable) -> FlatVariable {
-    f.fold_variable(a)
 }
 
 pub fn fold_variable<T: Field, F: Folder<T>>(_f: &mut F, v: FlatVariable) -> FlatVariable {

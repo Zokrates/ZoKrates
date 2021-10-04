@@ -35,15 +35,15 @@ mod tests {
     };
     use crate::typed_absy::{
         parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType,
-        TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
+        TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule,
+        TypedProgram,
     };
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use zokrates_field::Bn128Field;
 
     #[test]
     fn generate_abi_from_typed_ast() {
-        let mut functions = HashMap::new();
-        functions.insert(
+        let symbols = vec![TypedFunctionSymbolDeclaration::new(
             ConcreteFunctionKey::with_location("main", "main").into(),
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
@@ -62,16 +62,11 @@ mod tests {
                     .outputs(vec![ConcreteType::FieldElement])
                     .into(),
             }),
-        );
+        )
+        .into()];
 
-        let mut modules = HashMap::new();
-        modules.insert(
-            "main".into(),
-            TypedModule {
-                functions,
-                constants: Default::default(),
-            },
-        );
+        let mut modules = BTreeMap::new();
+        modules.insert("main".into(), TypedModule { symbols });
 
         let typed_ast: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),

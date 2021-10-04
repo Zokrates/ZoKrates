@@ -1,4 +1,6 @@
-use crate::typed_absy::{Identifier, OwnedTypedModuleId, UExpression, UExpressionInner};
+use crate::typed_absy::{
+    CoreIdentifier, Identifier, OwnedTypedModuleId, TypedExpression, UExpression, UExpressionInner,
+};
 use crate::typed_absy::{TryFrom, TryInto};
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
@@ -46,7 +48,7 @@ impl<'ast, T> IntoTypes<'ast, T> for Types<'ast, T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct Types<'ast, T> {
     pub inner: Vec<Type<'ast, T>>,
 }
@@ -131,31 +133,29 @@ pub type ConstantIdentifier<'ast> = &'ast str;
 pub struct CanonicalConstantIdentifier<'ast> {
     pub module: OwnedTypedModuleId,
     pub id: ConstantIdentifier<'ast>,
-    pub ty: Box<DeclarationType<'ast>>,
+}
+
+impl<'ast> fmt::Display for CanonicalConstantIdentifier<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}/{}", self.module.display(), self.id)
+    }
 }
 
 impl<'ast> CanonicalConstantIdentifier<'ast> {
-    pub fn new(
-        id: ConstantIdentifier<'ast>,
-        module: OwnedTypedModuleId,
-        ty: DeclarationType<'ast>,
-    ) -> Self {
-        CanonicalConstantIdentifier {
-            module,
-            id,
-            ty: box ty,
-        }
+    pub fn new(id: ConstantIdentifier<'ast>, module: OwnedTypedModuleId) -> Self {
+        CanonicalConstantIdentifier { module, id }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum DeclarationConstant<'ast> {
+pub enum DeclarationConstant<'ast, T> {
     Generic(GenericIdentifier<'ast>),
     Concrete(u32),
     Constant(CanonicalConstantIdentifier<'ast>),
+    Expression(TypedExpression<'ast, T>),
 }
 
-impl<'ast> DeclarationConstant<'ast> {
+impl<'ast, T> DeclarationConstant<'ast, T> {
     pub fn map<S: From<CanonicalConstantIdentifier<'ast>> + From<u32> + Clone>(
         self,
         generics: &GGenericsAssignment<'ast, S>,
@@ -164,6 +164,8 @@ impl<'ast> DeclarationConstant<'ast> {
             DeclarationConstant::Generic(g) => generics.0.get(&g).cloned().ok_or(g),
             DeclarationConstant::Concrete(v) => Ok(v.into()),
             DeclarationConstant::Constant(c) => Ok(c.into()),
+            DeclarationConstant::Expression(_) => unreachable!(),
+
         }
     }
 
@@ -177,43 +179,60 @@ impl<'ast> DeclarationConstant<'ast> {
             ),
             DeclarationConstant::Generic(g) => generics.0.get(&g).cloned().ok_or(g),
             DeclarationConstant::Concrete(v) => Ok(v.into()),
+            DeclarationConstant::Expression(_) => unreachable!(),
         }
     }
 }
 
-impl<'ast, T> PartialEq<UExpression<'ast, T>> for DeclarationConstant<'ast> {
+impl<'ast, T: PartialEq> PartialEq<UExpression<'ast, T>> for DeclarationConstant<'ast, T> {
     fn eq(&self, other: &UExpression<'ast, T>) -> bool {
-        match (self, other.as_inner()) {
-            (DeclarationConstant::Concrete(c), UExpressionInner::Value(v)) => *c == *v as u32,
+        match (self, other) {
+            (
+                DeclarationConstant::Concrete(c),
+                UExpression {
+                    bitwidth: UBitwidth::B32,
+                    inner: UExpressionInner::Value(v),
+                    ..
+                },
+            ) => *c == *v as u32,
+            (DeclarationConstant::Expression(TypedExpression::Uint(e0)), e1) => e0 == e1,
+            (DeclarationConstant::Expression(..), _) => false, // type error
             _ => true,
         }
     }
 }
 
-impl<'ast, T> PartialEq<DeclarationConstant<'ast>> for UExpression<'ast, T> {
-    fn eq(&self, other: &DeclarationConstant<'ast>) -> bool {
+impl<'ast, T: PartialEq> PartialEq<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
+    fn eq(&self, other: &DeclarationConstant<'ast, T>) -> bool {
         other.eq(self)
     }
 }
 
-impl<'ast> From<u32> for DeclarationConstant<'ast> {
+impl<'ast, T> From<u32> for DeclarationConstant<'ast, T> {
     fn from(e: u32) -> Self {
         DeclarationConstant::Concrete(e)
     }
 }
 
-impl<'ast> From<GenericIdentifier<'ast>> for DeclarationConstant<'ast> {
+impl<'ast, T> From<usize> for DeclarationConstant<'ast, T> {
+    fn from(e: usize) -> Self {
+        DeclarationConstant::Concrete(e as u32)
+    }
+}
+
+impl<'ast, T> From<GenericIdentifier<'ast>> for DeclarationConstant<'ast, T> {
     fn from(e: GenericIdentifier<'ast>) -> Self {
         DeclarationConstant::Generic(e)
     }
 }
 
-impl<'ast> fmt::Display for DeclarationConstant<'ast> {
+impl<'ast, T: fmt::Display> fmt::Display for DeclarationConstant<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             DeclarationConstant::Generic(i) => write!(f, "{}", i),
             DeclarationConstant::Concrete(v) => write!(f, "{}", v),
             DeclarationConstant::Constant(v) => write!(f, "{}/{}", v.module.display(), v.id),
+            DeclarationConstant::Expression(e) => write!(f, "{}", e),
         }
     }
 }
@@ -224,8 +243,8 @@ impl<'ast, T> From<u32> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> From<DeclarationConstant<'ast>> for UExpression<'ast, T> {
-    fn from(c: DeclarationConstant<'ast>) -> Self {
+impl<'ast, T> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
+    fn from(c: DeclarationConstant<'ast, T>) -> Self {
         match c {
             DeclarationConstant::Generic(i) => {
                 UExpressionInner::Identifier(i.name().into()).annotate(UBitwidth::B32)
@@ -234,8 +253,10 @@ impl<'ast, T> From<DeclarationConstant<'ast>> for UExpression<'ast, T> {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
-                UExpressionInner::Identifier(Identifier::from(v.id)).annotate(UBitwidth::B32)
+                UExpressionInner::Identifier(CoreIdentifier::from(v).into())
+                    .annotate(UBitwidth::B32)
             }
+            DeclarationConstant::Expression(e) => e.try_into().unwrap(),
         }
     }
 }
@@ -253,6 +274,17 @@ impl<'ast, T> TryInto<u32> for UExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> TryInto<usize> for DeclarationConstant<'ast, T> {
+    type Error = SpecializationError;
+
+    fn try_into(self) -> Result<usize, Self::Error> {
+        match self {
+            DeclarationConstant::Concrete(v) => Ok(v as usize),
+            _ => Err(SpecializationError),
+        }
+    }
+}
+
 pub type MemberId = String;
 
 #[derive(Debug, Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
@@ -263,7 +295,7 @@ pub struct GStructMember<S> {
     pub ty: Box<GType<S>>,
 }
 
-pub type DeclarationStructMember<'ast> = GStructMember<DeclarationConstant<'ast>>;
+pub type DeclarationStructMember<'ast, T> = GStructMember<DeclarationConstant<'ast, T>>;
 pub type ConcreteStructMember = GStructMember<u32>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
@@ -303,7 +335,7 @@ pub struct GArrayType<S> {
     pub ty: Box<GType<S>>,
 }
 
-pub type DeclarationArrayType<'ast> = GArrayType<DeclarationConstant<'ast>>;
+pub type DeclarationArrayType<'ast, T> = GArrayType<DeclarationConstant<'ast, T>>;
 pub type ConcreteArrayType = GArrayType<u32>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
@@ -369,7 +401,7 @@ pub struct StructLocation {
     pub name: String,
 }
 
-impl<'ast> From<ConcreteArrayType> for DeclarationArrayType<'ast> {
+impl<'ast, T> From<ConcreteArrayType> for DeclarationArrayType<'ast, T> {
     fn from(t: ConcreteArrayType) -> Self {
         try_from_g_array_type(t).unwrap()
     }
@@ -385,7 +417,7 @@ pub struct GStructType<S> {
     pub members: Vec<GStructMember<S>>,
 }
 
-pub type DeclarationStructType<'ast> = GStructType<DeclarationConstant<'ast>>;
+pub type DeclarationStructType<'ast, T> = GStructType<DeclarationConstant<'ast, T>>;
 pub type ConcreteStructType = GStructType<u32>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
@@ -448,7 +480,7 @@ impl<'ast, T> From<ConcreteStructType> for StructType<'ast, T> {
     }
 }
 
-impl<'ast> From<ConcreteStructType> for DeclarationStructType<'ast> {
+impl<'ast, T> From<ConcreteStructType> for DeclarationStructType<'ast, T> {
     fn from(t: ConcreteStructType) -> Self {
         try_from_g_struct_type(t).unwrap()
     }
@@ -641,7 +673,7 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
     }
 }
 
-pub type DeclarationType<'ast> = GType<DeclarationConstant<'ast>>;
+pub type DeclarationType<'ast, T> = GType<DeclarationConstant<'ast, T>>;
 pub type ConcreteType = GType<u32>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
 
@@ -684,7 +716,7 @@ impl<'ast, T> From<ConcreteType> for Type<'ast, T> {
     }
 }
 
-impl<'ast> From<ConcreteType> for DeclarationType<'ast> {
+impl<'ast, T> From<ConcreteType> for DeclarationType<'ast, T> {
     fn from(t: ConcreteType) -> Self {
         try_from_g_type(t).unwrap()
     }
@@ -770,7 +802,7 @@ impl<S> GType<S> {
 }
 
 impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
-    pub fn can_be_specialized_to(&self, other: &DeclarationType) -> bool {
+    pub fn can_be_specialized_to(&self, other: &DeclarationType<'ast, T>) -> bool {
         use self::GType::*;
 
         if other == self {
@@ -845,14 +877,14 @@ impl ConcreteType {
 
 pub type FunctionIdentifier<'ast> = &'ast str;
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd, Ord)]
 pub struct GFunctionKey<'ast, S> {
     pub module: OwnedTypedModuleId,
     pub id: FunctionIdentifier<'ast>,
     pub signature: GSignature<S>,
 }
 
-pub type DeclarationFunctionKey<'ast> = GFunctionKey<'ast, DeclarationConstant<'ast>>;
+pub type DeclarationFunctionKey<'ast, T> = GFunctionKey<'ast, DeclarationConstant<'ast, T>>;
 pub type ConcreteFunctionKey<'ast> = GFunctionKey<'ast, u32>;
 pub type FunctionKey<'ast, T> = GFunctionKey<'ast, UExpression<'ast, T>>;
 
@@ -862,7 +894,7 @@ impl<'ast, S: fmt::Display> fmt::Display for GFunctionKey<'ast, S> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 pub struct GGenericsAssignment<'ast, S>(pub BTreeMap<GenericIdentifier<'ast>, S>);
 
 pub type ConcreteGenericsAssignment<'ast> = GGenericsAssignment<'ast, u32>;
@@ -888,8 +920,8 @@ impl<'ast, S: fmt::Display> fmt::Display for GGenericsAssignment<'ast, S> {
     }
 }
 
-impl<'ast> PartialEq<DeclarationFunctionKey<'ast>> for ConcreteFunctionKey<'ast> {
-    fn eq(&self, other: &DeclarationFunctionKey<'ast>) -> bool {
+impl<'ast, T> PartialEq<DeclarationFunctionKey<'ast, T>> for ConcreteFunctionKey<'ast> {
+    fn eq(&self, other: &DeclarationFunctionKey<'ast, T>) -> bool {
         self.module == other.module && self.id == other.id && self.signature == other.signature
     }
 }
@@ -918,7 +950,7 @@ impl<'ast, T> From<ConcreteFunctionKey<'ast>> for FunctionKey<'ast, T> {
     }
 }
 
-impl<'ast> From<ConcreteFunctionKey<'ast>> for DeclarationFunctionKey<'ast> {
+impl<'ast, T> From<ConcreteFunctionKey<'ast>> for DeclarationFunctionKey<'ast, T> {
     fn from(k: ConcreteFunctionKey<'ast>) -> Self {
         try_from_g_function_key(k).unwrap()
     }
@@ -965,8 +997,8 @@ impl<'ast> ConcreteFunctionKey<'ast> {
 
 use std::collections::btree_map::Entry;
 
-pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<u32>>(
-    decl_ty: &DeclarationType<'ast>,
+pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
+    decl_ty: &DeclarationType<'ast, T>,
     ty: &GType<S>,
     constants: &mut GGenericsAssignment<'ast, S>,
 ) -> bool {
@@ -987,9 +1019,9 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<u32>>(
                         }
                     },
                     DeclarationConstant::Concrete(s0) => s1 == *s0 as u32,
-                    // in the case of a constant, we do not know the value yet, so we optimistically assume it's correct
+                    // in the other cases, we do not know the value yet, so we optimistically assume it's correct
                     // if it does not match, it will be caught during inlining
-                    DeclarationConstant::Constant(..) => true,
+                    DeclarationConstant::Constant(..) | DeclarationConstant::Expression(..) => true,
                 }
         }
         (DeclarationType::FieldElement, GType::FieldElement)
@@ -997,6 +1029,11 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<u32>>(
         (DeclarationType::Uint(b0), GType::Uint(b1)) => b0 == b1,
         (DeclarationType::Struct(s0), GType::Struct(s1)) => {
             s0.canonical_location == s1.canonical_location
+                && s0
+                    .members
+                    .iter()
+                    .zip(s1.members.iter())
+                    .all(|(m0, m1)| check_type(&*m0.ty, &*m1.ty, constants))
         }
         _ => false,
     }
@@ -1004,16 +1041,12 @@ pub fn check_type<'ast, S: Clone + PartialEq + PartialEq<u32>>(
 
 impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
     fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
-        let bitwidth = match *c.ty {
-            DeclarationType::Uint(bitwidth) => bitwidth,
-            _ => unreachable!(),
-        };
-
-        UExpressionInner::Identifier(Identifier::from(c.id)).annotate(bitwidth)
+        UExpressionInner::Identifier(Identifier::from(CoreIdentifier::Constant(c)))
+            .annotate(UBitwidth::B32)
     }
 }
 
-impl<'ast> From<CanonicalConstantIdentifier<'ast>> for DeclarationConstant<'ast> {
+impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for DeclarationConstant<'ast, T> {
     fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
         DeclarationConstant::Constant(c)
     }
@@ -1021,16 +1054,16 @@ impl<'ast> From<CanonicalConstantIdentifier<'ast>> for DeclarationConstant<'ast>
 
 pub fn specialize_declaration_type<
     'ast,
+    T: Clone,
     S: Clone + PartialEq + From<u32> + fmt::Debug + From<CanonicalConstantIdentifier<'ast>>,
 >(
-    decl_ty: DeclarationType<'ast>,
+    decl_ty: DeclarationType<'ast, T>,
     generics: &GGenericsAssignment<'ast, S>,
 ) -> Result<GType<S>, GenericIdentifier<'ast>> {
     Ok(match decl_ty {
         DeclarationType::Int => unreachable!(),
         DeclarationType::Array(t0) => {
             let ty = box specialize_declaration_type(*t0.ty, &generics)?;
-
             let size = t0.size.map(generics)?;
 
             GType::Array(GArrayType { size, ty })
@@ -1134,12 +1167,12 @@ pub mod signature {
         }
     }
 
-    pub type DeclarationSignature<'ast> = GSignature<DeclarationConstant<'ast>>;
+    pub type DeclarationSignature<'ast, T> = GSignature<DeclarationConstant<'ast, T>>;
     pub type ConcreteSignature = GSignature<u32>;
     pub type Signature<'ast, T> = GSignature<UExpression<'ast, T>>;
 
-    impl<'ast> PartialEq<DeclarationSignature<'ast>> for ConcreteSignature {
-        fn eq(&self, other: &DeclarationSignature<'ast>) -> bool {
+    impl<'ast, T> PartialEq<DeclarationSignature<'ast, T>> for ConcreteSignature {
+        fn eq(&self, other: &DeclarationSignature<'ast, T>) -> bool {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = ConcreteGenericsAssignment::default();
 
@@ -1148,11 +1181,11 @@ pub mod signature {
                 .iter()
                 .chain(other.outputs.iter())
                 .zip(self.inputs.iter().chain(self.outputs.iter()))
-                .all(|(decl_ty, ty)| check_type::<u32>(decl_ty, ty, &mut constants))
+                .all(|(decl_ty, ty)| check_type::<T, u32>(decl_ty, ty, &mut constants))
         }
     }
 
-    impl<'ast> DeclarationSignature<'ast> {
+    impl<'ast, T: Clone + PartialEq + fmt::Debug> DeclarationSignature<'ast, T> {
         pub fn specialize(
             &self,
             values: Vec<Option<u32>>,
@@ -1193,7 +1226,7 @@ pub mod signature {
             }
         }
 
-        pub fn get_output_types<T: Clone + PartialEq + fmt::Debug>(
+        pub fn get_output_types(
             &self,
             generics: Vec<Option<UExpression<'ast, T>>>,
             inputs: Vec<Type<'ast, T>>,
@@ -1272,7 +1305,7 @@ pub mod signature {
         }
     }
 
-    impl<'ast> From<ConcreteSignature> for DeclarationSignature<'ast> {
+    impl<'ast, T> From<ConcreteSignature> for DeclarationSignature<'ast, T> {
         fn from(s: ConcreteSignature) -> Self {
             try_from_g_signature(s).unwrap()
         }
@@ -1387,6 +1420,7 @@ pub mod signature {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use zokrates_field::Bn128Field;
 
         #[test]
         fn signature() {
@@ -1403,7 +1437,7 @@ pub mod signature {
             // <P>(field[P])
             // <Q>(field[Q])
 
-            let generic1 = DeclarationSignature::new()
+            let generic1 = DeclarationSignature::<Bn128Field>::new()
                 .generics(vec![Some(
                     GenericIdentifier::with_name("P").with_index(0).into(),
                 )])

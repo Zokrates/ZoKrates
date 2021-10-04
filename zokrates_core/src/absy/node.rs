@@ -9,6 +9,16 @@ pub struct Node<T> {
     pub value: T,
 }
 
+impl<T> Node<T> {
+    pub fn mock(e: T) -> Self {
+        Self {
+            start: Position::mock(),
+            end: Position::mock(),
+            value: e,
+        }
+    }
+}
+
 impl<T: fmt::Display> Node<T> {
     pub fn pos(&self) -> (Position, Position) {
         (self.start, self.end)
@@ -67,8 +77,7 @@ pub trait NodeValue: fmt::Display + fmt::Debug + Sized + PartialEq {
 
 impl<V: NodeValue> From<V> for Node<V> {
     fn from(v: V) -> Node<V> {
-        let mock_position = Position { col: 42, line: 42 };
-        Node::new(mock_position, mock_position, v)
+        Node::new(Position::mock(), Position::mock(), v)
     }
 }
 

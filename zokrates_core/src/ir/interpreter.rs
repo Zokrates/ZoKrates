@@ -34,15 +34,15 @@ impl Interpreter {
 
 impl Interpreter {
     pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &[T]) -> ExecutionResult<T> {
-        let main = &program.main;
         self.check_inputs(&program, &inputs)?;
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
-        for (arg, value) in main.arguments.iter().zip(inputs.iter()) {
-            witness.insert(*arg, value.clone());
+
+        for (arg, value) in program.arguments.iter().zip(inputs.iter()) {
+            witness.insert(arg.id, value.clone());
         }
 
-        for statement in main.statements.iter() {
+        for statement in program.statements.iter() {
             match statement {
                 Statement::Constraint(quad, lin, message) => match lin.is_assignee(&witness) {
                     true => {
@@ -120,11 +120,11 @@ impl Interpreter {
     }
 
     fn check_inputs<T: Field, U>(&self, program: &Prog<T>, inputs: &[U]) -> Result<(), Error> {
-        if program.main.arguments.len() == inputs.len() {
+        if program.arguments.len() == inputs.len() {
             Ok(())
         } else {
             Err(Error::WrongInputCount {
-                expected: program.main.arguments.len(),
+                expected: program.arguments.len(),
                 received: inputs.len(),
             })
         }

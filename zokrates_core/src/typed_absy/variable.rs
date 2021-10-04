@@ -5,13 +5,13 @@ use crate::typed_absy::UExpression;
 use crate::typed_absy::{TryFrom, TryInto};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct GVariable<'ast, S> {
     pub id: Identifier<'ast>,
     pub _type: GType<S>,
 }
 
-pub type DeclarationVariable<'ast> = GVariable<'ast, DeclarationConstant<'ast>>;
+pub type DeclarationVariable<'ast, T> = GVariable<'ast, DeclarationConstant<'ast, T>>;
 pub type ConcreteVariable<'ast> = GVariable<'ast, u32>;
 pub type Variable<'ast, T> = GVariable<'ast, UExpression<'ast, T>>;
 

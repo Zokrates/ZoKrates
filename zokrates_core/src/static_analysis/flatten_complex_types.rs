@@ -126,7 +126,7 @@ impl<'ast, T: Field> Flattener<T> {
 
     fn fold_declaration_parameter(
         &mut self,
-        p: typed_absy::DeclarationParameter<'ast>,
+        p: typed_absy::DeclarationParameter<'ast, T>,
     ) -> Vec<zir::Parameter<'ast>> {
         let private = p.private;
         self.fold_variable(crate::typed_absy::variable::try_from_g_variable(p.id).unwrap())
@@ -1093,7 +1093,7 @@ fn fold_function<'ast, T: Field>(
         statements: main_statements_buffer,
         signature: typed_absy::types::ConcreteSignature::try_from(
             crate::typed_absy::types::try_from_g_signature::<
-                crate::typed_absy::types::DeclarationConstant<'ast>,
+                crate::typed_absy::types::DeclarationConstant<'ast, T>,
                 crate::typed_absy::UExpression<'ast, T>,
             >(fun.signature)
             .unwrap(),
@@ -1136,14 +1136,12 @@ fn fold_program<'ast, T: Field>(
     let main_module = p.modules.remove(&p.main).unwrap();
 
     let main_function = main_module
-        .functions
-        .into_iter()
-        .find(|(key, _)| key.id == "main")
+        .into_functions_iter()
+        .find(|d| d.key.id == "main")
         .unwrap()
-        .1;
-
+        .symbol;
     let main_function = match main_function {
-        typed_absy::TypedFunctionSymbol::Here(f) => f,
+        typed_absy::TypedFunctionSymbol::Here(main) => main,
         _ => unreachable!(),
     };
 

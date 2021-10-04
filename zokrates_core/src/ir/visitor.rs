@@ -9,11 +9,7 @@ pub trait Visitor<T: Field>: Sized {
         visit_module(self, p)
     }
 
-    fn visit_function(&mut self, f: &Function<T>) {
-        visit_function(self, f)
-    }
-
-    fn visit_argument(&mut self, p: &FlatVariable) {
+    fn visit_argument(&mut self, p: &FlatParameter) {
         visit_argument(self, p)
     }
 
@@ -47,7 +43,15 @@ pub trait Visitor<T: Field>: Sized {
 }
 
 pub fn visit_module<T: Field, F: Visitor<T>>(f: &mut F, p: &Prog<T>) {
-    f.visit_function(&p.main)
+    for expr in p.arguments.iter() {
+        f.visit_argument(expr);
+    }
+    for expr in p.statements.iter() {
+        f.visit_statement(expr);
+    }
+    for expr in p.returns.iter() {
+        f.visit_variable(expr);
+    }
 }
 
 pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
@@ -84,20 +88,8 @@ pub fn visit_directive<T: Field, F: Visitor<T>>(f: &mut F, ds: &Directive<T>) {
     }
 }
 
-pub fn visit_function<T: Field, F: Visitor<T>>(f: &mut F, fun: &Function<T>) {
-    for expr in fun.arguments.iter() {
-        f.visit_argument(expr);
-    }
-    for expr in fun.statements.iter() {
-        f.visit_statement(expr);
-    }
-    for expr in fun.returns.iter() {
-        f.visit_variable(expr);
-    }
-}
-
-pub fn visit_argument<T: Field, F: Visitor<T>>(f: &mut F, a: &FlatVariable) {
-    f.visit_variable(a)
+pub fn visit_argument<T: Field, F: Visitor<T>>(f: &mut F, a: &FlatParameter) {
+    f.visit_variable(&a.id)
 }
 
 pub fn visit_variable<T: Field, F: Visitor<T>>(_f: &mut F, _v: &FlatVariable) {}
