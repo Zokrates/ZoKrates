@@ -165,7 +165,6 @@ impl<'ast, T> DeclarationConstant<'ast, T> {
             DeclarationConstant::Concrete(v) => Ok(v.into()),
             DeclarationConstant::Constant(c) => Ok(c.into()),
             DeclarationConstant::Expression(_) => unreachable!(),
-
         }
     }
 
@@ -1023,10 +1022,10 @@ pub fn check_generic<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
             DeclarationConstant::Expression(e) => match e {
                 TypedExpression::Uint(e) => match e.as_inner() {
                     UExpressionInner::Value(v) => *value == *v as u32,
-                    _ => true
+                    _ => true,
                 },
-                _ => unreachable!()
-            }                
+                _ => unreachable!(),
+            },
         })
         .unwrap_or(true)
 }

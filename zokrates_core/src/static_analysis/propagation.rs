@@ -1075,11 +1075,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         })
                         // ignore spreads over empty arrays
                         .filter_map(|e| match e {
-                            TypedExpressionOrSpread::Spread(s)
-                                if s.array.size() == UExpression::from(0u32) =>
-                            {
-                                None
-                            }
+                            TypedExpressionOrSpread::Spread(s) if s.array.size() == 0u32 => None,
                             e => Some(e),
                         })
                         .collect(),
