@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.7] - 2021-10-04
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.7 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Reduce the deployment cost of the g16 and pghr13 verifiers (#1008, @m1cm1c)
+- Make operators table more clear in the book (#1017, @dark64)
+- Allow calls in constant definitions (#975, @schaeff)
+- Handle out of bound accesses gracefully (#1013, @schaeff)
+- Improve error message on unconstrained variable detection (#1015, @dark64)
+- Apply propagation in ZIR (#957, @dark64)
+- Fail on mistyped constants (#974, @schaeff)
+- Graceful error handling on unconstrained variable detection (#977, @dark64)
+- Fix incorrect propagation of spreads (#987, @schaeff)
+- Add range semantics to docs (#992, @dark64)
+- Fix invalid cast to `usize` which caused wrong values in 32-bit environments (#998, @dark64)
+
 ## [0.7.6] - 2021-08-16
 
 ### Release
