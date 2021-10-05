@@ -1123,21 +1123,44 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
         fn call_array_element() {
-            // a call after an array access should be rejected
+            // a call after an array access should be accepted
             let source = "def main(): return a[2](3)";
             let ast = pest::generate_ast(&source).unwrap();
-            absy::Module::from(ast);
+            assert_eq!(
+                absy::Module::from(ast),
+                wrap(absy::Expression::FunctionCall(
+                    box absy::Expression::Select(
+                        box absy::Expression::Identifier("a").mock(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::IntConstant(2u32.into()).mock()
+                        )
+                    )
+                    .mock(),
+                    None,
+                    vec![absy::Expression::IntConstant(3u32.into()).mock()],
+                ))
+            );
         }
 
         #[test]
-        #[should_panic]
         fn call_call_result() {
-            // a call after a call should be rejected
+            // a call after a call should be accepted
             let source = "def main(): return a(2)(3)";
             let ast = pest::generate_ast(&source).unwrap();
-            absy::Module::from(ast);
+            assert_eq!(
+                absy::Module::from(ast),
+                wrap(absy::Expression::FunctionCall(
+                    box absy::Expression::FunctionCall(
+                        box absy::Expression::Identifier("a").mock(),
+                        None,
+                        vec![absy::Expression::IntConstant(2u32.into()).mock()]
+                    )
+                    .mock(),
+                    None,
+                    vec![absy::Expression::IntConstant(3u32.into()).mock()],
+                ))
+            );
         }
     }
     #[test]
