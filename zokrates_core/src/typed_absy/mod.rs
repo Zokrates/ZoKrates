@@ -1141,7 +1141,7 @@ impl<'ast, T> IntoIterator for ArrayValue<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> ArrayValue<'ast, T> {
+impl<'ast, T: Clone + fmt::Debug> ArrayValue<'ast, T> {
     fn expression_at_aux<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
         v: TypedExpressionOrSpread<'ast, T>,
     ) -> Vec<Option<TypedExpression<'ast, T>>> {
@@ -1181,7 +1181,7 @@ impl<'ast, T: Clone> ArrayValue<'ast, T> {
     ) -> Option<TypedExpression<'ast, T>> {
         self.0
             .iter()
-            .map(|v| Self::expression_at_aux::<U>(v.clone()))
+            .map(|v| dbg!(Self::expression_at_aux::<U>(v.clone())))
             .flatten()
             .take_while(|e| e.is_some())
             .map(|e| e.unwrap())
