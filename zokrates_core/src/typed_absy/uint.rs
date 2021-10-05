@@ -133,13 +133,13 @@ impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct UMetadata {
     pub bitwidth: Option<Bitwidth>,
     pub should_reduce: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct UExpression<'ast, T> {
     pub bitwidth: UBitwidth,
     pub metadata: Option<UMetadata>,
@@ -173,7 +173,7 @@ impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum UExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, UExpression<'ast, T>>),
     Identifier(Identifier<'ast>),

@@ -15,7 +15,6 @@ impl Position {
         }
     }
 
-    #[cfg(test)]
     pub fn mock() -> Self {
         Position { line: 42, col: 42 }
     }

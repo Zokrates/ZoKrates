@@ -18,7 +18,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Found unconstrained variables during IR analysis (found {} occurrence{})",
+            "Found unconstrained variables during IR analysis (found {} occurrence{}). If this is intentional, use the `--allow-unconstrained-variables` flag.",
             self.0,
             if self.0 == 1 { "" } else { "s" }
         )
@@ -86,7 +86,7 @@ mod tests {
         let result = UnconstrainedVariableDetector::detect(&p);
         assert_eq!(
             result.expect_err("expected an error").to_string(),
-            "Found unconstrained variables during IR analysis (found 1 occurrence)"
+            "Found unconstrained variables during IR analysis (found 1 occurrence). If this is intentional, use the `--allow-unconstrained-variables` flag."
         );
     }
 

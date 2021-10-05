@@ -1,0 +1,14 @@
+// this should actually compile, as A != B
+
+const u32 A = 2
+const u32 B = 1
+
+def foo(field[A] a) -> bool:
+    return true
+
+def foo(field[B] a) -> bool:
+    return true
+
+def main():
+    assert(foo([1]))
+    return

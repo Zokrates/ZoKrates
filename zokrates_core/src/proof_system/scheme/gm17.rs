@@ -1,5 +1,5 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use crate::proof_system::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
 use crate::proof_system::{
     G1Affine, G2Affine, G2AffineFq, SolidityCompatibleField, SolidityCompatibleScheme,
 };
@@ -48,10 +48,8 @@ impl Scheme<Bw6_761Field> for GM17 {
 
 impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for GM17 {
     fn export_solidity_verifier(vk: <GM17 as Scheme<T>>::VerificationKey) -> String {
-        let (mut template_text, solidity_pairing_lib) = (
-            String::from(CONTRACT_TEMPLATE),
-            String::from(SOLIDITY_PAIRING_LIB),
-        );
+        let (mut template_text, solidity_pairing_lib) =
+            (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(true));
 
         // replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();

@@ -410,14 +410,15 @@ mod integration {
 
         for p in glob("./examples/book/rng_tutorial/*").expect("Failed to read glob pattern") {
             let path = p.unwrap();
-            std::fs::copy(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
+            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
         }
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+        let binary_path = std::fs::canonicalize("../target/release/zokrates").unwrap();
 
         assert_cli::Assert::command(&[
             "./test.sh",
-            env!("CARGO_BIN_EXE_zokrates"),
+            binary_path.to_str().unwrap(),
             stdlib.to_str().unwrap(),
         ])
         .current_dir(tmp_base)
@@ -433,14 +434,15 @@ mod integration {
 
         for p in glob("./examples/book/sha256_tutorial/*").expect("Failed to read glob pattern") {
             let path = p.unwrap();
-            std::fs::copy(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
+            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
         }
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+        let binary_path = std::fs::canonicalize("../target/release/zokrates").unwrap();
 
         assert_cli::Assert::command(&[
             "./test.sh",
-            env!("CARGO_BIN_EXE_zokrates"),
+            binary_path.to_str().unwrap(),
             stdlib.to_str().unwrap(),
         ])
         .current_dir(tmp_base)
