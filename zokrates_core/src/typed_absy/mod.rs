@@ -1142,11 +1142,13 @@ impl<'ast, T> IntoIterator for ArrayValue<'ast, T> {
 }
 
 impl<'ast, T: Clone> ArrayValue<'ast, T> {
-    fn expression_at_aux<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
+    fn expression_at_aux<
+        U: Select<'ast, T> + From<TypedExpression<'ast, T>> + Into<TypedExpression<'ast, T>>,
+    >(
         v: TypedExpressionOrSpread<'ast, T>,
-    ) -> Vec<Option<TypedExpression<'ast, T>>> {
+    ) -> Vec<Option<U>> {
         match v {
-            TypedExpressionOrSpread::Expression(e) => vec![Some(e.clone())],
+            TypedExpressionOrSpread::Expression(e) => vec![Some(U::from(e))],
             TypedExpressionOrSpread::Spread(s) => match s.array.size().into_inner() {
                 UExpressionInner::Value(size) => {
                     let array_ty = s.array.ty().clone();
@@ -1158,14 +1160,11 @@ impl<'ast, T: Clone> ArrayValue<'ast, T> {
                             .collect(),
                         a => (0..size)
                             .map(|i| {
-                                Some(
-                                    U::select(
-                                        a.clone()
-                                            .annotate(*array_ty.ty.clone(), array_ty.size.clone()),
-                                        i as u32,
-                                    )
-                                    .into(),
-                                )
+                                Some(U::select(
+                                    a.clone()
+                                        .annotate(*array_ty.ty.clone(), array_ty.size.clone()),
+                                    i as u32,
+                                ))
                             })
                             .collect(),
                     }
@@ -1175,10 +1174,12 @@ impl<'ast, T: Clone> ArrayValue<'ast, T> {
         }
     }
 
-    pub fn expression_at<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
+    pub fn expression_at<
+        U: Select<'ast, T> + From<TypedExpression<'ast, T>> + Into<TypedExpression<'ast, T>>,
+    >(
         &self,
         index: usize,
-    ) -> Option<TypedExpression<'ast, T>> {
+    ) -> Option<U> {
         self.0
             .iter()
             .map(|v| Self::expression_at_aux::<U>(v.clone()))

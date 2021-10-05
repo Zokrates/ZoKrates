@@ -971,7 +971,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     }
 
     fn fold_select_expression<
-        E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+        E: Expr<'ast, T>
+            + Select<'ast, T>
+            + TryFrom<TypedExpression<'ast, T>>
+            + Into<TypedExpression<'ast, T>>,
     >(
         &mut self,
         _: &E::Ty,
@@ -988,12 +991,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                     if n < size {
                         Ok(SelectOrExpression::Expression(
-                            E::from(
-                                v.expression_at::<StructExpression<'ast, T>>(n as usize)
-                                    .unwrap()
-                                    .clone(),
-                            )
-                            .into_inner(),
+                            v.expression_at::<E>(n as usize).unwrap().into_inner(),
                         ))
                     } else {
                         Err(Error::OutOfBounds(n, size))
@@ -1005,14 +1003,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             TypedExpression::Array(a) => match a.as_inner() {
                                 ArrayExpressionInner::Value(v) => {
                                     Ok(SelectOrExpression::Expression(
-                                        E::from(
-                                            v.expression_at::<StructExpression<'ast, T>>(
-                                                n as usize,
-                                            )
-                                            .unwrap()
-                                            .clone(),
-                                        )
-                                        .into_inner(),
+                                        v.expression_at::<E>(n as usize).unwrap().into_inner(),
                                     ))
                                 }
                                 _ => unreachable!("should be an array value"),
@@ -1075,7 +1066,19 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         })
                         // ignore spreads over empty arrays
                         .filter_map(|e| match e {
-                            TypedExpressionOrSpread::Spread(s) if s.array.size() == 0u32 => None,
+                            // clippy makes a wrong suggestion here:
+                            // ```
+                            // this creates an owned instance just for comparison
+                            // UExpression::from(0u32)
+                            // help: try: `0u32`
+                            // ```
+                            // But for `UExpression`, `PartialEq<Self>` is different from `PartialEq<u32>` (the latter is too optimistic in this case)
+                            #[allow(clippy::cmp_owned)]
+                            TypedExpressionOrSpread::Spread(s)
+                                if s.array.size() == UExpression::from(0u32) =>
+                            {
+                                None
+                            }
                             e => Some(e),
                         })
                         .collect(),
