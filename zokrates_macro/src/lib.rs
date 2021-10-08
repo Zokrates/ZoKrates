@@ -11,22 +11,19 @@ pub fn stopwatch(
     #[cfg(not(target_arch = "wasm32"))]
     {
         if let Ok(mut fun) = syn::parse::<ItemFn>(item.clone()) {
-            let stmts = rewrite_function(fun.sig.ident.to_string(), &fun.block.stmts);
-            fun.block.stmts = stmts;
+            fun.block.stmts = rewrite_function(fun.sig.ident.to_string(), &mut fun.block.stmts);
             return quote!(#fun).into();
         }
 
         if let Ok(mut fun) = syn::parse::<TraitItemMethod>(item.clone()) {
             if let Some(block) = fun.default.as_mut() {
-                let stmts = rewrite_function(fun.sig.ident.to_string(), &block.stmts);
-                block.stmts = stmts;
+                block.stmts = rewrite_function(fun.sig.ident.to_string(), &mut block.stmts);
                 return quote!(#fun).into();
             }
         }
 
         if let Ok(mut fun) = syn::parse::<ImplItemMethod>(item) {
-            let stmts = rewrite_function(fun.sig.ident.to_string(), &fun.block.stmts);
-            fun.block.stmts = stmts;
+            fun.block.stmts = rewrite_function(fun.sig.ident.to_string(), &mut fun.block.stmts);
             return quote!(#fun).into();
         }
 
@@ -37,8 +34,8 @@ pub fn stopwatch(
     item
 }
 
-fn rewrite_function(name: String, statements: &Vec<Stmt>) -> Vec<Stmt> {
-    let block: Block = parse_quote! {{
+fn rewrite_function(name: String, statements: &mut Vec<Stmt>) -> Vec<Stmt> {
+    let mut block: Block = parse_quote! {{
         pub struct Stopwatch(std::time::Instant);
 
         impl Drop for Stopwatch {
@@ -50,7 +47,6 @@ fn rewrite_function(name: String, statements: &Vec<Stmt>) -> Vec<Stmt> {
         let _stopwatch = Stopwatch(std::time::Instant::now());
     }};
 
-    let mut block_stmts = block.stmts;
-    block_stmts.extend(statements.iter().cloned());
-    block_stmts
+    block.stmts.append(statements);
+    block.stmts
 }
