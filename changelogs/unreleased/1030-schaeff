@@ -1,0 +1,1 @@
+Allow more postfix expressions, exit gracefully when trying to call anything else than an identifier
