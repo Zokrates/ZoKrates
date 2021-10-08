@@ -102,6 +102,7 @@ impl fmt::Display for Error {
 }
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
+    #[zokrates_macro::stopwatch]
     pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
         // inline user-defined constants
         log::debug!("Static analyser: Inline constants");
@@ -170,6 +171,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 impl<T: Field> Analyse for Prog<T> {
     type Error = Error;
 
+    #[zokrates_macro::stopwatch]
     fn analyse(self) -> Result<Self, Self::Error> {
         log::debug!("Static analyser: Detect unconstrained zir");
         UnconstrainedVariableDetector::detect(&self).map_err(Error::from)?;

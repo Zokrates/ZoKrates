@@ -183,6 +183,7 @@ impl CompileConfig {
 
 type FilePath = PathBuf;
 
+#[zokrates_macro::stopwatch]
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,

@@ -32,6 +32,7 @@ impl<T: Field> DirectiveOptimizer<T> {
         }
     }
 
+    #[zokrates_macro::stopwatch]
     pub fn optimize(p: Prog<T>) -> Prog<T> {
         DirectiveOptimizer::new().fold_module(p)
     }

@@ -10,6 +10,7 @@ use zokrates_field::Field;
 pub struct Isolator;
 
 impl Isolator {
+    #[zokrates_macro::stopwatch]
     pub fn isolate<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
         let mut isolator = Isolator;
         isolator.fold_program(p)

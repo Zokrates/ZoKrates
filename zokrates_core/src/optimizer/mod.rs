@@ -19,6 +19,7 @@ use crate::ir::Prog;
 use zokrates_field::Field;
 
 impl<T: Field> Prog<T> {
+    #[zokrates_macro::stopwatch]
     pub fn optimize(self) -> Self {
         // remove redefinitions
         log::debug!("Constraints: {}", self.constraint_count());

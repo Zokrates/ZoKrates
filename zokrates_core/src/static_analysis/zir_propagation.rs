@@ -38,6 +38,7 @@ pub struct ZirPropagator<'ast, T> {
 }
 
 impl<'ast, T: Field> ZirPropagator<'ast, T> {
+    #[zokrates_macro::stopwatch]
     pub fn propagate(p: ZirProgram<T>) -> Result<ZirProgram<T>, Error> {
         ZirPropagator::default().fold_program(p)
     }

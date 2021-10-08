@@ -17,6 +17,7 @@ impl fmt::Display for Error {
     }
 }
 impl OutOfBoundsChecker {
+    #[zokrates_macro::stopwatch]
     pub fn check<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
         Self::default().fold_program(p)
     }

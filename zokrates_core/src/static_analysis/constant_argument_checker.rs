@@ -11,6 +11,7 @@ use zokrates_field::Field;
 pub struct ConstantArgumentChecker;
 
 impl ConstantArgumentChecker {
+    #[zokrates_macro::stopwatch]
     pub fn check<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
         ConstantArgumentChecker.fold_program(p)
     }

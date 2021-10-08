@@ -327,6 +327,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     /// # Arguments
     ///
     /// * `prog` - The `Program` to be checked
+    #[zokrates_macro::stopwatch]
     pub fn check(prog: Program<'ast>) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
         Checker::default().check_program(prog)
     }

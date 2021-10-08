@@ -26,6 +26,7 @@ impl fmt::Display for Error {
 }
 
 impl UnconstrainedVariableDetector {
+    #[zokrates_macro::stopwatch]
     pub fn detect<T: Field>(p: &Prog<T>) -> Result<(), Error> {
         let mut instance = Self::default();
         instance.visit_module(&p);

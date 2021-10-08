@@ -507,6 +507,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     }
 }
 
+#[zokrates_macro::stopwatch]
 pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
     // inline all constants and replace them in the  program
 

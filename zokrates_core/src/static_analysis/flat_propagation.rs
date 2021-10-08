@@ -102,6 +102,7 @@ impl<T: Field> Propagate<T> for FlatFunction<T> {
 }
 
 impl<T: Field> FlatProg<T> {
+    #[zokrates_macro::stopwatch]
     pub fn propagate(self) -> FlatProg<T> {
         let main = self.main.propagate();
 

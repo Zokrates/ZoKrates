@@ -28,6 +28,7 @@ impl DuplicateOptimizer {
         }
     }
 
+    #[zokrates_macro::stopwatch]
     pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
         Self::new().fold_module(p)
     }

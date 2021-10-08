@@ -17,6 +17,7 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
         }
     }
 
+    #[zokrates_macro::stopwatch]
     pub fn optimize(p: ZirProgram<'ast, T>) -> ZirProgram<'ast, T> {
         UintOptimizer::new().fold_program(p)
     }

@@ -29,6 +29,8 @@ impl<'ast, 'a, T: Field> ConstantResolver<'ast, T> {
             constants,
         }
     }
+
+    #[zokrates_macro::stopwatch]
     pub fn inline(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         let constants = ProgramConstants::new();
         let mut inliner = ConstantResolver::new(p.modules.clone(), p.main.clone(), constants);

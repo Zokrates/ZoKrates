@@ -57,6 +57,7 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
         Propagator { constants }
     }
 
+    #[zokrates_macro::stopwatch]
     pub fn propagate(p: TypedProgram<'ast, T>) -> Result<TypedProgram<'ast, T>, Error> {
         let mut constants = Constants::new();
 

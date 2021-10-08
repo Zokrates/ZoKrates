@@ -17,6 +17,7 @@ impl TautologyOptimizer {
         TautologyOptimizer {}
     }
 
+    #[zokrates_macro::stopwatch]
     pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
         TautologyOptimizer::new().fold_module(p)
     }

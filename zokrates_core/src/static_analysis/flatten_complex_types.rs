@@ -108,6 +108,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::StructExpression<'ast, T> 
 }
 
 impl<'ast, T: Field> Flattener<T> {
+    #[zokrates_macro::stopwatch]
     pub fn flatten(p: typed_absy::TypedProgram<T>) -> zir::ZirProgram<T> {
         let mut f = Flattener::default();
         f.fold_program(p)

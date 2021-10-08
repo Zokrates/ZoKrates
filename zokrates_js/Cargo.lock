@@ -1569,7 +1569,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.6"
+version = "0.6.7"
 dependencies = [
  "bellman_ce",
  "bincode",
@@ -1593,6 +1593,7 @@ dependencies = [
  "zokrates_common",
  "zokrates_embed",
  "zokrates_field",
+ "zokrates_macro",
  "zokrates_pest_ast",
 ]
 
@@ -1632,7 +1633,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.0.35"
+version = "1.0.36"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
@@ -1643,6 +1644,15 @@ dependencies = [
  "zokrates_common",
  "zokrates_core",
  "zokrates_field",
+]
+
+[[package]]
+name = "zokrates_macro"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "quote 1.0.7",
+ "syn 1.0.34",
 ]
 
 [[package]]

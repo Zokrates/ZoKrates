@@ -17,6 +17,7 @@ impl<'ast> VariableWriteRemover {
         VariableWriteRemover
     }
 
+    #[zokrates_macro::stopwatch]
     pub fn apply<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
         let mut remover = VariableWriteRemover::new();
         remover.fold_program(p)

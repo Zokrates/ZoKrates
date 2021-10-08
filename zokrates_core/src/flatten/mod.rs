@@ -147,6 +147,7 @@ impl<T: Field> FlatUExpression<T> {
 }
 
 impl<'ast, T: Field> Flattener<'ast, T> {
+    #[zokrates_macro::stopwatch]
     pub fn flatten(p: ZirProgram<'ast, T>, config: &CompileConfig) -> FlatProg<T> {
         Flattener::new(config).flatten_program(p)
     }
