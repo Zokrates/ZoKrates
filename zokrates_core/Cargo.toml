@@ -11,7 +11,7 @@ build = "build.rs"
 default = ["bellman", "ark"]
 libsnark = ["cc", "cmake", "git2"]
 bellman = ["bellman_ce", "pairing_ce", "ff_ce", "zokrates_field/bellman"]
-wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
+wasm = ["bellman_ce/nolog", "bellman_ce/wasm", "zokrates_macro/wasm"]
 multicore = ["bellman_ce/multicore"]
 ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-serialize", "ark-relations", "ark-marlin", "ark-poly", "ark-poly-commit", "zokrates_field/ark", "sha2"]
 

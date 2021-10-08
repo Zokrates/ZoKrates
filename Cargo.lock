@@ -2516,6 +2516,7 @@ dependencies = [
 name = "zokrates_macro"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 0.1.10",
  "log",
  "quote 1.0.9",
  "syn 1.0.80",
