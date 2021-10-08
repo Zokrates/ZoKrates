@@ -1,2 +1,2 @@
 def main(field[3] a) -> field:
-	return [...a][0]
+	return [...a][0] + [a[0]][0] + [a[0]; 1][0]
