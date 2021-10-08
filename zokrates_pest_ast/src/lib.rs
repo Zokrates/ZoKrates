@@ -413,8 +413,8 @@ mod ast {
         Ternary(TernaryExpression<'ast>),
         Binary(BinaryExpression<'ast>),
         Unary(UnaryExpression<'ast>),
-        Identifier(IdentifierExpression<'ast>),
         Postfix(PostfixExpression<'ast>),
+        Identifier(IdentifierExpression<'ast>),
         Literal(LiteralExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
@@ -451,12 +451,16 @@ mod ast {
     impl<'ast> From<PostfixedTerm<'ast>> for Expression<'ast> {
         fn from(t: PostfixedTerm<'ast>) -> Self {
             let base = Expression::from(t.base);
-            let accesses = t.accesses.into_iter().map(Access::from).collect();
-            Expression::Postfix(PostfixExpression {
-                base: Box::new(base),
-                accesses,
-                span: t.span,
-            })
+            let accesses = t.accesses;
+            if accesses.is_empty() {
+                base
+            } else {
+                Expression::Postfix(PostfixExpression {
+                    base: Box::new(base),
+                    accesses,
+                    span: t.span,
+                })
+            }
         }
     }
 
