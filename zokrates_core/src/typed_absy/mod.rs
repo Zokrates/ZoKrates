@@ -1148,7 +1148,7 @@ impl<'ast, T: Clone + fmt::Debug> ArrayValue<'ast, T> {
         v: TypedExpressionOrSpread<'ast, T>,
     ) -> Vec<Option<U>> {
         match v {
-            TypedExpressionOrSpread::Expression(e) => vec![Some(e.clone().into())],
+            TypedExpressionOrSpread::Expression(e) => vec![Some(e.into())],
             TypedExpressionOrSpread::Spread(s) => match s.array.size().into_inner() {
                 UExpressionInner::Value(size) => {
                     let array_ty = s.array.ty().clone();
