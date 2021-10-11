@@ -158,7 +158,7 @@ fn compile_and_run<T: Field>(t: Tests) {
         let count = bin.constraint_count();
 
         assert!(
-            !count > target_count,
+            count <= target_count,
             "{} exceeded max constraint count (actual={}, max={}, p={:.2}% of max)",
             entry_point.display(),
             count,
