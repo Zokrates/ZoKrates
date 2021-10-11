@@ -15,6 +15,7 @@ type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
 pub enum Error {
     OutOfBounds(u128, u128),
     DivisionByZero,
+    AssertionFailed,
 }
 
 impl fmt::Display for Error {
@@ -28,6 +29,7 @@ impl fmt::Display for Error {
             Error::DivisionByZero => {
                 write!(f, "Division by zero detected in zir during static analysis",)
             }
+            Error::AssertionFailed => write!(f, "User assertion failed"),
         }
     }
 }
@@ -53,6 +55,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         match s {
             ZirStatement::Assertion(e) => match self.fold_boolean_expression(e)? {
                 BooleanExpression::Value(true) => Ok(vec![]),
+                BooleanExpression::Value(false) => Err(Error::AssertionFailed),
                 e => Ok(vec![ZirStatement::Assertion(e)]),
             },
             ZirStatement::Definition(a, e) => {
