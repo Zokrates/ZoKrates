@@ -4,7 +4,6 @@
 // Where for an array, `field[N]` ends up being propagated to `field[42]` which is direct to turn into a concrete type,
 // for structs, `Foo<N> { field[N] a }` is propagated to `Foo<42> { field[N] a }`. The missing step is replacing `N` by `42`
 // *inside* the canonical type, so that it can be concretized in the same way arrays are.
-// We apply this transformation only to the main function.
 
 use crate::typed_absy::folder::*;
 use crate::typed_absy::{
