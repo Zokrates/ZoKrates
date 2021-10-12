@@ -2202,7 +2202,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                         // convert the exponent to bytes, big endian
                         let ebytes_be = e.to_be_bytes();
+
                         // convert the bytes to bits, remove leading zeroes (we only need powers up to the highest non-zero bit)
+                        #[allow(clippy::needless_collect)]
+                        // collecting is required as we then reverse
                         let ebits_be: Vec<_> = ebytes_be
                             .iter()
                             .flat_map(|byte| (0..8).rev().map(move |i| byte & (1 << i) != 0)) // byte to bit, big endian

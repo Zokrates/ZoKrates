@@ -81,7 +81,7 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                 .map(|c| Ok((var, c)))
                 .unwrap_or(Err(var)),
             TypedAssignee::Select(box assignee, box index) => {
-                match self.try_get_constant_mut(&assignee) {
+                match self.try_get_constant_mut(assignee) {
                     Ok((variable, constant)) => match index.as_inner() {
                         UExpressionInner::Value(n) => match constant {
                             TypedExpression::Array(a) => match a.as_inner_mut() {
@@ -103,7 +103,7 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                     e => e,
                 }
             }
-            TypedAssignee::Member(box assignee, m) => match self.try_get_constant_mut(&assignee) {
+            TypedAssignee::Member(box assignee, m) => match self.try_get_constant_mut(assignee) {
                 Ok((v, c)) => {
                     let ty = assignee.get_type();
 
@@ -561,7 +561,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                                 let invalidations = assignees.iter().flat_map(|assignee| {
                                     let v = self
-                                        .try_get_constant_mut(&assignee)
+                                        .try_get_constant_mut(assignee)
                                         .map(|(v, _)| v)
                                         .unwrap_or_else(|v| v);
                                     match self.constants.remove(&v.id) {
@@ -603,7 +603,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                         let invalidations = assignees.iter().flat_map(|assignee| {
                             let v = self
-                                .try_get_constant_mut(&assignee)
+                                .try_get_constant_mut(assignee)
                                 .map(|(v, _)| v)
                                 .unwrap_or_else(|v| v);
                             match self.constants.remove(&v.id) {
