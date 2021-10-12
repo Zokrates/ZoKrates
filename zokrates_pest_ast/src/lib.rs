@@ -427,16 +427,47 @@ mod ast {
         Expression(Expression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
         Ternary(TernaryExpression<'ast>),
-        Postfix(PostfixExpression<'ast>),
         Primary(PrimaryExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::postfixed_term))]
+    pub struct PostfixedTerm<'ast> {
+        pub base: Term<'ast>,
+        pub accesses: Vec<Access<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct PostfixExpression<'ast> {
+        pub base: Box<Expression<'ast>>,
+        pub accesses: Vec<Access<'ast>>,
+        pub span: Span<'ast>,
+    }
+
+    impl<'ast> From<PostfixedTerm<'ast>> for Expression<'ast> {
+        fn from(t: PostfixedTerm<'ast>) -> Self {
+            let base = Expression::from(t.base);
+            let accesses = t.accesses;
+            if accesses.is_empty() {
+                base
+            } else {
+                Expression::Postfix(PostfixExpression {
+                    base: Box::new(base),
+                    accesses,
+                    span: t.span,
+                })
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::powered_term))]
     struct PoweredTerm<'ast> {
-        base: Term<'ast>,
+        base: PostfixedTerm<'ast>,
         op: Option<PowOperator>,
         exponent: Option<ExponentExpression<'ast>>,
         #[pest_ast(outer())]
@@ -512,7 +543,6 @@ mod ast {
             match t {
                 Term::Expression(e) => e,
                 Term::Ternary(e) => Expression::Ternary(e),
-                Term::Postfix(e) => Expression::Postfix(e),
                 Term::Primary(e) => e.into(),
                 Term::InlineArray(e) => Expression::InlineArray(e),
                 Term::InlineStruct(e) => Expression::InlineStruct(e),
@@ -591,15 +621,6 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::to_expression))]
     pub struct ToExpression<'ast>(pub Expression<'ast>);
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::postfix_expression))]
-    pub struct PostfixExpression<'ast> {
-        pub id: IdentifierExpression<'ast>,
-        pub accesses: Vec<Access<'ast>>,
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::inline_array_expression))]
@@ -1359,10 +1380,10 @@ mod tests {
                             }),
                         ],
                         expression: Expression::Postfix(PostfixExpression {
-                            id: IdentifierExpression {
+                            base: Box::new(Expression::Identifier(IdentifierExpression {
                                 value: String::from("foo"),
                                 span: Span::new(source, 36, 39).unwrap()
-                            },
+                            })),
                             accesses: vec![Access::Call(CallAccess {
                                 explicit_generics: None,
                                 arguments: Arguments {
