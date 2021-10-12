@@ -63,6 +63,6 @@ pretty_assertions = "0.6.1"
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 
 [build-dependencies]
-cc = { version = "1.0", optional = true }
+cc = { version = "1.0", features = ["parallel"], optional = true }
 cmake = { version = "=0.1.45", optional = true }
 git2 = { version = "0.13.1", optional = true }
