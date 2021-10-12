@@ -609,7 +609,7 @@ impl<'ast> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<'ast> {
         expression.accesses.into_iter().fold(id, |acc, a| match a {
             pest::Access::Call(a) => match acc.value {
                 absy::Expression::Identifier(_) => absy::Expression::FunctionCall(
-                    &id_str,
+                    id_str,
                     a.explicit_generics.map(|explicit_generics| {
                         explicit_generics
                             .values
@@ -652,7 +652,7 @@ impl<'ast> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'
         match expression.suffix {
             Some(suffix) => match suffix {
                 pest::DecimalSuffix::Field(_) => absy::Expression::FieldConstant(
-                    BigUint::parse_bytes(&expression.value.span.as_str().as_bytes(), 10).unwrap(),
+                    BigUint::parse_bytes(expression.value.span.as_str().as_bytes(), 10).unwrap(),
                 ),
                 pest::DecimalSuffix::U64(_) => {
                     absy::Expression::U64Constant(expression.value.span.as_str().parse().unwrap())
@@ -669,7 +669,7 @@ impl<'ast> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'
             }
             .span(expression.span),
             None => absy::Expression::IntConstant(
-                BigUint::parse_bytes(&expression.value.span.as_str().as_bytes(), 10).unwrap(),
+                BigUint::parse_bytes(expression.value.span.as_str().as_bytes(), 10).unwrap(),
             )
             .span(expression.span),
         }
@@ -682,16 +682,16 @@ impl<'ast> From<pest::HexLiteralExpression<'ast>> for absy::ExpressionNode<'ast>
 
         match expression.value {
             pest::HexNumberExpression::U64(e) => {
-                absy::Expression::U64Constant(u64::from_str_radix(&e.span.as_str(), 16).unwrap())
+                absy::Expression::U64Constant(u64::from_str_radix(e.span.as_str(), 16).unwrap())
             }
             pest::HexNumberExpression::U32(e) => {
-                absy::Expression::U32Constant(u32::from_str_radix(&e.span.as_str(), 16).unwrap())
+                absy::Expression::U32Constant(u32::from_str_radix(e.span.as_str(), 16).unwrap())
             }
             pest::HexNumberExpression::U16(e) => {
-                absy::Expression::U16Constant(u16::from_str_radix(&e.span.as_str(), 16).unwrap())
+                absy::Expression::U16Constant(u16::from_str_radix(e.span.as_str(), 16).unwrap())
             }
             pest::HexNumberExpression::U8(e) => {
-                absy::Expression::U8Constant(u8::from_str_radix(&e.span.as_str(), 16).unwrap())
+                absy::Expression::U8Constant(u8::from_str_radix(e.span.as_str(), 16).unwrap())
             }
         }
         .span(expression.span)
@@ -838,7 +838,7 @@ mod tests {
     #[test]
     fn return_forty_two() {
         let source = "def main() -> field: return 42";
-        let ast = pest::generate_ast(&source).unwrap();
+        let ast = pest::generate_ast(source).unwrap();
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
@@ -869,7 +869,7 @@ mod tests {
     #[test]
     fn return_true() {
         let source = "def main() -> bool: return true";
-        let ast = pest::generate_ast(&source).unwrap();
+        let ast = pest::generate_ast(source).unwrap();
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
@@ -898,7 +898,7 @@ mod tests {
     #[test]
     fn arguments() {
         let source = "def main(private field a, bool b) -> field: return 42";
-        let ast = pest::generate_ast(&source).unwrap();
+        let ast = pest::generate_ast(source).unwrap();
 
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
@@ -1127,7 +1127,7 @@ mod tests {
         fn call_array_element() {
             // a call after an array access should be rejected
             let source = "def main(): return a[2](3)";
-            let ast = pest::generate_ast(&source).unwrap();
+            let ast = pest::generate_ast(source).unwrap();
             absy::Module::from(ast);
         }
 
@@ -1136,7 +1136,7 @@ mod tests {
         fn call_call_result() {
             // a call after a call should be rejected
             let source = "def main(): return a(2)(3)";
-            let ast = pest::generate_ast(&source).unwrap();
+            let ast = pest::generate_ast(source).unwrap();
             absy::Module::from(ast);
         }
     }
@@ -1144,7 +1144,7 @@ mod tests {
     fn declarations() {
         use self::pest::Span;
 
-        let span = Span::new(&"", 0, 0).unwrap();
+        let span = Span::new("", 0, 0).unwrap();
 
         // For different definitions, we generate declarations
         // Case 1: `id = expr` where `expr` is not a function call
@@ -1163,7 +1163,7 @@ mod tests {
             expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
                 pest::DecimalLiteralExpression {
                     value: pest::DecimalNumber {
-                        span: Span::new(&"1", 0, 1).unwrap(),
+                        span: Span::new("1", 0, 1).unwrap(),
                     },
                     suffix: None,
                     span: span.clone(),

@@ -126,7 +126,7 @@ impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
                 .vk
                 .query
                 .iter()
-                .map(|g1| parse_g1::<Bw6_761Field>(g1))
+                .map(parse_g1::<Bw6_761Field>)
                 .collect(),
         };
 

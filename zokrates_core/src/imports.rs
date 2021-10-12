@@ -231,7 +231,7 @@ impl Importer {
                                     new_location.clone(),
                                     resolver,
                                     modules,
-                                    &arena,
+                                    arena,
                                 )?;
 
                                 assert!(modules.insert(new_location.clone(), compiled).is_none());
@@ -239,7 +239,7 @@ impl Importer {
                         };
 
                         SymbolDeclaration {
-                            id: &alias,
+                            id: alias,
                             symbol: Symbol::There(
                                 SymbolImport::with_id_in_module(symbol.id, new_location)
                                     .start_end(pos.0, pos.1),
