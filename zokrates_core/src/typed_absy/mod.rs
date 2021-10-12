@@ -263,7 +263,7 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
                 .find(|d| d.key == *key)
                 .unwrap()
                 .symbol
-                .signature(&modules),
+                .signature(modules),
             TypedFunctionSymbol::Flat(flat_fun) => flat_fun.typed_signature(),
         }
     }
@@ -1589,7 +1589,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
@@ -1610,7 +1610,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
@@ -1694,7 +1694,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {

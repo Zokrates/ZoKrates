@@ -353,7 +353,7 @@ impl<S: fmt::Display> fmt::Display for GArrayType<S> {
         ) -> fmt::Result {
             acc.push(&t.size);
             match &*t.ty {
-                GType::Array(array_type) => fmt_aux(f, &array_type, acc),
+                GType::Array(array_type) => fmt_aux(f, array_type, acc),
                 t => {
                     write!(f, "{}", t)?;
                     for i in acc {
@@ -366,7 +366,7 @@ impl<S: fmt::Display> fmt::Display for GArrayType<S> {
 
         let acc = vec![];
 
-        fmt_aux(f, &self, acc)
+        fmt_aux(f, self, acc)
     }
 }
 
@@ -509,7 +509,7 @@ impl<S> GStructType<S> {
     }
 
     fn location(&self) -> &StructLocation {
-        &self.location.as_ref().unwrap_or(&self.canonical_location)
+        self.location.as_ref().unwrap_or(&self.canonical_location)
     }
 
     pub fn name(&self) -> &str {
@@ -1080,7 +1080,7 @@ pub fn specialize_declaration_type<
     Ok(match decl_ty {
         DeclarationType::Int => unreachable!(),
         DeclarationType::Array(t0) => {
-            let ty = box specialize_declaration_type(*t0.ty, &generics)?;
+            let ty = box specialize_declaration_type(*t0.ty, generics)?;
             let size = t0.size.map(generics)?;
 
             GType::Array(GArrayType { size, ty })
@@ -1163,7 +1163,7 @@ pub mod signature {
 
     impl<S: Ord> Ord for GSignature<S> {
         fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            self.partial_cmp(&other).unwrap()
+            self.partial_cmp(other).unwrap()
         }
     }
 

@@ -157,15 +157,14 @@ fn compile_and_run<T: Field>(t: Tests) {
     if let Some(target_count) = t.max_constraint_count {
         let count = bin.constraint_count();
 
-        if count > target_count {
-            panic!(
-                "{} exceeded max constraint count (actual={}, max={}, p={:.2}% of max)",
-                entry_point.display(),
-                count,
-                target_count,
-                (count as f32) / (target_count as f32) * 100_f32
-            );
-        }
+        assert!(
+            count <= target_count,
+            "{} exceeded max constraint count (actual={}, max={}, p={:.2}% of max)",
+            entry_point.display(),
+            count,
+            target_count,
+            (count as f32) / (target_count as f32) * 100_f32
+        );
     };
 
     let interpreter = zokrates_core::ir::Interpreter::default();
