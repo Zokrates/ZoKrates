@@ -69,7 +69,7 @@ fn get_canonical_function<'ast, T: Field>(
         .unwrap();
 
     match &s.symbol {
-        TypedFunctionSymbol::There(key) => get_canonical_function(key.clone(), &program),
+        TypedFunctionSymbol::There(key) => get_canonical_function(key.clone(), program),
         _ => s.clone(),
     }
 }
