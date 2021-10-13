@@ -13,7 +13,7 @@ pub mod variable;
 
 pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
-use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
+use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
 use crate::embed::FlatEmbed;
 use std::path::{Path, PathBuf};
@@ -479,7 +479,7 @@ pub enum Expression<'ast> {
         Box<ExpressionNode<'ast>>,
     ),
     FunctionCall(
-        FunctionIdentifier<'ast>,
+        Box<ExpressionNode<'ast>>,
         Option<Vec<Option<ExpressionNode<'ast>>>>,
         Vec<ExpressionNode<'ast>>,
     ),

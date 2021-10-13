@@ -161,7 +161,7 @@ fn register<'ast>(
 ) {
     for (id, key, value) in substitute
         .iter()
-        .filter_map(|(id, version)| with.get(&id).map(|to| (id, version, to)))
+        .filter_map(|(id, version)| with.get(id).map(|to| (id, version, to)))
         .filter(|(_, key, value)| key != value)
     {
         let sub = substitutions.0.entry(id.clone()).or_default();
@@ -235,8 +235,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             generics,
             arguments,
             ty,
-            &self.program,
-            &mut self.versions,
+            self.program,
+            self.versions,
         );
 
         match res {
@@ -354,8 +354,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     generics,
                     arguments,
                     &types,
-                    &self.program,
-                    &mut self.versions,
+                    self.program,
+                    self.versions,
                 ) {
                     Ok(Output::Complete((statements, expressions))) => {
                         assert_eq!(v.len(), expressions.len());
@@ -420,7 +420,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         self.versions.values_mut().for_each(|v| *v += 1);
 
                         // add this set of versions to the substitution, pointing to the versions before the loop
-                        register(&mut self.substitutions, &self.versions, &versions_before);
+                        register(self.substitutions, self.versions, &versions_before);
 
                         // the versions after the loop are found by applying an offset of 2 to the versions before the loop
                         let versions_after = versions_before
@@ -429,7 +429,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             .map(|(k, v)| (k, v + 2))
                             .collect();
 
-                        let mut transformer = ShallowTransformer::with_versions(&mut self.versions);
+                        let mut transformer = ShallowTransformer::with_versions(self.versions);
 
                         if to - from > MAX_FOR_LOOP_SIZE {
                             return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
@@ -454,7 +454,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                         // we know the final versions of the variables after full unrolling of the loop
                         // the versions after the loop need to point to these, so we add to the substitutions
-                        register(&mut self.substitutions, &versions_after, &self.versions);
+                        register(self.substitutions, &versions_after, self.versions);
 
                         // we may have found new for loops when unrolling this one, which means new backed up versions
                         // we insert these in our backup list and update our cursor
@@ -573,7 +573,7 @@ fn reduce_function<'ast, T: Field>(
 
             loop {
                 let mut reducer = Reducer::new(
-                    &program,
+                    program,
                     &mut versions,
                     &mut substitutions,
                     for_loop_versions,

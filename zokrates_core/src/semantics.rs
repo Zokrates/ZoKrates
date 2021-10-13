@@ -233,7 +233,7 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
                 .inputs
                 .iter()
                 .zip(func.signature.inputs.iter())
-                .all(|(input_ty, sig_ty)| input_ty.can_be_specialized_to(&sig_ty))
+                .all(|(input_ty, sig_ty)| input_ty.can_be_specialized_to(sig_ty))
             && self.outputs.len() == func.signature.outputs.len()
             && self
                 .outputs
@@ -242,7 +242,7 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
                 .all(|(output_ty, sig_ty)| {
                     output_ty
                         .as_ref()
-                        .map(|output_ty| output_ty.can_be_specialized_to(&sig_ty))
+                        .map(|output_ty| output_ty.can_be_specialized_to(sig_ty))
                         .unwrap_or(true)
                 })
     }
@@ -378,7 +378,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let ty = self.check_declaration_type(
             c.value.ty.clone(),
             module_id,
-            &state,
+            state,
             &BTreeMap::default(),
             &mut HashSet::default(),
         )?;
@@ -396,11 +396,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 UExpression::try_from_typed(checked_expr, &bitwidth).map(TypedExpression::from)
             }
             DeclarationType::Array(ref array_ty) => {
-                ArrayExpression::try_from_typed(checked_expr, &array_ty).map(TypedExpression::from)
+                ArrayExpression::try_from_typed(checked_expr, array_ty).map(TypedExpression::from)
             }
             DeclarationType::Struct(ref struct_ty) => {
-                StructExpression::try_from_typed(checked_expr, &struct_ty)
-                    .map(TypedExpression::from)
+                StructExpression::try_from_typed(checked_expr, struct_ty).map(TypedExpression::from)
             }
             DeclarationType::Int => Err(checked_expr), // Integers cannot be assigned
         }
@@ -1764,7 +1763,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::MultipleDefinition(assignees, rhs) => {
                 match rhs.value {
                     // Right side has to be a function call
-                    Expression::FunctionCall(fun_id, generics, arguments) => {
+                    Expression::FunctionCall(fun_id_expression, generics, arguments) => {
+
+                        let fun_id = match fun_id_expression.value {
+                            Expression::Identifier(id) => Ok(id),
+                            e => Err(vec![ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Expected function in function call to be an identifier, found {}",
+                                    e
+                                ),
+                            }])
+                        }?;
+
                         // check the generic arguments, if any
                         let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
                             .map(|generics|
@@ -1810,7 +1821,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let arguments_types: Vec<_> =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
-                        let query = FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &assignee_types);
+                        let query = FunctionQuery::new(fun_id, &generics_checked, &arguments_types, &assignee_types);
 
                         let functions = self.find_functions(&query);
 
@@ -1856,7 +1867,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
-            Assignee::Identifier(variable_name) => match self.get_key_value_scope(&variable_name) {
+            Assignee::Identifier(variable_name) => match self.get_key_value_scope(variable_name) {
                 Some((id, ty)) => match id.is_constant() {
                     true => Err(ErrorInner {
                         pos: Some(assignee.pos()),
@@ -1992,7 +2003,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
                 match self
-                    .get_key_value_scope(&name)
+                    .get_key_value_scope(name)
                     .map(|(x, y)| (x.clone(), y.clone()))
                 {
                     Some((id, ty)) => match ty {
@@ -2318,7 +2329,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
             Expression::U64Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(64).into()),
-            Expression::FunctionCall(fun_id, generics, arguments) => {
+            Expression::FunctionCall(fun_id_expression, generics, arguments) => {
+                let fun_id = match fun_id_expression.value {
+                    Expression::Identifier(id) => Ok(id),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected function in function call to be an identifier, found `{}`",
+                            e
+                        ),
+                    }),
+                }?;
+
                 // check the generic arguments, if any
                 let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
                     .map(|generics| {
@@ -2361,7 +2383,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 // outside of multidef, function calls must have a single return value
                 // we use type inference to determine the type of the return, so we don't specify it
                 let query =
-                    FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &[None]);
+                    FunctionQuery::new(fun_id, &generics_checked, &arguments_types, &[None]);
 
                 let functions = self.find_functions(&query);
 
@@ -2374,7 +2396,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         let signature = f.signature;
 
-                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.iter()).map(|(a, t)| TypedExpression::align_to_type(a, &t)).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
+                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.iter()).map(|(a, t)| TypedExpression::align_to_type(a, t)).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
                            pos: Some(pos),
                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
@@ -3323,7 +3345,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn exit_scope(&mut self) {
         let current_level = self.level;
         self.scope
-            .retain(|ref scoped_variable, _| scoped_variable.level < current_level);
+            .retain(|scoped_variable, _| scoped_variable.level < current_level);
         self.level -= 1;
     }
 }
@@ -3850,22 +3872,20 @@ mod tests {
                 .get(&*MODULE_ID)
                 .unwrap()
                 .functions_iter()
-                .find(|d| d.key
+                .any(|d| d.key
                     == DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
-                        .signature(DeclarationSignature::new()))
-                .is_some());
+                        .signature(DeclarationSignature::new())));
 
             assert!(state
                 .typed_modules
                 .get(&*MODULE_ID)
                 .unwrap()
                 .functions_iter()
-                .find(|d| d.key
+                .any(|d| d.key
                     == DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
                         .signature(
                             DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
-                        ))
-                .is_some());
+                        )));
         }
 
         #[test]
@@ -4516,7 +4536,8 @@ mod tests {
             .mock(),
             Statement::MultipleDefinition(
                 vec![Assignee::Identifier("a").mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4573,7 +4594,12 @@ mod tests {
             Statement::Assertion(
                 Expression::Eq(
                     box Expression::IntConstant(2usize.into()).mock(),
-                    box Expression::FunctionCall("foo", None, vec![]).mock(),
+                    box Expression::FunctionCall(
+                        box Expression::Identifier("foo").mock(),
+                        None,
+                        vec![],
+                    )
+                    .mock(),
                 )
                 .mock(),
             )
@@ -4632,7 +4658,8 @@ mod tests {
             .mock(),
             Statement::MultipleDefinition(
                 vec![Assignee::Identifier("a").mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4717,8 +4744,12 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![Expression::Identifier("x").mock()])
-                    .mock(),
+                Expression::FunctionCall(
+                    box Expression::Identifier("foo").mock(),
+                    None,
+                    vec![Expression::Identifier("x").mock()],
+                )
+                .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4806,7 +4837,8 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4921,7 +4953,8 @@ mod tests {
                     ),
                 )
                 .mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4973,7 +5006,12 @@ mod tests {
             Statement::Assertion(
                 Expression::Eq(
                     box Expression::IntConstant(1usize.into()).mock(),
-                    box Expression::FunctionCall("foo", None, vec![]).mock(),
+                    box Expression::FunctionCall(
+                        box Expression::Identifier("foo").mock(),
+                        None,
+                        vec![],
+                    )
+                    .mock(),
                 )
                 .mock(),
             )
@@ -5071,7 +5109,8 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -6128,7 +6167,7 @@ mod tests {
             main.value.statements = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![Expression::FunctionCall(
-                        "foo",
+                        box Expression::Identifier("foo").mock(),
                         None,
                         vec![Expression::IntConstant(0usize.into()).mock()],
                     )

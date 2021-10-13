@@ -263,7 +263,7 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
                 .find(|d| d.key == *key)
                 .unwrap()
                 .symbol
-                .signature(&modules),
+                .signature(modules),
             TypedFunctionSymbol::Flat(flat_fun) => flat_fun.typed_signature(),
         }
     }
@@ -1141,31 +1141,29 @@ impl<'ast, T> IntoIterator for ArrayValue<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> ArrayValue<'ast, T> {
-    fn expression_at_aux<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
+impl<'ast, T: Clone + fmt::Debug> ArrayValue<'ast, T> {
+    fn expression_at_aux<
+        U: Select<'ast, T> + Into<TypedExpression<'ast, T>> + From<TypedExpression<'ast, T>>,
+    >(
         v: TypedExpressionOrSpread<'ast, T>,
-    ) -> Vec<Option<TypedExpression<'ast, T>>> {
+    ) -> Vec<Option<U>> {
         match v {
-            TypedExpressionOrSpread::Expression(e) => vec![Some(e.clone())],
+            TypedExpressionOrSpread::Expression(e) => vec![Some(e.into())],
             TypedExpressionOrSpread::Spread(s) => match s.array.size().into_inner() {
                 UExpressionInner::Value(size) => {
                     let array_ty = s.array.ty().clone();
 
                     match s.array.into_inner() {
-                        ArrayExpressionInner::Value(v) => v
-                            .into_iter()
-                            .flat_map(Self::expression_at_aux::<U>)
-                            .collect(),
+                        ArrayExpressionInner::Value(v) => {
+                            v.into_iter().flat_map(Self::expression_at_aux).collect()
+                        }
                         a => (0..size)
                             .map(|i| {
-                                Some(
-                                    U::select(
-                                        a.clone()
-                                            .annotate(*array_ty.ty.clone(), array_ty.size.clone()),
-                                        i as u32,
-                                    )
-                                    .into(),
-                                )
+                                Some(U::select(
+                                    a.clone()
+                                        .annotate(*array_ty.ty.clone(), array_ty.size.clone()),
+                                    i as u32,
+                                ))
                             })
                             .collect(),
                     }
@@ -1175,13 +1173,15 @@ impl<'ast, T: Clone> ArrayValue<'ast, T> {
         }
     }
 
-    pub fn expression_at<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
+    pub fn expression_at<
+        U: Select<'ast, T> + Into<TypedExpression<'ast, T>> + From<TypedExpression<'ast, T>>,
+    >(
         &self,
         index: usize,
-    ) -> Option<TypedExpression<'ast, T>> {
+    ) -> Option<U> {
         self.0
             .iter()
-            .map(|v| Self::expression_at_aux::<U>(v.clone()))
+            .map(|v| Self::expression_at_aux(v.clone()))
             .flatten()
             .take_while(|e| e.is_some())
             .map(|e| e.unwrap())
@@ -1588,7 +1588,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
@@ -1609,7 +1609,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
@@ -1693,7 +1693,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {

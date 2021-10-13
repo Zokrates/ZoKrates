@@ -56,8 +56,6 @@ impl<'ast> UnresolvedType<'ast> {
     }
 }
 
-pub type FunctionIdentifier<'ast> = &'ast str;
-
 pub use self::signature::UnresolvedSignature;
 
 mod signature {

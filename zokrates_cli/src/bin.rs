@@ -195,7 +195,7 @@ mod tests {
             let interpreter = ir::Interpreter::default();
 
             let _ = interpreter
-                .execute(&artifacts.prog(), &[Bn128Field::from(0)])
+                .execute(artifacts.prog(), &[Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -226,7 +226,7 @@ mod tests {
 
             let interpreter = ir::Interpreter::default();
 
-            let res = interpreter.execute(&artifacts.prog(), &[Bn128Field::from(0)]);
+            let res = interpreter.execute(artifacts.prog(), &[Bn128Field::from(0)]);
 
             assert!(res.is_err());
         }

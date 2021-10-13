@@ -212,7 +212,10 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 
     fn fold_select_expression<
-        E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+        E: Expr<'ast, T>
+            + Select<'ast, T>
+            + From<TypedExpression<'ast, T>>
+            + Into<TypedExpression<'ast, T>>,
     >(
         &mut self,
         ty: &E::Ty,
@@ -724,7 +727,10 @@ pub fn fold_member_expression<
 pub fn fold_select_expression<
     'ast,
     T: Field,
-    E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+    E: Expr<'ast, T>
+        + Select<'ast, T>
+        + From<TypedExpression<'ast, T>>
+        + Into<TypedExpression<'ast, T>>,
     F: ResultFolder<'ast, T>,
 >(
     f: &mut F,

@@ -28,7 +28,7 @@ impl fmt::Display for Error {
 impl UnconstrainedVariableDetector {
     pub fn detect<T: Field>(p: &Prog<T>) -> Result<(), Error> {
         let mut instance = Self::default();
-        instance.visit_module(&p);
+        instance.visit_module(p);
 
         if instance.variables.is_empty() {
             Ok(())
@@ -118,39 +118,39 @@ mod tests {
         //     (1 * ~one) * (1 * ~one + (-1) * _1) == 1 * ~out_0
         //     return ~out_0
 
-        let _0 = FlatParameter::private(FlatVariable::new(0));
-        let _1 = FlatVariable::new(1);
-        let _2 = FlatVariable::new(2);
+        let v_0 = FlatParameter::private(FlatVariable::new(0));
+        let v_1 = FlatVariable::new(1);
+        let v_2 = FlatVariable::new(2);
 
         let out_0 = FlatVariable::public(0);
         let one = FlatVariable::one();
 
         let p: Prog<Bn128Field> = Prog {
-            arguments: vec![_0],
+            arguments: vec![v_0],
             statements: vec![
                 Statement::Directive(Directive {
-                    inputs: vec![(LinComb::summand(-42, one) + LinComb::summand(1, _0.id)).into()],
-                    outputs: vec![_1, _2],
+                    inputs: vec![(LinComb::summand(-42, one) + LinComb::summand(1, v_0.id)).into()],
+                    outputs: vec![v_1, v_2],
                     solver: Solver::ConditionEq,
                 }),
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::summand(-42, one) + LinComb::summand(1, _0.id),
-                        LinComb::summand(1, _2),
+                        LinComb::summand(-42, one) + LinComb::summand(1, v_0.id),
+                        LinComb::summand(1, v_2),
                     ),
-                    LinComb::summand(1, _1),
+                    LinComb::summand(1, v_1),
                 ),
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::summand(1, one) + LinComb::summand(-1, _1),
-                        LinComb::summand(-42, one) + LinComb::summand(1, _0.id),
+                        LinComb::summand(1, one) + LinComb::summand(-1, v_1),
+                        LinComb::summand(-42, one) + LinComb::summand(1, v_0.id),
                     ),
                     LinComb::zero(),
                 ),
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
                         LinComb::summand(1, one),
-                        LinComb::summand(1, one) + LinComb::summand(-1, _1),
+                        LinComb::summand(1, one) + LinComb::summand(-1, v_1),
                     ),
                     LinComb::summand(1, out_0),
                 ),
