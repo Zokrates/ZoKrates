@@ -19,9 +19,7 @@ use std::fmt;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
-
 pub use self::identifier::{Identifier, SourceIdentifier};
-use crate::typed_absy::AssertionMetadata;
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug)]
@@ -87,6 +85,21 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirFunction<'ast, T> {
 
 pub type ZirAssignee<'ast> = Variable<'ast>;
 
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub enum AssertionType {
+    Source(String),
+    SelectRangeCheck,
+}
+
+impl fmt::Display for AssertionType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AssertionType::Source(message) => write!(f, "{}", message),
+            AssertionType::SelectRangeCheck => write!(f, "Range check on array access"),
+        }
+    }
+}
+
 /// A statement in a `ZirFunction`
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum ZirStatement<'ast, T> {
@@ -97,7 +110,7 @@ pub enum ZirStatement<'ast, T> {
         Vec<ZirStatement<'ast, T>>,
         Vec<ZirStatement<'ast, T>>,
     ),
-    Assertion(BooleanExpression<'ast, T>, Option<AssertionMetadata>),
+    Assertion(BooleanExpression<'ast, T>, AssertionType),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
 }
 
@@ -132,12 +145,11 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                         .join("\n")
                 )
             }
-            ZirStatement::Assertion(ref e, ref metadata) => {
+            ZirStatement::Assertion(ref e, ref ty) => {
                 write!(f, "assert({}", e)?;
-                let metadata = metadata.as_ref().unwrap();
-                match &metadata.message {
-                    Some(m) => write!(f, ", \"{}\")", m),
-                    None => write!(f, ")"),
+                match ty {
+                    AssertionType::Source(message) => write!(f, ", \"{}\")", message),
+                    internal => write!(f, ") // {}", internal),
                 }
             }
             ZirStatement::MultipleDefinition(ref ids, ref rhs) => {

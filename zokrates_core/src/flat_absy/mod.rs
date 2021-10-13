@@ -43,7 +43,7 @@ pub enum RuntimeError {
     Euclidean,
     ShaXor,
     Division,
-    Source(Option<String>),
+    Source(String),
     ArgumentBitness,
     SelectRangeCheck,
 }
@@ -87,10 +87,7 @@ impl fmt::Display for RuntimeError {
             Euclidean => "Euclidean check failed",
             ShaXor => "Internal Sha check failed",
             Division => "Division check failed",
-            Source(m) => m
-                .as_ref()
-                .map(|s| s.as_str())
-                .unwrap_or("User assertion failed"),
+            Source(m) => m.as_str(),
             ArgumentBitness => "Argument bitness check failed",
             SelectRangeCheck => "Out of bounds array access",
         };

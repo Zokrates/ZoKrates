@@ -576,7 +576,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq, Default, PartialOrd, Ord)]
 pub struct AssertionMetadata {
     pub file: String,
     pub position: Position,
@@ -593,6 +593,21 @@ impl fmt::Display for AssertionMetadata {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+pub enum AssertionType {
+    Source(AssertionMetadata),
+    SelectRangeCheck,
+}
+
+impl fmt::Display for AssertionType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AssertionType::Source(metadata) => write!(f, "{}", metadata),
+            AssertionType::SelectRangeCheck => write!(f, "Range check on array access"),
+        }
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
@@ -600,7 +615,7 @@ pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast, T>),
-    Assertion(BooleanExpression<'ast, T>, Option<AssertionMetadata>),
+    Assertion(BooleanExpression<'ast, T>, AssertionType),
     For(
         Variable<'ast, T>,
         UExpression<'ast, T>,
@@ -648,12 +663,14 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            TypedStatement::Assertion(ref e, ref metadata) => {
+            TypedStatement::Assertion(ref e, ref ty) => {
                 write!(f, "assert({}", e)?;
-                let metadata = metadata.as_ref().unwrap();
-                match &metadata.message {
-                    Some(m) => write!(f, ", \"{}\")", m),
-                    None => write!(f, ")"),
+                match ty {
+                    AssertionType::Source(metadata) => match &metadata.message {
+                        Some(m) => write!(f, ", \"{}\")", m),
+                        None => write!(f, ")"),
+                    },
+                    internal => write!(f, ") // {}", internal),
                 }
             }
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {

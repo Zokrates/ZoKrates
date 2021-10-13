@@ -115,7 +115,7 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
                 .flat_map(|e| f.fold_statement(e))
                 .collect(),
         ),
-        ZirStatement::Assertion(e, m) => ZirStatement::Assertion(f.fold_boolean_expression(e), m),
+        ZirStatement::Assertion(e, ty) => ZirStatement::Assertion(f.fold_boolean_expression(e), ty),
         ZirStatement::MultipleDefinition(variables, elist) => ZirStatement::MultipleDefinition(
             variables.into_iter().map(|v| f.fold_variable(v)).collect(),
             f.fold_expression_list(elist),

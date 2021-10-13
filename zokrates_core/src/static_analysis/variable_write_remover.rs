@@ -49,7 +49,7 @@ impl<'ast> VariableWriteRemover {
                         Access::Select(head) => {
                             statements.insert(TypedStatement::Assertion(
                                 BooleanExpression::UintLt(box head.clone(), box size.into()),
-                                None,
+                                AssertionType::SelectRangeCheck,
                             ));
 
                             ArrayExpressionInner::Value(

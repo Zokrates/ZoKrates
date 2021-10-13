@@ -1741,7 +1741,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match e {
                     TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
                         e,
-                        Some(AssertionMetadata {
+                        AssertionType::Source(AssertionMetadata {
                             file: module_id.display().to_string(),
                             position: pos.0,
                             message,

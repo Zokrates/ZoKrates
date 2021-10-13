@@ -14,7 +14,6 @@ use crate::compile::CompileConfig;
 use crate::embed::FlatEmbed;
 use crate::flat_absy::*;
 use crate::solvers::Solver;
-use crate::typed_absy::AssertionMetadata;
 use crate::zir::types::{Type, UBitwidth};
 use crate::zir::*;
 use std::collections::hash_map::Entry;
@@ -143,6 +142,15 @@ impl<T: Field> FlatUExpression<T> {
                 Some(bits) => flat_expression_from_bits(bits),
                 None => unreachable!(),
             },
+        }
+    }
+}
+
+impl From<AssertionType> for RuntimeError {
+    fn from(ty: AssertionType) -> Self {
+        match ty {
+            AssertionType::Source(s) => RuntimeError::Source(s),
+            AssertionType::SelectRangeCheck => RuntimeError::SelectRangeCheck,
         }
     }
 }
@@ -2371,13 +2379,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .insert(FlatExpression::Identifier(var), bits);
                 }
             }
-            ZirStatement::Assertion(e, metadata) => {
+            ZirStatement::Assertion(e, ty) => {
                 match e {
                     BooleanExpression::And(..) => {
                         for boolean in e.into_conjunction_iterator() {
                             self.flatten_statement(
                                 statements_flattened,
-                                ZirStatement::Assertion(boolean, metadata.clone()),
+                                ZirStatement::Assertion(boolean, ty.clone()),
                             )
                         }
                     }
@@ -2385,7 +2393,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let lhs = self.flatten_field_expression(statements_flattened, lhs);
                         let rhs = self.flatten_field_expression(statements_flattened, rhs);
 
-                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, metadata)
+                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, ty)
                     }
                     BooleanExpression::UintEq(box lhs, box rhs) => {
                         let lhs = self
@@ -2395,13 +2403,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .flatten_uint_expression(statements_flattened, rhs)
                             .get_field_unchecked();
 
-                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, metadata)
+                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, ty)
                     }
                     BooleanExpression::BoolEq(box lhs, box rhs) => {
                         let lhs = self.flatten_boolean_expression(statements_flattened, lhs);
                         let rhs = self.flatten_boolean_expression(statements_flattened, rhs);
 
-                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, metadata)
+                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, ty)
                     }
                     _ => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
@@ -2411,14 +2419,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             statements_flattened.push(FlatStatement::Condition(
                                 e,
                                 FlatExpression::Number(T::from(1)),
-                                RuntimeError::Source(metadata.map(|m| m.to_string())),
+                                ty.into(),
                             ));
                         } else {
                             // swap so that left side is linear
                             statements_flattened.push(FlatStatement::Condition(
                                 FlatExpression::Number(T::from(1)),
                                 e,
-                                RuntimeError::Source(metadata.map(|m| m.to_string())),
+                                ty.into(),
                             ));
                         }
                     }
@@ -2530,7 +2538,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         lhs: FlatExpression<T>,
         rhs: FlatExpression<T>,
-        metadata: Option<AssertionMetadata>,
+        assertion_type: AssertionType,
     ) {
         let (lhs, rhs) = match (lhs, rhs) {
             (FlatExpression::Mult(box x, box y), z) | (z, FlatExpression::Mult(box x, box y)) => (
@@ -2548,11 +2556,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ),
             ),
         };
-        statements_flattened.push(FlatStatement::Condition(
-            lhs,
-            rhs,
-            RuntimeError::Source(metadata.map(|m| m.to_string())),
-        ));
+        statements_flattened.push(FlatStatement::Condition(lhs, rhs, assertion_type.into()));
     }
 
     /// Identifies a non-linear expression by assigning it to a new identifier.
