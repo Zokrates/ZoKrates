@@ -1,1 +1,0 @@
-Fix invalid cast to `usize` which caused wrong values in 32-bit environments

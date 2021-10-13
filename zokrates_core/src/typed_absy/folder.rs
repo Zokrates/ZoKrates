@@ -47,6 +47,27 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_module(self, m)
     }
 
+    fn fold_symbol_declaration(
+        &mut self,
+        s: TypedSymbolDeclaration<'ast, T>,
+    ) -> TypedSymbolDeclaration<'ast, T> {
+        fold_symbol_declaration(self, s)
+    }
+
+    fn fold_function_symbol_declaration(
+        &mut self,
+        s: TypedFunctionSymbolDeclaration<'ast, T>,
+    ) -> TypedFunctionSymbolDeclaration<'ast, T> {
+        fold_function_symbol_declaration(self, s)
+    }
+
+    fn fold_constant_symbol_declaration(
+        &mut self,
+        s: TypedConstantSymbolDeclaration<'ast, T>,
+    ) -> TypedConstantSymbolDeclaration<'ast, T> {
+        fold_constant_symbol_declaration(self, s)
+    }
+
     fn fold_constant(&mut self, c: TypedConstant<'ast, T>) -> TypedConstant<'ast, T> {
         fold_constant(self, c)
     }
@@ -67,8 +88,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_declaration_function_key(
         &mut self,
-        key: DeclarationFunctionKey<'ast>,
-    ) -> DeclarationFunctionKey<'ast> {
+        key: DeclarationFunctionKey<'ast, T>,
+    ) -> DeclarationFunctionKey<'ast, T> {
         fold_declaration_function_key(self, key)
     }
 
@@ -76,18 +97,24 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_function(self, f)
     }
 
-    fn fold_signature(&mut self, s: DeclarationSignature<'ast>) -> DeclarationSignature<'ast> {
+    fn fold_signature(
+        &mut self,
+        s: DeclarationSignature<'ast, T>,
+    ) -> DeclarationSignature<'ast, T> {
         fold_signature(self, s)
     }
 
     fn fold_declaration_constant(
         &mut self,
-        c: DeclarationConstant<'ast>,
-    ) -> DeclarationConstant<'ast> {
+        c: DeclarationConstant<'ast, T>,
+    ) -> DeclarationConstant<'ast, T> {
         fold_declaration_constant(self, c)
     }
 
-    fn fold_parameter(&mut self, p: DeclarationParameter<'ast>) -> DeclarationParameter<'ast> {
+    fn fold_parameter(
+        &mut self,
+        p: DeclarationParameter<'ast, T>,
+    ) -> DeclarationParameter<'ast, T> {
         DeclarationParameter {
             id: self.fold_declaration_variable(p.id),
             ..p
@@ -107,8 +134,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_declaration_variable(
         &mut self,
-        v: DeclarationVariable<'ast>,
-    ) -> DeclarationVariable<'ast> {
+        v: DeclarationVariable<'ast, T>,
+    ) -> DeclarationVariable<'ast, T> {
         DeclarationVariable {
             id: self.fold_name(v.id),
             _type: self.fold_declaration_type(v._type),
@@ -155,7 +182,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_declaration_type(&mut self, t: DeclarationType<'ast>) -> DeclarationType<'ast> {
+    fn fold_declaration_type(&mut self, t: DeclarationType<'ast, T>) -> DeclarationType<'ast, T> {
         use self::GType::*;
 
         match t {
@@ -167,8 +194,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_declaration_array_type(
         &mut self,
-        t: DeclarationArrayType<'ast>,
-    ) -> DeclarationArrayType<'ast> {
+        t: DeclarationArrayType<'ast, T>,
+    ) -> DeclarationArrayType<'ast, T> {
         DeclarationArrayType {
             ty: box self.fold_declaration_type(*t.ty),
             size: self.fold_declaration_constant(t.size),
@@ -177,8 +204,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_declaration_struct_type(
         &mut self,
-        t: DeclarationStructType<'ast>,
-    ) -> DeclarationStructType<'ast> {
+        t: DeclarationStructType<'ast, T>,
+    ) -> DeclarationStructType<'ast, T> {
         DeclarationStructType {
             generics: t
                 .generics
@@ -232,7 +259,6 @@ pub trait Folder<'ast, T: Field>: Sized {
         CanonicalConstantIdentifier {
             module: self.fold_module_id(i.module),
             id: i.id,
-            ty: box self.fold_declaration_type(*i.ty),
         }
     }
 
@@ -378,26 +404,45 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
     m: TypedModule<'ast, T>,
 ) -> TypedModule<'ast, T> {
     TypedModule {
-        constants: m
-            .constants
+        symbols: m
+            .symbols
             .into_iter()
-            .map(|(id, tc)| {
-                (
-                    f.fold_canonical_constant_identifier(id),
-                    f.fold_constant_symbol(tc),
-                )
-            })
+            .map(|s| f.fold_symbol_declaration(s))
             .collect(),
-        functions: m
-            .functions
-            .into_iter()
-            .map(|(key, fun)| {
-                (
-                    f.fold_declaration_function_key(key),
-                    f.fold_function_symbol(fun),
-                )
-            })
-            .collect(),
+    }
+}
+
+pub fn fold_symbol_declaration<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    d: TypedSymbolDeclaration<'ast, T>,
+) -> TypedSymbolDeclaration<'ast, T> {
+    match d {
+        TypedSymbolDeclaration::Function(d) => {
+            TypedSymbolDeclaration::Function(f.fold_function_symbol_declaration(d))
+        }
+        TypedSymbolDeclaration::Constant(d) => {
+            TypedSymbolDeclaration::Constant(f.fold_constant_symbol_declaration(d))
+        }
+    }
+}
+
+pub fn fold_function_symbol_declaration<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    d: TypedFunctionSymbolDeclaration<'ast, T>,
+) -> TypedFunctionSymbolDeclaration<'ast, T> {
+    TypedFunctionSymbolDeclaration {
+        key: f.fold_declaration_function_key(d.key),
+        symbol: f.fold_function_symbol(d.symbol),
+    }
+}
+
+pub fn fold_constant_symbol_declaration<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    d: TypedConstantSymbolDeclaration<'ast, T>,
+) -> TypedConstantSymbolDeclaration<'ast, T> {
+    TypedConstantSymbolDeclaration {
+        id: f.fold_canonical_constant_identifier(d.id),
+        symbol: f.fold_constant_symbol(d.symbol),
     }
 }
 
@@ -904,8 +949,8 @@ pub fn fold_block_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T
 
 pub fn fold_declaration_function_key<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    key: DeclarationFunctionKey<'ast>,
-) -> DeclarationFunctionKey<'ast> {
+    key: DeclarationFunctionKey<'ast, T>,
+) -> DeclarationFunctionKey<'ast, T> {
     DeclarationFunctionKey {
         module: f.fold_module_id(key.module),
         signature: f.fold_signature(key.signature),
@@ -957,8 +1002,8 @@ pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
 
 fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    s: DeclarationSignature<'ast>,
-) -> DeclarationSignature<'ast> {
+    s: DeclarationSignature<'ast, T>,
+) -> DeclarationSignature<'ast, T> {
     DeclarationSignature {
         generics: s.generics,
         inputs: s
@@ -974,11 +1019,14 @@ fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-fn fold_declaration_constant<'ast, T: Field, F: Folder<'ast, T>>(
-    _: &mut F,
-    c: DeclarationConstant<'ast>,
-) -> DeclarationConstant<'ast> {
-    c
+pub fn fold_declaration_constant<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    c: DeclarationConstant<'ast, T>,
+) -> DeclarationConstant<'ast, T> {
+    match c {
+        DeclarationConstant::Expression(e) => DeclarationConstant::Expression(f.fold_expression(e)),
+        c => c,
+    }
 }
 
 pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
@@ -1058,6 +1106,7 @@ pub fn fold_constant<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> TypedConstant<'ast, T> {
     TypedConstant {
         expression: f.fold_expression(c.expression),
+        ty: f.fold_declaration_type(c.ty),
     }
 }
 

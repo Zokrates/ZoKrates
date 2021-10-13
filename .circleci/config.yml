@@ -126,6 +126,7 @@ jobs:
       - checkout
       - run:
           name: Build
+          no_output_timeout: "30m"
           command: cd zokrates_js && npm run build:dev
   zokrates_js_test:
     docker:
@@ -142,6 +143,7 @@ jobs:
           command: cargo clippy -- -D warnings
       - run:
           name: Run tests
+          no_output_timeout: "30m"
           command: npm run test
   cross_build:
     parameters:

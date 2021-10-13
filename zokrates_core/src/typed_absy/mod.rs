@@ -20,9 +20,9 @@ pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteType,
-    ConstantIdentifier, DeclarationArrayType, DeclarationFunctionKey, DeclarationSignature,
-    DeclarationStructType, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
-    IntoTypes, Signature, StructType, Type, Types, UBitwidth,
+    ConstantIdentifier, DeclarationArrayType, DeclarationConstant, DeclarationFunctionKey,
+    DeclarationSignature, DeclarationStructType, DeclarationType, GArrayType, GStructType, GType,
+    GenericIdentifier, IntoTypes, Signature, StructType, Type, Types, UBitwidth,
 };
 use crate::parser::Position;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
@@ -36,7 +36,7 @@ pub use crate::typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMeta
 
 use crate::embed::FlatEmbed;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
@@ -55,14 +55,14 @@ pub type OwnedTypedModuleId = PathBuf;
 pub type TypedModuleId = Path;
 
 /// A collection of `TypedModule`s
-pub type TypedModules<'ast, T> = HashMap<OwnedTypedModuleId, TypedModule<'ast, T>>;
+pub type TypedModules<'ast, T> = BTreeMap<OwnedTypedModuleId, TypedModule<'ast, T>>;
 
 /// A collection of `TypedFunctionSymbol`s
 /// # Remarks
 /// * It is the role of the semantic checker to make sure there are no duplicates for a given `FunctionKey`
-///   in a given `TypedModule`, hence the use of a HashMap
+///   in a given `TypedModule`, hence the use of a BTreeMap
 pub type TypedFunctionSymbols<'ast, T> =
-    HashMap<DeclarationFunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
+    BTreeMap<DeclarationFunctionKey<'ast, T>, TypedFunctionSymbol<'ast, T>>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypedConstantSymbol<'ast, T> {
@@ -92,12 +92,11 @@ impl<'ast, T> TypedProgram<'ast, T> {
 
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn abi(&self) -> Abi {
-        let main = self.modules[&self.main]
-            .functions
-            .iter()
-            .find(|(id, _)| id.id == "main")
+        let main = &self.modules[&self.main]
+            .functions_iter()
+            .find(|s| s.key.id == "main")
             .unwrap()
-            .1;
+            .symbol;
         let main = match main {
             TypedFunctionSymbol::Here(main) => main,
             _ => unreachable!(),
@@ -110,7 +109,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .map(|p| {
                     types::ConcreteType::try_from(
                         crate::typed_absy::types::try_from_g_type::<
-                            crate::typed_absy::types::DeclarationConstant<'ast>,
+                            DeclarationConstant<'ast, T>,
                             UExpression<'ast, T>,
                         >(p.id._type.clone())
                         .unwrap(),
@@ -130,7 +129,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                 .map(|ty| {
                     types::ConcreteType::try_from(
                         crate::typed_absy::types::try_from_g_type::<
-                            crate::typed_absy::types::DeclarationConstant<'ast>,
+                            DeclarationConstant<'ast, T>,
                             UExpression<'ast, T>,
                         >(ty.clone())
                         .unwrap(),
@@ -164,19 +163,90 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
     }
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct TypedFunctionSymbolDeclaration<'ast, T> {
+    pub key: DeclarationFunctionKey<'ast, T>,
+    pub symbol: TypedFunctionSymbol<'ast, T>,
+}
+
+impl<'ast, T> TypedFunctionSymbolDeclaration<'ast, T> {
+    pub fn new(key: DeclarationFunctionKey<'ast, T>, symbol: TypedFunctionSymbol<'ast, T>) -> Self {
+        TypedFunctionSymbolDeclaration { key, symbol }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct TypedConstantSymbolDeclaration<'ast, T> {
+    pub id: CanonicalConstantIdentifier<'ast>,
+    pub symbol: TypedConstantSymbol<'ast, T>,
+}
+
+impl<'ast, T> TypedConstantSymbolDeclaration<'ast, T> {
+    pub fn new(
+        id: CanonicalConstantIdentifier<'ast>,
+        symbol: TypedConstantSymbol<'ast, T>,
+    ) -> Self {
+        TypedConstantSymbolDeclaration { id, symbol }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum TypedSymbolDeclaration<'ast, T> {
+    Function(TypedFunctionSymbolDeclaration<'ast, T>),
+    Constant(TypedConstantSymbolDeclaration<'ast, T>),
+}
+
+impl<'ast, T> From<TypedFunctionSymbolDeclaration<'ast, T>> for TypedSymbolDeclaration<'ast, T> {
+    fn from(d: TypedFunctionSymbolDeclaration<'ast, T>) -> Self {
+        Self::Function(d)
+    }
+}
+
+impl<'ast, T> From<TypedConstantSymbolDeclaration<'ast, T>> for TypedSymbolDeclaration<'ast, T> {
+    fn from(d: TypedConstantSymbolDeclaration<'ast, T>) -> Self {
+        Self::Constant(d)
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedSymbolDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TypedSymbolDeclaration::Function(fun) => write!(f, "{}", fun),
+            TypedSymbolDeclaration::Constant(c) => write!(f, "{}", c),
+        }
+    }
+}
+
+pub type TypedSymbolDeclarations<'ast, T> = Vec<TypedSymbolDeclaration<'ast, T>>;
+
 /// A typed module as a collection of functions. Types have been resolved during semantic checking.
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypedModule<'ast, T> {
-    /// Functions of the module
-    pub functions: TypedFunctionSymbols<'ast, T>,
-    /// Constants defined in module
-    pub constants: TypedConstantSymbols<'ast, T>,
+    pub symbols: TypedSymbolDeclarations<'ast, T>,
+}
+
+impl<'ast, T> TypedModule<'ast, T> {
+    pub fn functions_iter(&self) -> impl Iterator<Item = &TypedFunctionSymbolDeclaration<'ast, T>> {
+        self.symbols.iter().filter_map(|s| match s {
+            TypedSymbolDeclaration::Function(d) => Some(d),
+            _ => None,
+        })
+    }
+
+    pub fn into_functions_iter(
+        self,
+    ) -> impl Iterator<Item = TypedFunctionSymbolDeclaration<'ast, T>> {
+        self.symbols.into_iter().filter_map(|s| match s {
+            TypedSymbolDeclaration::Function(d) => Some(d),
+            _ => None,
+        })
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum TypedFunctionSymbol<'ast, T> {
     Here(TypedFunction<'ast, T>),
-    There(DeclarationFunctionKey<'ast>),
+    There(DeclarationFunctionKey<'ast, T>),
     Flat(FlatEmbed),
 }
 
@@ -184,17 +254,61 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
     pub fn signature<'a>(
         &'a self,
         modules: &'a TypedModules<'ast, T>,
-    ) -> DeclarationSignature<'ast> {
+    ) -> DeclarationSignature<'ast, T> {
         match self {
             TypedFunctionSymbol::Here(f) => f.signature.clone(),
             TypedFunctionSymbol::There(key) => modules
                 .get(&key.module)
                 .unwrap()
-                .functions
-                .get(key)
+                .functions_iter()
+                .find(|d| d.key == *key)
                 .unwrap()
-                .signature(&modules),
-            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature(),
+                .symbol
+                .signature(modules),
+            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.typed_signature(),
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedConstantSymbolDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.symbol {
+            TypedConstantSymbol::Here(ref tc) => {
+                write!(f, "const {} {} = {}", tc.ty, self.id, tc.expression)
+            }
+            TypedConstantSymbol::There(ref imported_id) => {
+                write!(
+                    f,
+                    "from \"{}\" import {} as {}",
+                    imported_id.module.display(),
+                    imported_id.id,
+                    self.id
+                )
+            }
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for TypedFunctionSymbolDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.symbol {
+            TypedFunctionSymbol::Here(ref function) => write!(f, "def {}{}", self.key.id, function),
+            TypedFunctionSymbol::There(ref fun_key) => write!(
+                f,
+                "from \"{}\" import {} as {} // with signature {}",
+                fun_key.module.display(),
+                fun_key.id,
+                self.key.id,
+                self.key.signature
+            ),
+            TypedFunctionSymbol::Flat(ref flat_fun) => {
+                write!(
+                    f,
+                    "def {}{}:\n\t// hidden",
+                    self.key.id,
+                    flat_fun.typed_signature::<T>()
+                )
+            }
         }
     }
 }
@@ -202,34 +316,9 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = self
-            .constants
+            .symbols
             .iter()
-            .map(|(id, symbol)| match symbol {
-                TypedConstantSymbol::Here(ref tc) => {
-                    format!("const {} {} = {}", id.ty, id.id, tc)
-                }
-                TypedConstantSymbol::There(ref imported_id) => {
-                    format!(
-                        "from \"{}\" import {} as {}",
-                        imported_id.module.display(),
-                        imported_id.id,
-                        id.id
-                    )
-                }
-            })
-            .chain(self.functions.iter().map(|(key, symbol)| match symbol {
-                TypedFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
-                TypedFunctionSymbol::There(ref fun_key) => format!(
-                    "from \"{}\" import {} as {} // with signature {}",
-                    fun_key.module.display(),
-                    fun_key.id,
-                    key.id,
-                    key.signature
-                ),
-                TypedFunctionSymbol::Flat(ref flat_fun) => {
-                    format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature())
-                }
-            }))
+            .map(|s| format!("{}", s))
             .collect::<Vec<_>>();
 
         write!(f, "{}", res.join("\n"))
@@ -240,11 +329,11 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
 #[derive(Clone, PartialEq, Debug, Hash)]
 pub struct TypedFunction<'ast, T> {
     /// Arguments of the function
-    pub arguments: Vec<DeclarationParameter<'ast>>,
+    pub arguments: Vec<DeclarationParameter<'ast, T>>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<TypedStatement<'ast, T>>,
     /// function signature
-    pub signature: DeclarationSignature<'ast>,
+    pub signature: DeclarationSignature<'ast, T>,
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
@@ -313,11 +402,12 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedConstant<'ast, T> {
     pub expression: TypedExpression<'ast, T>,
+    pub ty: DeclarationType<'ast, T>,
 }
 
 impl<'ast, T> TypedConstant<'ast, T> {
-    pub fn new(expression: TypedExpression<'ast, T>) -> Self {
-        TypedConstant { expression }
+    pub fn new(expression: TypedExpression<'ast, T>, ty: DeclarationType<'ast, T>) -> Self {
+        TypedConstant { expression, ty }
     }
 }
 
@@ -334,14 +424,14 @@ impl<'ast, T: Field> Typed<'ast, T> for TypedConstant<'ast, T> {
 }
 
 /// Something we can assign to.
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedAssignee<'ast, T> {
     Identifier(Variable<'ast, T>),
     Select(Box<TypedAssignee<'ast, T>>, Box<UExpression<'ast, T>>),
     Member(Box<TypedAssignee<'ast, T>>, MemberId),
 }
 
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug, PartialOrd, Ord)]
 pub struct TypedSpread<'ast, T> {
     pub array: ArrayExpression<'ast, T>,
 }
@@ -358,7 +448,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedSpread<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedExpressionOrSpread<'ast, T> {
     Expression(TypedExpression<'ast, T>),
     Spread(TypedSpread<'ast, T>),
@@ -505,7 +595,7 @@ impl fmt::Display for AssertionMetadata {
 
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
@@ -520,7 +610,7 @@ pub enum TypedStatement<'ast, T> {
     MultipleDefinition(Vec<TypedAssignee<'ast, T>>, TypedExpressionList<'ast, T>),
     // Aux
     PushCallLog(
-        DeclarationFunctionKey<'ast>,
+        DeclarationFunctionKey<'ast, T>,
         ConcreteGenericsAssignment<'ast>,
     ),
     PopCallLog,
@@ -600,7 +690,7 @@ pub trait Typed<'ast, T> {
 
 /// A typed expression
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
@@ -739,7 +829,7 @@ pub trait MultiTyped<'ast, T> {
     fn get_types(&self) -> &Vec<Type<'ast, T>>;
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 
 pub struct TypedExpressionList<'ast, T> {
     pub inner: TypedExpressionListInner<'ast, T>,
@@ -752,7 +842,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedExpressionListInner<'ast, T> {
     FunctionCall(FunctionCallExpression<'ast, T, TypedExpressionList<'ast, T>>),
     EmbedCall(FlatEmbed, Vec<u32>, Vec<TypedExpression<'ast, T>>),
@@ -769,7 +859,7 @@ impl<'ast, T> TypedExpressionListInner<'ast, T> {
         TypedExpressionList { inner: self, types }
     }
 }
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct BlockExpression<'ast, T, E> {
     pub statements: Vec<TypedStatement<'ast, T>>,
     pub value: Box<E>,
@@ -784,7 +874,7 @@ impl<'ast, T, E> BlockExpression<'ast, T, E> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct MemberExpression<'ast, T, E> {
     pub struc: Box<StructExpression<'ast, T>>,
     pub id: MemberId,
@@ -807,7 +897,7 @@ impl<'ast, T: fmt::Display, E> fmt::Display for MemberExpression<'ast, T, E> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct SelectExpression<'ast, T, E> {
     pub array: Box<ArrayExpression<'ast, T>>,
     pub index: Box<UExpression<'ast, T>>,
@@ -830,7 +920,7 @@ impl<'ast, T: fmt::Display, E> fmt::Display for SelectExpression<'ast, T, E> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct IfElseExpression<'ast, T, E> {
     pub condition: Box<BooleanExpression<'ast, T>>,
     pub consequence: Box<E>,
@@ -857,9 +947,9 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for IfElseExpression<'
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct FunctionCallExpression<'ast, T, E> {
-    pub function_key: DeclarationFunctionKey<'ast>,
+    pub function_key: DeclarationFunctionKey<'ast, T>,
     pub generics: Vec<Option<UExpression<'ast, T>>>,
     pub arguments: Vec<TypedExpression<'ast, T>>,
     ty: PhantomData<E>,
@@ -867,7 +957,7 @@ pub struct FunctionCallExpression<'ast, T, E> {
 
 impl<'ast, T, E> FunctionCallExpression<'ast, T, E> {
     pub fn new(
-        function_key: DeclarationFunctionKey<'ast>,
+        function_key: DeclarationFunctionKey<'ast, T>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self {
@@ -910,7 +1000,7 @@ impl<'ast, T: fmt::Display, E> fmt::Display for FunctionCallExpression<'ast, T, 
 }
 
 /// An expression of type `field`
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum FieldElementExpression<'ast, T> {
     Block(BlockExpression<'ast, T, Self>),
     Number(T),
@@ -987,7 +1077,7 @@ impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
 }
 
 /// An expression of type `bool`
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum BooleanExpression<'ast, T> {
     Block(BlockExpression<'ast, T, Self>),
     Identifier(Identifier<'ast>),
@@ -1052,13 +1142,13 @@ impl<'ast, T> From<bool> for BooleanExpression<'ast, T> {
 /// * Contrary to basic types which are represented as enums, we wrap an enum `ArrayExpressionInner` in a struct in order to keep track of the type (content and size)
 /// of the array. Only using an enum would require generics, which would propagate up to TypedExpression which we want to keep simple, hence this "runtime"
 /// type checking
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct ArrayExpression<'ast, T> {
     pub ty: Box<ArrayType<'ast, T>>,
     pub inner: ArrayExpressionInner<'ast, T>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 pub struct ArrayValue<'ast, T>(pub Vec<TypedExpressionOrSpread<'ast, T>>);
 
 impl<'ast, T> From<Vec<TypedExpressionOrSpread<'ast, T>>> for ArrayValue<'ast, T> {
@@ -1076,31 +1166,29 @@ impl<'ast, T> IntoIterator for ArrayValue<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> ArrayValue<'ast, T> {
-    fn expression_at_aux<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
+impl<'ast, T: Clone + fmt::Debug> ArrayValue<'ast, T> {
+    fn expression_at_aux<
+        U: Select<'ast, T> + Into<TypedExpression<'ast, T>> + From<TypedExpression<'ast, T>>,
+    >(
         v: TypedExpressionOrSpread<'ast, T>,
-    ) -> Vec<Option<TypedExpression<'ast, T>>> {
+    ) -> Vec<Option<U>> {
         match v {
-            TypedExpressionOrSpread::Expression(e) => vec![Some(e.clone())],
+            TypedExpressionOrSpread::Expression(e) => vec![Some(e.into())],
             TypedExpressionOrSpread::Spread(s) => match s.array.size().into_inner() {
                 UExpressionInner::Value(size) => {
                     let array_ty = s.array.ty().clone();
 
                     match s.array.into_inner() {
-                        ArrayExpressionInner::Value(v) => v
-                            .into_iter()
-                            .flat_map(Self::expression_at_aux::<U>)
-                            .collect(),
+                        ArrayExpressionInner::Value(v) => {
+                            v.into_iter().flat_map(Self::expression_at_aux).collect()
+                        }
                         a => (0..size)
                             .map(|i| {
-                                Some(
-                                    U::select(
-                                        a.clone()
-                                            .annotate(*array_ty.ty.clone(), array_ty.size.clone()),
-                                        i as u32,
-                                    )
-                                    .into(),
-                                )
+                                Some(U::select(
+                                    a.clone()
+                                        .annotate(*array_ty.ty.clone(), array_ty.size.clone()),
+                                    i as u32,
+                                ))
                             })
                             .collect(),
                     }
@@ -1110,13 +1198,15 @@ impl<'ast, T: Clone> ArrayValue<'ast, T> {
         }
     }
 
-    pub fn expression_at<U: Select<'ast, T> + Into<TypedExpression<'ast, T>>>(
+    pub fn expression_at<
+        U: Select<'ast, T> + Into<TypedExpression<'ast, T>> + From<TypedExpression<'ast, T>>,
+    >(
         &self,
         index: usize,
-    ) -> Option<TypedExpression<'ast, T>> {
+    ) -> Option<U> {
         self.0
             .iter()
-            .map(|v| Self::expression_at_aux::<U>(v.clone()))
+            .map(|v| Self::expression_at_aux(v.clone()))
             .flatten()
             .take_while(|e| e.is_some())
             .map(|e| e.unwrap())
@@ -1136,7 +1226,7 @@ impl<'ast, T> std::iter::FromIterator<TypedExpressionOrSpread<'ast, T>> for Arra
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum ArrayExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, ArrayExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
@@ -1176,7 +1266,7 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct StructExpression<'ast, T> {
     ty: StructType<'ast, T>,
     inner: StructExpressionInner<'ast, T>,
@@ -1200,7 +1290,7 @@ impl<'ast, T> StructExpression<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum StructExpressionInner<'ast, T> {
     Block(BlockExpression<'ast, T, StructExpression<'ast, T>>),
     Identifier(Identifier<'ast>),
@@ -1523,7 +1613,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
@@ -1544,7 +1634,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
@@ -1628,7 +1718,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     }
 
     fn as_inner(&self) -> &Self::Inner {
-        &self
+        self
     }
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
@@ -1922,7 +2012,7 @@ impl<'ast, T: Field> Id<'ast, T> for TypedExpressionList<'ast, T> {
 
 pub trait FunctionCall<'ast, T>: Expr<'ast, T> {
     fn function_call(
-        key: DeclarationFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast, T>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self::Inner;
@@ -1930,7 +2020,7 @@ pub trait FunctionCall<'ast, T>: Expr<'ast, T> {
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
     fn function_call(
-        key: DeclarationFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast, T>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self::Inner {
@@ -1940,7 +2030,7 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for BooleanExpression<'ast, T> {
     fn function_call(
-        key: DeclarationFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast, T>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self::Inner {
@@ -1950,7 +2040,7 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for BooleanExpression<'ast, T> {
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for UExpression<'ast, T> {
     fn function_call(
-        key: DeclarationFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast, T>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self::Inner {
@@ -1960,7 +2050,7 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for UExpression<'ast, T> {
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
     fn function_call(
-        key: DeclarationFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast, T>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self::Inner {
@@ -1970,7 +2060,7 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for ArrayExpression<'ast, T> {
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
     fn function_call(
-        key: DeclarationFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast, T>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self::Inner {
@@ -1980,7 +2070,7 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
 
 impl<'ast, T: Field> FunctionCall<'ast, T> for TypedExpressionList<'ast, T> {
     fn function_call(
-        key: DeclarationFunctionKey<'ast>,
+        key: DeclarationFunctionKey<'ast, T>,
         generics: Vec<Option<UExpression<'ast, T>>>,
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self::Inner {

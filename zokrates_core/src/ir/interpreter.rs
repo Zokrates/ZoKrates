@@ -11,18 +11,11 @@ pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
 impl<T: Field> Prog<T> {}
 
+#[derive(Default)]
 pub struct Interpreter {
     /// Whether we should try to give out-of-range bit decompositions when the input is not a single summand.
     /// Used to do targetted testing of `<` flattening, making sure the bit decomposition we base the result on is unique.
     should_try_out_of_range: bool,
-}
-
-impl Default for Interpreter {
-    fn default() -> Interpreter {
-        Interpreter {
-            should_try_out_of_range: false,
-        }
-    }
 }
 
 impl Interpreter {
@@ -35,7 +28,7 @@ impl Interpreter {
 
 impl Interpreter {
     pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &[T]) -> ExecutionResult<T> {
-        self.check_inputs(&program, &inputs)?;
+        self.check_inputs(program, inputs)?;
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
 
@@ -270,8 +263,8 @@ impl<T: Field> LinComb<T> {
 
 impl<T: Field> QuadComb<T> {
     pub fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, EvaluationError> {
-        let left = self.left.evaluate(&witness)?;
-        let right = self.right.evaluate(&witness)?;
+        let left = self.left.evaluate(witness)?;
+        let right = self.right.evaluate(witness)?;
         Ok(left * right)
     }
 }

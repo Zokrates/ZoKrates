@@ -13,7 +13,7 @@ pub fn write_tests(base: &str) {
     let mut writer = BufWriter::new(test_file);
 
     for p in glob(base.join("**/*.json").to_str().unwrap()).unwrap() {
-        write_test(&mut writer, &p.unwrap(), &base);
+        write_test(&mut writer, &p.unwrap(), base);
     }
 }
 

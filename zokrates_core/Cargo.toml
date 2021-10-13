@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_core"
-version = "0.6.6"
+version = "0.6.7"
 edition = "2018"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/Zokrates/ZoKrates"
@@ -64,5 +64,5 @@ zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
-cmake = { version = "0.1.31", optional = true }
+cmake = { version = "=0.1.45", optional = true }
 git2 = { version = "0.13.1", optional = true }

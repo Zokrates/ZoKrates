@@ -38,7 +38,7 @@ fn lt_field() {
 
     assert!(interpreter
         .execute(
-            &res.prog(),
+            res.prog(),
             &[Bn128Field::from(10000), Bn128Field::from(5555)]
         )
         .is_err());
@@ -70,7 +70,7 @@ fn lt_uint() {
 
     assert!(interpreter
         .execute(
-            &res.prog(),
+            res.prog(),
             &[Bn128Field::from(10000), Bn128Field::from(5555)]
         )
         .is_err());
@@ -112,7 +112,7 @@ fn unpack256() {
     let interpreter = Interpreter::try_out_of_range();
 
     assert!(interpreter
-        .execute(&res.prog(), &[Bn128Field::from(0)])
+        .execute(res.prog(), &[Bn128Field::from(0)])
         .is_err());
 }
 
@@ -152,6 +152,6 @@ fn unpack256_unchecked() {
     let interpreter = Interpreter::try_out_of_range();
 
     assert!(interpreter
-        .execute(&res.prog(), &[Bn128Field::from(0)])
+        .execute(res.prog(), &[Bn128Field::from(0)])
         .is_ok());
 }

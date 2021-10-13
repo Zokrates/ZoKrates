@@ -11,6 +11,8 @@
 // - unroll loops
 // - inline function calls. This includes applying shallow-ssa on the target function
 
+mod constants_reader;
+mod constants_writer;
 mod inline;
 mod shallow_ssa;
 
@@ -18,25 +20,32 @@ use self::inline::{inline_call, InlineError};
 use crate::typed_absy::result_folder::*;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::types::GGenericsAssignment;
+use crate::typed_absy::CanonicalConstantIdentifier;
 use crate::typed_absy::Folder;
 use std::collections::HashMap;
 
 use crate::typed_absy::{
     ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
-    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, TypedExpression,
-    TypedExpressionList, TypedExpressionListInner, TypedFunction, TypedFunctionSymbol, TypedModule,
-    TypedProgram, TypedStatement, UExpression, UExpressionInner, Variable,
+    FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId,
+    TypedExpression, TypedExpressionList, TypedExpressionListInner, TypedFunction,
+    TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedProgram, TypedStatement,
+    UExpression, UExpressionInner, Variable,
 };
 
 use zokrates_field::Field;
 
+use self::constants_writer::ConstantsWriter;
 use self::shallow_ssa::ShallowTransformer;
 
-use crate::static_analysis::Propagator;
+use crate::static_analysis::propagation::{Constants, Propagator};
 
 use std::fmt;
 
 const MAX_FOR_LOOP_SIZE: u128 = 2u128.pow(20);
+
+// A map to register the canonical value of all constants. The values must be literals.
+pub type ConstantDefinitions<'ast, T> =
+    HashMap<CanonicalConstantIdentifier<'ast>, TypedExpression<'ast, T>>;
 
 // An SSA version map, giving access to the latest version number for each identifier
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
@@ -55,6 +64,8 @@ pub enum Error {
     // TODO: give more details about what's blocking the progress
     NoProgress,
     LoopTooLarge(u128),
+    ConstantReduction(String, OwnedTypedModuleId),
+    Type(String),
 }
 
 impl fmt::Display for Error {
@@ -68,6 +79,8 @@ impl fmt::Display for Error {
             Error::GenericsInMain => write!(f, "Cannot generate code for generic function"),
             Error::NoProgress => write!(f, "Failed to unroll or inline program. Check that main function arguments aren't used as array size or for-loop bounds"),
             Error::LoopTooLarge(size) => write!(f, "Found a loop of size {}, which is larger than the maximum allowed of {}. Check the loop bounds, especially for underflows", size, MAX_FOR_LOOP_SIZE),
+            Error::ConstantReduction(name, module) => write!(f, "Failed to reduce constant `{}` in module `{}` to a literal, try simplifying its declaration", name, module.display()),
+            Error::Type(message) => write!(f, "{}", message),
         }
     }
 }
@@ -148,7 +161,7 @@ fn register<'ast>(
 ) {
     for (id, key, value) in substitute
         .iter()
-        .filter_map(|(id, version)| with.get(&id).map(|to| (id, version, to)))
+        .filter_map(|(id, version)| with.get(id).map(|to| (id, version, to)))
         .filter(|(_, key, value)| key != value)
     {
         let sub = substitutions.0.entry(id.clone()).or_default();
@@ -159,6 +172,7 @@ fn register<'ast>(
     }
 }
 
+#[derive(Debug)]
 struct Reducer<'ast, 'a, T> {
     statement_buffer: Vec<TypedStatement<'ast, T>>,
     for_loop_versions: Vec<Versions<'ast>>,
@@ -221,8 +235,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             generics,
             arguments,
             ty,
-            &self.program,
-            &mut self.versions,
+            self.program,
+            self.versions,
         );
 
         match res {
@@ -304,6 +318,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         })
     }
 
+    fn fold_canonical_constant_identifier(
+        &mut self,
+        _: CanonicalConstantIdentifier<'ast>,
+    ) -> Result<CanonicalConstantIdentifier<'ast>, Self::Error> {
+        unreachable!("canonical constant identifiers should not be folded, they should be inlined")
+    }
+
     fn fold_statement(
         &mut self,
         s: TypedStatement<'ast, T>,
@@ -333,8 +354,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     generics,
                     arguments,
                     &types,
-                    &self.program,
-                    &mut self.versions,
+                    self.program,
+                    self.versions,
                 ) {
                     Ok(Output::Complete((statements, expressions))) => {
                         assert_eq!(v.len(), expressions.len());
@@ -399,7 +420,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         self.versions.values_mut().for_each(|v| *v += 1);
 
                         // add this set of versions to the substitution, pointing to the versions before the loop
-                        register(&mut self.substitutions, &self.versions, &versions_before);
+                        register(self.substitutions, self.versions, &versions_before);
 
                         // the versions after the loop are found by applying an offset of 2 to the versions before the loop
                         let versions_after = versions_before
@@ -408,7 +429,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             .map(|(k, v)| (k, v + 2))
                             .collect();
 
-                        let mut transformer = ShallowTransformer::with_versions(&mut self.versions);
+                        let mut transformer = ShallowTransformer::with_versions(self.versions);
 
                         if to - from > MAX_FOR_LOOP_SIZE {
                             return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
@@ -433,7 +454,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                         // we know the final versions of the variables after full unrolling of the loop
                         // the versions after the loop need to point to these, so we add to the substitutions
-                        register(&mut self.substitutions, &versions_after, &self.versions);
+                        register(self.substitutions, &versions_after, self.versions);
 
                         // we may have found new for loops when unrolling this one, which means new backed up versions
                         // we insert these in our backup list and update our cursor
@@ -487,15 +508,21 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 }
 
 pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
+    // inline all constants and replace them in the  program
+
+    let mut constants_writer = ConstantsWriter::with_program(p.clone());
+
+    let p = constants_writer.fold_program(p)?;
+
+    // inline starting from main
     let main_module = p.modules.get(&p.main).unwrap().clone();
 
-    let (main_key, main_function) = main_module
-        .functions
-        .iter()
-        .find(|(k, _)| k.id == "main")
+    let decl = main_module
+        .functions_iter()
+        .find(|d| d.key.id == "main")
         .unwrap();
 
-    let main_function = match main_function {
+    let main_function = match &decl.symbol {
         TypedFunctionSymbol::Here(f) => f.clone(),
         _ => unreachable!(),
     };
@@ -509,13 +536,11 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
                 modules: vec![(
                     p.main.clone(),
                     TypedModule {
-                        functions: vec![(
-                            main_key.clone(),
+                        symbols: vec![TypedFunctionSymbolDeclaration::new(
+                            decl.key.clone(),
                             TypedFunctionSymbol::Here(main_function),
-                        )]
-                        .into_iter()
-                        .collect(),
-                        constants: Default::default(),
+                        )
+                        .into()],
                     },
                 )]
                 .into_iter()
@@ -533,7 +558,9 @@ fn reduce_function<'ast, T: Field>(
 ) -> Result<TypedFunction<'ast, T>, Error> {
     let mut versions = Versions::default();
 
-    match ShallowTransformer::transform(f, &generics, &mut versions) {
+    let mut constants = Constants::default();
+
+    let f = match ShallowTransformer::transform(f, &generics, &mut versions) {
         Output::Complete(f) => Ok(f),
         Output::Incomplete(new_f, new_for_loop_versions) => {
             let mut for_loop_versions = new_for_loop_versions;
@@ -542,13 +569,11 @@ fn reduce_function<'ast, T: Field>(
 
             let mut substitutions = Substitutions::default();
 
-            let mut constants: HashMap<Identifier<'ast>, TypedExpression<'ast, T>> = HashMap::new();
-
             let mut hash = None;
 
             loop {
                 let mut reducer = Reducer::new(
-                    &program,
+                    program,
                     &mut versions,
                     &mut substitutions,
                     for_loop_versions,
@@ -600,7 +625,11 @@ fn reduce_function<'ast, T: Field>(
                 }
             }
         }
-    }
+    }?;
+
+    Propagator::with_constants(&mut constants)
+        .fold_function(f)
+        .map_err(|e| Error::Incompatible(format!("{}", e)))
 }
 
 fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {
@@ -710,27 +739,26 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo").signature(
                                 DeclarationSignature::new()
                                     .inputs(vec![DeclarationType::FieldElement])
                                     .outputs(vec![DeclarationType::FieldElement]),
                             ),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main").signature(
                                 DeclarationSignature::new()
                                     .inputs(vec![DeclarationType::FieldElement])
                                     .outputs(vec![DeclarationType::FieldElement]),
                             ),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
@@ -786,17 +814,15 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("main", "main").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement]),
                         ),
                         TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                    )
+                    .into()],
                 },
             )]
             .into_iter()
@@ -913,24 +939,23 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo")
                                 .signature(foo_signature.clone()),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main").signature(
                                 DeclarationSignature::new()
                                     .inputs(vec![DeclarationType::FieldElement])
                                     .outputs(vec![DeclarationType::FieldElement]),
                             ),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
@@ -1005,17 +1030,15 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("main", "main").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement]),
                         ),
                         TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                    )
+                    .into()],
                 },
             )]
             .into_iter()
@@ -1141,24 +1164,23 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo")
                                 .signature(foo_signature.clone()),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main").signature(
                                 DeclarationSignature::new()
                                     .inputs(vec![DeclarationType::FieldElement])
                                     .outputs(vec![DeclarationType::FieldElement]),
                             ),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
@@ -1233,17 +1255,15 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("main", "main").signature(
                             DeclarationSignature::new()
                                 .inputs(vec![DeclarationType::FieldElement])
                                 .outputs(vec![DeclarationType::FieldElement]),
                         ),
                         TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                    )
+                    .into()],
                 },
             )]
             .into_iter()
@@ -1399,25 +1419,25 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "bar")
                                 .signature(bar_signature.clone()),
                             TypedFunctionSymbol::Here(bar),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo")
                                 .signature(foo_signature.clone()),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main"),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()
@@ -1459,14 +1479,12 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![(
+                    symbols: vec![TypedFunctionSymbolDeclaration::new(
                         DeclarationFunctionKey::with_location("main", "main")
                             .signature(DeclarationSignature::new()),
                         TypedFunctionSymbol::Here(expected_main),
-                    )]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                    )
+                    .into()],
                 },
             )]
             .into_iter()
@@ -1540,22 +1558,21 @@ mod tests {
             modules: vec![(
                 "main".into(),
                 TypedModule {
-                    functions: vec![
-                        (
+                    symbols: vec![
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "foo")
                                 .signature(foo_signature.clone()),
                             TypedFunctionSymbol::Here(foo),
-                        ),
-                        (
+                        )
+                        .into(),
+                        TypedFunctionSymbolDeclaration::new(
                             DeclarationFunctionKey::with_location("main", "main").signature(
                                 DeclarationSignature::new().inputs(vec![]).outputs(vec![]),
                             ),
                             TypedFunctionSymbol::Here(main),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    constants: Default::default(),
+                        )
+                        .into(),
+                    ],
                 },
             )]
             .into_iter()

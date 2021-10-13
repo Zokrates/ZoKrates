@@ -9,7 +9,7 @@ ZoKrates is a toolbox for zkSNARKs on Ethereum. It helps you use verifiable comp
 
 One particular family of ZKPs is described as zero-knowledge **S**uccinct **N**on-interactive **AR**guments of **K**nowledge, a.k.a. zkSNARKs. zkSNARKs are the most widely used zero-knowledge protocols, with the anonymous cryptocurrency Zcash and the smart-contract platform Ethereum among the notable early adopters.
 
-For further details we refer the reader to some introductory material provided by the community: [[1]](https://z.cash/technology/zksnarks/),[[2]](https://medium.com/@VitalikButerin/zkSNARKs-under-the-hood-b33151a013f6), [[3]](https://blog.decentriq.ch/zk-SNARKs-primer-part-one/).
+For further details we refer the reader to some introductory material provided by the community: [[1]](https://z.cash/technology/zksnarks/), [[2]](https://medium.com/@VitalikButerin/zkSNARKs-under-the-hood-b33151a013f6), [[3]](https://blog.decentriq.ch/zk-SNARKs-primer-part-one/).
 
 ## Motivation
 

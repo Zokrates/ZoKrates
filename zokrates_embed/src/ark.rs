@@ -111,7 +111,7 @@ pub fn generate_verify_constraints(
     let num_instance_variables = cs.num_instance_variables();
     let input_indices = fp_vars
         .iter()
-        .map(|f| var_to_index(&f, 0))
+        .map(|f| var_to_index(f, 0))
         .collect::<Vec<usize>>();
 
     let proof_indices: Vec<usize> = vec![

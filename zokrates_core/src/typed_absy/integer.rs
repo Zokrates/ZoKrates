@@ -40,7 +40,7 @@ trait IntegerInference: Sized {
 }
 
 impl<'ast, T> IntegerInference for Type<'ast, T> {
-    type Pattern = DeclarationType<'ast>;
+    type Pattern = DeclarationType<'ast, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
         match (self, other) {
@@ -72,7 +72,7 @@ impl<'ast, T> IntegerInference for Type<'ast, T> {
 }
 
 impl<'ast, T> IntegerInference for ArrayType<'ast, T> {
-    type Pattern = DeclarationArrayType<'ast>;
+    type Pattern = DeclarationArrayType<'ast, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
         let s0 = self.size;
@@ -88,7 +88,7 @@ impl<'ast, T> IntegerInference for ArrayType<'ast, T> {
 }
 
 impl<'ast, T> IntegerInference for StructType<'ast, T> {
-    type Pattern = DeclarationStructType<'ast>;
+    type Pattern = DeclarationStructType<'ast, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
         Ok(DeclarationStructType {
@@ -228,7 +228,7 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum IntExpression<'ast, T> {
     Value(BigUint),
     Pos(Box<IntExpression<'ast, T>>),
@@ -424,7 +424,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                                     v,
                                     &DeclarationArrayType::new(
                                         DeclarationType::FieldElement,
-                                        DeclarationConstant::Concrete(0),
+                                        DeclarationConstant::from(0u32),
                                     ),
                                 )
                                 .map_err(|(e, _)| match e {
@@ -542,7 +542,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                                     v,
                                     &DeclarationArrayType::new(
                                         DeclarationType::Uint(*bitwidth),
-                                        DeclarationConstant::Concrete(0),
+                                        DeclarationConstant::from(0u32),
                                     ),
                                 )
                                 .map_err(|(e, _)| match e {
@@ -597,7 +597,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                         inline_array
                             .into_iter()
                             .map(|v| {
-                                TypedExpressionOrSpread::align_to_type(v, &target_array_ty).map_err(
+                                TypedExpressionOrSpread::align_to_type(v, target_array_ty).map_err(
                                     |(e, _)| match e {
                                         TypedExpressionOrSpread::Expression(e) => e,
                                         TypedExpressionOrSpread::Spread(a) => {
@@ -620,7 +620,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                     GType::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
                         .annotate(Type::Int, array_ty.size)),
                     // try to align the repeated element to the target type
-                    t => TypedExpression::align_to_type(e, &t)
+                    t => TypedExpression::align_to_type(e, t)
                         .map(|e| {
                             let ty = e.get_type().clone();
 

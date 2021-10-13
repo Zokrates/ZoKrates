@@ -5,7 +5,9 @@ use crate::typed_absy::{
     result_folder::{fold_expression_list_inner, fold_uint_expression_inner},
     Constant, TypedExpressionListInner, Types, UBitwidth, UExpressionInner,
 };
+use std::fmt;
 use zokrates_field::Field;
+
 pub struct ConstantArgumentChecker;
 
 impl ConstantArgumentChecker {
@@ -14,7 +16,14 @@ impl ConstantArgumentChecker {
     }
 }
 
-pub type Error = String;
+#[derive(Debug)]
+pub struct Error(String);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
     type Error = Error;
@@ -31,11 +40,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
 
                 match by.as_inner() {
                     UExpressionInner::Value(_) => Ok(UExpressionInner::LeftShift(box e, box by)),
-                    by => Err(format!(
+                    by => Err(Error(format!(
                         "Cannot shift by a variable value, found `{} << {}`",
                         e,
                         by.clone().annotate(UBitwidth::B32)
-                    )),
+                    ))),
                 }
             }
             UExpressionInner::RightShift(box e, box by) => {
@@ -44,11 +53,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
 
                 match by.as_inner() {
                     UExpressionInner::Value(_) => Ok(UExpressionInner::RightShift(box e, box by)),
-                    by => Err(format!(
+                    by => Err(Error(format!(
                         "Cannot shift by a variable value, found `{} >> {}`",
                         e,
                         by.clone().annotate(UBitwidth::B32)
-                    )),
+                    ))),
                 }
             }
             e => fold_uint_expression_inner(self, bitwidth, e),
@@ -74,10 +83,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantArgumentChecker {
                         arguments,
                     ))
                 } else {
-                    Err(format!(
+                    Err(Error(format!(
                         "Cannot compare to a variable value, found `{}`",
                         arguments[1]
-                    ))
+                    )))
                 }
             }
             l => fold_expression_list_inner(self, tys, l),
