@@ -654,6 +654,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::zir::AssertionType;
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -670,7 +671,7 @@ mod tests {
                     box FieldElementExpression::Number(Bn128Field::from(1)),
                 ),
             ),
-            None,
+            AssertionType::Source("".to_string()),
         )];
 
         let mut propagator = ZirPropagator::default();
@@ -690,7 +691,7 @@ mod tests {
                     box FieldElementExpression::Identifier("x".into()),
                     box FieldElementExpression::Identifier("y".into()),
                 ),
-                None
+                AssertionType::Source("".to_string())
             )]
         );
     }

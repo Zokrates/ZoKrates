@@ -2694,7 +2694,7 @@ mod tests {
                         box BooleanExpression::Identifier("x".into()),
                         box BooleanExpression::Identifier("y".into()),
                     ),
-                    None,
+                    AssertionType::Source("".to_string()),
                 ),
             ],
             signature: Signature {
@@ -2724,7 +2724,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Source(None),
+                    RuntimeError::Source("".to_string()),
                 ),
             ],
         };
@@ -2762,7 +2762,7 @@ mod tests {
                         ),
                         box FieldElementExpression::Identifier("y".into()),
                     ),
-                    None,
+                    AssertionType::Source("".to_string()),
                 ),
             ],
             signature: Signature {
@@ -2795,7 +2795,7 @@ mod tests {
                         ),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Source(None),
+                    RuntimeError::Source("".to_string()),
                 ),
             ],
         };
@@ -2834,7 +2834,7 @@ mod tests {
                             .metadata(metadata.clone()),
                         box UExpressionInner::Value(42).annotate(32).metadata(metadata),
                     ),
-                    None,
+                    AssertionType::Source("".to_string()),
                 ),
             ],
             signature: Signature {
@@ -2860,7 +2860,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Source(None),
+                    RuntimeError::Source("".to_string()),
                 ),
             ],
         };
@@ -2895,7 +2895,7 @@ mod tests {
                         box FieldElementExpression::Identifier("x".into()),
                         box FieldElementExpression::Identifier("y".into()),
                     ),
-                    None,
+                    AssertionType::Source("".to_string()),
                 ),
             ],
             signature: Signature {
@@ -2925,7 +2925,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Source(None),
+                    RuntimeError::Source("".to_string()),
                 ),
             ],
         };
@@ -2969,7 +2969,7 @@ mod tests {
                         ),
                         box FieldElementExpression::Identifier("z".into()),
                     ),
-                    None,
+                    AssertionType::Source("".to_string()),
                 ),
             ],
             signature: Signature {
@@ -3003,7 +3003,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Source(None),
+                    RuntimeError::Source("".to_string()),
                 ),
             ],
         };
@@ -3047,7 +3047,7 @@ mod tests {
                             box FieldElementExpression::Identifier("y".into()),
                         ),
                     ),
-                    None,
+                    AssertionType::Source("".to_string()),
                 ),
             ],
             signature: Signature {
@@ -3081,7 +3081,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Source(None),
+                    RuntimeError::Source("".to_string()),
                 ),
             ],
         };
@@ -3135,7 +3135,7 @@ mod tests {
                             box FieldElementExpression::Identifier("t".into()),
                         ),
                     ),
-                    None,
+                    AssertionType::Source("".to_string()),
                 ),
             ],
             signature: Signature {
@@ -3180,7 +3180,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Source(None),
+                    RuntimeError::Source("".to_string()),
                 ),
             ],
         };
