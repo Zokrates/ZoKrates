@@ -1,11 +1,16 @@
-use ark_marlin::{ahp::indexer::IndexInfo, IndexProverKey, IndexVerifierKey, Proof as ArkProof};
+use ark_marlin::{
+    ahp::indexer::IndexInfo, ahp::prover::ProverMsg, IndexProverKey, IndexVerifierKey,
+    Proof as ArkProof,
+};
 
 use ark_marlin::Marlin as ArkMarlin;
 
 use ark_ec::PairingEngine;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly_commit::{
+    data_structures::BatchLCProof,
     kzg10::Commitment as KZG10Commitment,
+    kzg10::Proof as KZG10Proof,
     kzg10::VerifierKey as KZG10VerifierKey,
     marlin_pc::{Commitment, MarlinKZG10, VerifierKey},
 };
@@ -152,7 +157,27 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         Proof::new(
             ProofPoints {
-                raw: serialized_proof,
+                commitments: proof
+                    .commitments
+                    .into_iter()
+                    .map(|r| r.into_iter().map(|c| parse_g1::<T>(&c.comm.0)).collect())
+                    .collect(),
+                evaluations: proof
+                    .evaluations
+                    .into_iter()
+                    .map(|e| T::from_ark(e))
+                    .collect(),
+                pc_proof_proof: proof
+                    .pc_proof
+                    .proof
+                    .into_iter()
+                    .map(|p| (parse_g1::<T>(&p.w), p.random_v.map(T::from_ark)))
+                    .collect(),
+                pc_proof_evals: proof
+                    .pc_proof
+                    .evals
+                    .map(|evals| evals.into_iter().map(|eval| T::from_ark(eval)).collect()),
+                prover_messages_count: proof.prover_messages.len(),
             },
             inputs,
         )
@@ -178,8 +203,43 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 T::ArkEngine,
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
-        >::deserialize_uncompressed(&mut proof.proof.raw.as_slice())
-        .unwrap();
+        > {
+            commitments: proof
+                .proof
+                .commitments
+                .into_iter()
+                .map(|r| {
+                    r.into_iter()
+                        .map(|c| Commitment {
+                            comm: KZG10Commitment(serialization::to_g1::<T>(c)),
+                            shifted_comm: None,
+                        })
+                        .collect()
+                })
+                .collect(),
+            evaluations: proof
+                .proof
+                .evaluations
+                .into_iter()
+                .map(|v| v.into_ark())
+                .collect(),
+            prover_messages: vec![ProverMsg::EmptyMessage; proof.proof.prover_messages_count],
+            pc_proof: BatchLCProof {
+                proof: proof
+                    .proof
+                    .pc_proof_proof
+                    .into_iter()
+                    .map(|(w, random_v)| KZG10Proof {
+                        w: serialization::to_g1::<T>(w),
+                        random_v: random_v.map(|v| v.into_ark()),
+                    })
+                    .collect(),
+                evals: proof
+                    .proof
+                    .pc_proof_evals
+                    .map(|evals| evals.into_iter().map(|eval| eval.into_ark()).collect()),
+            },
+        };
 
         let vk = IndexVerifierKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
