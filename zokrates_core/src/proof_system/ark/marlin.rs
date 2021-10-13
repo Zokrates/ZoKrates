@@ -1,20 +1,25 @@
-use ark_marlin::{IndexProverKey, IndexVerifierKey, Proof as ArkProof};
+use ark_marlin::{ahp::indexer::IndexInfo, IndexProverKey, IndexVerifierKey, Proof as ArkProof};
 
 use ark_marlin::Marlin as ArkMarlin;
 
 use ark_ec::PairingEngine;
 use ark_poly::univariate::DensePolynomial;
-use ark_poly_commit::marlin_pc::MarlinKZG10;
+use ark_poly_commit::{
+    kzg10::Commitment as KZG10Commitment,
+    kzg10::VerifierKey as KZG10VerifierKey,
+    marlin_pc::{Commitment, MarlinKZG10, VerifierKey},
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use sha2::Sha256;
+use std::marker::PhantomData;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
 use crate::ir::{Prog, Witness};
-use crate::proof_system::ark::parse_fr;
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
-use crate::proof_system::marlin::{self, ProofPoints, VerificationKey};
+use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, serialization};
+use crate::proof_system::marlin::{self, KZGVerifierKey, ProofPoints, VerificationKey};
 use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, Proof, SetupKeypair, UniversalBackend};
 
@@ -80,11 +85,26 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         let mut serialized_pk: Vec<u8> = Vec::new();
         pk.serialize_uncompressed(&mut serialized_pk).unwrap();
 
-        let mut serialized_vk: Vec<u8> = Vec::new();
-        vk.serialize_uncompressed(&mut serialized_vk).unwrap();
-
         Ok(SetupKeypair::new(
-            VerificationKey { raw: serialized_vk },
+            VerificationKey {
+                index_comms: vk
+                    .index_comms
+                    .into_iter()
+                    .map(|c| parse_g1::<T>(&c.comm.0))
+                    .collect(),
+                num_constraints: vk.index_info.num_constraints,
+                num_non_zero: vk.index_info.num_non_zero,
+                num_instance_variables: vk.index_info.num_instance_variables,
+                num_variables: vk.index_info.num_variables,
+                vk: KZGVerifierKey {
+                    g: parse_g1::<T>(&vk.verifier_key.vk.g),
+                    gamma_g: parse_g1::<T>(&vk.verifier_key.vk.gamma_g),
+                    h: parse_g2::<T>(&vk.verifier_key.vk.h),
+                    beta_h: parse_g2::<T>(&vk.verifier_key.vk.beta_h),
+                },
+                max_degree: vk.verifier_key.max_degree,
+                supported_degree: vk.verifier_key.supported_degree,
+            },
             serialized_pk,
         ))
     }
@@ -167,8 +187,39 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 T::ArkEngine,
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
-        >::deserialize_uncompressed(&mut vk.raw.as_slice())
-        .unwrap();
+        > {
+            index_info: unimplemented!(
+                "there is no way to create an IndexInfo instance as f is private"
+            ),
+            // IndexInfo {
+            //     num_variables: vk.num_variables,
+            //     num_constraints: vk.num_constraints,
+            //     num_non_zero: vk.num_non_zero,
+            //     num_instance_variables: vk.num_instance_variables,
+            //     f: PhantomData::new()
+            // },
+            index_comms: vk
+                .index_comms
+                .into_iter()
+                .map(|c| Commitment {
+                    comm: KZG10Commitment(serialization::to_g1::<T>(c)),
+                    shifted_comm: None,
+                })
+                .collect(),
+            verifier_key: VerifierKey {
+                degree_bounds_and_shift_powers: unimplemented!(),
+                max_degree: vk.max_degree,
+                supported_degree: vk.supported_degree,
+                vk: KZG10VerifierKey {
+                    g: serialization::to_g1::<T>(vk.vk.g),
+                    gamma_g: serialization::to_g1::<T>(vk.vk.gamma_g),
+                    h: serialization::to_g2::<T>(vk.vk.h),
+                    beta_h: serialization::to_g2::<T>(vk.vk.beta_h),
+                    prepared_h: serialization::to_g2::<T>(vk.vk.h).into(),
+                    prepared_beta_h: serialization::to_g2::<T>(vk.vk.beta_h).into(),
+                },
+            },
+        };
 
         use rand_0_7::SeedableRng;
 

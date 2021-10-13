@@ -277,3 +277,48 @@ mod parse {
         format!("0x{}", hex::encode(&bytes))
     }
 }
+
+pub mod serialization {
+    use crate::proof_system::{G1Affine, G2Affine, G2AffineFq};
+    use ark_ec::PairingEngine;
+    use ark_ff::FromBytes;
+    use zokrates_field::ArkFieldExtensions;
+
+    #[inline]
+    fn decode_hex(value: String) -> Vec<u8> {
+        let mut bytes = hex::decode(value.strip_prefix("0x").unwrap()).unwrap();
+        bytes.reverse();
+        bytes
+    }
+
+    pub fn to_g1<T: ArkFieldExtensions>(g1: G1Affine) -> <T::ArkEngine as PairingEngine>::G1Affine {
+        let mut bytes = vec![];
+        bytes.append(&mut decode_hex(g1.0));
+        bytes.append(&mut decode_hex(g1.1));
+        bytes.push(0u8); // infinity flag
+
+        <T::ArkEngine as PairingEngine>::G1Affine::read(&*bytes).unwrap()
+    }
+
+    pub fn to_g2<T: ArkFieldExtensions>(g2: G2Affine) -> <T::ArkEngine as PairingEngine>::G2Affine {
+        let mut bytes = vec![];
+        bytes.append(&mut decode_hex((g2.0).0));
+        bytes.append(&mut decode_hex((g2.0).1));
+        bytes.append(&mut decode_hex((g2.1).0));
+        bytes.append(&mut decode_hex((g2.1).1));
+        bytes.push(0u8); // infinity flag
+
+        <T::ArkEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
+    }
+
+    pub fn to_g2_fq<T: ArkFieldExtensions>(
+        g2: G2AffineFq,
+    ) -> <T::ArkEngine as PairingEngine>::G2Affine {
+        let mut bytes = vec![];
+        bytes.append(&mut decode_hex(g2.0));
+        bytes.append(&mut decode_hex(g2.1));
+        bytes.push(0u8); // infinity flag
+
+        <T::ArkEngine as PairingEngine>::G2Affine::read(&*bytes).unwrap()
+    }
+}
