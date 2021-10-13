@@ -12,7 +12,7 @@ use crate::ir::Interpreter;
 
 use crate::compile::CompileConfig;
 use crate::embed::FlatEmbed;
-use crate::flat_absy::*;
+use crate::flat_absy::{RuntimeError, *};
 use crate::solvers::Solver;
 use crate::zir::types::{Type, UBitwidth};
 use crate::zir::*;
@@ -146,11 +146,11 @@ impl<T: Field> FlatUExpression<T> {
     }
 }
 
-impl From<AssertionType> for RuntimeError {
-    fn from(ty: AssertionType) -> Self {
-        match ty {
-            AssertionType::Source(s) => RuntimeError::Source(s),
-            AssertionType::SelectRangeCheck => RuntimeError::SelectRangeCheck,
+impl From<crate::zir::RuntimeError> for RuntimeError {
+    fn from(error: crate::zir::RuntimeError) -> Self {
+        match error {
+            crate::zir::RuntimeError::SourceAssertion(s) => RuntimeError::SourceAssertion(s),
+            crate::zir::RuntimeError::SelectRangeCheck => RuntimeError::SelectRangeCheck,
         }
     }
 }
@@ -2379,13 +2379,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .insert(FlatExpression::Identifier(var), bits);
                 }
             }
-            ZirStatement::Assertion(e, ty) => {
+            ZirStatement::Assertion(e, error) => {
                 match e {
                     BooleanExpression::And(..) => {
                         for boolean in e.into_conjunction_iterator() {
                             self.flatten_statement(
                                 statements_flattened,
-                                ZirStatement::Assertion(boolean, ty.clone()),
+                                ZirStatement::Assertion(boolean, error.clone()),
                             )
                         }
                     }
@@ -2393,7 +2393,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let lhs = self.flatten_field_expression(statements_flattened, lhs);
                         let rhs = self.flatten_field_expression(statements_flattened, rhs);
 
-                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, ty)
+                        self.flatten_equality_assertion(
+                            statements_flattened,
+                            lhs,
+                            rhs,
+                            error.into(),
+                        )
                     }
                     BooleanExpression::UintEq(box lhs, box rhs) => {
                         let lhs = self
@@ -2403,13 +2408,23 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .flatten_uint_expression(statements_flattened, rhs)
                             .get_field_unchecked();
 
-                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, ty)
+                        self.flatten_equality_assertion(
+                            statements_flattened,
+                            lhs,
+                            rhs,
+                            error.into(),
+                        )
                     }
                     BooleanExpression::BoolEq(box lhs, box rhs) => {
                         let lhs = self.flatten_boolean_expression(statements_flattened, lhs);
                         let rhs = self.flatten_boolean_expression(statements_flattened, rhs);
 
-                        self.flatten_equality_assertion(statements_flattened, lhs, rhs, ty)
+                        self.flatten_equality_assertion(
+                            statements_flattened,
+                            lhs,
+                            rhs,
+                            error.into(),
+                        )
                     }
                     _ => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
@@ -2419,14 +2434,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             statements_flattened.push(FlatStatement::Condition(
                                 e,
                                 FlatExpression::Number(T::from(1)),
-                                ty.into(),
+                                error.into(),
                             ));
                         } else {
                             // swap so that left side is linear
                             statements_flattened.push(FlatStatement::Condition(
                                 FlatExpression::Number(T::from(1)),
                                 e,
-                                ty.into(),
+                                error.into(),
                             ));
                         }
                     }
@@ -2538,7 +2553,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         lhs: FlatExpression<T>,
         rhs: FlatExpression<T>,
-        assertion_type: AssertionType,
+        error: RuntimeError,
     ) {
         let (lhs, rhs) = match (lhs, rhs) {
             (FlatExpression::Mult(box x, box y), z) | (z, FlatExpression::Mult(box x, box y)) => (
@@ -2556,7 +2571,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ),
             ),
         };
-        statements_flattened.push(FlatStatement::Condition(lhs, rhs, assertion_type.into()));
+        statements_flattened.push(FlatStatement::Condition(lhs, rhs, error));
     }
 
     /// Identifies a non-linear expression by assigning it to a new identifier.
@@ -2663,6 +2678,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::zir;
     use crate::zir::types::Signature;
     use crate::zir::types::Type;
     use zokrates_field::Bn128Field;
@@ -2694,7 +2710,7 @@ mod tests {
                         box BooleanExpression::Identifier("x".into()),
                         box BooleanExpression::Identifier("y".into()),
                     ),
-                    AssertionType::Source("".to_string()),
+                    zir::RuntimeError::mock(),
                 ),
             ],
             signature: Signature {
@@ -2724,7 +2740,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Source("".to_string()),
+                    zir::RuntimeError::mock().into(),
                 ),
             ],
         };
@@ -2762,7 +2778,7 @@ mod tests {
                         ),
                         box FieldElementExpression::Identifier("y".into()),
                     ),
-                    AssertionType::Source("".to_string()),
+                    zir::RuntimeError::mock(),
                 ),
             ],
             signature: Signature {
@@ -2795,7 +2811,7 @@ mod tests {
                         ),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Source("".to_string()),
+                    zir::RuntimeError::mock().into(),
                 ),
             ],
         };
@@ -2834,7 +2850,7 @@ mod tests {
                             .metadata(metadata.clone()),
                         box UExpressionInner::Value(42).annotate(32).metadata(metadata),
                     ),
-                    AssertionType::Source("".to_string()),
+                    zir::RuntimeError::mock(),
                 ),
             ],
             signature: Signature {
@@ -2860,7 +2876,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Source("".to_string()),
+                    zir::RuntimeError::mock().into(),
                 ),
             ],
         };
@@ -2895,7 +2911,7 @@ mod tests {
                         box FieldElementExpression::Identifier("x".into()),
                         box FieldElementExpression::Identifier("y".into()),
                     ),
-                    AssertionType::Source("".to_string()),
+                    zir::RuntimeError::mock(),
                 ),
             ],
             signature: Signature {
@@ -2925,7 +2941,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Number(Bn128Field::from(1)),
                     ),
-                    RuntimeError::Source("".to_string()),
+                    zir::RuntimeError::mock().into(),
                 ),
             ],
         };
@@ -2969,7 +2985,7 @@ mod tests {
                         ),
                         box FieldElementExpression::Identifier("z".into()),
                     ),
-                    AssertionType::Source("".to_string()),
+                    zir::RuntimeError::mock(),
                 ),
             ],
             signature: Signature {
@@ -3003,7 +3019,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Source("".to_string()),
+                    zir::RuntimeError::mock().into(),
                 ),
             ],
         };
@@ -3047,7 +3063,7 @@ mod tests {
                             box FieldElementExpression::Identifier("y".into()),
                         ),
                     ),
-                    AssertionType::Source("".to_string()),
+                    zir::RuntimeError::mock(),
                 ),
             ],
             signature: Signature {
@@ -3081,7 +3097,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Source("".to_string()),
+                    zir::RuntimeError::mock().into(),
                 ),
             ],
         };
@@ -3135,7 +3151,7 @@ mod tests {
                             box FieldElementExpression::Identifier("t".into()),
                         ),
                     ),
-                    AssertionType::Source("".to_string()),
+                    zir::RuntimeError::mock(),
                 ),
             ],
             signature: Signature {
@@ -3180,7 +3196,7 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                         box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
-                    RuntimeError::Source("".to_string()),
+                    zir::RuntimeError::mock().into(),
                 ),
             ],
         };

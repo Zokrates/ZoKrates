@@ -86,16 +86,16 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirFunction<'ast, T> {
 pub type ZirAssignee<'ast> = Variable<'ast>;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub enum AssertionType {
-    Source(String),
+pub enum RuntimeError {
+    SourceAssertion(String),
     SelectRangeCheck,
 }
 
-impl fmt::Display for AssertionType {
+impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AssertionType::Source(message) => write!(f, "{}", message),
-            AssertionType::SelectRangeCheck => write!(f, "Range check on array access"),
+            RuntimeError::SourceAssertion(message) => write!(f, "{}", message),
+            RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
         }
     }
 }
@@ -110,7 +110,7 @@ pub enum ZirStatement<'ast, T> {
         Vec<ZirStatement<'ast, T>>,
         Vec<ZirStatement<'ast, T>>,
     ),
-    Assertion(BooleanExpression<'ast, T>, AssertionType),
+    Assertion(BooleanExpression<'ast, T>, RuntimeError),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
 }
 
@@ -145,11 +145,11 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                         .join("\n")
                 )
             }
-            ZirStatement::Assertion(ref e, ref ty) => {
+            ZirStatement::Assertion(ref e, ref error) => {
                 write!(f, "assert({}", e)?;
-                match ty {
-                    AssertionType::Source(message) => write!(f, ", \"{}\")", message),
-                    internal => write!(f, ") // {}", internal),
+                match error {
+                    RuntimeError::SourceAssertion(message) => write!(f, ", \"{}\")", message),
+                    error => write!(f, ") // {}", error),
                 }
             }
             ZirStatement::MultipleDefinition(ref ids, ref rhs) => {

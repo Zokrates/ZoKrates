@@ -51,9 +51,9 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         s: ZirStatement<'ast, T>,
     ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
         match s {
-            ZirStatement::Assertion(e, m) => match self.fold_boolean_expression(e)? {
+            ZirStatement::Assertion(e, error) => match self.fold_boolean_expression(e)? {
                 BooleanExpression::Value(true) => Ok(vec![]),
-                e => Ok(vec![ZirStatement::Assertion(e, m)]),
+                e => Ok(vec![ZirStatement::Assertion(e, error)]),
             },
             ZirStatement::Definition(a, e) => {
                 let e = self.fold_expression(e)?;
@@ -654,8 +654,14 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::zir::AssertionType;
+    use crate::zir::RuntimeError;
     use zokrates_field::Bn128Field;
+
+    impl RuntimeError {
+        pub fn mock() -> Self {
+            RuntimeError::SourceAssertion(String::default())
+        }
+    }
 
     #[test]
     fn propagation() {
@@ -671,7 +677,7 @@ mod tests {
                     box FieldElementExpression::Number(Bn128Field::from(1)),
                 ),
             ),
-            AssertionType::Source("".to_string()),
+            RuntimeError::mock(),
         )];
 
         let mut propagator = ZirPropagator::default();
@@ -691,7 +697,7 @@ mod tests {
                     box FieldElementExpression::Identifier("x".into()),
                     box FieldElementExpression::Identifier("y".into()),
                 ),
-                AssertionType::Source("".to_string())
+                RuntimeError::mock()
             )]
         );
     }

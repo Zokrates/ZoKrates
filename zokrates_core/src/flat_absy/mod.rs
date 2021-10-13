@@ -43,7 +43,7 @@ pub enum RuntimeError {
     Euclidean,
     ShaXor,
     Division,
-    Source(String),
+    SourceAssertion(String),
     ArgumentBitness,
     SelectRangeCheck,
 }
@@ -54,7 +54,7 @@ impl RuntimeError {
 
         !matches!(
             self,
-            Source(_) | Inverse | LtSum | SelectRangeCheck | ArgumentBitness
+            SourceAssertion(_) | Inverse | LtSum | SelectRangeCheck | ArgumentBitness
         )
     }
 }
@@ -87,7 +87,7 @@ impl fmt::Display for RuntimeError {
             Euclidean => "Euclidean check failed",
             ShaXor => "Internal Sha check failed",
             Division => "Division check failed",
-            Source(m) => m.as_str(),
+            SourceAssertion(m) => m.as_str(),
             ArgumentBitness => "Argument bitness check failed",
             SelectRangeCheck => "Out of bounds array access",
         };
