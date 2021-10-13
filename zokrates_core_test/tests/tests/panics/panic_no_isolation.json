@@ -21,7 +21,7 @@
                         "left": "1",
                         "right": "0",
                         "error": {
-                          "Source": "Assertion failed at ./tests/tests/panics/panic_isolation.zok:14:5"
+                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/panic_isolation.zok:14:5"
                         }
                     }
                 }
