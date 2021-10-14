@@ -620,15 +620,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 Ok(statements)
             }
-            TypedStatement::Assertion(e) => {
+            TypedStatement::Assertion(e, ty) => {
                 let e_str = e.to_string();
                 let expr = self.fold_boolean_expression(e)?;
                 match expr {
-                    BooleanExpression::Value(v) if !v => Err(Error::AssertionFailed(format!(
-                        "Assertion failed on expression `{}`",
-                        e_str
-                    ))),
-                    _ => Ok(vec![TypedStatement::Assertion(expr)]),
+                    BooleanExpression::Value(v) if !v => {
+                        Err(Error::AssertionFailed(format!("{}: ({})", ty, e_str)))
+                    }
+                    _ => Ok(vec![TypedStatement::Assertion(expr, ty)]),
                 }
             }
             s @ TypedStatement::PushCallLog(..) => Ok(vec![s]),
@@ -984,7 +983,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     }
 
     fn fold_select_expression<
-        E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+        E: Expr<'ast, T>
+            + Select<'ast, T>
+            + From<TypedExpression<'ast, T>>
+            + Into<TypedExpression<'ast, T>>,
     >(
         &mut self,
         _: &E::Ty,
@@ -1001,12 +1003,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 (ArrayExpressionInner::Value(v), UExpressionInner::Value(n)) => {
                     if n < size {
                         Ok(SelectOrExpression::Expression(
-                            E::from(
-                                v.expression_at::<StructExpression<'ast, T>>(n as usize)
-                                    .unwrap()
-                                    .clone(),
-                            )
-                            .into_inner(),
+                            v.expression_at::<E>(n as usize).unwrap().into_inner(),
                         ))
                     } else {
                         Err(Error::OutOfBounds(n, size))
@@ -1018,14 +1015,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             TypedExpression::Array(a) => match a.as_inner() {
                                 ArrayExpressionInner::Value(v) => {
                                     Ok(SelectOrExpression::Expression(
-                                        E::from(
-                                            v.expression_at::<StructExpression<'ast, T>>(
-                                                n as usize,
-                                            )
-                                            .unwrap()
-                                            .clone(),
-                                        )
-                                        .into_inner(),
+                                        v.expression_at::<E>(n as usize).unwrap().into_inner(),
                                     ))
                                 }
                                 _ => unreachable!("should be an array value"),

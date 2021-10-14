@@ -2,8 +2,8 @@ use crate::zir::result_folder::fold_statement;
 use crate::zir::result_folder::ResultFolder;
 use crate::zir::types::UBitwidth;
 use crate::zir::{
-    BooleanExpression, FieldElementExpression, Identifier, UExpression, UExpressionInner,
-    ZirExpression, ZirProgram, ZirStatement,
+    BooleanExpression, FieldElementExpression, Identifier, RuntimeError, UExpression,
+    UExpressionInner, ZirExpression, ZirProgram, ZirStatement,
 };
 use std::collections::HashMap;
 use std::fmt;
@@ -15,7 +15,7 @@ type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
 pub enum Error {
     OutOfBounds(u128, u128),
     DivisionByZero,
-    AssertionFailed,
+    AssertionFailed(RuntimeError),
 }
 
 impl fmt::Display for Error {
@@ -29,7 +29,7 @@ impl fmt::Display for Error {
             Error::DivisionByZero => {
                 write!(f, "Division by zero detected in zir during static analysis",)
             }
-            Error::AssertionFailed => write!(f, "User assertion failed"),
+            Error::AssertionFailed(err) => write!(f, "{}", err),
         }
     }
 }
@@ -53,10 +53,10 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         s: ZirStatement<'ast, T>,
     ) -> Result<Vec<ZirStatement<'ast, T>>, Self::Error> {
         match s {
-            ZirStatement::Assertion(e) => match self.fold_boolean_expression(e)? {
+            ZirStatement::Assertion(e, error) => match self.fold_boolean_expression(e)? {
                 BooleanExpression::Value(true) => Ok(vec![]),
-                BooleanExpression::Value(false) => Err(Error::AssertionFailed),
-                e => Ok(vec![ZirStatement::Assertion(e)]),
+                BooleanExpression::Value(false) => Err(Error::AssertionFailed(error)),
+                e => Ok(vec![ZirStatement::Assertion(e, error)]),
             },
             ZirStatement::Definition(a, e) => {
                 let e = self.fold_expression(e)?;
@@ -657,21 +657,31 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::zir::RuntimeError;
     use zokrates_field::Bn128Field;
+
+    impl RuntimeError {
+        pub fn mock() -> Self {
+            RuntimeError::SourceAssertion(String::default())
+        }
+    }
 
     #[test]
     fn propagation() {
         // assert([x, 1] == [y, 1])
-        let statements = vec![ZirStatement::Assertion(BooleanExpression::And(
-            box BooleanExpression::FieldEq(
-                box FieldElementExpression::Identifier("x".into()),
-                box FieldElementExpression::Identifier("y".into()),
+        let statements = vec![ZirStatement::Assertion(
+            BooleanExpression::And(
+                box BooleanExpression::FieldEq(
+                    box FieldElementExpression::Identifier("x".into()),
+                    box FieldElementExpression::Identifier("y".into()),
+                ),
+                box BooleanExpression::FieldEq(
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                ),
             ),
-            box BooleanExpression::FieldEq(
-                box FieldElementExpression::Number(Bn128Field::from(1)),
-                box FieldElementExpression::Number(Bn128Field::from(1)),
-            ),
-        ))];
+            RuntimeError::mock(),
+        )];
 
         let mut propagator = ZirPropagator::default();
         let statements: Vec<ZirStatement<_>> = statements
@@ -685,10 +695,13 @@ mod tests {
 
         assert_eq!(
             statements,
-            vec![ZirStatement::Assertion(BooleanExpression::FieldEq(
-                box FieldElementExpression::Identifier("x".into()),
-                box FieldElementExpression::Identifier("y".into()),
-            ))]
+            vec![ZirStatement::Assertion(
+                BooleanExpression::FieldEq(
+                    box FieldElementExpression::Identifier("x".into()),
+                    box FieldElementExpression::Identifier("y".into()),
+                ),
+                RuntimeError::mock()
+            )]
         );
     }
 

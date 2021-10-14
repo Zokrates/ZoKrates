@@ -531,7 +531,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     }
                 }
             }
-            ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right)) => {
+            ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right), metadata) => {
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
 
@@ -539,9 +539,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = force_reduce(left);
                 let right = force_reduce(right);
 
-                vec![ZirStatement::Assertion(BooleanExpression::UintEq(
-                    box left, box right,
-                ))]
+                vec![ZirStatement::Assertion(
+                    BooleanExpression::UintEq(box left, box right),
+                    metadata,
+                )]
             }
             s => fold_statement(self, s),
         }

@@ -1733,13 +1733,20 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .map(|rhs| TypedStatement::Definition(var, rhs))
                 .map_err(|e| vec![e])
             }
-            Statement::Assertion(e) => {
+            Statement::Assertion(e, message) => {
                 let e = self
                     .check_expression(e, module_id, types)
                     .map_err(|e| vec![e])?;
 
                 match e {
-                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(e)),
+                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
+                        e,
+                        RuntimeError::SourceAssertion(AssertionMetadata {
+                            file: module_id.display().to_string(),
+                            position: pos.0,
+                            message,
+                        }),
+                    )),
                     e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
@@ -1763,7 +1770,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::MultipleDefinition(assignees, rhs) => {
                 match rhs.value {
                     // Right side has to be a function call
-                    Expression::FunctionCall(fun_id, generics, arguments) => {
+                    Expression::FunctionCall(fun_id_expression, generics, arguments) => {
+
+                        let fun_id = match fun_id_expression.value {
+                            Expression::Identifier(id) => Ok(id),
+                            e => Err(vec![ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Expected function in function call to be an identifier, found {}",
+                                    e
+                                ),
+                            }])
+                        }?;
+
                         // check the generic arguments, if any
                         let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
                             .map(|generics|
@@ -2317,7 +2336,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
             Expression::U64Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(64).into()),
-            Expression::FunctionCall(fun_id, generics, arguments) => {
+            Expression::FunctionCall(fun_id_expression, generics, arguments) => {
+                let fun_id = match fun_id_expression.value {
+                    Expression::Identifier(id) => Ok(id),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected function in function call to be an identifier, found `{}`",
+                            e
+                        ),
+                    }),
+                }?;
+
                 // check the generic arguments, if any
                 let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
                     .map(|generics| {
@@ -4513,7 +4543,8 @@ mod tests {
             .mock(),
             Statement::MultipleDefinition(
                 vec![Assignee::Identifier("a").mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4570,9 +4601,15 @@ mod tests {
             Statement::Assertion(
                 Expression::Eq(
                     box Expression::IntConstant(2usize.into()).mock(),
-                    box Expression::FunctionCall("foo", None, vec![]).mock(),
+                    box Expression::FunctionCall(
+                        box Expression::Identifier("foo").mock(),
+                        None,
+                        vec![],
+                    )
+                    .mock(),
                 )
                 .mock(),
+                None,
             )
             .mock(),
             Statement::Return(
@@ -4629,7 +4666,8 @@ mod tests {
             .mock(),
             Statement::MultipleDefinition(
                 vec![Assignee::Identifier("a").mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4714,8 +4752,12 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![Expression::Identifier("x").mock()])
-                    .mock(),
+                Expression::FunctionCall(
+                    box Expression::Identifier("foo").mock(),
+                    None,
+                    vec![Expression::Identifier("x").mock()],
+                )
+                .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4803,7 +4845,8 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4918,7 +4961,8 @@ mod tests {
                     ),
                 )
                 .mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4970,9 +5014,15 @@ mod tests {
             Statement::Assertion(
                 Expression::Eq(
                     box Expression::IntConstant(1usize.into()).mock(),
-                    box Expression::FunctionCall("foo", None, vec![]).mock(),
+                    box Expression::FunctionCall(
+                        box Expression::Identifier("foo").mock(),
+                        None,
+                        vec![],
+                    )
+                    .mock(),
                 )
                 .mock(),
+                None,
             )
             .mock(),
             Statement::Return(
@@ -5068,7 +5118,8 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -6125,7 +6176,7 @@ mod tests {
             main.value.statements = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![Expression::FunctionCall(
-                        "foo",
+                        box Expression::Identifier("foo").mock(),
                         None,
                         vec![Expression::IntConstant(0usize.into()).mock()],
                     )
