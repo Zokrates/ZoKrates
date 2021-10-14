@@ -337,7 +337,7 @@ pub enum Statement<'ast> {
     Return(ExpressionListNode<'ast>),
     Declaration(VariableNode<'ast>),
     Definition(AssigneeNode<'ast>, ExpressionNode<'ast>),
-    Assertion(ExpressionNode<'ast>),
+    Assertion(ExpressionNode<'ast>, Option<String>),
     For(
         VariableNode<'ast>,
         ExpressionNode<'ast>,
@@ -355,7 +355,13 @@ impl<'ast> fmt::Display for Statement<'ast> {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Declaration(ref var) => write!(f, "{}", var),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            Statement::Assertion(ref e) => write!(f, "assert({})", e),
+            Statement::Assertion(ref e, ref message) => {
+                write!(f, "assert({}", e)?;
+                match message {
+                    Some(m) => write!(f, ", \"{}\")", m),
+                    None => write!(f, ")"),
+                }
+            }
             Statement::For(ref var, ref start, ref stop, ref list) => {
                 writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {

@@ -24,6 +24,7 @@ pub use self::types::{
     DeclarationSignature, DeclarationStructType, DeclarationType, GArrayType, GStructType, GType,
     GenericIdentifier, IntoTypes, Signature, StructType, Type, Types, UBitwidth,
 };
+use crate::parser::Position;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
@@ -575,6 +576,38 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Hash, Eq, Default, PartialOrd, Ord)]
+pub struct AssertionMetadata {
+    pub file: String,
+    pub position: Position,
+    pub message: Option<String>,
+}
+
+impl fmt::Display for AssertionMetadata {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Assertion failed at {}:{}", self.file, self.position)?;
+        match &self.message {
+            Some(m) => write!(f, ": \"{}\"", m),
+            None => write!(f, ""),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+pub enum RuntimeError {
+    SourceAssertion(AssertionMetadata),
+    SelectRangeCheck,
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RuntimeError::SourceAssertion(metadata) => write!(f, "{}", metadata),
+            RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
+        }
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
@@ -582,7 +615,7 @@ pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast, T>),
-    Assertion(BooleanExpression<'ast, T>),
+    Assertion(BooleanExpression<'ast, T>, RuntimeError),
     For(
         Variable<'ast, T>,
         UExpression<'ast, T>,
@@ -630,7 +663,16 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
+            TypedStatement::Assertion(ref e, ref error) => {
+                write!(f, "assert({}", e)?;
+                match error {
+                    RuntimeError::SourceAssertion(metadata) => match &metadata.message {
+                        Some(m) => write!(f, ", \"{}\")", m),
+                        None => write!(f, ")"),
+                    },
+                    error => write!(f, ") // {}", error),
+                }
+            }
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {

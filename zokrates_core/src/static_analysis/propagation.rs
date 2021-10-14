@@ -620,15 +620,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 Ok(statements)
             }
-            TypedStatement::Assertion(e) => {
+            TypedStatement::Assertion(e, ty) => {
                 let e_str = e.to_string();
                 let expr = self.fold_boolean_expression(e)?;
                 match expr {
-                    BooleanExpression::Value(v) if !v => Err(Error::AssertionFailed(format!(
-                        "Assertion failed on expression `{}`",
-                        e_str
-                    ))),
-                    _ => Ok(vec![TypedStatement::Assertion(expr)]),
+                    BooleanExpression::Value(v) if !v => {
+                        Err(Error::AssertionFailed(format!("{}: ({})", ty, e_str)))
+                    }
+                    _ => Ok(vec![TypedStatement::Assertion(expr, ty)]),
                 }
             }
             s @ TypedStatement::PushCallLog(..) => Ok(vec![s]),
