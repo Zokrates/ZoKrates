@@ -1,0 +1,1 @@
+Make field to uint casts truncate values bigger than uint max

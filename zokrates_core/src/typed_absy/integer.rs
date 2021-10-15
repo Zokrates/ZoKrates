@@ -600,7 +600,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                         inline_array
                             .into_iter()
                             .map(|v| {
-                                TypedExpressionOrSpread::align_to_type(v, &target_array_ty).map_err(
+                                TypedExpressionOrSpread::align_to_type(v, target_array_ty).map_err(
                                     |(e, _)| match e {
                                         TypedExpressionOrSpread::Expression(e) => e,
                                         TypedExpressionOrSpread::Spread(a) => {
@@ -623,7 +623,7 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
                     GType::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
                         .annotate(Type::Int, array_ty.size)),
                     // try to align the repeated element to the target type
-                    t => TypedExpression::align_to_type(e, &t)
+                    t => TypedExpression::align_to_type(e, t)
                         .map(|e| {
                             let ty = e.get_type().clone();
 

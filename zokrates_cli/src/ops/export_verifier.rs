@@ -99,7 +99,7 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
     let mut writer = BufWriter::new(output_file);
 
     writer
-        .write_all(&verifier.as_bytes())
+        .write_all(verifier.as_bytes())
         .map_err(|_| "Failed writing output to file".to_string())?;
 
     println!("Verifier exported to '{}'", output_path.display());
