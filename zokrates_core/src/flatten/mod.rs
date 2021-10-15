@@ -706,6 +706,21 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     RuntimeError::LtFinalSum,
                 ));
 
+                // to make this check symetric, we ban the value `a - b == -2**N`, as the value `a - b == 2**N` is already banned
+                let fail = self.eq_check(
+                    statements_flattened,
+                    FlatExpression::Sub(
+                        box FlatExpression::Identifier(rhs_id),
+                        box FlatExpression::Identifier(lhs_id),
+                    ),
+                    FlatExpression::Number(T::from(2).pow(bit_width)),
+                );
+                statements_flattened.push(FlatStatement::Condition(
+                    fail,
+                    FlatExpression::Number(T::from(0)),
+                    RuntimeError::LtSymetric,
+                ));
+
                 FlatExpression::Sub(
                     box FlatExpression::Number(T::one()),
                     box FlatExpression::Identifier(shifted_sub_bits_be[0]),
