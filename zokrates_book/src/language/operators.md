@@ -16,10 +16,12 @@ The following table lists the precedence and associativity of all operators. Ope
 | `!=`<br>`==`<br>           | Not Equal<br>Equal<br>                                     | &check;                      | &check;                       | &check;                     | Left          |         |
 | `&&`                       | Boolean AND                                                | &nbsp;                       | &nbsp;                        | &check;                     | Left          |         |
 | <code>&#124;&#124;</code>  | Boolean OR                                                 | &nbsp;                       | &nbsp;                        | &check;                     | Left          |         |
-| `if c then x else y fi`    | Conditional expression                                     | &check;                      | &check;                       | &check;                     | Right         |         |
+| `if c then x else y fi`    | Conditional expression                                     | &check;                      | &check;                       | &check;                     | Right         | [^4]    |
 
 [^1]: The exponent must be a compile-time constant of type `u32`
 
 [^2]: The right operand must be a compile time constant of type `u32`
 
 [^3]: Both operands are asserted to be strictly lower than the biggest power of 2 lower than `p/2`, unless one of them can be determined to be a compile-time constant
+
+[^4]: Conditional expression can also be written using a ternary operator: `c ? x : y`

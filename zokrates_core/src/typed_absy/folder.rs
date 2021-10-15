@@ -284,18 +284,18 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_block_expression(self, block)
     }
 
-    fn fold_if_else_expression<
+    fn fold_conditional_expression<
         E: Expr<'ast, T>
             + Fold<'ast, T>
             + Block<'ast, T>
-            + IfElse<'ast, T>
+            + Conditional<'ast, T>
             + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
         ty: &E::Ty,
-        e: IfElseExpression<'ast, T, E>,
-    ) -> IfElseOrExpression<'ast, T, E> {
-        fold_if_else_expression(self, ty, e)
+        e: ConditionalExpression<'ast, T, E>,
+    ) -> ConditionalOrExpression<'ast, T, E> {
+        fold_conditional_expression(self, ty, e)
     }
 
     fn fold_member_expression<
@@ -319,7 +319,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_select_expression<
-        E: Expr<'ast, T> + Select<'ast, T> + IfElse<'ast, T> + From<TypedExpression<'ast, T>>,
+        E: Expr<'ast, T> + Select<'ast, T> + Conditional<'ast, T> + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
         ty: &E::Ty,
@@ -506,9 +506,9 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        ArrayExpressionInner::IfElse(c) => match f.fold_if_else_expression(ty, c) {
-            IfElseOrExpression::IfElse(s) => ArrayExpressionInner::IfElse(s),
-            IfElseOrExpression::Expression(u) => u,
+        ArrayExpressionInner::Conditional(c) => match f.fold_conditional_expression(ty, c) {
+            ConditionalOrExpression::Conditional(s) => ArrayExpressionInner::Conditional(s),
+            ConditionalOrExpression::Expression(u) => u,
         },
         ArrayExpressionInner::Select(select) => match f.fold_select_expression(ty, select) {
             SelectOrExpression::Select(s) => ArrayExpressionInner::Select(s),
@@ -553,9 +553,9 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        StructExpressionInner::IfElse(c) => match f.fold_if_else_expression(ty, c) {
-            IfElseOrExpression::IfElse(s) => StructExpressionInner::IfElse(s),
-            IfElseOrExpression::Expression(u) => u,
+        StructExpressionInner::Conditional(c) => match f.fold_conditional_expression(ty, c) {
+            ConditionalOrExpression::Conditional(s) => StructExpressionInner::Conditional(s),
+            ConditionalOrExpression::Expression(u) => u,
         },
         StructExpressionInner::Select(select) => match f.fold_select_expression(ty, select) {
             SelectOrExpression::Select(s) => StructExpressionInner::Select(s),
@@ -615,10 +615,10 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
 
             FieldElementExpression::Pos(box e)
         }
-        FieldElementExpression::IfElse(c) => {
-            match f.fold_if_else_expression(&Type::FieldElement, c) {
-                IfElseOrExpression::IfElse(s) => FieldElementExpression::IfElse(s),
-                IfElseOrExpression::Expression(u) => u,
+        FieldElementExpression::Conditional(c) => {
+            match f.fold_conditional_expression(&Type::FieldElement, c) {
+                ConditionalOrExpression::Conditional(s) => FieldElementExpression::Conditional(s),
+                ConditionalOrExpression::Expression(u) => u,
             }
         }
         FieldElementExpression::FunctionCall(function_call) => {
@@ -643,20 +643,21 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_if_else_expression<
+pub fn fold_conditional_expression<
     'ast,
     T: Field,
-    E: Expr<'ast, T> + Fold<'ast, T> + IfElse<'ast, T> + From<TypedExpression<'ast, T>>,
+    E: Expr<'ast, T> + Fold<'ast, T> + Conditional<'ast, T> + From<TypedExpression<'ast, T>>,
     F: Folder<'ast, T>,
 >(
     f: &mut F,
     _: &E::Ty,
-    e: IfElseExpression<'ast, T, E>,
-) -> IfElseOrExpression<'ast, T, E> {
-    IfElseOrExpression::IfElse(IfElseExpression::new(
+    e: ConditionalExpression<'ast, T, E>,
+) -> ConditionalOrExpression<'ast, T, E> {
+    ConditionalOrExpression::Conditional(ConditionalExpression::new(
         f.fold_boolean_expression(*e.condition),
         e.consequence.fold(f),
         e.alternative.fold(f),
+        e.kind,
     ))
 }
 
@@ -679,7 +680,7 @@ pub fn fold_member_expression<
 pub fn fold_select_expression<
     'ast,
     T: Field,
-    E: Expr<'ast, T> + Select<'ast, T> + IfElse<'ast, T> + From<TypedExpression<'ast, T>>,
+    E: Expr<'ast, T> + Select<'ast, T> + Conditional<'ast, T> + From<TypedExpression<'ast, T>>,
     F: Folder<'ast, T>,
 >(
     f: &mut F,
@@ -794,9 +795,10 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        BooleanExpression::IfElse(c) => match f.fold_if_else_expression(&Type::Boolean, c) {
-            IfElseOrExpression::IfElse(s) => BooleanExpression::IfElse(s),
-            IfElseOrExpression::Expression(u) => u,
+        BooleanExpression::Conditional(c) => match f.fold_conditional_expression(&Type::Boolean, c)
+        {
+            ConditionalOrExpression::Conditional(s) => BooleanExpression::Conditional(s),
+            ConditionalOrExpression::Expression(u) => u,
         },
         BooleanExpression::Select(select) => match f.fold_select_expression(&Type::Boolean, select)
         {
@@ -922,9 +924,9 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             SelectOrExpression::Select(s) => UExpressionInner::Select(s),
             SelectOrExpression::Expression(u) => u,
         },
-        UExpressionInner::IfElse(c) => match f.fold_if_else_expression(&ty, c) {
-            IfElseOrExpression::IfElse(s) => UExpressionInner::IfElse(s),
-            IfElseOrExpression::Expression(u) => u,
+        UExpressionInner::Conditional(c) => match f.fold_conditional_expression(&ty, c) {
+            ConditionalOrExpression::Conditional(s) => UExpressionInner::Conditional(s),
+            ConditionalOrExpression::Expression(u) => u,
         },
         UExpressionInner::Member(m) => match f.fold_member_expression(&ty, m) {
             MemberOrExpression::Member(m) => UExpressionInner::Member(m),
