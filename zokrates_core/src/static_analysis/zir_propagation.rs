@@ -2,8 +2,8 @@ use crate::zir::result_folder::fold_statement;
 use crate::zir::result_folder::ResultFolder;
 use crate::zir::types::UBitwidth;
 use crate::zir::{
-    BooleanExpression, FieldElementExpression, Identifier, UExpression, UExpressionInner,
-    ZirExpression, ZirProgram, ZirStatement,
+    BooleanExpression, FieldElementExpression, Identifier, RuntimeError, UExpression,
+    UExpressionInner, ZirExpression, ZirProgram, ZirStatement,
 };
 use std::collections::HashMap;
 use std::fmt;
@@ -15,6 +15,7 @@ type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
 pub enum Error {
     OutOfBounds(u128, u128),
     DivisionByZero,
+    AssertionFailed(RuntimeError),
 }
 
 impl fmt::Display for Error {
@@ -28,6 +29,7 @@ impl fmt::Display for Error {
             Error::DivisionByZero => {
                 write!(f, "Division by zero detected in zir during static analysis",)
             }
+            Error::AssertionFailed(err) => write!(f, "{}", err),
         }
     }
 }
@@ -53,6 +55,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
         match s {
             ZirStatement::Assertion(e, error) => match self.fold_boolean_expression(e)? {
                 BooleanExpression::Value(true) => Ok(vec![]),
+                BooleanExpression::Value(false) => Err(Error::AssertionFailed(error)),
                 e => Ok(vec![ZirStatement::Assertion(e, error)]),
             },
             ZirStatement::Definition(a, e) => {
