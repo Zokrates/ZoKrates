@@ -42,7 +42,7 @@
 					"UnsatisfiedConstraint": {
 						"left": "1",
 						"right": "0",
-						"message": "Out of bounds array access"
+						"error": "SelectRangeCheck"
 					}
 				}
 			}
