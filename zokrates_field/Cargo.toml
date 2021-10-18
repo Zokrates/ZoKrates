@@ -23,11 +23,11 @@ num-integer = { version = "0.1", default-features = false }
 bellman_ce = { version = "^0.3", default-features = false, optional = true }
 
 # ark
-ark-ff = { version = "^0.2.0", default-features = false, optional = true }
-ark-ec = { version = "^0.2.0", default-features = false, optional = true }
-ark-bn254 = { version = "^0.2.0", features = ["curve"], default-features = false, optional = true }
-ark-bls12-377 = { version = "^0.2.0", features = ["curve"], default-features = false, optional = true }
-ark-bw6-761 = { version = "^0.2.0", default-features = false, optional = true }
+ark-ff = { version = "^0.3.0", default-features = false, optional = true }
+ark-ec = { version = "^0.3.0", default-features = false, optional = true }
+ark-bn254 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
+ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
+ark-bw6-761 = { version = "^0.3.0", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.4"

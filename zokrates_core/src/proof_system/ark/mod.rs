@@ -19,7 +19,7 @@ use zokrates_field::{ArkFieldExtensions, Field};
 
 pub use self::parse::*;
 
-use rand_0_7::SeedableRng;
+use rand_0_8::SeedableRng;
 
 pub struct Ark;
 
@@ -150,7 +150,7 @@ impl<T: Field + ArkFieldExtensions> Prog<T> {
 
 impl<T: Field + ArkFieldExtensions> Computation<T> {
     pub fn prove(self, params: &ProvingKey<T::ArkEngine>) -> Proof<T::ArkEngine> {
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
 
@@ -173,7 +173,7 @@ impl<T: Field + ArkFieldExtensions> Computation<T> {
     }
 
     pub fn setup(self) -> ProvingKey<T::ArkEngine> {
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         // run setup phase
         generate_random_parameters(self, rng).unwrap()

@@ -16,7 +16,6 @@ use ark_poly_commit::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use sha2::Sha256;
-use std::marker::PhantomData;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
@@ -32,9 +31,9 @@ const MINIMUM_CONSTRAINT_COUNT: usize = 2;
 
 impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark {
     fn universal_setup(size: u32) -> Vec<u8> {
-        use rand_0_7::SeedableRng;
+        use rand_0_8::SeedableRng;
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         let srs = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -95,7 +94,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
                 index_comms: vk
                     .index_comms
                     .into_iter()
-                    .map(|c| parse_g1::<T>(&c.comm.0))
+                    .map(|c| (parse_g1::<T>(&c.comm.0), None))
                     .collect(),
                 num_constraints: vk.index_info.num_constraints,
                 num_non_zero: vk.index_info.num_non_zero,
@@ -109,6 +108,13 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
                 },
                 max_degree: vk.verifier_key.max_degree,
                 supported_degree: vk.verifier_key.supported_degree,
+                degree_bounds_and_shift_powers: vk.verifier_key.degree_bounds_and_shift_powers.map(
+                    |vk| {
+                        vk.into_iter()
+                            .map(|(bound, pow)| (bound, parse_g1::<T>(&pow)))
+                            .collect()
+                    },
+                ),
             },
             serialized_pk,
         ))
@@ -123,9 +129,9 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
     ) -> Proof<<marlin::Marlin as Scheme<T>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
 
-        use rand_0_7::SeedableRng;
+        use rand_0_8::SeedableRng;
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         let pk = IndexProverKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -160,7 +166,17 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 commitments: proof
                     .commitments
                     .into_iter()
-                    .map(|r| r.into_iter().map(|c| parse_g1::<T>(&c.comm.0)).collect())
+                    .map(|r| {
+                        r.into_iter()
+                            .map(|c| {
+                                (
+                                    parse_g1::<T>(&c.comm.0),
+                                    c.shifted_comm
+                                        .map(|shifted_comm| parse_g1::<T>(&shifted_comm.0)),
+                                )
+                            })
+                            .collect()
+                    })
                     .collect(),
                 evaluations: proof
                     .evaluations
@@ -210,9 +226,11 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 .into_iter()
                 .map(|r| {
                     r.into_iter()
-                        .map(|c| Commitment {
+                        .map(|(c, shifted_comm)| Commitment {
                             comm: KZG10Commitment(serialization::to_g1::<T>(c)),
-                            shifted_comm: None,
+                            shifted_comm: shifted_comm.map(|shifted_comm| {
+                                KZG10Commitment(serialization::to_g1::<T>(shifted_comm))
+                            }),
                         })
                         .collect()
                 })
@@ -248,42 +266,44 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
         > {
-            index_info: unimplemented!(
-                "there is no way to create an IndexInfo instance as f is private"
+            index_info: IndexInfo::new(
+                vk.num_variables,
+                vk.num_constraints,
+                vk.num_non_zero,
+                vk.num_instance_variables,
             ),
-            // IndexInfo {
-            //     num_variables: vk.num_variables,
-            //     num_constraints: vk.num_constraints,
-            //     num_non_zero: vk.num_non_zero,
-            //     num_instance_variables: vk.num_instance_variables,
-            //     f: PhantomData::new()
-            // },
             index_comms: vk
                 .index_comms
                 .into_iter()
-                .map(|c| Commitment {
+                .map(|(c, shifted_comm)| Commitment {
                     comm: KZG10Commitment(serialization::to_g1::<T>(c)),
-                    shifted_comm: None,
+                    shifted_comm: shifted_comm.map(|shifted_comm| {
+                        KZG10Commitment(serialization::to_g1::<T>(shifted_comm))
+                    }),
                 })
                 .collect(),
             verifier_key: VerifierKey {
-                degree_bounds_and_shift_powers: unimplemented!(),
+                degree_bounds_and_shift_powers: vk.degree_bounds_and_shift_powers.map(|vk| {
+                    vk.into_iter()
+                        .map(|(bound, pow)| (bound, serialization::to_g1::<T>(pow)))
+                        .collect()
+                }),
                 max_degree: vk.max_degree,
                 supported_degree: vk.supported_degree,
                 vk: KZG10VerifierKey {
                     g: serialization::to_g1::<T>(vk.vk.g),
                     gamma_g: serialization::to_g1::<T>(vk.vk.gamma_g),
-                    h: serialization::to_g2::<T>(vk.vk.h),
-                    beta_h: serialization::to_g2::<T>(vk.vk.beta_h),
+                    h: serialization::to_g2::<T>(vk.vk.h.clone()),
+                    beta_h: serialization::to_g2::<T>(vk.vk.beta_h.clone()),
                     prepared_h: serialization::to_g2::<T>(vk.vk.h).into(),
                     prepared_beta_h: serialization::to_g2::<T>(vk.vk.beta_h).into(),
                 },
             },
         };
 
-        use rand_0_7::SeedableRng;
+        use rand_0_8::SeedableRng;
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
