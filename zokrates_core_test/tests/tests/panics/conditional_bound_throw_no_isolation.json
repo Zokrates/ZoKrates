@@ -1,7 +1,7 @@
 {
     "entry_point": "./tests/tests/panics/conditional_bound_throw.zok",
     "curves": ["Bn128"],
-	"tests": [
+    "tests": [
         {
             "input": {
                 "values": [
@@ -9,13 +9,15 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "0",
-						"right": "1",
-                        "message": "User assertion failed"
-					}
-				}
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "0",
+                        "right": "1",
+                        "error": {
+                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+                        }
+                    }
+                }
             }
         },
         {
@@ -25,13 +27,15 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "1",
-						"right": "0",
-                        "message": "User assertion failed"
-					}
-				}
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "1",
+                        "right": "0",
+                        "error": {
+                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+                        }
+                    }
+                }
             }
         },
         {
@@ -41,13 +45,15 @@
                 ]
             },
             "output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "2",
-						"right": "0",
-                        "message": "User assertion failed"
-					}
-				}
+                "Err": {
+                    "UnsatisfiedConstraint": {
+                        "left": "2",
+                        "right": "0",
+                        "error": {
+                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/conditional_bound_throw.zok:2:5"
+                        }
+                    }
+                }
             }
         }
     ]

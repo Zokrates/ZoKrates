@@ -172,13 +172,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         fold_function(self, f)
     }
 
-    fn fold_if_else_expression<
-        E: Expr<'ast, T> + IfElse<'ast, T> + PartialEq + ResultFold<'ast, T>,
+    fn fold_conditional_expression<
+        E: Expr<'ast, T> + Conditional<'ast, T> + PartialEq + ResultFold<'ast, T>,
     >(
         &mut self,
         _: &E::Ty,
-        e: IfElseExpression<'ast, T, E>,
-    ) -> Result<IfElseOrExpression<'ast, T, E>, Self::Error> {
+        e: ConditionalExpression<'ast, T, E>,
+    ) -> Result<ConditionalOrExpression<'ast, T, E>, Self::Error> {
         Ok(
             match (
                 self.fold_boolean_expression(*e.condition)?,
@@ -186,16 +186,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 e.alternative.fold(self)?,
             ) {
                 (BooleanExpression::Value(true), consequence, _) => {
-                    IfElseOrExpression::Expression(consequence.into_inner())
+                    ConditionalOrExpression::Expression(consequence.into_inner())
                 }
                 (BooleanExpression::Value(false), _, alternative) => {
-                    IfElseOrExpression::Expression(alternative.into_inner())
+                    ConditionalOrExpression::Expression(alternative.into_inner())
                 }
                 (_, consequence, alternative) if consequence == alternative => {
-                    IfElseOrExpression::Expression(consequence.into_inner())
+                    ConditionalOrExpression::Expression(consequence.into_inner())
                 }
-                (condition, consequence, alternative) => IfElseOrExpression::IfElse(
-                    IfElseExpression::new(condition, consequence, alternative),
+                (condition, consequence, alternative) => ConditionalOrExpression::Conditional(
+                    ConditionalExpression::new(condition, consequence, alternative, e.kind),
                 ),
             },
         )
@@ -620,15 +620,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 Ok(statements)
             }
-            TypedStatement::Assertion(e) => {
+            TypedStatement::Assertion(e, ty) => {
                 let e_str = e.to_string();
                 let expr = self.fold_boolean_expression(e)?;
                 match expr {
-                    BooleanExpression::Value(v) if !v => Err(Error::AssertionFailed(format!(
-                        "Assertion failed on expression `{}`",
-                        e_str
-                    ))),
-                    _ => Ok(vec![TypedStatement::Assertion(expr)]),
+                    BooleanExpression::Value(v) if !v => {
+                        Err(Error::AssertionFailed(format!("{}: ({})", ty, e_str)))
+                    }
+                    _ => Ok(vec![TypedStatement::Assertion(expr, ty)]),
                 }
             }
             s @ TypedStatement::PushCallLog(..) => Ok(vec![s]),
@@ -1432,10 +1431,11 @@ mod tests {
 
             #[test]
             fn if_else_true() {
-                let e = FieldElementExpression::if_else(
+                let e = FieldElementExpression::conditional(
                     BooleanExpression::Value(true),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                     FieldElementExpression::Number(Bn128Field::from(3)),
+                    ConditionalKind::IfElse,
                 );
 
                 assert_eq!(
@@ -1446,10 +1446,11 @@ mod tests {
 
             #[test]
             fn if_else_false() {
-                let e = FieldElementExpression::if_else(
+                let e = FieldElementExpression::conditional(
                     BooleanExpression::Value(false),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                     FieldElementExpression::Number(Bn128Field::from(3)),
+                    ConditionalKind::IfElse,
                 );
 
                 assert_eq!(

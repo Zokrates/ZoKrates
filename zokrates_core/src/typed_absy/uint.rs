@@ -193,7 +193,7 @@ pub enum UExpressionInner<'ast, T> {
     FunctionCall(FunctionCallExpression<'ast, T, UExpression<'ast, T>>),
     LeftShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     RightShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    IfElse(IfElseExpression<'ast, T, UExpression<'ast, T>>),
+    Conditional(ConditionalExpression<'ast, T, UExpression<'ast, T>>),
     Member(MemberExpression<'ast, T, UExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
 }

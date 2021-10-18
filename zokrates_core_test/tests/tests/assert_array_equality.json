@@ -1,31 +1,29 @@
 {
-    "entry_point": "./tests/tests/panics/internal_panic.zok",
-    "curves": ["Bn128"],
+    "entry_point": "./tests/tests/assert_array_equality.zok",
+    "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
     "tests": [
         {
             "input": {
-                "values": [
-                    "1"
-                ]
+                "values": ["1", "2"]
             },
             "output": {
                 "Ok": {
-                    "values": ["1"] 
+                    "values": []
                 }
             }
         },
         {
             "input": {
-                "values": [
-                    "0"
-                ]
+                "values": ["1", "1"]
             },
             "output": {
                 "Err": {
                     "UnsatisfiedConstraint": {
                         "left": "0",
                         "right": "1",
-                        "error": "Inverse"
+                        "error": {
+                            "SourceAssertion": "Assertion failed at ./tests/tests/assert_array_equality.zok:2:2"
+                        }
                     }
                 }
             }
