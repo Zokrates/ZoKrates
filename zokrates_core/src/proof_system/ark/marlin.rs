@@ -178,11 +178,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                             .collect()
                     })
                     .collect(),
-                evaluations: proof
-                    .evaluations
-                    .into_iter()
-                    .map(|e| T::from_ark(e))
-                    .collect(),
+                evaluations: proof.evaluations.into_iter().map(T::from_ark).collect(),
                 pc_proof_proof: proof
                     .pc_proof
                     .proof
@@ -192,7 +188,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 pc_proof_evals: proof
                     .pc_proof
                     .evals
-                    .map(|evals| evals.into_iter().map(|eval| T::from_ark(eval)).collect()),
+                    .map(|evals| evals.into_iter().map(T::from_ark).collect()),
                 prover_messages_count: proof.prover_messages.len(),
             },
             inputs,
