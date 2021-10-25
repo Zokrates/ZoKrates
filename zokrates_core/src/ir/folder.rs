@@ -46,7 +46,7 @@ pub fn fold_module<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        returns: p.returns.into_iter().map(|v| f.fold_variable(v)).collect(),
+        return_count: p.return_count,
     }
 }
 

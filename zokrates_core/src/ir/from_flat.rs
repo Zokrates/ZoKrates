@@ -1,5 +1,5 @@
-use crate::flat_absy::{FlatDirective, FlatExpression, FlatProg, FlatStatement, FlatVariable};
-use crate::ir::{Directive, LinComb, Prog, QuadComb, Statement};
+use crate::flat_absy::{FlatDirective, FlatExpression, FlatStatement, FlatVariable};
+use crate::ir::{Directive, LinComb, QuadComb, Statement};
 use zokrates_field::Field;
 
 impl<T: Field> QuadComb<T> {
@@ -17,50 +17,25 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-impl<T: Field> From<FlatProg<T>> for Prog<T> {
-    fn from(flat_prog: FlatProg<T>) -> Prog<T> {
-        // get the main function
-        let main = flat_prog.main;
-
-        let return_expressions: Vec<FlatExpression<T>> = main
-            .statements
-            .iter()
-            .filter_map(|s| match s {
-                FlatStatement::Return(el) => Some(el.expressions.clone()),
-                _ => None,
-            })
-            .next()
-            .unwrap();
-
-        Prog {
-            arguments: main.arguments,
-            returns: return_expressions
-                .iter()
-                .enumerate()
-                .map(|(index, _)| FlatVariable::public(index))
-                .collect(),
-            statements: main
-                .statements
-                .into_iter()
-                .filter_map(|s| match s {
-                    FlatStatement::Return(..) => None,
-                    s => Some(s.into()),
-                })
-                .chain(
-                    return_expressions
-                        .into_iter()
-                        .enumerate()
-                        .map(|(index, expression)| {
-                            Statement::Constraint(
-                                QuadComb::from_flat_expression(expression),
-                                FlatVariable::public(index).into(),
-                                None,
-                            )
-                        }),
-                )
-                .collect(),
-        }
-    }
+pub fn from_flat<'ast, T: Field, I: Iterator<Item = FlatStatement<T>>>(
+    flat_prog_iterator: I,
+) -> impl Iterator<Item = Statement<T>> {
+    flat_prog_iterator.filter_map(|s| match s {
+        FlatStatement::Return(..) => None,
+        s => Some(s.into()),
+    })
+    // .chain(
+    //     return_expressions
+    //         .into_iter()
+    //         .enumerate()
+    //         .map(|(index, expression)| {
+    //             Statement::Constraint(
+    //                 QuadComb::from_flat_expression(expression),
+    //                 FlatVariable::public(index).into(),
+    //                 None,
+    //             )
+    //         }),
+    // )
 }
 
 impl<T: Field> From<FlatExpression<T>> for LinComb<T> {

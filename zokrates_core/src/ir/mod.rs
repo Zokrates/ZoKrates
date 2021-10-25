@@ -8,7 +8,7 @@ use zokrates_field::Field;
 
 mod expression;
 pub mod folder;
-mod from_flat;
+pub mod from_flat;
 mod interpreter;
 mod serialize;
 pub mod smtlib2;
@@ -78,10 +78,51 @@ impl<T: Field> fmt::Display for Statement<T> {
 pub struct Prog<T> {
     pub statements: Vec<Statement<T>>,
     pub arguments: Vec<FlatParameter>,
-    pub returns: Vec<FlatVariable>,
+    pub return_count: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ProgIterator<I> {
+    pub statements: I,
+    pub arguments: Vec<FlatParameter>,
+    pub return_count: usize,
+}
+
+impl<T> From<Prog<T>> for ProgIterator<std::vec::IntoIter<Statement<T>>> {
+    fn from(p: Prog<T>) -> ProgIterator<std::vec::IntoIter<Statement<T>>> {
+        ProgIterator {
+            statements: p.statements.into_iter(),
+            arguments: p.arguments,
+            return_count: p.return_count,
+        }
+    }
+}
+
+impl<T, I: Iterator<Item = Statement<T>>> From<ProgIterator<I>> for Prog<T> {
+    fn from(p: ProgIterator<I>) -> Prog<T> {
+        Prog {
+            statements: p.statements.collect(),
+            arguments: p.arguments,
+            return_count: p.return_count,
+        }
+    }
+}
+
+impl<T> ProgIterator<T> {
+    pub fn returns(&self) -> Vec<FlatVariable> {
+        (0..self.return_count)
+            .map(|id| FlatVariable::public(id))
+            .collect()
+    }
 }
 
 impl<T: Field> Prog<T> {
+    pub fn returns(&self) -> Vec<FlatVariable> {
+        (0..self.return_count)
+            .map(|id| FlatVariable::public(id))
+            .collect()
+    }
+
     pub fn constraint_count(&self) -> usize {
         self.statements
             .iter()
@@ -113,14 +154,14 @@ impl<T: Field> fmt::Display for Prog<T> {
                 .map(|v| format!("{}", v))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.returns.len(),
+            self.return_count,
             self.statements
                 .iter()
                 .map(|s| format!("\t{}", s))
                 .collect::<Vec<_>>()
                 .join("\n"),
-            self.returns
-                .iter()
+            (0..self.return_count)
+                .map(|i| FlatVariable::public(i))
                 .map(|e| format!("{}", e))
                 .collect::<Vec<_>>()
                 .join(", ")

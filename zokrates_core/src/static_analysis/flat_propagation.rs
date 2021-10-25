@@ -101,14 +101,6 @@ impl<T: Field> Propagate<T> for FlatFunction<T> {
     }
 }
 
-impl<T: Field> FlatProg<T> {
-    pub fn propagate(self) -> FlatProg<T> {
-        let main = self.main.propagate();
-
-        FlatProg { main }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

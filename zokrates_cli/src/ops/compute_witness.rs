@@ -106,7 +106,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
         }
         false => ConcreteSignature::new()
             .inputs(vec![ConcreteType::FieldElement; ir_prog.arguments.len()])
-            .outputs(vec![ConcreteType::FieldElement; ir_prog.returns.len()]),
+            .outputs(vec![ConcreteType::FieldElement; ir_prog.return_count]),
     };
 
     use zokrates_abi::Inputs;

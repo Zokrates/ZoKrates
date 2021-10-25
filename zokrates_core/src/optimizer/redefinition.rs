@@ -38,44 +38,30 @@
 
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::flat_absy::FlatParameter;
-use crate::ir::folder::{fold_module, Folder};
+use crate::ir::folder::Folder;
 use crate::ir::LinComb;
 use crate::ir::*;
 use std::collections::{HashMap, HashSet};
 use zokrates_field::Field;
 
 #[derive(Debug)]
-pub struct RedefinitionOptimizer<T: Field> {
+pub struct RedefinitionOptimizer<T> {
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, CanonicalLinComb<T>>,
     /// Set of variables that should not be substituted
-    ignore: HashSet<FlatVariable>,
+    pub ignore: HashSet<FlatVariable>,
 }
 
-impl<T: Field> RedefinitionOptimizer<T> {
-    fn new() -> Self {
+impl<T> Default for RedefinitionOptimizer<T> {
+    fn default() -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
-            ignore: HashSet::new(),
+            ignore: vec![FlatVariable::one()].into_iter().collect(),
         }
-    }
-
-    pub fn optimize(p: Prog<T>) -> Prog<T> {
-        RedefinitionOptimizer::new().fold_module(p)
     }
 }
 
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_module(&mut self, p: Prog<T>) -> Prog<T> {
-        // to prevent the optimiser from replacing outputs, add them to the ignored set
-        self.ignore.extend(p.returns.iter().cloned());
-
-        // to prevent the optimiser from replacing ~one, add it to the ignored set
-        self.ignore.insert(FlatVariable::one());
-
-        fold_module(self, p)
-    }
-
     fn fold_argument(&mut self, a: FlatParameter) -> FlatParameter {
         // to prevent the optimiser from replacing user input, add it to the ignored set
         self.ignore.insert(a.id);

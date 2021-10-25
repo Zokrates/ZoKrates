@@ -17,24 +17,11 @@ use crate::solvers::Solver;
 use std::collections::hash_map::{Entry, HashMap};
 use zokrates_field::Field;
 
-#[derive(Debug)]
-pub struct DirectiveOptimizer<T: Field> {
+#[derive(Debug, Default)]
+pub struct DirectiveOptimizer<T> {
     calls: HashMap<(Solver, Vec<QuadComb<T>>), Vec<FlatVariable>>,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, FlatVariable>,
-}
-
-impl<T: Field> DirectiveOptimizer<T> {
-    fn new() -> DirectiveOptimizer<T> {
-        DirectiveOptimizer {
-            calls: HashMap::new(),
-            substitution: HashMap::new(),
-        }
-    }
-
-    pub fn optimize(p: Prog<T>) -> Prog<T> {
-        DirectiveOptimizer::new().fold_module(p)
-    }
 }
 
 impl<T: Field> Folder<T> for DirectiveOptimizer<T> {

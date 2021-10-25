@@ -54,7 +54,8 @@ impl fmt::Debug for FieldParseError {
 }
 
 pub trait Field:
-    From<i32>
+    'static
+    + From<i32>
     + From<u32>
     + From<usize>
     + From<u128>

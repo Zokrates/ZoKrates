@@ -96,30 +96,22 @@ impl fmt::Display for RuntimeError {
     }
 }
 
-#[derive(Clone, PartialEq)]
-pub struct FlatProg<T: Field> {
-    /// FlatFunctions of the program
-    pub main: FlatFunction<T>,
-}
-
-impl<T: Field> fmt::Display for FlatProg<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.main)
-    }
-}
-
-impl<T: Field> fmt::Debug for FlatProg<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "flat_program(main: {}\t)", self.main)
-    }
-}
+pub type FlatProg<T> = FlatFunction<T>;
 
 #[derive(Clone, PartialEq)]
-pub struct FlatFunction<T: Field> {
+pub struct FlatFunction<T> {
     /// Arguments of the function
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<FlatStatement<T>>,
+}
+
+pub type FlatProgIterator<T> = FlatFunctionIterator<T>;
+pub struct FlatFunctionIterator<I> {
+    /// Arguments of the function
+    pub arguments: Vec<FlatParameter>,
+    /// Vector of statements that are executed when running the function
+    pub statements: I,
 }
 
 impl<T: Field> fmt::Display for FlatFunction<T> {
@@ -167,7 +159,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 /// * r1cs - R1CS in standard JSON data format
 
 #[derive(Clone, PartialEq)]
-pub enum FlatStatement<T: Field> {
+pub enum FlatStatement<T> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(FlatVariable, FlatExpression<T>),
@@ -239,7 +231,7 @@ impl<T: Field> FlatStatement<T> {
 }
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
-pub struct FlatDirective<T: Field> {
+pub struct FlatDirective<T> {
     pub inputs: Vec<FlatExpression<T>>,
     pub outputs: Vec<FlatVariable>,
     pub solver: Solver,

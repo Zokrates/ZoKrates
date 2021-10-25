@@ -16,21 +16,9 @@ fn hash<T: Field>(s: &Statement<T>) -> Hash {
     hasher.finish()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DuplicateOptimizer {
     seen: HashSet<Hash>,
-}
-
-impl DuplicateOptimizer {
-    fn new() -> Self {
-        DuplicateOptimizer {
-            seen: HashSet::new(),
-        }
-    }
-
-    pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
-        Self::new().fold_module(p)
-    }
 }
 
 impl<T: Field> Folder<T> for DuplicateOptimizer {

@@ -149,13 +149,17 @@ fn compile_and_run<T: Field>(t: Tests) {
     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
-    let artifacts = compile::<T, _>(code, entry_point.clone(), Some(&resolver), &config).unwrap();
+    let arena = typed_arena::Arena::new();
 
-    let bin = artifacts.prog();
-    let abi = artifacts.abi();
+    let artifacts =
+        compile::<T, _>(code, entry_point.clone(), Some(&resolver), config, &arena).unwrap();
+
+    let abi = artifacts.abi;
+    let bin = artifacts.prog;
 
     if let Some(target_count) = t.max_constraint_count {
-        let count = bin.constraint_count();
+        unimplemented!("bin.constraint_count()");
+        let count = 42;
 
         assert!(
             count <= target_count,
@@ -168,6 +172,8 @@ fn compile_and_run<T: Field>(t: Tests) {
     };
 
     let interpreter = zokrates_core::ir::Interpreter::default();
+
+    let bin = &bin.into();
 
     for test in t.tests.into_iter() {
         let with_abi = test.abi.unwrap_or(false);
