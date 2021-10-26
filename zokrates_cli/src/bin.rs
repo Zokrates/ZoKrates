@@ -47,6 +47,12 @@ fn cli() -> Result<(), String> {
             compute_witness::subcommand(),
             #[cfg(feature = "ark")]
             universal_setup::subcommand(),
+            #[cfg(feature = "bellman")]
+            mpc_init::subcommand(),
+            #[cfg(feature = "bellman")]
+            mpc_contribute::subcommand(),
+            #[cfg(feature = "bellman")]
+            mpc_beacon::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
@@ -64,6 +70,12 @@ fn cli() -> Result<(), String> {
         ("compute-witness", Some(sub_matches)) => compute_witness::exec(sub_matches),
         #[cfg(feature = "ark")]
         ("universal-setup", Some(sub_matches)) => universal_setup::exec(sub_matches),
+        #[cfg(feature = "bellman")]
+        ("mpc-init", Some(sub_matches)) => mpc_init::exec(sub_matches),
+        #[cfg(feature = "bellman")]
+        ("mpc-contribute", Some(sub_matches)) => mpc_contribute::exec(sub_matches),
+        #[cfg(feature = "bellman")]
+        ("mpc-beacon", Some(sub_matches)) => mpc_beacon::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),

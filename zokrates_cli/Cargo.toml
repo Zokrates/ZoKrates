@@ -25,6 +25,12 @@ zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 serde_json = "1.0"
 dirs = "3.0.1"
 lazy_static = "1.4.0"
+phase2 = { git = "https://github.com/dark64/phase2-bn254" }
+byteorder = "1"
+rust-crypto = "0.2.36"
+rand = "0.4"
+hex = "0.3.1"
+blake2 = "0.8.1"
 
 [dev-dependencies]
 glob = "0.2.11"
