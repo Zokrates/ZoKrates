@@ -12,7 +12,7 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("input")
                 .short("i")
                 .long("input")
-                .help("Path of the MPC params")
+                .help("Path of the MPC parameters")
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
@@ -62,7 +62,7 @@ fn cli_mpc_beacon(sub_matches: &ArgMatches) -> Result<(), String> {
     let beacon_hash = sub_matches.value_of("beacon-hash").unwrap();
     let num_iterations: usize = sub_matches.value_of("iterations").unwrap().parse().unwrap();
 
-    if num_iterations < 10 || num_iterations > 63 {
+    if !(10..=63).contains(&num_iterations) {
         return Err("Number of iterations should be in [10, 63] range".to_string());
     }
 
@@ -96,11 +96,7 @@ fn cli_mpc_beacon(sub_matches: &ArgMatches) -> Result<(), String> {
             // parallelized
 
             if i % (1u64 << (n - 10)) == 0 {
-                print!("{}: ", i);
-                for b in cur_hash.iter() {
-                    print!("{:02x}", b);
-                }
-                println!();
+                println!("{}: {}", i, hex::encode(&cur_hash));
             }
 
             let mut h = Sha256::new();
@@ -108,11 +104,7 @@ fn cli_mpc_beacon(sub_matches: &ArgMatches) -> Result<(), String> {
             h.result(&mut cur_hash);
         }
 
-        print!("Final result of beacon: ");
-        for b in cur_hash.iter() {
-            print!("{:02x}", b);
-        }
-        println!();
+        println!("Final result of beacon: {}", hex::encode(&cur_hash));
 
         let mut digest = &cur_hash[..];
 
@@ -127,7 +119,7 @@ fn cli_mpc_beacon(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Contributing to {}...", path.display());
     let zero: u32 = 0;
     let hash = params.contribute(&mut rng, &zero);
-    println!("Contribution hash: 0x{}", hex::encode(hash));
+    println!("Contribution hash: {}", hex::encode(hash));
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)

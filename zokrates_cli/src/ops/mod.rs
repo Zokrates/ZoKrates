@@ -9,6 +9,7 @@ pub mod mpc_beacon;
 pub mod mpc_contribute;
 pub mod mpc_export;
 pub mod mpc_init;
+pub mod mpc_verify;
 pub mod print_proof;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 pub mod setup;

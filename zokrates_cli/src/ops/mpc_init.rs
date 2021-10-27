@@ -76,7 +76,7 @@ fn cli_mpc_init(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Resu
     let output_file = File::create(&output_path)
         .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
 
-    println!("Writing parameters to {}", output_path.display());
+    println!("Writing initial parameters to {}", output_path.display());
 
     let mut writer = BufWriter::new(output_file);
     params.write(&mut writer).map_err(|e| e.to_string())?;

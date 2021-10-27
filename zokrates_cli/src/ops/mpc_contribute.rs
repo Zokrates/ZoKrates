@@ -12,7 +12,7 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("input")
                 .short("i")
                 .long("input")
-                .help("Path of the MPC params")
+                .help("Path of the MPC parameters")
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
@@ -89,7 +89,7 @@ fn cli_mpc_contribute(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Contributing to {}...", path.display());
     let zero: u32 = 0;
     let hash = params.contribute(&mut rng, &zero);
-    println!("Contribution hash: 0x{}", hex::encode(hash));
+    println!("Contribution hash: {}", hex::encode(hash));
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)

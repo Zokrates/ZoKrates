@@ -15,7 +15,7 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("input")
                 .short("i")
                 .long("input")
-                .help("Path of the MPC params")
+                .help("Path of the MPC parameters")
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
