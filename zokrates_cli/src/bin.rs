@@ -53,6 +53,8 @@ fn cli() -> Result<(), String> {
             mpc_contribute::subcommand(),
             #[cfg(feature = "bellman")]
             mpc_beacon::subcommand(),
+            #[cfg(feature = "bellman")]
+            mpc_export::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
@@ -76,6 +78,8 @@ fn cli() -> Result<(), String> {
         ("mpc-contribute", Some(sub_matches)) => mpc_contribute::exec(sub_matches),
         #[cfg(feature = "bellman")]
         ("mpc-beacon", Some(sub_matches)) => mpc_beacon::exec(sub_matches),
+        #[cfg(feature = "bellman")]
+        ("mpc-export", Some(sub_matches)) => mpc_export::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),

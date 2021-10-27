@@ -63,7 +63,7 @@ fn cli_mpc_init(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Resu
     let circuit = Computation::without_witness(ir_prog);
     let params = phase2::parameters::MPCParameters::new(
         circuit,
-        false,
+        true,
         &radix_dir
             .to_path_buf()
             .into_os_string()
@@ -75,6 +75,8 @@ fn cli_mpc_init(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Resu
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
         .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+
+    println!("Writing parameters to {}", output_path.display());
 
     let mut writer = BufWriter::new(output_file);
     params.write(&mut writer).map_err(|e| e.to_string())?;

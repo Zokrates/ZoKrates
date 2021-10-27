@@ -7,6 +7,7 @@ pub mod generate_proof;
 pub mod generate_smtlib2;
 pub mod mpc_beacon;
 pub mod mpc_contribute;
+pub mod mpc_export;
 pub mod mpc_init;
 pub mod print_proof;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]

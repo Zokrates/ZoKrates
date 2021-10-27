@@ -60,11 +60,11 @@ fn cli_mpc_beacon(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|why| format!("Could not read {}: {}", path.display(), why))?;
 
     let beacon_hash = sub_matches.value_of("beacon-hash").unwrap();
-    let num_iterations: usize = sub_matches
-        .value_of("beacon-hash")
-        .unwrap()
-        .parse()
-        .unwrap();
+    let num_iterations: usize = sub_matches.value_of("iterations").unwrap().parse().unwrap();
+
+    if num_iterations < 10 || num_iterations > 63 {
+        return Err("Number of iterations should be in [10, 63] range".to_string());
+    }
 
     println!("Creating a beacon RNG");
 

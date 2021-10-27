@@ -37,7 +37,6 @@ getrandom = { version = "0.2", features = ["js"] }
 rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
-phase2 = { git = "https://github.com/kobigurk/phase2-bn254" }
 
 # bellman
 bellman_ce = { version = "^0.3", default-features = false, optional = true }

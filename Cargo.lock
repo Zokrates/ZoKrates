@@ -369,22 +369,6 @@ dependencies = [
 
 [[package]]
 name = "bellman_ce"
-version = "0.3.1"
-source = "git+https://github.com/kobigurk/phase2-bn254#dd6b96657d16c1a2b81fd23e540581c356284ec6"
-dependencies = [
- "bit-vec",
- "byteorder",
- "cfg-if 0.1.10",
- "crossbeam",
- "futures 0.1.31",
- "futures-cpupool",
- "num_cpus",
- "pairing_ce 0.18.0",
- "rand 0.4.6",
-]
-
-[[package]]
-name = "bellman_ce"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5ca1343d8690bb4d62e0665116bd4f109e33a642f86908ed107d226a402b0ef"
@@ -393,9 +377,9 @@ dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
  "crossbeam",
- "futures 0.3.17",
+ "futures",
  "num_cpus",
- "pairing_ce 0.21.1",
+ "pairing_ce",
  "rand 0.4.6",
  "web-sys",
 ]
@@ -906,18 +890,6 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
 name = "ff_ce"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18af1ea1b80a4b474fae13af4c58cf0a5a2bc33832d5fa70f68a4b286178fdb5"
-dependencies = [
- "byteorder",
- "ff_derive_ce 0.5.1",
- "hex 0.3.2",
- "rand 0.4.6",
-]
-
-[[package]]
-name = "ff_ce"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83c0a6a2c53b0bd6d8cae976816dc8a171e0554c03f304e3dac110473e0219fd"
@@ -934,23 +906,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4592897f75fd1bd178e5ec12d9d7df3d1943464feda2cbce1e708a484e82c8f6"
 dependencies = [
  "byteorder",
- "ff_derive_ce 0.8.0",
+ "ff_derive_ce",
  "hex 0.4.3",
  "rand 0.4.6",
-]
-
-[[package]]
-name = "ff_derive_ce"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d245b4e76c5b36bb7721ea15b7fbc61bebf0c5d2890eaf49fe1e2a3eed36db9"
-dependencies = [
- "num-bigint 0.2.6",
- "num-integer",
- "num-traits 0.2.14",
- "proc-macro2 0.4.30",
- "quote 0.6.13",
- "syn 0.14.9",
 ]
 
 [[package]]
@@ -1001,12 +959,6 @@ checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 
 [[package]]
 name = "futures"
-version = "0.1.31"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a471a38ef8ed83cd6e40aa59c1ffe17db6855c18e3604d9c4ed8c08ebc28678"
-
-[[package]]
-name = "futures"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a12aa0eb539080d55c3f2d45a67c3b58b6b0773c1a3ca2dfec66d58c97fd66ca"
@@ -1035,16 +987,6 @@ name = "futures-core"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88d1c26957f23603395cd326b0ffe64124b818f4449552f960d815cfba83a53d"
-
-[[package]]
-name = "futures-cpupool"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab90cde24b3319636588d0c35fe03b1333857621051837ed769faefb4c2162e4"
-dependencies = [
- "futures 0.1.31",
- "num_cpus",
-]
 
 [[package]]
 name = "futures-executor"
@@ -1515,16 +1457,6 @@ dependencies = [
 
 [[package]]
 name = "pairing_ce"
-version = "0.18.0"
-source = "git+https://github.com/kobigurk/phase2-bn254#dd6b96657d16c1a2b81fd23e540581c356284ec6"
-dependencies = [
- "byteorder",
- "ff_ce 0.7.1",
- "rand 0.4.6",
-]
-
-[[package]]
-name = "pairing_ce"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfc00d65b1d29e0a067a967fcea83d8db261c149f76a557ba73f0304f01cdfde"
@@ -1601,30 +1533,7 @@ name = "phase2"
 version = "0.2.2"
 source = "git+https://github.com/dark64/phase2-bn254#e372bf41ba874af79bc8ed22a31229494e2a11f4"
 dependencies = [
- "bellman_ce 0.3.5",
- "blake2 0.8.1",
- "blake2-rfc",
- "byteorder",
- "cfg-if 0.1.10",
- "crossbeam",
- "exitcode",
- "hex 0.4.3",
- "itertools 0.9.0",
- "num-bigint 0.2.6",
- "num-traits 0.2.14",
- "num_cpus",
- "rand 0.4.6",
- "rust-crypto",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "phase2"
-version = "0.2.2"
-source = "git+https://github.com/kobigurk/phase2-bn254#dd6b96657d16c1a2b81fd23e540581c356284ec6"
-dependencies = [
- "bellman_ce 0.3.1",
+ "bellman_ce",
  "blake2 0.8.1",
  "blake2-rfc",
  "byteorder",
@@ -1996,7 +1905,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c4ff5309ec3e4bd800ad4ab3f71e9b76e9ea81c9f0eda6efa16008afbe440b3"
 dependencies = [
- "bellman_ce 0.3.5",
+ "bellman_ce",
  "blake2-rfc_bellman_edition",
  "byteorder",
  "digest 0.8.1",
@@ -2153,17 +2062,6 @@ name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
-
-[[package]]
-name = "syn"
-version = "0.14.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "261ae9ecaa397c42b960649561949d69311f08eeaea86a65696e6e46517cf741"
-dependencies = [
- "proc-macro2 0.4.30",
- "quote 0.6.13",
- "unicode-xid 0.1.0",
-]
 
 [[package]]
 name = "syn"
@@ -2624,7 +2522,7 @@ dependencies = [
  "hex 0.3.2",
  "lazy_static",
  "log",
- "phase2 0.2.2 (git+https://github.com/dark64/phase2-bn254)",
+ "phase2",
  "rand 0.4.6",
  "regex 0.2.11",
  "rust-crypto",
@@ -2655,7 +2553,7 @@ dependencies = [
  "ark-poly-commit",
  "ark-relations",
  "ark-serialize",
- "bellman_ce 0.3.5",
+ "bellman_ce",
  "bincode",
  "cc",
  "cfg-if 0.1.10",
@@ -2669,8 +2567,7 @@ dependencies = [
  "log",
  "num",
  "num-bigint 0.2.6",
- "pairing_ce 0.21.1",
- "phase2 0.2.2 (git+https://github.com/kobigurk/phase2-bn254)",
+ "pairing_ce",
  "pretty_assertions",
  "rand 0.4.6",
  "rand 0.7.3",
@@ -2709,7 +2606,7 @@ dependencies = [
  "ark-r1cs-std",
  "ark-relations",
  "ark-std",
- "bellman_ce 0.3.5",
+ "bellman_ce",
  "sapling-crypto_ce",
  "zokrates_field",
 ]
@@ -2723,7 +2620,7 @@ dependencies = [
  "ark-bw6-761",
  "ark-ec",
  "ark-ff",
- "bellman_ce 0.3.5",
+ "bellman_ce",
  "bincode",
  "lazy_static",
  "num-bigint 0.2.6",
