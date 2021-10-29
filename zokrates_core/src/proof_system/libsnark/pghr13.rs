@@ -47,6 +47,8 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> Proof<<PGHR13 as Scheme<Bn128Field>>::ProofPoints> {
+        let program = program.collect();
+
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program.clone(), witness.clone());
 
@@ -159,6 +161,8 @@ impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
     fn setup<I: IntoIterator<Item = Statement<Bn128Field>>>(
         program: ProgIterator<Bn128Field, I>,
     ) -> SetupKeypair<<PGHR13 as Scheme<Bn128Field>>::VerificationKey> {
+        let program = program.collect();
+
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
