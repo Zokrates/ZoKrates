@@ -52,10 +52,15 @@ pub struct RedefinitionOptimizer<T> {
 }
 
 impl<T> RedefinitionOptimizer<T> {
-    pub fn init<I: IntoIterator<Item=Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
+    pub fn init<I: IntoIterator<Item = Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
-            ignore: vec![FlatVariable::one()].into_iter().chain(p.arguments.iter().map(|p| p.id)).chain(p.returns()).into_iter().collect(),
+            ignore: vec![FlatVariable::one()]
+                .into_iter()
+                .chain(p.arguments.iter().map(|p| p.id))
+                .chain(p.returns())
+                .into_iter()
+                .collect(),
         }
     }
 }
@@ -208,7 +213,10 @@ mod tests {
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
-            statements: vec![Statement::definition(y, x.id), Statement::definition(out, y)],
+            statements: vec![
+                Statement::definition(y, x.id),
+                Statement::definition(out, y),
+            ],
             return_count: 1,
         };
 
@@ -267,7 +275,7 @@ mod tests {
                 Statement::definition(y, x.id),
                 Statement::definition(z, y),
                 Statement::constraint(z, y),
-                Statement::definition(out, z)
+                Statement::definition(out, z),
             ],
             return_count: 1,
         };
@@ -276,7 +284,7 @@ mod tests {
             arguments: vec![x],
             statements: vec![
                 Statement::constraint(x.id, x.id),
-                Statement::definition(out, x.id)
+                Statement::definition(out, x.id),
             ],
             return_count: 1,
         };
