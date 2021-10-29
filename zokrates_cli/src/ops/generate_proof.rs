@@ -131,7 +131,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
             match prog {
                 ProgEnum::Bn128Program(p) => {
-                    cli_generate_proof::<_, GM17, Libsnark>(p, sub_matches)
+                    cli_generate_proof::<_, _, GM17, Libsnark>(p, sub_matches)
                 }
                 _ => unreachable!(),
             }
@@ -140,7 +140,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
             match prog {
                 ProgEnum::Bn128Program(p) => {
-                    cli_generate_proof::<_, PGHR13, Libsnark>(p, sub_matches)
+                    cli_generate_proof::<_, _, PGHR13, Libsnark>(p, sub_matches)
                 }
                 _ => unreachable!(),
             }

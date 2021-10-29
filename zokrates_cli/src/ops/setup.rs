@@ -156,7 +156,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
             match prog {
                 ProgEnum::Bn128Program(p) => {
-                    cli_setup_non_universal::<_, GM17, Libsnark>(p, sub_matches)
+                    cli_setup_non_universal::<_, _, GM17, Libsnark>(p, sub_matches)
                 }
                 _ => unreachable!(),
             }
@@ -165,7 +165,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
             match prog {
                 ProgEnum::Bn128Program(p) => {
-                    cli_setup_non_universal::<_, PGHR13, Libsnark>(p, sub_matches)
+                    cli_setup_non_universal::<_, _, PGHR13, Libsnark>(p, sub_matches)
                 }
                 _ => unreachable!(),
             }
