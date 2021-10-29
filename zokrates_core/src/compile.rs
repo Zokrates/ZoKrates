@@ -10,7 +10,6 @@ use crate::ir;
 use crate::macros;
 use crate::semantics::{self, Checker};
 use crate::static_analysis;
-use crate::static_analysis::Analyse;
 use crate::typed_absy::abi::Abi;
 use crate::zir::ZirProgram;
 use macros::process_macros;
@@ -18,7 +17,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
 use zokrates_common::Resolver;
@@ -26,18 +24,25 @@ use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompilationArtifacts<I> {
-    pub prog: ir::ProgIterator<I>,
+pub struct CompilationArtifacts<T, I: IntoIterator<Item = ir::Statement<T>>> {
+    pub prog: ir::ProgIterator<T, I>,
     pub abi: Abi,
 }
 
-impl<I> CompilationArtifacts<I> {
-    pub fn prog(self) -> ir::ProgIterator<I> {
+impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
+    pub fn prog(self) -> ir::ProgIterator<T, I> {
         self.prog
     }
 
     pub fn abi(&self) -> &Abi {
         &self.abi
+    }
+
+    pub fn collect(self) -> CompilationArtifacts<T, Vec<ir::Statement<T>>> {
+        CompilationArtifacts {
+            prog: self.prog.collect(),
+            abi: self.abi,
+        }
     }
 }
 
@@ -163,7 +168,7 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct CompileConfig {
     #[serde(default)]
     pub allow_unconstrained_variables: bool,
@@ -190,7 +195,8 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<CompilationArtifacts<impl Iterator<Item = ir::Statement<T>> + 'ast>, CompileErrors> {
+) -> Result<CompilationArtifacts<T, impl IntoIterator<Item = ir::Statement<T>> + 'ast>, CompileErrors>
+{
     let (typed_ast, abi): (crate::zir::ZirProgram<'_, T>, _) =
         check_with_arena(source, location.clone(), resolver, &config, arena)?;
 
@@ -204,16 +210,7 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
 
     // convert to ir
     log::debug!("Convert to IR");
-    let ir_prog = ir::ProgIterator {
-        arguments: program_flattened
-            .arguments_flattened
-            .clone()
-            .into_iter()
-            .map(|a| a.into())
-            .collect(),
-        return_count: 0,
-        statements: ir::from_flat::from_flat(program_flattened),
-    };
+    let ir_prog = ir::from_flat::from_flat(program_flattened);
 
     // optimize
     log::debug!("Optimise IR");
@@ -336,13 +333,18 @@ mod test {
 			   return foo()
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
+        let arena = Arena::new();
+        let res: Result<CompilationArtifacts<Bn128Field, _>, CompileErrors> = compile(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
-            &CompileConfig::default(),
-        );
-        assert!(res.unwrap_err().0[0]
+            CompileConfig::default(),
+            &arena,
+        )
+        .map(|res| res.collect());
+
+        let e = res.unwrap_err();
+        assert!(e.0[0]
             .value()
             .to_string()
             .contains(&"Cannot resolve import without a resolver"));
@@ -355,11 +357,15 @@ mod test {
 			   return 1
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
+
+        let arena = Arena::new();
+
+        let res: Result<CompilationArtifacts<Bn128Field, _>, CompileErrors> = compile(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
-            &CompileConfig::default(),
+            CompileConfig::default(),
+            &arena,
         );
         assert!(res.is_ok());
     }
@@ -436,11 +442,14 @@ struct Bar { field a }
                 }
             }
 
+            let arena = Arena::new();
+
             let artifacts = compile::<Bn128Field, io::Error>(
                 main.to_string(),
                 "main".into(),
                 Some(&CustomResolver),
-                &CompileConfig::default(),
+                CompileConfig::default(),
+                &arena,
             )
             .unwrap();
 

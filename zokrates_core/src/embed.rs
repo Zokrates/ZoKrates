@@ -3,7 +3,7 @@ use crate::absy::{
     ConstantGenericNode, Expression,
 };
 use crate::flat_absy::{
-    FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
+    FlatDirective, FlatExpression, FlatFunctionIterator, FlatParameter, FlatStatement,
     FlatVariable, RuntimeError,
 };
 use crate::solvers::Solver;
@@ -336,17 +336,17 @@ impl FlatEmbed {
         }
     }
 
-    /// Actually get the `FlatFunction` that this `FlatEmbed` represents
-    pub fn synthetize<T: Field>(&self, generics: &[u32]) -> FlatFunction<T> {
-        match self {
-            FlatEmbed::Unpack => unpack_to_bitwidth(generics[0] as usize),
-            #[cfg(feature = "bellman")]
-            FlatEmbed::Sha256Round => sha256_round(),
-            #[cfg(feature = "ark")]
-            FlatEmbed::SnarkVerifyBls12377 => snark_verify_bls12_377(generics[0] as usize),
-            _ => unreachable!(),
-        }
-    }
+    // /// Actually get the `FlatFunction` that this `FlatEmbed` represents
+    // pub fn synthetize<T: Field>(&self, generics: &[u32]) -> FlatFunctionIterator<T> {
+    //     match self {
+    //         FlatEmbed::Unpack => unpack_to_bitwidth(generics[0] as usize),
+    //         #[cfg(feature = "bellman")]
+    //         FlatEmbed::Sha256Round => sha256_round(),
+    //         #[cfg(feature = "ark")]
+    //         FlatEmbed::SnarkVerifyBls12377 => snark_verify_bls12_377(generics[0] as usize),
+    //         _ => unreachable!(),
+    //     }
+    // }
 }
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
@@ -380,13 +380,17 @@ fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
 /// - constraint system variables
 /// - arguments
 #[cfg(feature = "bellman")]
-pub fn sha256_round<T: Field>() -> FlatFunction<T> {
+pub fn sha256_round<T: Field>(
+) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
     use zokrates_field::Bn128Field;
     assert_eq!(T::id(), Bn128Field::id());
 
     // Define iterators for all indices at hand
     let (r1cs, input_indices, current_hash_indices, output_indices) =
         generate_sha256_round_constraints::<Bn256>();
+
+    // The output count
+    let return_count = output_indices.len();
     // indices of the input
     let input_indices = input_indices.into_iter();
     // indices of the current hash
@@ -398,17 +402,21 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     let cs_indices = 0..variable_count;
     // indices of the arguments to the function
     // apply an offset of `variable_count` to get the indice of our dummy `input` argument
-    let input_argument_indices = input_indices
+    let input_argument_indices: Vec<_> = input_indices
         .clone()
         .into_iter()
-        .map(|i| i + variable_count);
+        .map(|i| i + variable_count)
+        .collect();
     // apply an offset of `variable_count` to get the indice of our dummy `current_hash` argument
-    let current_hash_argument_indices = current_hash_indices
+    let current_hash_argument_indices: Vec<_> = current_hash_indices
         .clone()
         .into_iter()
-        .map(|i| i + variable_count);
+        .map(|i| i + variable_count)
+        .collect();
     // define parameters to the function based on the variables
     let arguments = input_argument_indices
+        .clone()
+        .into_iter()
         .clone()
         .chain(current_hash_argument_indices.clone())
         .map(|i| FlatParameter {
@@ -424,7 +432,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     );
     let input_binding_statements =
     // bind input and current_hash to inputs
-    input_indices.chain(current_hash_indices).zip(input_argument_indices.clone().chain(current_hash_argument_indices.clone())).map(|(cs_index, argument_index)| {
+    input_indices.chain(current_hash_indices).zip(input_argument_indices.clone().into_iter().chain(current_hash_argument_indices.clone())).map(|(cs_index, argument_index)| {
         FlatStatement::Condition(
             FlatVariable::new(cs_index).into(),
             FlatVariable::new(argument_index).into(),
@@ -453,29 +461,34 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     let directive_statement = FlatStatement::Directive(FlatDirective {
         outputs: cs_indices.map(FlatVariable::new).collect(),
         inputs: input_argument_indices
+            .into_iter()
             .chain(current_hash_argument_indices)
             .map(|i| FlatVariable::new(i).into())
             .collect(),
         solver: Solver::Sha256Round,
     });
     // insert a statement to return the subset of the witness
-    let return_statement = FlatStatement::Return(FlatExpressionList {
-        expressions: outputs,
-    });
+    let return_statements = outputs
+        .into_iter()
+        .enumerate()
+        .map(|(index, e)| FlatStatement::Definition(FlatVariable::public(index), e));
     let statements = std::iter::once(directive_statement)
         .chain(std::iter::once(one_binding_statement))
         .chain(input_binding_statements)
         .chain(constraint_statements)
-        .chain(std::iter::once(return_statement))
-        .collect();
-    FlatFunction {
+        .chain(return_statements);
+
+    FlatFunctionIterator {
         arguments,
         statements,
+        return_count,
     }
 }
 
 #[cfg(feature = "ark")]
-pub fn snark_verify_bls12_377<T: Field>(n: usize) -> FlatFunction<T> {
+pub fn snark_verify_bls12_377<T: Field>(
+    n: usize,
+) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
     use zokrates_field::Bw6_761Field;
     assert_eq!(T::id(), Bw6_761Field::id());
 
@@ -551,9 +564,10 @@ pub fn snark_verify_bls12_377<T: Field>(n: usize) -> FlatFunction<T> {
         })
         .collect();
 
-    let return_statement = FlatStatement::Return(FlatExpressionList {
-        expressions: vec![FlatExpression::Identifier(FlatVariable::new(out_index))],
-    });
+    let return_statement = FlatStatement::Definition(
+        FlatVariable::public(0),
+        FlatExpression::Identifier(FlatVariable::new(out_index)),
+    );
 
     // insert a directive to set the witness
     let directive_statement = FlatStatement::Directive(FlatDirective {
@@ -573,9 +587,10 @@ pub fn snark_verify_bls12_377<T: Field>(n: usize) -> FlatFunction<T> {
         .chain(std::iter::once(return_statement))
         .collect();
 
-    FlatFunction {
+    FlatFunctionIterator {
         arguments,
-        statements,
+        statements: statements.into_iter(),
+        return_count: 1,
     }
 }
 
@@ -598,7 +613,9 @@ fn use_variable(
 /// # Remarks
 /// * the return value of the `FlatFunction` is not deterministic if `bit_width >= T::get_required_bits()`
 ///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
-pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
+pub fn unpack_to_bitwidth<T: Field>(
+    bit_width: usize,
+) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
     let mut counter = 0;
 
     let mut layout = HashMap::new();
@@ -671,13 +688,17 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
         }),
     );
 
-    statements.push(FlatStatement::Return(FlatExpressionList {
-        expressions: outputs,
-    }));
+    statements.extend(
+        outputs
+            .into_iter()
+            .enumerate()
+            .map(|(index, e)| FlatStatement::Definition(FlatVariable::public(index), e)),
+    );
 
-    FlatFunction {
+    FlatFunctionIterator {
         arguments,
-        statements,
+        statements: statements.into_iter(),
+        return_count: bit_width,
     }
 }
 
@@ -692,17 +713,13 @@ mod tests {
 
         #[test]
         fn split254() {
-            let unpack: FlatFunction<Bn128Field> =
-                unpack_to_bitwidth(Bn128Field::get_required_bits());
+            let unpack =
+                unpack_to_bitwidth::<Bn128Field>(Bn128Field::get_required_bits()).collect();
 
             assert_eq!(
                 unpack.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]
             );
-            assert_eq!(
-                unpack.statements.len(),
-                Bn128Field::get_required_bits() + 1 + 1 + 1
-            ); // 128 bit checks, 1 directive, 1 sum check, 1 return
             assert_eq!(
                 unpack.statements[0],
                 FlatStatement::Directive(FlatDirective::new(
@@ -714,13 +731,9 @@ mod tests {
                 ))
             );
             assert_eq!(
-                *unpack.statements.last().unwrap(),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: (0..Bn128Field::get_required_bits())
-                        .map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1)))
-                        .collect()
-                })
-            );
+                unpack.statements.len(),
+                Bn128Field::get_required_bits() + 1 + 1 + Bn128Field::get_required_bits()
+            ) // 254 bit checks, 1 directive, 1 sum check, 254 returns
         }
     }
 
@@ -734,24 +747,13 @@ mod tests {
         fn generate_sha256_constraints() {
             let compiled = sha256_round::<Bn128Field>();
 
+            let compiled = compiled.collect();
+
             // function should have 768 inputs
             assert_eq!(compiled.arguments.len(), 768);
 
             // function should return 256 values
-            assert_eq!(
-                compiled
-                    .statements
-                    .iter()
-                    .filter_map(|s| match s {
-                        FlatStatement::Return(v) => Some(v),
-                        _ => None,
-                    })
-                    .next()
-                    .unwrap()
-                    .expressions
-                    .len(),
-                256,
-            );
+            assert_eq!(compiled.return_count, 256,);
 
             // directive should take 768 inputs and return n_var outputs
             let directive = compiled
@@ -791,18 +793,16 @@ mod tests {
                 )
             );
 
-            let flat_prog = crate::flat_absy::FlatProg { main: compiled };
-
-            let prog = crate::ir::Prog::from(flat_prog);
-
             let input: Vec<_> = (0..512)
                 .map(|_| 0)
                 .chain((0..256).map(|_| 1))
                 .map(Bn128Field::from)
                 .collect();
 
+            let ir = crate::ir::from_flat::from_flat(compiled);
+
             let interpreter = Interpreter::default();
-            interpreter.execute(&prog, &input).unwrap();
+            interpreter.execute(ir, &input).unwrap();
         }
     }
 }

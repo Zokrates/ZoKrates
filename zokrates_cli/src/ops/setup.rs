@@ -105,19 +105,23 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match parameters {
         #[cfg(feature = "bellman")]
         Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => cli_setup_non_universal::<_, G16, Bellman>(p, sub_matches),
+            ProgEnum::Bn128Program(p) => {
+                cli_setup_non_universal::<_, _, G16, Bellman>(p, sub_matches)
+            }
             ProgEnum::Bls12_381Program(p) => {
-                cli_setup_non_universal::<_, G16, Bellman>(p, sub_matches)
+                cli_setup_non_universal::<_, _, G16, Bellman>(p, sub_matches)
             }
             _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
             ProgEnum::Bls12_377Program(p) => {
-                cli_setup_non_universal::<_, GM17, Ark>(p, sub_matches)
+                cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches)
             }
-            ProgEnum::Bw6_761Program(p) => cli_setup_non_universal::<_, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bn128Program(p) => cli_setup_non_universal::<_, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bw6_761Program(p) => {
+                cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches)
+            }
+            ProgEnum::Bn128Program(p) => cli_setup_non_universal::<_, _, GM17, Ark>(p, sub_matches),
             _ => unreachable!(),
         },
         #[cfg(feature = "ark")]
@@ -137,13 +141,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
             match prog {
                 ProgEnum::Bls12_377Program(p) => {
-                    cli_setup_universal::<_, Marlin, Ark>(p, setup, sub_matches)
+                    cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
                 }
                 ProgEnum::Bn128Program(p) => {
-                    cli_setup_universal::<_, Marlin, Ark>(p, setup, sub_matches)
+                    cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
                 }
                 ProgEnum::Bw6_761Program(p) => {
-                    cli_setup_universal::<_, Marlin, Ark>(p, setup, sub_matches)
+                    cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
                 }
                 _ => unreachable!(),
             }
@@ -170,15 +174,20 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_setup_non_universal<T: Field, S: NonUniversalScheme<T>, B: NonUniversalBackend<T, S>>(
-    program: ir::Prog<T>,
+fn cli_setup_non_universal<
+    T: Field,
+    I: Iterator<Item = ir::Statement<T>>,
+    S: NonUniversalScheme<T>,
+    B: NonUniversalBackend<T, S>,
+>(
+    program: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Performing setup...");
 
     // print deserialized flattened program if in verbose mode
     if sub_matches.is_present("verbose") {
-        println!("{}", program);
+        //println!("{}", program);
     }
 
     // get paths for proving and verification keys
@@ -214,8 +223,13 @@ fn cli_setup_non_universal<T: Field, S: NonUniversalScheme<T>, B: NonUniversalBa
     Ok(())
 }
 
-fn cli_setup_universal<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S>>(
-    program: ir::Prog<T>,
+fn cli_setup_universal<
+    T: Field,
+    I: Iterator<Item = ir::Statement<T>>,
+    S: UniversalScheme<T>,
+    B: UniversalBackend<T, S>,
+>(
+    program: ir::ProgIterator<T, I>,
     srs: Vec<u8>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -223,7 +237,7 @@ fn cli_setup_universal<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S
 
     // print deserialized flattened program if in verbose mode
     if sub_matches.is_present("verbose") {
-        println!("{}", program);
+        //println!("{}", program);
     }
 
     // get paths for proving and verification keys

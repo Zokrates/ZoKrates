@@ -1146,6 +1146,7 @@ fn fold_program<'ast, T: Field>(
 
     let main_function = main_module
         .into_functions_iter()
+        .into_iter()
         .find(|d| d.key.id == "main")
         .unwrap()
         .symbol;

@@ -55,13 +55,6 @@ impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
 impl<T: Field> FlatStatement<T> {
     fn propagate(self, constants: &mut HashMap<FlatVariable, T>) -> Option<FlatStatement<T>> {
         match self {
-            FlatStatement::Return(list) => Some(FlatStatement::Return(FlatExpressionList {
-                expressions: list
-                    .expressions
-                    .into_iter()
-                    .map(|e| e.propagate(constants))
-                    .collect(),
-            })),
             FlatStatement::Definition(var, expr) => match expr.propagate(constants) {
                 FlatExpression::Number(n) => {
                     constants.insert(var, n);

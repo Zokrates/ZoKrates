@@ -41,32 +41,38 @@ impl<'ast, T: Field> FlattenerIterator<'ast, T> {
             .collect();
 
         FlattenerIterator {
-            statements: funct.statements.into(),
-            arguments_flattened,
-            statements_flattened,
-            flattener,
+            arguments: arguments_flattened,
+            statements: FlattenerIteratorInner {
+                statements: funct.statements.into(),
+                statements_flattened,
+                flattener,
+            },
+            return_count: funct.signature.outputs.len(),
         }
     }
 }
 
-pub struct FlattenerIterator<'ast, T> {
+pub struct FlattenerIteratorInner<'ast, T> {
     pub statements: VecDeque<ZirStatement<'ast, T>>,
-    pub arguments_flattened: Vec<FlatParameter>,
     pub statements_flattened: FlatStatements<T>,
     pub flattener: Flattener<'ast, T>,
 }
 
-impl<'ast, T: Field> Iterator for FlattenerIterator<'ast, T> {
+pub type FlattenerIterator<'ast, T> = FlatProgIterator<T, FlattenerIteratorInner<'ast, T>>;
+
+impl<'ast, T: Field> Iterator for FlattenerIteratorInner<'ast, T> {
     type Item = FlatStatement<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.statements_flattened.is_empty() {
+        while self.statements_flattened.is_empty() {
             match self.statements.pop_front() {
                 Some(s) => {
                     self.flattener
                         .flatten_statement(&mut self.statements_flattened, s);
                 }
-                None => {}
+                None => {
+                    break;
+                }
             }
         }
         self.statements_flattened.pop_front()
@@ -1243,81 +1249,97 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     ),
                 )]
             }
-            funct => {
-                let funct = funct.synthetize(&generics);
+            funct => match funct {
+                FlatEmbed::Unpack => self.flatten_embed_call_aux(
+                    statements_flattened,
+                    params,
+                    crate::embed::unpack_to_bitwidth(generics[0] as usize),
+                ),
+                #[cfg(feature = "bellman")]
+                FlatEmbed::Sha256Round => self.flatten_embed_call_aux(
+                    statements_flattened,
+                    params,
+                    crate::embed::sha256_round(),
+                ),
+                #[cfg(feature = "ark")]
+                FlatEmbed::SnarkVerifyBls12377 => self.flatten_embed_call_aux(
+                    statements_flattened,
+                    params,
+                    crate::embed::snark_verify_bls12_377::<T>(generics[0] as usize),
+                ),
+                _ => unreachable!(),
+            },
+        }
+    }
 
-                let mut replacement_map = HashMap::new();
+    fn flatten_embed_call_aux(
+        &mut self,
+        statements_flattened: &mut FlatStatements<T>,
+        params: Vec<FlatUExpression<T>>,
+        funct: FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>>,
+    ) -> Vec<FlatUExpression<T>> {
+        let mut replacement_map = HashMap::new();
 
-                // Handle complex parameters and assign values:
-                // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
-                let params_flattened = params.into_iter().map(|e| e.get_field_unchecked());
+        // Handle complex parameters and assign values:
+        // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
+        let params_flattened = params.into_iter().map(|e| e.get_field_unchecked());
 
-                for (concrete_argument, formal_argument) in params_flattened.zip(funct.arguments) {
-                    let new_var = self.define(concrete_argument, statements_flattened);
-                    replacement_map.insert(formal_argument.id, new_var);
-                }
+        for (concrete_argument, formal_argument) in params_flattened.zip(funct.arguments) {
+            let new_var = self.define(concrete_argument, statements_flattened);
+            replacement_map.insert(formal_argument.id, new_var);
+        }
 
-                // Ensure renaming and correct returns:
-                // add all flattened statements, adapt return statements
+        // Ensure renaming and correct returns:
+        // add all flattened statements, adapt return statements
 
-                let (mut return_statements, statements): (Vec<_>, Vec<_>) = funct
-                    .statements
+        let statements = funct.statements.into_iter().map(|stat| match stat {
+            FlatStatement::Definition(var, rhs) => {
+                let new_var = self.use_sym();
+                replacement_map.insert(var, new_var);
+                let new_rhs = rhs.apply_substitution(&replacement_map);
+                FlatStatement::Definition(new_var, new_rhs)
+            }
+            FlatStatement::Condition(lhs, rhs, message) => {
+                let new_lhs = lhs.apply_substitution(&replacement_map);
+                let new_rhs = rhs.apply_substitution(&replacement_map);
+                FlatStatement::Condition(new_lhs, new_rhs, message)
+            }
+            FlatStatement::Directive(d) => {
+                let new_outputs = d
+                    .outputs
                     .into_iter()
-                    .partition(|s| matches!(s, FlatStatement::Return(..)));
-
-                let statements: Vec<_> = statements
-                    .into_iter()
-                    .map(|stat| match stat {
-                        // set return statements as expression result
-                        FlatStatement::Return(..) => unreachable!(),
-                        FlatStatement::Definition(var, rhs) => {
-                            let new_var = self.use_sym();
-                            replacement_map.insert(var, new_var);
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
-                            FlatStatement::Definition(new_var, new_rhs)
-                        }
-                        FlatStatement::Condition(lhs, rhs, message) => {
-                            let new_lhs = lhs.apply_substitution(&replacement_map);
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
-                            FlatStatement::Condition(new_lhs, new_rhs, message)
-                        }
-                        FlatStatement::Directive(d) => {
-                            let new_outputs = d
-                                .outputs
-                                .into_iter()
-                                .map(|o| {
-                                    let new_o = self.use_sym();
-                                    replacement_map.insert(o, new_o);
-                                    new_o
-                                })
-                                .collect();
-                            let new_inputs = d
-                                .inputs
-                                .into_iter()
-                                .map(|i| i.apply_substitution(&replacement_map))
-                                .collect();
-                            FlatStatement::Directive(FlatDirective {
-                                outputs: new_outputs,
-                                solver: d.solver,
-                                inputs: new_inputs,
-                            })
-                        }
+                    .map(|o| {
+                        let new_o = self.use_sym();
+                        replacement_map.insert(o, new_o);
+                        new_o
                     })
                     .collect();
-
-                statements_flattened.extend(statements);
-
-                match return_statements.pop().unwrap() {
-                    FlatStatement::Return(list) => list
-                        .expressions
-                        .into_iter()
-                        .map(|x| x.apply_substitution(&replacement_map))
-                        .map(FlatUExpression::with_field)
-                        .collect(),
-                    _ => unreachable!(),
-                }
+                let new_inputs = d
+                    .inputs
+                    .into_iter()
+                    .map(|i| i.apply_substitution(&replacement_map))
+                    .collect();
+                FlatStatement::Directive(FlatDirective {
+                    outputs: new_outputs,
+                    solver: d.solver,
+                    inputs: new_inputs,
+                })
             }
-        }
+        });
+
+        statements_flattened.extend(statements);
+
+        unimplemented!();
+
+        // match return_statements.pop().unwrap() {
+        //     FlatStatement::Return(list) => list
+        //         .expressions
+        //         .into_iter()
+        //         .map(|x| x.apply_substitution(&replacement_map))
+        //         .map(FlatUExpression::with_field)
+        //         .collect(),
+        //     _ => unreachable!(),
+        // }
     }
 
     /// Flattens an expression
@@ -2352,9 +2374,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .map(|x| x.get_field_unchecked())
                     .collect::<Vec<_>>();
 
-                statements_flattened.push_back(FlatStatement::Return(FlatExpressionList {
-                    expressions: flat_expressions,
-                }));
+                statements_flattened.extend(
+                    flat_expressions.into_iter().enumerate().map(|(index, e)| {
+                        FlatStatement::Definition(FlatVariable::public(index), e)
+                    }),
+                );
             }
             ZirStatement::IfElse(condition, consequence, alternative) => {
                 let condition_flat =
@@ -2693,6 +2717,10 @@ mod tests {
     use crate::zir::types::Type;
     use zokrates_field::Bn128Field;
 
+    fn flatten_function<'ast, T: Field>(f: ZirFunction<'ast, T>) -> FlatProg<T> {
+        FlattenerIterator::from_function_and_config(f, CompileConfig::default()).collect()
+    }
+
     #[test]
     fn assertion_bool_eq() {
         // def main():
@@ -2722,6 +2750,7 @@ mod tests {
                     ),
                     zir::RuntimeError::mock(),
                 ),
+                ZirStatement::Return(vec![]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -2729,12 +2758,10 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
-
-        let flat = flattener.flatten_function(function);
+        let flat = flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 0,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -2755,7 +2782,7 @@ mod tests {
             ],
         };
 
-        assert_eq!(flat, expected);
+        assert_eq!(flat.collect(), expected);
     }
 
     #[test]
@@ -2790,6 +2817,7 @@ mod tests {
                     ),
                     zir::RuntimeError::mock(),
                 ),
+                ZirStatement::Return(vec![]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -2797,12 +2825,11 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let flat = flatten_function(function);
 
-        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 0,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -2826,7 +2853,7 @@ mod tests {
             ],
         };
 
-        assert_eq!(flat, expected);
+        assert_eq!(flat.collect(), expected);
     }
 
     #[test]
@@ -2834,6 +2861,7 @@ mod tests {
         // def main():
         //     u32 x = 42
         //     assert(x == 42)
+        //     return
 
         // def main():
         //     _0 = 42
@@ -2862,6 +2890,7 @@ mod tests {
                     ),
                     zir::RuntimeError::mock(),
                 ),
+                ZirStatement::Return(vec![]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -2869,12 +2898,11 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let flat = flatten_function(function);
 
-        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 0,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -2891,7 +2919,7 @@ mod tests {
             ],
         };
 
-        assert_eq!(flat, expected);
+        assert_eq!(flat.collect(), expected);
     }
 
     #[test]
@@ -2900,6 +2928,7 @@ mod tests {
         //     field x = 2
         //     field y = 2
         //     assert(x == y)
+        //     return
 
         // def main():
         //     _0 = 2
@@ -2923,6 +2952,7 @@ mod tests {
                     ),
                     zir::RuntimeError::mock(),
                 ),
+                ZirStatement::Return(vec![]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -2930,12 +2960,11 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let flat = flatten_function(function);
 
-        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 0,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -2956,7 +2985,7 @@ mod tests {
             ],
         };
 
-        assert_eq!(flat, expected);
+        assert_eq!(flat.collect(), expected);
     }
 
     #[test]
@@ -2966,6 +2995,7 @@ mod tests {
         //     field y = 2
         //     field z = 4
         //     assert(x * y == z)
+        //     return
 
         // def main():
         //     _0 = 2
@@ -2997,6 +3027,7 @@ mod tests {
                     ),
                     zir::RuntimeError::mock(),
                 ),
+                ZirStatement::Return(vec![]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -3004,12 +3035,11 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let flat = flatten_function(function);
 
-        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 0,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -3034,7 +3064,7 @@ mod tests {
             ],
         };
 
-        assert_eq!(flat, expected);
+        assert_eq!(flat.collect(), expected);
     }
 
     #[test]
@@ -3044,6 +3074,7 @@ mod tests {
         //     field y = 2
         //     field z = 4
         //     assert(z == x * y)
+        //     return
 
         // def main():
         //     _0 = 2
@@ -3075,6 +3106,7 @@ mod tests {
                     ),
                     zir::RuntimeError::mock(),
                 ),
+                ZirStatement::Return(vec![]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -3082,12 +3114,11 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let flat = flatten_function(function);
 
-        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 0,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -3112,7 +3143,7 @@ mod tests {
             ],
         };
 
-        assert_eq!(flat, expected);
+        assert_eq!(flat.collect(), expected);
     }
 
     #[test]
@@ -3170,12 +3201,11 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let flat = flatten_function(function);
 
-        let flat = flattener.flatten_function(function);
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 0,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -3211,7 +3241,7 @@ mod tests {
             ],
         };
 
-        assert_eq!(flat, expected);
+        assert_eq!(flat.collect(), expected);
     }
 
     #[test]
@@ -3248,11 +3278,9 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
-
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 1,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -3262,13 +3290,14 @@ mod tests {
                     FlatVariable::new(1),
                     FlatExpression::Number(Bn128Field::from(1)),
                 ),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))],
-                }),
+                FlatStatement::Definition(
+                    FlatVariable::public(0),
+                    FlatExpression::Identifier(FlatVariable::new(1)),
+                ),
             ],
         };
 
-        let flattened = flattener.flatten_function(function);
+        let flattened = flatten_function(function);
 
         assert_eq!(flattened, expected);
     }
@@ -3308,11 +3337,9 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
-
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 1,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -3325,13 +3352,14 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                     ),
                 ),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))],
-                }),
+                FlatStatement::Definition(
+                    FlatVariable::public(0),
+                    FlatExpression::Identifier(FlatVariable::new(1)),
+                ),
             ],
         };
 
-        let flattened = flattener.flatten_function(function);
+        let flattened = flatten_function(function);
 
         assert_eq!(flattened, expected);
     }
@@ -3388,11 +3416,9 @@ mod tests {
             },
         };
 
-        let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
-
         let expected = FlatFunction {
             arguments: vec![],
+            return_count: 1,
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
@@ -3440,13 +3466,14 @@ mod tests {
                         box FlatExpression::Identifier(FlatVariable::new(3)),
                     ),
                 ),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(6))],
-                }),
+                FlatStatement::Definition(
+                    FlatVariable::public(0),
+                    FlatExpression::Identifier(FlatVariable::new(6)),
+                ),
             ],
         };
 
-        let flattened = flattener.flatten_function(function);
+        let flattened = flatten_function(function);
 
         assert_eq!(flattened, expected);
     }
@@ -3463,7 +3490,7 @@ mod tests {
             box FieldElementExpression::Number(Bn128Field::from(51)),
         );
 
-        let mut flattener = Flattener::new(&config);
+        let mut flattener = Flattener::new(config);
 
         flattener.flatten_field_expression(&mut FlatStatements::new(), expression);
     }
@@ -3471,14 +3498,14 @@ mod tests {
     #[test]
     fn geq_leq() {
         let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let mut flattener = Flattener::new(config);
         let expression_le = BooleanExpression::FieldLe(
             box FieldElementExpression::Number(Bn128Field::from(32)),
             box FieldElementExpression::Number(Bn128Field::from(4)),
         );
         flattener.flatten_boolean_expression(&mut FlatStatements::new(), expression_le);
 
-        let mut flattener = Flattener::new(&config);
+        let mut flattener = Flattener::new(config);
         let expression_ge = BooleanExpression::FieldGe(
             box FieldElementExpression::Number(Bn128Field::from(32)),
             box FieldElementExpression::Number(Bn128Field::from(4)),
@@ -3489,7 +3516,7 @@ mod tests {
     #[test]
     fn bool_and() {
         let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let mut flattener = Flattener::new(config);
 
         let expression = FieldElementExpression::IfElse(
             box BooleanExpression::And(
@@ -3513,7 +3540,7 @@ mod tests {
     fn div() {
         // a = 5 / b / b
         let config = CompileConfig::default();
-        let mut flattener = Flattener::new(&config);
+        let mut flattener = Flattener::new(config);
         let mut statements_flattened = FlatStatements::new();
 
         let definition = ZirStatement::Definition(

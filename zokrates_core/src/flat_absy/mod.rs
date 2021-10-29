@@ -98,52 +98,46 @@ impl fmt::Display for RuntimeError {
 
 pub type FlatProg<T> = FlatFunction<T>;
 
-#[derive(Clone, PartialEq)]
-pub struct FlatFunction<T> {
-    /// Arguments of the function
-    pub arguments: Vec<FlatParameter>,
-    /// Vector of statements that are executed when running the function
-    pub statements: Vec<FlatStatement<T>>,
-}
+pub type FlatFunction<T> = FlatFunctionIterator<T, Vec<FlatStatement<T>>>;
 
-pub type FlatProgIterator<T> = FlatFunctionIterator<T>;
-pub struct FlatFunctionIterator<I> {
+pub type FlatProgIterator<T, I> = FlatFunctionIterator<T, I>;
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct FlatFunctionIterator<T, I: IntoIterator<Item = FlatStatement<T>>> {
     /// Arguments of the function
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
     pub statements: I,
+    /// Number of outputs
+    pub return_count: usize,
+}
+
+impl<T, I: IntoIterator<Item = FlatStatement<T>>> FlatFunctionIterator<T, I> {
+    pub fn collect(self) -> FlatFunction<T> {
+        FlatFunction {
+            statements: self.statements.into_iter().collect(),
+            arguments: self.arguments,
+            return_count: self.return_count,
+        }
+    }
 }
 
 impl<T: Field> fmt::Display for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def main({}):\n{}",
+            "def main({}) -> {}:\n{}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join(","),
+            self.return_count,
             self.statements
                 .iter()
                 .map(|x| format!("\t{}", x))
                 .collect::<Vec<_>>()
                 .join("\n")
-        )
-    }
-}
-
-impl<T: Field> fmt::Debug for FlatFunction<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "FlatFunction(arguments: {:?}):\n{}",
-            self.arguments,
-            self.statements
-                .iter()
-                .map(|x| format!("\t{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n"),
         )
     }
 }
@@ -158,9 +152,8 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 ///
 /// * r1cs - R1CS in standard JSON data format
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum FlatStatement<T> {
-    Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(FlatVariable, FlatExpression<T>),
     Directive(FlatDirective<T>),
@@ -170,24 +163,10 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
             FlatStatement::Condition(ref lhs, ref rhs, ref message) => {
                 write!(f, "{} == {} // {}", lhs, rhs, message)
             }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
-        }
-    }
-}
-
-impl<T: Field> fmt::Debug for FlatStatement<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
-            FlatStatement::Condition(ref lhs, ref rhs, ref error) => {
-                write!(f, "FlatCondition({:?}, {:?}, {:?})", lhs, rhs, error)
-            }
-            FlatStatement::Directive(ref d) => write!(f, "{:?}", d),
         }
     }
 }
@@ -202,7 +181,6 @@ impl<T: Field> FlatStatement<T> {
                 *id.apply_substitution(substitution),
                 x.apply_substitution(substitution),
             ),
-            FlatStatement::Return(x) => FlatStatement::Return(x.apply_substitution(substitution)),
             FlatStatement::Condition(x, y, message) => FlatStatement::Condition(
                 x.apply_substitution(substitution),
                 y.apply_substitution(substitution),
@@ -237,7 +215,7 @@ pub struct FlatDirective<T> {
     pub solver: Solver,
 }
 
-impl<T: Field> FlatDirective<T> {
+impl<T> FlatDirective<T> {
     pub fn new<E: Into<FlatExpression<T>>>(
         outputs: Vec<FlatVariable>,
         solver: Solver,
@@ -274,7 +252,7 @@ impl<T: Field> fmt::Display for FlatDirective<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum FlatExpression<T> {
     Number(T),
     Identifier(FlatVariable),
@@ -348,59 +326,9 @@ impl<T: Field> fmt::Display for FlatExpression<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for FlatExpression<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            FlatExpression::Number(ref i) => write!(f, "Num({:?})", i),
-            FlatExpression::Identifier(ref var) => write!(f, "Ide({})", var),
-            FlatExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
-            FlatExpression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
-            FlatExpression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
-        }
-    }
-}
-
 impl<T: Field> From<FlatVariable> for FlatExpression<T> {
     fn from(v: FlatVariable) -> FlatExpression<T> {
         FlatExpression::Identifier(v)
-    }
-}
-
-#[derive(Clone, PartialEq)]
-pub struct FlatExpressionList<T> {
-    pub expressions: Vec<FlatExpression<T>>,
-}
-
-impl<T: Field> fmt::Display for FlatExpressionList<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i, param) in self.expressions.iter().enumerate() {
-            write!(f, "{}", param)?;
-            if i < self.expressions.len() - 1 {
-                write!(f, ", ")?;
-            }
-        }
-        write!(f, "")
-    }
-}
-
-impl<T: Field> FlatExpressionList<T> {
-    pub fn apply_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatExpressionList<T> {
-        FlatExpressionList {
-            expressions: self
-                .expressions
-                .into_iter()
-                .map(|e| e.apply_substitution(substitution))
-                .collect(),
-        }
-    }
-}
-
-impl<T: Field> fmt::Debug for FlatExpressionList<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ExpressionList({:?})", self.expressions)
     }
 }
 

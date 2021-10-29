@@ -16,7 +16,7 @@ use zokrates_core::proof_system::groth16::G16;
 fn generate_proof() {
     let program: Prog<Bn128Field> = Prog {
         arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-        returns: vec![FlatVariable::new(0)],
+        return_count: 1,
         statements: vec![Statement::constraint(
             FlatVariable::new(0),
             FlatVariable::new(0),
@@ -25,10 +25,10 @@ fn generate_proof() {
 
     let interpreter = Interpreter::default();
     let witness = interpreter
-        .execute(&program, &[Bn128Field::from(42)])
+        .execute(program.clone().into(), &[Bn128Field::from(42)])
         .unwrap();
 
-    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
+    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone().into());
     let _proof =
         <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
 }

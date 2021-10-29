@@ -1,6 +1,6 @@
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::flat_absy::RuntimeError;
-use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
+use crate::ir::{LinComb, ProgIterator, QuadComb, Statement, Witness};
 use crate::solvers::Solver;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -8,8 +8,6 @@ use std::fmt;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
-
-impl<T: Field> Prog<T> {}
 
 #[derive(Default)]
 pub struct Interpreter {
@@ -27,8 +25,12 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &[T]) -> ExecutionResult<T> {
-        self.check_inputs(program, inputs)?;
+    pub fn execute<T: Field, I: IntoIterator<Item = Statement<T>>>(
+        &self,
+        program: ProgIterator<T, I>,
+        inputs: &[T],
+    ) -> ExecutionResult<T> {
+        self.check_inputs(&program, inputs)?;
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
 
@@ -36,7 +38,7 @@ impl Interpreter {
             witness.insert(arg.id, value.clone());
         }
 
-        for statement in program.statements.iter() {
+        for statement in program.statements.into_iter() {
             match statement {
                 Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
                     true => {
@@ -108,7 +110,11 @@ impl Interpreter {
             .collect()
     }
 
-    fn check_inputs<T: Field, U>(&self, program: &Prog<T>, inputs: &[U]) -> Result<(), Error> {
+    fn check_inputs<T: Field, I: IntoIterator<Item = Statement<T>>, U>(
+        &self,
+        program: &ProgIterator<T, I>,
+        inputs: &[U],
+    ) -> Result<(), Error> {
         if program.arguments.len() == inputs.len() {
             Ok(())
         } else {

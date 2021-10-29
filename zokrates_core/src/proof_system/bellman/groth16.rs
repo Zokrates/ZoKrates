@@ -8,7 +8,7 @@ use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
-use crate::ir::{Prog, Witness};
+use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::bellman::Bellman;
 use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
@@ -18,8 +18,8 @@ use crate::proof_system::Scheme;
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof(
-        program: Prog<T>,
+    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+        program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<<G16 as Scheme<T>>::ProofPoints> {
@@ -28,18 +28,18 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
         let computation = Computation::with_witness(program, witness);
         let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
-        let proof = computation.clone().prove(&params);
-        let proof_points = ProofPoints {
-            a: parse_g1::<T>(&proof.a),
-            b: parse_g2::<T>(&proof.b),
-            c: parse_g1::<T>(&proof.c),
-        };
-
         let public_inputs: Vec<String> = computation
             .public_inputs_values()
             .iter()
             .map(parse_fr::<T>)
             .collect();
+
+        let proof = computation.prove(&params);
+        let proof_points = ProofPoints {
+            a: parse_g1::<T>(&proof.a),
+            b: parse_g2::<T>(&proof.b),
+            c: parse_g1::<T>(&proof.c),
+        };
 
         Proof::new(proof_points, public_inputs)
     }
@@ -84,7 +84,9 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 }
 
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
-    fn setup(program: Prog<T>) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
+    fn setup<I: IntoIterator<Item = Statement<T>>>(
+        program: ProgIterator<T, I>,
+    ) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
@@ -143,22 +145,26 @@ mod tests {
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
             arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-            returns: vec![FlatVariable::public(0)],
+            return_count: 1,
             statements: vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
             )],
         };
 
-        let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
+        let keypair =
+            <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone().into());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &[Bn128Field::from(42)])
+            .execute(program.clone().into(), &[Bn128Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Bellman as Backend<Bn128Field, G16>>::generate_proof(
+            program.into(),
+            witness,
+            keypair.pk,
+        );
         let ans = <Bellman as Backend<Bn128Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);

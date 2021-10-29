@@ -1,5 +1,7 @@
-use crate::flat_absy::{FlatDirective, FlatExpression, FlatStatement, FlatVariable};
-use crate::ir::{Directive, LinComb, QuadComb, Statement};
+use crate::flat_absy::{
+    FlatDirective, FlatExpression, FlatProgIterator, FlatStatement, FlatVariable,
+};
+use crate::ir::{Directive, LinComb, ProgIterator, QuadComb, Statement};
 use zokrates_field::Field;
 
 impl<T: Field> QuadComb<T> {
@@ -17,25 +19,14 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-pub fn from_flat<'ast, T: Field, I: Iterator<Item = FlatStatement<T>>>(
-    flat_prog_iterator: I,
-) -> impl Iterator<Item = Statement<T>> {
-    flat_prog_iterator.filter_map(|s| match s {
-        FlatStatement::Return(..) => None,
-        s => Some(s.into()),
-    })
-    // .chain(
-    //     return_expressions
-    //         .into_iter()
-    //         .enumerate()
-    //         .map(|(index, expression)| {
-    //             Statement::Constraint(
-    //                 QuadComb::from_flat_expression(expression),
-    //                 FlatVariable::public(index).into(),
-    //                 None,
-    //             )
-    //         }),
-    // )
+pub fn from_flat<'ast, T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
+    flat_prog_iterator: FlatProgIterator<T, I>,
+) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+    ProgIterator {
+        statements: flat_prog_iterator.statements.into_iter().map(Into::into),
+        arguments: flat_prog_iterator.arguments,
+        return_count: flat_prog_iterator.return_count,
+    }
 }
 
 impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
@@ -79,7 +70,6 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                 e => Statement::Constraint(LinComb::from(e).into(), var.into(), None),
             },
             FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
-            _ => panic!("return should be handled at the function level"),
         }
     }
 }

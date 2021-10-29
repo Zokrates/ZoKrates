@@ -76,15 +76,18 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
+    ir_prog: ir::ProgIterator<T, I>,
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     println!("Computing witness...");
 
     let verbose = sub_matches.is_present("verbose");
 
     // print deserialized flattened program if in verbose mode
-    if verbose {
-        println!("{}", ir_prog);
-    }
+    // if verbose {
+    //     println!("{}", ir_prog);
+    // }
 
     let is_stdin = sub_matches.is_present("stdin");
     let is_abi = sub_matches.is_present("abi");
@@ -140,7 +143,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
                     }
                     Err(_) => Err(String::from("???")),
                 },
-                false => match ir_prog.arguments_count() {
+                false => match ir_prog.arguments.len() {
                     0 => Ok(Inputs::Raw(vec![])),
                     _ => match stdin.read_to_string(&mut input) {
                         Ok(_) => {
@@ -162,7 +165,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     let interpreter = ir::Interpreter::default();
 
     let witness = interpreter
-        .execute(&ir_prog, &arguments.encode())
+        .execute(ir_prog, &arguments.encode())
         .map_err(|e| format!("Execution failed: {}", e))?;
 
     use zokrates_abi::Decode;

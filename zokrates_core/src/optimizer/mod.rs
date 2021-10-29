@@ -19,22 +19,19 @@ use self::tautology::TautologyOptimizer;
 use crate::ir::{ProgIterator, Statement};
 use zokrates_field::Field;
 
-impl<T: Field, I: Iterator<Item = Statement<T>>> ProgIterator<I> {
-    pub fn optimize(self) -> ProgIterator<impl Iterator<Item = Statement<T>>> {
+impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+    pub fn optimize(self) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
         // remove redefinitions
         log::debug!(
             "Optimizer: Remove redefinitions and tautologies and directives and duplicates"
         );
 
         // define all optimizer steps
-        let mut redefinition_optimizer = RedefinitionOptimizer::default();
+        let mut redefinition_optimizer = RedefinitionOptimizer::init(&self);
         let mut tautologies_optimizer = TautologyOptimizer::default();
         let mut directive_optimizer = DirectiveOptimizer::default();
         let mut canonicalizer = Canonicalizer::default();
         let mut duplicate_optimizer = DuplicateOptimizer::default();
-
-        // initialize the ones that need initializing
-        redefinition_optimizer.ignore.extend(self.returns().clone());
 
         use crate::ir::folder::Folder;
 
@@ -44,11 +41,17 @@ impl<T: Field, I: Iterator<Item = Statement<T>>> ProgIterator<I> {
                 .into_iter()
                 .map(|a| redefinition_optimizer.fold_argument(a))
                 .map(|a| {
-                    <TautologyOptimizer as Folder<T>>::fold_argument(&mut tautologies_optimizer, a)
+                    <TautologyOptimizer as Folder<T>>::fold_argument(
+                        &mut tautologies_optimizer,
+                        a,
+                    )
                 })
                 .map(|a| directive_optimizer.fold_argument(a))
                 .map(|a| {
-                    <DuplicateOptimizer as Folder<T>>::fold_argument(&mut duplicate_optimizer, a)
+                    <DuplicateOptimizer as Folder<T>>::fold_argument(
+                        &mut duplicate_optimizer,
+                        a,
+                    )
                 })
                 .collect(),
             statements: self

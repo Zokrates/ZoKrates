@@ -1,7 +1,7 @@
 pub mod gm17;
 pub mod marlin;
 
-use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
+use crate::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
 use ark_gm17::Proof;
 use ark_gm17::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
@@ -24,20 +24,20 @@ use rand_0_7::SeedableRng;
 pub struct Ark;
 
 #[derive(Clone)]
-pub struct Computation<T> {
-    program: Prog<T>,
+pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
+    program: ProgIterator<T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T: Field> Computation<T> {
-    pub fn with_witness(program: Prog<T>, witness: Witness<T>) -> Self {
+impl<T, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: Prog<T>) -> Self {
+    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -79,7 +79,7 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field + ArkFieldExtensions> Prog<T> {
+impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     pub fn generate_constraints(
         self,
         cs: ConstraintSystemRef<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
@@ -148,16 +148,15 @@ impl<T: Field + ArkFieldExtensions> Prog<T> {
     }
 }
 
-impl<T: Field + ArkFieldExtensions> Computation<T> {
+impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
     pub fn prove(self, params: &ProvingKey<T::ArkEngine>) -> Proof<T::ArkEngine> {
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 
-        let proof = create_random_proof(self.clone(), params, rng).unwrap();
+        let public_inputs = self.public_inputs_values();
+
+        let proof = create_random_proof(self, params, rng).unwrap();
 
         let pvk = prepare_verifying_key(&params.vk);
-
-        // extract public inputs
-        let public_inputs = self.public_inputs_values();
 
         assert!(verify_proof(&pvk, &proof, &public_inputs).unwrap());
 
@@ -180,9 +179,9 @@ impl<T: Field + ArkFieldExtensions> Computation<T> {
     }
 }
 
-impl<T: Field + ArkFieldExtensions>
+impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
     ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
-    for Computation<T>
+    for Computation<T, I>
 {
     fn generate_constraints(
         self,

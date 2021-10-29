@@ -39,8 +39,8 @@ extern "C" {
 }
 
 impl Backend<Bn128Field, GM17> for Libsnark {
-    fn generate_proof(
-        program: Prog<Bn128Field>,
+    fn generate_proof<I: IntoIterator<Item = Statement<Bn128Field>>>(
+        program: ProgIterator<Bn128Field, I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> Proof<<GM17 as Scheme<Bn128Field>>::ProofPoints> {
@@ -130,8 +130,8 @@ impl Backend<Bn128Field, GM17> for Libsnark {
 }
 
 impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
-    fn setup(
-        program: Prog<Bn128Field>,
+    fn setup<I: IntoIterator<Item = Statement<Bn128Field>>>(
+        program: ProgIterator<Bn128Field, I>,
     ) -> SetupKeypair<<GM17 as Scheme<Bn128Field>>::VerificationKey> {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);

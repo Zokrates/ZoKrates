@@ -43,6 +43,7 @@ fn cli() -> Result<(), String> {
         )
         .subcommands(vec![
             compile::subcommand(),
+            inspect::subcommand(),
             check::subcommand(),
             compute_witness::subcommand(),
             #[cfg(feature = "ark")]
@@ -60,6 +61,7 @@ fn cli() -> Result<(), String> {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => compile::exec(sub_matches),
+        ("inspect", Some(sub_matches)) => inspect::exec(sub_matches),
         ("check", Some(sub_matches)) => check::exec(sub_matches),
         ("compute-witness", Some(sub_matches)) => compute_witness::exec(sub_matches),
         #[cfg(feature = "ark")]
@@ -115,6 +117,7 @@ mod tests {
     use std::fs::File;
     use std::io::{BufReader, Read};
     use std::string::String;
+    use typed_arena::Arena;
     use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig};
     use zokrates_core::ir;
     use zokrates_field::Bn128Field;
@@ -154,11 +157,15 @@ mod tests {
 
                     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
                     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
+
+                    let arena = Arena::new();
+
                     let res = compile::<Bn128Field, _>(
                         source,
                         path,
                         Some(&resolver),
-                        &CompileConfig::default(),
+                        CompileConfig::default(),
+                        &arena,
                     );
                     assert_eq!(res.is_err(), should_error);
                 }
@@ -189,8 +196,16 @@ mod tests {
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
-            let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
+            let arena = Arena::new();
+
+            let artifacts: CompilationArtifacts<Bn128Field, _> = compile(
+                source,
+                path,
+                Some(&resolver),
+                CompileConfig::default(),
+                &arena,
+            )
+            .unwrap();
 
             let interpreter = ir::Interpreter::default();
 
@@ -221,8 +236,16 @@ mod tests {
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
             let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
-            let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
+            let arena = Arena::new();
+
+            let artifacts: CompilationArtifacts<Bn128Field, _> = compile(
+                source,
+                path,
+                Some(&resolver),
+                CompileConfig::default(),
+                &arena,
+            )
+            .unwrap();
 
             let interpreter = ir::Interpreter::default();
 

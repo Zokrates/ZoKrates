@@ -1,6 +1,6 @@
 pub mod groth16;
 
-use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
+use crate::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
@@ -20,20 +20,20 @@ pub use self::parse::*;
 pub struct Bellman;
 
 #[derive(Clone)]
-pub struct Computation<T> {
-    program: Prog<T>,
+pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
+    program: ProgIterator<T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T: Field> Computation<T> {
-    pub fn with_witness(program: Prog<T>, witness: Witness<T>) -> Self {
+impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: Prog<T>) -> Self {
+    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -81,7 +81,7 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field> Prog<T> {
+impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
@@ -145,7 +145,7 @@ impl<T: BellmanFieldExtensions + Field> Prog<T> {
     }
 }
 
-impl<T: BellmanFieldExtensions + Field> Computation<T> {
+impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
     fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
         let mut seed = [0u8; 32];
         getrandom::getrandom(&mut seed)?;
@@ -163,12 +163,12 @@ impl<T: BellmanFieldExtensions + Field> Computation<T> {
         let seed = self.get_random_seed().unwrap();
         let rng = &mut ChaChaRng::from_seed(seed.as_ref());
 
-        let proof = create_random_proof(self.clone(), params, rng).unwrap();
-
-        let pvk = prepare_verifying_key(&params.vk);
-
         // extract public inputs
         let public_inputs = self.public_inputs_values();
+
+        let proof = create_random_proof(self, params, rng).unwrap();
+
+        let pvk = prepare_verifying_key(&params.vk);
 
         assert!(verify_proof(&pvk, &proof, &public_inputs).unwrap());
 
@@ -192,7 +192,9 @@ impl<T: BellmanFieldExtensions + Field> Computation<T> {
     }
 }
 
-impl<T: BellmanFieldExtensions + Field> Circuit<T::BellmanEngine> for Computation<T> {
+impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
+    Circuit<T::BellmanEngine> for Computation<T, I>
+{
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
@@ -267,6 +269,7 @@ mod tests {
     mod prove {
         use super::*;
         use crate::flat_absy::FlatParameter;
+        use crate::ir::Prog;
 
         #[test]
         fn empty() {
@@ -274,8 +277,8 @@ mod tests {
 
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(&program, &[]).unwrap();
-            let computation = Computation::with_witness(program, witness);
+            let witness = interpreter.execute(program.clone().into(), &[]).unwrap();
+            let computation = Computation::with_witness(program.into(), witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -285,7 +288,7 @@ mod tests {
         fn identity() {
             let program: Prog<Bn128Field> = Prog {
                 arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-                returns: vec![FlatVariable::public(0)],
+                return_count: 1,
                 statements: vec![Statement::constraint(
                     FlatVariable::new(0),
                     FlatVariable::public(0),
@@ -295,10 +298,10 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &[Bn128Field::from(0)])
+                .execute(program.clone().into(), &[Bn128Field::from(0)])
                 .unwrap();
 
-            let computation = Computation::with_witness(program, witness);
+            let computation = Computation::with_witness(program.into(), witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -308,7 +311,7 @@ mod tests {
         fn public_identity() {
             let program: Prog<Bn128Field> = Prog {
                 arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-                returns: vec![FlatVariable::public(0)],
+                return_count: 1,
                 statements: vec![Statement::constraint(
                     FlatVariable::new(0),
                     FlatVariable::public(0),
@@ -318,10 +321,10 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &[Bn128Field::from(0)])
+                .execute(program.clone().into(), &[Bn128Field::from(0)])
                 .unwrap();
 
-            let computation = Computation::with_witness(program, witness);
+            let computation = Computation::with_witness(program.into(), witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -331,7 +334,7 @@ mod tests {
         fn no_arguments() {
             let program: Prog<Bn128Field> = Prog {
                 arguments: vec![],
-                returns: vec![FlatVariable::public(0)],
+                return_count: 1,
                 statements: vec![Statement::constraint(
                     FlatVariable::one(),
                     FlatVariable::public(0),
@@ -340,8 +343,8 @@ mod tests {
 
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(&program, &[]).unwrap();
-            let computation = Computation::with_witness(program, witness);
+            let witness = interpreter.execute(program.clone().into(), &[]).unwrap();
+            let computation = Computation::with_witness(program.into(), witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -356,7 +359,7 @@ mod tests {
                     FlatParameter::private(FlatVariable::new(42)),
                     FlatParameter::public(FlatVariable::new(51)),
                 ],
-                returns: vec![FlatVariable::public(0), FlatVariable::public(1)],
+                return_count: 2,
                 statements: vec![
                     Statement::constraint(
                         LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
@@ -372,9 +375,12 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &[Bn128Field::from(3), Bn128Field::from(4)])
+                .execute(
+                    program.clone().into(),
+                    &[Bn128Field::from(3), Bn128Field::from(4)],
+                )
                 .unwrap();
-            let computation = Computation::with_witness(program, witness);
+            let computation = Computation::with_witness(program.into(), witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -384,7 +390,7 @@ mod tests {
         fn one() {
             let program: Prog<Bn128Field> = Prog {
                 arguments: vec![FlatParameter::public(FlatVariable::new(42))],
-                returns: vec![FlatVariable::public(0)],
+                return_count: 1,
                 statements: vec![Statement::constraint(
                     LinComb::from(FlatVariable::new(42)) + LinComb::one(),
                     FlatVariable::public(0),
@@ -394,10 +400,10 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &[Bn128Field::from(3)])
+                .execute(program.clone().into(), &[Bn128Field::from(3)])
                 .unwrap();
 
-            let computation = Computation::with_witness(program, witness);
+            let computation = Computation::with_witness(program.into(), witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -410,7 +416,7 @@ mod tests {
                     FlatParameter::private(FlatVariable::new(42)),
                     FlatParameter::public(FlatVariable::new(51)),
                 ],
-                returns: vec![FlatVariable::public(0)],
+                return_count: 1,
                 statements: vec![Statement::constraint(
                     LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
                     FlatVariable::public(0),
@@ -420,9 +426,12 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(&program, &[Bn128Field::from(3), Bn128Field::from(4)])
+                .execute(
+                    program.clone().into(),
+                    &[Bn128Field::from(3), Bn128Field::from(4)],
+                )
                 .unwrap();
-            let computation = Computation::with_witness(program, witness);
+            let computation = Computation::with_witness(program.into(), witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);

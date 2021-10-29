@@ -156,10 +156,11 @@ fn compile_and_run<T: Field>(t: Tests) {
 
     let abi = artifacts.abi;
     let bin = artifacts.prog;
+    // here we do want the program in memory because we want to run many tests on it
+    let bin = bin.collect();
 
     if let Some(target_count) = t.max_constraint_count {
-        unimplemented!("bin.constraint_count()");
-        let count = 42;
+        let count = bin.constraint_count();
 
         assert!(
             count <= target_count,
@@ -172,8 +173,6 @@ fn compile_and_run<T: Field>(t: Tests) {
     };
 
     let interpreter = zokrates_core::ir::Interpreter::default();
-
-    let bin = &bin.into();
 
     for test in t.tests.into_iter() {
         let with_abi = test.abi.unwrap_or(false);
@@ -190,7 +189,7 @@ fn compile_and_run<T: Field>(t: Tests) {
                 .unwrap()
         };
 
-        let output = interpreter.execute(bin, &input);
+        let output = interpreter.execute(bin.clone().into(), &input);
 
         if let Err(e) = compare(output, test.output) {
             let mut code = File::open(&entry_point).unwrap();

@@ -12,7 +12,6 @@
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::*;
 use crate::ir::*;
-use crate::optimizer::canonicalizer::Canonicalizer;
 use crate::solvers::Solver;
 use std::collections::hash_map::{Entry, HashMap};
 use zokrates_field::Field;
@@ -25,23 +24,6 @@ pub struct DirectiveOptimizer<T> {
 }
 
 impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
-    fn fold_module(&mut self, p: Prog<T>) -> Prog<T> {
-        // in order to correctly identify duplicates, we need to first canonicalize the statements
-
-        let mut canonicalizer = Canonicalizer;
-
-        let p = Prog {
-            statements: p
-                .statements
-                .into_iter()
-                .flat_map(|s| canonicalizer.fold_statement(s))
-                .collect(),
-            ..p
-        };
-
-        fold_module(self, p)
-    }
-
     fn fold_variable(&mut self, v: FlatVariable) -> FlatVariable {
         *self.substitution.get(&v).unwrap_or(&v)
     }
