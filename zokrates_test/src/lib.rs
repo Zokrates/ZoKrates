@@ -189,7 +189,7 @@ fn compile_and_run<T: Field>(t: Tests) {
                 .unwrap()
         };
 
-        let output = interpreter.execute(bin.clone().into(), &input);
+        let output = interpreter.execute(bin.clone(), &input);
 
         if let Err(e) = compare(output, test.output) {
             let mut code = File::open(&entry_point).unwrap();

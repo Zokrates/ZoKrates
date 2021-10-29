@@ -2368,11 +2368,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) {
         match stat {
             ZirStatement::Return(exprs) => {
-                let flat_expressions = exprs
+                let flat_expressions: Vec<_> = exprs
                     .into_iter()
                     .map(|expr| self.flatten_expression(statements_flattened, expr))
                     .map(|x| x.get_field_unchecked())
-                    .collect::<Vec<_>>();
+                    .collect();
 
                 statements_flattened.extend(
                     flat_expressions.into_iter().enumerate().map(|(index, e)| {
@@ -2717,7 +2717,7 @@ mod tests {
     use crate::zir::types::Type;
     use zokrates_field::Bn128Field;
 
-    fn flatten_function<'ast, T: Field>(f: ZirFunction<'ast, T>) -> FlatProg<T> {
+    fn flatten_function<T: Field>(f: ZirFunction<T>) -> FlatProg<T> {
         FlattenerIterator::from_function_and_config(f, CompileConfig::default()).collect()
     }
 

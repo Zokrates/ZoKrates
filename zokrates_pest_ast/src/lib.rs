@@ -1307,7 +1307,7 @@ mod tests {
                                         span: Span::new(source, 76, 77).unwrap()
                                     }
                                 ))),
-                                Span::new(&source, 59, 80).unwrap()
+                                Span::new(source, 59, 80).unwrap()
                             )],
                             span: Span::new(source, 52, 80).unwrap(),
                         })],

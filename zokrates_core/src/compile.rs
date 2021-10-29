@@ -198,7 +198,7 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T, impl IntoIterator<Item = ir::Statement<T>> + 'ast>, CompileErrors>
 {
     let (typed_ast, abi): (crate::zir::ZirProgram<'_, T>, _) =
-        check_with_arena(source, location.clone(), resolver, &config, arena)?;
+        check_with_arena(source, location, resolver, &config, arena)?;
 
     // flatten input program
     log::debug!("Flatten");

@@ -93,9 +93,7 @@ impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     }
 
     pub fn returns(&self) -> Vec<FlatVariable> {
-        (0..self.return_count)
-            .map(|id| FlatVariable::public(id))
-            .collect()
+        (0..self.return_count).map(FlatVariable::public).collect()
     }
 }
 
@@ -118,7 +116,7 @@ impl<T> Prog<T> {
             .count()
     }
 
-    pub fn into_iter(self) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+    pub fn into_prog_iter(self) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
         ProgIterator {
             statements: self.statements.into_iter(),
             arguments: self.arguments,
@@ -146,7 +144,7 @@ impl<T: Field> fmt::Display for Prog<T> {
             f,
             "\treturn {}",
             (0..self.return_count)
-                .map(|i| FlatVariable::public(i))
+                .map(FlatVariable::public)
                 .map(|e| format!("{}", e))
                 .collect::<Vec<_>>()
                 .join(", ")

@@ -277,8 +277,8 @@ mod tests {
 
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(program.clone().into(), &[]).unwrap();
-            let computation = Computation::with_witness(program.into(), witness);
+            let witness = interpreter.execute(program.clone(), &[]).unwrap();
+            let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -298,10 +298,10 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone().into(), &[Bn128Field::from(0)])
+                .execute(program.clone(), &[Bn128Field::from(0)])
                 .unwrap();
 
-            let computation = Computation::with_witness(program.into(), witness);
+            let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -321,10 +321,10 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone().into(), &[Bn128Field::from(0)])
+                .execute(program.clone(), &[Bn128Field::from(0)])
                 .unwrap();
 
-            let computation = Computation::with_witness(program.into(), witness);
+            let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -343,8 +343,8 @@ mod tests {
 
             let interpreter = Interpreter::default();
 
-            let witness = interpreter.execute(program.clone().into(), &[]).unwrap();
-            let computation = Computation::with_witness(program.into(), witness);
+            let witness = interpreter.execute(program.clone(), &[]).unwrap();
+            let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -375,12 +375,9 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(
-                    program.clone().into(),
-                    &[Bn128Field::from(3), Bn128Field::from(4)],
-                )
+                .execute(program.clone(), &[Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
-            let computation = Computation::with_witness(program.into(), witness);
+            let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -400,10 +397,10 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(program.clone().into(), &[Bn128Field::from(3)])
+                .execute(program.clone(), &[Bn128Field::from(3)])
                 .unwrap();
 
-            let computation = Computation::with_witness(program.into(), witness);
+            let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
@@ -426,12 +423,9 @@ mod tests {
             let interpreter = Interpreter::default();
 
             let witness = interpreter
-                .execute(
-                    program.clone().into(),
-                    &[Bn128Field::from(3), Bn128Field::from(4)],
-                )
+                .execute(program.clone(), &[Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
-            let computation = Computation::with_witness(program.into(), witness);
+            let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);

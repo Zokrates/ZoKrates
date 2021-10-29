@@ -25,10 +25,10 @@ fn generate_proof() {
 
     let interpreter = Interpreter::default();
     let witness = interpreter
-        .execute(program.clone().into(), &[Bn128Field::from(42)])
+        .execute(program.clone(), &[Bn128Field::from(42)])
         .unwrap();
 
-    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone().into());
+    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
     let _proof =
         <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
 }

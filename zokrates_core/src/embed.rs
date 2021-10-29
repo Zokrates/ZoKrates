@@ -417,7 +417,6 @@ pub fn sha256_round<T: Field>(
     let arguments = input_argument_indices
         .clone()
         .into_iter()
-        .clone()
         .chain(current_hash_argument_indices.clone())
         .map(|i| FlatParameter {
             id: FlatVariable::new(i),
@@ -454,9 +453,7 @@ pub fn sha256_round<T: Field>(
     });
 
     // define which subset of the witness is returned
-    let outputs: Vec<FlatExpression<T>> = output_indices
-        .map(|o| FlatExpression::Identifier(FlatVariable::new(o)))
-        .collect();
+    let outputs = output_indices.map(|o| FlatExpression::Identifier(FlatVariable::new(o)));
     // insert a directive to set the witness based on the bellman gadget and  inputs
     let directive_statement = FlatStatement::Directive(FlatDirective {
         outputs: cs_indices.map(FlatVariable::new).collect(),
@@ -580,16 +577,15 @@ pub fn snark_verify_bls12_377<T: Field>(
         solver: Solver::SnarkVerifyBls12377(n),
     });
 
-    let statements: Vec<_> = std::iter::once(directive_statement)
+    let statements = std::iter::once(directive_statement)
         .chain(std::iter::once(one_binding_statement))
         .chain(input_binding_statements)
         .chain(constraint_statements)
-        .chain(std::iter::once(return_statement))
-        .collect();
+        .chain(std::iter::once(return_statement));
 
     FlatFunctionIterator {
         arguments,
-        statements: statements.into_iter(),
+        statements,
         return_count: 1,
     }
 }
@@ -639,11 +635,11 @@ pub fn unpack_to_bitwidth<T: Field>(
 
     let solver = Solver::bits(bit_width);
 
-    let outputs = directive_outputs
+    let outputs: Vec<_> = directive_outputs
         .iter()
         .enumerate()
         .map(|(_, o)| FlatExpression::Identifier(*o))
-        .collect::<Vec<_>>();
+        .collect();
 
     // o253, o252, ... o{253 - (bit_width - 1)} are bits
     let mut statements: Vec<FlatStatement<T>> = (0..bit_width)

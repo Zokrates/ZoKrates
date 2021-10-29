@@ -49,9 +49,7 @@ impl Interpreter {
                         let lhs_value = quad.evaluate(&witness).unwrap();
                         let rhs_value = lin.evaluate(&witness).unwrap();
                         if lhs_value != rhs_value {
-                            return Err(Error::UnsatisfiedConstraint {
-                                error: error.to_owned(),
-                            });
+                            return Err(Error::UnsatisfiedConstraint { error });
                         }
                     }
                 },

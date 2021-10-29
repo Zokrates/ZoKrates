@@ -19,7 +19,7 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-pub fn from_flat<'ast, T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
+pub fn from_flat<T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
     flat_prog_iterator: FlatProgIterator<T, I>,
 ) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
     ProgIterator {

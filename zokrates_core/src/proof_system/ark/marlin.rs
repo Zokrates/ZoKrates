@@ -221,11 +221,11 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone().into(), &[Bls12_377Field::from(42)])
+            .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
         let proof = <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(
-            program.clone().into(),
+            program.clone(),
             witness,
             keypair.pk,
         );
@@ -253,19 +253,15 @@ mod tests {
 
         let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5);
         let keypair =
-            <Ark as UniversalBackend<Bw6_761Field, Marlin>>::setup(srs, program.clone().into())
-                .unwrap();
+            <Ark as UniversalBackend<Bw6_761Field, Marlin>>::setup(srs, program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone().into(), &[Bw6_761Field::from(42)])
+            .execute(program.clone(), &[Bw6_761Field::from(42)])
             .unwrap();
 
-        let proof = <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(
-            program.into(),
-            witness,
-            keypair.pk,
-        );
+        let proof =
+            <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(program, witness, keypair.pk);
         let ans = <Ark as Backend<Bw6_761Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);
