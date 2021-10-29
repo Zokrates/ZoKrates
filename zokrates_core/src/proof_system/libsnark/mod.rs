@@ -230,7 +230,7 @@ pub fn r1cs_program<T: Field>(
 
     // ~out are added after main's arguments, since we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
-    let main_return_count = prog.returns.len();
+    let main_return_count = prog.returns().len();
 
     for i in 0..main_return_count {
         provide_variable_idx(&mut variables, &FlatVariable::public(i));

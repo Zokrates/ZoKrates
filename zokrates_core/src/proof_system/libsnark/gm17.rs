@@ -1,4 +1,4 @@
-use crate::ir::{Prog, Witness};
+use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use crate::proof_system::libsnark::ffi::{c_free, Buffer, ProofResult, SetupResult};
 use crate::proof_system::libsnark::{
