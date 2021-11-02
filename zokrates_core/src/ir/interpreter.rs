@@ -75,6 +75,7 @@ impl Interpreter {
                         witness.insert(*o, res[i].clone());
                     }
                 }
+                Statement::UnconstrainedVariables => unreachable!(),
             }
         }
 

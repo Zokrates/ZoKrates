@@ -7,38 +7,36 @@
 mod branch_isolator;
 mod constant_argument_checker;
 mod constant_resolver;
+mod error_detection;
 mod flat_propagation;
 mod flatten_complex_types;
 mod out_of_bounds;
 mod propagation;
 mod reducer;
 mod uint_optimizer;
+mod unconstrained_vars;
 mod variable_write_remover;
 mod zir_propagation;
 
 use self::branch_isolator::Isolator;
 use self::constant_argument_checker::ConstantArgumentChecker;
+use self::constant_resolver::ConstantResolver;
 use self::flatten_complex_types::Flattener;
 use self::out_of_bounds::OutOfBoundsChecker;
 use self::propagation::Propagator;
 use self::reducer::reduce_program;
 use self::uint_optimizer::UintOptimizer;
+use self::unconstrained_vars::UnconstrainedVariableDetector;
+use self::unconstrained_vars::UnconstrainedVariableDetectorIterator;
 use self::variable_write_remover::VariableWriteRemover;
+use self::zir_propagation::ZirPropagator;
 use crate::compile::CompileConfig;
-use crate::static_analysis::constant_resolver::ConstantResolver;
-use crate::static_analysis::zir_propagation::ZirPropagator;
+use crate::ir;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;
 use std::fmt;
 use zokrates_field::Field;
 
-pub trait Analyse {
-    type Error;
-
-    fn analyse(self) -> Result<Self, Self::Error>
-    where
-        Self: Sized;
-}
 #[derive(Debug)]
 pub enum Error {
     Reducer(self::reducer::Error),
@@ -153,5 +151,29 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         log::trace!("\n{}", zir);
 
         Ok((zir, abi))
+    }
+}
+
+impl<T: Field, I: IntoIterator<Item = ir::Statement<T>>> ir::ProgIterator<T, I> {
+    pub fn analyse(self) -> ir::ProgIterator<T, impl IntoIterator<Item = ir::Statement<T>>> {
+        let mut unconstrained_detector = UnconstrainedVariableDetector::default();
+
+        use crate::ir::visitor::Visitor;
+
+        for a in &self.arguments {
+            <UnconstrainedVariableDetector as Visitor<T>>::visit_argument(
+                &mut unconstrained_detector,
+                a,
+            );
+        }
+
+        ir::ProgIterator {
+            return_count: self.return_count,
+            arguments: self.arguments,
+            statements: UnconstrainedVariableDetectorIterator {
+                statements: self.statements.into_iter(),
+                detector: Some(unconstrained_detector),
+            },
+        }
     }
 }

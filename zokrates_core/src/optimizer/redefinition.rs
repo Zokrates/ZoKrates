@@ -68,6 +68,7 @@ impl<T> RedefinitionOptimizer<T> {
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         match s {
+            Statement::UnconstrainedVariables => unreachable!(),
             Statement::Constraint(quad, lin, message) => {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);

@@ -217,10 +217,8 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     let optimized_ir_prog = ir_prog.optimize();
 
     // analyse ir (check constraints)
-    // log::debug!("Analyse IR");
-    // let optimized_ir_prog = optimized_ir_prog
-    //     .analyse()
-    //     .map_err(|e| CompileErrorInner::from(e).in_file(location.as_path()))?;
+    log::debug!("Analyse IR");
+    let optimized_ir_prog = optimized_ir_prog.analyse();
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,

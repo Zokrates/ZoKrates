@@ -58,6 +58,7 @@ pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec
             message,
         )],
         Statement::Directive(dir) => vec![Statement::Directive(f.fold_directive(dir))],
+        Statement::UnconstrainedVariables => vec![Statement::UnconstrainedVariables],
     }
 }
 

@@ -118,6 +118,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     log::debug!("Compile");
 
     let arena = Arena::new();
+    let mut has_error = false;
 
     let artifacts =
         compile::<T, _>(source, path, Some(&resolver), config, &arena).map_err(|e| {
@@ -140,9 +141,24 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut writer = BufWriter::new(bin_output_file);
 
-    println!("START WRITING TO DISK");
+    let program_flattened = zokrates_core::ir::ProgIterator {
+        statements: program_flattened.statements.into_iter().inspect(|s| {
+            if matches!(s, zokrates_core::ir::Statement::UnconstrainedVariables) {
+                has_error = true
+            }
+        }),
+        arguments: program_flattened.arguments,
+        return_count: program_flattened.return_count,
+    };
 
     program_flattened.serialize(&mut writer);
+
+    if has_error {
+        // clean up
+        std::fs::remove_file(&bin_output_path).unwrap();
+
+        return Err("Compilation failed:\n\nDetected one or many unconstrained variables.\nIf this is intentional, please use the `--allow-unconstrained-variables` flag".into());
+    }
 
     // serialize ABI spec and write to JSON file
     log::debug!("Serialize ABI");

@@ -26,6 +26,8 @@ pub use self::witness::Witness;
 pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>, Option<RuntimeError>),
     Directive(Directive<T>),
+    #[serde(skip)]
+    UnconstrainedVariables,
 }
 
 impl<T: Field> Statement<T> {
@@ -70,6 +72,7 @@ impl<T: Field> fmt::Display for Statement<T> {
         match *self {
             Statement::Constraint(ref quad, ref lin, _) => write!(f, "{} == {}", quad, lin),
             Statement::Directive(ref s) => write!(f, "{}", s),
+            Statement::UnconstrainedVariables => write!(f, "¯\\_(ツ)_/¯"),
         }
     }
 }
