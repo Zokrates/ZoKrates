@@ -6,7 +6,7 @@ use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
 pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("mpc-beacon")
+    SubCommand::with_name("beacon")
         .about("Apply a random beacon")
         .arg(
             Arg::with_name("input")
@@ -19,10 +19,10 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(MPC_DEFAULT_PATH),
         )
         .arg(
-            Arg::with_name("beacon-hash")
-                .short("b")
-                .long("beacon-hash")
-                .help("Beacon hash")
+            Arg::with_name("hash")
+                .short("h")
+                .long("hash")
+                .help("Hash used for the beacon")
                 .takes_value(true)
                 .required(true),
         )
@@ -30,7 +30,7 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("iterations")
                 .short("n")
                 .long("iterations")
-                .help("Number of iterations")
+                .help("Number of hash iterations")
                 .takes_value(true)
                 .required(true),
         )
@@ -47,23 +47,19 @@ pub fn subcommand() -> App<'static, 'static> {
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
-    cli_mpc_beacon(sub_matches)
-}
-
-fn cli_mpc_beacon(sub_matches: &ArgMatches) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
     let mut params = MPCParameters::read(reader, true)
-        .map_err(|why| format!("Could not read {}: {}", path.display(), why))?;
+        .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
 
-    let beacon_hash = sub_matches.value_of("beacon-hash").unwrap();
+    let beacon_hash = sub_matches.value_of("hash").unwrap();
     let num_iterations: usize = sub_matches.value_of("iterations").unwrap().parse().unwrap();
 
     if !(10..=63).contains(&num_iterations) {
-        return Err("Number of iterations should be in [10, 63] range".to_string());
+        return Err("Number of hash iterations should be in [10, 63] range".to_string());
     }
 
     println!("Creating a beacon RNG");
@@ -116,16 +112,16 @@ fn cli_mpc_beacon(sub_matches: &ArgMatches) -> Result<(), String> {
         ChaChaRng::from_seed(&seed)
     };
 
-    println!("Contributing to {}...", path.display());
+    println!("Contributing to `{}`...", path.display());
     let zero: u32 = 0;
     let hash = params.contribute(&mut rng, &zero);
     println!("Contribution hash: {}", hex::encode(hash));
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
-        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+        .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
-    println!("Writing parameters to {}", output_path.display());
+    println!("Writing parameters to `{}`", output_path.display());
 
     let mut writer = BufWriter::new(output_file);
     params.write(&mut writer).map_err(|e| e.to_string())?;

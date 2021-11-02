@@ -9,7 +9,7 @@ use zokrates_core::proof_system::bellman::Computation;
 use zokrates_field::Bn128Field;
 
 pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("mpc-init")
+    SubCommand::with_name("init")
         .about("Initialize MPC phase2 ceremony")
         .arg(
             Arg::with_name("input")
@@ -25,7 +25,7 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("radix-dir")
                 .short("r")
                 .long("radix-dir")
-                .help("Path of the directory that contains phase1radix2m{} files")
+                .help("Path of the directory containing parameters for various 2^m circuit depths (phase1radix2m{0..=m})")
                 .value_name("PATH")
                 .takes_value(true)
                 .required(true),
@@ -46,7 +46,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -74,9 +74,9 @@ fn cli_mpc_init(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Resu
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
-        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+        .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
-    println!("Writing initial parameters to {}", output_path.display());
+    println!("Writing initial parameters to `{}`", output_path.display());
 
     let mut writer = BufWriter::new(output_file);
     params.write(&mut writer).map_err(|e| e.to_string())?;

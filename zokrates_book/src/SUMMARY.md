@@ -26,7 +26,8 @@
 	- [zokrates.js](toolbox/zokrates_js.md)
 
 - [Examples](examples/index.md)
-	- [A SNARK Powered RNG](examples/rng_tutorial.md)
-	- [Proving knowledge of a hash preimage](examples/sha256example.md)
+    - [A SNARK Powered RNG](examples/rng_tutorial.md)
+    - [Proving knowledge of a hash preimage](examples/sha256example.md)
+    - [Performing a Trusted Setup](examples/mpc_tutorial.md)
 
 - [Testing](testing.md)

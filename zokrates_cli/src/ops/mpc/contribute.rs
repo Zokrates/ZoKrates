@@ -6,7 +6,7 @@ use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
 pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("mpc-contribute")
+    SubCommand::with_name("contribute")
         .about("Contribute to an MPC ceremony")
         .arg(
             Arg::with_name("input")
@@ -39,17 +39,13 @@ pub fn subcommand() -> App<'static, 'static> {
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
-    cli_mpc_contribute(sub_matches)
-}
-
-fn cli_mpc_contribute(sub_matches: &ArgMatches) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
     let mut params = MPCParameters::read(reader, true)
-        .map_err(|why| format!("Could not read {}: {}", path.display(), why))?;
+        .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
 
     let entropy = sub_matches.value_of("entropy").unwrap();
 
@@ -86,16 +82,19 @@ fn cli_mpc_contribute(sub_matches: &ArgMatches) -> Result<(), String> {
         ChaChaRng::from_seed(&seed)
     };
 
-    println!("Contributing to {}...", path.display());
+    println!("Contributing to `{}`...", path.display());
     let zero: u32 = 0;
     let hash = params.contribute(&mut rng, &zero);
     println!("Contribution hash: {}", hex::encode(hash));
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
-        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+        .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
-    println!("Writing parameters to {}", output_path.display());
+    println!(
+        "Your contribution has been written to `{}`",
+        output_path.display()
+    );
 
     let mut writer = BufWriter::new(output_file);
     params.write(&mut writer).map_err(|e| e.to_string())?;

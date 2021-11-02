@@ -5,11 +5,8 @@ pub mod export_verifier;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 pub mod generate_proof;
 pub mod generate_smtlib2;
-pub mod mpc_beacon;
-pub mod mpc_contribute;
-pub mod mpc_export;
-pub mod mpc_init;
-pub mod mpc_verify;
+#[cfg(feature = "bellman")]
+pub mod mpc;
 pub mod print_proof;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 pub mod setup;

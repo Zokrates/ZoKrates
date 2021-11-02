@@ -10,7 +10,7 @@ use zokrates_core::proof_system::bellman::Computation;
 use zokrates_field::Bn128Field;
 
 pub fn subcommand() -> App<'static, 'static> {
-    SubCommand::with_name("mpc-verify")
+    SubCommand::with_name("verify")
         .about("Verify the correctness of the MPC parameters, given a circuit instance")
         .arg(
             Arg::with_name("input")
@@ -36,7 +36,7 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("radix-dir")
                 .short("r")
                 .long("radix-dir")
-                .help("Path of the directory that contains phase1radix2m{} files")
+                .help("Path of the directory containing parameters for various 2^m circuit depths (phase1radix2m{0..=m})")
                 .value_name("PATH")
                 .takes_value(true)
                 .required(true),
@@ -47,7 +47,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -62,11 +62,11 @@ fn cli_mpc_verify(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Re
 
     let path = Path::new(sub_matches.value_of("mpc-params").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
     let params = MPCParameters::read(reader, true)
-        .map_err(|why| format!("Could not read {}: {}", path.display(), why))?;
+        .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
 
     let radix_dir = Path::new(sub_matches.value_of("radix-dir").unwrap());
     let circuit = Computation::without_witness(ir_prog);
