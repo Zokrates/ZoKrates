@@ -2678,17 +2678,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     RuntimeError::ArgumentBitness,
                 ));
             }
-            Type::FieldElement => {
-                if self.config.allow_unconstrained_variables && parameter.private {
-                    // we insert dummy condition statement for private field elements
-                    // to avoid unconstrained variables
-                    // translates to y == x * x
-                    statements_flattened.push_back(FlatStatement::Definition(
-                        self.use_sym(),
-                        FlatExpression::Mult(box variable.into(), box variable.into()),
-                    ));
-                }
-            }
+            Type::FieldElement => {}
         }
 
         FlatParameter {

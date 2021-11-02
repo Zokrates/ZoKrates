@@ -32,13 +32,6 @@ use crate::zir::ZirProgram;
 use std::fmt;
 use zokrates_field::Field;
 
-pub trait Analyse {
-    type Error;
-
-    fn analyse(self) -> Result<Self, Self::Error>
-    where
-        Self: Sized;
-}
 #[derive(Debug)]
 pub enum Error {
     Reducer(self::reducer::Error),

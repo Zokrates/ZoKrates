@@ -171,16 +171,10 @@ impl fmt::Display for CompileErrorInner {
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct CompileConfig {
     #[serde(default)]
-    pub allow_unconstrained_variables: bool,
-    #[serde(default)]
     pub isolate_branches: bool,
 }
 
 impl CompileConfig {
-    pub fn allow_unconstrained_variables(mut self, flag: bool) -> Self {
-        self.allow_unconstrained_variables = flag;
-        self
-    }
     pub fn isolate_branches(mut self, flag: bool) -> Self {
         self.isolate_branches = flag;
         self
@@ -215,12 +209,6 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     // optimize
     log::debug!("Optimise IR");
     let optimized_ir_prog = ir_prog.optimize();
-
-    // analyse ir (check constraints)
-    // log::debug!("Analyse IR");
-    // let optimized_ir_prog = optimized_ir_prog
-    //     .analyse()
-    //     .map_err(|e| CompileErrorInner::from(e).in_file(location.as_path()))?;
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,

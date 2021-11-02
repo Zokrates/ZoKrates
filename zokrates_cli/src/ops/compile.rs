@@ -53,10 +53,6 @@ pub fn subcommand() -> App<'static, 'static> {
         .required(false)
         .possible_values(constants::CURVES)
         .default_value(constants::BN128)
-    ).arg(Arg::with_name("allow-unconstrained-variables")
-        .long("allow-unconstrained-variables")
-        .help("Allow unconstrained variables by inserting dummy constraints")
-        .required(false)
     ).arg(Arg::with_name("isolate-branches")
         .long("isolate-branches")
         .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")
@@ -109,9 +105,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )),
     }?;
 
-    let config = CompileConfig::default()
-        .allow_unconstrained_variables(sub_matches.is_present("allow-unconstrained-variables"))
-        .isolate_branches(sub_matches.is_present("isolate-branches"));
+    let config =
+        CompileConfig::default().isolate_branches(sub_matches.is_present("isolate-branches"));
 
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
 
@@ -139,8 +134,6 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|why| format!("Could not create {}: {}", bin_output_path.display(), why))?;
 
     let mut writer = BufWriter::new(bin_output_file);
-
-    println!("START WRITING TO DISK");
 
     program_flattened.serialize(&mut writer);
 
