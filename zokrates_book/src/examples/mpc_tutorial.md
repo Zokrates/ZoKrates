@@ -2,13 +2,13 @@
 
 The zk-SNARK technology requires a trusted setup which is a special procedure we can run to generate the proving and verification keys.
 In order to make sure this procedure is done in a secure way, we must ensure that no one is able to fake proofs and steal user funds, so it has to be done
-in a decentralized way. In order to fake ZK proofs, an attacker must compromise every participant of the ceremony which is highly unlikely as the probability of it goes down as the number of participants goes up. 
-In this tutorial we will walk you through the steps of the ceremony.
+in a decentralized way. In order to fake ZK proofs, an attacker must compromise every participant of the ceremony which is highly unlikely as the probability of it goes down as the number of participants goes up.
+In this tutorial, we will walk you through the steps of the ceremony.
 
 ## Pre-requisites
 
 Trusted setup is done in two steps. The first step, also known as phase 1, is universal for all SNARKS and is called Powers of Tau. The second step is called phase 2 and is circuit-specific, so it should
-be done separately for each different SNARK. There are existing phase 1 ceremonies being conducted by the Ethereum community, such as [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau), which results we can use in our phase 2 ceremony.
+be done separately for each different SNARK. There is an existing phase 1 ceremony being conducted by the Ethereum community named [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau), which output we can use in our phase 2 ceremony.
 
 ## Compiling a circuit
 
@@ -37,12 +37,12 @@ Writing initial parameters to `mpc.params`
 ```
 
 Using the `-r` flag we pass a path to the directory that contains parameters for various `2^m` circuit depths (`phase1radix2m{0..=m}`).
-These files can be computed from the phase 1 ceremony, or downloaded from [here](https://example.com).
+These files can be computed from the phase 1 ceremony or downloaded from [here](https://example.com).
 
 ## Making a contribution
 
-In this example, we will conduct a ceremony which has 3 participants: Alice, Bob and Charlie. 
-Participants will run the contributions in a sequential order, managed by the coordinator (us).
+In this example, we will conduct a ceremony that has 3 participants: Alice, Bob, and Charlie.
+Participants will run the contributions in sequential order, managed by the coordinator (us).
 
 Firstly, our initial `mpc.params` file is given to Alice who runs the following command:
 
@@ -54,14 +54,14 @@ Contribution hash: 4ebf1359416fbc4231af64769173cb3332b8c2f9475d143a25634a5ce461e
 Your contribution has been written to `alice.params`
 ```
 
-Alice must give some randomness to the contribution, which is done by the `-e` flag. 
+Alice must give some randomness to the contribution, which is done by the `-e` flag.
 
 Examples of entropy sources:
 * `/dev/urandom` from one or more devices,
 * The most recent block hash,
-* Randomly mashing keys on the keyword etc.
+* Randomly mashing keys on the keyboard etc.
 
-Secondly, the resulting file `alice.params` is sent to Bob (managed by the coordinator) who runs his contribution:
+Secondly, the output file `alice.params` is sent to Bob (managed by the coordinator) who runs his contribution:
 
 ```
 $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:21}}
@@ -71,7 +71,7 @@ Contribution hash: 1a4e0d17449b00ecf31d207259bc173cf30f6dbd78c81921869091a8e40f4
 Your contribution has been written to `bob.params`
 ```
 
-Thirdly, with same procedure as above, Charlie makes his contribution on top of Bob's:
+Thirdly, with the same procedure as above, Charlie makes his contribution on top of Bob's:
 
 ```
 $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:24}}
@@ -104,7 +104,7 @@ Writing parameters to `final.params`
 The random beacon is the `2^n` iteration of `SHA256` over the hash evaluated on
 some high entropy and publicly available data. Possible sources of data could be: the
 closing value of the stock market on a certain date, the output of a selected set of national lotteries, the
-value of a block at a particular height in one or more blockchains etc.
+value of a block at a particular height in one or more blockchains, etc.
 
 ## Verifying contributions
 
@@ -134,6 +134,4 @@ Once the ceremony is finalized, we can export the keys and use them to generate 
 
 ## Conclusion
 
-The purpose of the ceremony is to generate a verifier smart contract, which can be exported using ZoKrates 
-by using the keys we obtained through the trusted setup ceremony. At this point we can safely deploy the 
-contract and verify proofs on-chain.
+The purpose of the ceremony is to generate a verifier smart contract, which can be exported using ZoKrates by using the keys we obtained through the trusted setup ceremony. At this point, we can safely deploy the contract and verify proofs on-chain.

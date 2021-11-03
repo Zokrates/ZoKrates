@@ -408,9 +408,11 @@ mod integration {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
 
-        for p in glob("./examples/book/rng_tutorial/*").expect("Failed to read glob pattern") {
-            let path = p.unwrap();
-            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
+        for p in glob("./examples/book/rng_tutorial/*")
+            .expect("Failed to read glob pattern")
+            .filter_map(Result::ok)
+        {
+            std::fs::hard_link(p.clone(), tmp_base.join(p.file_name().unwrap())).unwrap();
         }
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
@@ -432,9 +434,11 @@ mod integration {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
 
-        for p in glob("./examples/book/sha256_tutorial/*").expect("Failed to read glob pattern") {
-            let path = p.unwrap();
-            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
+        for p in glob("./examples/book/sha256_tutorial/*")
+            .expect("Failed to read glob pattern")
+            .filter_map(Result::ok)
+        {
+            std::fs::hard_link(p.clone(), tmp_base.join(p.file_name().unwrap())).unwrap();
         }
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
@@ -456,9 +460,16 @@ mod integration {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
 
-        for p in glob("./examples/book/mpc_tutorial/*").expect("Failed to read glob pattern") {
-            let path = p.unwrap();
-            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
+        for p in glob("./examples/book/mpc_tutorial/**/*")
+            .expect("Failed to read glob pattern")
+            .filter_map(Result::ok)
+        {
+            let path = tmp_base.join(p.strip_prefix("examples/book/mpc_tutorial/").unwrap());
+            if p.is_dir() {
+                std::fs::create_dir(path.clone()).expect("Failed to create directory");
+                continue;
+            }
+            std::fs::hard_link(p, path).unwrap();
         }
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
