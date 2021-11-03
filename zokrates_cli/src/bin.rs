@@ -140,7 +140,14 @@ mod tests {
                         continue;
                     }
 
-                    if path.extension().expect("extension expected") == "sh" {
+                    let extension = path.extension();
+
+                    // we can ignore scripts (`*.sh˙) and files with no extension
+                    if ["", "sh"].contains(
+                        &extension
+                            .map(|e| e.to_str().unwrap_or_default())
+                            .unwrap_or_default(),
+                    ) {
                         continue;
                     }
 

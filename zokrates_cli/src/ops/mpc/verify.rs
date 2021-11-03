@@ -16,21 +16,21 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("input")
                 .short("i")
                 .long("input")
-                .help("Path of the binary")
-                .value_name("FILE")
-                .takes_value(true)
-                .required(false)
-                .default_value(FLATTENED_CODE_DEFAULT_PATH),
-        )
-        .arg(
-            Arg::with_name("mpc-params")
-                .short("p")
-                .long("mpc-params")
                 .help("Path of the MPC parameters")
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
                 .default_value(MPC_DEFAULT_PATH),
+        )
+        .arg(
+            Arg::with_name("circuit")
+                .short("c")
+                .long("circuit")
+                .help("Path of the circuit binary")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(FLATTENED_CODE_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("radix-dir")
@@ -45,7 +45,7 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
-    let path = Path::new(sub_matches.value_of("input").unwrap());
+    let path = Path::new(sub_matches.value_of("circuit").unwrap());
     let file =
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
@@ -60,7 +60,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 fn cli_mpc_verify(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Verifying contributions...");
 
-    let path = Path::new(sub_matches.value_of("mpc-params").unwrap());
+    let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 

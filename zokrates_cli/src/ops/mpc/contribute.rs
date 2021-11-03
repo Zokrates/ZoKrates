@@ -7,7 +7,7 @@ use std::path::Path;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("contribute")
-        .about("Contribute to an MPC ceremony")
+        .about("Contribute to a MPC ceremony")
         .arg(
             Arg::with_name("input")
                 .short("i")
