@@ -1,5 +1,5 @@
 use crate::ir::{ProgIterator, Statement};
-use serde_cbor;
+use serde_cbor::{self, StreamDeserializer};
 use std::io::{Read, Write};
 use zokrates_field::*;
 
@@ -108,15 +108,15 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     }
 }
 
-impl
+impl<R: Read>
     ProgEnum<
-        std::vec::IntoIter<Statement<Bls12_381Field>>,
-        std::vec::IntoIter<Statement<Bn128Field>>,
-        std::vec::IntoIter<Statement<Bls12_377Field>>,
-        std::vec::IntoIter<Statement<Bw6_761Field>>,
+        StreamDeserializer<R, Statement<Bls12_381Field>>,
+        StreamDeserializer<R, Statement<Bn128Field>>,
+        StreamDeserializer<R, Statement<Bls12_377Field>>,
+        StreamDeserializer<R, Statement<Bw6_761Field>>,
     >
 {
-    pub fn deserialize<R: Read>(mut r: R) -> Result<Self, String> {
+    pub fn deserialize(mut r: R) -> Result<Self, String> {
         // Check the magic number, `ZOK`
         let mut magic = [0; 4];
         r.read_exact(&mut magic)
@@ -135,44 +135,46 @@ impl
                     .map_err(|_| String::from("Cannot read curve identifier"))?;
 
                 match curve {
-                    m if m == Bls12_381Field::id() => {
-                        let p: crate::ir::Prog<Bls12_381Field> =
-                            serde_cbor::from_reader(r).unwrap();
+                    // m if m == Bls12_381Field::id() => {
+                    //     let p: crate::ir::Prog<Bls12_381Field> =
+                    //         serde_cbor::from_reader(r).unwrap();
 
-                        Ok(ProgEnum::Bls12_381Program(ProgIterator {
-                            statements: p.statements.into_iter(),
-                            arguments: p.arguments,
-                            return_count: p.return_count,
-                        }))
-                    }
+                    //     Ok(ProgEnum::Bls12_381Program(ProgIterator {
+                    //         statements: p.statements.into_iter(),
+                    //         arguments: p.arguments,
+                    //         return_count: p.return_count,
+                    //     }))
+                    // }
                     m if m == Bn128Field::id() => {
-                        let p: crate::ir::Prog<Bn128Field> = serde_cbor::from_reader(r).unwrap();
+                        let p = serde_cbor::Deserializer::from_reader(r);
+
+                        let statements = p.into_iter::<Statement<Bn128Field>>();
 
                         Ok(ProgEnum::Bn128Program(ProgIterator {
-                            statements: p.statements.into_iter(),
-                            arguments: p.arguments,
-                            return_count: p.return_count,
+                            arguments: vec![],
+                            return_count: 0,
+                            statements: statements.map(|x| x.unwrap().unwrap()),
                         }))
                     }
-                    m if m == Bls12_377Field::id() => {
-                        let p: crate::ir::Prog<Bls12_377Field> =
-                            serde_cbor::from_reader(r).unwrap();
+                    // m if m == Bls12_377Field::id() => {
+                    //     let p: crate::ir::Prog<Bls12_377Field> =
+                    //         serde_cbor::from_reader(r).unwrap();
 
-                        Ok(ProgEnum::Bls12_377Program(ProgIterator {
-                            statements: p.statements.into_iter(),
-                            arguments: p.arguments,
-                            return_count: p.return_count,
-                        }))
-                    }
-                    m if m == Bw6_761Field::id() => {
-                        let p: crate::ir::Prog<Bw6_761Field> = serde_cbor::from_reader(r).unwrap();
+                    //     Ok(ProgEnum::Bls12_377Program(ProgIterator {
+                    //         statements: p.statements.into_iter(),
+                    //         arguments: p.arguments,
+                    //         return_count: p.return_count,
+                    //     }))
+                    // }
+                    // m if m == Bw6_761Field::id() => {
+                    //     let p: crate::ir::Prog<Bw6_761Field> = serde_cbor::from_reader(r).unwrap();
 
-                        Ok(ProgEnum::Bw6_761Program(ProgIterator {
-                            statements: p.statements.into_iter(),
-                            arguments: p.arguments,
-                            return_count: p.return_count,
-                        }))
-                    }
+                    //     Ok(ProgEnum::Bw6_761Program(ProgIterator {
+                    //         statements: p.statements.into_iter(),
+                    //         arguments: p.arguments,
+                    //         return_count: p.return_count,
+                    //     }))
+                    // }
                     _ => Err(String::from("Unknown curve identifier")),
                 }
             } else {
