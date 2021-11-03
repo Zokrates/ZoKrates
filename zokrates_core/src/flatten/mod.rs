@@ -1284,7 +1284,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
         let params_flattened = params.into_iter().map(|e| e.get_field_unchecked());
 
-        let return_values = (0..funct.return_count).map(|i| FlatVariable::public(i));
+        let return_values = (0..funct.return_count).map(FlatVariable::public);
 
         for (concrete_argument, formal_argument) in params_flattened.zip(funct.arguments) {
             let new_var = self.define(concrete_argument, statements_flattened);
