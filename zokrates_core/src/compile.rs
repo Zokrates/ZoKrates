@@ -198,10 +198,6 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     log::debug!("Flatten");
     let program_flattened = FlattenerIterator::from_function_and_config(typed_ast.main, config);
 
-    // // constant propagation after call resolution
-    // log::debug!("Propagate flat program");
-    // let program_flattened = program_flattened.propagate();
-
     // convert to ir
     log::debug!("Convert to IR");
     let ir_prog = ir::from_flat::from_flat(program_flattened);
