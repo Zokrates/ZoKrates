@@ -84,10 +84,19 @@ fn cli_mpc_verify(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Re
         )
         .map_err(|_| "Verification failed".to_string())?;
 
-    println!("\nContributions:");
+    let contribution_count = result.len();
+    println!(
+        "\nTranscript contains {} contribution{}:",
+        contribution_count,
+        if contribution_count != 1 { "s" } else { "" }
+    );
 
     for (i, hash) in result.iter().enumerate() {
-        println!("{}: {}", i, hex::encode(hash));
+        print!("{}: ", i);
+        for b in hash.iter() {
+            print!("{:02x}", b);
+        }
+        println!();
     }
 
     println!("\nContributions verified");

@@ -45,8 +45,6 @@ pub fn subcommand() -> App<'static, 'static> {
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
-    println!("Exporting keypair...");
-
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
@@ -54,6 +52,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let reader = BufReader::new(file);
     let mpc_params = MPCParameters::read(reader, true)
         .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
+
+    println!("Exporting keys from `{}`...", path.display());
 
     let params = mpc_params.get_params();
 
@@ -93,7 +93,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         .map_err(|why| format!("Could not write to `{}`: {}", pk_path.display(), why))?;
 
     println!("Proving key written to `{}`", pk_path.display());
-    println!("Trusted setup completed");
 
     Ok(())
 }

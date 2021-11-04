@@ -91,9 +91,12 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             // Print 1024 of the interstitial states
             // so that verification can be
             // parallelized
-
             if i % (1u64 << (n - 10)) == 0 {
-                println!("{}: {}", i, hex::encode(&cur_hash));
+                print!("{}: ", i);
+                for b in cur_hash.iter() {
+                    print!("{:02x}", b);
+                }
+                println!();
             }
 
             let mut h = Sha256::new();
@@ -101,7 +104,11 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             h.result(&mut cur_hash);
         }
 
-        println!("Final result of beacon: {}", hex::encode(&cur_hash));
+        print!("Final result of beacon: ");
+        for b in cur_hash.iter() {
+            print!("{:02x}", b);
+        }
+        println!("\n");
 
         let mut digest = &cur_hash[..];
 
@@ -116,13 +123,27 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Contributing to `{}`...", path.display());
     let zero: u32 = 0;
     let hash = params.contribute(&mut rng, &zero);
-    println!("Contribution hash: {}", hex::encode(hash));
+
+    println!("The BLAKE2b hash of your contribution is:\n");
+    for line in hash.chunks(16) {
+        print!("\t");
+        for section in line.chunks(4) {
+            for b in section {
+                print!("{:02x}", b);
+            }
+            print!(" ");
+        }
+        println!();
+    }
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
         .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
-    println!("Writing parameters to `{}`", output_path.display());
+    println!(
+        "\nYour contribution has been written to `{}`",
+        output_path.display()
+    );
 
     let mut writer = BufWriter::new(output_file);
     params.write(&mut writer).map_err(|e| e.to_string())?;

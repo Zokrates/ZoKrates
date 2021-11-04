@@ -86,14 +86,25 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Contributing to `{}`...", path.display());
     let zero: u32 = 0;
     let hash = params.contribute(&mut rng, &zero);
-    println!("Contribution hash: {}", hex::encode(hash));
+    println!("The BLAKE2b hash of your contribution is:\n");
+
+    for line in hash.chunks(16) {
+        print!("\t");
+        for section in line.chunks(4) {
+            for b in section {
+                print!("{:02x}", b);
+            }
+            print!(" ");
+        }
+        println!();
+    }
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
         .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
     println!(
-        "Your contribution has been written to `{}`",
+        "\nYour contribution has been written to `{}`",
         output_path.display()
     );
 

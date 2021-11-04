@@ -50,7 +50,13 @@ Firstly, our initial `mpc.params` file is given to Alice who runs the following 
 $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:18}}
 
 Contributing to `mpc.params`...
-Contribution hash: 4ebf1359416fbc4231af64769173cb3332b8c2f9475d143a25634a5ce461eb675f7738b16478a0207ec9d3659170bca6154b31dfd307b78eca0c025f59c5a7fb
+The BLAKE2b hash of your contribution is:
+
+        4ebf1359 416fbc42 31af6476 9173cb33 
+        32b8c2f9 475d143a 25634a5c e461eb67 
+        5f7738b1 6478a020 7ec9d365 9170bca6 
+        154b31df d307b78e ca0c025f 59c5a7fb
+
 Your contribution has been written to `alice.params`
 ```
 
@@ -67,7 +73,13 @@ Secondly, the output file `alice.params` is sent to Bob (managed by the coordina
 $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:21}}
 
 Contributing to `alice.params`...
-Contribution hash: 1a4e0d17449b00ecf31d207259bc173cf30f6dbd78c81921869091a8e40f454e8c8d72e8395bf044cd777842b6ab1d889e24cf7f7d88b4732190fb0c730fb6fc
+The BLAKE2b hash of your contribution is:
+
+        1a4e0d17 449b00ec f31d2072 59bc173c
+        f30f6dbd 78c81921 869091a8 e40f454e
+        8c8d72e8 395bf044 cd777842 b6ab1d88
+        9e24cf7f 7d88b473 2190fb0c 730fb6fc
+
 Your contribution has been written to `bob.params`
 ```
 
@@ -77,7 +89,13 @@ Thirdly, with the same procedure as above, Charlie makes his contribution on top
 $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:24}}
 
 Contributing to `bob.params`...
-Contribution hash: 46dc6c01ec77838293b333b2116a4bfba9aca5ddeb6945f1cbe07cda6ffb3ffdcf4e473662fe2339166d5b87db392ca6d2e87e3692cc8f0ee618298fc3f7caf1
+The BLAKE2b hash of your contribution is:
+
+        46dc6c01 ec778382 93b333b2 116a4bfb
+        a9aca5dd eb6945f1 cbe07cda 6ffb3ffd 
+        cf4e4736 62fe2339 166d5b87 db392ca6
+        d2e87e36 92cc8f0e e618298f c3f7caf1
+
 Your contribution has been written to `charlie.params`
 ```
 
@@ -96,9 +114,16 @@ Creating a beacon RNG
 1022: dd842dc43d9ac5c6dff74cca18405123761d17edd36724b092ef57c237b31291
 1023: a11c8a03c22e9c31c037aa0085c061ba8dd19a3f599314570702eeef1baacd79
 Final result of beacon: ef8faec4fc31faf341f368084b82d267d380992e905c923a179e0717ce39708d
+
 Contributing to `charlie.params`...
-Contribution hash: 83d67a6f935fc4d05733ebedd43f20745425b1059a32a315a790668af5a1f02166f840e2e6a5d441385931635b86df09a00f352e2ad2a88bede078862134b889
-Writing parameters to `final.params`
+The BLAKE2b hash of your contribution is: 
+
+        83d67a6f 935fc4d0 5733ebed d43f2074 
+        5425b105 9a32a315 a790668a f5a1f021 
+        66f840e2 e6a5d441 38593163 5b86df09 
+        a00f352e 2ad2a88b ede07886 2134b889
+
+Your contribution has been written to `final.params`
 ```
 
 The random beacon is the `2^n` iteration of `SHA256` over the hash evaluated on
@@ -117,7 +142,7 @@ $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:30}}
 
 Verifying contributions...
 
-Contributions:
+Transcript contains 4 contributions:
 0: 4ebf1359416fbc4231af64769173cb3332b8c2f9475d143a25634a5ce461eb675f7738b16478a0207ec9d3659170bca6154b31dfd307b78eca0c025f59c5a7fb
 1: 1a4e0d17449b00ecf31d207259bc173cf30f6dbd78c81921869091a8e40f454e8c8d72e8395bf044cd777842b6ab1d889e24cf7f7d88b4732190fb0c730fb6fc
 2: 46dc6c01ec77838293b333b2116a4bfba9aca5ddeb6945f1cbe07cda6ffb3ffdcf4e473662fe2339166d5b87db392ca6d2e87e3692cc8f0ee618298fc3f7caf1
@@ -136,4 +161,8 @@ Once the ceremony is finalized, we can export the keys and use them to generate 
 
 ## Conclusion
 
-The purpose of the ceremony is to generate a verifier smart contract, which can be exported using ZoKrates by using the keys we obtained through the trusted setup ceremony. At this point, we can safely deploy the contract and verify proofs on-chain.
+The secure generation of parameters for zk-SNARKs is a crucial step in the trustworthiness of the resulting proof system.
+The security of the ceremony relies entirely on the fact that at least one participant needs to securely delete their "toxic waste" for the resulting parameters to be generated honestly.
+Opening the ceremony to a large number of participants reduces the probability that the resulting parameters are dishonest.
+Once the ceremony is finalized, we can generate a verifier smart contract by using the keys we obtained through the trusted setup ceremony. 
+At this point, we can safely deploy the contract and verify proofs on-chain.
