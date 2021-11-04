@@ -102,9 +102,11 @@ Writing parameters to `final.params`
 ```
 
 The random beacon is the `2^n` iteration of `SHA256` over the hash evaluated on
-some high entropy and publicly available data. Possible sources of data could be: the
-closing value of the stock market on a certain date, the output of a selected set of national lotteries, the
-value of a block at a particular height in one or more blockchains, etc.
+some high entropy and publicly available data. Possible sources of data could be: 
+* The closing value of the stock market on a certain date,
+* The output of a selected set of national lotteries, 
+* The value of a block at a particular height in one or more blockchains,
+* [League of Entropy](https://www.cloudflare.com/leagueofentropy/) (drand)
 
 ## Verifying contributions
 
