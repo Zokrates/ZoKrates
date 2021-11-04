@@ -8,7 +8,7 @@ pub mod verify;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("mpc")
-        .about("Multi-party contribution (MPC) protocol")
+        .about("Multi-party computation (MPC) protocol")
         .subcommands(vec![
             init::subcommand(),
             contribute::subcommand(),
