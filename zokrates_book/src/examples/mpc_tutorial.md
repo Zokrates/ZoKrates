@@ -37,7 +37,7 @@ Writing initial parameters to `mpc.params`
 ```
 
 Using the `-r` flag we pass a path to the directory that contains parameters for various `2^m` circuit depths (`phase1radix2m{0..=m}`).
-These files can be computed from the phase 1 ceremony or downloaded from [here](https://example.com).
+These files can be computed using [phase2-bn254](https://github.com/kobigurk/phase2-bn254) utility by picking the latest response from [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau) and following procedures explained in the mentioned repositories.
 
 ## Making a contribution
 
