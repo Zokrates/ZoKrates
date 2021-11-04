@@ -7,7 +7,8 @@ use std::path::Path;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("beacon")
-        .about("Apply a random beacon")
+        .about("Applies a random beacon")
+        .display_order(3)
         .arg(
             Arg::with_name("input")
                 .short("i")

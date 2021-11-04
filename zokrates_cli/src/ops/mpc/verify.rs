@@ -11,7 +11,8 @@ use zokrates_field::Bn128Field;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("verify")
-        .about("Verify the correctness of the MPC parameters, given a circuit instance")
+        .about("Verifies correctness of MPC parameters, given a circuit instance")
+        .display_order(4)
         .arg(
             Arg::with_name("input")
                 .short("i")

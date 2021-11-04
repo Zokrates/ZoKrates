@@ -10,7 +10,8 @@ use zokrates_field::Bn128Field;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("export")
-        .about("Export keys from MPC parameters")
+        .about("Exports keys from MPC parameters")
+        .display_order(5)
         .arg(
             Arg::with_name("input")
                 .short("i")

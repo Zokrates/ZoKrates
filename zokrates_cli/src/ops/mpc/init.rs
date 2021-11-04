@@ -10,7 +10,8 @@ use zokrates_field::Bn128Field;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("init")
-        .about("Initialize MPC phase 2 ceremony")
+        .about("Initializes a MPC ceremony")
+        .display_order(1)
         .arg(
             Arg::with_name("input")
                 .short("i")
