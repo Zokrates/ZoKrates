@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use zokrates_field::*;
 
 const ZOKRATES_MAGIC: &[u8; 4] = &[0x5a, 0x4f, 0x4b, 0];
-const ZOKRATES_VERSION_1: &[u8; 4] = &[0, 0, 0, 1];
+const ZOKRATES_VERSION_2: &[u8; 4] = &[0, 0, 0, 2];
 
 #[derive(PartialEq, Debug)]
 pub enum ProgEnum<
@@ -98,7 +98,7 @@ impl<
 impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     pub fn serialize<W: Write>(self, mut w: W) {
         w.write_all(ZOKRATES_MAGIC).unwrap();
-        w.write_all(ZOKRATES_VERSION_1).unwrap();
+        w.write_all(ZOKRATES_VERSION_2).unwrap();
         w.write_all(&T::id()).unwrap();
 
         serde_cbor::to_writer(&mut w, &self.arguments).unwrap();
@@ -138,93 +138,85 @@ impl<'de, R: Read>
             .map_err(|_| String::from("Cannot read magic number"))?;
 
         if &magic == ZOKRATES_MAGIC {
-            // Check the version, 1
+            // Check the version, 2
             let mut version = [0; 4];
             r.read_exact(&mut version)
                 .map_err(|_| String::from("Cannot read version"))?;
 
-            if &version == ZOKRATES_VERSION_1 {
+            if &version == ZOKRATES_VERSION_2 {
                 // Check the curve identifier, deserializing accordingly
                 let mut curve = [0; 4];
                 r.read_exact(&mut curve)
                     .map_err(|_| String::from("Cannot read curve identifier"))?;
 
+                use serde::de::Deserializer;
+                let mut p = serde_cbor::Deserializer::from_reader(r);
+
+                struct ArgumentsVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for ArgumentsVisitor {
+                    type Value = Vec<crate::ir::FlatParameter>;
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        formatter.write_str("seq of flat param")
+                    }
+
+                    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+                    where
+                        A: serde::de::SeqAccess<'de>,
+                    {
+                        let mut res = vec![];
+                        while let Some(e) = seq.next_element().unwrap() {
+                            res.push(dbg!(e));
+                        }
+                        Ok(res)
+                    }
+                }
+
+                let arguments = p.deserialize_seq(ArgumentsVisitor).unwrap();
+
+                struct ReturnCountVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for ReturnCountVisitor {
+                    type Value = usize;
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        formatter.write_str("usize")
+                    }
+
+                    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        Ok(v as usize)
+                    }
+
+                    fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        Ok(v as usize)
+                    }
+
+                    fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        Ok(v as usize)
+                    }
+                }
+
+                let return_count = p.deserialize_u32(ReturnCountVisitor).unwrap();
+
                 match curve {
-                    // m if m == Bls12_381Field::id() => {
-                    //     let p: crate::ir::Prog<Bls12_381Field> =
-                    //         serde_cbor::from_reader(r).unwrap();
+                    m if m == Bls12_381Field::id() => {
+                        let s = p.into_iter::<Statement<Bls12_381Field>>();
 
-                    //     Ok(ProgEnum::Bls12_381Program(ProgIterator {
-                    //         statements: p.statements.into_iter(),
-                    //         arguments: p.arguments,
-                    //         return_count: p.return_count,
-                    //     }))
-                    // }
+                        Ok(ProgEnum::Bls12_381Program(ProgIterator {
+                            arguments,
+                            return_count,
+                            statements: UnwrappedStreamDeserializer { s },
+                        }))
+                    }
                     m if m == Bn128Field::id() => {
-                        use serde::de::Deserializer;
-                        let mut p = serde_cbor::Deserializer::from_reader(r);
-
-                        struct ArgumentsVisitor;
-
-                        impl<'de> serde::de::Visitor<'de> for ArgumentsVisitor {
-                            type Value = Vec<crate::ir::FlatParameter>;
-                            fn expecting(
-                                &self,
-                                formatter: &mut std::fmt::Formatter,
-                            ) -> std::fmt::Result {
-                                formatter.write_str("seq of flat param")
-                            }
-
-                            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-                            where
-                                A: serde::de::SeqAccess<'de>,
-                            {
-                                let mut res = vec![];
-                                while let Some(e) = seq.next_element().unwrap() {
-                                    res.push(dbg!(e));
-                                }
-                                Ok(res)
-                            }
-                        }
-
-                        let arguments = p.deserialize_seq(ArgumentsVisitor).unwrap();
-
-                        struct ReturnCountVisitor;
-
-                        impl<'de> serde::de::Visitor<'de> for ReturnCountVisitor {
-                            type Value = usize;
-                            fn expecting(
-                                &self,
-                                formatter: &mut std::fmt::Formatter,
-                            ) -> std::fmt::Result {
-                                formatter.write_str("usize")
-                            }
-
-                            fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
-                            where
-                                E: serde::de::Error,
-                            {
-                                Ok(v as usize)
-                            }
-
-                            fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
-                            where
-                                E: serde::de::Error,
-                            {
-                                Ok(v as usize)
-                            }
-
-                            fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
-                            where
-                                E: serde::de::Error,
-                            {
-                                Ok(v as usize)
-                            }
-                        }
-
-                        let return_count = p.deserialize_u32(ReturnCountVisitor).unwrap();
-
-                        // return an iterator!
                         let s = p.into_iter::<Statement<Bn128Field>>();
 
                         Ok(ProgEnum::Bn128Program(ProgIterator {
@@ -233,25 +225,24 @@ impl<'de, R: Read>
                             statements: UnwrappedStreamDeserializer { s },
                         }))
                     }
-                    // m if m == Bls12_377Field::id() => {
-                    //     let p: crate::ir::Prog<Bls12_377Field> =
-                    //         serde_cbor::from_reader(r).unwrap();
+                    m if m == Bls12_377Field::id() => {
+                        let s = p.into_iter::<Statement<Bls12_377Field>>();
 
-                    //     Ok(ProgEnum::Bls12_377Program(ProgIterator {
-                    //         statements: p.statements.into_iter(),
-                    //         arguments: p.arguments,
-                    //         return_count: p.return_count,
-                    //     }))
-                    // }
-                    // m if m == Bw6_761Field::id() => {
-                    //     let p: crate::ir::Prog<Bw6_761Field> = serde_cbor::from_reader(r).unwrap();
+                        Ok(ProgEnum::Bls12_377Program(ProgIterator {
+                            arguments,
+                            return_count,
+                            statements: UnwrappedStreamDeserializer { s },
+                        }))
+                    }
+                    m if m == Bw6_761Field::id() => {
+                        let s = p.into_iter::<Statement<Bw6_761Field>>();
 
-                    //     Ok(ProgEnum::Bw6_761Program(ProgIterator {
-                    //         statements: p.statements.into_iter(),
-                    //         arguments: p.arguments,
-                    //         return_count: p.return_count,
-                    //     }))
-                    // }
+                        Ok(ProgEnum::Bw6_761Program(ProgIterator {
+                            arguments,
+                            return_count,
+                            statements: UnwrappedStreamDeserializer { s },
+                        }))
+                    }
                     _ => Err(String::from("Unknown curve identifier")),
                 }
             } else {
@@ -271,7 +262,7 @@ mod tests {
     use zokrates_field::{Bls12_381Field, Bn128Field};
 
     #[test]
-    fn ser_deser_v1() {
+    fn ser_deser_v2() {
         let p: ir::Prog<Bn128Field> = ir::Prog::default();
 
         let mut buffer = Cursor::new(vec![]);
