@@ -2455,7 +2455,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     ZirExpressionList::EmbedCall(embed, generics, exprs) => {
                         let rhs_flattened = self.flatten_embed_call(
                             statements_flattened,
-                            embed,
+                            embed.clone(),
                             generics,
                             exprs.clone(),
                         );

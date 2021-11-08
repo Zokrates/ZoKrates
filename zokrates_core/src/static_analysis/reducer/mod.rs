@@ -285,7 +285,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 self.statement_buffer
                     .push(TypedStatement::MultipleDefinition(
                         v,
-                        TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                        TypedExpressionListInner::EmbedCall(generics, embed, arguments)
                             .annotate(output_types),
                     ));
                 Ok(FunctionCallOrExpression::Expression(E::identifier(
@@ -403,7 +403,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
-                            TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                            TypedExpressionListInner::EmbedCall(generics, embed, arguments)
                                 .annotate(output_types),
                         )])
                     }

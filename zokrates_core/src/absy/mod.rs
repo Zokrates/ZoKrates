@@ -22,6 +22,7 @@ use std::fmt;
 
 use num_bigint::BigUint;
 use std::collections::HashMap;
+use zokrates_circom::CircomModule;
 
 /// An identifier of a function or a variable
 pub type Identifier<'ast> = &'ast str;
@@ -140,7 +141,7 @@ pub enum SymbolDefinition<'ast> {
 pub enum Symbol<'ast> {
     Here(SymbolDefinition<'ast>),
     There(SymbolImportNode<'ast>),
-    Flat(FlatEmbed),
+    Flat(FlatEmbed<'ast>),
 }
 
 impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
@@ -179,16 +180,22 @@ impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
 
 pub type SymbolDeclarationNode<'ast> = Node<SymbolDeclaration<'ast>>;
 
-/// A module as a collection of `FunctionDeclaration`s
 #[derive(Debug, Clone, PartialEq)]
-pub struct Module<'ast> {
+pub enum Module<'ast> {
+    Zok(ZokModule<'ast>),
+    Circom(CircomModule<'ast>),
+}
+
+/// A zokrates module as a collection of `FunctionDeclaration`s
+#[derive(Debug, Clone, PartialEq)]
+pub struct ZokModule<'ast> {
     /// Symbols of the module
     pub symbols: Declarations<'ast>,
 }
 
-impl<'ast> Module<'ast> {
+impl<'ast> ZokModule<'ast> {
     pub fn with_symbols<I: IntoIterator<Item = SymbolDeclarationNode<'ast>>>(i: I) -> Self {
-        Module {
+        ZokModule {
             symbols: i.into_iter().collect(),
         }
     }
@@ -252,7 +259,7 @@ impl<'ast> fmt::Display for ConstantDefinition<'ast> {
     }
 }
 
-impl<'ast> fmt::Display for Module<'ast> {
+impl<'ast> fmt::Display for ZokModule<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = self
             .symbols
@@ -260,6 +267,15 @@ impl<'ast> fmt::Display for Module<'ast> {
             .map(|x| format!("{}", x))
             .collect::<Vec<_>>();
         write!(f, "{}", res.join("\n"))
+    }
+}
+
+impl<'ast> fmt::Display for Module<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Module::Zok(m) => write!(f, "{}", m),
+            Module::Circom(m) => write!(f, "{}", m),
+        }
     }
 }
 

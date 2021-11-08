@@ -249,7 +249,7 @@ pub trait MultiTyped {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum ZirExpressionList<'ast, T> {
-    EmbedCall(FlatEmbed, Vec<u32>, Vec<ZirExpression<'ast, T>>),
+    EmbedCall(FlatEmbed<'ast>, Vec<u32>, Vec<ZirExpression<'ast, T>>),
 }
 
 /// An expression of type `field`

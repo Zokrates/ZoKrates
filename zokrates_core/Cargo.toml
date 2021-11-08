@@ -33,6 +33,7 @@ zokrates_field = { version = "0.4.0", path = "../zokrates_field", default-featur
 zokrates_pest_ast = { version = "0.2.0", path = "../zokrates_pest_ast" }
 zokrates_common = { path = "../zokrates_common" }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
+zokrates_circom = { version = "0.1.0", path = "../zokrates_circom" }
 getrandom = { version = "0.2", features = ["js"] }
 rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }

@@ -657,6 +657,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
             }
             Symbol::There(import) => {
+                println!("check there");
+
                 let pos = import.pos();
                 let import = import.value;
 
@@ -675,6 +677,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 signature: d.symbol.signature(&state.typed_modules).clone(),
                             })
                             .collect();
+
+                        println!("candidates {:?}", function_candidates);
 
                         // find candidates in the types
                         let type_candidate = state
@@ -866,27 +870,69 @@ impl<'ast, T: Field> Checker<'ast, T> {
             None => None,
             // if it was not, check it
             Some(module) => {
-                // create default entries for this module
-                state.types.entry(module_id.to_path_buf()).or_default();
-                state.constants.entry(module_id.to_path_buf()).or_default();
+                match module {
+                    Module::Zok(module) => {
+                        // create default entries for this module
+                        state.types.entry(module_id.to_path_buf()).or_default();
+                        state.constants.entry(module_id.to_path_buf()).or_default();
 
-                // we keep track of the introduced symbols to avoid collisions between types and functions
-                let mut symbol_unifier = SymbolUnifier::default();
+                        // we keep track of the introduced symbols to avoid collisions between types and functions
+                        let mut symbol_unifier = SymbolUnifier::default();
 
-                // we go through symbol declarations and check them
-                for declaration in module.symbols {
-                    self.check_symbol_declaration(
-                        declaration,
-                        module_id,
-                        state,
-                        &mut checked_symbols,
-                        &mut symbol_unifier,
-                    )?
+                        // we go through symbol declarations and check them
+                        for declaration in module.symbols {
+                            self.check_symbol_declaration(
+                                declaration,
+                                module_id,
+                                state,
+                                &mut checked_symbols,
+                                &mut symbol_unifier,
+                            )?
+                        }
+
+                        Some(TypedModule {
+                            symbols: checked_symbols,
+                        })
+                    }
+                    Module::Circom(module) => {
+                        // We define a function symbol for the entry point of this module
+                        // the signature is found in the circom program
+
+                        let module = zokrates_circom::check(module);
+                        let signature = DeclarationSignature::new()
+                            .inputs(vec![
+                                DeclarationType::FieldElement;
+                                zokrates_circom::get_input_count(&module)
+                            ])
+                            .outputs(vec![
+                                DeclarationType::FieldElement;
+                                zokrates_circom::get_output_count(&module)
+                            ]);
+
+                        println!("{}", signature);
+
+                        let id = "main";
+
+                        self.functions.insert(
+                            DeclarationFunctionKey::with_location(module_id.to_path_buf(), id)
+                                .signature(signature.clone()),
+                        );
+                        checked_symbols.push(
+                            TypedFunctionSymbolDeclaration::new(
+                                DeclarationFunctionKey::with_location(module_id.to_path_buf(), id)
+                                    .signature(signature.clone()),
+                                TypedFunctionSymbol::Flat(crate::embed::FlatEmbed::Circom(
+                                    module.clone(),
+                                )),
+                            )
+                            .into(),
+                        );
+
+                        Some(TypedModule {
+                            symbols: checked_symbols,
+                        })
+                    }
                 }
-
-                Some(TypedModule {
-                    symbols: checked_symbols,
-                })
             }
         };
 
@@ -1594,6 +1640,70 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = stat.pos();
 
         match stat.value {
+            // Statement::Assembly(a) => {
+            //     let mut body = a.body;
+
+            //     let arguments: Vec<FieldElementExpression<'ast, T>> = a
+            //         .arguments
+            //         .into_iter()
+            //         .map(|a| match self.check_expression(a, module_id, types) {
+            //             Ok(TypedExpression::FieldElement(e)) => Ok(e),
+            //             Ok(e) => Err(vec![ErrorInner {
+            //                 pos: Some(pos),
+            //                 message: format!(
+            //                     "Only supported type for assembly arguments is field, found {}",
+            //                     e.get_type()
+            //                 ),
+            //             }]),
+            //             Err(e) => Err(vec![e]),
+            //         })
+            //         .collect::<Result<Vec<_>, _>>()?;
+
+            //     // check lhs assignees are defined
+            //     let (assignees, errors): (Vec<_>, Vec<_>) = a
+            //         .lhs
+            //         .into_iter()
+            //         .map(|a| self.check_assignee(a, module_id, types))
+            //         .partition(|r| r.is_ok());
+
+            //     if !errors.is_empty() {
+            //         return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
+            //     }
+
+            //     let assignees: Vec<_> = assignees.into_iter().map(|a| a.unwrap()).collect();
+
+            //     let field_assignees: Vec<TypedAssignee<'ast, T>> = assignees
+            //         .into_iter()
+            //         .map(|a| match a.get_type() {
+            //             Type::FieldElement => Ok(a),
+            //             t => Err(vec![ErrorInner {
+            //                 pos: Some(pos),
+            //                 message: format!(
+            //                 "Only supported type to assign assembly values to is field, found {}",
+            //                 t
+            //             ),
+            //             }]),
+            //         })
+            //         .collect::<Result<Vec<_>, _>>()?;
+
+            //     type_analysis::check_types::check_types(&mut body)
+            //         .map_err(|_| ())
+            //         .unwrap();
+
+            //     match body.initial_template_call {
+            //         program_structure::abstract_syntax_tree::ast::Expression::Call {
+            //             meta: _,
+            //             id: _,
+            //             args,
+            //         } if args.len() == arguments.len() => {}
+            //         _ => {
+            //             unimplemented!();
+            //         }
+            //     }
+
+            //     //TypedStatement::Assembly(p)
+            //     unimplemented!()
+            // }
             Statement::Return(e) => {
                 let mut expression_list_checked = vec![];
                 let mut errors = vec![];
@@ -1831,6 +1941,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let query = FunctionQuery::new(fun_id, &generics_checked, &arguments_types, &assignee_types);
 
                         let functions = self.find_functions(&query);
+
+                        println!("{:#?}", functions);
 
                         match functions.len() {
                     		// the function has to be defined

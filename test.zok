@@ -1,0 +1,5 @@
+from "./circuit.circom" import main as multiply
+
+def main(field a, field b) -> field:
+    field out = multiply(a, b)
+    return out

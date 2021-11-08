@@ -4,9 +4,9 @@ use num_bigint::BigUint;
 use std::path::Path;
 use zokrates_pest_ast as pest;
 
-impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
-    fn from(file: pest::File<'ast>) -> absy::Module<'ast> {
-        absy::Module::with_symbols(file.declarations.into_iter().flat_map(|d| match d {
+impl<'ast> From<pest::File<'ast>> for absy::ZokModule<'ast> {
+    fn from(file: pest::File<'ast>) -> absy::ZokModule<'ast> {
+        absy::ZokModule::with_symbols(file.declarations.into_iter().flat_map(|d| match d {
             pest::SymbolDeclaration::Import(i) => import_directive_to_symbol_vec(i),
             pest::SymbolDeclaration::Constant(c) => vec![c.into()],
             pest::SymbolDeclaration::Struct(s) => vec![s.into()],

@@ -247,7 +247,7 @@ impl<'ast, T> TypedModule<'ast, T> {
 pub enum TypedFunctionSymbol<'ast, T> {
     Here(TypedFunction<'ast, T>),
     There(DeclarationFunctionKey<'ast, T>),
-    Flat(FlatEmbed),
+    Flat(FlatEmbed<'ast>),
 }
 
 impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
@@ -862,7 +862,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedExpressionListInner<'ast, T> {
     FunctionCall(FunctionCallExpression<'ast, T, TypedExpressionList<'ast, T>>),
-    EmbedCall(FlatEmbed, Vec<u32>, Vec<TypedExpression<'ast, T>>),
+    EmbedCall(FlatEmbed<'ast>, Vec<u32>, Vec<TypedExpression<'ast, T>>),
 }
 
 impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {

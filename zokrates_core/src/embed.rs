@@ -12,6 +12,7 @@ use crate::typed_absy::types::{
     GenericIdentifier,
 };
 use std::collections::HashMap;
+use zokrates_circom::CircomModule;
 use zokrates_field::Field;
 
 cfg_if::cfg_if! {
@@ -30,8 +31,8 @@ cfg_if::cfg_if! {
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord)]
-pub enum FlatEmbed {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum FlatEmbed<'ast> {
     BitArrayLe,
     Unpack,
     U8ToBits,
@@ -46,11 +47,13 @@ pub enum FlatEmbed {
     Sha256Round,
     #[cfg(feature = "ark")]
     SnarkVerifyBls12377,
+    Circom(CircomModule<'ast>),
 }
 
-impl FlatEmbed {
+impl<'ast> FlatEmbed<'ast> {
     pub fn signature(&self) -> UnresolvedSignature {
         match self {
+            FlatEmbed::Circom(_) => unreachable!(),
             FlatEmbed::BitArrayLe => UnresolvedSignature::new()
                 .generics(vec![ConstantGenericNode::mock("N")])
                 .inputs(vec![
@@ -173,8 +176,19 @@ impl FlatEmbed {
         }
     }
 
-    pub fn typed_signature<T>(&self) -> DeclarationSignature<'static, T> {
+    pub fn typed_signature<T>(&self) -> DeclarationSignature<'ast, T> {
         match self {
+            FlatEmbed::Circom(module) => DeclarationSignature::new()
+                .inputs(
+                    (0..zokrates_circom::get_input_count(&module))
+                        .map(|_| DeclarationType::FieldElement)
+                        .collect(),
+                )
+                .outputs(
+                    (0..zokrates_circom::get_output_count(&module))
+                        .map(|_| DeclarationType::FieldElement)
+                        .collect(),
+                ),
             FlatEmbed::BitArrayLe => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
                     GenericIdentifier {
@@ -305,7 +319,7 @@ impl FlatEmbed {
         }
     }
 
-    pub fn generics<'ast, T>(&self, assignment: &ConcreteGenericsAssignment<'ast>) -> Vec<u32> {
+    pub fn generics<T>(&self, assignment: &ConcreteGenericsAssignment<'ast>) -> Vec<u32> {
         let gen = self.typed_signature().generics.into_iter().map(
             |c: Option<DeclarationConstant<'ast, T>>| match c.unwrap() {
                 DeclarationConstant::Generic(g) => g,
@@ -333,6 +347,7 @@ impl FlatEmbed {
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
             #[cfg(feature = "ark")]
             FlatEmbed::SnarkVerifyBls12377 => "_SNARK_VERIFY_BLS12_377",
+            FlatEmbed::Circom(_) => "_CIRCOM",
         }
     }
 
@@ -344,6 +359,24 @@ impl FlatEmbed {
             FlatEmbed::Sha256Round => sha256_round(),
             #[cfg(feature = "ark")]
             FlatEmbed::SnarkVerifyBls12377 => snark_verify_bls12_377(generics[0] as usize),
+            FlatEmbed::Circom(_) => FlatFunction {
+                arguments: vec![
+                    FlatParameter::private(FlatVariable::new(0)),
+                    FlatParameter::private(FlatVariable::new(1)),
+                ],
+                statements: vec![
+                    FlatStatement::Definition(
+                        FlatVariable::new(2),
+                        FlatExpression::Mult(
+                            box FlatExpression::Identifier(FlatVariable::new(0)),
+                            box FlatExpression::Identifier(FlatVariable::new(1)),
+                        ),
+                    ),
+                    FlatStatement::Return(FlatExpressionList {
+                        expressions: vec![FlatExpression::Identifier(FlatVariable::new(2))],
+                    }),
+                ],
+            },
             _ => unreachable!(),
         }
     }

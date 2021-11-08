@@ -69,12 +69,12 @@ pub struct Importer;
 
 impl Importer {
     pub fn apply_imports<'ast, T: Field, E: Into<Error>>(
-        destination: Module<'ast>,
+        destination: ZokModule<'ast>,
         location: PathBuf,
         resolver: Option<&dyn Resolver<E>>,
         modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
         arena: &'ast Arena<String>,
-    ) -> Result<Module<'ast>, CompileErrors> {
+    ) -> Result<ZokModule<'ast>, CompileErrors> {
         let symbols: Vec<_> = destination
             .symbols
             .into_iter()
@@ -86,7 +86,7 @@ impl Importer {
             })
             .collect::<Result<_, _>>()?;
 
-        Ok(Module::with_symbols(symbols))
+        Ok(ZokModule::with_symbols(symbols))
     }
 
     fn resolve<'ast, T: Field, E: Into<Error>>(
@@ -226,15 +226,24 @@ impl Importer {
                             Some(_) => {}
                             None => {
                                 let source = arena.alloc(source);
-                                let compiled = parse_module::<T, E>(
-                                    source,
-                                    new_location.clone(),
-                                    resolver,
-                                    modules,
-                                    arena,
-                                )?;
 
-                                assert!(modules.insert(new_location.clone(), compiled).is_none());
+                                let parsed =
+                                    match new_location.extension().unwrap().to_str().unwrap() {
+                                        "zok" => parse_module::<T, E>(
+                                            source,
+                                            new_location.clone(),
+                                            resolver,
+                                            modules,
+                                            arena,
+                                        )
+                                        .map(|m| Module::Zok(m)),
+                                        "circom" => {
+                                            Ok(Module::Circom(zokrates_circom::parse(source)))
+                                        }
+                                        _ => unimplemented!(),
+                                    }?;
+
+                                assert!(modules.insert(new_location.clone(), parsed).is_none());
                             }
                         };
 

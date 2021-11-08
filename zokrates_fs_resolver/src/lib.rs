@@ -41,17 +41,19 @@ impl<'a> Resolver<io::Error> for FileSystemResolver<'a> {
             _ => PathBuf::from(self.stdlib_root_path.unwrap_or("")),
         };
 
-        let path_owned = base.join(import_location.clone()).with_extension("zok");
+        let path_owned = match import_location.extension() {
+            Some(_) => base.join(import_location.clone()),
+            None => base.join(import_location.clone()).with_extension("zok"),
+        };
 
-        if !path_owned.is_file() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("No file found at {}", import_location.display()),
-            ));
-        }
-
-        let source = read_to_string(&path_owned)?;
-        Ok((source, path_owned))
+        read_to_string(&path_owned)
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("No file found at {}", path_owned.display()),
+                )
+            })
+            .map(|source| (source, path_owned))
     }
 }
 

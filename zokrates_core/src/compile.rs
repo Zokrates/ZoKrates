@@ -3,7 +3,7 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::absy::{Module, OwnedModuleId, Program};
+use crate::absy::{Module, OwnedModuleId, Program, ZokModule};
 use crate::flatten::Flattener;
 use crate::imports::{self, Importer};
 use crate::ir;
@@ -273,7 +273,7 @@ pub fn parse_program<'ast, T: Field, E: Into<imports::Error>>(
 
     let main = parse_module::<T, E>(source, location.clone(), resolver, &mut modules, arena)?;
 
-    modules.insert(location.clone(), main);
+    modules.insert(location.clone(), Module::Zok(main));
 
     Ok(Program {
         main: location,
@@ -287,7 +287,7 @@ pub fn parse_module<'ast, T: Field, E: Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     modules: &mut HashMap<OwnedModuleId, Module<'ast>>,
     arena: &'ast Arena<String>,
-) -> Result<Module<'ast>, CompileErrors> {
+) -> Result<ZokModule<'ast>, CompileErrors> {
     log::debug!("Generate pest AST for {}", location.display());
 
     let ast = pest::generate_ast(source)
@@ -300,7 +300,7 @@ pub fn parse_module<'ast, T: Field, E: Into<imports::Error>>(
 
     log::debug!("Generate absy for {}", location.display());
 
-    let module_without_imports: Module = Module::from(ast);
+    let module_without_imports: ZokModule = ZokModule::from(ast);
 
     log::debug!("Apply imports to absy for {}", location.display());
 

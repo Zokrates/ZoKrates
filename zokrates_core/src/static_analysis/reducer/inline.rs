@@ -43,8 +43,8 @@ use zokrates_field::Field;
 pub enum InlineError<'ast, T> {
     Generic(DeclarationFunctionKey<'ast, T>, ConcreteFunctionKey<'ast>),
     Flat(
-        FlatEmbed,
         Vec<u32>,
+        FlatEmbed<'ast>,
         Vec<TypedExpression<'ast, T>>,
         Types<'ast, T>,
     ),
@@ -154,8 +154,8 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     let f = match decl.symbol {
         TypedFunctionSymbol::Here(f) => Ok(f),
         TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(
-            e,
             e.generics::<T>(&assignment),
+            e,
             arguments.clone(),
             output_types,
         )),

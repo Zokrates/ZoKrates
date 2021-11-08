@@ -383,6 +383,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         match arguments.iter().all(|a| a.is_constant()) {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match embed {
+                                    FlatEmbed::Circom(_) => Ok(None),
                                     FlatEmbed::BitArrayLe => Ok(None), // todo
                                     FlatEmbed::U64FromBits => Ok(Some(process_u_from_bits(
                                         assignees.clone(),
