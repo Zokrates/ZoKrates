@@ -19,9 +19,6 @@ pub enum ProgEnum<
     Bw6_761Program(ProgIterator<Bw6_761Field, Bw6_761I>),
 }
 
-use serde::{Serialize, Serializer};
-use std::cell::Cell;
-
 impl<
         Bls12_381I: IntoIterator<Item = Statement<Bls12_381Field>>,
         Bn128I: IntoIterator<Item = Statement<Bn128Field>>,
@@ -46,57 +43,57 @@ impl<
     }
 }
 
-pub fn write_as_cbor<T: Serialize + std::fmt::Debug, I, W>(
-    out: &mut W,
-    prog_iterator: ProgIterator<T, I>,
-) -> serde_cbor::Result<()>
-where
-    I: IntoIterator<Item = Statement<T>>,
-    W: Write,
-{
-    struct Wrapper<U>(Cell<Option<U>>);
+// pub fn _write_as_cbor<T: Serialize + std::fmt::Debug, I, W>(
+//     out: &mut W,
+//     prog_iterator: ProgIterator<T, I>,
+// ) -> serde_cbor::Result<()>
+// where
+//     I: IntoIterator<Item = Statement<T>>,
+//     W: Write,
+// {
+//     struct Wrapper<U>(Cell<Option<U>>);
 
-    struct SerializableProgIterator<T: Serialize, I: IntoIterator<Item = crate::ir::Statement<T>>> {
-        arguments: Vec<crate::flat_absy::FlatParameter>,
-        return_count: usize,
-        statements: Wrapper<I>,
-    }
+//     struct SerializableProgIterator<T: Serialize, I: IntoIterator<Item = crate::ir::Statement<T>>> {
+//         arguments: Vec<crate::flat_absy::FlatParameter>,
+//         return_count: usize,
+//         statements: Wrapper<I>,
+//     }
 
-    impl<T, I> Serialize for SerializableProgIterator<T, I>
-    where
-        T: Serialize + std::fmt::Debug,
-        I: IntoIterator<Item = crate::ir::Statement<T>>,
-    {
-        fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-            use serde::ser::SerializeStruct;
+//     impl<T, I> Serialize for SerializableProgIterator<T, I>
+//     where
+//         T: Serialize + std::fmt::Debug,
+//         I: IntoIterator<Item = crate::ir::Statement<T>>,
+//     {
+//         fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+//             use serde::ser::SerializeStruct;
 
-            let mut spi = s.serialize_struct("SerializableProgIterator", 3)?;
-            spi.serialize_field("arguments", &self.arguments)?;
-            spi.serialize_field("return_count", &self.return_count)?;
-            spi.serialize_field("statements", &self.statements)?;
-            spi.end()
-        }
-    }
+//             let mut spi = s.serialize_struct("SerializableProgIterator", 3)?;
+//             spi.serialize_field("arguments", &self.arguments)?;
+//             spi.serialize_field("return_count", &self.return_count)?;
+//             spi.serialize_field("statements", &self.statements)?;
+//             spi.end()
+//         }
+//     }
 
-    impl<I, P> Serialize for Wrapper<I>
-    where
-        I: IntoIterator<Item = P>,
-        P: Serialize + std::fmt::Debug,
-    {
-        fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-            s.collect_seq(self.0.take().unwrap())
-        }
-    }
+//     impl<I, P> Serialize for Wrapper<I>
+//     where
+//         I: IntoIterator<Item = P>,
+//         P: Serialize + std::fmt::Debug,
+//     {
+//         fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+//             s.collect_seq(self.0.take().unwrap())
+//         }
+//     }
 
-    serde_cbor::to_writer(
-        out,
-        &SerializableProgIterator {
-            arguments: prog_iterator.arguments,
-            return_count: prog_iterator.return_count,
-            statements: Wrapper(Cell::new(Some(prog_iterator.statements))),
-        },
-    )
-}
+//     serde_cbor::to_writer(
+//         out,
+//         &SerializableProgIterator {
+//             arguments: prog_iterator.arguments,
+//             return_count: prog_iterator.return_count,
+//             statements: Wrapper(Cell::new(Some(prog_iterator.statements))),
+//         },
+//     )
+// }
 
 impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     pub fn serialize<W: Write>(self, mut w: W) {
@@ -104,16 +101,34 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
         w.write_all(ZOKRATES_VERSION_1).unwrap();
         w.write_all(&T::id()).unwrap();
 
-        write_as_cbor(&mut w, self).unwrap();
+        serde_cbor::to_writer(&mut w, &self.arguments).unwrap();
+        serde_cbor::to_writer(&mut w, &self.return_count).unwrap();
+        for s in self.statements {
+            serde_cbor::to_writer(&mut w, &s).unwrap();
+        }
     }
 }
 
-impl<R: Read>
+pub struct UnwrappedStreamDeserializer<'de, R, T> {
+    s: StreamDeserializer<'de, R, T>,
+}
+
+impl<'de, R: serde_cbor::de::Read<'de>, T: serde::Deserialize<'de>> Iterator
+    for UnwrappedStreamDeserializer<'de, R, T>
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        self.s.next().transpose().unwrap()
+    }
+}
+
+impl<'de, R: Read>
     ProgEnum<
-        StreamDeserializer<R, Statement<Bls12_381Field>>,
-        StreamDeserializer<R, Statement<Bn128Field>>,
-        StreamDeserializer<R, Statement<Bls12_377Field>>,
-        StreamDeserializer<R, Statement<Bw6_761Field>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<Bls12_381Field>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<Bn128Field>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<Bls12_377Field>>,
+        UnwrappedStreamDeserializer<'de, serde_cbor::de::IoRead<R>, Statement<Bw6_761Field>>,
     >
 {
     pub fn deserialize(mut r: R) -> Result<Self, String> {
@@ -146,14 +161,76 @@ impl<R: Read>
                     //     }))
                     // }
                     m if m == Bn128Field::id() => {
-                        let p = serde_cbor::Deserializer::from_reader(r);
+                        use serde::de::Deserializer;
+                        let mut p = serde_cbor::Deserializer::from_reader(r);
 
-                        let statements = p.into_iter::<Statement<Bn128Field>>();
+                        struct ArgumentsVisitor;
+
+                        impl<'de> serde::de::Visitor<'de> for ArgumentsVisitor {
+                            type Value = Vec<crate::ir::FlatParameter>;
+                            fn expecting(
+                                &self,
+                                formatter: &mut std::fmt::Formatter,
+                            ) -> std::fmt::Result {
+                                formatter.write_str("seq of flat param")
+                            }
+
+                            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+                            where
+                                A: serde::de::SeqAccess<'de>,
+                            {
+                                let mut res = vec![];
+                                while let Some(e) = seq.next_element().unwrap() {
+                                    res.push(dbg!(e));
+                                }
+                                Ok(res)
+                            }
+                        }
+
+                        let arguments = p.deserialize_seq(ArgumentsVisitor).unwrap();
+
+                        struct ReturnCountVisitor;
+
+                        impl<'de> serde::de::Visitor<'de> for ReturnCountVisitor {
+                            type Value = usize;
+                            fn expecting(
+                                &self,
+                                formatter: &mut std::fmt::Formatter,
+                            ) -> std::fmt::Result {
+                                formatter.write_str("usize")
+                            }
+
+                            fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+                            where
+                                E: serde::de::Error,
+                            {
+                                Ok(v as usize)
+                            }
+
+                            fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+                            where
+                                E: serde::de::Error,
+                            {
+                                Ok(v as usize)
+                            }
+
+                            fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+                            where
+                                E: serde::de::Error,
+                            {
+                                Ok(v as usize)
+                            }
+                        }
+
+                        let return_count = p.deserialize_u32(ReturnCountVisitor).unwrap();
+
+                        // return an iterator!
+                        let s = p.into_iter::<Statement<Bn128Field>>();
 
                         Ok(ProgEnum::Bn128Program(ProgIterator {
-                            arguments: vec![],
-                            return_count: 0,
-                            statements: statements.map(|x| x.unwrap().unwrap()),
+                            arguments,
+                            return_count,
+                            statements: UnwrappedStreamDeserializer { s },
                         }))
                     }
                     // m if m == Bls12_377Field::id() => {

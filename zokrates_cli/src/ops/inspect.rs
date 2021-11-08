@@ -45,7 +45,11 @@ fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     let output_path = PathBuf::from(sub_matches.value_of("input").unwrap()).with_extension("ztf");
     let mut output_file = File::create(&output_path).unwrap();
 
+    println!("collect!");
+
     let ir_prog: ir::Prog<T> = ir_prog.collect();
+
+    println!("done collecting!");
 
     output_file
         .write(format!("{}", ir_prog).as_bytes())
