@@ -11,7 +11,7 @@ pub enum Identifier<'ast> {
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub enum SourceIdentifier<'ast> {
     Basic(CoreIdentifier<'ast>),
-    Select(Box<SourceIdentifier<'ast>>, usize),
+    Select(Box<SourceIdentifier<'ast>>, u32),
     Member(Box<SourceIdentifier<'ast>>, MemberId),
 }
 

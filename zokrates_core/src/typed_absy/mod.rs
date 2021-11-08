@@ -1203,9 +1203,9 @@ impl<'ast, T> IntoIterator for ArrayValue<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone + fmt::Debug> ArrayValue<'ast, T> {
+impl<'ast, T: Clone> ArrayValue<'ast, T> {
     fn expression_at_aux<
-        U: Select<'ast, T> + Into<TypedExpression<'ast, T>> + From<TypedExpression<'ast, T>>,
+        U: Select<'ast, T> + From<TypedExpression<'ast, T>> + Into<TypedExpression<'ast, T>>,
     >(
         v: TypedExpressionOrSpread<'ast, T>,
     ) -> Vec<Option<U>> {
@@ -1236,7 +1236,7 @@ impl<'ast, T: Clone + fmt::Debug> ArrayValue<'ast, T> {
     }
 
     pub fn expression_at<
-        U: Select<'ast, T> + Into<TypedExpression<'ast, T>> + From<TypedExpression<'ast, T>>,
+        U: Select<'ast, T> + From<TypedExpression<'ast, T>> + Into<TypedExpression<'ast, T>>,
     >(
         &self,
         index: usize,
