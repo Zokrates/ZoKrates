@@ -204,7 +204,7 @@ mod tests {
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
             arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-            returns: vec![FlatVariable::public(0)],
+            return_count: 1,
             statements: vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
@@ -215,7 +215,7 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &vec![Bn128Field::from(42)])
+            .execute(program.clone(), &vec![Bn128Field::from(42)])
             .unwrap();
 
         let proof =

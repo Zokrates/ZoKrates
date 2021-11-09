@@ -83,12 +83,6 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     println!("Computing witness...");
 
     let verbose = sub_matches.is_present("verbose");
-
-    // print deserialized flattened program if in verbose mode
-    // if verbose {
-    //     println!("{}", ir_prog);
-    // }
-
     let is_stdin = sub_matches.is_present("stdin");
     let is_abi = sub_matches.is_present("abi");
 

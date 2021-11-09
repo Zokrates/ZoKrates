@@ -635,6 +635,7 @@ pub fn unpack_to_bitwidth<T: Field>(
 
     let solver = Solver::bits(bit_width);
 
+    #[allow(clippy::needless_collect)]
     let outputs: Vec<_> = directive_outputs
         .iter()
         .enumerate()

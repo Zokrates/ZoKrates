@@ -1284,6 +1284,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
         let params_flattened = params.into_iter().map(|e| e.get_field_unchecked());
 
+        let return_values = (0..funct.return_count).map(FlatVariable::public);
+
         for (concrete_argument, formal_argument) in params_flattened.zip(funct.arguments) {
             let new_var = self.define(concrete_argument, statements_flattened);
             replacement_map.insert(formal_argument.id, new_var);
@@ -1329,17 +1331,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         statements_flattened.extend(statements);
 
-        unimplemented!();
-
-        // match return_statements.pop().unwrap() {
-        //     FlatStatement::Return(list) => list
-        //         .expressions
-        //         .into_iter()
-        //         .map(|x| x.apply_substitution(&replacement_map))
-        //         .map(FlatUExpression::with_field)
-        //         .collect(),
-        //     _ => unreachable!(),
-        // }
+        return_values
+            .map(|x| FlatExpression::from(x).apply_substitution(&replacement_map))
+            .map(FlatUExpression::with_field)
+            .collect()
     }
 
     /// Flattens an expression
@@ -2368,6 +2363,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) {
         match stat {
             ZirStatement::Return(exprs) => {
+                #[allow(clippy::needless_collect)]
+                // clippy suggests to not collect here, but `statements_flattened` is borrowed in the iterator,
+                // so we cannot borrow again when extending
                 let flat_expressions: Vec<_> = exprs
                     .into_iter()
                     .map(|expr| self.flatten_expression(statements_flattened, expr))

@@ -45,6 +45,10 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
                 box FlatExpression::Identifier(v1),
                 box FlatExpression::Number(n1),
             ) => LinComb::summand(n1, v1),
+            FlatExpression::Mult(
+                box FlatExpression::Number(n1),
+                box FlatExpression::Number(n2),
+            ) => LinComb::summand(n1 * n2, FlatVariable::one()),
             e => unreachable!("{}", e),
         }
     }

@@ -19,6 +19,13 @@ pub enum ProgEnum<
     Bw6_761Program(ProgIterator<Bw6_761Field, Bw6_761I>),
 }
 
+type MemoryProgEnum = ProgEnum<
+    Vec<Statement<Bls12_381Field>>,
+    Vec<Statement<Bn128Field>>,
+    Vec<Statement<Bls12_377Field>>,
+    Vec<Statement<Bw6_761Field>>,
+>;
+
 impl<
         Bls12_381I: IntoIterator<Item = Statement<Bls12_381Field>>,
         Bn128I: IntoIterator<Item = Statement<Bn128Field>>,
@@ -26,14 +33,7 @@ impl<
         Bw6_761I: IntoIterator<Item = Statement<Bw6_761Field>>,
     > ProgEnum<Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
 {
-    pub fn collect(
-        self,
-    ) -> ProgEnum<
-        Vec<Statement<Bls12_381Field>>,
-        Vec<Statement<Bn128Field>>,
-        Vec<Statement<Bls12_377Field>>,
-        Vec<Statement<Bw6_761Field>>,
-    > {
+    pub fn collect(self) -> MemoryProgEnum {
         match self {
             ProgEnum::Bls12_381Program(p) => ProgEnum::Bls12_381Program(p.collect()),
             ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect()),

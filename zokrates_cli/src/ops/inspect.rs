@@ -9,7 +9,7 @@ use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("inspect")
-        .about("Prints the compiled program in a human readable format")
+        .about("Outputs a compiled program to a file in a human readable format")
         .arg(
             Arg::with_name("input")
                 .short("i")
