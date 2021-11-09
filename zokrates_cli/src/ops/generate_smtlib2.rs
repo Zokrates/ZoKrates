@@ -1,5 +1,6 @@
 use crate::constants::{FLATTENED_CODE_DEFAULT_PATH, SMTLIB2_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
+use fallible_iterator::FallibleIterator;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
@@ -49,7 +50,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_smtlib2<T: Field, I: Iterator<Item = ir::Statement<T>>>(
+fn cli_smtlib2<T: Field, I: FallibleIterator<Item = ir::Statement<T>, Error = ()>>(
     ir_prog: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -58,7 +59,7 @@ fn cli_smtlib2<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let mut output_file = File::create(output_path).unwrap();
 
-    let ir_prog = ir_prog.collect();
+    let ir_prog = ir_prog.collect().unwrap();
 
     output_file
         .write(format!("{}", SMTLib2Display(&ir_prog)).as_bytes())

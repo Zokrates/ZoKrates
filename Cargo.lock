@@ -851,6 +851,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
+name = "fallible-iterator"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
+
+[[package]]
 name = "ff_ce"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2403,6 +2409,7 @@ dependencies = [
  "clap",
  "dirs",
  "env_logger",
+ "fallible-iterator",
  "fs_extra",
  "glob 0.2.11",
  "lazy_static",
@@ -2443,6 +2450,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cmake",
  "csv",
+ "fallible-iterator",
  "ff_ce 0.9.0",
  "getrandom 0.2.3",
  "git2",

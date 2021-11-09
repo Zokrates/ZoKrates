@@ -14,20 +14,20 @@ use zokrates_field::Field;
 pub struct TautologyOptimizer;
 
 impl<T: Field> Folder<T> for TautologyOptimizer {
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
-        match s {
+    fn fold_statement(&mut self, s: Statement<T>) -> Result<MemoryStatements<T>, ()> {
+        Ok(match s {
             Statement::Constraint(quad, lin, message) => match quad.try_linear() {
                 Ok(l) => {
                     if l == lin {
-                        vec![]
+                        MemoryStatements(vec![])
                     } else {
-                        vec![Statement::Constraint(l.into(), lin, message)]
+                        MemoryStatements(vec![Statement::Constraint(l.into(), lin, message)])
                     }
                 }
-                Err(quad) => vec![Statement::Constraint(quad, lin, message)],
+                Err(quad) => MemoryStatements(vec![Statement::Constraint(quad, lin, message)]),
             },
             _ => fold_statement(self, s),
-        }
+        })
     }
 }
 

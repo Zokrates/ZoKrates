@@ -2,6 +2,7 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::flat_absy::RuntimeError;
 use crate::ir::{LinComb, ProgIterator, QuadComb, Statement, Witness};
 use crate::solvers::Solver;
+use fallible_iterator::IntoFallibleIterator;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -25,7 +26,7 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field, I: IntoIterator<Item = Statement<T>>>(
+    pub fn execute<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
         &self,
         program: ProgIterator<T, I>,
         inputs: &[T],
@@ -38,7 +39,11 @@ impl Interpreter {
             witness.insert(arg.id, value.clone());
         }
 
-        for statement in program.statements.into_iter() {
+        let mut statements = program.statements.into_fallible_iter();
+
+        use fallible_iterator::FallibleIterator;
+
+        while let Some(statement) = statements.next().unwrap() {
             match statement {
                 Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
                     true => {
@@ -108,7 +113,7 @@ impl Interpreter {
             .collect()
     }
 
-    fn check_inputs<T: Field, I: IntoIterator<Item = Statement<T>>, U>(
+    fn check_inputs<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>, U>(
         &self,
         program: &ProgIterator<T, I>,
         inputs: &[U],

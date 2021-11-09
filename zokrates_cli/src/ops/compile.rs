@@ -135,16 +135,24 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut writer = BufWriter::new(bin_output_file);
 
-    program_flattened.serialize(&mut writer);
+    match program_flattened.serialize(&mut writer) {
+        Ok(_) => {
+            // serialize ABI spec and write to JSON file
+            log::debug!("Serialize ABI");
+            let abi_spec_file = File::create(&abi_spec_path)
+                .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
 
-    // serialize ABI spec and write to JSON file
-    log::debug!("Serialize ABI");
-    let abi_spec_file = File::create(&abi_spec_path)
-        .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
+            let mut writer = BufWriter::new(abi_spec_file);
+            to_writer_pretty(&mut writer, &abi)
+                .map_err(|_| "Unable to write data to file.".to_string())?;
 
-    let mut writer = BufWriter::new(abi_spec_file);
-    to_writer_pretty(&mut writer, &abi).map_err(|_| "Unable to write data to file.".to_string())?;
-
-    println!("Compiled code written to '{}'", bin_output_path.display());
-    Ok(())
+            println!("Compiled code written to '{}'", bin_output_path.display());
+            Ok(())
+        }
+        Err(_) => {
+            // something wrong happened, clean up
+            std::fs::remove_file(bin_output_path).unwrap();
+            Err(String::from("Something wrong happened"))
+        }
+    }
 }

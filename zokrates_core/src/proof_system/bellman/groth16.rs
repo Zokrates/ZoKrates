@@ -14,11 +14,12 @@ use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
 use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
 use crate::proof_system::Scheme;
+use fallible_iterator::IntoFallibleIterator;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+    fn generate_proof<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
@@ -84,7 +85,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 }
 
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
-    fn setup<I: IntoIterator<Item = Statement<T>>>(
+    fn setup<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
         program: ProgIterator<T, I>,
     ) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
         println!("{}", G16_WARNING);

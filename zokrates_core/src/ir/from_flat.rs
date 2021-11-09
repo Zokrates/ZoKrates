@@ -2,6 +2,7 @@ use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatProgIterator, FlatStatement, FlatVariable,
 };
 use crate::ir::{Directive, LinComb, ProgIterator, QuadComb, Statement};
+use fallible_iterator::{convert, IntoFallibleIterator};
 use zokrates_field::Field;
 
 impl<T: Field> QuadComb<T> {
@@ -21,9 +22,15 @@ impl<T: Field> QuadComb<T> {
 
 pub fn from_flat<T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
     flat_prog_iterator: FlatProgIterator<T, I>,
-) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+) -> ProgIterator<T, impl IntoFallibleIterator<Item = Statement<T>, Error = ()>> {
     ProgIterator {
-        statements: flat_prog_iterator.statements.into_iter().map(Into::into),
+        statements: convert(
+            flat_prog_iterator
+                .statements
+                .into_iter()
+                .map(Into::into)
+                .map(Ok),
+        ),
         arguments: flat_prog_iterator.arguments,
         return_count: flat_prog_iterator.return_count,
     }

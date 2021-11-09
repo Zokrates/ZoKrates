@@ -17,10 +17,13 @@ use self::redefinition::RedefinitionOptimizer;
 use self::tautology::TautologyOptimizer;
 
 use crate::ir::{ProgIterator, Statement};
+use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
 use zokrates_field::Field;
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
-    pub fn optimize(self) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+impl<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> ProgIterator<T, I> {
+    pub fn optimize(
+        self,
+    ) -> ProgIterator<T, impl IntoFallibleIterator<Item = Statement<T>, Error = ()>> {
         // remove redefinitions
         log::debug!(
             "Optimizer: Remove redefinitions and tautologies and directives and duplicates"
@@ -35,7 +38,7 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
 
         use crate::ir::folder::Folder;
 
-        let r = ProgIterator {
+        let r = ProgIterator::<T, _> {
             arguments: self
                 .arguments
                 .into_iter()
@@ -50,12 +53,12 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
                 .collect(),
             statements: self
                 .statements
-                .into_iter()
-                .flat_map(move |s| redefinition_optimizer.fold_statement(s))
-                .flat_map(move |s| tautologies_optimizer.fold_statement(s))
-                .flat_map(move |s| canonicalizer.fold_statement(s))
-                .flat_map(move |s| directive_optimizer.fold_statement(s))
-                .flat_map(move |s| duplicate_optimizer.fold_statement(s)),
+                .into_fallible_iter()
+                .flat_map(move |s: Statement<T>| redefinition_optimizer.fold_statement(s))
+                .flat_map(move |s: Statement<T>| tautologies_optimizer.fold_statement(s))
+                .flat_map(move |s: Statement<T>| canonicalizer.fold_statement(s))
+                .flat_map(move |s: Statement<T>| directive_optimizer.fold_statement(s))
+                .flat_map(move |s: Statement<T>| duplicate_optimizer.fold_statement(s)),
             return_count: self.return_count,
         };
 

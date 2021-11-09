@@ -1,6 +1,7 @@
 use crate::constants;
 use crate::helpers::*;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use fallible_iterator::FallibleIterator;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
@@ -176,7 +177,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_setup_non_universal<
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: FallibleIterator<Item = ir::Statement<T>, Error = ()>,
     S: NonUniversalScheme<T>,
     B: NonUniversalBackend<T, S>,
 >(
@@ -225,7 +226,7 @@ fn cli_setup_non_universal<
 
 fn cli_setup_universal<
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: FallibleIterator<Item = ir::Statement<T>, Error = ()>,
     S: UniversalScheme<T>,
     B: UniversalBackend<T, S>,
 >(

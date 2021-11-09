@@ -1,5 +1,6 @@
 use crate::constants::{ABI_SPEC_DEFAULT_PATH, FLATTENED_CODE_DEFAULT_PATH, WITNESS_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
+use fallible_iterator::FallibleIterator;
 use serde_json::from_reader;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read};
@@ -76,7 +77,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
+fn cli_compute<T: Field, I: FallibleIterator<Item = ir::Statement<T>, Error = ()>>(
     ir_prog: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {

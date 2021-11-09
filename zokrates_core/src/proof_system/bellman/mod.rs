@@ -8,6 +8,7 @@ use bellman::groth16::{
 };
 use bellman::pairing::ff::ScalarEngine;
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
+use fallible_iterator::IntoFallibleIterator;
 use std::collections::BTreeMap;
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
@@ -20,12 +21,12 @@ pub use self::parse::*;
 pub struct Bellman;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
+pub struct Computation<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> {
     program: ProgIterator<T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> Computation<T, I> {
     pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
@@ -81,7 +82,11 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+impl<
+        T: BellmanFieldExtensions + Field,
+        I: IntoFallibleIterator<Item = Statement<T>, Error = ()>,
+    > ProgIterator<T, I>
+{
     pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
@@ -121,7 +126,9 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Pr
             (p.id, wire)
         }));
 
-        for statement in self.statements {
+        let mut statements = self.statements.into_fallible_iter();
+        use fallible_iterator::FallibleIterator;
+        while let Some(statement) = statements.next().unwrap() {
             if let Statement::Constraint(quad, lin, _) = statement {
                 let a = &bellman_combination(
                     quad.left.into_canonical(),
@@ -145,7 +152,11 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Pr
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<
+        T: BellmanFieldExtensions + Field,
+        I: IntoFallibleIterator<Item = Statement<T>, Error = ()>,
+    > Computation<T, I>
+{
     fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
         let mut seed = [0u8; 32];
         getrandom::getrandom(&mut seed)?;
@@ -192,8 +203,10 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Co
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
-    Circuit<T::BellmanEngine> for Computation<T, I>
+impl<
+        T: BellmanFieldExtensions + Field,
+        I: IntoFallibleIterator<Item = Statement<T>, Error = ()>,
+    > Circuit<T::BellmanEngine> for Computation<T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,

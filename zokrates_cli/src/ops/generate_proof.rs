@@ -1,6 +1,7 @@
 use crate::constants;
 use crate::helpers::*;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use fallible_iterator::FallibleIterator;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
@@ -151,7 +152,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_generate_proof<
     T: Field,
-    I: Iterator<Item = ir::Statement<T>>,
+    I: FallibleIterator<Item = ir::Statement<T>, Error = ()>,
     S: Scheme<T>,
     B: Backend<T, S>,
 >(

@@ -44,7 +44,7 @@ impl<T: Field> SMTLib2 for Prog<T> {
             "; Number of circuit variables: {}",
             collector.variables.len()
         )?;
-        writeln!(f, "; Number of equalities: {}", self.statements.len())?;
+        writeln!(f, "; Number of equalities: {}", self.statements.0.len())?;
 
         writeln!(f, "(declare-const |~prime| Int)")?;
         for v in collector.variables.iter() {
@@ -54,7 +54,7 @@ impl<T: Field> SMTLib2 for Prog<T> {
         writeln!(f, "(assert (and")?;
         writeln!(f, "(= |~prime| {})", T::max_value().to_biguint() + 1usize)?;
         writeln!(f, "(= |~one| 1)")?;
-        for s in &self.statements {
+        for s in &self.statements.0 {
             s.to_smtlib2(f)?;
             writeln!(f)?;
         }

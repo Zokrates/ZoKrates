@@ -157,7 +157,7 @@ fn compile_and_run<T: Field>(t: Tests) {
     let abi = artifacts.abi;
     let bin = artifacts.prog;
     // here we do want the program in memory because we want to run many tests on it
-    let bin = bin.collect();
+    let bin = bin.collect().unwrap();
 
     if let Some(target_count) = t.max_constraint_count {
         let count = bin.constraint_count();

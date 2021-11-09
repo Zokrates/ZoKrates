@@ -24,21 +24,23 @@ pub struct DuplicateOptimizer {
 impl<T: Field> Folder<T> for DuplicateOptimizer {
     fn fold_program(&mut self, p: Prog<T>) -> Prog<T> {
         // in order to correctly identify duplicates, we need to first canonicalize the statements
-        let mut canonicalizer = Canonicalizer;
+        // let mut canonicalizer = Canonicalizer;
 
-        let p = Prog {
-            statements: p
-                .statements
-                .into_iter()
-                .flat_map(|s| canonicalizer.fold_statement(s))
-                .collect(),
-            ..p
-        };
+        // let p = Prog {
+        //     statements: p
+        //         .statements
+        //         .0
+        //         .into_iter()
+        //         .flat_map(|s| canonicalizer.fold_statement(s))
+        //         .collect(),
+        //     ..p
+        // };
 
-        fold_program(self, p)
+        // fold_program(self, p)
+        unimplemented!()
     }
 
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+    fn fold_statement(&mut self, s: Statement<T>) -> Result<MemoryStatements<T>, ()> {
         let hashed = hash(&s);
         let result = match self.seen.get(&hashed) {
             Some(_) => vec![],
@@ -46,7 +48,7 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
         };
 
         self.seen.insert(hashed);
-        result
+        Ok(MemoryStatements(result))
     }
 }
 

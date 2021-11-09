@@ -12,6 +12,7 @@ use crate::semantics::{self, Checker};
 use crate::static_analysis;
 use crate::typed_absy::abi::Abi;
 use crate::zir::ZirProgram;
+use fallible_iterator::IntoFallibleIterator;
 use macros::process_macros;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -24,12 +25,12 @@ use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompilationArtifacts<T, I: IntoIterator<Item = ir::Statement<T>>> {
+pub struct CompilationArtifacts<T, I: IntoFallibleIterator<Item = ir::Statement<T>, Error = ()>> {
     pub prog: ir::ProgIterator<T, I>,
     pub abi: Abi,
 }
 
-impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
+impl<T, I: IntoFallibleIterator<Item = ir::Statement<T>, Error = ()>> CompilationArtifacts<T, I> {
     pub fn prog(self) -> ir::ProgIterator<T, I> {
         self.prog
     }
@@ -38,11 +39,11 @@ impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
         &self.abi
     }
 
-    pub fn collect(self) -> CompilationArtifacts<T, Vec<ir::Statement<T>>> {
-        CompilationArtifacts {
-            prog: self.prog.collect(),
+    pub fn collect(self) -> Result<CompilationArtifacts<T, ir::MemoryStatements<T>>, ()> {
+        Ok(CompilationArtifacts {
+            prog: self.prog.collect()?,
             abi: self.abi,
-        }
+        })
     }
 }
 
@@ -189,8 +190,10 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<CompilationArtifacts<T, impl IntoIterator<Item = ir::Statement<T>> + 'ast>, CompileErrors>
-{
+) -> Result<
+    CompilationArtifacts<T, impl IntoFallibleIterator<Item = ir::Statement<T>, Error = ()> + 'ast>,
+    CompileErrors,
+> {
     let (typed_ast, abi): (crate::zir::ZirProgram<'_, T>, _) =
         check_with_arena(source, location, resolver, &config, arena)?;
 

@@ -40,6 +40,7 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::Folder;
 use crate::ir::LinComb;
 use crate::ir::*;
+use fallible_iterator::IntoFallibleIterator;
 use std::collections::{HashMap, HashSet};
 use zokrates_field::Field;
 
@@ -52,7 +53,9 @@ pub struct RedefinitionOptimizer<T> {
 }
 
 impl<T> RedefinitionOptimizer<T> {
-    pub fn init<I: IntoIterator<Item = Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
+    pub fn init<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
+        p: &ProgIterator<T, I>,
+    ) -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
             ignore: vec![FlatVariable::one()]
@@ -66,14 +69,16 @@ impl<T> RedefinitionOptimizer<T> {
 }
 
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
-        match s {
+    fn fold_statement(&mut self, s: Statement<T>) -> Result<MemoryStatements<T>, ()> {
+        Ok(MemoryStatements(match s {
             Statement::Constraint(quad, lin, message) => {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
                 if lin.is_zero() {
-                    return vec![Statement::Constraint(quad, lin, message)];
+                    return Ok(MemoryStatements(vec![Statement::Constraint(
+                        quad, lin, message,
+                    )]));
                 }
 
                 let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.0[0].0)
@@ -168,7 +173,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     }
                 }
             }
-        }
+        }))
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {

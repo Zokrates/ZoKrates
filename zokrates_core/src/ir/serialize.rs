@@ -1,4 +1,5 @@
-use crate::ir::{ProgIterator, Statement};
+use crate::ir::{MemoryStatements, ProgIterator, Statement};
+use fallible_iterator::{convert, FallibleIterator, IntoFallibleIterator};
 use serde_cbor::{self, StreamDeserializer};
 use std::io::{Read, Write};
 use zokrates_field::*;
@@ -8,10 +9,10 @@ const ZOKRATES_VERSION_2: &[u8; 4] = &[0, 0, 0, 2];
 
 #[derive(PartialEq, Debug)]
 pub enum ProgEnum<
-    Bls12_381I: IntoIterator<Item = Statement<Bls12_381Field>>,
-    Bn128I: IntoIterator<Item = Statement<Bn128Field>>,
-    Bls12_377I: IntoIterator<Item = Statement<Bls12_377Field>>,
-    Bw6_761I: IntoIterator<Item = Statement<Bw6_761Field>>,
+    Bls12_381I: IntoFallibleIterator<Item = Statement<Bls12_381Field>, Error = ()>,
+    Bn128I: IntoFallibleIterator<Item = Statement<Bn128Field>, Error = ()>,
+    Bls12_377I: IntoFallibleIterator<Item = Statement<Bls12_377Field>, Error = ()>,
+    Bw6_761I: IntoFallibleIterator<Item = Statement<Bw6_761Field>, Error = ()>,
 > {
     Bls12_381Program(ProgIterator<Bls12_381Field, Bls12_381I>),
     Bn128Program(ProgIterator<Bn128Field, Bn128I>),
@@ -20,26 +21,30 @@ pub enum ProgEnum<
 }
 
 type MemoryProgEnum = ProgEnum<
-    Vec<Statement<Bls12_381Field>>,
-    Vec<Statement<Bn128Field>>,
-    Vec<Statement<Bls12_377Field>>,
-    Vec<Statement<Bw6_761Field>>,
+    MemoryStatements<Bls12_381Field>,
+    MemoryStatements<Bn128Field>,
+    MemoryStatements<Bls12_377Field>,
+    MemoryStatements<Bw6_761Field>,
 >;
 
 impl<
-        Bls12_381I: IntoIterator<Item = Statement<Bls12_381Field>>,
-        Bn128I: IntoIterator<Item = Statement<Bn128Field>>,
-        Bls12_377I: IntoIterator<Item = Statement<Bls12_377Field>>,
-        Bw6_761I: IntoIterator<Item = Statement<Bw6_761Field>>,
+        Bls12_381I: IntoFallibleIterator<Item = Statement<Bls12_381Field>, Error = ()>,
+        Bn128I: IntoFallibleIterator<Item = Statement<Bn128Field>, Error = ()>,
+        Bls12_377I: IntoFallibleIterator<Item = Statement<Bls12_377Field>, Error = ()>,
+        Bw6_761I: IntoFallibleIterator<Item = Statement<Bw6_761Field>, Error = ()>,
     > ProgEnum<Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
 {
-    pub fn collect(self) -> MemoryProgEnum {
-        match self {
-            ProgEnum::Bls12_381Program(p) => ProgEnum::Bls12_381Program(p.collect()),
-            ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect()),
-            ProgEnum::Bls12_377Program(p) => ProgEnum::Bls12_377Program(p.collect()),
-            ProgEnum::Bw6_761Program(p) => ProgEnum::Bw6_761Program(p.collect()),
-        }
+    pub fn collect(self) -> Result<MemoryProgEnum, ()> {
+        Ok(match self {
+            ProgEnum::Bls12_381Program(p) => {
+                ProgEnum::Bls12_381Program(p.collect().map_err(|_| ())?)
+            }
+            ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect().map_err(|_| ())?),
+            ProgEnum::Bls12_377Program(p) => {
+                ProgEnum::Bls12_377Program(p.collect().map_err(|_| ())?)
+            }
+            ProgEnum::Bw6_761Program(p) => ProgEnum::Bw6_761Program(p.collect().map_err(|_| ())?),
+        })
     }
 }
 
@@ -95,17 +100,24 @@ impl<
 //     )
 // }
 
-impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
-    pub fn serialize<W: Write>(self, mut w: W) {
+impl<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> ProgIterator<T, I> {
+    pub fn serialize<W: Write>(self, mut w: W) -> Result<(), ()> {
         w.write_all(ZOKRATES_MAGIC).unwrap();
         w.write_all(ZOKRATES_VERSION_2).unwrap();
         w.write_all(&T::id()).unwrap();
 
+        use fallible_iterator::FallibleIterator;
+
         serde_cbor::to_writer(&mut w, &self.arguments).unwrap();
         serde_cbor::to_writer(&mut w, &self.return_count).unwrap();
-        for s in self.statements {
+
+        let mut statements = self.statements.into_fallible_iter();
+
+        while let Some(s) = statements.next()? {
             serde_cbor::to_writer(&mut w, &s).unwrap();
         }
+
+        Ok(())
     }
 }
 
@@ -120,6 +132,17 @@ impl<'de, R: serde_cbor::de::Read<'de>, T: serde::Deserialize<'de>> Iterator
 
     fn next(&mut self) -> Option<T> {
         self.s.next().transpose().unwrap()
+    }
+}
+
+impl<'de, R: serde_cbor::de::Read<'de>, T: serde::Deserialize<'de>> FallibleIterator
+    for UnwrappedStreamDeserializer<'de, R, T>
+{
+    type Item = T;
+    type Error = ();
+
+    fn next(&mut self) -> Result<Option<T>, Self::Error> {
+        self.s.next().transpose().map_err(|_| ())
     }
 }
 

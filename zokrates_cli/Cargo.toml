@@ -27,6 +27,7 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 dirs = "3.0.1"
 lazy_static = "1.4.0"
+fallible-iterator = "0.2.0"
 
 [dev-dependencies]
 glob = "0.2.11"

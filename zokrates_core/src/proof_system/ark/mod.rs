@@ -14,6 +14,7 @@ use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, LinearCombination,
     SynthesisError, Variable,
 };
+use fallible_iterator::IntoFallibleIterator;
 use std::collections::BTreeMap;
 use zokrates_field::{ArkFieldExtensions, Field};
 
@@ -24,12 +25,12 @@ use rand_0_7::SeedableRng;
 pub struct Ark;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoIterator<Item = Statement<T>>> {
+pub struct Computation<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> {
     program: ProgIterator<T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> Computation<T, I> {
     pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
@@ -79,7 +80,9 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+impl<T: Field + ArkFieldExtensions, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>
+    ProgIterator<T, I>
+{
     pub fn generate_constraints(
         self,
         cs: ConstraintSystemRef<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
@@ -116,7 +119,9 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> ProgIt
                     (p.id, wire)
                 }));
 
-                for statement in self.statements {
+                let mut statements = self.statements.into_fallible_iter();
+                use fallible_iterator::FallibleIterator;
+                while let Some(statement) = statements.next().unwrap() {
                     if let Statement::Constraint(quad, lin, _) = statement {
                         let a = ark_combination(
                             quad.left.clone().into_canonical(),
@@ -148,7 +153,9 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> ProgIt
     }
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+impl<T: Field + ArkFieldExtensions, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>
+    Computation<T, I>
+{
     pub fn prove(self, params: &ProvingKey<T::ArkEngine>) -> Proof<T::ArkEngine> {
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 
@@ -179,7 +186,7 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Comput
     }
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
+impl<T: Field + ArkFieldExtensions, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>
     ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
     for Computation<T, I>
 {

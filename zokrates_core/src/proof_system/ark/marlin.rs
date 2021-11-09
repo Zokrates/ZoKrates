@@ -17,6 +17,7 @@ use crate::proof_system::ark::Computation;
 use crate::proof_system::marlin::{self, ProofPoints, VerificationKey};
 use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, Proof, SetupKeypair, UniversalBackend};
+use fallible_iterator::IntoFallibleIterator;
 
 const MINIMUM_CONSTRAINT_COUNT: usize = 2;
 
@@ -45,11 +46,11 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         res
     }
 
-    fn setup<I: IntoIterator<Item = Statement<T>>>(
+    fn setup<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
         srs: Vec<u8>,
         program: ProgIterator<T, I>,
     ) -> Result<SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey>, String> {
-        let program = program.collect();
+        let program = program.collect().unwrap();
 
         if program.constraint_count() < MINIMUM_CONSTRAINT_COUNT {
             return Err(format!("Programs must have a least {} constraints. This program is too small to generate a setup with Marlin, see [this issue](https://github.com/arkworks-rs/marlin/issues/79)", MINIMUM_CONSTRAINT_COUNT));
@@ -93,7 +94,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+    fn generate_proof<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
