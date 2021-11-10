@@ -36,35 +36,40 @@ module.exports = (dep) => {
 
     return {
         compile: (source, options = {}) => {
-            const { location = "main.zok", resolveCallback = () => null, config = {} } = options;
+            const { curve = "bn128", location = "main.zok", resolveCallback = () => null, config = {} } = options;
             const callback = (currentLocation, importLocation) => {
                 return resolveFromStdlib(currentLocation, importLocation) || resolveCallback(currentLocation, importLocation);
             };
-            const { program, abi } = zokrates.compile(source, location, callback, config);
+            const { program, abi } = zokrates.compile(curve, source, location, callback, config);
             return {
                 program: new Uint8Array(program),
                 abi
             }
         },
-        setup: (program) => {
-            const { vk, pk } = zokrates.setup(program);
-            return {
-                vk,
-                pk: new Uint8Array(pk)
-            };
-        },
         computeWitness: (artifacts, args) => {
             const { program, abi } = artifacts;
             return zokrates.compute_witness(program, abi, JSON.stringify(Array.from(args)));
         },
-        exportSolidityVerifier: (verificationKey) => {
-            return zokrates.export_solidity_verifier(verificationKey);
+        bellman: {
+            groth16: {
+                setup: (program) => zokrates.bellman_groth16_setup(program),
+                generateProof: (program, witness, provingKey) => zokrates.bellman_groth16_generate_proof(program, witness, provingKey),
+                exportSolidityVerifier: (vk) => zokrates.bellman_groth16_export_solidity_verifier(vk),
+                verify: (vk, proof, curve = "bn128") => zokrates.bellman_groth16_verify(vk, proof, curve)
+            }
         },
-        generateProof: (program, witness, provingKey) => {
-            return zokrates.generate_proof(program, witness, provingKey);
-        },
-        verify: (verificationKey, proof) => {
-            return zokrates.verify(verificationKey, proof);
+        ark: {
+            gm17: {
+                setup: (program) => zokrates.ark_gm17_setup(program),
+                generateProof: (program, witness, provingKey) => zokrates.ark_gm17_generate_proof(program, witness, provingKey),
+                verify: (vk, proof, curve = "bn128") => zokrates.ark_gm17_verify(vk, proof, curve)
+            },
+            marlin: {
+                setup: (srs, program) => zokrates.ark_marlin_setup(srs, program),
+                universalSetup: (curve, size) => zokrates.ark_marlin_universal_setup(curve, size),
+                generateProof: (program, witness, provingKey) => zokrates.ark_marlin_generate_proof(program, witness, provingKey),
+                verify: (vk, proof, curve = "bn128") => zokrates.ark_marlin_verify(vk, proof, curve)
+            }
         }
     }
 };

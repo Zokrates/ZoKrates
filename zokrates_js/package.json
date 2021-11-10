@@ -34,7 +34,7 @@
     "clean-pkg": "find pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
     "clean-node-pkg": "find node/pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
     "pretest": "npm run setup && npm run build:node",
-    "test": "mocha --require esm --recursive tests"
+    "test": "mocha --timeout 10000 --require esm --recursive tests"
   },
   "devDependencies": {
     "dree": "^2.6.1",
