@@ -6,18 +6,17 @@ use ark_gm17::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
 
-use crate::ir::{ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Witness};
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
 use crate::proof_system::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
 use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
-use fallible_iterator::IntoFallibleIterator;
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
-    fn setup<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
-        program: ProgIterator<T, I>,
+    fn setup<I: IntoStatements<Field = T>>(
+        program: ProgIterator<I>,
     ) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
@@ -43,8 +42,8 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM1
 }
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
-    fn generate_proof<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
-        program: ProgIterator<T, I>,
+    fn generate_proof<I: IntoStatements<Field = T>>(
+        program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<<GM17 as Scheme<T>>::ProofPoints> {
@@ -112,8 +111,8 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
 }
 
 impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
-    fn setup<I: IntoFallibleIterator<Item = Statement<Bw6_761Field>, Error = ()>>(
-        program: ProgIterator<Bw6_761Field, I>,
+    fn setup<I: IntoStatements<Field = Bw6_761Field>>(
+        program: ProgIterator<I>,
     ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
@@ -139,8 +138,8 @@ impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
 }
 
 impl Backend<Bw6_761Field, GM17> for Ark {
-    fn generate_proof<I: IntoFallibleIterator<Item = Statement<Bw6_761Field>, Error = ()>>(
-        program: ProgIterator<Bw6_761Field, I>,
+    fn generate_proof<I: IntoStatements<Field = Bw6_761Field>>(
+        program: ProgIterator<I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
     ) -> Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints> {
@@ -269,7 +268,8 @@ mod tests {
             statements: vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
-            )],
+            )]
+            .into(),
         };
 
         let keypair = <Ark as NonUniversalBackend<Bls12_377Field, GM17>>::setup(program.clone());
@@ -297,7 +297,8 @@ mod tests {
             statements: vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
-            )],
+            )]
+            .into(),
         };
 
         let keypair = <Ark as NonUniversalBackend<Bw6_761Field, GM17>>::setup(program.clone());

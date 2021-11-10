@@ -12,7 +12,6 @@ pub use self::scheme::*;
 pub use self::solidity::*;
 
 use crate::ir;
-use fallible_iterator::IntoFallibleIterator;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
@@ -81,8 +80,8 @@ impl ToString for G2Affine {
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {
-    fn generate_proof<I: IntoFallibleIterator<Item = ir::Statement<T>, Error = ()>>(
-        program: ir::ProgIterator<T, I>,
+    fn generate_proof<I: ir::IntoStatements<Field = T>>(
+        program: ir::ProgIterator<I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<S::ProofPoints>;
@@ -90,16 +89,16 @@ pub trait Backend<T: Field, S: Scheme<T>> {
     fn verify(vk: S::VerificationKey, proof: Proof<S::ProofPoints>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
-    fn setup<I: IntoFallibleIterator<Item = ir::Statement<T>, Error = ()>>(
-        program: ir::ProgIterator<T, I>,
+    fn setup<I: ir::IntoStatements<Field = T>>(
+        program: ir::ProgIterator<I>,
     ) -> SetupKeypair<S::VerificationKey>;
 }
 
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
     fn universal_setup(size: u32) -> Vec<u8>;
 
-    fn setup<I: IntoFallibleIterator<Item = ir::Statement<T>, Error = ()>>(
+    fn setup<I: ir::IntoStatements<Field = T>>(
         srs: Vec<u8>,
-        program: ir::ProgIterator<T, I>,
+        program: ir::ProgIterator<I>,
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }

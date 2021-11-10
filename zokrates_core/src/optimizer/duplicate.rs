@@ -2,7 +2,6 @@
 
 use crate::ir::folder::*;
 use crate::ir::*;
-use crate::optimizer::canonicalizer::Canonicalizer;
 use std::collections::{hash_map::DefaultHasher, HashSet};
 use zokrates_field::Field;
 
@@ -36,11 +35,10 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
         //     ..p
         // };
 
-        // fold_program(self, p)
-        unimplemented!()
+        fold_program(self, p)
     }
 
-    fn fold_statement(&mut self, s: Statement<T>) -> Result<MemoryStatements<T>, ()> {
+    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         let hashed = hash(&s);
         let result = match self.seen.get(&hashed) {
             Some(_) => vec![],
@@ -48,7 +46,7 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
         };
 
         self.seen.insert(hashed);
-        Ok(MemoryStatements(result))
+        result
     }
 }
 
@@ -76,7 +74,8 @@ mod tests {
                     ),
                     LinComb::zero(),
                 ),
-            ],
+            ]
+            .into(),
             return_count: 0,
             arguments: vec![],
         };
@@ -84,7 +83,10 @@ mod tests {
         let expected = p.clone();
 
         assert_eq!(
-            DuplicateOptimizer::default().fold_program(p).collect(),
+            DuplicateOptimizer::default()
+                .fold_program(p)
+                .collect()
+                .unwrap(),
             expected
         );
     }
@@ -112,7 +114,8 @@ mod tests {
                 ),
                 constraint.clone(),
                 constraint.clone(),
-            ],
+            ]
+            .into(),
             return_count: 0,
             arguments: vec![],
         };
@@ -127,13 +130,17 @@ mod tests {
                     ),
                     LinComb::zero(),
                 ),
-            ],
+            ]
+            .into(),
             return_count: 0,
             arguments: vec![],
         };
 
         assert_eq!(
-            DuplicateOptimizer::default().fold_program(p).collect(),
+            DuplicateOptimizer::default()
+                .fold_program(p)
+                .collect()
+                .unwrap(),
             expected
         );
     }

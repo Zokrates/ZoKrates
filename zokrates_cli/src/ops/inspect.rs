@@ -1,6 +1,5 @@
 use crate::constants::FLATTENED_CODE_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use fallible_iterator::FallibleIterator;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -39,8 +38,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_inspect<T: Field, I: FallibleIterator<Item = ir::Statement<T>, Error = ()>>(
-    ir_prog: ir::ProgIterator<T, I>,
+fn cli_inspect<T: Field, I: ir::IntoStatements<Field = T>>(
+    ir_prog: ir::ProgIterator<I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     let output_path = PathBuf::from(sub_matches.value_of("input").unwrap()).with_extension("ztf");

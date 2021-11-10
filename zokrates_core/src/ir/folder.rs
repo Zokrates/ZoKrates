@@ -4,10 +4,18 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::*;
 use zokrates_field::Field;
 
+pub fn fold_statements<T: Field, F: Folder<T>, I: IntoStatements<Field = T>>(
+    mut f: F,
+    statements: I,
+) -> impl IntoStatements<Field = T> {
+    statements
+        .into_fallible_iter()
+        .flat_map(move |s| Result::<MemoryStatements<_>, ()>::Ok(f.fold_statement(s).into()))
+}
+
 pub trait Folder<T: Field>: Sized {
     fn fold_program(&mut self, p: Prog<T>) -> Prog<T> {
-        unimplemented!()
-        //fold_program(self, p)
+        fold_program(self, p)
     }
 
     fn fold_argument(&mut self, p: FlatParameter) -> FlatParameter {
@@ -18,8 +26,8 @@ pub trait Folder<T: Field>: Sized {
         fold_variable(self, v)
     }
 
-    fn fold_statement(&mut self, s: Statement<T>) -> Result<MemoryStatements<T>, ()> {
-        Ok(fold_statement(self, s))
+    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+        fold_statement(self, s)
     }
 
     fn fold_linear_combination(&mut self, e: LinComb<T>) -> LinComb<T> {
@@ -35,33 +43,32 @@ pub trait Folder<T: Field>: Sized {
     }
 }
 
-pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Result<Prog<T>, ()> {
-    unimplemented!()
-    // Prog {
-    //     arguments: p
-    //         .arguments
-    //         .into_iter()
-    //         .map(|a| f.fold_argument(a))
-    //         .collect(),
-    //     statements: p
-    //         .statements
-    //         .0
-    //         .into_iter()
-    //         .flat_map(|s| f.fold_statement(s))
-    //         .collect(),
-    //     return_count: p.return_count,
-    // }
+pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
+    Prog {
+        arguments: p
+            .arguments
+            .into_iter()
+            .map(|a| f.fold_argument(a))
+            .collect(),
+        statements: p
+            .statements
+            .0
+            .into_iter()
+            .flat_map(|s| f.fold_statement(s))
+            .collect(),
+        return_count: p.return_count,
+    }
 }
 
-pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> MemoryStatements<T> {
-    MemoryStatements(match s {
+pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec<Statement<T>> {
+    match s {
         Statement::Constraint(quad, lin, message) => vec![Statement::Constraint(
             f.fold_quadratic_combination(quad),
             f.fold_linear_combination(lin),
             message,
         )],
         Statement::Directive(dir) => vec![Statement::Directive(f.fold_directive(dir))],
-    })
+    }
 }
 
 pub fn fold_linear_combination<T: Field, F: Folder<T>>(f: &mut F, e: LinComb<T>) -> LinComb<T> {

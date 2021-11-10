@@ -6,10 +6,7 @@ use std::io;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
 use zokrates_core::compile::CompileConfig;
-use zokrates_core::{
-    compile::{compile, CompilationArtifacts},
-    ir::Interpreter,
-};
+use zokrates_core::{compile::compile, ir::Interpreter};
 use zokrates_field::Bn128Field;
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -29,7 +26,7 @@ fn lt_field() {
 
     let arena = Arena::new();
 
-    let res: CompilationArtifacts<Bn128Field, _> = compile(
+    let res = compile::<Bn128Field, _>(
         source,
         "./path/to/file".into(),
         None::<&dyn Resolver<io::Error>>,
@@ -64,7 +61,7 @@ fn lt_uint() {
 
     let arena = Arena::new();
 
-    let res: CompilationArtifacts<Bn128Field, _> = compile(
+    let res = compile::<Bn128Field, _>(
         source,
         "./path/to/file".into(),
         None::<&dyn Resolver<io::Error>>,
@@ -108,7 +105,7 @@ fn unpack256() {
 
     let arena = Arena::new();
 
-    let res: CompilationArtifacts<Bn128Field, _> = compile(
+    let res = compile::<Bn128Field, _>(
         source,
         "./path/to/file".into(),
         Some(&FileSystemResolver::with_stdlib_root(
@@ -151,7 +148,7 @@ fn unpack256_unchecked() {
 
     let arena = Arena::new();
 
-    let res: CompilationArtifacts<Bn128Field, _> = compile(
+    let res = compile::<Bn128Field, _>(
         source,
         "./path/to/file".into(),
         Some(&FileSystemResolver::with_stdlib_root(

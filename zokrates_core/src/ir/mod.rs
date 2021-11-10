@@ -1,10 +1,11 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::{FlatVariable, RuntimeError};
 use crate::solvers::Solver;
-use fallible_iterator::{convert, Convert, FallibleIterator, IntoFallibleIterator};
+use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::hash::Hash;
+use std::iter::FromIterator;
 use zokrates_field::Field;
 
 mod expression;
@@ -75,8 +76,29 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Clone)]
-pub struct MemoryStatements<T>(pub Vec<Statement<T>>);
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct MemoryStatements<T>(Vec<Statement<T>>);
+
+impl<T> From<Vec<Statement<T>>> for MemoryStatements<T> {
+    fn from(v: Vec<Statement<T>>) -> Self {
+        MemoryStatements(v)
+    }
+}
+
+impl<T> IntoIterator for MemoryStatements<T> {
+    type Item = Statement<T>;
+    type IntoIter = std::vec::IntoIter<Statement<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<T> FromIterator<Statement<T>> for MemoryStatements<T> {
+    fn from_iter<I: IntoIterator<Item = Statement<T>>>(i: I) -> Self {
+        MemoryStatements(i.into_iter().collect())
+    }
+}
 
 pub struct MemoryStatementsIterator<T, I: Iterator<Item = Statement<T>>> {
     statements: I,
@@ -98,22 +120,30 @@ impl<T> IntoFallibleIterator for MemoryStatements<T> {
 
     fn into_fallible_iter(self) -> Self::IntoFallibleIter {
         MemoryStatementsIterator {
-            statements: self.0.into_iter(),
+            statements: self.into_iter(),
         }
     }
 }
 
-pub type Prog<T> = ProgIterator<T, MemoryStatements<T>>;
+pub trait IntoStatements: IntoFallibleIterator<Item = Statement<Self::Field>, Error = ()> {
+    type Field;
+}
+
+impl<T, U: IntoFallibleIterator<Item = Statement<T>, Error = ()>> IntoStatements for U {
+    type Field = T;
+}
+
+pub type Prog<T> = ProgIterator<MemoryStatements<T>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-pub struct ProgIterator<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> {
+pub struct ProgIterator<I: IntoStatements> {
     pub arguments: Vec<FlatParameter>,
     pub return_count: usize,
     pub statements: I,
 }
 
-impl<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> ProgIterator<T, I> {
-    pub fn collect(self) -> Result<ProgIterator<T, MemoryStatements<T>>, ()> {
+impl<I: IntoStatements> ProgIterator<I> {
+    pub fn collect(self) -> Result<ProgIterator<MemoryStatements<I::Field>>, ()> {
         Ok(ProgIterator {
             statements: MemoryStatements(self.statements.into_fallible_iter().collect()?),
             arguments: self.arguments,
@@ -126,7 +156,7 @@ impl<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> ProgIterator<T
     }
 }
 
-impl<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> ProgIterator<T, I> {
+impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
     pub fn public_inputs(&self, witness: &Witness<T>) -> Vec<T> {
         self.arguments
             .iter()
@@ -146,9 +176,7 @@ impl<T> Prog<T> {
             .count()
     }
 
-    pub fn into_prog_iter(
-        self,
-    ) -> ProgIterator<T, impl IntoFallibleIterator<Item = Statement<T>, Error = ()>> {
+    pub fn into_prog_iter(self) -> ProgIterator<impl IntoStatements<Field = T>> {
         ProgIterator {
             statements: self.statements.into_fallible_iter(),
             arguments: self.arguments,

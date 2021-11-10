@@ -10,14 +10,13 @@ use sha2::Sha256;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
-use crate::ir::{ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Witness};
 use crate::proof_system::ark::parse_fr;
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
 use crate::proof_system::marlin::{self, ProofPoints, VerificationKey};
 use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, Proof, SetupKeypair, UniversalBackend};
-use fallible_iterator::IntoFallibleIterator;
 
 const MINIMUM_CONSTRAINT_COUNT: usize = 2;
 
@@ -46,9 +45,9 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         res
     }
 
-    fn setup<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
+    fn setup<I: IntoStatements<Field = T>>(
         srs: Vec<u8>,
-        program: ProgIterator<T, I>,
+        program: ProgIterator<I>,
     ) -> Result<SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey>, String> {
         let program = program.collect().unwrap();
 
@@ -94,8 +93,8 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn generate_proof<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
-        program: ProgIterator<T, I>,
+    fn generate_proof<I: IntoStatements<Field = T>>(
+        program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<<marlin::Marlin as Scheme<T>>::ProofPoints> {
@@ -212,7 +211,8 @@ mod tests {
                     FlatVariable::new(1),
                 ),
                 Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
-            ],
+            ]
+            .into(),
         };
 
         let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
@@ -249,7 +249,8 @@ mod tests {
                     FlatVariable::new(1),
                 ),
                 Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
-            ],
+            ]
+            .into(),
         };
 
         let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5);

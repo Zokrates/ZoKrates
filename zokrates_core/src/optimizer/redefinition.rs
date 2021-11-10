@@ -40,7 +40,6 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::Folder;
 use crate::ir::LinComb;
 use crate::ir::*;
-use fallible_iterator::IntoFallibleIterator;
 use std::collections::{HashMap, HashSet};
 use zokrates_field::Field;
 
@@ -53,9 +52,7 @@ pub struct RedefinitionOptimizer<T> {
 }
 
 impl<T> RedefinitionOptimizer<T> {
-    pub fn init<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
-        p: &ProgIterator<T, I>,
-    ) -> Self {
+    pub fn init<I: IntoStatements<Field = T>>(p: &ProgIterator<I>) -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
             ignore: vec![FlatVariable::one()]
@@ -69,16 +66,14 @@ impl<T> RedefinitionOptimizer<T> {
 }
 
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<T>) -> Result<MemoryStatements<T>, ()> {
-        Ok(MemoryStatements(match s {
+    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+        match s {
             Statement::Constraint(quad, lin, message) => {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
                 if lin.is_zero() {
-                    return Ok(MemoryStatements(vec![Statement::Constraint(
-                        quad, lin, message,
-                    )]));
+                    return vec![Statement::Constraint(quad, lin, message)];
                 }
 
                 let (constraint, to_insert, to_ignore) = match self.ignore.contains(&lin.0[0].0)
@@ -173,7 +168,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     }
                 }
             }
-        }))
+        }
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
@@ -221,13 +216,14 @@ mod tests {
             statements: vec![
                 Statement::definition(y, x.id),
                 Statement::definition(out, y),
-            ],
+            ]
+            .into(),
             return_count: 1,
         };
 
         let optimized: Prog<Bn128Field> = Prog {
             arguments: vec![x],
-            statements: vec![Statement::definition(out, x.id)],
+            statements: vec![Statement::definition(out, x.id)].into(),
             return_count: 1,
         };
 
@@ -245,7 +241,7 @@ mod tests {
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
-            statements: vec![Statement::definition(one, x.id)],
+            statements: vec![Statement::definition(one, x.id)].into(),
             return_count: 1,
         };
 
@@ -281,7 +277,8 @@ mod tests {
                 Statement::definition(z, y),
                 Statement::constraint(z, y),
                 Statement::definition(out, z),
-            ],
+            ]
+            .into(),
             return_count: 1,
         };
 
@@ -290,7 +287,8 @@ mod tests {
             statements: vec![
                 Statement::constraint(x.id, x.id),
                 Statement::definition(out, x.id),
-            ],
+            ]
+            .into(),
             return_count: 1,
         };
 
@@ -330,7 +328,8 @@ mod tests {
                 Statement::definition(w, t),
                 Statement::definition(out_0, z),
                 Statement::definition(out_1, w),
-            ],
+            ]
+            .into(),
             return_count: 2,
         };
 
@@ -339,7 +338,8 @@ mod tests {
             statements: vec![
                 Statement::definition(out_0, x.id),
                 Statement::definition(out_1, Bn128Field::from(1)),
-            ],
+            ]
+            .into(),
             return_count: 2,
         };
 
@@ -387,7 +387,8 @@ mod tests {
                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
                 ),
                 Statement::definition(r, LinComb::from(a) + LinComb::from(b) + LinComb::from(c)),
-            ],
+            ]
+            .into(),
             return_count: 1,
         };
 
@@ -407,7 +408,8 @@ mod tests {
                         + LinComb::summand(3, x.id)
                         + LinComb::summand(3, y.id),
                 ),
-            ],
+            ]
+            .into(),
             return_count: 1,
         };
 
@@ -444,7 +446,8 @@ mod tests {
                     QuadComb::from_linear_combinations(LinComb::from(x.id), LinComb::from(y.id)),
                 ),
                 Statement::definition(z, LinComb::from(x.id)),
-            ],
+            ]
+            .into(),
             return_count: 0,
         };
 
@@ -472,7 +475,8 @@ mod tests {
             statements: vec![
                 Statement::constraint(x.id, Bn128Field::from(1)),
                 Statement::constraint(x.id, Bn128Field::from(2)),
-            ],
+            ]
+            .into(),
             return_count: 1,
         };
 

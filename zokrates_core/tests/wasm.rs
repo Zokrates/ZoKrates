@@ -20,7 +20,8 @@ fn generate_proof() {
         statements: vec![Statement::constraint(
             FlatVariable::new(0),
             FlatVariable::new(0),
-        )],
+        )]
+        .into(),
     };
 
     let interpreter = Interpreter::default();

@@ -8,7 +8,7 @@ use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
-use crate::ir::{ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
 use crate::proof_system::bellman::Bellman;
 use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
@@ -20,7 +20,7 @@ const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subjec
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
     fn generate_proof<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
-        program: ProgIterator<T, I>,
+        program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<<G16 as Scheme<T>>::ProofPoints> {
@@ -85,8 +85,8 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 }
 
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
-    fn setup<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
-        program: ProgIterator<T, I>,
+    fn setup<I: IntoStatements<Field = T>>(
+        program: ProgIterator<I>,
     ) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
         println!("{}", G16_WARNING);
 
@@ -150,7 +150,8 @@ mod tests {
             statements: vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
-            )],
+            )]
+            .into(),
         };
 
         let keypair =

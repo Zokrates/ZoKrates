@@ -1,8 +1,7 @@
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::flat_absy::RuntimeError;
-use crate::ir::{LinComb, ProgIterator, QuadComb, Statement, Witness};
+use crate::ir::{IntoStatements, LinComb, ProgIterator, QuadComb, Statement, Witness};
 use crate::solvers::Solver;
-use fallible_iterator::IntoFallibleIterator;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -26,9 +25,9 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
+    pub fn execute<T: Field, I: IntoStatements<Field = T>>(
         &self,
-        program: ProgIterator<T, I>,
+        program: ProgIterator<I>,
         inputs: &[T],
     ) -> ExecutionResult<T> {
         self.check_inputs(&program, inputs)?;
@@ -113,9 +112,9 @@ impl Interpreter {
             .collect()
     }
 
-    fn check_inputs<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>, U>(
+    fn check_inputs<I: IntoStatements, U>(
         &self,
-        program: &ProgIterator<T, I>,
+        program: &ProgIterator<I>,
         inputs: &[U],
     ) -> Result<(), Error> {
         if program.arguments.len() == inputs.len() {

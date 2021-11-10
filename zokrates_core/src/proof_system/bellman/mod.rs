@@ -1,6 +1,6 @@
 pub mod groth16;
 
-use crate::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use crate::ir::{CanonicalLinComb, IntoStatements, ProgIterator, Statement, Witness};
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
@@ -21,20 +21,20 @@ pub use self::parse::*;
 pub struct Bellman;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> {
-    program: ProgIterator<T, I>,
+pub struct Computation<T, I: IntoStatements<Field = T>> {
+    program: ProgIterator<I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> Computation<T, I> {
-    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
+impl<T: Field, I: IntoStatements<Field = T>> Computation<T, I> {
+    pub fn with_witness(program: ProgIterator<I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
+    pub fn without_witness(program: ProgIterator<I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -82,11 +82,7 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<
-        T: BellmanFieldExtensions + Field,
-        I: IntoFallibleIterator<Item = Statement<T>, Error = ()>,
-    > ProgIterator<T, I>
-{
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> ProgIterator<I> {
     pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
@@ -305,7 +301,8 @@ mod tests {
                 statements: vec![Statement::constraint(
                     FlatVariable::new(0),
                     FlatVariable::public(0),
-                )],
+                )]
+                .into(),
             };
 
             let interpreter = Interpreter::default();
@@ -328,7 +325,8 @@ mod tests {
                 statements: vec![Statement::constraint(
                     FlatVariable::new(0),
                     FlatVariable::public(0),
-                )],
+                )]
+                .into(),
             };
 
             let interpreter = Interpreter::default();
@@ -351,7 +349,8 @@ mod tests {
                 statements: vec![Statement::constraint(
                     FlatVariable::one(),
                     FlatVariable::public(0),
-                )],
+                )]
+                .into(),
             };
 
             let interpreter = Interpreter::default();
@@ -382,7 +381,8 @@ mod tests {
                         LinComb::from(FlatVariable::one()) + LinComb::from(FlatVariable::new(42)),
                         FlatVariable::public(1),
                     ),
-                ],
+                ]
+                .into(),
             };
 
             let interpreter = Interpreter::default();
@@ -404,7 +404,8 @@ mod tests {
                 statements: vec![Statement::constraint(
                     LinComb::from(FlatVariable::new(42)) + LinComb::one(),
                     FlatVariable::public(0),
-                )],
+                )]
+                .into(),
             };
 
             let interpreter = Interpreter::default();
@@ -430,7 +431,8 @@ mod tests {
                 statements: vec![Statement::constraint(
                     LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
                     FlatVariable::public(0),
-                )],
+                )]
+                .into(),
             };
 
             let interpreter = Interpreter::default();

@@ -1,7 +1,7 @@
 pub mod gm17;
 pub mod marlin;
 
-use crate::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
+use crate::ir::{CanonicalLinComb, IntoStatements, ProgIterator, Statement, Witness};
 use ark_gm17::Proof;
 use ark_gm17::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
@@ -25,20 +25,20 @@ use rand_0_7::SeedableRng;
 pub struct Ark;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> {
-    program: ProgIterator<T, I>,
+pub struct Computation<T, I: IntoStatements<Field = T>> {
+    program: ProgIterator<I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> Computation<T, I> {
-    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
+impl<T, I: IntoStatements<Field = T>> Computation<T, I> {
+    pub fn with_witness(program: ProgIterator<I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
+    pub fn without_witness(program: ProgIterator<I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -80,9 +80,7 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>
-    ProgIterator<T, I>
-{
+impl<T: Field + ArkFieldExtensions, I: IntoStatements<Field = T>> ProgIterator<I> {
     pub fn generate_constraints(
         self,
         cs: ConstraintSystemRef<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
@@ -153,9 +151,7 @@ impl<T: Field + ArkFieldExtensions, I: IntoFallibleIterator<Item = Statement<T>,
     }
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>
-    Computation<T, I>
-{
+impl<T: Field + ArkFieldExtensions, I: IntoStatements<Field = T>> Computation<T, I> {
     pub fn prove(self, params: &ProvingKey<T::ArkEngine>) -> Proof<T::ArkEngine> {
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 

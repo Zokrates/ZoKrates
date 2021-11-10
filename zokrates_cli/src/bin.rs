@@ -118,7 +118,7 @@ mod tests {
     use std::io::{BufReader, Read};
     use std::string::String;
     use typed_arena::Arena;
-    use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig};
+    use zokrates_core::compile::{compile, CompileConfig};
     use zokrates_core::ir;
     use zokrates_field::Bn128Field;
     use zokrates_fs_resolver::FileSystemResolver;
@@ -198,7 +198,7 @@ mod tests {
 
             let arena = Arena::new();
 
-            let artifacts: CompilationArtifacts<Bn128Field, _> = compile(
+            let artifacts = compile::<Bn128Field, _>(
                 source,
                 path,
                 Some(&resolver),
@@ -238,7 +238,7 @@ mod tests {
 
             let arena = Arena::new();
 
-            let artifacts: CompilationArtifacts<Bn128Field, _> = compile(
+            let artifacts = compile::<Bn128Field, _>(
                 source,
                 path,
                 Some(&resolver),

@@ -6,13 +6,12 @@
 use crate::absy::{Module, OwnedModuleId, Program};
 use crate::flatten::FlattenerIterator;
 use crate::imports::{self, Importer};
-use crate::ir;
+use crate::ir::{self, IntoStatements};
 use crate::macros;
 use crate::semantics::{self, Checker};
 use crate::static_analysis;
 use crate::typed_absy::abi::Abi;
 use crate::zir::ZirProgram;
-use fallible_iterator::IntoFallibleIterator;
 use macros::process_macros;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -25,13 +24,13 @@ use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompilationArtifacts<T, I: IntoFallibleIterator<Item = ir::Statement<T>, Error = ()>> {
-    pub prog: ir::ProgIterator<T, I>,
+pub struct CompilationArtifacts<I: IntoStatements> {
+    pub prog: ir::ProgIterator<I>,
     pub abi: Abi,
 }
 
-impl<T, I: IntoFallibleIterator<Item = ir::Statement<T>, Error = ()>> CompilationArtifacts<T, I> {
-    pub fn prog(self) -> ir::ProgIterator<T, I> {
+impl<I: IntoStatements> CompilationArtifacts<I> {
+    pub fn prog(self) -> ir::ProgIterator<I> {
         self.prog
     }
 
@@ -39,7 +38,7 @@ impl<T, I: IntoFallibleIterator<Item = ir::Statement<T>, Error = ()>> Compilatio
         &self.abi
     }
 
-    pub fn collect(self) -> Result<CompilationArtifacts<T, ir::MemoryStatements<T>>, ()> {
+    pub fn collect(self) -> Result<CompilationArtifacts<ir::MemoryStatements<I::Field>>, ()> {
         Ok(CompilationArtifacts {
             prog: self.prog.collect()?,
             abi: self.abi,
@@ -190,10 +189,7 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<
-    CompilationArtifacts<T, impl IntoFallibleIterator<Item = ir::Statement<T>, Error = ()> + 'ast>,
-    CompileErrors,
-> {
+) -> Result<CompilationArtifacts<impl IntoStatements<Field = T> + 'ast>, CompileErrors> {
     let (typed_ast, abi): (crate::zir::ZirProgram<'_, T>, _) =
         check_with_arena(source, location, resolver, &config, arena)?;
 
@@ -321,7 +317,7 @@ mod test {
 		"#
         .to_string();
         let arena = Arena::new();
-        let res: Result<CompilationArtifacts<Bn128Field, _>, CompileErrors> = compile(
+        let res = compile::<Bn128Field, _>(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
@@ -347,7 +343,7 @@ mod test {
 
         let arena = Arena::new();
 
-        let res: Result<CompilationArtifacts<Bn128Field, _>, CompileErrors> = compile(
+        let res = compile::<Bn128Field, _>(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,

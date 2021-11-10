@@ -1,5 +1,5 @@
-use crate::ir::{MemoryStatements, ProgIterator, Statement};
-use fallible_iterator::{convert, FallibleIterator, IntoFallibleIterator};
+use crate::ir::{IntoStatements, MemoryStatements, ProgIterator, Statement};
+use fallible_iterator::FallibleIterator;
 use serde_cbor::{self, StreamDeserializer};
 use std::io::{Read, Write};
 use zokrates_field::*;
@@ -9,15 +9,15 @@ const ZOKRATES_VERSION_2: &[u8; 4] = &[0, 0, 0, 2];
 
 #[derive(PartialEq, Debug)]
 pub enum ProgEnum<
-    Bls12_381I: IntoFallibleIterator<Item = Statement<Bls12_381Field>, Error = ()>,
-    Bn128I: IntoFallibleIterator<Item = Statement<Bn128Field>, Error = ()>,
-    Bls12_377I: IntoFallibleIterator<Item = Statement<Bls12_377Field>, Error = ()>,
-    Bw6_761I: IntoFallibleIterator<Item = Statement<Bw6_761Field>, Error = ()>,
+    Bls12_381I: IntoStatements<Field = Bls12_381Field>,
+    Bn128I: IntoStatements<Field = Bn128Field>,
+    Bls12_377I: IntoStatements<Field = Bls12_377Field>,
+    Bw6_761I: IntoStatements<Field = Bw6_761Field>,
 > {
-    Bls12_381Program(ProgIterator<Bls12_381Field, Bls12_381I>),
-    Bn128Program(ProgIterator<Bn128Field, Bn128I>),
-    Bls12_377Program(ProgIterator<Bls12_377Field, Bls12_377I>),
-    Bw6_761Program(ProgIterator<Bw6_761Field, Bw6_761I>),
+    Bls12_381Program(ProgIterator<Bls12_381I>),
+    Bn128Program(ProgIterator<Bn128I>),
+    Bls12_377Program(ProgIterator<Bls12_377I>),
+    Bw6_761Program(ProgIterator<Bw6_761I>),
 }
 
 type MemoryProgEnum = ProgEnum<
@@ -28,10 +28,10 @@ type MemoryProgEnum = ProgEnum<
 >;
 
 impl<
-        Bls12_381I: IntoFallibleIterator<Item = Statement<Bls12_381Field>, Error = ()>,
-        Bn128I: IntoFallibleIterator<Item = Statement<Bn128Field>, Error = ()>,
-        Bls12_377I: IntoFallibleIterator<Item = Statement<Bls12_377Field>, Error = ()>,
-        Bw6_761I: IntoFallibleIterator<Item = Statement<Bw6_761Field>, Error = ()>,
+        Bls12_381I: IntoStatements<Field = Bls12_381Field>,
+        Bn128I: IntoStatements<Field = Bn128Field>,
+        Bls12_377I: IntoStatements<Field = Bls12_377Field>,
+        Bw6_761I: IntoStatements<Field = Bw6_761Field>,
     > ProgEnum<Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
 {
     pub fn collect(self) -> Result<MemoryProgEnum, ()> {
@@ -100,13 +100,11 @@ impl<
 //     )
 // }
 
-impl<T: Field, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>> ProgIterator<T, I> {
+impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
     pub fn serialize<W: Write>(self, mut w: W) -> Result<(), ()> {
         w.write_all(ZOKRATES_MAGIC).unwrap();
         w.write_all(ZOKRATES_VERSION_2).unwrap();
         w.write_all(&T::id()).unwrap();
-
-        use fallible_iterator::FallibleIterator;
 
         serde_cbor::to_writer(&mut w, &self.arguments).unwrap();
         serde_cbor::to_writer(&mut w, &self.return_count).unwrap();
@@ -289,7 +287,7 @@ mod tests {
         let p: ir::Prog<Bn128Field> = ir::Prog::default();
 
         let mut buffer = Cursor::new(vec![]);
-        p.clone().serialize(&mut buffer);
+        p.clone().serialize(&mut buffer).unwrap();
 
         // rewind back to the beginning of the file
         buffer.seek(SeekFrom::Start(0)).unwrap();
@@ -297,12 +295,12 @@ mod tests {
         // deserialize
         let deserialized_p = ProgEnum::deserialize(buffer).unwrap();
 
-        assert_eq!(ProgEnum::Bn128Program(p), deserialized_p.collect());
+        assert_eq!(ProgEnum::Bn128Program(p), deserialized_p.collect().unwrap());
 
         let p: ir::Prog<Bls12_381Field> = ir::Prog::default();
 
         let mut buffer = Cursor::new(vec![]);
-        p.clone().serialize(&mut buffer);
+        p.clone().serialize(&mut buffer).unwrap();
 
         // rewind back to the beginning of the file
         buffer.seek(SeekFrom::Start(0)).unwrap();
@@ -310,6 +308,9 @@ mod tests {
         // deserialize
         let deserialized_p = ProgEnum::deserialize(buffer).unwrap();
 
-        assert_eq!(ProgEnum::Bls12_381Program(p), deserialized_p.collect());
+        assert_eq!(
+            ProgEnum::Bls12_381Program(p),
+            deserialized_p.collect().unwrap()
+        );
     }
 }
