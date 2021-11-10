@@ -16,6 +16,7 @@ use crate::flat_absy::{RuntimeError, *};
 use crate::solvers::Solver;
 use crate::zir::types::{Type, UBitwidth};
 use crate::zir::*;
+use fallible_iterator::FallibleIterator;
 use std::collections::{
     hash_map::{Entry, HashMap},
     VecDeque,
@@ -29,7 +30,7 @@ type FlatStatements<T> = VecDeque<FlatStatement<T>>;
 ///
 /// # Arguments
 /// * `funct` - `ZirFunction` that will be flattened
-impl<'ast, T: Field> FlattenerIterator<'ast, T> {
+impl<'ast, T: Field> FlattenerIterator<'ast, T, std::vec::IntoIter<ZirStatement<'ast, T>>> {
     pub fn from_function_and_config(funct: ZirFunction<'ast, T>, config: CompileConfig) -> Self {
         let mut flattener = Flattener::new(config);
         let mut statements_flattened = FlatStatements::new();
@@ -43,7 +44,7 @@ impl<'ast, T: Field> FlattenerIterator<'ast, T> {
         FlattenerIterator {
             arguments: arguments_flattened,
             statements: FlattenerIteratorInner {
-                statements: funct.statements.into(),
+                statements: funct.statements.into_iter(),
                 statements_flattened,
                 flattener,
             },
@@ -52,20 +53,23 @@ impl<'ast, T: Field> FlattenerIterator<'ast, T> {
     }
 }
 
-pub struct FlattenerIteratorInner<'ast, T> {
-    pub statements: VecDeque<ZirStatement<'ast, T>>,
+pub struct FlattenerIteratorInner<'ast, T, I: IntoIterator<Item = ZirStatement<'ast, T>>> {
+    pub statements: I,
     pub statements_flattened: FlatStatements<T>,
     pub flattener: Flattener<'ast, T>,
 }
 
-pub type FlattenerIterator<'ast, T> = FlatProgIterator<T, FlattenerIteratorInner<'ast, T>>;
+pub type FlattenerIterator<'ast, T, I> = FlatProgIterator<FlattenerIteratorInner<'ast, T, I>>;
 
-impl<'ast, T: Field> Iterator for FlattenerIteratorInner<'ast, T> {
+impl<'ast, T: Field, I: Iterator<Item = ZirStatement<'ast, T>>> FallibleIterator
+    for FlattenerIteratorInner<'ast, T, I>
+{
     type Item = FlatStatement<T>;
+    type Error = Box<dyn std::error::Error>;
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
         while self.statements_flattened.is_empty() {
-            match self.statements.pop_front() {
+            match self.statements.next() {
                 Some(s) => {
                     self.flattener
                         .flatten_statement(&mut self.statements_flattened, s);
@@ -75,7 +79,7 @@ impl<'ast, T: Field> Iterator for FlattenerIteratorInner<'ast, T> {
                 }
             }
         }
-        self.statements_flattened.pop_front()
+        Ok(self.statements_flattened.pop_front())
     }
 }
 
@@ -1276,7 +1280,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         params: Vec<FlatUExpression<T>>,
-        funct: FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>>,
+        funct: FlatFunctionIterator<impl IntoFlatStatements<Field = T>>,
     ) -> Vec<FlatUExpression<T>> {
         let mut replacement_map = HashMap::new();
 
@@ -1294,42 +1298,47 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // Ensure renaming and correct returns:
         // add all flattened statements, adapt return statements
 
-        let statements = funct.statements.into_iter().map(|stat| match stat {
-            FlatStatement::Definition(var, rhs) => {
-                let new_var = self.use_sym();
-                replacement_map.insert(var, new_var);
-                let new_rhs = rhs.apply_substitution(&replacement_map);
-                FlatStatement::Definition(new_var, new_rhs)
-            }
-            FlatStatement::Condition(lhs, rhs, message) => {
-                let new_lhs = lhs.apply_substitution(&replacement_map);
-                let new_rhs = rhs.apply_substitution(&replacement_map);
-                FlatStatement::Condition(new_lhs, new_rhs, message)
-            }
-            FlatStatement::Directive(d) => {
-                let new_outputs = d
-                    .outputs
-                    .into_iter()
-                    .map(|o| {
-                        let new_o = self.use_sym();
-                        replacement_map.insert(o, new_o);
-                        new_o
+        let mut statements = funct.statements.into_fallible_iter().map(|stat| {
+            Ok(match stat {
+                FlatStatement::Definition(var, rhs) => {
+                    let new_var = self.use_sym();
+                    replacement_map.insert(var, new_var);
+                    let new_rhs = rhs.apply_substitution(&replacement_map);
+                    FlatStatement::Definition(new_var, new_rhs)
+                }
+                FlatStatement::Condition(lhs, rhs, message) => {
+                    let new_lhs = lhs.apply_substitution(&replacement_map);
+                    let new_rhs = rhs.apply_substitution(&replacement_map);
+                    FlatStatement::Condition(new_lhs, new_rhs, message)
+                }
+                FlatStatement::Directive(d) => {
+                    let new_outputs = d
+                        .outputs
+                        .into_iter()
+                        .map(|o| {
+                            let new_o = self.use_sym();
+                            replacement_map.insert(o, new_o);
+                            new_o
+                        })
+                        .collect();
+                    let new_inputs = d
+                        .inputs
+                        .into_iter()
+                        .map(|i| i.apply_substitution(&replacement_map))
+                        .collect();
+                    FlatStatement::Directive(FlatDirective {
+                        outputs: new_outputs,
+                        solver: d.solver,
+                        inputs: new_inputs,
                     })
-                    .collect();
-                let new_inputs = d
-                    .inputs
-                    .into_iter()
-                    .map(|i| i.apply_substitution(&replacement_map))
-                    .collect();
-                FlatStatement::Directive(FlatDirective {
-                    outputs: new_outputs,
-                    solver: d.solver,
-                    inputs: new_inputs,
-                })
-            }
+                }
+            })
         });
 
-        statements_flattened.extend(statements);
+        // we know that no error happens while inlining embeds, so we can unwrap
+        while let Some(s) = statements.next().unwrap() {
+            statements_flattened.push_back(s);
+        }
 
         return_values
             .map(|x| FlatExpression::from(x).apply_substitution(&replacement_map))
@@ -2706,7 +2715,9 @@ mod tests {
     use zokrates_field::Bn128Field;
 
     fn flatten_function<T: Field>(f: ZirFunction<T>) -> FlatProg<T> {
-        FlattenerIterator::from_function_and_config(f, CompileConfig::default()).collect()
+        FlattenerIterator::from_function_and_config(f, CompileConfig::default())
+            .collect()
+            .unwrap()
     }
 
     #[test]
@@ -2739,7 +2750,8 @@ mod tests {
                     zir::RuntimeError::mock(),
                 ),
                 ZirStatement::Return(vec![]),
-            ],
+            ]
+            .into(),
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![],
@@ -2767,10 +2779,11 @@ mod tests {
                     ),
                     zir::RuntimeError::mock().into(),
                 ),
-            ],
+            ]
+            .into(),
         };
 
-        assert_eq!(flat.collect(), expected);
+        assert_eq!(flat.collect().unwrap(), expected);
     }
 
     #[test]
@@ -2806,7 +2819,8 @@ mod tests {
                     zir::RuntimeError::mock(),
                 ),
                 ZirStatement::Return(vec![]),
-            ],
+            ]
+            .into(),
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![],
@@ -2838,10 +2852,11 @@ mod tests {
                     ),
                     zir::RuntimeError::mock().into(),
                 ),
-            ],
+            ]
+            .into(),
         };
 
-        assert_eq!(flat.collect(), expected);
+        assert_eq!(flat.collect().unwrap(), expected);
     }
 
     #[test]
@@ -2879,7 +2894,8 @@ mod tests {
                     zir::RuntimeError::mock(),
                 ),
                 ZirStatement::Return(vec![]),
-            ],
+            ]
+            .into(),
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![],
@@ -2904,10 +2920,11 @@ mod tests {
                     ),
                     zir::RuntimeError::mock().into(),
                 ),
-            ],
+            ]
+            .into(),
         };
 
-        assert_eq!(flat.collect(), expected);
+        assert_eq!(flat.collect().unwrap(), expected);
     }
 
     #[test]
@@ -2941,7 +2958,8 @@ mod tests {
                     zir::RuntimeError::mock(),
                 ),
                 ZirStatement::Return(vec![]),
-            ],
+            ]
+            .into(),
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![],
@@ -2970,10 +2988,11 @@ mod tests {
                     ),
                     zir::RuntimeError::mock().into(),
                 ),
-            ],
+            ]
+            .into(),
         };
 
-        assert_eq!(flat.collect(), expected);
+        assert_eq!(flat.collect().unwrap(), expected);
     }
 
     #[test]
@@ -3016,7 +3035,8 @@ mod tests {
                     zir::RuntimeError::mock(),
                 ),
                 ZirStatement::Return(vec![]),
-            ],
+            ]
+            .into(),
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![],
@@ -3049,10 +3069,11 @@ mod tests {
                     ),
                     zir::RuntimeError::mock().into(),
                 ),
-            ],
+            ]
+            .into(),
         };
 
-        assert_eq!(flat.collect(), expected);
+        assert_eq!(flat.collect().unwrap(), expected);
     }
 
     #[test]
@@ -3095,7 +3116,8 @@ mod tests {
                     zir::RuntimeError::mock(),
                 ),
                 ZirStatement::Return(vec![]),
-            ],
+            ]
+            .into(),
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![],
@@ -3128,10 +3150,11 @@ mod tests {
                     ),
                     zir::RuntimeError::mock().into(),
                 ),
-            ],
+            ]
+            .into(),
         };
 
-        assert_eq!(flat.collect(), expected);
+        assert_eq!(flat.collect().unwrap(), expected);
     }
 
     #[test]
@@ -3226,10 +3249,11 @@ mod tests {
                     ),
                     zir::RuntimeError::mock().into(),
                 ),
-            ],
+            ]
+            .into(),
         };
 
-        assert_eq!(flat.collect(), expected);
+        assert_eq!(flat.collect().unwrap(), expected);
     }
 
     #[test]
@@ -3282,7 +3306,8 @@ mod tests {
                     FlatVariable::public(0),
                     FlatExpression::Identifier(FlatVariable::new(1)),
                 ),
-            ],
+            ]
+            .into(),
         };
 
         let flattened = flatten_function(function);
@@ -3344,7 +3369,8 @@ mod tests {
                     FlatVariable::public(0),
                     FlatExpression::Identifier(FlatVariable::new(1)),
                 ),
-            ],
+            ]
+            .into(),
         };
 
         let flattened = flatten_function(function);
@@ -3458,7 +3484,8 @@ mod tests {
                     FlatVariable::public(0),
                     FlatExpression::Identifier(FlatVariable::new(6)),
                 ),
-            ],
+            ]
+            .into(),
         };
 
         let flattened = flatten_function(function);

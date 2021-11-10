@@ -4,13 +4,14 @@ use crate::absy::{
 };
 use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatFunctionIterator, FlatParameter, FlatStatement,
-    FlatVariable, RuntimeError,
+    FlatVariable, IntoFlatStatements, RuntimeError,
 };
 use crate::solvers::Solver;
 use crate::typed_absy::types::{
     ConcreteGenericsAssignment, DeclarationConstant, DeclarationSignature, DeclarationType,
     GenericIdentifier,
 };
+use fallible_iterator::convert;
 use std::collections::HashMap;
 use zokrates_field::Field;
 
@@ -380,8 +381,7 @@ fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
 /// - constraint system variables
 /// - arguments
 #[cfg(feature = "bellman")]
-pub fn sha256_round<T: Field>(
-) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
+pub fn sha256_round<T: Field>() -> FlatFunctionIterator<impl IntoFlatStatements<Field = T>> {
     use zokrates_field::Bn128Field;
     assert_eq!(T::id(), Bn128Field::id());
 
@@ -469,11 +469,14 @@ pub fn sha256_round<T: Field>(
         .into_iter()
         .enumerate()
         .map(|(index, e)| FlatStatement::Definition(FlatVariable::public(index), e));
-    let statements = std::iter::once(directive_statement)
-        .chain(std::iter::once(one_binding_statement))
-        .chain(input_binding_statements)
-        .chain(constraint_statements)
-        .chain(return_statements);
+    let statements = convert(
+        std::iter::once(directive_statement)
+            .chain(std::iter::once(one_binding_statement))
+            .chain(input_binding_statements)
+            .chain(constraint_statements)
+            .chain(return_statements)
+            .map(Ok),
+    );
 
     FlatFunctionIterator {
         arguments,
@@ -485,7 +488,7 @@ pub fn sha256_round<T: Field>(
 #[cfg(feature = "ark")]
 pub fn snark_verify_bls12_377<T: Field>(
     n: usize,
-) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
+) -> FlatFunctionIterator<impl IntoFlatStatements<Field = T>> {
     use zokrates_field::Bw6_761Field;
     assert_eq!(T::id(), Bw6_761Field::id());
 
@@ -577,11 +580,14 @@ pub fn snark_verify_bls12_377<T: Field>(
         solver: Solver::SnarkVerifyBls12377(n),
     });
 
-    let statements = std::iter::once(directive_statement)
-        .chain(std::iter::once(one_binding_statement))
-        .chain(input_binding_statements)
-        .chain(constraint_statements)
-        .chain(std::iter::once(return_statement));
+    let statements = convert(
+        std::iter::once(directive_statement)
+            .chain(std::iter::once(one_binding_statement))
+            .chain(input_binding_statements)
+            .chain(constraint_statements)
+            .chain(std::iter::once(return_statement))
+            .map(Ok),
+    );
 
     FlatFunctionIterator {
         arguments,
@@ -611,7 +617,7 @@ fn use_variable(
 ///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack_to_bitwidth<T: Field>(
     bit_width: usize,
-) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
+) -> FlatFunctionIterator<impl IntoFlatStatements<Field = T>> {
     let mut counter = 0;
 
     let mut layout = HashMap::new();
@@ -694,7 +700,7 @@ pub fn unpack_to_bitwidth<T: Field>(
 
     FlatFunctionIterator {
         arguments,
-        statements: statements.into_iter(),
+        statements: convert(statements.into_iter().map(Ok)),
         return_count: bit_width,
     }
 }
@@ -710,15 +716,19 @@ mod tests {
 
         #[test]
         fn split254() {
-            let unpack =
-                unpack_to_bitwidth::<Bn128Field>(Bn128Field::get_required_bits()).collect();
+            let unpack = unpack_to_bitwidth::<Bn128Field>(Bn128Field::get_required_bits())
+                .collect()
+                .unwrap();
 
             assert_eq!(
                 unpack.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]
             );
+
+            let statements = unpack.statements.clone().into_inner();
+
             assert_eq!(
-                unpack.statements[0],
+                statements[0],
                 FlatStatement::Directive(FlatDirective::new(
                     (0..Bn128Field::get_required_bits())
                         .map(|i| FlatVariable::new(i + 1))
@@ -744,7 +754,7 @@ mod tests {
         fn generate_sha256_constraints() {
             let compiled = sha256_round::<Bn128Field>();
 
-            let compiled = compiled.collect();
+            let compiled = compiled.collect().unwrap();
 
             // function should have 768 inputs
             assert_eq!(compiled.arguments.len(), 768);
@@ -770,9 +780,11 @@ mod tests {
                 FlatVariable::new(directive.outputs.len() + 1)
             );
 
+            let statements = compiled.statements.clone().into_inner();
+
             // bellman variable #0: index 0 should equal 1
             assert_eq!(
-                compiled.statements[1],
+                statements[1],
                 FlatStatement::Condition(
                     FlatVariable::new(0).into(),
                     FlatExpression::Number(Bn128Field::from(1)),
@@ -782,7 +794,7 @@ mod tests {
 
             // bellman input #0: index 1 should equal zokrates input #0: index v_count
             assert_eq!(
-                compiled.statements[2],
+                statements[2],
                 FlatStatement::Condition(
                     FlatVariable::new(1).into(),
                     FlatVariable::new(26936).into(),

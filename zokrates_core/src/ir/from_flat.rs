@@ -1,8 +1,8 @@
 use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatProgIterator, FlatStatement, FlatVariable,
+    IntoFlatStatements,
 };
 use crate::ir::{Directive, IntoStatements, LinComb, ProgIterator, QuadComb, Statement};
-use fallible_iterator::convert;
 use zokrates_field::Field;
 
 impl<T: Field> QuadComb<T> {
@@ -20,17 +20,16 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-pub fn from_flat<T: Field, I: IntoIterator<Item = FlatStatement<T>>>(
-    flat_prog_iterator: FlatProgIterator<T, I>,
+pub fn from_flat<T: Field, I: IntoFlatStatements<Field = T>>(
+    flat_prog_iterator: FlatProgIterator<I>,
 ) -> ProgIterator<impl IntoStatements<Field = T>> {
+    use fallible_iterator::FallibleIterator;
+
     ProgIterator {
-        statements: convert(
-            flat_prog_iterator
-                .statements
-                .into_iter()
-                .map(Into::into)
-                .map(Ok),
-        ),
+        statements: flat_prog_iterator
+            .statements
+            .into_fallible_iter()
+            .map(|s| Ok(Statement::from(s))),
         arguments: flat_prog_iterator.arguments,
         return_count: flat_prog_iterator.return_count,
     }
