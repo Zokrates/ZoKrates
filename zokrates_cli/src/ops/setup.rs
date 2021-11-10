@@ -226,7 +226,7 @@ fn cli_setup_non_universal<
 
 fn cli_setup_universal<
     T: Field,
-    I: FallibleIterator<Item = ir::Statement<T>, Error = ()>,
+    I: FallibleIterator<Item = ir::Statement<T>, Error = Box<dyn std::error::Error>>,
     S: UniversalScheme<T>,
     B: UniversalBackend<T, S>,
 >(

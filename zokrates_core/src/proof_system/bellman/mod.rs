@@ -150,7 +150,7 @@ impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> ProgIterat
 
 impl<
         T: BellmanFieldExtensions + Field,
-        I: IntoFallibleIterator<Item = Statement<T>, Error = ()>,
+        I: IntoFallibleIterator<Item = Statement<T>, Error = Box<dyn std::error::Error>>,
     > Computation<T, I>
 {
     fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
@@ -201,7 +201,7 @@ impl<
 
 impl<
         T: BellmanFieldExtensions + Field,
-        I: IntoFallibleIterator<Item = Statement<T>, Error = ()>,
+        I: IntoFallibleIterator<Item = Statement<T>, Error = Box<dyn std::error::Error>>,
     > Circuit<T::BellmanEngine> for Computation<T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(

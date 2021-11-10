@@ -10,7 +10,7 @@ pub fn fold_statements<T: Field, F: Folder<T>, I: IntoStatements<Field = T>>(
 ) -> impl IntoStatements<Field = T> {
     statements
         .into_fallible_iter()
-        .flat_map(move |s| Result::<MemoryStatements<_>, ()>::Ok(f.fold_statement(s).into()))
+        .flat_map(move |s| Result::<MemoryStatements<_>, _>::Ok(f.fold_statement(s).into()))
 }
 
 pub trait Folder<T: Field>: Sized {

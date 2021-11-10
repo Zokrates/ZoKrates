@@ -34,7 +34,6 @@ impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
         let mut duplicate_optimizer = DuplicateOptimizer::default();
 
         use crate::ir::folder::Folder;
-        use fallible_iterator::FallibleIterator;
 
         let arguments = self
             .arguments

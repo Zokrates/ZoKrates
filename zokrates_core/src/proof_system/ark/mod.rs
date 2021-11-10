@@ -182,8 +182,10 @@ impl<T: Field + ArkFieldExtensions, I: IntoStatements<Field = T>> Computation<T,
     }
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>
-    ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
+impl<
+        T: Field + ArkFieldExtensions,
+        I: IntoFallibleIterator<Item = Statement<T>, Error = Box<dyn std::error::Error>>,
+    > ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
     for Computation<T, I>
 {
     fn generate_constraints(

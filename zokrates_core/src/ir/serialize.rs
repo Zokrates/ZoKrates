@@ -34,16 +34,12 @@ impl<
         Bw6_761I: IntoStatements<Field = Bw6_761Field>,
     > ProgEnum<Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
 {
-    pub fn collect(self) -> Result<MemoryProgEnum, ()> {
+    pub fn collect(self) -> Result<MemoryProgEnum, Box<dyn std::error::Error>> {
         Ok(match self {
-            ProgEnum::Bls12_381Program(p) => {
-                ProgEnum::Bls12_381Program(p.collect().map_err(|_| ())?)
-            }
-            ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect().map_err(|_| ())?),
-            ProgEnum::Bls12_377Program(p) => {
-                ProgEnum::Bls12_377Program(p.collect().map_err(|_| ())?)
-            }
-            ProgEnum::Bw6_761Program(p) => ProgEnum::Bw6_761Program(p.collect().map_err(|_| ())?),
+            ProgEnum::Bls12_381Program(p) => ProgEnum::Bls12_381Program(p.collect()?),
+            ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect()?),
+            ProgEnum::Bls12_377Program(p) => ProgEnum::Bls12_377Program(p.collect()?),
+            ProgEnum::Bw6_761Program(p) => ProgEnum::Bw6_761Program(p.collect()?),
         })
     }
 }
@@ -101,7 +97,7 @@ impl<
 // }
 
 impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
-    pub fn serialize<W: Write>(self, mut w: W) -> Result<(), ()> {
+    pub fn serialize<W: Write>(self, mut w: W) -> Result<(), Box<dyn std::error::Error>> {
         w.write_all(ZOKRATES_MAGIC).unwrap();
         w.write_all(ZOKRATES_VERSION_2).unwrap();
         w.write_all(&T::id()).unwrap();
@@ -137,10 +133,10 @@ impl<'de, R: serde_cbor::de::Read<'de>, T: serde::Deserialize<'de>> FallibleIter
     for UnwrappedStreamDeserializer<'de, R, T>
 {
     type Item = T;
-    type Error = ();
+    type Error = Box<dyn std::error::Error>;
 
     fn next(&mut self) -> Result<Option<T>, Self::Error> {
-        self.s.next().transpose().map_err(|_| ())
+        self.s.next().transpose().map_err(|e| e.into())
     }
 }
 

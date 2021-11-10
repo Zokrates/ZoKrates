@@ -38,7 +38,10 @@ impl<I: IntoStatements> CompilationArtifacts<I> {
         &self.abi
     }
 
-    pub fn collect(self) -> Result<CompilationArtifacts<ir::MemoryStatements<I::Field>>, ()> {
+    pub fn collect(
+        self,
+    ) -> Result<CompilationArtifacts<ir::MemoryStatements<I::Field>>, Box<dyn std::error::Error>>
+    {
         Ok(CompilationArtifacts {
             prog: self.prog.collect()?,
             abi: self.abi,

@@ -3,6 +3,7 @@ use crate::flat_absy::{FlatVariable, RuntimeError};
 use crate::solvers::Solver;
 use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
 use serde::{Deserialize, Serialize};
+use std::error;
 use std::fmt;
 use std::hash::Hash;
 use std::iter::FromIterator;
@@ -106,7 +107,7 @@ pub struct MemoryStatementsIterator<T, I: Iterator<Item = Statement<T>>> {
 
 impl<T, I: Iterator<Item = Statement<T>>> FallibleIterator for MemoryStatementsIterator<T, I> {
     type Item = Statement<T>;
-    type Error = ();
+    type Error = Box<dyn std::error::Error>;
 
     fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
         Ok(self.statements.next())
@@ -115,7 +116,7 @@ impl<T, I: Iterator<Item = Statement<T>>> FallibleIterator for MemoryStatementsI
 
 impl<T> IntoFallibleIterator for MemoryStatements<T> {
     type Item = Statement<T>;
-    type Error = ();
+    type Error = Box<dyn std::error::Error>;
     type IntoFallibleIter = MemoryStatementsIterator<T, std::vec::IntoIter<Statement<T>>>;
 
     fn into_fallible_iter(self) -> Self::IntoFallibleIter {
@@ -125,11 +126,15 @@ impl<T> IntoFallibleIterator for MemoryStatements<T> {
     }
 }
 
-pub trait IntoStatements: IntoFallibleIterator<Item = Statement<Self::Field>, Error = ()> {
+pub trait IntoStatements:
+    IntoFallibleIterator<Item = Statement<Self::Field>, Error = Box<dyn error::Error>>
+{
     type Field;
 }
 
-impl<T, U: IntoFallibleIterator<Item = Statement<T>, Error = ()>> IntoStatements for U {
+impl<T, U: IntoFallibleIterator<Item = Statement<T>, Error = Box<dyn error::Error>>> IntoStatements
+    for U
+{
     type Field = T;
 }
 
@@ -143,7 +148,9 @@ pub struct ProgIterator<I: IntoStatements> {
 }
 
 impl<I: IntoStatements> ProgIterator<I> {
-    pub fn collect(self) -> Result<ProgIterator<MemoryStatements<I::Field>>, ()> {
+    pub fn collect(
+        self,
+    ) -> Result<ProgIterator<MemoryStatements<I::Field>>, Box<dyn std::error::Error>> {
         Ok(ProgIterator {
             statements: MemoryStatements(self.statements.into_fallible_iter().collect()?),
             arguments: self.arguments,

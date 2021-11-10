@@ -19,7 +19,9 @@ use fallible_iterator::IntoFallibleIterator;
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof<I: IntoFallibleIterator<Item = Statement<T>, Error = ()>>(
+    fn generate_proof<
+        I: IntoFallibleIterator<Item = Statement<T>, Error = Box<dyn std::error::Error>>,
+    >(
         program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
