@@ -8,4 +8,4 @@ def main(field a) -> bool:
     u32 pbits = FIELD_SIZE_IN_BITS
     // we added a = 0 to prevent the condition to be evaluated at compile time
     field maxvalue = a + (2**(pbits - 2) - 1)
-    return a < maxvalue + 1
+    return maxvalue + 1 < a

@@ -24,25 +24,25 @@ impl<T: Field> Prog<T> {
         log::debug!("Constraints: {}", self.constraint_count());
         log::debug!("Optimizer: Remove redefinitions");
         let r = RedefinitionOptimizer::optimize(self);
-        log::debug!("Done");
+        log::trace!("\n{}\n", r);
 
         // remove constraints that are always satisfied
         log::debug!("Constraints: {}", r.constraint_count());
         log::debug!("Optimizer: Remove tautologies");
         let r = TautologyOptimizer::optimize(r);
-        log::debug!("Done");
+        log::trace!("\n{}\n", r);
 
         // deduplicate directives which take the same input
         log::debug!("Constraints: {}", r.constraint_count());
         log::debug!("Optimizer: Remove duplicate directive");
         let r = DirectiveOptimizer::optimize(r);
-        log::debug!("Done");
+        log::trace!("\n{}\n", r);
 
         // remove duplicate constraints
         log::debug!("Constraints: {}", r.constraint_count());
         log::debug!("Optimizer: Remove duplicate constraints");
         let r = DuplicateOptimizer::optimize(r);
-        log::debug!("Done");
+        log::trace!("\n{}\n", r);
 
         log::debug!("Constraints: {}", r.constraint_count());
         r
