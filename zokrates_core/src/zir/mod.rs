@@ -14,34 +14,116 @@ pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadat
 
 use crate::embed::FlatEmbed;
 use crate::zir::types::Signature;
+use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
 use std::convert::TryFrom;
 use std::fmt;
+use std::iter::FromIterator;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
 
-/// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Debug)]
-pub struct ZirProgram<'ast, T> {
-    pub main: ZirFunction<'ast, T>,
+pub trait IntoZirStatements<'ast>:
+    IntoFallibleIterator<Item = ZirStatement<'ast, Self::Field>, Error = Box<dyn std::error::Error>>
+{
+    type Field;
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.main)
+impl<
+        'ast,
+        T,
+        U: IntoFallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
+    > IntoZirStatements<'ast> for U
+{
+    type Field = T;
+}
+
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct MemoryZirStatements<'ast, T>(Vec<ZirStatement<'ast, T>>);
+
+impl<'ast, T> From<Vec<ZirStatement<'ast, T>>> for MemoryZirStatements<'ast, T> {
+    fn from(v: Vec<ZirStatement<'ast, T>>) -> Self {
+        MemoryZirStatements(v)
     }
 }
+
+impl<'ast, T> MemoryZirStatements<'ast, T> {
+    pub fn iter(&self) -> std::slice::Iter<ZirStatement<'ast, T>> {
+        self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn into_inner(self) -> Vec<ZirStatement<'ast, T>> {
+        self.0
+    }
+}
+
+impl<'ast, T> IntoIterator for MemoryZirStatements<'ast, T> {
+    type Item = ZirStatement<'ast, T>;
+    type IntoIter = std::vec::IntoIter<ZirStatement<'ast, T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'ast, T> FromIterator<ZirStatement<'ast, T>> for MemoryZirStatements<'ast, T> {
+    fn from_iter<I: IntoIterator<Item = ZirStatement<'ast, T>>>(i: I) -> Self {
+        MemoryZirStatements(i.into_iter().collect())
+    }
+}
+
+pub struct MemoryZirStatementsIterator<'ast, T, I: Iterator<Item = ZirStatement<'ast, T>>> {
+    statements: I,
+}
+
+impl<'ast, T, I: Iterator<Item = ZirStatement<'ast, T>>> FallibleIterator
+    for MemoryZirStatementsIterator<'ast, T, I>
+{
+    type Item = ZirStatement<'ast, T>;
+    type Error = Box<dyn std::error::Error>;
+
+    fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
+        Ok(self.statements.next())
+    }
+}
+
+impl<'ast, T> IntoFallibleIterator for MemoryZirStatements<'ast, T> {
+    type Item = ZirStatement<'ast, T>;
+    type Error = Box<dyn std::error::Error>;
+    type IntoFallibleIter =
+        MemoryZirStatementsIterator<'ast, T, std::vec::IntoIter<ZirStatement<'ast, T>>>;
+
+    fn into_fallible_iter(self) -> Self::IntoFallibleIter {
+        MemoryZirStatementsIterator {
+            statements: self.into_iter(),
+        }
+    }
+}
+
+pub type ZirProgramIterator<'ast, I> = ZirFunctionIterator<'ast, I>;
+
+pub type ZirProgram<'ast, T> = ZirFunctionIterator<'ast, MemoryZirStatements<'ast, T>>;
+
 /// A typed function
 #[derive(Clone, PartialEq)]
-pub struct ZirFunction<'ast, T> {
+pub struct ZirFunctionIterator<'ast, I: IntoZirStatements<'ast>> {
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
-    pub statements: Vec<ZirStatement<'ast, T>>,
+    pub statements: I,
     /// function signature
     pub signature: Signature,
 }
+
+pub type ZirFunction<'ast, T> = ZirFunctionIterator<'ast, MemoryZirStatements<'ast, T>>;
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

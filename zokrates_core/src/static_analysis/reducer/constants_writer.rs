@@ -108,7 +108,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                 // wrap this expression in a function
                 let wrapper = TypedFunction {
                     arguments: vec![],
-                    statements: vec![TypedStatement::Return(vec![c.expression])],
+                    statements: vec![TypedStatement::Return(vec![c.expression])].into(),
                     signature: DeclarationSignature::new().outputs(vec![c.ty.clone()]),
                 };
 
@@ -119,7 +119,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                 )?;
 
                 if let TypedStatement::Return(mut expressions) =
-                    inlined_wrapper.statements.pop().unwrap()
+                    inlined_wrapper.statements.0.pop().unwrap()
                 {
                     assert_eq!(expressions.len(), 1);
                     let constant_expression = expressions.pop().unwrap();

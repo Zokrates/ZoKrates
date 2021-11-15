@@ -4,6 +4,22 @@ use crate::typed_absy::types::*;
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
+pub fn fold_statements<
+    'ast,
+    T: Field,
+    F: ResultFolder<'ast, T>,
+    I: IntoTypedStatements<'ast, Field = T>,
+>(
+    mut f: F,
+    statements: I,
+) -> impl IntoTypedStatements<'ast, Field = T> {
+    statements.into_fallible_iter().flat_map(move |s| {
+        f.fold_statement(s)
+            .map(MemoryTypedStatements)
+            .map_err(|e| e.into())
+    })
+}
+
 pub trait ResultFold<'ast, T: Field>: Sized {
     fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error>;
 }
@@ -39,7 +55,7 @@ impl<'ast, T: Field> ResultFold<'ast, T> for StructExpression<'ast, T> {
 }
 
 pub trait ResultFolder<'ast, T: Field>: Sized {
-    type Error;
+    type Error: Into<Box<dyn std::error::Error>>;
 
     fn fold_program(
         &mut self,

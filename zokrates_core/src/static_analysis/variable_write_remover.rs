@@ -10,15 +10,12 @@ use crate::typed_absy::*;
 use std::collections::HashSet;
 use zokrates_field::Field;
 
+#[derive(Default)]
 pub struct VariableWriteRemover;
 
 impl<'ast> VariableWriteRemover {
-    fn new() -> Self {
-        VariableWriteRemover
-    }
-
     pub fn apply<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
-        let mut remover = VariableWriteRemover::new();
+        let mut remover = VariableWriteRemover::default();
         remover.fold_program(p)
     }
 

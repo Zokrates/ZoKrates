@@ -4,6 +4,20 @@ use crate::typed_absy::types::*;
 use crate::typed_absy::*;
 use zokrates_field::Field;
 
+pub fn fold_statements<
+    'ast,
+    T: Field,
+    F: Folder<'ast, T>,
+    I: IntoTypedStatements<'ast, Field = T>,
+>(
+    mut f: F,
+    statements: I,
+) -> impl IntoTypedStatements<'ast, Field = T> {
+    statements
+        .into_fallible_iter()
+        .flat_map(move |s| Result::<MemoryTypedStatements<_>, _>::Ok(f.fold_statement(s).into()))
+}
+
 pub trait Fold<'ast, T: Field>: Sized {
     fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self;
 }

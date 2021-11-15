@@ -4,14 +4,13 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use crate::absy::{Module, OwnedModuleId, Program};
-use crate::flatten::FlattenerIterator;
 use crate::imports::{self, Importer};
 use crate::ir::{self, IntoStatements};
 use crate::macros;
 use crate::semantics::{self, Checker};
 use crate::static_analysis;
 use crate::typed_absy::abi::Abi;
-use crate::zir::ZirProgram;
+use crate::zir::{IntoZirStatements, ZirProgramIterator};
 use macros::process_macros;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -186,19 +185,18 @@ impl CompileConfig {
 
 type FilePath = PathBuf;
 
-pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
+pub fn compile<'ast, T: Field, E: 'ast + Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     config: CompileConfig,
     arena: &'ast Arena<String>,
 ) -> Result<CompilationArtifacts<impl IntoStatements<Field = T> + 'ast>, CompileErrors> {
-    let (typed_ast, abi): (crate::zir::ZirProgram<'_, T>, _) =
-        check_with_arena(source, location, resolver, &config, arena)?;
+    let (typed_ast, abi) = check_with_arena(source, location, resolver, &config, arena)?;
 
     // flatten input program
     log::debug!("Flatten");
-    let program_flattened = FlattenerIterator::from_function_and_config(typed_ast.main, config);
+    let program_flattened = crate::flatten::from_function_and_config(typed_ast, config);
 
     // convert to ir
     log::debug!("Convert to IR");
@@ -231,7 +229,13 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: &CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
+) -> Result<
+    (
+        ZirProgramIterator<'ast, impl IntoZirStatements<'ast, Field = T>>,
+        Abi,
+    ),
+    CompileErrors,
+> {
     let source = arena.alloc(source);
 
     log::debug!("Parse program with entry file {}", location.display());

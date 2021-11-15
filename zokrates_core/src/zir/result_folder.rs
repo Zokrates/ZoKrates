@@ -4,8 +4,23 @@ use crate::zir::types::UBitwidth;
 use crate::zir::*;
 use zokrates_field::Field;
 
+pub fn fold_statements<
+    'ast,
+    T: Field,
+    F: ResultFolder<'ast, T>,
+    I: IntoZirStatements<'ast, Field = T>,
+>(
+    mut f: F,
+    statements: I,
+) -> impl IntoZirStatements<'ast, Field = T> {
+    statements.into_fallible_iter().flat_map(move |s| {
+        f.fold_statement(s)
+            .map(MemoryZirStatements)
+            .map_err(|e| e.into())
+    })
+}
 pub trait ResultFolder<'ast, T: Field>: Sized {
-    type Error;
+    type Error: Into<Box<dyn std::error::Error>>;
 
     fn fold_program(&mut self, p: ZirProgram<'ast, T>) -> Result<ZirProgram<'ast, T>, Self::Error> {
         fold_program(self, p)
@@ -414,7 +429,5 @@ pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
     f: &mut F,
     p: ZirProgram<'ast, T>,
 ) -> Result<ZirProgram<'ast, T>, F::Error> {
-    Ok(ZirProgram {
-        main: f.fold_function(p.main)?,
-    })
+    f.fold_function(p)
 }

@@ -16,7 +16,7 @@ use crate::flat_absy::{RuntimeError, *};
 use crate::solvers::Solver;
 use crate::zir::types::{Type, UBitwidth};
 use crate::zir::*;
-use fallible_iterator::FallibleIterator;
+use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
 use std::collections::{
     hash_map::{Entry, HashMap},
     VecDeque,
@@ -24,36 +24,49 @@ use std::collections::{
 use std::convert::TryFrom;
 use zokrates_field::Field;
 
-type FlatStatements<T> = VecDeque<FlatStatement<T>>;
+pub type FlatStatements<T> = VecDeque<FlatStatement<T>>;
 
 /// Flattens a function
 ///
 /// # Arguments
 /// * `funct` - `ZirFunction` that will be flattened
-impl<'ast, T: Field> FlattenerIterator<'ast, T, std::vec::IntoIter<ZirStatement<'ast, T>>> {
-    pub fn from_function_and_config(funct: ZirFunction<'ast, T>, config: CompileConfig) -> Self {
-        let mut flattener = Flattener::new(config);
-        let mut statements_flattened = FlatStatements::new();
-        // push parameters
-        let arguments_flattened = funct
-            .arguments
-            .into_iter()
-            .map(|p| flattener.use_parameter(&p, &mut statements_flattened))
-            .collect();
+pub fn from_function_and_config<
+    'ast,
+    T: Field,
+    I: IntoFallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
+>(
+    funct: ZirFunctionIterator<'ast, I>,
+    config: CompileConfig,
+) -> FlattenerIterator<
+    'ast,
+    T,
+    impl FallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
+> {
+    let mut flattener = Flattener::new(config);
+    let mut statements_flattened = FlatStatements::new();
+    // push parameters
+    let arguments_flattened = funct
+        .arguments
+        .into_iter()
+        .map(|p| flattener.use_parameter(&p, &mut statements_flattened))
+        .collect();
 
-        FlattenerIterator {
-            arguments: arguments_flattened,
-            statements: FlattenerIteratorInner {
-                statements: funct.statements.into_iter(),
-                statements_flattened,
-                flattener,
-            },
-            return_count: funct.signature.outputs.len(),
-        }
+    FlattenerIterator {
+        arguments: arguments_flattened,
+        statements: FlattenerIteratorInner {
+            statements: funct.statements.into_fallible_iter(),
+            statements_flattened,
+            flattener,
+        },
+        return_count: funct.signature.outputs.len(),
     }
 }
 
-pub struct FlattenerIteratorInner<'ast, T, I: IntoIterator<Item = ZirStatement<'ast, T>>> {
+pub struct FlattenerIteratorInner<
+    'ast,
+    T,
+    I: FallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
+> {
     pub statements: I,
     pub statements_flattened: FlatStatements<T>,
     pub flattener: Flattener<'ast, T>,
@@ -61,15 +74,18 @@ pub struct FlattenerIteratorInner<'ast, T, I: IntoIterator<Item = ZirStatement<'
 
 pub type FlattenerIterator<'ast, T, I> = FlatProgIterator<FlattenerIteratorInner<'ast, T, I>>;
 
-impl<'ast, T: Field, I: Iterator<Item = ZirStatement<'ast, T>>> FallibleIterator
-    for FlattenerIteratorInner<'ast, T, I>
+impl<
+        'ast,
+        T: Field,
+        I: FallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
+    > FallibleIterator for FlattenerIteratorInner<'ast, T, I>
 {
     type Item = FlatStatement<T>;
     type Error = Box<dyn std::error::Error>;
 
     fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
         while self.statements_flattened.is_empty() {
-            match self.statements.next() {
+            match self.statements.next()? {
                 Some(s) => {
                     self.flattener
                         .flatten_statement(&mut self.statements_flattened, s);
@@ -217,7 +233,7 @@ impl From<crate::zir::RuntimeError> for RuntimeError {
 
 impl<'ast, T: Field> Flattener<'ast, T> {
     /// Returns a `Flattener` with fresh `layout`.
-    fn new(config: CompileConfig) -> Flattener<'ast, T> {
+    pub fn new(config: CompileConfig) -> Flattener<'ast, T> {
         Flattener {
             config,
             next_var_idx: 0,
@@ -2660,7 +2676,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         self.layout.insert(variable.id.clone(), flat_variable);
     }
 
-    fn use_parameter(
+    pub fn use_parameter(
         &mut self,
         parameter: &Parameter<'ast>,
         statements_flattened: &mut FlatStatements<T>,

@@ -11,16 +11,6 @@ pub struct UintOptimizer<'ast, T: Field> {
 }
 
 impl<'ast, T: Field> UintOptimizer<'ast, T> {
-    pub fn new() -> Self {
-        UintOptimizer {
-            ids: HashMap::new(),
-        }
-    }
-
-    pub fn optimize(p: ZirProgram<'ast, T>) -> ZirProgram<'ast, T> {
-        UintOptimizer::new().fold_program(p)
-    }
-
     fn register(&mut self, a: ZirAssignee<'ast>, m: UMetadata<T>) {
         self.ids.insert(a, m);
     }

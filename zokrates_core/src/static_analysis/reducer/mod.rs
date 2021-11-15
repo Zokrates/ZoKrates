@@ -23,13 +23,14 @@ use crate::typed_absy::types::GGenericsAssignment;
 use crate::typed_absy::CanonicalConstantIdentifier;
 use crate::typed_absy::Folder;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 
 use crate::typed_absy::{
     ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
     FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId,
     TypedExpression, TypedExpressionList, TypedExpressionListInner, TypedFunction,
-    TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedProgram, TypedStatement,
-    UExpression, UExpressionInner, Variable,
+    TypedFunctionIterator, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule,
+    TypedProgram, TypedStatement, UExpression, UExpressionInner, Variable,
 };
 
 use zokrates_field::Field;
@@ -38,6 +39,7 @@ use self::constants_writer::ConstantsWriter;
 use self::shallow_ssa::ShallowTransformer;
 
 use crate::static_analysis::propagation::{Constants, Propagator};
+use fallible_iterator::FallibleIterator;
 
 use std::fmt;
 
@@ -68,6 +70,8 @@ pub enum Error {
     Type(String),
 }
 
+impl std::error::Error for Error {}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -85,7 +89,7 @@ impl fmt::Display for Error {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct Substitutions<'ast>(HashMap<CoreIdentifier<'ast>, HashMap<usize, usize>>);
 
 impl<'ast> Substitutions<'ast> {
@@ -507,7 +511,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     }
 }
 
-pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
+pub fn reduce_program<T: Field>(
+    p: TypedProgram<T>,
+) -> Result<TypedFunctionIterator<ReducerIterator<T>>, Error> {
     // inline all constants and replace them in the  program
 
     let mut constants_writer = ConstantsWriter::with_program(p.clone());
@@ -528,26 +534,139 @@ pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, E
     };
 
     match main_function.signature.generics.len() {
-        0 => {
-            let main_function = reduce_function(main_function, GGenericsAssignment::default(), &p)?;
-
-            Ok(TypedProgram {
-                main: p.main.clone(),
-                modules: vec![(
-                    p.main.clone(),
-                    TypedModule {
-                        symbols: vec![TypedFunctionSymbolDeclaration::new(
-                            decl.key.clone(),
-                            TypedFunctionSymbol::Here(main_function),
-                        )
-                        .into()],
-                    },
-                )]
-                .into_iter()
-                .collect(),
-            })
-        }
+        0 => Ok(TypedFunctionIterator {
+            arguments: main_function.arguments.clone(),
+            signature: main_function.signature.clone(),
+            statements: ReducerIterator::new(
+                main_function,
+                ConcreteGenericsAssignment::default(),
+                p,
+            ),
+        }),
         _ => Err(Error::GenericsInMain),
+    }
+}
+
+pub struct ReducerIterator<'ast, T> {
+    program: TypedProgram<'ast, T>,
+    function: TypedFunction<'ast, T>,
+    output: VecDeque<TypedStatement<'ast, T>>,
+    versions: Versions<'ast>,
+    constants: Constants<'ast, T>,
+    hash: Option<u64>,
+    first_ssa_done: bool,
+    new_for_loop_versions: Vec<Versions<'ast>>,
+    substitutions: Substitutions<'ast>,
+    done: bool,
+}
+
+impl<'ast, T> ReducerIterator<'ast, T> {
+    pub fn new(
+        function: TypedFunction<'ast, T>,
+        generics: ConcreteGenericsAssignment<'ast>,
+        program: TypedProgram<'ast, T>,
+    ) -> Self {
+        Self {
+            program,
+            function,
+            output: Default::default(),
+            versions: Default::default(),
+            constants: Default::default(),
+            hash: Default::default(),
+            first_ssa_done: Default::default(),
+            new_for_loop_versions: Default::default(),
+            substitutions: Default::default(),
+            done: Default::default(),
+        }
+    }
+}
+
+impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
+    type Item = TypedStatement<'ast, T>;
+    type Error = Box<dyn std::error::Error>;
+
+    fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
+        while self.output.is_empty() && !self.done {
+            println!("iterate!");
+            if !self.first_ssa_done {
+                match ShallowTransformer::transform(
+                    self.function.clone(),
+                    &ConcreteGenericsAssignment::default(),
+                    &mut self.versions,
+                ) {
+                    Output::Complete(f) => {
+                        self.first_ssa_done = true;
+                        self.output.extend(f.statements);
+                        self.done = true;
+                        break;
+                    }
+                    Output::Incomplete(new_f, new_for_loop_versions) => {
+                        self.first_ssa_done = true;
+                        self.function = new_f;
+                        self.new_for_loop_versions = new_for_loop_versions;
+                    }
+                };
+            }
+
+            // run one round of the iteration process
+            {
+                let mut reducer = Reducer::new(
+                    &self.program,
+                    &mut self.versions,
+                    &mut self.substitutions,
+                    self.new_for_loop_versions.clone(),
+                );
+
+                let new_f = TypedFunction {
+                    statements: self
+                        .function
+                        .clone()
+                        .statements
+                        .into_iter()
+                        .map(|s| reducer.fold_statement(s))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flatten()
+                        .collect(),
+                    ..self.function.clone()
+                };
+
+                assert!(reducer.for_loop_versions.is_empty());
+
+                match reducer.complete {
+                    true => {
+                        self.substitutions = self.substitutions.clone().canonicalize();
+
+                        let new_f = Sub::new(&self.substitutions).fold_function(new_f);
+
+                        let new_f = Propagator::with_constants(&mut self.constants)
+                            .fold_function(new_f)
+                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
+
+                        self.done = true;
+                        // probably need to add some remaining statements to the output
+                    }
+                    false => {
+                        self.new_for_loop_versions = reducer.for_loop_versions_after;
+
+                        let new_f = Sub::new(&self.substitutions).fold_function(new_f);
+
+                        self.function = Propagator::with_constants(&mut self.constants)
+                            .fold_function(new_f)
+                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
+
+                        let new_hash = Some(compute_hash(&self.function));
+
+                        if new_hash == self.hash {
+                            return Err(Error::NoProgress.into());
+                        } else {
+                            self.hash = new_hash
+                        }
+                    }
+                }
+            }
+        }
+        Ok(self.output.pop_front())
     }
 }
 

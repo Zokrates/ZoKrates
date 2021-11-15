@@ -45,7 +45,10 @@ pub use crate::typed_absy::types::{ArrayType, FunctionKey, MemberId};
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
+pub use self::result_folder::ResultFolder;
 use crate::typed_absy::abi::{Abi, AbiInput};
+use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
+use std::iter::FromIterator;
 use std::ops::{Add, Div, Mul, Sub};
 
 pub use self::identifier::Identifier;
@@ -77,6 +80,91 @@ pub type TypedConstantSymbols<'ast, T> = Vec<(
     TypedConstantSymbol<'ast, T>,
 )>;
 
+pub trait IntoTypedStatements<'ast>:
+    IntoFallibleIterator<Item = TypedStatement<'ast, Self::Field>, Error = Box<dyn std::error::Error>>
+{
+    type Field;
+}
+
+impl<
+        'ast,
+        T,
+        U: IntoFallibleIterator<Item = TypedStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
+    > IntoTypedStatements<'ast> for U
+{
+    type Field = T;
+}
+
+#[derive(Clone, PartialEq, Debug, Default, Hash)]
+pub struct MemoryTypedStatements<'ast, T>(pub Vec<TypedStatement<'ast, T>>);
+
+impl<'ast, T> From<Vec<TypedStatement<'ast, T>>> for MemoryTypedStatements<'ast, T> {
+    fn from(v: Vec<TypedStatement<'ast, T>>) -> Self {
+        MemoryTypedStatements(v)
+    }
+}
+
+impl<'ast, T> MemoryTypedStatements<'ast, T> {
+    pub fn iter(&self) -> std::slice::Iter<TypedStatement<'ast, T>> {
+        self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn into_inner(self) -> Vec<TypedStatement<'ast, T>> {
+        self.0
+    }
+}
+
+impl<'ast, T> IntoIterator for MemoryTypedStatements<'ast, T> {
+    type Item = TypedStatement<'ast, T>;
+    type IntoIter = std::vec::IntoIter<TypedStatement<'ast, T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'ast, T> FromIterator<TypedStatement<'ast, T>> for MemoryTypedStatements<'ast, T> {
+    fn from_iter<I: IntoIterator<Item = TypedStatement<'ast, T>>>(i: I) -> Self {
+        MemoryTypedStatements(i.into_iter().collect())
+    }
+}
+
+pub struct MemoryTypedStatementsIterator<'ast, T, I: Iterator<Item = TypedStatement<'ast, T>>> {
+    statements: I,
+}
+
+impl<'ast, T, I: Iterator<Item = TypedStatement<'ast, T>>> FallibleIterator
+    for MemoryTypedStatementsIterator<'ast, T, I>
+{
+    type Item = TypedStatement<'ast, T>;
+    type Error = Box<dyn std::error::Error>;
+
+    fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
+        Ok(self.statements.next())
+    }
+}
+
+impl<'ast, T> IntoFallibleIterator for MemoryTypedStatements<'ast, T> {
+    type Item = TypedStatement<'ast, T>;
+    type Error = Box<dyn std::error::Error>;
+    type IntoFallibleIter =
+        MemoryTypedStatementsIterator<'ast, T, std::vec::IntoIter<TypedStatement<'ast, T>>>;
+
+    fn into_fallible_iter(self) -> Self::IntoFallibleIter {
+        MemoryTypedStatementsIterator {
+            statements: self.into_iter(),
+        }
+    }
+}
+
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypedProgram<'ast, T> {
@@ -90,20 +178,10 @@ impl<'ast, T> TypedProgram<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> TypedProgram<'ast, T> {
+impl<'ast, T: Field, I: IntoTypedStatements<'ast, Field = T>> TypedFunctionIterator<'ast, I> {
     pub fn abi(&self) -> Abi {
-        let main = &self.modules[&self.main]
-            .functions_iter()
-            .find(|s| s.key.id == "main")
-            .unwrap()
-            .symbol;
-        let main = match main {
-            TypedFunctionSymbol::Here(main) => main,
-            _ => unreachable!(),
-        };
-
         Abi {
-            inputs: main
+            inputs: self
                 .arguments
                 .iter()
                 .map(|p| {
@@ -122,7 +200,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                     .unwrap()
                 })
                 .collect(),
-            outputs: main
+            outputs: self
                 .signature
                 .outputs
                 .iter()
@@ -325,16 +403,33 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
     }
 }
 
-/// A typed function
-#[derive(Clone, PartialEq, Debug, Hash)]
-pub struct TypedFunction<'ast, T> {
+/// A typed function interator
+#[derive(Clone, PartialEq, Hash, Debug)]
+pub struct TypedFunctionIterator<'ast, I: IntoTypedStatements<'ast>> {
     /// Arguments of the function
-    pub arguments: Vec<DeclarationParameter<'ast, T>>,
+    pub arguments: Vec<DeclarationParameter<'ast, I::Field>>,
     /// Vector of statements that are executed when running the function
-    pub statements: Vec<TypedStatement<'ast, T>>,
+    pub statements: I,
     /// function signature
-    pub signature: DeclarationSignature<'ast, T>,
+    pub signature: DeclarationSignature<'ast, I::Field>,
 }
+
+impl<'ast, I: IntoTypedStatements<'ast>> TypedFunctionIterator<'ast, I> {
+    pub fn collect(
+        self,
+    ) -> Result<
+        TypedFunctionIterator<'ast, MemoryTypedStatements<'ast, I::Field>>,
+        Box<dyn std::error::Error>,
+    > {
+        Ok(TypedFunctionIterator {
+            statements: MemoryTypedStatements(self.statements.into_fallible_iter().collect()?),
+            arguments: self.arguments,
+            signature: self.signature,
+        })
+    }
+}
+
+pub type TypedFunction<'ast, T> = TypedFunctionIterator<'ast, MemoryTypedStatements<'ast, T>>;
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -382,7 +477,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
         let mut tab = 0;
 
-        for s in &self.statements {
+        for s in self.statements.iter() {
             if let TypedStatement::PopCallLog = s {
                 tab -= 1;
             };

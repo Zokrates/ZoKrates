@@ -1070,7 +1070,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         Ok(TypedFunction {
             arguments: arguments_checked,
-            statements: statements_checked,
+            statements: statements_checked.into(),
             signature: signature.unwrap(),
         })
     }

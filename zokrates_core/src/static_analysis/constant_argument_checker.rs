@@ -8,6 +8,7 @@ use crate::typed_absy::{
 use std::fmt;
 use zokrates_field::Field;
 
+#[derive(Default)]
 pub struct ConstantArgumentChecker;
 
 impl ConstantArgumentChecker {
@@ -18,6 +19,8 @@ impl ConstantArgumentChecker {
 
 #[derive(Debug)]
 pub struct Error(String);
+
+impl std::error::Error for Error {}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
