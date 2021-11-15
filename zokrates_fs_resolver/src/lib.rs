@@ -69,6 +69,8 @@ mod tests {
         let file_path = folder.path().join("bar.zok");
         File::create(file_path.clone()).unwrap();
 
+        let file_path = file_path.canonicalize().unwrap();
+
         let fs_resolver = FileSystemResolver::default();
         let (_, next_location) = fs_resolver
             .resolve(file_path.clone(), "./bar.zok".into())
