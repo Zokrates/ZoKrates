@@ -8,7 +8,6 @@ use std::path::Path;
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("beacon")
         .about("Applies a random beacon")
-        .display_order(3)
         .arg(
             Arg::with_name("input")
                 .short("i")
@@ -60,7 +59,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let num_iterations: usize = sub_matches.value_of("iterations").unwrap().parse().unwrap();
 
     if !(10..=63).contains(&num_iterations) {
-        return Err("Number of hash iterations should be in [10, 63] range".to_string());
+        return Err("Number of hash iterations should be in the [10, 63] range".to_string());
     }
 
     println!("Creating a beacon RNG");
@@ -74,12 +73,9 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         use rand::SeedableRng;
 
         // The hash used for the beacon
-        let hash_result = hex::decode(beacon_hash);
-        if hash_result.is_err() {
-            return Err("Beacon hash should be in hexadecimal format".to_string());
-        }
+        let mut cur_hash = hex::decode(beacon_hash)
+            .map_err(|_| "Beacon hash should be in hexadecimal format".to_string())?;
 
-        let mut cur_hash = hash_result.unwrap();
         if cur_hash.len() != 32 {
             return Err("Beacon hash should be 32 bytes long".to_string());
         }

@@ -11,7 +11,6 @@ use zokrates_field::Bn128Field;
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("init")
         .about("Initializes a MPC ceremony")
-        .display_order(1)
         .arg(
             Arg::with_name("input")
                 .short("i")
@@ -53,7 +52,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     match ProgEnum::deserialize(&mut reader)? {
         ProgEnum::Bn128Program(p) => cli_mpc_init(p, sub_matches),
-        _ => unimplemented!(),
+        _ => Err("Current protocol only supports bn128 programs".into()),
     }
 }
 

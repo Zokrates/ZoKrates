@@ -10,11 +10,11 @@ pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("mpc")
         .about("Multi-party computation (MPC) protocol")
         .subcommands(vec![
-            init::subcommand(),
-            contribute::subcommand(),
-            beacon::subcommand(),
-            verify::subcommand(),
-            export::subcommand(),
+            init::subcommand().display_order(1),
+            contribute::subcommand().display_order(2),
+            beacon::subcommand().display_order(3),
+            verify::subcommand().display_order(4),
+            export::subcommand().display_order(5),
         ])
 }
 

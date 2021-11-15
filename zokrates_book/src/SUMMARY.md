@@ -18,16 +18,16 @@
 
 - [Toolbox](toolbox/index.md)
     - [CLI](toolbox/cli.md)
+    - [Trusted Setup](toolbox/trusted_setup.md)
     - [Standard Library](toolbox/stdlib.md)
     - [Proving schemes](toolbox/proving_schemes.md)
     - [Verification](toolbox/verification.md)
     - [ZIR](toolbox/ir.md)
     - [JSON ABI](toolbox/abi.md)
-	- [zokrates.js](toolbox/zokrates_js.md)
+    - [zokrates.js](toolbox/zokrates_js.md)
 
 - [Examples](examples/index.md)
     - [A SNARK Powered RNG](examples/rng_tutorial.md)
     - [Proving knowledge of a hash preimage](examples/sha256example.md)
-    - [Performing a Trusted Setup](examples/mpc_tutorial.md)
 
 - [Testing](testing.md)

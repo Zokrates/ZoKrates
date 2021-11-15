@@ -1,9 +1,9 @@
-# Tutorial: Performing a trusted setup using the multi-party computation (MPC) protocol
+# Performing a trusted setup using a multi-party computation protocol (MPC)
 
 The zk-SNARK technology requires a trusted setup which is a special procedure we can run to generate the proving and verification keys.
 In order to make sure this procedure is done in a secure way, we must ensure that no one is able to fake proofs and steal user funds, so it has to be done
 in a decentralized way. In order to fake ZK proofs, an attacker must compromise every participant of the ceremony which is highly unlikely as the probability of it goes down as the number of participants goes up.
-In this tutorial, we will walk you through the steps of the ceremony.
+In this section of the book, we will walk you through the steps of performing a phase 2 ceremony.
 
 ## Pre-requisites
 

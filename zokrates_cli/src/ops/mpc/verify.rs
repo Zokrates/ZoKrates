@@ -12,7 +12,6 @@ use zokrates_field::Bn128Field;
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("verify")
         .about("Verifies correctness of MPC parameters, given a circuit instance")
-        .display_order(4)
         .arg(
             Arg::with_name("input")
                 .short("i")
@@ -54,7 +53,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     match ProgEnum::deserialize(&mut reader)? {
         ProgEnum::Bn128Program(p) => cli_mpc_verify(p, sub_matches),
-        _ => unimplemented!(),
+        _ => Err("Current protocol only supports bn128 programs".into()),
     }
 }
 
