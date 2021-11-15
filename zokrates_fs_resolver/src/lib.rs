@@ -50,6 +50,8 @@ impl<'a> Resolver<io::Error> for FileSystemResolver<'a> {
             ));
         }
 
+        let path_owned = path_owned.canonicalize().unwrap();
+
         let source = read_to_string(&path_owned)?;
         Ok((source, path_owned))
     }
