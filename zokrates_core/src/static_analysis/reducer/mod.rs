@@ -412,9 +412,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             TypedStatement::For(v, from, to, statements) => {
                 let versions_before = self.for_loop_versions.pop().unwrap();
 
-                println!("versions before {:#?}", versions_before);
-                println!("versions {:#?}", self.versions);
-
                 match (from.as_inner(), to.as_inner()) {
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
                         let mut out_statements = vec![];
@@ -431,10 +428,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             .into_iter()
                             .map(|(k, v)| (k, v + 1))
                             .collect();
-
-                        println!("versions after {:#?}", versions_after);
-
-                        println!("versions for the loop {:#?}", self.versions);
 
                         let mut transformer = ShallowTransformer::with_versions(self.versions);
 
