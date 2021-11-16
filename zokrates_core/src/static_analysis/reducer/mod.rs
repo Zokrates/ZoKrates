@@ -572,8 +572,6 @@ fn reduce_function<'ast, T: Field>(
             let mut hash = None;
 
             loop {
-                log::trace!("BEFORE REDUCE {}", f);
-
                 let mut reducer = Reducer::new(
                     program,
                     &mut versions,
@@ -592,8 +590,6 @@ fn reduce_function<'ast, T: Field>(
                         .collect(),
                     ..f
                 };
-
-                log::trace!("AFTER REDUCE {}", new_f);
 
                 assert!(reducer.for_loop_versions.is_empty());
 
