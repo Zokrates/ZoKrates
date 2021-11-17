@@ -178,6 +178,7 @@ fn register<'ast>(
 
 #[derive(Debug)]
 struct Reducer<'ast, 'a, T> {
+    complete_statement_buffer: Vec<TypedStatement<'ast, T>>,
     statement_buffer: Vec<TypedStatement<'ast, T>>,
     for_loop_versions: Vec<Versions<'ast>>,
     for_loop_versions_after: Vec<Versions<'ast>>,
@@ -201,6 +202,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         for_loop_versions.reverse();
 
         Reducer {
+            complete_statement_buffer: vec![],
             statement_buffer: vec![],
             for_loop_versions_after: vec![],
             for_loop_versions,
@@ -208,6 +210,13 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
             program,
             versions,
             complete: true,
+        }
+    }
+
+    fn statements(&mut self) -> &mut Vec<TypedStatement<'ast, T>> {
+        match self.complete {
+            true => &mut self.complete_statement_buffer,
+            false => &mut self.statement_buffer,
         }
     }
 }
@@ -222,104 +231,106 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
     ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
-        let generics = e
-            .generics
-            .into_iter()
-            .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
-            .collect::<Result<_, _>>()?;
+        unimplemented!();
+        // let generics = e
+        //     .generics
+        //     .into_iter()
+        //     .map(|g| g.map(|g| self.fold_uint_expression(g)).transpose())
+        //     .collect::<Result<_, _>>()?;
 
-        let arguments = e
-            .arguments
-            .into_iter()
-            .map(|e| self.fold_expression(e))
-            .collect::<Result<_, _>>()?;
+        // let arguments = e
+        //     .arguments
+        //     .into_iter()
+        //     .map(|e| self.fold_expression(e))
+        //     .collect::<Result<_, _>>()?;
 
-        let res = inline_call::<_, E>(
-            e.function_key.clone(),
-            generics,
-            arguments,
-            ty,
-            self.program,
-            self.versions,
-        );
+        // let res = inline_call::<_, E>(
+        //     e.function_key.clone(),
+        //     generics,
+        //     arguments,
+        //     ty,
+        //     self.program,
+        //     self.versions,
+        // );
 
-        match res {
-            Ok(Output::Complete((statements, mut expressions))) => {
-                self.complete &= true;
-                self.statement_buffer.extend(statements);
-                Ok(FunctionCallOrExpression::Expression(
-                    E::from(expressions.pop().unwrap()).into_inner(),
-                ))
-            }
-            Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
-                self.complete = false;
-                self.statement_buffer.extend(statements);
-                self.for_loop_versions_after.extend(delta_for_loop_versions);
-                Ok(FunctionCallOrExpression::Expression(
-                    E::from(expressions[0].clone()).into_inner(),
-                ))
-            }
-            Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
-                "Call site `{}` incompatible with declaration `{}`",
-                conc.to_string(),
-                decl.to_string()
-            ))),
-            Err(InlineError::NonConstant(key, generics, arguments, _)) => {
-                self.complete = false;
+        // match res {
+        //     Ok(Output::Complete((statements, mut expressions))) => {
+        //         self.complete &= true;
+        //         self.statement_buffer.extend(statements);
+        //         Ok(FunctionCallOrExpression::Expression(
+        //             E::from(expressions.pop().unwrap()).into_inner(),
+        //         ))
+        //     }
+        //     Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
+        //         self.complete = false;
+        //         self.statement_buffer.extend(statements);
+        //         self.for_loop_versions_after.extend(delta_for_loop_versions);
+        //         Ok(FunctionCallOrExpression::Expression(
+        //             E::from(expressions[0].clone()).into_inner(),
+        //         ))
+        //     }
+        //     Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
+        //         "Call site `{}` incompatible with declaration `{}`",
+        //         conc.to_string(),
+        //         decl.to_string()
+        //     ))),
+        //     Err(InlineError::NonConstant(key, generics, arguments, _)) => {
+        //         self.complete = false;
 
-                Ok(FunctionCallOrExpression::Expression(E::function_call(
-                    key, generics, arguments,
-                )))
-            }
-            Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
-                let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
-                    *self
-                        .versions
-                        .entry(CoreIdentifier::Call(0).clone())
-                        .and_modify(|e| *e += 1) // if it was already declared, we increment
-                        .or_insert(0),
-                );
-                let var = Variable::with_id_and_type(
-                    identifier.clone(),
-                    output_types.clone().inner.pop().unwrap(),
-                );
+        //         Ok(FunctionCallOrExpression::Expression(E::function_call(
+        //             key, generics, arguments,
+        //         )))
+        //     }
+        //     Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
+        //         let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
+        //             *self
+        //                 .versions
+        //                 .entry(CoreIdentifier::Call(0).clone())
+        //                 .and_modify(|e| *e += 1) // if it was already declared, we increment
+        //                 .or_insert(0),
+        //         );
+        //         let var = Variable::with_id_and_type(
+        //             identifier.clone(),
+        //             output_types.clone().inner.pop().unwrap(),
+        //         );
 
-                let v = vec![var.clone().into()];
+        //         let v = vec![var.clone().into()];
 
-                self.statement_buffer
-                    .push(TypedStatement::MultipleDefinition(
-                        v,
-                        TypedExpressionListInner::EmbedCall(embed, generics, arguments)
-                            .annotate(output_types),
-                    ));
-                Ok(FunctionCallOrExpression::Expression(E::identifier(
-                    identifier,
-                )))
-            }
-        }
+        //         self.statement_buffer
+        //             .push(TypedStatement::MultipleDefinition(
+        //                 v,
+        //                 TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+        //                     .annotate(output_types),
+        //             ));
+        //         Ok(FunctionCallOrExpression::Expression(E::identifier(
+        //             identifier,
+        //         )))
+        //     }
+        // }
     }
 
     fn fold_block_expression<E: ResultFold<'ast, T>>(
         &mut self,
         b: BlockExpression<'ast, T, E>,
     ) -> Result<BlockExpression<'ast, T, E>, Self::Error> {
-        // backup the statements and continue with a fresh state
-        let statement_buffer = std::mem::take(&mut self.statement_buffer);
+        unimplemented!();
+        // // backup the statements and continue with a fresh state
+        // let statement_buffer = std::mem::take(&mut self.statement_buffer);
 
-        let block = fold_block_expression(self, b)?;
+        // let block = fold_block_expression(self, b)?;
 
-        // put the original statements back and extract the statements created by visiting the block
-        let extra_statements = std::mem::replace(&mut self.statement_buffer, statement_buffer);
+        // // put the original statements back and extract the statements created by visiting the block
+        // let extra_statements = std::mem::replace(&mut self.statement_buffer, statement_buffer);
 
-        // return the visited block, augmented with the statements created while visiting it
-        Ok(BlockExpression {
-            statements: block
-                .statements
-                .into_iter()
-                .chain(extra_statements)
-                .collect(),
-            ..block
-        })
+        // // return the visited block, augmented with the statements created while visiting it
+        // Ok(BlockExpression {
+        //     statements: block
+        //         .statements
+        //         .into_iter()
+        //         .chain(extra_statements)
+        //         .collect(),
+        //     ..block
+        // })
     }
 
     fn fold_canonical_constant_identifier(
@@ -418,8 +429,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
                 match (from.as_inner(), to.as_inner()) {
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
-                        let mut out_statements = vec![];
-
                         // get a fresh set of versions for all variables to use as a starting point inside the loop
                         self.versions.values_mut().for_each(|v| *v += 1);
 
@@ -439,19 +448,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
                         }
 
-                        for index in *from..*to {
-                            let statements: Vec<TypedStatement<_>> =
-                                std::iter::once(TypedStatement::Definition(
-                                    v.clone().into(),
-                                    UExpression::from(index as u32).into(),
-                                ))
-                                .chain(statements.clone().into_iter())
-                                .map(|s| transformer.fold_statement(s))
-                                .flatten()
-                                .collect();
-
-                            out_statements.extend(statements);
-                        }
+                        // for index in *from..*to {
+                        let extracted_statements: Vec<TypedStatement<_>> =
+                            std::iter::once(TypedStatement::Definition(
+                                v.clone().into(),
+                                UExpression::from(*from as u32).into(),
+                            ))
+                            .chain(statements.clone().into_iter())
+                            .map(|s| transformer.fold_statement(s))
+                            .flatten()
+                            .collect();
+                        // }
 
                         let backups = transformer.for_loop_backups;
                         let blocked = transformer.blocked;
@@ -468,7 +475,26 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         // if the ssa transform got blocked, the reduction is not complete
                         self.complete &= !blocked;
 
-                        Ok(out_statements)
+                        match self.complete {
+                            true => {
+                                self.complete_statement_buffer.extend(extracted_statements);
+                                Ok(vec![TypedStatement::For(
+                                    v,
+                                    (*from as u32 + 1).into(),
+                                    (*to as u32).into(),
+                                    statements,
+                                )])
+                            }
+                            false => Ok(extracted_statements
+                                .into_iter()
+                                .chain(vec![TypedStatement::For(
+                                    v,
+                                    (*from as u32 + 1).into(),
+                                    (*to as u32).into(),
+                                    statements,
+                                )])
+                                .collect()),
+                        }
                     }
                     _ => {
                         let from = self.fold_uint_expression(from)?;
@@ -537,11 +563,7 @@ pub fn reduce_program<T: Field>(
         0 => Ok(TypedFunctionIterator {
             arguments: main_function.arguments.clone(),
             signature: main_function.signature.clone(),
-            statements: ReducerIterator::new(
-                main_function,
-                ConcreteGenericsAssignment::default(),
-                p,
-            ),
+            statements: ReducerIterator::new(main_function, p),
         }),
         _ => Err(Error::GenericsInMain),
     }
@@ -561,11 +583,7 @@ pub struct ReducerIterator<'ast, T> {
 }
 
 impl<'ast, T> ReducerIterator<'ast, T> {
-    pub fn new(
-        function: TypedFunction<'ast, T>,
-        generics: ConcreteGenericsAssignment<'ast>,
-        program: TypedProgram<'ast, T>,
-    ) -> Self {
+    pub fn new(function: TypedFunction<'ast, T>, program: TypedProgram<'ast, T>) -> Self {
         Self {
             program,
             function,
@@ -632,6 +650,7 @@ impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
                 };
 
                 assert!(reducer.for_loop_versions.is_empty());
+                self.output.extend(reducer.complete_statement_buffer);
 
                 match reducer.complete {
                     true => {
