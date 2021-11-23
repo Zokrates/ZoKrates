@@ -134,8 +134,8 @@ impl Backend<Bn128Field, GM17> for Libsnark {
 impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
     fn setup<I: IntoStatements<Field = Bn128Field>>(
         program: ProgIterator<I>,
-    ) -> SetupKeypair<<GM17 as Scheme<Bn128Field>>::VerificationKey> {
-        let program = program.collect();
+    ) -> Result<SetupKeypair<<GM17 as Scheme<Bn128Field>>::VerificationKey>, String> {
+        let program = program.collect().map_err(|e| e.to_string())?;
 
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
@@ -162,7 +162,7 @@ impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
             c_free(result.vk.data);
             c_free(result.pk.data);
 
-            (vk, pk)
+            Ok((vk, pk))
         };
 
         let vk_slice = vk.as_slice();
