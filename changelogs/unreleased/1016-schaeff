@@ -1,1 +1,0 @@
-Fix false positives and false negatives in struct generic inference
