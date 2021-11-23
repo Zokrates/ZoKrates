@@ -47,7 +47,7 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> Proof<<PGHR13 as Scheme<Bn128Field>>::ProofPoints> {
-        let program = program.collect();
+        let program = program.collect().unwrap();
 
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program.clone(), witness.clone());
