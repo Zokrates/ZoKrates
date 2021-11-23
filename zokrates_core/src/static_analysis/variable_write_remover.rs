@@ -34,10 +34,9 @@ impl<'ast> VariableWriteRemover {
                     let inner_ty = base.inner_type();
                     let size = base.size();
 
-                    let size = match size.as_inner() {
-                        UExpressionInner::Value(v) => *v as u32,
-                        _ => unreachable!(),
-                    };
+                    use std::convert::TryInto;
+
+                    let size: u32 = size.try_into().unwrap();
 
                     let head = indices.remove(0);
                     let tail = indices;

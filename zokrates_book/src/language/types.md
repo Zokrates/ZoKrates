@@ -128,6 +128,8 @@ struct Point {
 }
 ```
 
+Note that two struct definitions with the same members still introduce two entirely different types. For example, they cannot be compared with each other.
+
 #### Declaration and Initialization
 
 Initialization of a variable of a struct type always needs to happen in the same statement as a declaration, unless the struct-typed variable is declared within a function's signature.
@@ -143,4 +145,14 @@ The variables within a struct instance, the so called members, can be accessed t
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/struct_assign.zok}}
+```
+
+### Type aliases
+
+Type aliases can be defined for any existing type. This can be useful for readability, or to specialize generic types.
+
+Note that type aliases are just syntactic sugar: in the type system, a type and its alias are exactly equivalent. For example, they can be compared.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/type_aliases.zok}}
 ```

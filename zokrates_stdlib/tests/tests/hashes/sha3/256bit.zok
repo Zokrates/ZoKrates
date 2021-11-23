@@ -9,6 +9,6 @@ import "hashes/sha3/256bit" as sha3_256
 // '18d00c9e97cd5516243b67b243ede9e2cf0d45d3a844d33340bfc4efc9165100'
 
 def main():
-    u64[4] h = sha3_256::<20>([42; 20])
+    u64[4] h = sha3_256([42; 20])
     assert(h == [0x18D00C9E97CD5516, 0x243B67B243EDE9E2, 0xCF0D45D3A844D333, 0x40BFC4EFC9165100])
     return

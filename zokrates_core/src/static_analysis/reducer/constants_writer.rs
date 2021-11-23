@@ -84,7 +84,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
         &mut self,
         s: TypedSymbolDeclaration<'ast, T>,
     ) -> Result<TypedSymbolDeclaration<'ast, T>, Self::Error> {
-        // before we treat the symbol, propagate the constants into it, as may be using constants defined earlier in this module.
+        // before we treat the symbol, propagate the constants into it, as it may be using constants defined earlier in this module.
         let s = self.update_symbol_declaration(s);
 
         let s = fold_symbol_declaration(self, s)?;
@@ -102,6 +102,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
         match d.symbol {
             TypedConstantSymbol::Here(c) => {
                 let c = self.fold_constant(c)?;
+
+                // if constants were used in the rhs, they are now defined in the map
+                // replace them in the expression
+                use crate::typed_absy::folder::Folder;
+
+                let c = ConstantsReader::with_constants(&self.constants).fold_constant(c);
 
                 use crate::typed_absy::{DeclarationSignature, TypedFunction, TypedStatement};
 

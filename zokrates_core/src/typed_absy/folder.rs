@@ -136,7 +136,14 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
-        n
+        let id = match n.id {
+            CoreIdentifier::Constant(c) => {
+                CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c))
+            }
+            id => id,
+        };
+
+        Identifier { id, ..n }
     }
 
     fn fold_variable(&mut self, v: Variable<'ast, T>) -> Variable<'ast, T> {
@@ -1041,6 +1048,9 @@ pub fn fold_declaration_constant<'ast, T: Field, F: Folder<'ast, T>>(
 ) -> DeclarationConstant<'ast, T> {
     match c {
         DeclarationConstant::Expression(e) => DeclarationConstant::Expression(f.fold_expression(e)),
+        DeclarationConstant::Constant(c) => {
+            DeclarationConstant::Constant(f.fold_canonical_constant_identifier(c))
+        }
         c => c,
     }
 }
