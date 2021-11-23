@@ -40,7 +40,7 @@ extern "C" {
 
 impl Backend<Bn128Field, GM17> for Libsnark {
     fn generate_proof<I: IntoIterator<Item = Statement<Bn128Field>>>(
-        program: ProgIterator<Bn128Field, I>,
+        program: ProgIterator<I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> Proof<<GM17 as Scheme<Bn128Field>>::ProofPoints> {
@@ -133,7 +133,7 @@ impl Backend<Bn128Field, GM17> for Libsnark {
 
 impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
     fn setup<I: IntoIterator<Item = Statement<Bn128Field>>>(
-        program: ProgIterator<Bn128Field, I>,
+        program: ProgIterator<I>,
     ) -> SetupKeypair<<GM17 as Scheme<Bn128Field>>::VerificationKey> {
         let program = program.collect();
 
