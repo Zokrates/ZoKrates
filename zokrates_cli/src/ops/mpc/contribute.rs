@@ -1,9 +1,10 @@
 use crate::constants::MPC_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use phase2::parameters::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use zokrates_field::{BellmanFieldExtensions, Bn128Field};
+use zokrates_mpc::groth16::parameters::MPCParameters;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("contribute")
@@ -44,8 +45,9 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
-    let mut params = MPCParameters::read(reader, true)
-        .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
+    let mut params =
+        MPCParameters::<<Bn128Field as BellmanFieldExtensions>::BellmanEngine>::read(reader, true)
+            .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
 
     let entropy = sub_matches.value_of("entropy").unwrap();
 
@@ -83,8 +85,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     };
 
     println!("Contributing to `{}`...", path.display());
-    let zero: u32 = 0;
-    let hash = params.contribute(&mut rng, &zero);
+    let hash = params.contribute(&mut rng);
     println!("The BLAKE2b hash of your contribution is:\n");
 
     for line in hash.chunks(16) {

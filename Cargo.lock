@@ -855,12 +855,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "exitcode"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de853764b47027c2e862a995c34978ffa63c1501f2e15f987ba11bd4f9bba193"
-
-[[package]]
 name = "failure"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1175,15 +1169,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1487,7 +1472,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fbf404899169771dd6a32c84248b83cd67a26cc7cc957aac87661490e1227e4"
 dependencies = [
- "itertools 0.7.11",
+ "itertools",
  "proc-macro2 0.4.30",
  "quote 0.6.13",
  "single",
@@ -1526,29 +1511,6 @@ dependencies = [
  "maplit",
  "pest",
  "sha-1",
-]
-
-[[package]]
-name = "phase2"
-version = "0.2.2"
-source = "git+https://github.com/dark64/phase2-bn254#e372bf41ba874af79bc8ed22a31229494e2a11f4"
-dependencies = [
- "bellman_ce",
- "blake2 0.8.1",
- "blake2-rfc",
- "byteorder",
- "cfg-if 0.1.10",
- "crossbeam",
- "exitcode",
- "hex 0.4.3",
- "itertools 0.9.0",
- "num-bigint 0.2.6",
- "num-traits 0.2.14",
- "num_cpus",
- "rand 0.4.6",
- "rust-crypto",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -2522,7 +2484,6 @@ dependencies = [
  "hex 0.3.2",
  "lazy_static",
  "log",
- "phase2",
  "rand 0.4.6",
  "regex 0.2.11",
  "rust-crypto",
@@ -2532,6 +2493,7 @@ dependencies = [
  "zokrates_core",
  "zokrates_field",
  "zokrates_fs_resolver",
+ "zokrates_mpc",
 ]
 
 [[package]]
@@ -2639,6 +2601,20 @@ version = "0.5.2"
 dependencies = [
  "tempfile",
  "zokrates_common",
+]
+
+[[package]]
+name = "zokrates_mpc"
+version = "0.1.0"
+dependencies = [
+ "bellman_ce",
+ "blake2-rfc",
+ "byteorder",
+ "crossbeam",
+ "getrandom 0.2.3",
+ "num_cpus",
+ "pairing_ce",
+ "rand 0.4.6",
 ]
 
 [[package]]

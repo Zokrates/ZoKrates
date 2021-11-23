@@ -20,12 +20,12 @@ bincode = "0.8.0"
 regex = "0.2"
 zokrates_field = { version = "0.4", path = "../zokrates_field", default-features = false }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
+zokrates_mpc = { version = "0.1", path = "../zokrates_mpc" }
 zokrates_core = { version = "0.6", path = "../zokrates_core", default-features = false }
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 serde_json = "1.0"
 dirs = "3.0.1"
 lazy_static = "1.4.0"
-phase2 = { git = "https://github.com/dark64/phase2-bn254" }
 byteorder = "1"
 rust-crypto = "0.2.36"
 rand = "0.4"

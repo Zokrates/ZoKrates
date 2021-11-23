@@ -7,6 +7,7 @@ use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::proof_system::bellman::Computation;
 use zokrates_field::Bn128Field;
+use zokrates_mpc::groth16::parameters::MPCParameters;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("init")
@@ -22,7 +23,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(FLATTENED_CODE_DEFAULT_PATH),
         )
         .arg(
-            Arg::with_name("radix-dir")
+            Arg::with_name("radix-path")
                 .short("r")
                 .long("radix-dir")
                 .help("Path of the directory containing parameters for various 2^m circuit depths (phase1radix2m{0..=m})")
@@ -59,18 +60,14 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 fn cli_mpc_init(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Initializing MPC...");
 
-    let radix_dir = Path::new(sub_matches.value_of("radix-dir").unwrap());
+    let radix_path = Path::new(sub_matches.value_of("radix-path").unwrap());
+    let radix_file = File::open(radix_path)
+        .map_err(|why| format!("Could not open `{}`: {}", radix_path.display(), why))?;
+
+    let mut radix_reader = BufReader::with_capacity(1024 * 1024, radix_file);
+
     let circuit = Computation::without_witness(ir_prog);
-    let params = phase2::parameters::MPCParameters::new(
-        circuit,
-        true,
-        &radix_dir
-            .to_path_buf()
-            .into_os_string()
-            .into_string()
-            .unwrap(),
-    )
-    .unwrap();
+    let params = MPCParameters::new(circuit, true, &mut radix_reader).unwrap();
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)

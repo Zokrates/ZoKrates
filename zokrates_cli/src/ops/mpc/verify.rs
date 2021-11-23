@@ -1,6 +1,5 @@
 use crate::constants::{FLATTENED_CODE_DEFAULT_PATH, MPC_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use phase2::parameters::MPCParameters;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -8,6 +7,7 @@ use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::proof_system::bellman::Computation;
 use zokrates_field::Bn128Field;
+use zokrates_mpc::groth16::parameters::MPCParameters;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("verify")
@@ -33,10 +33,10 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(FLATTENED_CODE_DEFAULT_PATH),
         )
         .arg(
-            Arg::with_name("radix-dir")
+            Arg::with_name("radix-path")
                 .short("r")
                 .long("radix-dir")
-                .help("Path of the directory containing parameters for various 2^m circuit depths (phase1radix2m{0..=m})")
+                .help("Path to the radix file containing parameters for 2^n circuit depth (phase1radix2m{n})")
                 .value_name("PATH")
                 .takes_value(true)
                 .required(true),
@@ -68,19 +68,16 @@ fn cli_mpc_verify(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Re
     let params = MPCParameters::read(reader, true)
         .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
 
-    let radix_dir = Path::new(sub_matches.value_of("radix-dir").unwrap());
+    let radix_path = Path::new(sub_matches.value_of("radix-path").unwrap());
+    let radix_file = File::open(radix_path)
+        .map_err(|why| format!("Could not open `{}`: {}", radix_path.display(), why))?;
+
+    let mut radix_reader = BufReader::with_capacity(1024 * 1024, radix_file);
+
     let circuit = Computation::without_witness(ir_prog);
 
     let result = params
-        .verify(
-            circuit,
-            true,
-            &radix_dir
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap(),
-        )
+        .verify(circuit, true, &mut radix_reader)
         .map_err(|_| "Verification failed".to_string())?;
 
     let contribution_count = result.len();

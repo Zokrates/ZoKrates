@@ -1,12 +1,12 @@
 use crate::constants::{MPC_DEFAULT_PATH, PROVING_KEY_DEFAULT_PATH, VERIFICATION_KEY_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use phase2::parameters::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
 use zokrates_core::proof_system::bellman::{parse_g1, parse_g2};
 use zokrates_core::proof_system::groth16::VerificationKey;
-use zokrates_field::Bn128Field;
+use zokrates_field::{BellmanFieldExtensions, Bn128Field};
+use zokrates_mpc::groth16::parameters::MPCParameters;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("export")
@@ -49,8 +49,9 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
-    let mpc_params = MPCParameters::read(reader, true)
-        .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
+    let mpc_params =
+        MPCParameters::<<Bn128Field as BellmanFieldExtensions>::BellmanEngine>::read(reader, true)
+            .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
 
     println!("Exporting keys from `{}`...", path.display());
 
