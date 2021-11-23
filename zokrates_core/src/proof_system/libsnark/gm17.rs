@@ -162,7 +162,7 @@ impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
             c_free(result.vk.data);
             c_free(result.pk.data);
 
-            Ok((vk, pk))
+            (vk, pk)
         };
 
         let vk_slice = vk.as_slice();
@@ -188,7 +188,7 @@ impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
             query,
         };
 
-        SetupKeypair::new(vk, pk)
+        Ok(SetupKeypair::new(vk, pk))
     }
 }
 
