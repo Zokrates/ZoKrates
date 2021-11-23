@@ -4,7 +4,7 @@ use crate::proof_system::libsnark::{
 };
 use crate::proof_system::{Backend, G1Affine, G2Affine, NonUniversalBackend, Proof, SetupKeypair};
 
-use crate::ir::{ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
 use crate::proof_system::libsnark::serialization::{read_g1, read_g2, write_g1, write_g2};
 use crate::proof_system::pghr13::{ProofPoints, VerificationKey, PGHR13};
 use crate::proof_system::Scheme;
@@ -42,7 +42,7 @@ extern "C" {
 }
 
 impl Backend<Bn128Field, PGHR13> for Libsnark {
-    fn generate_proof<I: ir::IntoStatements<Field = Bn128Field>>(
+    fn generate_proof<I: IntoStatements<Field = Bn128Field>>(
         program: ProgIterator<I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
@@ -158,7 +158,7 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
 }
 
 impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
-    fn setup<I: ir::IntoStatements<Field = Bn128Field>>(
+    fn setup<I: IntoStatements<Field = Bn128Field>>(
         program: ProgIterator<I>,
     ) -> SetupKeypair<<PGHR13 as Scheme<Bn128Field>>::VerificationKey> {
         let program = program.collect();
