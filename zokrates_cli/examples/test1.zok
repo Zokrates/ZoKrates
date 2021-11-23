@@ -1,13 +1,3 @@
 // only using sub, no need to flatten
 def main(field x) -> field:
-  field a = 5
-  field b = 7
-  field c = if a == b then 4 else 3 fi
-  assert(c == 3)
-  field d = if a == 5 then 1 else 2 fi
-  assert(d == 1)
-  field e = if a < b then 5 else 6 fi
-  assert(e == 5)
-  field f = if b < a then 7 else 8 fi
-  assert(f == 8)
   return x

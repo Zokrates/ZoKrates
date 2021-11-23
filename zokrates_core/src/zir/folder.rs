@@ -19,14 +19,6 @@ pub fn fold_statements<
 }
 
 pub trait Folder<'ast, T: Field>: Sized {
-    fn fold_program(&mut self, p: ZirProgram<'ast, T>) -> ZirProgram<'ast, T> {
-        fold_program(self, p)
-    }
-
-    fn fold_function(&mut self, f: ZirFunction<'ast, T>) -> ZirFunction<'ast, T> {
-        fold_function(self, f)
-    }
-
     fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
         Parameter {
             id: self.fold_variable(p.id),
@@ -370,30 +362,4 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             UExpressionInner::IfElse(box cond, box cons, box alt)
         }
     }
-}
-
-pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    fun: ZirFunction<'ast, T>,
-) -> ZirFunction<'ast, T> {
-    ZirFunction {
-        arguments: fun
-            .arguments
-            .into_iter()
-            .map(|a| f.fold_parameter(a))
-            .collect(),
-        statements: fun
-            .statements
-            .into_iter()
-            .flat_map(|s| f.fold_statement(s))
-            .collect(),
-        ..fun
-    }
-}
-
-pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    p: ZirProgram<'ast, T>,
-) -> ZirProgram<'ast, T> {
-    f.fold_function(p)
 }

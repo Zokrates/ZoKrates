@@ -162,11 +162,13 @@ mod tests {
 
                     let res = compile::<Bn128Field, _>(
                         source,
-                        path,
+                        path.clone(),
                         Some(&resolver),
                         CompileConfig::default(),
                         &arena,
-                    );
+                    )
+                    .and_then(|r| r.collect());
+
                     assert_eq!(res.is_err(), should_error);
                 }
             })

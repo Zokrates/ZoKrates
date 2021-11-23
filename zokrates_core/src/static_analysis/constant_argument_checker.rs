@@ -1,5 +1,4 @@
 use crate::embed::FlatEmbed;
-use crate::typed_absy::TypedProgram;
 use crate::typed_absy::{
     result_folder::ResultFolder,
     result_folder::{fold_expression_list_inner, fold_uint_expression_inner},
@@ -10,12 +9,6 @@ use zokrates_field::Field;
 
 #[derive(Default)]
 pub struct ConstantArgumentChecker;
-
-impl ConstantArgumentChecker {
-    pub fn check<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
-        ConstantArgumentChecker.fold_program(p)
-    }
-}
 
 #[derive(Debug)]
 pub struct Error(String);

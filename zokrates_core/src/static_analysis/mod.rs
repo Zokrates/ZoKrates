@@ -12,6 +12,7 @@ mod flatten_complex_types;
 mod out_of_bounds;
 mod propagation;
 mod reducer;
+mod struct_concretizer;
 mod uint_optimizer;
 mod variable_write_remover;
 mod zir_propagation;
@@ -22,6 +23,7 @@ use self::flatten_complex_types::{Flattener, FlattenerInner};
 use self::out_of_bounds::OutOfBoundsChecker;
 use self::propagation::Propagator;
 use self::reducer::reduce_program;
+use self::struct_concretizer::StructConcretizer;
 use self::uint_optimizer::UintOptimizer;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::compile::CompileConfig;
@@ -122,17 +124,10 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // reduce the program to a single function
         log::debug!("Static analyser: Reduce program");
         let r = reduce_program(r).map_err(Error::from)?;
-        //log::trace!("\n{}", r);
 
-        let r = r.collect().unwrap();
-
-        log::trace!("\n{}", r);
-
-        panic!();
-
-        // generate abi
-        log::debug!("Static analyser: Generate abi");
-        let abi: Abi = r.abi();
+        // log::debug!("Static analyser: Concretize structs");
+        // let r = StructConcretizer::concretize(r);
+        // log::trace!("\n{}", r);
 
         // // propagate
         // log::debug!("Static analyser: Propagate");
@@ -158,8 +153,9 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         log::debug!("Static analyser: Convert to zir");
         log::debug!("Static analyser: Optimize uints");
 
-        //let mut constants = crate::static_analysis::propagation::Constants::new();
-        //let mut propagator = Propagator::with_constants(&mut constants);
+        let mut struct_concretizer = StructConcretizer::default();
+        let constants = crate::static_analysis::propagation::Constants::new();
+        let mut propagator = Propagator::with_constants(constants);
         let mut variable_write_remover = VariableWriteRemover::default();
         let mut constant_argument_checker = ConstantArgumentChecker::default();
         let mut out_of_bounds_checker = OutOfBoundsChecker::default();
@@ -169,20 +165,38 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 
         let arguments = r.arguments;
         let statements = r.statements.into_fallible_iter();
-        let signature = type_flattener_inner.fold_signature(r.signature);
         // todo: initialise with parameters
         let arguments: Vec<_> = arguments
             .into_iter()
-            //.map(|a| propagator.fold_parameter(a).unwrap())
+            .map(|a| propagator.fold_parameter(a).unwrap())
+            .map(|a| struct_concretizer.fold_parameter(a))
             .map(|a| variable_write_remover.fold_parameter(a))
             .map(|a| constant_argument_checker.fold_parameter(a).unwrap())
             .map(|a| out_of_bounds_checker.fold_parameter(a).unwrap())
+            .collect();
+
+        let signature = struct_concretizer.fold_signature(r.signature);
+
+        let r = crate::typed_absy::TypedFunctionIterator {
+            arguments,
+            signature,
+            statements,
+        };
+
+        log::debug!("Static analyser: Generate abi");
+        let abi: Abi = r.abi();
+
+        let signature = type_flattener_inner.fold_signature(r.signature);
+
+        let arguments = r
+            .arguments
+            .into_iter()
             .flat_map(|a| type_flattener_inner.fold_declaration_parameter(a))
             .map(|a| zir_propagator.fold_parameter(a).unwrap())
             .map(|a| uint_optimizer.fold_parameter(a))
             .collect();
 
-        //let statements = typed_absy::result_folder::fold_statements(propagator, statements);
+        let statements = typed_absy::result_folder::fold_statements(propagator, r.statements);
         let statements = typed_absy::folder::fold_statements(variable_write_remover, statements);
         let statements =
             typed_absy::result_folder::fold_statements(constant_argument_checker, statements);

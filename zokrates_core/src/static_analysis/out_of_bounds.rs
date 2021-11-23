@@ -1,6 +1,6 @@
 use crate::typed_absy::{
     result_folder::*, Expr, SelectExpression, SelectOrExpression, Type, TypedAssignee,
-    TypedProgram, UExpressionInner,
+    UExpressionInner,
 };
 use std::fmt;
 use zokrates_field::Field;
@@ -16,11 +16,6 @@ impl std::error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
-    }
-}
-impl OutOfBoundsChecker {
-    pub fn check<T: Field>(p: TypedProgram<T>) -> Result<TypedProgram<T>, Error> {
-        Self::default().fold_program(p)
     }
 }
 

@@ -1,5 +1,5 @@
 import "hashes/sha256/embed/512bitPacked" as sha256packed
-def main() -> (field):
+def main():
 
 	field a = 0
 	field b = 0
@@ -11,4 +11,4 @@ def main() -> (field):
 	assert(h[0] == 263561599766550617289250058199814760685)
 	assert(h[1] == 65303172752238645975888084098459749904)
 
-	return 1
+	return

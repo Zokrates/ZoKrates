@@ -3,7 +3,7 @@ use crate::zir::result_folder::ResultFolder;
 use crate::zir::types::UBitwidth;
 use crate::zir::{
     BooleanExpression, FieldElementExpression, Identifier, RuntimeError, UExpression,
-    UExpressionInner, ZirExpression, ZirProgram, ZirStatement,
+    UExpressionInner, ZirExpression, ZirStatement,
 };
 use std::collections::HashMap;
 use std::fmt;
@@ -39,12 +39,6 @@ impl fmt::Display for Error {
 #[derive(Default)]
 pub struct ZirPropagator<'ast, T> {
     constants: Constants<'ast, T>,
-}
-
-impl<'ast, T: Field> ZirPropagator<'ast, T> {
-    pub fn propagate(p: ZirProgram<T>) -> Result<ZirProgram<T>, Error> {
-        ZirPropagator::default().fold_program(p)
-    }
 }
 
 impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {

@@ -22,17 +22,6 @@ pub fn fold_statements<
 pub trait ResultFolder<'ast, T: Field>: Sized {
     type Error: Into<Box<dyn std::error::Error>>;
 
-    fn fold_program(&mut self, p: ZirProgram<'ast, T>) -> Result<ZirProgram<'ast, T>, Self::Error> {
-        fold_program(self, p)
-    }
-
-    fn fold_function(
-        &mut self,
-        f: ZirFunction<'ast, T>,
-    ) -> Result<ZirFunction<'ast, T>, Self::Error> {
-        fold_function(self, f)
-    }
-
     fn fold_parameter(&mut self, p: Parameter<'ast>) -> Result<Parameter<'ast>, Self::Error> {
         Ok(Parameter {
             id: self.fold_variable(p.id)?,
@@ -401,33 +390,4 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
             UExpressionInner::IfElse(box cond, box cons, box alt)
         }
     })
-}
-
-pub fn fold_function<'ast, T: Field, F: ResultFolder<'ast, T>>(
-    f: &mut F,
-    fun: ZirFunction<'ast, T>,
-) -> Result<ZirFunction<'ast, T>, F::Error> {
-    Ok(ZirFunction {
-        arguments: fun
-            .arguments
-            .into_iter()
-            .map(|a| f.fold_parameter(a))
-            .collect::<Result<_, _>>()?,
-        statements: fun
-            .statements
-            .into_iter()
-            .map(|s| f.fold_statement(s))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .flatten()
-            .collect(),
-        ..fun
-    })
-}
-
-pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
-    f: &mut F,
-    p: ZirProgram<'ast, T>,
-) -> Result<ZirProgram<'ast, T>, F::Error> {
-    f.fold_function(p)
 }

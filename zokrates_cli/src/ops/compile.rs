@@ -149,10 +149,10 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             println!("Compiled code written to '{}'", bin_output_path.display());
             Ok(())
         }
-        Err(_) => {
+        Err(e) => {
             // something wrong happened, clean up
             std::fs::remove_file(bin_output_path).unwrap();
-            Err(String::from("Something wrong happened"))
+            Err(e.to_string())
         }
     }
 }

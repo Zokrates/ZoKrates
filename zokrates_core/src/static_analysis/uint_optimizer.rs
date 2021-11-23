@@ -589,7 +589,7 @@ mod tests {
             };
 
             assert_eq!(
-                UintOptimizer::new()
+                UintOptimizer::default()
                     .fold_uint_expression(UExpression::$op(left.clone(), right.clone())),
                 UExpression::$op(left_expected, right_expected).with_max($res_max)
             );
@@ -715,7 +715,7 @@ mod tests {
         let e_expected = force_reduce(e.clone());
 
         assert_eq!(
-            UintOptimizer::new().fold_uint_expression(UExpression::not(e)),
+            UintOptimizer::default().fold_uint_expression(UExpression::not(e)),
             UExpression::not(e_expected).with_max(0xffffffff_u32)
         );
     }
@@ -732,7 +732,7 @@ mod tests {
             let right_expected = right;
 
             assert_eq!(
-                UintOptimizer::new()
+                UintOptimizer::default()
                     .fold_uint_expression(UExpression::right_shift(left.clone(), right)),
                 UExpression::right_shift(left_expected, right_expected).with_max(output_max)
             );
@@ -755,7 +755,7 @@ mod tests {
             let right_expected = right;
 
             assert_eq!(
-                UintOptimizer::new()
+                UintOptimizer::default()
                     .fold_uint_expression(UExpression::left_shift(left.clone(), right)),
                 UExpression::left_shift(left_expected, right_expected).with_max(output_max)
             );
@@ -778,7 +778,7 @@ mod tests {
             .metadata(UMetadata::with_max(33u32));
 
         assert_eq!(
-            UintOptimizer::new()
+            UintOptimizer::default()
                 .fold_uint_expression(UExpression::if_else(
                     BooleanExpression::Value(true),
                     consequence,

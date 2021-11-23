@@ -75,7 +75,10 @@ fn get_canonical_function<'ast, T: Field>(
 }
 
 type InlineResult<'ast, T> = Result<
-    Output<(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>), Vec<Versions<'ast>>>,
+    Output<
+        (Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>),
+        Vec<(Versions<'ast>, Versions<'ast>)>,
+    >,
     InlineError<'ast, T>,
 >;
 
@@ -94,7 +97,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     let output_types = output.clone().into_types();
 
     // we try to get concrete values for explicit generics
-    let generics_values: Vec<Option<u32>> = generics
+    let generics_values: Vec<Option<u32>> = match generics
         .iter()
         .map(|g| {
             g.as_ref()
@@ -105,14 +108,17 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
                 .transpose()
         })
         .collect::<Result<_, _>>()
-        .map_err(|_| {
-            InlineError::NonConstant(
-                k.clone(),
-                generics.clone(),
-                arguments.clone(),
-                output_types.clone(),
-            )
-        })?;
+    {
+        Ok(s) => s,
+        Err(_) => {
+            return Err(InlineError::NonConstant(
+                k,
+                generics,
+                arguments,
+                output_types,
+            ))
+        }
+    };
 
     // we infer a signature based on inputs and outputs
     // this is where we could handle explicit annotations
@@ -137,30 +143,33 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     let decl = get_canonical_function(k.clone(), program);
 
     // get an assignment of generics for this call site
-    let assignment: ConcreteGenericsAssignment<'ast> = k
-        .signature
-        .specialize(generics_values, &inferred_signature)
-        .map_err(|_| {
-            InlineError::Generic(
-                k.clone(),
-                ConcreteFunctionKey {
-                    module: decl.key.module.clone(),
-                    id: decl.key.id,
-                    signature: inferred_signature.clone(),
-                },
-            )
-        })?;
+    let assignment: ConcreteGenericsAssignment<'ast> =
+        match k.signature.specialize(generics_values, &inferred_signature) {
+            Ok(a) => a,
+            Err(_) => {
+                return Err(InlineError::Generic(
+                    k.clone(),
+                    ConcreteFunctionKey {
+                        module: decl.key.module,
+                        id: decl.key.id,
+                        signature: inferred_signature,
+                    },
+                ));
+            }
+        };
 
     let f = match decl.symbol {
-        TypedFunctionSymbol::Here(f) => Ok(f),
-        TypedFunctionSymbol::Flat(e) => Err(InlineError::Flat(
-            e,
-            e.generics::<T>(&assignment),
-            arguments.clone(),
-            output_types,
-        )),
+        TypedFunctionSymbol::Here(f) => f,
+        TypedFunctionSymbol::Flat(e) => {
+            return Err(InlineError::Flat(
+                e,
+                e.generics::<T>(&assignment),
+                arguments,
+                output_types,
+            ));
+        }
         _ => unreachable!(),
-    }?;
+    };
 
     assert_eq!(f.arguments.len(), arguments.len());
 

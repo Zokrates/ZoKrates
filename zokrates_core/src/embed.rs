@@ -178,128 +178,105 @@ impl FlatEmbed {
         match self {
             FlatEmbed::BitArrayLe => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
-                    GenericIdentifier {
-                        name: "N",
-                        index: 0,
-                    },
+                    GenericIdentifier::with_name("N").with_index(0),
                 ))])
                 .inputs(vec![
                     DeclarationType::array((
                         DeclarationType::Boolean,
-                        GenericIdentifier {
-                            name: "N",
-                            index: 0,
-                        },
+                        GenericIdentifier::with_name("N").with_index(0),
                     )),
                     DeclarationType::array((
                         DeclarationType::Boolean,
-                        GenericIdentifier {
-                            name: "N",
-                            index: 0,
-                        },
+                        GenericIdentifier::with_name("N").with_index(0),
                     )),
                 ])
                 .outputs(vec![DeclarationType::Boolean]),
             FlatEmbed::Unpack => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
-                    GenericIdentifier {
-                        name: "N",
-                        index: 0,
-                    },
+                    GenericIdentifier::with_name("N").with_index(0),
                 ))])
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    GenericIdentifier {
-                        name: "N",
-                        index: 0,
-                    },
+                    GenericIdentifier::with_name("N").with_index(0),
                 ))]),
             FlatEmbed::U8ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(8)])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    8usize,
+                    8u32,
                 ))]),
             FlatEmbed::U16ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(16)])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    16usize,
+                    16u32,
                 ))]),
             FlatEmbed::U32ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(32)])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    32usize,
+                    32u32,
                 ))]),
             FlatEmbed::U64ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(64)])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    64usize,
+                    64u32,
                 ))]),
             FlatEmbed::U8FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(8)])
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    8usize,
+                    8u32,
                 ))]),
             FlatEmbed::U16FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(16)])
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    16usize,
+                    16u32,
                 ))]),
             FlatEmbed::U32FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(32)])
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    32usize,
+                    32u32,
                 ))]),
             FlatEmbed::U64FromBits => DeclarationSignature::new()
                 .outputs(vec![DeclarationType::uint(64)])
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    64usize,
+                    64u32,
                 ))]),
             #[cfg(feature = "bellman")]
             FlatEmbed::Sha256Round => DeclarationSignature::new()
                 .inputs(vec![
-                    DeclarationType::array((DeclarationType::Boolean, 512usize)),
-                    DeclarationType::array((DeclarationType::Boolean, 256usize)),
+                    DeclarationType::array((DeclarationType::Boolean, 512u32)),
+                    DeclarationType::array((DeclarationType::Boolean, 256u32)),
                 ])
                 .outputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
-                    256usize,
+                    256u32,
                 ))]),
             #[cfg(feature = "ark")]
             FlatEmbed::SnarkVerifyBls12377 => DeclarationSignature::new()
                 .generics(vec![
-                    Some(DeclarationConstant::Generic(GenericIdentifier {
-                        name: "N",
-                        index: 0,
-                    })),
-                    Some(DeclarationConstant::Generic(GenericIdentifier {
-                        name: "V",
-                        index: 1,
-                    })),
+                    Some(DeclarationConstant::Generic(
+                        GenericIdentifier::with_name("N").with_index(0),
+                    )),
+                    Some(DeclarationConstant::Generic(
+                        GenericIdentifier::with_name("V").with_index(1),
+                    )),
                 ])
                 .inputs(vec![
                     DeclarationType::array((
                         DeclarationType::FieldElement,
-                        GenericIdentifier {
-                            name: "N",
-                            index: 0,
-                        },
+                        GenericIdentifier::with_name("N").with_index(0),
                     )), // inputs
-                    DeclarationType::array((DeclarationType::FieldElement, 8usize)), // proof
+                    DeclarationType::array((DeclarationType::FieldElement, 8u32)), // proof
                     DeclarationType::array((
                         DeclarationType::FieldElement,
-                        GenericIdentifier {
-                            name: "V",
-                            index: 1,
-                        },
+                        GenericIdentifier::with_name("V").with_index(1),
                     )), // 18 + (2 * n) // vk
                 ])
                 .outputs(vec![DeclarationType::Boolean]),

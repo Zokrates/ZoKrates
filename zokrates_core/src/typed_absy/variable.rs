@@ -12,7 +12,7 @@ pub struct GVariable<'ast, S> {
 }
 
 pub type DeclarationVariable<'ast, T> = GVariable<'ast, DeclarationConstant<'ast, T>>;
-pub type ConcreteVariable<'ast> = GVariable<'ast, usize>;
+pub type ConcreteVariable<'ast> = GVariable<'ast, u32>;
 pub type Variable<'ast, T> = GVariable<'ast, UExpression<'ast, T>>;
 
 impl<'ast, T> TryFrom<Variable<'ast, T>> for ConcreteVariable<'ast> {

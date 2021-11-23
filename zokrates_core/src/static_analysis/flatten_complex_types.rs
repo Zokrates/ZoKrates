@@ -1,5 +1,5 @@
 use crate::typed_absy::types::UBitwidth;
-use crate::typed_absy::{self, Expr, IntoTypedStatements};
+use crate::typed_absy::{self, Expr};
 use crate::zir;
 use fallible_iterator::FallibleIterator;
 use std::collections::VecDeque;
@@ -151,25 +151,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::StructExpression<'ast, T> 
 }
 
 impl<'ast, T: Field> FlattenerInner<T> {
-    // pub fn flatten(p: typed_absy::TypedProgram<T>) -> zir::ZirProgram<T> {
-    //     let mut f = Flattener::default();
-    //     f.fold_program(p)
-    // }
-
-    fn fold_program<I: IntoTypedStatements<'ast>>(
-        &mut self,
-        p: typed_absy::TypedFunctionIterator<'ast, I>,
-    ) -> zir::ZirProgramIterator<'ast, impl zir::IntoZirStatements<'ast>> {
-        fold_program(self, p)
-    }
-
-    fn fold_function(
-        &mut self,
-        f: typed_absy::TypedFunction<'ast, T>,
-    ) -> zir::ZirFunction<'ast, T> {
-        fold_function(self, f)
-    }
-
     pub fn fold_declaration_parameter(
         &mut self,
         p: typed_absy::DeclarationParameter<'ast, T>,
@@ -393,7 +374,7 @@ impl<'ast, T: Field> FlattenerInner<T> {
         &mut self,
         statements_buffer: &mut VecDeque<zir::ZirStatement<'ast, T>>,
         ty: &typed_absy::types::ConcreteType,
-        size: usize,
+        size: u32,
         e: typed_absy::ArrayExpressionInner<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_array_expression_inner(self, statements_buffer, ty, size, e)
@@ -463,7 +444,7 @@ fn fold_array_expression_inner<'ast, T: Field>(
     f: &mut FlattenerInner<T>,
     statements_buffer: &mut VecDeque<zir::ZirStatement<'ast, T>>,
     ty: &typed_absy::types::ConcreteType,
-    size: usize,
+    size: u32,
     array: typed_absy::ArrayExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match array {
@@ -496,7 +477,7 @@ fn fold_array_expression_inner<'ast, T: Field>(
                 .flat_map(|e| f.fold_expression_or_spread(statements_buffer, e))
                 .collect();
 
-            assert_eq!(exprs.len(), size * ty.get_primitive_count());
+            assert_eq!(exprs.len(), size as usize * ty.get_primitive_count());
 
             exprs
         }
@@ -517,7 +498,7 @@ fn fold_array_expression_inner<'ast, T: Field>(
 
             match (from.into_inner(), to.into_inner()) {
                 (zir::UExpressionInner::Value(from), zir::UExpressionInner::Value(to)) => {
-                    assert_eq!(size, to.saturating_sub(from) as usize);
+                    assert_eq!(size, to.saturating_sub(from) as u32);
 
                     let element_size = ty.get_primitive_count();
                     let start = from as usize * element_size;
@@ -1133,29 +1114,8 @@ fn fold_uint_expression_inner<'ast, T: Field>(
     }
 }
 
-fn fold_function<'ast, T: Field>(
-    f: &mut FlattenerInner<T>,
-    fun: typed_absy::TypedFunction<'ast, T>,
-) -> zir::ZirFunction<'ast, T> {
-    let mut main_statements_buffer = VecDeque::new();
-
-    fun.statements
-        .into_iter()
-        .for_each(|s| f.fold_statement(&mut main_statements_buffer, s));
-
-    zir::ZirFunction {
-        arguments: fun
-            .arguments
-            .into_iter()
-            .flat_map(|a| f.fold_declaration_parameter(a))
-            .collect(),
-        statements: zir::MemoryZirStatements::from(Vec::from(main_statements_buffer)),
-        signature: f.fold_signature(fun.signature),
-    }
-}
-
 fn fold_signature<'ast, T: Field>(
-    f: &mut FlattenerInner<T>,
+    _: &mut FlattenerInner<T>,
     s: typed_absy::DeclarationSignature<'ast, T>,
 ) -> zir::types::Signature {
     typed_absy::types::ConcreteSignature::try_from(
@@ -1174,10 +1134,7 @@ fn fold_array_expression<'ast, T: Field>(
     statements_buffer: &mut VecDeque<zir::ZirStatement<'ast, T>>,
     e: typed_absy::ArrayExpression<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    let size = match e.size().into_inner() {
-        typed_absy::UExpressionInner::Value(v) => v,
-        _ => unreachable!(),
-    } as usize;
+    let size: u32 = e.size().try_into().unwrap();
     f.fold_array_expression_inner(
         statements_buffer,
         &typed_absy::types::ConcreteType::try_from(e.inner_type().clone()).unwrap(),
@@ -1196,29 +1153,4 @@ fn fold_struct_expression<'ast, T: Field>(
         &typed_absy::types::ConcreteStructType::try_from(e.ty().clone()).unwrap(),
         e.into_inner(),
     )
-}
-
-fn fold_program<'ast, T: Field, I: IntoTypedStatements<'ast>>(
-    f: &mut FlattenerInner<T>,
-    p: typed_absy::TypedFunctionIterator<'ast, I>,
-) -> zir::ZirProgramIterator<'ast, impl zir::IntoZirStatements<'ast, Field = T>> {
-    // let main_module = p.modules.remove(&p.main).unwrap();
-
-    // let main_function = main_module
-    //     .into_functions_iter()
-    //     .find(|d| d.key.id == "main")
-    //     .unwrap()
-    //     .symbol;
-    // let main_function = match main_function {
-    //     typed_absy::TypedFunctionSymbol::Here(main) => main,
-    //     _ => unreachable!(),
-    // };
-
-    // f.fold_function(main_function)
-
-    zir::ZirFunctionIterator {
-        arguments: vec![],
-        statements: zir::MemoryZirStatements::<'ast, T>::from(vec![]),
-        signature: zir::types::Signature::new(),
-    }
 }

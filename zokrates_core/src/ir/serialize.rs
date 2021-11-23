@@ -98,17 +98,17 @@ impl<
 
 impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
     pub fn serialize<W: Write>(self, mut w: W) -> Result<(), Box<dyn std::error::Error>> {
-        w.write_all(ZOKRATES_MAGIC).unwrap();
-        w.write_all(ZOKRATES_VERSION_2).unwrap();
-        w.write_all(&T::id()).unwrap();
+        w.write_all(ZOKRATES_MAGIC)?;
+        w.write_all(ZOKRATES_VERSION_2)?;
+        w.write_all(&T::id())?;
 
-        serde_cbor::to_writer(&mut w, &self.arguments).unwrap();
-        serde_cbor::to_writer(&mut w, &self.return_count).unwrap();
+        serde_cbor::to_writer(&mut w, &self.arguments)?;
+        serde_cbor::to_writer(&mut w, &self.return_count)?;
 
         let mut statements = self.statements.into_fallible_iter();
 
         while let Some(s) = statements.next()? {
-            serde_cbor::to_writer(&mut w, &s).unwrap();
+            serde_cbor::to_writer(&mut w, &s)?;
         }
 
         Ok(())
@@ -183,7 +183,7 @@ impl<'de, R: Read>
                     {
                         let mut res = vec![];
                         while let Some(e) = seq.next_element().unwrap() {
-                            res.push(dbg!(e));
+                            res.push(e);
                         }
                         Ok(res)
                     }

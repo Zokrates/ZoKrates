@@ -31,49 +31,34 @@ impl Abi {
 mod tests {
     use super::*;
     use crate::typed_absy::types::{
-        ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType, UBitwidth,
+        ConcreteArrayType, ConcreteStructMember, ConcreteStructType, UBitwidth,
     };
     use crate::typed_absy::{
-        parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType,
-        TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule,
-        TypedProgram,
+        parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType, TypedFunction,
     };
-    use std::collections::BTreeMap;
     use zokrates_field::Bn128Field;
 
     #[test]
     fn generate_abi_from_typed_ast() {
-        let symbols = vec![TypedFunctionSymbolDeclaration::new(
-            ConcreteFunctionKey::with_location("main", "main").into(),
-            TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![
-                    DeclarationParameter {
-                        id: DeclarationVariable::field_element("a"),
-                        private: true,
-                    },
-                    DeclarationParameter {
-                        id: DeclarationVariable::boolean("b"),
-                        private: false,
-                    },
-                ],
-                statements: vec![],
-                signature: ConcreteSignature::new()
-                    .inputs(vec![ConcreteType::FieldElement, ConcreteType::Boolean])
-                    .outputs(vec![ConcreteType::FieldElement])
-                    .into(),
-            }),
-        )
-        .into()];
-
-        let mut modules = BTreeMap::new();
-        modules.insert("main".into(), TypedModule { symbols });
-
-        let typed_ast: TypedProgram<Bn128Field> = TypedProgram {
-            main: "main".into(),
-            modules,
+        let f: TypedFunction<Bn128Field> = TypedFunction {
+            arguments: vec![
+                DeclarationParameter {
+                    id: DeclarationVariable::field_element("a"),
+                    private: true,
+                },
+                DeclarationParameter {
+                    id: DeclarationVariable::boolean("b"),
+                    private: false,
+                },
+            ],
+            statements: vec![].into(),
+            signature: ConcreteSignature::new()
+                .inputs(vec![ConcreteType::FieldElement, ConcreteType::Boolean])
+                .outputs(vec![ConcreteType::FieldElement])
+                .into(),
         };
 
-        let abi: Abi = typed_ast.abi();
+        let abi: Abi = f.abi();
         let expected_abi = Abi {
             inputs: vec![
                 AbiInput {
@@ -226,12 +211,12 @@ mod tests {
                 ty: ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "Bar".into(),
-                    vec![Some(1usize)],
+                    vec![Some(1u32)],
                     vec![ConcreteStructMember::new(
                         String::from("a"),
                         ConcreteType::Array(ConcreteArrayType::new(
                             ConcreteType::FieldElement,
-                            1usize,
+                            1u32,
                         )),
                     )],
                 )),
@@ -395,7 +380,7 @@ mod tests {
                             ConcreteStructMember::new(String::from("c"), ConcreteType::Boolean),
                         ],
                     )),
-                    2usize,
+                    2u32,
                 )),
             }],
             outputs: vec![ConcreteType::Boolean],
@@ -449,8 +434,8 @@ mod tests {
                 name: String::from("a"),
                 public: false,
                 ty: ConcreteType::Array(ConcreteArrayType::new(
-                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2usize)),
-                    2usize,
+                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2u32)),
+                    2u32,
                 )),
             }],
             outputs: vec![ConcreteType::FieldElement],

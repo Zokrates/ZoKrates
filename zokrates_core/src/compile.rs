@@ -57,6 +57,17 @@ impl From<CompileError> for CompileErrors {
     }
 }
 
+impl fmt::Display for CompileErrors {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for e in &self.0 {
+            write!(f, "{}", e)?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for CompileErrors {}
+
 #[derive(Debug)]
 pub enum CompileErrorInner {
     ParserError(pest::Error),
@@ -80,6 +91,12 @@ impl CompileErrorInner {
 pub struct CompileError {
     file: PathBuf,
     value: CompileErrorInner,
+}
+
+impl fmt::Display for CompileError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
 }
 
 impl CompileError {
@@ -248,13 +265,11 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     let typed_ast = Checker::check(compiled)
         .map_err(|errors| CompileErrors(errors.into_iter().map(CompileError::from).collect()))?;
 
-    log::trace!("\n{}", typed_ast);
-
     let main_module = typed_ast.main.clone();
 
     log::debug!("Run static analysis");
 
-    // analyse (unroll and constant propagation)
+    // analyse
     typed_ast
         .analyse(config)
         .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
@@ -334,8 +349,7 @@ mod test {
         .map(|res| res.collect());
 
         let e = res.unwrap_err();
-        assert!(e.0[0]
-            .value()
+        assert!(e
             .to_string()
             .contains(&"Cannot resolve import without a resolver"));
     }

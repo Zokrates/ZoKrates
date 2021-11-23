@@ -51,10 +51,10 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
         }
     }
 
-    // increase all versions by 2 and return the old versions
+    // increase all versions by 1 and return the old versions
     fn create_version_gap(&mut self) -> Versions<'ast> {
         let ret = self.versions.clone();
-        self.versions.values_mut().for_each(|v| *v += 2);
+        self.versions.values_mut().for_each(|v| *v += 1);
         ret
     }
 
@@ -81,14 +81,21 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
         f: TypedFunction<'ast, T>,
         generics: &ConcreteGenericsAssignment<'ast>,
         versions: &'a mut Versions<'ast>,
-    ) -> Output<TypedFunction<'ast, T>, Vec<Versions<'ast>>> {
+    ) -> Output<TypedFunction<'ast, T>, Vec<(Versions<'ast>, Versions<'ast>)>> {
         let mut unroller = ShallowTransformer::with_versions(versions);
 
         let f = unroller.fold_function(f, generics);
 
         match unroller.blocked {
             false => Output::Complete(f),
-            true => Output::Incomplete(f, unroller.for_loop_backups),
+            true => Output::Incomplete(
+                f,
+                unroller
+                    .for_loop_backups
+                    .into_iter()
+                    .map(|v| (v.clone(), v.into_iter().map(|(k, v)| (k, v + 1)).collect()))
+                    .collect(),
+            ),
         }
     }
 
@@ -105,7 +112,7 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
             .map(|(g, v)| {
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::with_id_and_type(
-                        g.name,
+                        g.name(),
                         Type::Uint(UBitwidth::B32),
                     )),
                     UExpression::from(*v as u32).into(),
@@ -211,7 +218,7 @@ mod tests {
             let f = TypedFunction {
                 arguments: vec![],
                 signature: DeclarationSignature::new(),
-                statements,
+                statements: statements.into(),
             };
 
             match ShallowTransformer::transform(
@@ -598,18 +605,18 @@ mod tests {
             //      u32 n_0 = 42
             //      n_1 = n_0
             //      a_1 = a_0
-            //      # versions: {n: 1, a: 1}
-            //      for u32 i_0 in n_0..n_0*n_0:
+            //      # versions: {n: 1, a: 1, K: 0}
+            //      for u32 i_0 in n_1..n_1*n_1:
             //          a_0 = a_0
             //      endfor
-            //      a_4 = a_3
-            //      # versions: {n: 3, a: 4}
-            //      for u32 i_0 in n_0..n_0*n_0:
+            //      a_3 = a_2
+            //      # versions: {n: 2, a: 3, K: 1}
+            //      for u32 i_0 in n_2..n_2*n_2:
             //          a_0 = a_0
             //      endfor
-            //      a_7 = a_6
-            //      return a_7
-            //      # versions: {n: 5, a: 7}
+            //      a_5 = a_4
+            //      return a_5
+            //      # versions: {n: 3, a: 5, K: 2}
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],
@@ -659,10 +666,11 @@ mod tests {
                     TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into()
                     ]),
-                ],
+                ]
+                .into(),
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into(),
+                        GenericIdentifier::with_name("K").with_index(0).into(),
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
@@ -673,7 +681,7 @@ mod tests {
             let ssa = ShallowTransformer::transform(
                 f,
                 &GGenericsAssignment(
-                    vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                    vec![(GenericIdentifier::with_name("K").with_index(0), 1)]
                         .into_iter()
                         .collect(),
                 ),
@@ -715,16 +723,16 @@ mod tests {
                         )],
                     ),
                     TypedStatement::Definition(
-                        Variable::field_element(Identifier::from("a").version(4)).into(),
-                        FieldElementExpression::Identifier(Identifier::from("a").version(3)).into(),
+                        Variable::field_element(Identifier::from("a").version(3)).into(),
+                        FieldElementExpression::Identifier(Identifier::from("a").version(2)).into(),
                     ),
                     TypedStatement::For(
                         Variable::uint("i", UBitwidth::B32),
-                        UExpressionInner::Identifier(Identifier::from("n").version(3))
+                        UExpressionInner::Identifier(Identifier::from("n").version(2))
                             .annotate(UBitwidth::B32),
-                        UExpressionInner::Identifier(Identifier::from("n").version(3))
+                        UExpressionInner::Identifier(Identifier::from("n").version(2))
                             .annotate(UBitwidth::B32)
-                            * UExpressionInner::Identifier(Identifier::from("n").version(3))
+                            * UExpressionInner::Identifier(Identifier::from("n").version(2))
                                 .annotate(UBitwidth::B32),
                         vec![TypedStatement::Definition(
                             Variable::field_element("a").into(),
@@ -732,17 +740,18 @@ mod tests {
                         )],
                     ),
                     TypedStatement::Definition(
-                        Variable::field_element(Identifier::from("a").version(7)).into(),
-                        FieldElementExpression::Identifier(Identifier::from("a").version(6)).into(),
+                        Variable::field_element(Identifier::from("a").version(5)).into(),
+                        FieldElementExpression::Identifier(Identifier::from("a").version(4)).into(),
                     ),
                     TypedStatement::Return(vec![FieldElementExpression::Identifier(
-                        Identifier::from("a").version(7),
+                        Identifier::from("a").version(5),
                     )
                     .into()]),
-                ],
+                ]
+                .into(),
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into(),
+                        GenericIdentifier::with_name("K").with_index(0).into(),
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
@@ -750,7 +759,7 @@ mod tests {
 
             assert_eq!(
                 versions,
-                vec![("n".into(), 5), ("a".into(), 7), ("K".into(), 4)]
+                vec![("n".into(), 3), ("a".into(), 5), ("K".into(), 2)]
                     .into_iter()
                     .collect::<Versions>()
             );
@@ -758,12 +767,22 @@ mod tests {
             let expected = Output::Incomplete(
                 expected,
                 vec![
-                    vec![("n".into(), 1), ("a".into(), 1), ("K".into(), 0)]
-                        .into_iter()
-                        .collect::<Versions>(),
-                    vec![("n".into(), 3), ("a".into(), 4), ("K".into(), 2)]
-                        .into_iter()
-                        .collect::<Versions>(),
+                    (
+                        vec![("n".into(), 1), ("a".into(), 1), ("K".into(), 0)]
+                            .into_iter()
+                            .collect::<Versions>(),
+                        vec![("n".into(), 2), ("a".into(), 2), ("K".into(), 1)]
+                            .into_iter()
+                            .collect::<Versions>(),
+                    ),
+                    (
+                        vec![("n".into(), 2), ("a".into(), 3), ("K".into(), 1)]
+                            .into_iter()
+                            .collect::<Versions>(),
+                        vec![("n".into(), 3), ("a".into(), 4), ("K".into(), 2)]
+                            .into_iter()
+                            .collect::<Versions>(),
+                    ),
                 ],
             );
 
@@ -848,10 +867,11 @@ mod tests {
                     TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into()
                     ]),
-                ],
+                ]
+                .into(),
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into(),
+                        GenericIdentifier::with_name("K").with_index(0).into(),
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),
@@ -862,7 +882,7 @@ mod tests {
             let ssa = ShallowTransformer::transform(
                 f,
                 &GGenericsAssignment(
-                    vec![(GenericIdentifier::with_name("K").index(0), 1)]
+                    vec![(GenericIdentifier::with_name("K").with_index(0), 1)]
                         .into_iter()
                         .collect(),
                 ),
@@ -931,10 +951,11 @@ mod tests {
                         Identifier::from("a").version(3),
                     )
                     .into()]),
-                ],
+                ]
+                .into(),
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into(),
+                        GenericIdentifier::with_name("K").with_index(0).into(),
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
                     .outputs(vec![DeclarationType::FieldElement]),

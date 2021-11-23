@@ -22,9 +22,7 @@ use zokrates_field::Field;
 impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
     pub fn optimize(self) -> ProgIterator<impl IntoStatements<Field = T>> {
         // remove redefinitions
-        log::debug!(
-            "Optimizer: Remove redefinitions and tautologies and directives and duplicates"
-        );
+        log::debug!("Initialise optimizer");
 
         // define all optimizer steps
         let mut redefinition_optimizer = RedefinitionOptimizer::init(&self);
@@ -59,13 +57,10 @@ impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
         let statements = fold_statements(directive_optimizer, statements);
         let statements = fold_statements(duplicate_optimizer, statements);
 
-        let r = ProgIterator {
+        ProgIterator {
             arguments,
             statements,
             return_count: self.return_count,
-        };
-
-        log::debug!("Done");
-        r
+        }
     }
 }

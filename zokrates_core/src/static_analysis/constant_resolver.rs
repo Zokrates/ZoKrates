@@ -131,7 +131,8 @@ mod tests {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![
                 FieldElementExpression::Identifier(Identifier::from(const_id)).into(),
-            ])],
+            ])]
+            .into(),
             signature: DeclarationSignature::new()
                 .inputs(vec![])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -191,7 +192,8 @@ mod tests {
             statements: vec![TypedStatement::Return(vec![BooleanExpression::Identifier(
                 Identifier::from(const_id.clone()),
             )
-            .into()])],
+            .into()])]
+            .into(),
             signature: DeclarationSignature::new()
                 .inputs(vec![])
                 .outputs(vec![DeclarationType::Boolean]),
@@ -250,7 +252,8 @@ mod tests {
                 Identifier::from(const_id.clone()),
             )
             .annotate(UBitwidth::B32)
-            .into()])],
+            .into()])]
+            .into(),
             signature: DeclarationSignature::new()
                 .inputs(vec![])
                 .outputs(vec![DeclarationType::Uint(UBitwidth::B32)]),
@@ -310,18 +313,19 @@ mod tests {
             statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
                 FieldElementExpression::select(
                     ArrayExpressionInner::Identifier(Identifier::from(const_id.clone()))
-                        .annotate(GType::FieldElement, 2usize),
+                        .annotate(GType::FieldElement, 2u32),
                     UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
                 )
                 .into(),
                 FieldElementExpression::select(
                     ArrayExpressionInner::Identifier(Identifier::from(const_id.clone()))
-                        .annotate(GType::FieldElement, 2usize),
+                        .annotate(GType::FieldElement, 2u32),
                     UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
                 )
                 .into(),
             )
-            .into()])],
+            .into()])]
+            .into(),
             signature: DeclarationSignature::new()
                 .inputs(vec![])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -346,7 +350,7 @@ mod tests {
                                         ]
                                         .into(),
                                     )
-                                    .annotate(GType::FieldElement, 2usize),
+                                    .annotate(GType::FieldElement, 2u32),
                                 ),
                                 DeclarationType::Array(DeclarationArrayType::new(
                                     DeclarationType::FieldElement,
@@ -393,7 +397,8 @@ mod tests {
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![
                 FieldElementExpression::Identifier(Identifier::from(const_b_id.clone())).into(),
-            ])],
+            ])]
+            .into(),
             signature: DeclarationSignature::new()
                 .inputs(vec![])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -517,7 +522,7 @@ mod tests {
                         .signature(DeclarationSignature::new().inputs(vec![]).outputs(vec![])),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
-                        statements: vec![],
+                        statements: vec![].into(),
                         signature: DeclarationSignature::new().inputs(vec![]).outputs(vec![]),
                     }),
                 )
@@ -546,7 +551,8 @@ mod tests {
                                 main_const_id.clone(),
                             ))
                             .into(),
-                        ])],
+                        ])]
+                        .into(),
                         signature: DeclarationSignature::new()
                             .inputs(vec![])
                             .outputs(vec![DeclarationType::FieldElement]),
@@ -592,7 +598,8 @@ mod tests {
                                 main_const_id.clone(),
                             ))
                             .into(),
-                        ])],
+                        ])]
+                        .into(),
                         signature: DeclarationSignature::new()
                             .inputs(vec![])
                             .outputs(vec![DeclarationType::FieldElement]),
@@ -693,7 +700,7 @@ mod tests {
                         .signature(DeclarationSignature::new().inputs(vec![]).outputs(vec![])),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
-                        statements: vec![],
+                        statements: vec![].into(),
                         signature: DeclarationSignature::new().inputs(vec![]).outputs(vec![]),
                     }),
                 )
@@ -744,7 +751,8 @@ mod tests {
                                 main_foo_const_id.clone(),
                             ))
                             .into(),
-                        ])],
+                        ])]
+                        .into(),
                         signature: DeclarationSignature::new()
                             .inputs(vec![])
                             .outputs(vec![DeclarationType::FieldElement]),
@@ -819,7 +827,8 @@ mod tests {
                                 main_foo_const_id.clone(),
                             ))
                             .into(),
-                        ])],
+                        ])]
+                        .into(),
                         signature: DeclarationSignature::new()
                             .inputs(vec![])
                             .outputs(vec![DeclarationType::FieldElement]),

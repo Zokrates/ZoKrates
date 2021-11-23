@@ -110,8 +110,6 @@ impl<'ast, T> IntoFallibleIterator for MemoryZirStatements<'ast, T> {
 
 pub type ZirProgramIterator<'ast, I> = ZirFunctionIterator<'ast, I>;
 
-pub type ZirProgram<'ast, T> = ZirFunctionIterator<'ast, MemoryZirStatements<'ast, T>>;
-
 /// A typed function
 #[derive(Clone, PartialEq)]
 pub struct ZirFunctionIterator<'ast, I: IntoZirStatements<'ast>> {
