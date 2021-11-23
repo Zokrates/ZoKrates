@@ -1,0 +1,4 @@
+from "./a" import B
+
+def main():
+    return

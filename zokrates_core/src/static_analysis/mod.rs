@@ -122,37 +122,10 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         log::debug!("Start streaming");
 
         // reduce the program to a single function
-        log::debug!("Static analyser: Reduce program");
+        log::debug!("Static analyser: Initialise reducer iterator");
         let r = reduce_program(r).map_err(Error::from)?;
 
-        // log::debug!("Static analyser: Concretize structs");
-        // let r = StructConcretizer::concretize(r);
-        // log::trace!("\n{}", r);
-
-        // // propagate
-        // log::debug!("Static analyser: Propagate");
-        // let r = Propagator::propagate(r).map_err(Error::from)?;
-        // log::trace!("\n{}", r);
-
-        // // remove assignment to variable index
-        // log::debug!("Static analyser: Remove variable index");
-        // let r = VariableWriteRemover::apply(r);
-        // log::trace!("\n{}", r);
-
-        // // detect non constant shifts and constant lt bounds
-        // log::debug!("Static analyser: Detect non constant arguments");
-        // let r = ConstantArgumentChecker::check(r).map_err(Error::from)?;
-        // log::trace!("\n{}", r);
-
-        // // detect out of bounds reads and writes
-        // log::debug!("Static analyser: Detect out of bound accesses");
-        // let r = OutOfBoundsChecker::check(r).map_err(Error::from)?;
-        // log::trace!("\n{}", r);
-
-        // convert to zir, removing complex types
-        log::debug!("Static analyser: Convert to zir");
-        log::debug!("Static analyser: Optimize uints");
-
+        log::debug!("Static analyser: Initialise ");
         let mut struct_concretizer = StructConcretizer::default();
         let constants = crate::static_analysis::propagation::Constants::new();
         let mut propagator = Propagator::with_constants(constants);
@@ -165,7 +138,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 
         let arguments = r.arguments;
         let statements = r.statements.into_fallible_iter();
-        // todo: initialise with parameters
+
         let arguments: Vec<_> = arguments
             .into_iter()
             .map(|a| propagator.fold_parameter(a).unwrap())

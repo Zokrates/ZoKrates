@@ -549,7 +549,6 @@ pub fn reduce_program<T: Field>(
     p: TypedProgram<T>,
 ) -> Result<TypedFunctionIterator<ReducerIterator<T>>, Error> {
     // inline all constants and replace them in the  program
-
     let mut constants_writer = ConstantsWriter::with_program(p.clone());
 
     let p = constants_writer.fold_program(p)?;
