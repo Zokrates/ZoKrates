@@ -241,7 +241,8 @@ mod tests {
             )],
         };
 
-        let keypair = <Libsnark as NonUniversalBackend<Bn128Field, PGHR13>>::setup(program.clone());
+        let keypair =
+            <Libsnark as NonUniversalBackend<Bn128Field, PGHR13>>::setup(program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -249,7 +250,8 @@ mod tests {
             .unwrap();
 
         let proof =
-            <Libsnark as Backend<Bn128Field, PGHR13>>::generate_proof(program, witness, keypair.pk);
+            <Libsnark as Backend<Bn128Field, PGHR13>>::generate_proof(program, witness, keypair.pk)
+                .unwrap();
 
         let ans = <Libsnark as Backend<Bn128Field, PGHR13>>::verify(keypair.vk, proof);
         assert!(ans);

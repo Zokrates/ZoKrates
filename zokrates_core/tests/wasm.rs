@@ -29,7 +29,8 @@ fn generate_proof() {
         .execute(program.clone(), &[Bn128Field::from(42)])
         .unwrap();
 
-    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
+    let keypair =
+        <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone()).unwrap();
     let _proof =
         <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
 }

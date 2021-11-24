@@ -272,7 +272,8 @@ mod tests {
             .into(),
         };
 
-        let keypair = <Ark as NonUniversalBackend<Bls12_377Field, GM17>>::setup(program.clone());
+        let keypair =
+            <Ark as NonUniversalBackend<Bls12_377Field, GM17>>::setup(program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -283,7 +284,8 @@ mod tests {
             program.into(),
             witness,
             keypair.pk,
-        );
+        )
+        .unwrap();
         let ans = <Ark as Backend<Bls12_377Field, GM17>>::verify(keypair.vk, proof);
 
         assert!(ans);
@@ -301,7 +303,8 @@ mod tests {
             .into(),
         };
 
-        let keypair = <Ark as NonUniversalBackend<Bw6_761Field, GM17>>::setup(program.clone());
+        let keypair =
+            <Ark as NonUniversalBackend<Bw6_761Field, GM17>>::setup(program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -309,7 +312,8 @@ mod tests {
             .unwrap();
 
         let proof =
-            <Ark as Backend<Bw6_761Field, GM17>>::generate_proof(program, witness, keypair.pk);
+            <Ark as Backend<Bw6_761Field, GM17>>::generate_proof(program, witness, keypair.pk)
+                .unwrap();
         let ans = <Ark as Backend<Bw6_761Field, GM17>>::verify(keypair.vk, proof);
 
         assert!(ans);

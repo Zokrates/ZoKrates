@@ -229,7 +229,8 @@ mod tests {
             program.clone(),
             witness,
             keypair.pk,
-        );
+        )
+        .unwrap();
         let ans = <Ark as Backend<Bls12_377Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);
@@ -263,7 +264,8 @@ mod tests {
             .unwrap();
 
         let proof =
-            <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(program, witness, keypair.pk);
+            <Ark as Backend<Bw6_761Field, Marlin>>::generate_proof(program, witness, keypair.pk)
+                .unwrap();
         let ans = <Ark as Backend<Bw6_761Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);

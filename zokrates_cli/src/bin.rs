@@ -167,6 +167,7 @@ mod tests {
                         CompileConfig::default(),
                         &arena,
                     )
+                    .map_err(|e| e.into())
                     .and_then(|r| r.collect());
 
                     assert_eq!(res.is_err(), should_error);
