@@ -6,7 +6,7 @@
 
 use crate::absy::Identifier;
 use crate::absy::*;
-use crate::typed_absy::types::GGenericsAssignment;
+use crate::typed_absy::types::{GGenericsAssignment, GenericsAssignment};
 use crate::typed_absy::*;
 use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
 use num_bigint::BigUint;
@@ -55,7 +55,33 @@ impl ErrorInner {
     }
 }
 
-type TypeMap<'ast, T> = BTreeMap<OwnedModuleId, BTreeMap<UserTypeId, DeclarationType<'ast, T>>>;
+// a single struct to cover all cases of user-defined types
+#[derive(Debug, Clone)]
+struct UserDeclarationType<'ast, T> {
+    generics: Vec<DeclarationConstant<'ast, T>>,
+    ty: DeclarationType<'ast, T>,
+}
+
+impl<'ast, T> UserDeclarationType<'ast, T> {
+    // returns the declared generics for this user type
+    // for alias of basic types this is empty
+    // for structs this is the same as the used generics
+    // for aliases of structs this is the names of the generics declared on the left side of the type declaration
+    fn declaration_generics(&self) -> Vec<&'ast str> {
+        self.generics
+            .iter()
+            .filter_map(|g| match g {
+                DeclarationConstant::Generic(g) => Some(g),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>() // we collect into a BTreeSet because draining it after yields the element in the right order defined by Ord
+            .into_iter()
+            .map(|g| g.name())
+            .collect()
+    }
+}
+
+type TypeMap<'ast, T> = BTreeMap<OwnedModuleId, BTreeMap<UserTypeId, UserDeclarationType<'ast, T>>>;
 type ConstantMap<'ast, T> =
     BTreeMap<OwnedModuleId, BTreeMap<ConstantIdentifier<'ast>, DeclarationType<'ast, T>>>;
 
@@ -233,7 +259,7 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
                 .inputs
                 .iter()
                 .zip(func.signature.inputs.iter())
-                .all(|(input_ty, sig_ty)| input_ty.can_be_specialized_to(&sig_ty))
+                .all(|(input_ty, sig_ty)| input_ty.can_be_specialized_to(sig_ty))
             && self.outputs.len() == func.signature.outputs.len()
             && self
                 .outputs
@@ -242,7 +268,7 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
                 .all(|(output_ty, sig_ty)| {
                     output_ty
                         .as_ref()
-                        .map(|output_ty| output_ty.can_be_specialized_to(&sig_ty))
+                        .map(|output_ty| output_ty.can_be_specialized_to(sig_ty))
                         .unwrap_or(true)
                 })
     }
@@ -366,6 +392,84 @@ impl<'ast, T: Field> Checker<'ast, T> {
         })
     }
 
+    fn check_type_definition(
+        &mut self,
+        ty: TypeDefinitionNode<'ast>,
+        module_id: &ModuleId,
+        state: &State<'ast, T>,
+    ) -> Result<UserDeclarationType<'ast, T>, Vec<ErrorInner>> {
+        let pos = ty.pos();
+        let ty = ty.value;
+
+        let mut errors = vec![];
+
+        let mut generics = vec![];
+        let mut generics_map = BTreeMap::new();
+
+        for (index, g) in ty.generics.iter().enumerate() {
+            if state
+                .constants
+                .get(module_id)
+                .and_then(|m| m.get(g.value))
+                .is_some()
+            {
+                errors.push(ErrorInner {
+                    pos: Some(g.pos()),
+                    message: format!(
+                        "Generic parameter {p} conflicts with constant symbol {p}",
+                        p = g.value
+                    ),
+                });
+            } else {
+                match generics_map.insert(g.value, index).is_none() {
+                    true => {
+                        generics.push(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        ));
+                    }
+                    false => {
+                        errors.push(ErrorInner {
+                            pos: Some(g.pos()),
+                            message: format!("Generic parameter {} is already declared", g.value),
+                        });
+                    }
+                }
+            }
+        }
+
+        let mut used_generics = HashSet::new();
+
+        match self.check_declaration_type(
+            ty.ty,
+            module_id,
+            state,
+            &generics_map,
+            &mut used_generics,
+        ) {
+            Ok(ty) => {
+                // check that all declared generics were used
+                for declared_generic in generics_map.keys() {
+                    if !used_generics.contains(declared_generic) {
+                        errors.push(ErrorInner {
+                            pos: Some(pos),
+                            message: format!("Generic parameter {} must be used", declared_generic),
+                        });
+                    }
+                }
+
+                if !errors.is_empty() {
+                    return Err(errors);
+                }
+
+                Ok(UserDeclarationType { generics, ty })
+            }
+            Err(e) => {
+                errors.push(e);
+                Err(errors)
+            }
+        }
+    }
+
     fn check_constant_definition(
         &mut self,
         id: ConstantIdentifier<'ast>,
@@ -378,7 +482,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let ty = self.check_declaration_type(
             c.value.ty.clone(),
             module_id,
-            &state,
+            state,
             &BTreeMap::default(),
             &mut HashSet::default(),
         )?;
@@ -396,11 +500,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 UExpression::try_from_typed(checked_expr, &bitwidth).map(TypedExpression::from)
             }
             DeclarationType::Array(ref array_ty) => {
-                ArrayExpression::try_from_typed(checked_expr, &array_ty).map(TypedExpression::from)
+                ArrayExpression::try_from_typed(checked_expr, array_ty).map(TypedExpression::from)
             }
             DeclarationType::Struct(ref struct_ty) => {
-                StructExpression::try_from_typed(checked_expr, &struct_ty)
-                    .map(TypedExpression::from)
+                StructExpression::try_from_typed(checked_expr, struct_ty).map(TypedExpression::from)
             }
             DeclarationType::Int => Err(checked_expr), // Integers cannot be assigned
         }
@@ -423,7 +526,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         s: StructDefinitionNode<'ast>,
         module_id: &ModuleId,
         state: &State<'ast, T>,
-    ) -> Result<DeclarationType<'ast, T>, Vec<ErrorInner>> {
+    ) -> Result<DeclarationStructType<'ast, T>, Vec<ErrorInner>> {
         let pos = s.pos();
         let s = s.value;
 
@@ -451,10 +554,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
-                            name: g.value,
-                            index,
-                        })));
+                        generics.push(Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        )));
                     }
                     false => {
                         errors.push(ErrorInner {
@@ -507,7 +609,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             return Err(errors);
         }
 
-        Ok(DeclarationType::Struct(DeclarationStructType::new(
+        Ok(DeclarationStructType::new(
             module_id.to_path_buf(),
             id,
             generics,
@@ -515,7 +617,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .iter()
                 .map(|f| DeclarationStructMember::new(f.0.clone(), f.1.clone()))
                 .collect(),
-        )))
+        ))
     }
 
     fn check_symbol_declaration(
@@ -557,7 +659,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     .types
                                     .entry(module_id.to_path_buf())
                                     .or_default()
-                                    .insert(declaration.id.to_string(), ty)
+                                    .insert(
+                                        declaration.id.to_string(),
+                                        UserDeclarationType {
+                                            generics: ty
+                                                .generics
+                                                .clone()
+                                                .into_iter()
+                                                .map(|g| g.unwrap())
+                                                .collect(),
+                                            ty: DeclarationType::Struct(ty)
+                                        }
+                                    )
                                     .is_none());
                             }
                         };
@@ -611,6 +724,35 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     Err(e) => {
                         errors.push(e.in_file(module_id));
+                    }
+                }
+            }
+            Symbol::Here(SymbolDefinition::Type(t)) => {
+                match self.check_type_definition(t, module_id, state) {
+                    Ok(ty) => {
+                        match symbol_unifier.insert_type(declaration.id) {
+                            false => errors.push(
+                                ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "{} conflicts with another symbol",
+                                        declaration.id,
+                                    ),
+                                }
+                                .in_file(module_id),
+                            ),
+                            true => {
+                                assert!(state
+                                    .types
+                                    .entry(module_id.to_path_buf())
+                                    .or_default()
+                                    .insert(declaration.id.to_string(), ty)
+                                    .is_none());
+                            }
+                        };
+                    }
+                    Err(e) => {
+                        errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));
                     }
                 }
             }
@@ -697,17 +839,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         match (function_candidates.len(), type_candidate, const_candidate) {
                             (0, Some(t), None) => {
-
                                 // rename the type to the declared symbol
-                                let t = match t {
-                                    DeclarationType::Struct(t) => DeclarationType::Struct(DeclarationStructType {
-                                        location: Some(StructLocation {
-                                            name: declaration.id.into(),
-                                            module: module_id.to_path_buf()
+                                let t = UserDeclarationType {
+                                    ty: match t.ty {
+                                        DeclarationType::Struct(t) => DeclarationType::Struct(DeclarationStructType {
+                                            location: Some(StructLocation {
+                                                name: declaration.id.into(),
+                                                module: module_id.to_path_buf()
+                                            }),
+                                            ..t
                                         }),
-                                        ..t
-                                    }),
-                                    _ => unreachable!()
+                                        _ => t.ty // all other cases
+                                    },
+                                    ..t
                                 };
 
                                 // we imported a type, so the symbol it gets bound to should not already exist
@@ -955,17 +1099,26 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         match self.check_signature(funct.signature, module_id, state) {
             Ok(s) => {
+                // initialise generics map
+                let mut generics: GenericsAssignment<'ast, T> = GGenericsAssignment::default();
+
                 // define variables for the constants
                 for generic in &s.generics {
-                    let generic = generic.clone().unwrap(); // for declaration signatures, generics cannot be ignored
+                    let generic = match generic.clone().unwrap() {
+                        DeclarationConstant::Generic(g) => g,
+                        _ => unreachable!(),
+                    };
 
-                    let v = Variable::with_id_and_type(
-                        match generic {
-                            DeclarationConstant::Generic(g) => g.name,
-                            _ => unreachable!(),
-                        },
-                        Type::Uint(UBitwidth::B32),
+                    // for declaration signatures, generics cannot be ignored
+
+                    let v = Variable::with_id_and_type(generic.name(), Type::Uint(UBitwidth::B32));
+
+                    generics.0.insert(
+                        generic.clone(),
+                        UExpressionInner::Identifier(generic.name().into())
+                            .annotate(UBitwidth::B32),
                     );
+
                     // we don't have to check for conflicts here, because this was done when checking the signature
                     self.insert_into_scope(v.clone());
                 }
@@ -978,9 +1131,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let decl_v =
                         DeclarationVariable::with_id_and_type(arg.id.value.id, decl_ty.clone());
 
-                    match self.insert_into_scope(
-                        crate::typed_absy::variable::try_from_g_variable(decl_v.clone()).unwrap(),
-                    ) {
+                    let ty = specialize_declaration_type(decl_v.clone()._type, &generics).unwrap();
+
+                    match self.insert_into_scope(crate::typed_absy::variable::Variable {
+                        id: decl_v.clone().id,
+                        _type: ty,
+                    }) {
                         true => {}
                         false => {
                             errors.push(ErrorInner {
@@ -1104,10 +1260,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             } else {
                 match generics_map.insert(g.value, index).is_none() {
                     true => {
-                        generics.push(Some(DeclarationConstant::Generic(GenericIdentifier {
-                            name: g.value,
-                            index,
-                        })));
+                        generics.push(Some(DeclarationConstant::Generic(
+                            GenericIdentifier::with_name(g.value).with_index(index),
+                        )));
                     }
                     false => {
                         errors.push(ErrorInner {
@@ -1221,7 +1376,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 )))
             }
             UnresolvedType::User(id, generics) => {
-                let declaration_type =
+                let declared_ty =
                     types
                         .get(module_id)
                         .unwrap()
@@ -1232,72 +1387,60 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             message: format!("Undefined type {}", id),
                         })?;
 
+                let generic_identifiers = declared_ty.declaration_generics();
+
+                let declaration_type = declared_ty.ty;
+
                 // absence of generics is treated as 0 generics, as we do not provide inference for now
                 let generics = generics.unwrap_or_default();
 
                 // check generics
-                match declaration_type {
-                    DeclarationType::Struct(struct_type) => {
-                        match struct_type.generics.len() == generics.len() {
-                            true => {
-                                // downcast the generics to identifiers, as this is the only possibility here
-                                let generic_identifiers = struct_type.generics.iter().map(|c| {
-                                    match c.as_ref().unwrap() {
-                                        DeclarationConstant::Generic(g) => g.clone(),
-                                        _ => unreachable!(),
-                                    }
-                                });
-
-                                // build the generic assignment for this type
-                                let assignment = GGenericsAssignment(generics
-                                    .into_iter()
-                                    .zip(generic_identifiers)
-                                    .map(|(e, g)| match e {
-                                        Some(e) => {
-                                            self
-                                                .check_expression(e, module_id, types)
-                                                .and_then(|e| {
-                                                    UExpression::try_from_typed(e, &UBitwidth::B32)
-                                                        .map(|e| (g, e))
-                                                        .map_err(|e| ErrorInner {
-                                                            pos: Some(pos),
-                                                            message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
-                                                        })
+                match generic_identifiers.len() == generics.len() {
+                    true => {
+                        // build the generic assignment for this type
+                        let assignment = GGenericsAssignment(generics
+                            .into_iter()
+                            .zip(generic_identifiers)
+                            .enumerate()
+                            .map(|(i, (e, g))| match e {
+                                Some(e) => {
+                                    self
+                                        .check_expression(e, module_id, types)
+                                        .and_then(|e| {
+                                            UExpression::try_from_typed(e, &UBitwidth::B32)
+                                                .map(|e| (GenericIdentifier::with_name(g).with_index(i), e))
+                                                .map_err(|e| ErrorInner {
+                                                    pos: Some(pos),
+                                                    message: format!("Expected u32 expression, but got expression of type {}", e.get_type()),
                                                 })
-                                        },
-                                        None => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message:
-                                                "Expected u32 constant or identifier, but found `_`. Generic inference is not supported yet."
-                                                    .into(),
                                         })
-                                    })
-                                    .collect::<Result<_, _>>()?);
+                                },
+                                None => Err(ErrorInner {
+                                    pos: Some(pos),
+                                    message:
+                                    "Expected u32 constant or identifier, but found `_`. Generic inference is not supported yet."
+                                        .into(),
+                                })
+                            })
+                            .collect::<Result<_, _>>()?);
 
-                                // specialize the declared type using the generic assignment
-                                Ok(specialize_declaration_type(
-                                    DeclarationType::Struct(struct_type),
-                                    &assignment,
-                                )
-                                .unwrap())
-                            }
-                            false => Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Expected {} generic argument{} on type {}, but got {}",
-                                    struct_type.generics.len(),
-                                    if struct_type.generics.len() == 1 {
-                                        ""
-                                    } else {
-                                        "s"
-                                    },
-                                    id,
-                                    generics.len()
-                                ),
-                            }),
-                        }
+                        // specialize the declared type using the generic assignment
+                        Ok(specialize_declaration_type(declaration_type, &assignment).unwrap())
                     }
-                    _ => unreachable!("user defined types should always be structs"),
+                    false => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected {} generic argument{} on type {}, but got {}",
+                            generic_identifiers.len(),
+                            if generic_identifiers.len() == 1 {
+                                ""
+                            } else {
+                                "s"
+                            },
+                            id,
+                            generics.len()
+                        ),
+                    }),
                 }
             }
         }
@@ -1345,7 +1488,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             })
                         }
                     }
-                    (None, Some(index)) => Ok(DeclarationConstant::Generic(GenericIdentifier { name, index: *index })),
+                    (None, Some(index)) => Ok(DeclarationConstant::Generic(GenericIdentifier::with_name(name).with_index(*index))),
                     _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Undeclared symbol `{}`", name)
@@ -1392,7 +1535,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 )))
             }
             UnresolvedType::User(id, generics) => {
-                let declared_ty = state
+                let ty = state
                     .types
                     .get(module_id)
                     .unwrap()
@@ -1403,79 +1546,63 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         message: format!("Undefined type {}", id),
                     })?;
 
-                match declared_ty {
-                    DeclarationType::Struct(declared_struct_ty) => {
-                        let generics = generics.unwrap_or_default();
-                        match declared_struct_ty.generics.len() == generics.len() {
-                            true => {
-                                let checked_generics: Vec<_> = generics
-                                    .into_iter()
-                                    .map(|e| match e {
-                                        Some(e) => self
-                                            .check_generic_expression(
-                                                e,
-                                                module_id,
-                                                state
-                                                    .constants
-                                                    .get(module_id)
-                                                    .unwrap_or(&BTreeMap::new()),
-                                                generics_map,
-                                                used_generics,
-                                            )
-                                            .map(Some),
-                                        None => Err(ErrorInner {
-                                            pos: Some(pos),
-                                            message:
-                                                "Expected u32 constant or identifier, but found `_`"
-                                                    .into(),
-                                        }),
-                                    })
-                                    .collect::<Result<_, _>>()?;
+                let generics = generics.unwrap_or_default();
+                let checked_generics: Vec<_> = generics
+                    .into_iter()
+                    .map(|e| match e {
+                        Some(e) => self
+                            .check_generic_expression(
+                                e,
+                                module_id,
+                                state.constants.get(module_id).unwrap_or(&BTreeMap::new()),
+                                generics_map,
+                                used_generics,
+                            )
+                            .map(Some),
+                        None => Err(ErrorInner {
+                            pos: Some(pos),
+                            message: "Expected u32 constant or identifier, but found `_`".into(),
+                        }),
+                    })
+                    .collect::<Result<_, _>>()?;
 
-                                let mut assignment = GGenericsAssignment::default();
+                match ty.generics.len() == checked_generics.len() {
+                    true => {
+                        let mut assignment = GGenericsAssignment::default();
 
-                                assignment.0.extend(declared_struct_ty.generics.iter().zip(checked_generics.iter()).map(|(decl_g, g_val)| match decl_g.clone().unwrap() {
-                                    DeclarationConstant::Generic(g) => (g, g_val.clone().unwrap()),
-                                    _ => unreachable!("generic on declaration struct types must be generic identifiers")
-                                }));
+                        assignment.0.extend(ty.generics.iter().zip(checked_generics.iter()).map(|(decl_g, g_val)| match decl_g.clone() {
+                            DeclarationConstant::Generic(g) => (g, g_val.clone().unwrap()),
+                            _ => unreachable!("generic on declaration struct types must be generic identifiers")
+                        }));
 
-                                // generate actual type based on generic type and concrete generics
-                                let members = declared_struct_ty
-                                    .members
-                                    .into_iter()
-                                    .map(|m| {
-                                        Ok(DeclarationStructMember {
-                                            ty: box specialize_declaration_type(*m.ty, &assignment)
-                                                .unwrap(),
-                                            ..m
-                                        })
-                                    })
-                                    .collect::<Result<Vec<_>, _>>()?;
-
-                                Ok(DeclarationType::Struct(DeclarationStructType {
-                                    canonical_location: declared_struct_ty.canonical_location,
-                                    location: declared_struct_ty.location,
-                                    generics: checked_generics,
-                                    members,
-                                }))
+                        let res = match ty.ty {
+                            // if the type is a struct, we do not specialize in the members.
+                            // we only remap the generics
+                            DeclarationType::Struct(declared_struct_ty) => {
+                                DeclarationType::Struct(DeclarationStructType {
+                                    generics: declared_struct_ty
+                                        .generics
+                                        .into_iter()
+                                        .map(|g| g.map(|g| g.map(&assignment).unwrap()))
+                                        .collect(),
+                                    ..declared_struct_ty
+                                })
                             }
-                            false => Err(ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Expected {} generic argument{} on type {}, but got {}",
-                                    declared_struct_ty.generics.len(),
-                                    if declared_struct_ty.generics.len() == 1 {
-                                        ""
-                                    } else {
-                                        "s"
-                                    },
-                                    id,
-                                    generics.len()
-                                ),
-                            }),
-                        }
+                            ty => specialize_declaration_type(ty, &assignment).unwrap(),
+                        };
+
+                        Ok(res)
                     }
-                    _ => Ok(declared_ty),
+                    false => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected {} generic argument{} on type {}, but got {}",
+                            ty.generics.len(),
+                            if ty.generics.len() == 1 { "" } else { "s" },
+                            id,
+                            checked_generics.len()
+                        ),
+                    }),
                 }
             }
         }
@@ -1734,13 +1861,20 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 .map(|rhs| TypedStatement::Definition(var, rhs))
                 .map_err(|e| vec![e])
             }
-            Statement::Assertion(e) => {
+            Statement::Assertion(e, message) => {
                 let e = self
                     .check_expression(e, module_id, types)
                     .map_err(|e| vec![e])?;
 
                 match e {
-                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(e)),
+                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
+                        e,
+                        RuntimeError::SourceAssertion(AssertionMetadata {
+                            file: module_id.display().to_string(),
+                            position: pos.0,
+                            message,
+                        }),
+                    )),
                     e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
@@ -1764,7 +1898,19 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Statement::MultipleDefinition(assignees, rhs) => {
                 match rhs.value {
                     // Right side has to be a function call
-                    Expression::FunctionCall(fun_id, generics, arguments) => {
+                    Expression::FunctionCall(fun_id_expression, generics, arguments) => {
+
+                        let fun_id = match fun_id_expression.value {
+                            Expression::Identifier(id) => Ok(id),
+                            e => Err(vec![ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Expected function in function call to be an identifier, found {}",
+                                    e
+                                ),
+                            }])
+                        }?;
+
                         // check the generic arguments, if any
                         let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
                             .map(|generics|
@@ -1810,7 +1956,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         let arguments_types: Vec<_> =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
-                        let query = FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &assignee_types);
+                        let query = FunctionQuery::new(fun_id, &generics_checked, &arguments_types, &assignee_types);
 
                         let functions = self.find_functions(&query);
 
@@ -1856,7 +2002,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
-            Assignee::Identifier(variable_name) => match self.get_key_value_scope(&variable_name) {
+            Assignee::Identifier(variable_name) => match self.get_key_value_scope(variable_name) {
                 Some((id, ty)) => match id.is_constant() {
                     true => Err(ErrorInner {
                         pos: Some(assignee.pos()),
@@ -1992,7 +2138,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
                 match self
-                    .get_key_value_scope(&name)
+                    .get_key_value_scope(name)
                     .map(|(x, y)| (x.clone(), y.clone()))
                 {
                     Some((id, ty)) => match ty {
@@ -2252,7 +2398,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }
             }
-            Expression::IfElse(box condition, box consequence, box alternative) => {
+            Expression::Conditional(box condition, box consequence, box alternative, kind) => {
                 let condition_checked = self.check_expression(condition, module_id, types)?;
                 let consequence_checked = self.check_expression(consequence, module_id, types)?;
                 let alternative_checked = self.check_expression(alternative, module_id, types)?;
@@ -2264,40 +2410,49 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     )
                     .map_err(|(e1, e2)| ErrorInner {
                         pos: Some(pos),
-                        message: format!("{{consequence}} and {{alternative}} in `if/else` expression should have the same type, found {}, {}", e1.get_type(), e2.get_type()),
+                        message: format!("{{consequence}} and {{alternative}} in conditional expression should have the same type, found {}, {}", e1.get_type(), e2.get_type()),
                     })?;
+
+                let kind = match kind {
+                    crate::absy::ConditionalKind::IfElse => {
+                        crate::typed_absy::ConditionalKind::IfElse
+                    }
+                    crate::absy::ConditionalKind::Ternary => {
+                        crate::typed_absy::ConditionalKind::Ternary
+                    }
+                };
 
                 match condition_checked {
                     TypedExpression::Boolean(condition) => {
                         match (consequence_checked, alternative_checked) {
                             (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
-                                Ok(FieldElementExpression::if_else(condition, consequence, alternative).into())
+                                Ok(FieldElementExpression::conditional(condition, consequence, alternative, kind).into())
                             },
                             (TypedExpression::Boolean(consequence), TypedExpression::Boolean(alternative)) => {
-                                Ok(BooleanExpression::if_else(condition, consequence, alternative).into())
+                                Ok(BooleanExpression::conditional(condition, consequence, alternative, kind).into())
                             },
                             (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
-                                Ok(ArrayExpression::if_else(condition, consequence, alternative).into())
+                                Ok(ArrayExpression::conditional(condition, consequence, alternative, kind).into())
                             },
                             (TypedExpression::Struct(consequence), TypedExpression::Struct(alternative)) => {
-                                Ok(StructExpression::if_else(condition, consequence, alternative).into())
+                                Ok(StructExpression::conditional(condition, consequence, alternative, kind).into())
                             },
                             (TypedExpression::Uint(consequence), TypedExpression::Uint(alternative)) => {
-                                Ok(UExpression::if_else(condition, consequence, alternative).into())
+                                Ok(UExpression::conditional(condition, consequence, alternative, kind).into())
                             },
                             (TypedExpression::Int(consequence), TypedExpression::Int(alternative)) => {
-                                Ok(IntExpression::if_else(condition, consequence, alternative).into())
+                                Ok(IntExpression::conditional(condition, consequence, alternative, kind).into())
                             },
                             (c, a) => Err(ErrorInner {
                                 pos: Some(pos),
-                                message: format!("{{consequence}} and {{alternative}} in `if/else` expression should have the same type, found {}, {}", c.get_type(), a.get_type())
+                                message: format!("{{consequence}} and {{alternative}} in conditional expression should have the same type, found {}, {}", c.get_type(), a.get_type())
                             })
                         }
                     }
                     c => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "{{condition}} after `if` should be a boolean, found {}",
+                            "{{condition}} should be a boolean, found {}",
                             c.get_type()
                         ),
                     }),
@@ -2318,7 +2473,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
             Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
             Expression::U64Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(64).into()),
-            Expression::FunctionCall(fun_id, generics, arguments) => {
+            Expression::FunctionCall(fun_id_expression, generics, arguments) => {
+                let fun_id = match fun_id_expression.value {
+                    Expression::Identifier(id) => Ok(id),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected function in function call to be an identifier, found `{}`",
+                            e
+                        ),
+                    }),
+                }?;
+
                 // check the generic arguments, if any
                 let generics_checked: Option<Vec<Option<UExpression<'ast, T>>>> = generics
                     .map(|generics| {
@@ -2361,7 +2527,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 // outside of multidef, function calls must have a single return value
                 // we use type inference to determine the type of the return, so we don't specify it
                 let query =
-                    FunctionQuery::new(&fun_id, &generics_checked, &arguments_types, &[None]);
+                    FunctionQuery::new(fun_id, &generics_checked, &arguments_types, &[None]);
 
                 let functions = self.find_functions(&query);
 
@@ -2374,7 +2540,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                         let signature = f.signature;
 
-                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.iter()).map(|(a, t)| TypedExpression::align_to_type(a, &t)).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
+                        let arguments_checked = arguments_checked.into_iter().zip(signature.inputs.iter()).map(|(a, t)| TypedExpression::align_to_type(a, t)).collect::<Result<Vec<_>, _>>().map_err(|e| ErrorInner {
                            pos: Some(pos),
                            message: format!("Expected function call argument to be of type {}, found {}", e.1, e.0)
                         })?;
@@ -2957,10 +3123,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     Some(ty) => Ok(ty),
                 }?;
 
-                let declared_struct_type = match ty {
+                let mut declared_struct_type = match ty.ty {
                     DeclarationType::Struct(struct_type) => struct_type,
                     _ => unreachable!(),
                 };
+
+                declared_struct_type.generics = (0..declared_struct_type.generics.len())
+                    .map(|index| {
+                        Some(DeclarationConstant::Generic(
+                            GenericIdentifier::without_name().with_index(index),
+                        ))
+                    })
+                    .collect();
 
                 // check that we provided the required number of values
                 if declared_struct_type.members_count() != inline_members.len() {
@@ -3323,7 +3497,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn exit_scope(&mut self) {
         let current_level = self.level;
         self.scope
-            .retain(|ref scoped_variable, _| scoped_variable.level < current_level);
+            .retain(|scoped_variable, _| scoped_variable.level < current_level);
         self.level -= 1;
     }
 }
@@ -3522,7 +3696,7 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into()
+                        GenericIdentifier::with_name("K").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::FieldElement])
             ));
@@ -3531,11 +3705,11 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("K").index(0).into()
+                        GenericIdentifier::with_name("K").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::FieldElement,
-                        GenericIdentifier::with_name("K").index(0)
+                        GenericIdentifier::with_name("K").with_index(0)
                     ))])
             ));
             // a `bar` function with an equivalent signature, just renaming generic parameters
@@ -3543,11 +3717,11 @@ mod tests {
                 "bar",
                 DeclarationSignature::new()
                     .generics(vec![Some(
-                        GenericIdentifier::with_name("L").index(0).into()
+                        GenericIdentifier::with_name("L").with_index(0).into()
                     )])
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::FieldElement,
-                        GenericIdentifier::with_name("L").index(0)
+                        GenericIdentifier::with_name("L").with_index(0)
                     ))])
             ));
             // a `bar` type isn't allowed as the name is already taken by at least one function
@@ -3850,22 +4024,20 @@ mod tests {
                 .get(&*MODULE_ID)
                 .unwrap()
                 .functions_iter()
-                .find(|d| d.key
+                .any(|d| d.key
                     == DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
-                        .signature(DeclarationSignature::new()))
-                .is_some());
+                        .signature(DeclarationSignature::new())));
 
             assert!(state
                 .typed_modules
                 .get(&*MODULE_ID)
                 .unwrap()
                 .functions_iter()
-                .find(|d| d.key
+                .any(|d| d.key
                     == DeclarationFunctionKey::with_location((*MODULE_ID).clone(), "foo")
                         .signature(
                             DeclarationSignature::new().inputs(vec![DeclarationType::FieldElement])
-                        ))
-                .is_some());
+                        )));
         }
 
         #[test]
@@ -4113,16 +4285,16 @@ mod tests {
                     .inputs(vec![DeclarationType::array((
                         DeclarationType::array((
                             DeclarationType::FieldElement,
-                            GenericIdentifier::with_name("K").index(0)
+                            GenericIdentifier::with_name("K").with_index(0)
                         )),
-                        GenericIdentifier::with_name("L").index(1)
+                        GenericIdentifier::with_name("L").with_index(1)
                     ))])
                     .outputs(vec![DeclarationType::array((
                         DeclarationType::array((
                             DeclarationType::FieldElement,
-                            GenericIdentifier::with_name("L").index(1)
+                            GenericIdentifier::with_name("L").with_index(1)
                         )),
-                        GenericIdentifier::with_name("K").index(0)
+                        GenericIdentifier::with_name("K").with_index(0)
                     ))]))
             );
         }
@@ -4516,7 +4688,8 @@ mod tests {
             .mock(),
             Statement::MultipleDefinition(
                 vec![Assignee::Identifier("a").mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4573,9 +4746,15 @@ mod tests {
             Statement::Assertion(
                 Expression::Eq(
                     box Expression::IntConstant(2usize.into()).mock(),
-                    box Expression::FunctionCall("foo", None, vec![]).mock(),
+                    box Expression::FunctionCall(
+                        box Expression::Identifier("foo").mock(),
+                        None,
+                        vec![],
+                    )
+                    .mock(),
                 )
                 .mock(),
+                None,
             )
             .mock(),
             Statement::Return(
@@ -4632,7 +4811,8 @@ mod tests {
             .mock(),
             Statement::MultipleDefinition(
                 vec![Assignee::Identifier("a").mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4717,8 +4897,12 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![Expression::Identifier("x").mock()])
-                    .mock(),
+                Expression::FunctionCall(
+                    box Expression::Identifier("foo").mock(),
+                    None,
+                    vec![Expression::Identifier("x").mock()],
+                )
+                .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4806,7 +4990,8 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4921,7 +5106,8 @@ mod tests {
                     ),
                 )
                 .mock()],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -4973,9 +5159,15 @@ mod tests {
             Statement::Assertion(
                 Expression::Eq(
                     box Expression::IntConstant(1usize.into()).mock(),
-                    box Expression::FunctionCall("foo", None, vec![]).mock(),
+                    box Expression::FunctionCall(
+                        box Expression::Identifier("foo").mock(),
+                        None,
+                        vec![],
+                    )
+                    .mock(),
                 )
                 .mock(),
+                None,
             )
             .mock(),
             Statement::Return(
@@ -5071,7 +5263,8 @@ mod tests {
                     Assignee::Identifier("a").mock(),
                     Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo", None, vec![]).mock(),
+                Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
+                    .mock(),
             )
             .mock(),
             Statement::Return(
@@ -5385,12 +5578,8 @@ mod tests {
                 }
                 .mock();
 
-                let expected_type = DeclarationType::Struct(DeclarationStructType::new(
-                    "".into(),
-                    "Foo".into(),
-                    vec![],
-                    vec![],
-                ));
+                let expected_type =
+                    DeclarationStructType::new("".into(), "Foo".into(), vec![], vec![]);
 
                 assert_eq!(
                     Checker::<Bn128Field>::default().check_struct_type_declaration(
@@ -5426,7 +5615,7 @@ mod tests {
                 }
                 .mock();
 
-                let expected_type = DeclarationType::Struct(DeclarationStructType::new(
+                let expected_type = DeclarationStructType::new(
                     "".into(),
                     "Foo".into(),
                     vec![],
@@ -5434,7 +5623,7 @@ mod tests {
                         DeclarationStructMember::new("foo".into(), DeclarationType::FieldElement),
                         DeclarationStructMember::new("bar".into(), DeclarationType::Boolean),
                     ],
-                ));
+                );
 
                 assert_eq!(
                     Checker::<Bn128Field>::default().check_struct_type_declaration(
@@ -5539,6 +5728,7 @@ mod tests {
                         .get(&*MODULE_ID)
                         .unwrap()
                         .get(&"Bar".to_string())
+                        .map(|ty| &ty.ty)
                         .unwrap(),
                     &DeclarationType::Struct(DeclarationStructType::new(
                         (*MODULE_ID).clone(),
@@ -6128,7 +6318,7 @@ mod tests {
             main.value.statements = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![Expression::FunctionCall(
-                        "foo",
+                        box Expression::Identifier("foo").mock(),
                         None,
                         vec![Expression::IntConstant(0usize.into()).mock()],
                     )

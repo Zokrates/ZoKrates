@@ -196,14 +196,17 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     // flatten input program
     log::debug!("Flatten");
     let program_flattened = Flattener::flatten(typed_ast, config);
+    log::trace!("\n{}", program_flattened);
 
     // constant propagation after call resolution
     log::debug!("Propagate flat program");
     let program_flattened = program_flattened.propagate();
+    log::trace!("\n{}", program_flattened);
 
     // convert to ir
     log::debug!("Convert to IR");
     let ir_prog = ir::Prog::from(program_flattened);
+    log::trace!("\n{}", ir_prog);
 
     // optimize
     log::debug!("Optimise IR");
@@ -243,7 +246,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
 
     log::debug!("Parse program with entry file {}", location.display());
 
-    let compiled = parse_program::<T, E>(source, location, resolver, &arena)?;
+    let compiled = parse_program::<T, E>(source, location, resolver, arena)?;
 
     log::debug!("Check semantics");
 
@@ -271,7 +274,7 @@ pub fn parse_program<'ast, T: Field, E: Into<imports::Error>>(
 ) -> Result<Program<'ast>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = parse_module::<T, E>(&source, location.clone(), resolver, &mut modules, &arena)?;
+    let main = parse_module::<T, E>(source, location.clone(), resolver, &mut modules, arena)?;
 
     modules.insert(location.clone(), main);
 
@@ -290,7 +293,7 @@ pub fn parse_module<'ast, T: Field, E: Into<imports::Error>>(
 ) -> Result<Module<'ast>, CompileErrors> {
     log::debug!("Generate pest AST for {}", location.display());
 
-    let ast = pest::generate_ast(&source)
+    let ast = pest::generate_ast(source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
 
     log::debug!("Process macros for {}", location.display());
@@ -309,7 +312,7 @@ pub fn parse_module<'ast, T: Field, E: Into<imports::Error>>(
         location.clone(),
         resolver,
         modules,
-        &arena,
+        arena,
     )
 }
 

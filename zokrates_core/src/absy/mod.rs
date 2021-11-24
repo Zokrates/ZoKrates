@@ -13,7 +13,7 @@ pub mod variable;
 
 pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
-use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
+use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
 use crate::embed::FlatEmbed;
 use std::path::{Path, PathBuf};
@@ -133,6 +133,7 @@ pub enum SymbolDefinition<'ast> {
     Import(CanonicalImportNode<'ast>),
     Struct(StructDefinitionNode<'ast>),
     Constant(ConstantDefinitionNode<'ast>),
+    Type(TypeDefinitionNode<'ast>),
     Function(FunctionNode<'ast>),
 }
 
@@ -153,12 +154,28 @@ impl<'ast> fmt::Display for SymbolDeclaration<'ast> {
                     i.value.source.display(),
                     i.value.id
                 ),
-                SymbolDefinition::Struct(ref t) => write!(f, "struct {}{}", self.id, t),
+                SymbolDefinition::Struct(ref s) => write!(f, "struct {}{}", self.id, s),
                 SymbolDefinition::Constant(ref c) => write!(
                     f,
                     "const {} {} = {}",
                     c.value.ty, self.id, c.value.expression
                 ),
+                SymbolDefinition::Type(ref t) => {
+                    write!(f, "type {}", self.id)?;
+                    if !t.value.generics.is_empty() {
+                        write!(
+                            f,
+                            "<{}>",
+                            t.value
+                                .generics
+                                .iter()
+                                .map(|g| g.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )?;
+                    }
+                    write!(f, " = {}", t.value.ty)
+                }
                 SymbolDefinition::Function(ref func) => {
                     write!(f, "def {}{}", self.id, func)
                 }
@@ -205,15 +222,18 @@ pub struct StructDefinition<'ast> {
 
 impl<'ast> fmt::Display for StructDefinition<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(
-            f,
-            "<{}> {{",
-            self.generics
-                .iter()
-                .map(|g| g.to_string())
-                .collect::<Vec<_>>()
-                .join(", "),
-        )?;
+        if !self.generics.is_empty() {
+            write!(
+                f,
+                "<{}> ",
+                self.generics
+                    .iter()
+                    .map(|g| g.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?;
+        }
+        writeln!(f, "{{")?;
         for field in &self.fields {
             writeln!(f, "  {}", field)?;
         }
@@ -248,7 +268,34 @@ pub type ConstantDefinitionNode<'ast> = Node<ConstantDefinition<'ast>>;
 
 impl<'ast> fmt::Display for ConstantDefinition<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "const {}({})", self.ty, self.expression)
+        write!(f, "const {} _ = {}", self.ty, self.expression)
+    }
+}
+
+/// A type definition
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeDefinition<'ast> {
+    pub generics: Vec<ConstantGenericNode<'ast>>,
+    pub ty: UnresolvedTypeNode<'ast>,
+}
+
+pub type TypeDefinitionNode<'ast> = Node<TypeDefinition<'ast>>;
+
+impl<'ast> fmt::Display for TypeDefinition<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "type _")?;
+        if !self.generics.is_empty() {
+            write!(
+                f,
+                "<{}>",
+                self.generics
+                    .iter()
+                    .map(|g| g.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?;
+        }
+        write!(f, " = {}", self.ty)
     }
 }
 
@@ -337,7 +384,7 @@ pub enum Statement<'ast> {
     Return(ExpressionListNode<'ast>),
     Declaration(VariableNode<'ast>),
     Definition(AssigneeNode<'ast>, ExpressionNode<'ast>),
-    Assertion(ExpressionNode<'ast>),
+    Assertion(ExpressionNode<'ast>, Option<String>),
     For(
         VariableNode<'ast>,
         ExpressionNode<'ast>,
@@ -355,7 +402,13 @@ impl<'ast> fmt::Display for Statement<'ast> {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Declaration(ref var) => write!(f, "{}", var),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            Statement::Assertion(ref e) => write!(f, "assert({})", e),
+            Statement::Assertion(ref e, ref message) => {
+                write!(f, "assert({}", e)?;
+                match message {
+                    Some(m) => write!(f, ", \"{}\")", m),
+                    None => write!(f, ")"),
+                }
+            }
             Statement::For(ref var, ref start, ref stop, ref list) => {
                 writeln!(f, "for {} in {}..{} do", var, start, stop)?;
                 for l in list {
@@ -454,6 +507,12 @@ impl<'ast> fmt::Display for Range<'ast> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConditionalKind {
+    IfElse,
+    Ternary,
+}
+
 /// An expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'ast> {
@@ -473,13 +532,14 @@ pub enum Expression<'ast> {
     Pow(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Neg(Box<ExpressionNode<'ast>>),
     Pos(Box<ExpressionNode<'ast>>),
-    IfElse(
+    Conditional(
         Box<ExpressionNode<'ast>>,
         Box<ExpressionNode<'ast>>,
         Box<ExpressionNode<'ast>>,
+        ConditionalKind,
     ),
     FunctionCall(
-        FunctionIdentifier<'ast>,
+        Box<ExpressionNode<'ast>>,
         Option<Vec<Option<ExpressionNode<'ast>>>>,
         Vec<ExpressionNode<'ast>>,
     ),
@@ -524,11 +584,18 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::Neg(ref e) => write!(f, "(-{})", e),
             Expression::Pos(ref e) => write!(f, "(+{})", e),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
-            Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
+            Expression::Conditional(ref condition, ref consequent, ref alternative, ref kind) => {
+                match kind {
+                    ConditionalKind::IfElse => write!(
+                        f,
+                        "if {} then {} else {} fi",
+                        condition, consequent, alternative
+                    ),
+                    ConditionalKind::Ternary => {
+                        write!(f, "{} ? {} : {}", condition, consequent, alternative)
+                    }
+                }
+            }
             Expression::FunctionCall(ref i, ref g, ref p) => {
                 if let Some(g) = g {
                     write!(

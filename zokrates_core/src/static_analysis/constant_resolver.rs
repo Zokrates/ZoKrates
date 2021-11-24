@@ -310,13 +310,13 @@ mod tests {
             statements: vec![TypedStatement::Return(vec![FieldElementExpression::Add(
                 FieldElementExpression::select(
                     ArrayExpressionInner::Identifier(Identifier::from(const_id.clone()))
-                        .annotate(GType::FieldElement, 2usize),
+                        .annotate(GType::FieldElement, 2u32),
                     UExpressionInner::Value(0u128).annotate(UBitwidth::B32),
                 )
                 .into(),
                 FieldElementExpression::select(
                     ArrayExpressionInner::Identifier(Identifier::from(const_id.clone()))
-                        .annotate(GType::FieldElement, 2usize),
+                        .annotate(GType::FieldElement, 2u32),
                     UExpressionInner::Value(1u128).annotate(UBitwidth::B32),
                 )
                 .into(),
@@ -346,7 +346,7 @@ mod tests {
                                         ]
                                         .into(),
                                     )
-                                    .annotate(GType::FieldElement, 2usize),
+                                    .annotate(GType::FieldElement, 2u32),
                                 ),
                                 DeclarationType::Array(DeclarationArrayType::new(
                                     DeclarationType::FieldElement,

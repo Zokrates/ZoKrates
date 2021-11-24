@@ -12,6 +12,7 @@ mod flatten_complex_types;
 mod out_of_bounds;
 mod propagation;
 mod reducer;
+mod struct_concretizer;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod variable_write_remover;
@@ -23,6 +24,7 @@ use self::flatten_complex_types::Flattener;
 use self::out_of_bounds::OutOfBoundsChecker;
 use self::propagation::Propagator;
 use self::reducer::reduce_program;
+use self::struct_concretizer::StructConcretizer;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_write_remover::VariableWriteRemover;
@@ -122,6 +124,14 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // reduce the program to a single function
         log::debug!("Static analyser: Reduce program");
         let r = reduce_program(r).map_err(Error::from)?;
+        log::trace!("\n{}", r);
+
+        log::debug!("Static analyser: Propagate");
+        let r = Propagator::propagate(r)?;
+        log::trace!("\n{}", r);
+
+        log::debug!("Static analyser: Concretize structs");
+        let r = StructConcretizer::concretize(r);
         log::trace!("\n{}", r);
 
         // generate abi

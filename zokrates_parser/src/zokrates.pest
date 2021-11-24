@@ -3,17 +3,19 @@ file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ symbol_declaration* ~ EOI }
 
 pragma = { "#pragma" ~ "curve" ~ curve }
 curve = @{ (ASCII_ALPHANUMERIC | "_") * }
+string = @{(!"\"" ~ ANY)*}
+quoted_string = _{ "\"" ~ string ~ "\"" }
 
-symbol_declaration = { (import_directive | ty_struct_definition | const_definition | function_definition) ~ NEWLINE* }
+symbol_declaration = { (import_directive | ty_struct_definition | const_definition | type_definition | function_definition) ~ NEWLINE* }
 
 import_directive = { main_import_directive | from_import_directive }
-from_import_directive = { "from" ~ "\"" ~ import_source ~ "\"" ~ "import" ~ import_symbol_list ~ NEWLINE* }
-main_import_directive = { "import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+ }
-import_source = @{(!"\"" ~ ANY)*}
+from_import_directive = { "from" ~ quoted_string ~ "import" ~ import_symbol_list ~ NEWLINE* }
+main_import_directive = { "import" ~ quoted_string ~ ("as" ~ identifier)? ~ NEWLINE+ }
 import_symbol = { identifier ~ ("as" ~ identifier)? }
 import_symbol_list = _{ import_symbol ~ ("," ~ import_symbol)* }
 function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ return_types ~ ":" ~ NEWLINE* ~ statement* }
 const_definition = {"const" ~ ty ~ identifier ~ "=" ~ expression ~ NEWLINE*}
+type_definition = {"type" ~ identifier ~ constant_generics_declaration? ~ "=" ~ ty ~ NEWLINE*}
 return_types = _{ ( "->" ~ ( "(" ~ type_list ~ ")" | ty ))? }
 constant_generics_declaration = _{ "<" ~ constant_generics_list ~ ">" }
 constant_generics_list = _{ identifier ~ ("," ~ identifier)* }
@@ -55,7 +57,7 @@ statement = { (return_statement // does not require subsequent newline
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
 definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
-expression_statement = {"assert" ~ "(" ~ expression ~ ")"}
+expression_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")"}
 
 typed_identifier_or_assignee_list = _{ typed_identifier_or_assignee ~ ("," ~ typed_identifier_or_assignee)* }
 typed_identifier_or_assignee = { typed_identifier | assignee } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
@@ -65,16 +67,16 @@ expression_list = _{(expression ~ ("," ~ expression)*)?}
 
 expression = { unaried_term ~ (op_binary ~ unaried_term)* }
 unaried_term = { op_unary? ~ powered_term }
-powered_term = { term ~ (op_pow ~ exponent_expression)? }
-term = { ("(" ~ expression ~ ")") | inline_struct_expression | conditional_expression | postfix_expression | primary_expression | inline_array_expression | array_initializer_expression }
+powered_term = { postfixed_term ~ (op_pow ~ exponent_expression)? }
+postfixed_term = { term ~ access* }
+term = { ("(" ~ expression ~ ")") | inline_struct_expression | if_else_expression | primary_expression | inline_array_expression | array_initializer_expression }
 spread = { "..." ~ expression }
 range = { from_expression? ~ ".." ~ to_expression? }
 from_expression = { expression }
 to_expression = { expression }
 
-conditional_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
+if_else_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
 
-postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers
 access = { array_access | call_access | member_access }
 array_access = { "[" ~ range_or_expression ~ "]" }
 call_access = { ("::" ~ explicit_generics)? ~ "(" ~ arguments ~ ")" }
@@ -154,8 +156,10 @@ op_neg = {"-"}
 op_pos = {"+"}
 op_left_shift = @{"<<"}
 op_right_shift = @{">>"}
+op_ternary = {"?" ~ expression ~ ":"}
+
 // `op_pow` is *not* in `op_binary` because its precedence is handled in this parser rather than down the line in precedence climbing
-op_binary = _ { op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div | op_rem }
+op_binary = _ { op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div | op_rem | op_ternary }
 op_unary = { op_pos | op_neg | op_not }
 
 WHITESPACE = _{ " " | "\t" | "\\" ~ COMMENT? ~ NEWLINE}
@@ -163,6 +167,6 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
 // the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly
 // accepted
-keyword = @{"assert"|"as"|"bool"|"byte"|"const"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
+keyword = @{"assert"|"as"|"bool"|"const"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
             "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
             }

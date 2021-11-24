@@ -150,7 +150,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
-        Ok(n)
+        let id = match n.id {
+            CoreIdentifier::Constant(c) => {
+                CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)?)
+            }
+            id => id,
+        };
+
+        Ok(Identifier { id, ..n })
     }
 
     fn fold_variable(&mut self, v: Variable<'ast, T>) -> Result<Variable<'ast, T>, Self::Error> {
@@ -184,14 +191,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_types(self, tys)
     }
 
-    fn fold_if_else_expression<
-        E: Expr<'ast, T> + PartialEq + IfElse<'ast, T> + ResultFold<'ast, T>,
+    fn fold_conditional_expression<
+        E: Expr<'ast, T> + PartialEq + Conditional<'ast, T> + ResultFold<'ast, T>,
     >(
         &mut self,
         ty: &E::Ty,
-        e: IfElseExpression<'ast, T, E>,
-    ) -> Result<IfElseOrExpression<'ast, T, E>, Self::Error> {
-        fold_if_else_expression(self, ty, e)
+        e: ConditionalExpression<'ast, T, E>,
+    ) -> Result<ConditionalOrExpression<'ast, T, E>, Self::Error> {
+        fold_conditional_expression(self, ty, e)
     }
 
     fn fold_block_expression<E: ResultFold<'ast, T>>(
@@ -212,7 +219,10 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 
     fn fold_select_expression<
-        E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+        E: Expr<'ast, T>
+            + Select<'ast, T>
+            + Into<TypedExpression<'ast, T>>
+            + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
         ty: &E::Ty,
@@ -455,7 +465,9 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
             TypedStatement::Definition(f.fold_assignee(a)?, f.fold_expression(e)?)
         }
         TypedStatement::Declaration(v) => TypedStatement::Declaration(f.fold_variable(v)?),
-        TypedStatement::Assertion(e) => TypedStatement::Assertion(f.fold_boolean_expression(e)?),
+        TypedStatement::Assertion(e, error) => {
+            TypedStatement::Assertion(f.fold_boolean_expression(e)?, error)
+        }
         TypedStatement::For(v, from, to, statements) => TypedStatement::For(
             f.fold_variable(v)?,
             f.fold_uint_expression(from)?,
@@ -502,9 +514,9 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        ArrayExpressionInner::IfElse(c) => match f.fold_if_else_expression(ty, c)? {
-            IfElseOrExpression::IfElse(c) => ArrayExpressionInner::IfElse(c),
-            IfElseOrExpression::Expression(u) => u,
+        ArrayExpressionInner::Conditional(c) => match f.fold_conditional_expression(ty, c)? {
+            ConditionalOrExpression::Conditional(c) => ArrayExpressionInner::Conditional(c),
+            ConditionalOrExpression::Expression(u) => u,
         },
         ArrayExpressionInner::Member(m) => match f.fold_member_expression(ty, m)? {
             MemberOrExpression::Member(m) => ArrayExpressionInner::Member(m),
@@ -567,9 +579,9 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        StructExpressionInner::IfElse(c) => match f.fold_if_else_expression(ty, c)? {
-            IfElseOrExpression::IfElse(c) => StructExpressionInner::IfElse(c),
-            IfElseOrExpression::Expression(u) => u,
+        StructExpressionInner::Conditional(c) => match f.fold_conditional_expression(ty, c)? {
+            ConditionalOrExpression::Conditional(c) => StructExpressionInner::Conditional(c),
+            ConditionalOrExpression::Expression(u) => u,
         },
         StructExpressionInner::Member(m) => match f.fold_member_expression(ty, m)? {
             MemberOrExpression::Member(m) => StructExpressionInner::Member(m),
@@ -630,10 +642,10 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
 
             FieldElementExpression::Pos(box e)
         }
-        FieldElementExpression::IfElse(c) => {
-            match f.fold_if_else_expression(&Type::FieldElement, c)? {
-                IfElseOrExpression::IfElse(c) => FieldElementExpression::IfElse(c),
-                IfElseOrExpression::Expression(u) => u,
+        FieldElementExpression::Conditional(c) => {
+            match f.fold_conditional_expression(&Type::FieldElement, c)? {
+                ConditionalOrExpression::Conditional(c) => FieldElementExpression::Conditional(c),
+                ConditionalOrExpression::Expression(u) => u,
             }
         }
         FieldElementExpression::FunctionCall(function_call) => {
@@ -684,11 +696,11 @@ pub fn fold_block_expression<'ast, T: Field, E: ResultFold<'ast, T>, F: ResultFo
     })
 }
 
-pub fn fold_if_else_expression<
+pub fn fold_conditional_expression<
     'ast,
     T: Field,
     E: Expr<'ast, T>
-        + IfElse<'ast, T>
+        + Conditional<'ast, T>
         + PartialEq
         + ResultFold<'ast, T>
         + From<TypedExpression<'ast, T>>,
@@ -696,13 +708,16 @@ pub fn fold_if_else_expression<
 >(
     f: &mut F,
     _: &E::Ty,
-    e: IfElseExpression<'ast, T, E>,
-) -> Result<IfElseOrExpression<'ast, T, E>, F::Error> {
-    Ok(IfElseOrExpression::IfElse(IfElseExpression::new(
-        f.fold_boolean_expression(*e.condition)?,
-        e.consequence.fold(f)?,
-        e.alternative.fold(f)?,
-    )))
+    e: ConditionalExpression<'ast, T, E>,
+) -> Result<ConditionalOrExpression<'ast, T, E>, F::Error> {
+    Ok(ConditionalOrExpression::Conditional(
+        ConditionalExpression::new(
+            f.fold_boolean_expression(*e.condition)?,
+            e.consequence.fold(f)?,
+            e.alternative.fold(f)?,
+            e.kind,
+        ),
+    ))
 }
 
 pub fn fold_member_expression<
@@ -724,7 +739,10 @@ pub fn fold_member_expression<
 pub fn fold_select_expression<
     'ast,
     T: Field,
-    E: Expr<'ast, T> + Select<'ast, T> + From<TypedExpression<'ast, T>>,
+    E: Expr<'ast, T>
+        + Select<'ast, T>
+        + From<TypedExpression<'ast, T>>
+        + Into<TypedExpression<'ast, T>>,
     F: ResultFolder<'ast, T>,
 >(
     f: &mut F,
@@ -855,10 +873,12 @@ pub fn fold_boolean_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        BooleanExpression::IfElse(c) => match f.fold_if_else_expression(&Type::Boolean, c)? {
-            IfElseOrExpression::IfElse(c) => BooleanExpression::IfElse(c),
-            IfElseOrExpression::Expression(u) => u,
-        },
+        BooleanExpression::Conditional(c) => {
+            match f.fold_conditional_expression(&Type::Boolean, c)? {
+                ConditionalOrExpression::Conditional(c) => BooleanExpression::Conditional(c),
+                ConditionalOrExpression::Expression(u) => u,
+            }
+        }
         BooleanExpression::Select(select) => {
             match f.fold_select_expression(&Type::Boolean, select)? {
                 SelectOrExpression::Select(s) => BooleanExpression::Select(s),
@@ -983,9 +1003,9 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: ResultFolder<'ast, T>>(
             SelectOrExpression::Select(s) => UExpressionInner::Select(s),
             SelectOrExpression::Expression(u) => u,
         },
-        UExpressionInner::IfElse(c) => match f.fold_if_else_expression(&ty, c)? {
-            IfElseOrExpression::IfElse(c) => UExpressionInner::IfElse(c),
-            IfElseOrExpression::Expression(u) => u,
+        UExpressionInner::Conditional(c) => match f.fold_conditional_expression(&ty, c)? {
+            ConditionalOrExpression::Conditional(c) => UExpressionInner::Conditional(c),
+            ConditionalOrExpression::Expression(u) => u,
         },
         UExpressionInner::Member(m) => match f.fold_member_expression(&ty, m)? {
             MemberOrExpression::Member(m) => UExpressionInner::Member(m),
@@ -1059,6 +1079,9 @@ pub fn fold_declaration_constant<'ast, T: Field, F: ResultFolder<'ast, T>>(
         DeclarationConstant::Expression(e) => {
             Ok(DeclarationConstant::Expression(f.fold_expression(e)?))
         }
+        DeclarationConstant::Constant(c) => Ok(DeclarationConstant::Constant(
+            f.fold_canonical_constant_identifier(c)?,
+        )),
         c => Ok(c),
     }
 }
@@ -1225,11 +1248,14 @@ pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
     p: TypedProgram<'ast, T>,
 ) -> Result<TypedProgram<'ast, T>, F::Error> {
     Ok(TypedProgram {
+        main: f.fold_module_id(p.main)?,
         modules: p
             .modules
             .into_iter()
-            .map(|(module_id, module)| f.fold_module(module).map(|m| (module_id, m)))
+            .map(|(module_id, module)| {
+                let module_id = f.fold_module_id(module_id)?;
+                f.fold_module(module).map(|m| (module_id, m))
+            })
             .collect::<Result<_, _>>()?,
-        main: f.fold_module_id(p.main)?,
     })
 }
