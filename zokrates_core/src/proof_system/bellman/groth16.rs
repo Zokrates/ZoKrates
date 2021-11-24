@@ -91,7 +91,20 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
         let mut pk: Vec<u8> = Vec::new();
         parameters.write(&mut pk).unwrap();
 
-        let vk = VerificationKey {
+        let vk = serialization::parameters_to_verification_key::<T>(&parameters);
+        SetupKeypair::new(vk, pk)
+    }
+}
+
+pub mod serialization {
+    use super::*;
+    use crate::proof_system::{G1Affine, G2Affine};
+    use pairing::from_hex;
+
+    pub fn parameters_to_verification_key<T: Field + BellmanFieldExtensions>(
+        parameters: &Parameters<T::BellmanEngine>,
+    ) -> VerificationKey<G1Affine, G2Affine> {
+        VerificationKey {
             alpha: parse_g1::<T>(&parameters.vk.alpha_g1),
             beta: parse_g2::<T>(&parameters.vk.beta_g2),
             gamma: parse_g2::<T>(&parameters.vk.gamma_g2),
@@ -102,17 +115,8 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
                 .iter()
                 .map(|g1| parse_g1::<T>(g1))
                 .collect(),
-        };
-
-        SetupKeypair::new(vk, pk)
+        }
     }
-}
-
-mod serialization {
-    use pairing::{from_hex, CurveAffine, Engine};
-
-    use crate::proof_system::{G1Affine, G2Affine};
-    use zokrates_field::BellmanFieldExtensions;
 
     pub fn to_g1<T: BellmanFieldExtensions>(
         g1: G1Affine,

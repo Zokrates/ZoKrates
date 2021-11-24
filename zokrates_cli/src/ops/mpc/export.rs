@@ -3,8 +3,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
-use zokrates_core::proof_system::bellman::{parse_g1, parse_g2};
-use zokrates_core::proof_system::groth16::VerificationKey;
+use zokrates_core::proof_system::bellman::groth16::serialization::parameters_to_verification_key;
 use zokrates_field::{BellmanFieldExtensions, Bn128Field};
 use zokrates_mpc::groth16::parameters::MPCParameters;
 
@@ -60,18 +59,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut pk: Vec<u8> = Vec::new();
     params.write(&mut pk).unwrap();
 
-    let vk = VerificationKey {
-        alpha: parse_g1::<Bn128Field>(&params.vk.alpha_g1),
-        beta: parse_g2::<Bn128Field>(&params.vk.beta_g2),
-        gamma: parse_g2::<Bn128Field>(&params.vk.gamma_g2),
-        delta: parse_g2::<Bn128Field>(&params.vk.delta_g2),
-        gamma_abc: params
-            .vk
-            .ic
-            .iter()
-            .map(|g1| parse_g1::<Bn128Field>(g1))
-            .collect(),
-    };
+    let vk = parameters_to_verification_key::<Bn128Field>(&params);
 
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
