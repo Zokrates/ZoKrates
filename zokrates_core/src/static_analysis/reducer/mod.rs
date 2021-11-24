@@ -709,8 +709,8 @@ fn reduce_function<'ast, T: Field>(
     reducer_iterator.generics = generics;
 
     let r = TypedFunctionIterator {
-        arguments: arguments,
-        signature: signature,
+        arguments,
+        signature,
         statements: reducer_iterator,
     };
 
