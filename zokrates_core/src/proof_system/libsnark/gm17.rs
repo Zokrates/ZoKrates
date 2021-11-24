@@ -1,4 +1,4 @@
-use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Witness};
 use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use crate::proof_system::libsnark::ffi::{c_free, Buffer, ProofResult, SetupResult};
 use crate::proof_system::libsnark::{
@@ -43,8 +43,8 @@ impl Backend<Bn128Field, GM17> for Libsnark {
         program: ProgIterator<I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<<GM17 as Scheme<Bn128Field>>::ProofPoints> {
-        let program = program.collect().unwrap();
+    ) -> Result<Proof<<GM17 as Scheme<Bn128Field>>::ProofPoints>, String> {
+        let program = program.collect().map_err(|e| e.to_string())?;
 
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program.clone(), witness.clone());
@@ -81,7 +81,7 @@ impl Backend<Bn128Field, GM17> for Libsnark {
             .map(|f| format!("0x{:064x}", f.to_biguint()))
             .collect();
 
-        Proof::new(points, public_inputs)
+        Ok(Proof::new(points, public_inputs))
     }
 
     fn verify(

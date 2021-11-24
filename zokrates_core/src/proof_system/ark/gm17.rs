@@ -17,7 +17,7 @@ use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
     fn setup<I: IntoStatements<Field = T>>(
         program: ProgIterator<I>,
-    ) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
+    ) -> Result<SetupKeypair<<GM17 as Scheme<T>>::VerificationKey>, String> {
         let parameters = Computation::without_witness(program).setup();
 
         let mut pk: Vec<u8> = Vec::new();
@@ -37,7 +37,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM1
                 .collect(),
         };
 
-        SetupKeypair::new(vk, pk)
+        Ok(SetupKeypair::new(vk, pk))
     }
 }
 
@@ -46,7 +46,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
         program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<GM17 as Scheme<T>>::ProofPoints> {
+    ) -> Result<Proof<<GM17 as Scheme<T>>::ProofPoints>, String> {
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -67,7 +67,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
             c: parse_g1::<T>(&proof.c),
         };
 
-        Proof::new(proof_points, inputs)
+        Ok(Proof::new(proof_points, inputs))
     }
 
     fn verify(
@@ -113,7 +113,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
 impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
     fn setup<I: IntoStatements<Field = Bw6_761Field>>(
         program: ProgIterator<I>,
-    ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
+    ) -> Result<SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey>, String> {
         let parameters = Computation::without_witness(program).setup();
 
         let mut pk: Vec<u8> = Vec::new();
@@ -133,7 +133,7 @@ impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
                 .collect(),
         };
 
-        SetupKeypair::new(vk, pk)
+        Ok(SetupKeypair::new(vk, pk))
     }
 }
 
@@ -142,7 +142,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
         program: ProgIterator<I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints> {
+    ) -> Result<Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints>, String> {
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -164,7 +164,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
             c: parse_g1::<Bw6_761Field>(&proof.c),
         };
 
-        Proof::new(proof_points, inputs)
+        Ok(Proof::new(proof_points, inputs))
     }
 
     fn verify(

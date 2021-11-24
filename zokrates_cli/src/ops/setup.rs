@@ -196,7 +196,7 @@ fn cli_setup_non_universal<
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
     // run setup phase
-    let keypair = B::setup(program);
+    let keypair = B::setup(program).map_err(|why| format!("Setup failed: {}", why))?;
 
     // write verification key
     let mut vk_file = File::create(vk_path)

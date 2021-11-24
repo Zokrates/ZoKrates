@@ -25,7 +25,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
         program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<G16 as Scheme<T>>::ProofPoints> {
+    ) -> Result<Proof<<G16 as Scheme<T>>::ProofPoints>, String> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::with_witness(program, witness);
@@ -44,7 +44,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
             c: parse_g1::<T>(&proof.c),
         };
 
-        Proof::new(proof_points, public_inputs)
+        Ok(Proof::new(proof_points, public_inputs))
     }
 
     fn verify(
@@ -89,7 +89,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
     fn setup<I: IntoStatements<Field = T>>(
         program: ProgIterator<I>,
-    ) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
+    ) -> Result<SetupKeypair<<G16 as Scheme<T>>::VerificationKey>, String> {
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
@@ -109,7 +109,7 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
                 .collect(),
         };
 
-        SetupKeypair::new(vk, pk)
+        Ok(SetupKeypair::new(vk, pk))
     }
 }
 

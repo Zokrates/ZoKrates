@@ -4,7 +4,7 @@ use crate::proof_system::libsnark::{
 };
 use crate::proof_system::{Backend, G1Affine, G2Affine, NonUniversalBackend, Proof, SetupKeypair};
 
-use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Witness};
 use crate::proof_system::libsnark::serialization::{read_g1, read_g2, write_g1, write_g2};
 use crate::proof_system::pghr13::{ProofPoints, VerificationKey, PGHR13};
 use crate::proof_system::Scheme;
@@ -46,7 +46,7 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
         program: ProgIterator<I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<<PGHR13 as Scheme<Bn128Field>>::ProofPoints> {
+    ) -> Result<Proof<<PGHR13 as Scheme<Bn128Field>>::ProofPoints>, String> {
         let program = program.collect().unwrap();
 
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
@@ -99,7 +99,7 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
             .map(|f| format!("0x{:064x}", f.to_biguint()))
             .collect();
 
-        Proof::new(points, public_inputs)
+        Ok(Proof::new(points, public_inputs))
     }
 
     fn verify(

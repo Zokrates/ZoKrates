@@ -97,7 +97,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
         program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<marlin::Marlin as Scheme<T>>::ProofPoints> {
+    ) -> Result<Proof<<marlin::Marlin as Scheme<T>>::ProofPoints>, String> {
         let computation = Computation::with_witness(program, witness);
 
         use rand_0_7::SeedableRng;
@@ -132,12 +132,12 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
         let mut serialized_proof: Vec<u8> = Vec::new();
         proof.serialize_uncompressed(&mut serialized_proof).unwrap();
 
-        Proof::new(
+        Ok(Proof::new(
             ProofPoints {
                 raw: serialized_proof,
             },
             inputs,
-        )
+        ))
     }
 
     fn verify(

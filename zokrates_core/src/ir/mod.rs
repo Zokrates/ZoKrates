@@ -86,6 +86,12 @@ impl<T> From<Vec<Statement<T>>> for MemoryStatements<T> {
     }
 }
 
+impl<T> MemoryStatements<T> {
+    pub fn iter(&self) -> std::slice::Iter<Statement<T>> {
+        self.0.iter()
+    }
+}
+
 impl<T> IntoIterator for MemoryStatements<T> {
     type Item = Statement<T>;
     type IntoIter = std::vec::IntoIter<Statement<T>>;

@@ -84,14 +84,14 @@ pub trait Backend<T: Field, S: Scheme<T>> {
         program: ir::ProgIterator<I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<S::ProofPoints>;
+    ) -> Result<Proof<S::ProofPoints>, String>;
 
     fn verify(vk: S::VerificationKey, proof: Proof<S::ProofPoints>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
     fn setup<I: ir::IntoStatements<Field = T>>(
         program: ir::ProgIterator<I>,
-    ) -> SetupKeypair<S::VerificationKey>;
+    ) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }
 
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
