@@ -59,7 +59,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut pk: Vec<u8> = Vec::new();
     params.write(&mut pk).unwrap();
 
-    let vk = parameters_to_verification_key::<Bn128Field>(&params);
+    let vk = parameters_to_verification_key::<Bn128Field>(params);
 
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
