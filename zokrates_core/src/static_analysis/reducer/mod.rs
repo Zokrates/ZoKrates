@@ -459,7 +459,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
                         }
 
-                        let extracted_statements: Vec<TypedStatement<_>> =
+                        #[allow(clippy::needless_collect)]
+                        let extracted_statements: Vec<_> =
                             std::iter::once(TypedStatement::Definition(
                                 v.clone().into(),
                                 UExpression::from(*from as u32).into(),

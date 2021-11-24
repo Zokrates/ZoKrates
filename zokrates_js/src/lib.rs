@@ -42,17 +42,17 @@ pub struct ComputationResult {
 fn deserialize_program(value: &[u8]) -> Result<ir::Prog<Bn128Field>, JsValue> {
     let prog = ir::ProgEnum::deserialize(value).map_err(|err| JsValue::from_str(&err))?;
     match prog {
-        ir::ProgEnum::Bn128Program(p) => Ok(p.collect()),
+        ir::ProgEnum::Bn128Program(p) => p.collect().map_err(|e| e.to_string().into()),
         _ => Err(JsValue::from_str("Unsupported binary")),
     }
 }
 
 #[inline]
-fn serialize_program<I: IntoIterator<Item = ir::Statement<Bn128Field>>>(
-    program: ir::ProgIterator<Bn128Field, I>,
+fn serialize_program<I: ir::IntoStatements<Field = Bn128Field>>(
+    program: ir::ProgIterator<I>,
 ) -> Vec<u8> {
     let mut buffer = Cursor::new(vec![]);
-    program.serialize(&mut buffer);
+    program.serialize(&mut buffer).unwrap();
     buffer.into_inner()
 }
 
@@ -112,7 +112,7 @@ pub fn compile(
 
     let arena = Arena::new();
 
-    let artifacts: CompilationArtifacts<Bn128Field, _> = core_compile(
+    let artifacts: CompilationArtifacts<_> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
