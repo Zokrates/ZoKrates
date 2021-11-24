@@ -227,7 +227,7 @@ impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
 mod tests {
     use super::*;
     use crate::flat_absy::{FlatParameter, FlatVariable};
-    use crate::ir::{Interpreter, Prog, Statement};
+    use crate::ir::{Interpreter, MemoryStatements, Prog, Statement};
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -235,10 +235,10 @@ mod tests {
         let program: Prog<Bn128Field> = Prog {
             arguments: vec![FlatParameter::private(FlatVariable::new(0))],
             return_count: 1,
-            statements: vec![Statement::constraint(
+            statements: MemoryStatements::from(vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
-            )],
+            )]),
         };
 
         let keypair =
