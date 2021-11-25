@@ -65,6 +65,15 @@ impl ProgEnum {
             Err(String::from("Wrong magic number"))
         }
     }
+
+    pub fn curve(&self) -> &'static str {
+        match self {
+            ProgEnum::Bls12_381Program(_) => Bls12_377Field::name(),
+            ProgEnum::Bn128Program(_) => Bn128Field::name(),
+            ProgEnum::Bls12_377Program(_) => Bls12_377Field::name(),
+            ProgEnum::Bw6_761Program(_) => Bw6_761Field::name(),
+        }
+    }
 }
 
 #[cfg(test)]

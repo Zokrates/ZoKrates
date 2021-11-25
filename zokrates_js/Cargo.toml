@@ -17,3 +17,6 @@ zokrates_common = { path = "../zokrates_common" }
 zokrates_field = { path = "../zokrates_field", default-features = false, features = ["bellman"] }
 zokrates_abi = { path = "../zokrates_abi" }
 console_error_panic_hook = "0.1.6"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

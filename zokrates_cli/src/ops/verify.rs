@@ -1,10 +1,11 @@
 use crate::constants;
-use crate::helpers::*;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use zokrates_common::constants as common_constants;
+use zokrates_common::helpers::*;
 #[cfg(feature = "ark")]
 use zokrates_core::proof_system::ark::Ark;
 #[cfg(feature = "bellman")]
@@ -40,8 +41,8 @@ pub fn subcommand() -> App<'static, 'static> {
         .help("Backend to use")
         .takes_value(true)
         .required(false)
-        .possible_values(constants::BACKENDS)
-        .default_value(constants::BELLMAN)
+        .possible_values(common_constants::BACKENDS)
+        .default_value(common_constants::BELLMAN)
     ).arg(Arg::with_name("proving-scheme")
         .short("s")
         .long("proving-scheme")
@@ -49,15 +50,15 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(constants::G16)
+        .default_value(common_constants::G16)
     ).arg(Arg::with_name("curve")
         .short("c")
         .long("curve")
         .help("Curve to be used in the verification")
         .takes_value(true)
         .required(false)
-        .possible_values(constants::CURVES)
-        .default_value(constants::BN128)
+        .possible_values(common_constants::CURVES)
+        .default_value(common_constants::BN128)
     )
 }
 

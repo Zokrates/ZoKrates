@@ -1,10 +1,11 @@
 use crate::constants;
-use crate::helpers::*;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use zokrates_common::constants as common_constants;
+use zokrates_common::helpers::*;
 #[cfg(feature = "ark")]
 use zokrates_core::proof_system::ark::Ark;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
@@ -21,8 +22,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Curve to be used in the universal setup")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::CURVES)
-                .default_value(constants::BN128),
+                .possible_values(common_constants::CURVES)
+                .default_value(common_constants::BN128),
         )
         .arg(
             Arg::with_name("universal-setup-path")
@@ -41,8 +42,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Proving scheme to use in the setup")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::UNIVERSAL_SCHEMES)
-                .default_value(constants::MARLIN),
+                .possible_values(common_constants::UNIVERSAL_SCHEMES)
+                .default_value(common_constants::MARLIN),
         )
         .arg(
             Arg::with_name("size")
@@ -57,7 +58,7 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let parameters = Parameters::try_from((
-        constants::ARK,
+        common_constants::ARK,
         sub_matches.value_of("curve").unwrap(),
         sub_matches.value_of("proving-scheme").unwrap(),
     ))?;

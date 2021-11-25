@@ -1,5 +1,9 @@
 declare module 'zokrates-js' {
 
+  export type Curve = "bn128" | "bls12_381" | "bls12_377" | "bw6_761";
+  export type Backend = "bellman" | "ark";
+  export type Scheme = "g16" | "gm17" | "marlin";
+
   export type Fq = string;
   export type Fq2 = [Fq, Fq];
 
@@ -9,10 +13,10 @@ declare module 'zokrates-js' {
 
   export type ResolveCallback = (location: string, path: string) => ResolverResult;
 
-   export interface CompileConfig {
-      allow_unconstrained_variables?: boolean,
-      isolate_branches?: boolean
-   }
+  export interface CompileConfig {
+    allow_unconstrained_variables?: boolean,
+    isolate_branches?: boolean
+  }
 
   export interface CompileOptions {
     location?: string,
@@ -59,13 +63,23 @@ declare module 'zokrates-js' {
     pk: ProvingKey,
   }
 
+  export type Options = { 
+    curve: Scheme,
+    backend: Backend, 
+    scheme: Curve, 
+  }
+
+  type AtLeast<T, K extends keyof T> = Partial<T> & Pick<T, K>;
+
   export interface ZoKratesProvider {
     compile(source: string, options?: CompileOptions): CompilationArtifacts;
-    setup(program: Uint8Array): SetupKeypair;
     computeWitness(artifacts: CompilationArtifacts, args: any[]): ComputationResult;
-    exportSolidityVerifier(verificationKey: VerificationKey): string;
-    generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): Proof;
-    verify(verificationKey: VerificationKey, proof: Proof): boolean;
+    setup(program: Uint8Array, options: AtLeast<Options, "backend" | "scheme">): SetupKeypair;
+    setupWithSrs(srs: Uint8Array, program: Uint8Array, options: AtLeast<Options, "backend" | "scheme">): SetupKeypair;
+    universalSetup(curve: Curve, size: number): Uint8Array;
+    exportSolidityVerifier(verificationKey: VerificationKey, options: AtLeast<Options, "curve" | "scheme">): string;
+    generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array, options: AtLeast<Options, "backend" | "scheme">): Proof;
+    verify(verificationKey: VerificationKey, proof: Proof, options: Options): boolean;
   }
 
   export interface Metadata {

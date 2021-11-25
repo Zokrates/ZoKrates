@@ -2396,6 +2396,7 @@ dependencies = [
  "serde_json",
  "tempdir",
  "zokrates_abi",
+ "zokrates_common",
  "zokrates_core",
  "zokrates_field",
  "zokrates_fs_resolver",

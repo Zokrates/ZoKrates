@@ -1,10 +1,11 @@
 use crate::constants;
-use crate::helpers::*;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
+use zokrates_common::constants as common_constants;
+use zokrates_common::helpers::*;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 #[cfg(feature = "ark")]
@@ -57,8 +58,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Backend to use")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::BACKENDS)
-                .default_value(constants::BELLMAN),
+                .possible_values(common_constants::BACKENDS)
+                .default_value(common_constants::BELLMAN),
         )
         .arg(
             Arg::with_name("proving-scheme")
@@ -67,8 +68,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Proving scheme to use in the setup")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::SCHEMES)
-                .default_value(constants::G16),
+                .possible_values(common_constants::SCHEMES)
+                .default_value(common_constants::G16),
         )
         .arg(
             Arg::with_name("universal-setup-path")
@@ -93,12 +94,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let parameters = Parameters::try_from((
         sub_matches.value_of("backend").unwrap(),
-        match prog {
-            ProgEnum::Bn128Program(_) => constants::BN128,
-            ProgEnum::Bls12_377Program(_) => constants::BLS12_377,
-            ProgEnum::Bls12_381Program(_) => constants::BLS12_381,
-            ProgEnum::Bw6_761Program(_) => constants::BW6_761,
-        },
+        prog.curve(),
         sub_matches.value_of("proving-scheme").unwrap(),
     ))?;
 

@@ -25,7 +25,6 @@ const getImportPath = (currentLocation, importLocation) => {
 }
 
 module.exports = (dep) => {
-
     const { zokrates, stdlib } = dep;
 
     const resolveFromStdlib = (currentLocation, importLocation) => {
@@ -40,7 +39,7 @@ module.exports = (dep) => {
             const callback = (currentLocation, importLocation) => {
                 return resolveFromStdlib(currentLocation, importLocation) || resolveCallback(currentLocation, importLocation);
             };
-            const { program, abi } = zokrates.compile(curve, source, location, callback, config);
+            const { program, abi } = zokrates.compile(source, location, callback, config, { curve });
             return {
                 program: new Uint8Array(program),
                 abi
@@ -50,26 +49,23 @@ module.exports = (dep) => {
             const { program, abi } = artifacts;
             return zokrates.compute_witness(program, abi, JSON.stringify(Array.from(args)));
         },
-        bellman: {
-            groth16: {
-                setup: (program) => zokrates.bellman_groth16_setup(program),
-                generateProof: (program, witness, provingKey) => zokrates.bellman_groth16_generate_proof(program, witness, provingKey),
-                exportSolidityVerifier: (vk) => zokrates.bellman_groth16_export_solidity_verifier(vk),
-                verify: (vk, proof, curve = "bn128") => zokrates.bellman_groth16_verify(vk, proof, curve)
-            }
+        setup: (program, options) => {
+            return zokrates.setup(program, options);
         },
-        ark: {
-            gm17: {
-                setup: (program) => zokrates.ark_gm17_setup(program),
-                generateProof: (program, witness, provingKey) => zokrates.ark_gm17_generate_proof(program, witness, provingKey),
-                verify: (vk, proof, curve = "bn128") => zokrates.ark_gm17_verify(vk, proof, curve)
-            },
-            marlin: {
-                setup: (srs, program) => zokrates.ark_marlin_setup(srs, program),
-                universalSetup: (curve, size) => zokrates.ark_marlin_universal_setup(curve, size),
-                generateProof: (program, witness, provingKey) => zokrates.ark_marlin_generate_proof(program, witness, provingKey),
-                verify: (vk, proof, curve = "bn128") => zokrates.ark_marlin_verify(vk, proof, curve)
-            }
+        universalSetup: (curve, size) => {
+            return zokrates.universal_setup(curve, size);
+        },
+        setupWithSrs: (srs, program, options) => {
+            return zokrates.setup_with_srs(srs, program, options);
+        },
+        generateProof: (program, witness, provingKey, options) => {
+            return zokrates.generate_proof(program, witness, provingKey, options);
+        },
+        verify: (vk, proof, options) => {
+            return zokrates.verify(vk, proof, options);
+        },
+        exportSolidityVerifier: (vk, options) => {
+            return zokrates.export_solidity_verifier(vk, options);
         }
     }
 };

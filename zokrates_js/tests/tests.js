@@ -86,6 +86,12 @@ describe('tests', function() {
 
     describe("bellman", () => {
         describe("groth16", () => {
+            const options = { 
+                backend: "bellman", 
+                curve: "bn128", 
+                scheme: "g16" 
+            };
+
             let artifacts;
             let computationResult;
             let keypair;
@@ -100,39 +106,45 @@ describe('tests', function() {
 
             it("setup", () => {
                 assert.doesNotThrow(() => {
-                    keypair = zokrates.bellman.groth16.setup(artifacts.program);
+                    keypair = zokrates.setup(artifacts.program, options);
                 });
             });
 
             it("generate proof", () => {
                 assert.doesNotThrow(() => {
-                    proof = zokrates.bellman.groth16.generateProof(artifacts.program, computationResult.witness, keypair.pk);
+                    proof = zokrates.generateProof(artifacts.program, computationResult.witness, keypair.pk, options);
                     assert.ok(proof !== undefined);
                     assert.deepEqual(proof.inputs, ["0x0000000000000000000000000000000000000000000000000000000000000004"]);
                 });
             });
 
             it("export solidity verifier", () => {
-                let verifier = zokrates.bellman.groth16.exportSolidityVerifier(keypair.vk);
+                let verifier = zokrates.exportSolidityVerifier(keypair.vk, options);
                 assert(verifier.length > 0);
             });
 
             it("verify with valid proof", () => {
                 assert.doesNotThrow(() => {
-                    assert(zokrates.bellman.groth16.verify(keypair.vk, proof) === true);
+                    assert(zokrates.verify(keypair.vk, proof, options) === true);
                 });
             });
 
             it("verify with invalid proof", () => {
                 // falsify proof
                 proof["proof"]["a"][0] = "0x0000000000000000000000000000000000000000000000000000000000000000";
-                assert(zokrates.bellman.groth16.verify(keypair.vk, proof) === false);
+                assert(zokrates.verify(keypair.vk, proof, options) === false);
             });
         });
     });
 
     describe("ark", () => {
         describe("gm17", () => {
+            const options = { 
+                backend: "ark", 
+                curve: "bn128", 
+                scheme: "gm17" 
+            };
+
             let artifacts;
             let computationResult;
             let keypair;
@@ -147,13 +159,13 @@ describe('tests', function() {
 
             it("setup", () => {
                 assert.doesNotThrow(() => {
-                    keypair = zokrates.ark.gm17.setup(artifacts.program);
+                    keypair = zokrates.setup(artifacts.program, options);
                 });
             });
 
             it("generate proof", () => {
                 assert.doesNotThrow(() => {
-                    proof = zokrates.ark.gm17.generateProof(artifacts.program, computationResult.witness, keypair.pk);
+                    proof = zokrates.generateProof(artifacts.program, computationResult.witness, keypair.pk, options);
                     assert.ok(proof !== undefined);
                     assert.deepEqual(proof.inputs, ["0x0000000000000000000000000000000000000000000000000000000000000004"]);
                 });
@@ -161,18 +173,24 @@ describe('tests', function() {
 
             it("verify with valid proof", () => {
                 assert.doesNotThrow(() => {
-                    assert(zokrates.ark.gm17.verify(keypair.vk, proof) === true);
+                    assert(zokrates.verify(keypair.vk, proof, options) === true);
                 });
             });
 
             it("verify with invalid proof", () => {
                 // falsify proof
                 proof["proof"]["a"][0] = "0x0000000000000000000000000000000000000000000000000000000000000000";
-                assert(zokrates.ark.gm17.verify(keypair.vk, proof) === false);
+                assert(zokrates.verify(keypair.vk, proof, options) === false);
             });
         });
 
         describe("marlin", () => {
+            const options = { 
+                backend: "ark", 
+                curve: "bn128", 
+                scheme: "marlin" 
+            };
+
             let artifacts;
             let computationResult;
             let keypair;
@@ -187,14 +205,14 @@ describe('tests', function() {
 
             it("setup", () => {
                 assert.doesNotThrow(() => {
-                    const srs = zokrates.ark.marlin.universalSetup("bn128", 4);
-                    keypair = zokrates.ark.marlin.setup(srs, artifacts.program);
+                    const srs = zokrates.universalSetup("bn128", 4);
+                    keypair = zokrates.setupWithSrs(srs, artifacts.program, options);
                 });
             });
 
             it("generate proof", () => {
                 assert.doesNotThrow(() => {
-                    proof = zokrates.ark.marlin.generateProof(artifacts.program, computationResult.witness, keypair.pk);
+                    proof = zokrates.generateProof(artifacts.program, computationResult.witness, keypair.pk, options);
                     assert.ok(proof !== undefined);
                     assert.deepEqual(proof.inputs, ["0x0000000000000000000000000000000000000000000000000000000000000001"]);
                 });
@@ -202,14 +220,14 @@ describe('tests', function() {
 
             it("verify with valid proof", () => {
                 assert.doesNotThrow(() => {
-                    assert(zokrates.ark.marlin.verify(keypair.vk, proof) === true);
+                    assert(zokrates.verify(keypair.vk, proof, options) === true);
                 });
             });
 
             it("verify with invalid proof", () => {
                 // falsify proof
                 proof["inputs"][0] = "0x0000000000000000000000000000000000000000000000000000000000000000";
-                assert(zokrates.ark.marlin.verify(keypair.vk, proof) === false);
+                assert(zokrates.verify(keypair.vk, proof, options) === false);
             });
         });
     });
