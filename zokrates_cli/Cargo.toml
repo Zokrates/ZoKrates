@@ -7,9 +7,9 @@ edition = "2018"
 
 [features]
 default = ["bellman", "ark"]
-libsnark = ["zokrates_core/libsnark"]
-bellman = ["zokrates_core/bellman"]
-ark = ["zokrates_core/ark"]
+libsnark = ["zokrates_core/libsnark", "zokrates_common/libsnark"]
+bellman = ["zokrates_core/bellman", "zokrates_common/bellman"]
+ark = ["zokrates_core/ark", "zokrates_common/ark"]
 
 [dependencies]
 log = "0.4"
