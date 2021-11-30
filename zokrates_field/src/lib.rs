@@ -177,9 +177,12 @@ mod prime_field {
 
             use std::convert::TryInto;
 
+            const POWERS_OF_TWO_MAP_SIZE: usize = 256;
+
             lazy_static! {
-                static ref POWERS_OF_TWO: [BigUint; 256] = (0..256)
-                    .map(|exponent| BigUint::from(2u32).pow(exponent))
+                static ref POWERS_OF_TWO: [BigInt; POWERS_OF_TWO_MAP_SIZE] = (0
+                    ..POWERS_OF_TWO_MAP_SIZE)
+                    .map(|exponent| BigInt::from(2u32).pow(exponent as u32))
                     .collect::<Vec<_>>()
                     .try_into()
                     .unwrap();
@@ -250,7 +253,13 @@ mod prime_field {
                 }
 
                 fn two_pow(exponent: usize) -> FieldPrime {
-                    POWERS_OF_TWO[exponent].clone().try_into().unwrap()
+                    if exponent < POWERS_OF_TWO_MAP_SIZE {
+                        FieldPrime {
+                            value: POWERS_OF_TWO[exponent].clone() % &*P,
+                        }
+                    } else {
+                        Self::from(2).pow(exponent)
+                    }
                 }
 
                 fn get_required_bits() -> usize {
@@ -508,11 +517,9 @@ mod prime_field {
                 type Output = FieldPrime;
 
                 fn pow(self, exp: usize) -> FieldPrime {
-                    let mut res = FieldPrime::from(1);
-                    for _ in 0..exp {
-                        res = res * &self;
-                    }
-                    res
+                    let value = self.value.pow(exp as u32);
+
+                    FieldPrime { value: value % &*P }
                 }
             }
 
