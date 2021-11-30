@@ -132,15 +132,14 @@ impl Interpreter {
                 ],
             },
             Solver::Bits(bit_width) => {
-                let padding = bit_width.saturating_sub(T::get_required_bits());
-
-                let bit_width = bit_width - padding;
-
+                // get all the bits
                 let bits = inputs[0].to_bits_be();
 
-                let padding_2 = bit_width - bits.len();
+                // only keep at most `bit_width` of them, starting from the least significant
+                let bits = bits[bits.len().saturating_sub(*bit_width)..].to_vec();
 
-                (0..padding + padding_2)
+                // pad with zeroes so that the result is exactly `bit_width` long
+                (0..bit_width - bits.len())
                     .map(|_| 0)
                     .chain(bits)
                     .map(T::from)
