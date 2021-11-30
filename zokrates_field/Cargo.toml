@@ -33,5 +33,5 @@ ark-bw6-761 = { version = "^0.2.0", default-features = false, optional = true }
 rand = "0.4"
 
 [dependencies.num-bigint]
-version = "0.2"
+version = "0.4"
 features = ["serde"]

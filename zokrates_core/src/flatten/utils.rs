@@ -25,7 +25,7 @@ pub fn flat_expression_from_bits<T: Field>(v: Vec<FlatExpression<T>>) -> FlatExp
         v.into_iter()
             .rev()
             .enumerate()
-            .map(|(index, var)| (T::from(2).pow(index), var))
+            .map(|(index, var)| (T::two_pow(index), var))
             .collect::<Vec<_>>(),
     )
 }

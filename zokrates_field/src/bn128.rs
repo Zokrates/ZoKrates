@@ -40,7 +40,7 @@ mod tests {
         #[test]
         fn positive_number() {
             assert_eq!(
-                "1234245612".parse::<BigInt>().unwrap(),
+                "1234245612".parse::<BigUint>().unwrap(),
                 FieldPrime::from("1234245612").value
             );
         }
@@ -48,7 +48,7 @@ mod tests {
         #[test]
         fn negative_number() {
             assert_eq!(
-                P.checked_sub(&"12".parse::<BigInt>().unwrap()).unwrap(),
+                P.checked_sub(&"12".parse::<BigUint>().unwrap()).unwrap(),
                 FieldPrime::from("-12").value
             );
         }
@@ -56,11 +56,11 @@ mod tests {
         #[test]
         fn addition() {
             assert_eq!(
-                "65484493".parse::<BigInt>().unwrap(),
+                "65484493".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("65416358") + FieldPrime::from("68135")).value
             );
             assert_eq!(
-                "65484493".parse::<BigInt>().unwrap(),
+                "65484493".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("65416358") + &FieldPrime::from("68135")).value
             );
         }
@@ -68,11 +68,11 @@ mod tests {
         #[test]
         fn addition_negative_small() {
             assert_eq!(
-                "3".parse::<BigInt>().unwrap(),
+                "3".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("5") + FieldPrime::from("-2")).value
             );
             assert_eq!(
-                "3".parse::<BigInt>().unwrap(),
+                "3".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("5") + &FieldPrime::from("-2")).value
             );
         }
@@ -80,11 +80,11 @@ mod tests {
         #[test]
         fn addition_negative() {
             assert_eq!(
-                "65348223".parse::<BigInt>().unwrap(),
+                "65348223".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("65416358") + FieldPrime::from("-68135")).value
             );
             assert_eq!(
-                "65348223".parse::<BigInt>().unwrap(),
+                "65348223".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("65416358") + &FieldPrime::from("-68135")).value
             );
         }
@@ -92,11 +92,11 @@ mod tests {
         #[test]
         fn subtraction() {
             assert_eq!(
-                "65348223".parse::<BigInt>().unwrap(),
+                "65348223".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("65416358") - FieldPrime::from("68135")).value
             );
             assert_eq!(
-                "65348223".parse::<BigInt>().unwrap(),
+                "65348223".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("65416358") - &FieldPrime::from("68135")).value
             );
         }
@@ -104,11 +104,11 @@ mod tests {
         #[test]
         fn subtraction_negative() {
             assert_eq!(
-                "65484493".parse::<BigInt>().unwrap(),
+                "65484493".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("65416358") - FieldPrime::from("-68135")).value
             );
             assert_eq!(
-                "65484493".parse::<BigInt>().unwrap(),
+                "65484493".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("65416358") - &FieldPrime::from("-68135")).value
             );
         }
@@ -117,13 +117,13 @@ mod tests {
         fn subtraction_overflow() {
             assert_eq!(
                 "21888242871839275222246405745257275088548364400416034343698204186575743147394"
-                    .parse::<BigInt>()
+                    .parse::<BigUint>()
                     .unwrap(),
                 (FieldPrime::from("68135") - FieldPrime::from("65416358")).value
             );
             assert_eq!(
                 "21888242871839275222246405745257275088548364400416034343698204186575743147394"
-                    .parse::<BigInt>()
+                    .parse::<BigUint>()
                     .unwrap(),
                 (FieldPrime::from("68135") - &FieldPrime::from("65416358")).value
             );
@@ -132,11 +132,11 @@ mod tests {
         #[test]
         fn multiplication() {
             assert_eq!(
-                "13472".parse::<BigInt>().unwrap(),
+                "13472".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("32") * FieldPrime::from("421")).value
             );
             assert_eq!(
-                "13472".parse::<BigInt>().unwrap(),
+                "13472".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("32") * &FieldPrime::from("421")).value
             );
         }
@@ -145,13 +145,13 @@ mod tests {
         fn multiplication_negative() {
             assert_eq!(
                 "21888242871839275222246405745257275088548364400416034343698204186575808014369"
-                    .parse::<BigInt>()
+                    .parse::<BigUint>()
                     .unwrap(),
                 (FieldPrime::from("54") * FieldPrime::from("-8912")).value
             );
             assert_eq!(
                 "21888242871839275222246405745257275088548364400416034343698204186575808014369"
-                    .parse::<BigInt>()
+                    .parse::<BigUint>()
                     .unwrap(),
                 (FieldPrime::from("54") * &FieldPrime::from("-8912")).value
             );
@@ -160,11 +160,11 @@ mod tests {
         #[test]
         fn multiplication_two_negative() {
             assert_eq!(
-                "648".parse::<BigInt>().unwrap(),
+                "648".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("-54") * FieldPrime::from("-12")).value
             );
             assert_eq!(
-                "648".parse::<BigInt>().unwrap(),
+                "648".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("-54") * &FieldPrime::from("-12")).value
             );
         }
@@ -173,7 +173,7 @@ mod tests {
         fn multiplication_overflow() {
             assert_eq!(
                 "6042471409729479866150380306128222617399890671095126975526159292198160466142"
-                    .parse::<BigInt>()
+                    .parse::<BigUint>()
                     .unwrap(),
                 (FieldPrime::from(
                     "21888242871839225222246405785257275088694311157297823662689037894645225727"
@@ -182,7 +182,7 @@ mod tests {
             );
             assert_eq!(
                 "6042471409729479866150380306128222617399890671095126975526159292198160466142"
-                    .parse::<BigInt>()
+                    .parse::<BigUint>()
                     .unwrap(),
                 (FieldPrime::from(
                     "21888242871839225222246405785257275088694311157297823662689037894645225727"
@@ -218,7 +218,7 @@ mod tests {
         #[test]
         fn pow_usize() {
             assert_eq!(
-                "614787626176508399616".parse::<BigInt>().unwrap(),
+                "614787626176508399616".parse::<BigUint>().unwrap(),
                 (FieldPrime::from("54").pow(12)).value
             );
         }
@@ -277,19 +277,19 @@ mod tests {
 
     #[test]
     fn bigint_assertions() {
-        let x = BigInt::parse_bytes(b"65", 10).unwrap();
-        assert_eq!(&x + &x, BigInt::parse_bytes(b"130", 10).unwrap());
+        let x = BigUint::parse_bytes(b"65", 10).unwrap();
+        assert_eq!(&x + &x, BigUint::parse_bytes(b"130", 10).unwrap());
         assert_eq!(
-            "1".parse::<BigInt>().unwrap(),
-            "3".parse::<BigInt>()
+            "1".parse::<BigUint>().unwrap(),
+            "3".parse::<BigUint>()
                 .unwrap()
-                .div_floor(&"2".parse::<BigInt>().unwrap())
+                .div_floor(&"2".parse::<BigUint>().unwrap())
         );
         assert_eq!(
-            "-2".parse::<BigInt>().unwrap(),
-            "-3".parse::<BigInt>()
+            "-2".parse::<BigUint>().unwrap(),
+            "-3".parse::<BigUint>()
                 .unwrap()
-                .div_floor(&"2".parse::<BigInt>().unwrap())
+                .div_floor(&"2".parse::<BigUint>().unwrap())
         );
     }
 
@@ -297,39 +297,39 @@ mod tests {
     fn test_extended_euclid() {
         assert_eq!(
             (
-                ToBigInt::to_bigint(&1).unwrap(),
-                ToBigInt::to_bigint(&-9).unwrap(),
-                ToBigInt::to_bigint(&47).unwrap()
+                ToBigUint::to_bigint(&1).unwrap(),
+                ToBigUint::to_bigint(&-9).unwrap(),
+                ToBigUint::to_bigint(&47).unwrap()
             ),
             extended_euclid(
-                &ToBigInt::to_bigint(&120).unwrap(),
-                &ToBigInt::to_bigint(&23).unwrap()
+                &ToBigUint::to_bigint(&120).unwrap(),
+                &ToBigUint::to_bigint(&23).unwrap()
             )
         );
         assert_eq!(
             (
-                ToBigInt::to_bigint(&2).unwrap(),
-                ToBigInt::to_bigint(&2).unwrap(),
-                ToBigInt::to_bigint(&-11).unwrap()
+                ToBigUint::to_bigint(&2).unwrap(),
+                ToBigUint::to_bigint(&2).unwrap(),
+                ToBigUint::to_bigint(&-11).unwrap()
             ),
             extended_euclid(
-                &ToBigInt::to_bigint(&122).unwrap(),
-                &ToBigInt::to_bigint(&22).unwrap()
+                &ToBigUint::to_bigint(&122).unwrap(),
+                &ToBigUint::to_bigint(&22).unwrap()
             )
         );
         assert_eq!(
             (
-                ToBigInt::to_bigint(&2).unwrap(),
-                ToBigInt::to_bigint(&-9).unwrap(),
-                ToBigInt::to_bigint(&47).unwrap()
+                ToBigUint::to_bigint(&2).unwrap(),
+                ToBigUint::to_bigint(&-9).unwrap(),
+                ToBigUint::to_bigint(&47).unwrap()
             ),
             extended_euclid(
-                &ToBigInt::to_bigint(&240).unwrap(),
-                &ToBigInt::to_bigint(&46).unwrap()
+                &ToBigUint::to_bigint(&240).unwrap(),
+                &ToBigUint::to_bigint(&46).unwrap()
             )
         );
-        let (b, s, _) = extended_euclid(&ToBigInt::to_bigint(&253).unwrap(), &*P);
-        assert_eq!(b, BigInt::one());
+        let (b, s, _) = extended_euclid(&ToBigUint::to_bigint(&253).unwrap(), &*P);
+        assert_eq!(b, BigUint::one());
         let s_field = FieldPrime {
             value: &s - s.div_floor(&*P) * &*P,
         };

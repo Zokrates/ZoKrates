@@ -136,18 +136,14 @@ impl Interpreter {
 
                 let bit_width = bit_width - padding;
 
-                let num = inputs[0].clone();
+                let bits = inputs[0].to_bits_be();
 
-                (0..padding)
-                    .map(|_| T::zero())
-                    .chain((0..bit_width).rev().scan(num, |state, i| {
-                        if T::from(2).pow(i) <= *state {
-                            *state = (*state).clone() - T::from(2).pow(i);
-                            Some(T::one())
-                        } else {
-                            Some(T::zero())
-                        }
-                    }))
+                let padding_2 = bit_width - bits.len();
+
+                (0..padding + padding_2)
+                    .map(|_| 0)
+                    .chain(bits)
+                    .map(T::from)
                     .collect()
             }
             Solver::Xor => {

@@ -55,6 +55,7 @@ impl fmt::Debug for FieldParseError {
 
 pub trait Field:
     From<i32>
+    + From<u8>
     + From<u32>
     + From<usize>
     + From<u128>
@@ -101,6 +102,10 @@ pub trait Field:
     /// Returns the largest value `m` such that there exist a number of bits `n` so that any value smaller or equal to
     /// m` has a single `n`-bit decomposition
     fn max_unique_value() -> Self;
+    /// Returns a power of two
+    fn two_pow(exponent: usize) -> Self;
+    /// Returns the bits
+    fn to_bits_be(&self) -> Vec<u8>;
     /// Returns the number of bits required to represent any element of this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
@@ -170,6 +175,16 @@ mod prime_field {
                 static ref P: BigInt = BigInt::parse_bytes($modulus, 10).unwrap();
             }
 
+            use std::convert::TryInto;
+
+            lazy_static! {
+                static ref POWERS_OF_TWO: [BigUint; 256] = (0..256)
+                    .map(|exponent| BigUint::from(2u32).pow(exponent))
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap();
+            }
+
             #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
             pub struct FieldPrime {
                 value: BigInt,
@@ -178,6 +193,10 @@ mod prime_field {
             impl Field for FieldPrime {
                 fn bits(&self) -> u32 {
                     self.value.bits() as u32
+                }
+
+                fn to_bits_be(&self) -> Vec<u8> {
+                    self.value.to_radix_be(2).1
                 }
 
                 fn to_biguint(&self) -> BigUint {
@@ -229,8 +248,13 @@ mod prime_field {
                         value: BigInt::from(2u32).pow(Self::get_required_bits() - 1) - 1,
                     }
                 }
+
+                fn two_pow(exponent: usize) -> FieldPrime {
+                    POWERS_OF_TWO[exponent].clone().try_into().unwrap()
+                }
+
                 fn get_required_bits() -> usize {
-                    (*P).bits()
+                    (*P).bits() as usize
                 }
                 fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError> {
                     Self::try_from_str(s, 10)
@@ -303,6 +327,13 @@ mod prime_field {
                     FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,
                     }
+                }
+            }
+
+            impl From<u8> for FieldPrime {
+                fn from(num: u8) -> Self {
+                    let x = ToBigInt::to_bigint(&num).unwrap();
+                    FieldPrime { value: x }
                 }
             }
 

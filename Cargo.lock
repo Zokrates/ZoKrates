@@ -1278,7 +1278,6 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits 0.2.14",
- "serde",
 ]
 
 [[package]]
@@ -1290,6 +1289,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits 0.2.14",
+ "serde",
 ]
 
 [[package]]
@@ -2433,7 +2433,7 @@ dependencies = [
  "lazy_static",
  "log",
  "num",
- "num-bigint 0.2.6",
+ "num-bigint 0.4.2",
  "pairing_ce",
  "pretty_assertions",
  "rand 0.4.6",
@@ -2490,7 +2490,7 @@ dependencies = [
  "bellman_ce",
  "bincode",
  "lazy_static",
- "num-bigint 0.2.6",
+ "num-bigint 0.4.2",
  "num-integer",
  "num-traits 0.2.14",
  "rand 0.4.6",

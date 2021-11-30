@@ -454,7 +454,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         self.register(
                             lhs[0].clone(),
                             UMetadata {
-                                max: T::from(2).pow(64) - T::from(1),
+                                max: T::two_pow(64) - T::from(1),
                                 should_reduce: ShouldReduce::False,
                             },
                         );
@@ -464,7 +464,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         self.register(
                             lhs[0].clone(),
                             UMetadata {
-                                max: T::from(2).pow(32) - T::from(1),
+                                max: T::two_pow(32) - T::from(1),
                                 should_reduce: ShouldReduce::False,
                             },
                         );
@@ -474,7 +474,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         self.register(
                             lhs[0].clone(),
                             UMetadata {
-                                max: T::from(2).pow(16) - T::from(1),
+                                max: T::two_pow(16) - T::from(1),
                                 should_reduce: ShouldReduce::False,
                             },
                         );
@@ -484,7 +484,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         self.register(
                             lhs[0].clone(),
                             UMetadata {
-                                max: T::from(2).pow(8) - T::from(1),
+                                max: T::two_pow(8) - T::from(1),
                                 should_reduce: ShouldReduce::False,
                             },
                         );
