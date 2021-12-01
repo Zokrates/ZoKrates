@@ -364,6 +364,9 @@ impl<'ast, T> BooleanExpression<'ast, T> {
             current: vec![self],
         }
     }
+    pub fn is_constant(&self) -> bool {
+        matches!(self, BooleanExpression::Value(_))
+    }
 }
 
 // Downcasts

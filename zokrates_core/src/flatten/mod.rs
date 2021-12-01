@@ -459,7 +459,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let condition_id = self.use_sym();
         statements_flattened.push(FlatStatement::Definition(condition_id, condition_flat));
 
-        self.condition_cache.insert(condition, condition_id);
+        if !condition.is_constant() {
+            self.condition_cache.insert(condition, condition_id);
+        }
 
         let (consequence, alternative) = if self.config.isolate_branches {
             let mut consequence_statements = vec![];
@@ -754,9 +756,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         expression: BooleanExpression<'ast, T>,
     ) -> FlatExpression<T> {
-        // check the cache
-        if let Some(c) = self.condition_cache.get(&expression) {
-            return (*c).into();
+        if !expression.is_constant() {
+            // check the cache
+            if let Some(c) = self.condition_cache.get(&expression) {
+                return (*c).into();
+            }
         }
 
         match expression {
