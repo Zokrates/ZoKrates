@@ -1731,7 +1731,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 for e in e.value.expressions.into_iter() {
                     let e_checked = self
-                        .check_expression(dbg!(e), module_id, types)
+                        .check_expression(e, module_id, types)
                         .map_err(|e| vec![e])?;
                     expression_list_checked.push(e_checked);
                 }
