@@ -625,7 +625,7 @@ pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
             box lhs_sum,
             box FlatExpression::Mult(
                 box FlatExpression::Identifier(FlatVariable::new(bit_width - i)),
-                box FlatExpression::Number(T::two_pow(i)),
+                box FlatExpression::Number(T::from(2).pow(i)),
             ),
         );
     }

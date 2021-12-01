@@ -441,8 +441,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                                 let mut res = vec![];
 
                                                 for i in (0..bit_width as usize).rev() {
-                                                    if T::two_pow(i) <= acc {
-                                                        acc = acc - T::two_pow(i);
+                                                    if T::from(2).pow(i) <= acc {
+                                                        acc = acc - T::from(2).pow(i);
                                                         res.push(true);
                                                     } else {
                                                         res.push(false);

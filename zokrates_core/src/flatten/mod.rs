@@ -608,7 +608,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 box e_sum,
                 box FlatExpression::Mult(
                     box FlatExpression::Identifier(*bit),
-                    box FlatExpression::Number(T::two_pow(bit_width - i - 1)),
+                    box FlatExpression::Number(T::from(2).pow(bit_width - i - 1)),
                 ),
             );
         }
@@ -664,7 +664,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 // shifted_sub := 2**safe_width + lhs - rhs
                 let shifted_sub = FlatExpression::Add(
-                    box FlatExpression::Number(T::two_pow(bit_width)),
+                    box FlatExpression::Number(T::from(2).pow(bit_width)),
                     box FlatExpression::Sub(
                         box FlatExpression::Identifier(lhs_id),
                         box FlatExpression::Identifier(rhs_id),
@@ -704,7 +704,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         box expr,
                         box FlatExpression::Mult(
                             box FlatExpression::Identifier(*bit),
-                            box FlatExpression::Number(T::two_pow(sub_width - i - 1)),
+                            box FlatExpression::Number(T::from(2).pow(sub_width - i - 1)),
                         ),
                     );
                 }
@@ -722,7 +722,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         box FlatExpression::Identifier(rhs_id),
                         box FlatExpression::Identifier(lhs_id),
                     ),
-                    FlatExpression::Number(T::two_pow(bit_width)),
+                    FlatExpression::Number(T::from(2).pow(bit_width)),
                 );
                 statements_flattened.push(FlatStatement::Condition(
                     fail,
@@ -1398,7 +1398,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             UExpressionInner::Sub(box left, box right) => {
                 // see uint optimizer for the reasoning here
-                let offset = FlatExpression::Number(T::two_pow(std::cmp::max(
+                let offset = FlatExpression::Number(T::from(2).pow(std::cmp::max(
                     right.metadata.as_ref().unwrap().bitwidth() as usize,
                     target_bitwidth as usize,
                 )));
@@ -1775,9 +1775,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             FlatExpression::Add(
                                 box acc,
                                 box FlatExpression::Mult(
-                                    box FlatExpression::Number(T::two_pow(
-                                        target_bitwidth.to_usize() - index - 1,
-                                    )),
+                                    box FlatExpression::Number(
+                                        T::from(2).pow(target_bitwidth.to_usize() - index - 1),
+                                    ),
                                     box bit.clone(),
                                 ),
                             )

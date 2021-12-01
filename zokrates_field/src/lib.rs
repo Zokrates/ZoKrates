@@ -102,8 +102,6 @@ pub trait Field:
     /// Returns the largest value `m` such that there exist a number of bits `n` so that any value smaller or equal to
     /// m` has a single `n`-bit decomposition
     fn max_unique_value() -> Self;
-    /// Returns a power of two
-    fn two_pow(exponent: usize) -> Self;
     /// Returns the bits
     fn to_bits_be(&self) -> Vec<u8>;
     /// Returns the number of bits required to represent any element of this field type.
@@ -175,19 +173,6 @@ mod prime_field {
                 static ref P: BigInt = BigInt::parse_bytes($modulus, 10).unwrap();
             }
 
-            use std::convert::TryInto;
-
-            const POWERS_OF_TWO_MAP_SIZE: usize = 256;
-
-            lazy_static! {
-                static ref POWERS_OF_TWO: [BigInt; POWERS_OF_TWO_MAP_SIZE] = (0
-                    ..POWERS_OF_TWO_MAP_SIZE)
-                    .map(|exponent| BigInt::from(2u32).pow(exponent as u32))
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .unwrap();
-            }
-
             #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
             pub struct FieldPrime {
                 value: BigInt,
@@ -228,7 +213,7 @@ mod prime_field {
                     let (b, s, _) = extended_euclid(&self.value, &*P);
                     if b == BigInt::one() {
                         Some(FieldPrime {
-                            value: &s - s.div_floor(&*P) * &*P,
+                            value: s.mod_floor(&*P),
                         })
                     } else {
                         None
@@ -252,16 +237,6 @@ mod prime_field {
                     }
                 }
 
-                fn two_pow(exponent: usize) -> FieldPrime {
-                    if exponent < POWERS_OF_TWO_MAP_SIZE {
-                        FieldPrime {
-                            value: POWERS_OF_TWO[exponent].clone() % &*P,
-                        }
-                    } else {
-                        Self::from(2).pow(exponent)
-                    }
-                }
-
                 fn get_required_bits() -> usize {
                     (*P).bits() as usize
                 }
@@ -269,10 +244,8 @@ mod prime_field {
                     Self::try_from_str(s, 10)
                 }
                 fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError> {
-                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(FieldParseError)?;
-                    Ok(FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
-                    })
+                    let x = BigUint::parse_bytes(s.as_bytes(), radix).ok_or(FieldParseError)?;
+                    Self::try_from(x).map_err(|_| FieldParseError)
                 }
                 fn to_compact_dec_string(&self) -> String {
                     // values up to (p-1)/2 included are represented as positive, values between (p+1)/2 and p-1 as represented as negative by subtracting p
@@ -321,46 +294,46 @@ mod prime_field {
                 }
             }
 
+            impl From<BigInt> for FieldPrime {
+                fn from(num: BigInt) -> Self {
+                    FieldPrime {
+                        value: num.mod_floor(&*P),
+                    }
+                }
+            }
+
             impl From<i32> for FieldPrime {
                 fn from(num: i32) -> Self {
                     let x = ToBigInt::to_bigint(&num).unwrap();
-                    FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
-                    }
+                    FieldPrime::from(x)
                 }
             }
 
             impl From<u32> for FieldPrime {
                 fn from(num: u32) -> Self {
                     let x = ToBigInt::to_bigint(&num).unwrap();
-                    FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
-                    }
+                    FieldPrime::from(x)
                 }
             }
 
             impl From<u8> for FieldPrime {
                 fn from(num: u8) -> Self {
                     let x = ToBigInt::to_bigint(&num).unwrap();
-                    FieldPrime { value: x }
+                    FieldPrime::from(x)
                 }
             }
 
             impl From<usize> for FieldPrime {
                 fn from(num: usize) -> Self {
                     let x = ToBigInt::to_bigint(&num).unwrap();
-                    FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
-                    }
+                    FieldPrime::from(x)
                 }
             }
 
             impl From<u128> for FieldPrime {
                 fn from(num: u128) -> Self {
                     let x = ToBigInt::to_bigint(&num).unwrap();
-                    FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
-                    }
+                    FieldPrime::from(x)
                 }
             }
 
@@ -428,7 +401,7 @@ mod prime_field {
                     }
 
                     FieldPrime {
-                        value: (self.value + &other.value) % &*P,
+                        value: (self.value + &other.value).mod_floor(&*P),
                     }
                 }
             }
@@ -450,7 +423,7 @@ mod prime_field {
                 fn sub(self, other: &FieldPrime) -> FieldPrime {
                     let x = self.value - &other.value;
                     FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
+                        value: x.mod_floor(&*P),
                     }
                 }
             }
@@ -468,7 +441,7 @@ mod prime_field {
                     }
 
                     FieldPrime {
-                        value: (self.value * other.value) % &*P,
+                        value: (self.value * other.value).mod_floor(&*P),
                     }
                 }
             }
@@ -486,7 +459,7 @@ mod prime_field {
                     }
 
                     FieldPrime {
-                        value: (self.value * &other.value) % &*P,
+                        value: (self.value * &other.value).mod_floor(&*P),
                     }
                 }
             }
@@ -519,7 +492,9 @@ mod prime_field {
                 fn pow(self, exp: usize) -> FieldPrime {
                     let value = self.value.pow(exp as u32);
 
-                    FieldPrime { value: value % &*P }
+                    FieldPrime {
+                        value: value.mod_floor(&*P),
+                    }
                 }
             }
 

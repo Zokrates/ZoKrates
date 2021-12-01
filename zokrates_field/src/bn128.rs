@@ -41,7 +41,7 @@ mod tests {
         fn positive_number() {
             assert_eq!(
                 "1234245612".parse::<BigInt>().unwrap(),
-                FieldPrime::from("1234245612").value
+                FieldPrime::from(1234245612).value
             );
         }
 
@@ -49,7 +49,7 @@ mod tests {
         fn negative_number() {
             assert_eq!(
                 P.checked_sub(&"12".parse::<BigInt>().unwrap()).unwrap(),
-                FieldPrime::from("-12").value
+                FieldPrime::from(-12).value
             );
         }
 
@@ -57,11 +57,11 @@ mod tests {
         fn addition() {
             assert_eq!(
                 "65484493".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("65416358") + FieldPrime::from("68135")).value
+                (FieldPrime::from(65416358) + FieldPrime::from(68135)).value
             );
             assert_eq!(
                 "65484493".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("65416358") + &FieldPrime::from("68135")).value
+                (FieldPrime::from(65416358) + &FieldPrime::from(68135)).value
             );
         }
 
@@ -69,11 +69,11 @@ mod tests {
         fn addition_negative_small() {
             assert_eq!(
                 "3".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("5") + FieldPrime::from("-2")).value
+                (FieldPrime::from(5) + FieldPrime::from(-2)).value
             );
             assert_eq!(
                 "3".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("5") + &FieldPrime::from("-2")).value
+                (FieldPrime::from(5) + &FieldPrime::from(-2)).value
             );
         }
 
@@ -81,11 +81,11 @@ mod tests {
         fn addition_negative() {
             assert_eq!(
                 "65348223".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("65416358") + FieldPrime::from("-68135")).value
+                (FieldPrime::from(65416358) + FieldPrime::from(-68135)).value
             );
             assert_eq!(
                 "65348223".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("65416358") + &FieldPrime::from("-68135")).value
+                (FieldPrime::from(65416358) + &FieldPrime::from(-68135)).value
             );
         }
 
@@ -93,11 +93,11 @@ mod tests {
         fn subtraction() {
             assert_eq!(
                 "65348223".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("65416358") - FieldPrime::from("68135")).value
+                (FieldPrime::from(65416358) - FieldPrime::from(68135)).value
             );
             assert_eq!(
                 "65348223".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("65416358") - &FieldPrime::from("68135")).value
+                (FieldPrime::from(65416358) - &FieldPrime::from(68135)).value
             );
         }
 
@@ -105,11 +105,11 @@ mod tests {
         fn subtraction_negative() {
             assert_eq!(
                 "65484493".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("65416358") - FieldPrime::from("-68135")).value
+                (FieldPrime::from(65416358) - FieldPrime::from(-68135)).value
             );
             assert_eq!(
                 "65484493".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("65416358") - &FieldPrime::from("-68135")).value
+                (FieldPrime::from(65416358) - &FieldPrime::from(-68135)).value
             );
         }
 
@@ -119,13 +119,13 @@ mod tests {
                 "21888242871839275222246405745257275088548364400416034343698204186575743147394"
                     .parse::<BigInt>()
                     .unwrap(),
-                (FieldPrime::from("68135") - FieldPrime::from("65416358")).value
+                (FieldPrime::from(68135) - FieldPrime::from(65416358)).value
             );
             assert_eq!(
                 "21888242871839275222246405745257275088548364400416034343698204186575743147394"
                     .parse::<BigInt>()
                     .unwrap(),
-                (FieldPrime::from("68135") - &FieldPrime::from("65416358")).value
+                (FieldPrime::from(68135) - &FieldPrime::from(65416358)).value
             );
         }
 
@@ -133,11 +133,11 @@ mod tests {
         fn multiplication() {
             assert_eq!(
                 "13472".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("32") * FieldPrime::from("421")).value
+                (FieldPrime::from(32) * FieldPrime::from(421)).value
             );
             assert_eq!(
                 "13472".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("32") * &FieldPrime::from("421")).value
+                (FieldPrime::from(32) * &FieldPrime::from(421)).value
             );
         }
 
@@ -147,13 +147,13 @@ mod tests {
                 "21888242871839275222246405745257275088548364400416034343698204186575808014369"
                     .parse::<BigInt>()
                     .unwrap(),
-                (FieldPrime::from("54") * FieldPrime::from("-8912")).value
+                (FieldPrime::from(54) * FieldPrime::from(-8912)).value
             );
             assert_eq!(
                 "21888242871839275222246405745257275088548364400416034343698204186575808014369"
                     .parse::<BigInt>()
                     .unwrap(),
-                (FieldPrime::from("54") * &FieldPrime::from("-8912")).value
+                (FieldPrime::from(54) * &FieldPrime::from(-8912)).value
             );
         }
 
@@ -161,11 +161,11 @@ mod tests {
         fn multiplication_two_negative() {
             assert_eq!(
                 "648".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("-54") * FieldPrime::from("-12")).value
+                (FieldPrime::from(-54) * FieldPrime::from(-12)).value
             );
             assert_eq!(
                 "648".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("-54") * &FieldPrime::from("-12")).value
+                (FieldPrime::from(-54) * &FieldPrime::from(-12)).value
             );
         }
 
@@ -219,34 +219,34 @@ mod tests {
         fn pow_usize() {
             assert_eq!(
                 "614787626176508399616".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("54").pow(12)).value
+                (FieldPrime::from(54).pow(12)).value
             );
         }
 
         #[test]
         fn serde_ser_deser() {
-            let serialized = &serialize(&FieldPrime::from("11"), Infinite).unwrap();
+            let serialized = &serialize(&FieldPrime::from(11), Infinite).unwrap();
             let deserialized = deserialize(serialized).unwrap();
-            assert_eq!(FieldPrime::from("11"), deserialized);
+            assert_eq!(FieldPrime::from(11), deserialized);
         }
 
         #[test]
         fn serde_json_ser_deser() {
-            let serialized = serde_json::to_string(&FieldPrime::from("11")).unwrap();
+            let serialized = serde_json::to_string(&FieldPrime::from(11)).unwrap();
             let deserialized = serde_json::from_str(&serialized).unwrap();
-            assert_eq!(FieldPrime::from("11"), deserialized);
+            assert_eq!(FieldPrime::from(11), deserialized);
         }
 
         #[test]
         fn bytes_ser_deser() {
-            let fp = FieldPrime::from("101");
+            let fp = FieldPrime::from(101);
             let bv = fp.to_byte_vector();
             assert_eq!(fp, FieldPrime::from_byte_vector(bv));
         }
 
         #[test]
         fn dec_string_ser_deser() {
-            let fp = FieldPrime::from("101");
+            let fp = FieldPrime::from(101);
             let bv = fp.to_dec_string();
             assert_eq!(fp, FieldPrime::try_from_dec_str(&bv).unwrap());
         }
