@@ -1,11 +1,11 @@
 use crate::constants::{MPC_DEFAULT_PATH, PROVING_KEY_DEFAULT_PATH, VERIFICATION_KEY_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
+use phase2::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
 use zokrates_core::proof_system::bellman::groth16::serialization::parameters_to_verification_key;
 use zokrates_field::{BellmanFieldExtensions, Bn128Field};
-use zokrates_mpc::groth16::parameters::MPCParameters;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("export")

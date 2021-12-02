@@ -1,5 +1,6 @@
 use crate::constants::{FLATTENED_CODE_DEFAULT_PATH, MPC_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
+use phase2::MPCParameters;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -7,7 +8,6 @@ use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::proof_system::bellman::Computation;
 use zokrates_field::Bn128Field;
-use zokrates_mpc::groth16::parameters::MPCParameters;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("verify")
@@ -36,7 +36,7 @@ pub fn subcommand() -> App<'static, 'static> {
             Arg::with_name("radix-path")
                 .short("r")
                 .long("radix-dir")
-                .help("Path to the radix file containing parameters for 2^n circuit depth (phase1radix2m{n})")
+                .help("Path to the radix file containing parameters for a circuit depth of 2^n (phase1radix2m{n})")
                 .value_name("PATH")
                 .takes_value(true)
                 .required(true),
@@ -77,7 +77,7 @@ fn cli_mpc_verify(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Re
     let circuit = Computation::without_witness(ir_prog);
 
     let result = params
-        .verify(circuit, true, &mut radix_reader)
+        .verify(circuit, &mut radix_reader)
         .map_err(|_| "Verification failed".to_string())?;
 
     let contribution_count = result.len();

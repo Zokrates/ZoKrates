@@ -1,10 +1,10 @@
 use crate::constants::MPC_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use phase2::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use zokrates_field::{BellmanFieldExtensions, Bn128Field};
-use zokrates_mpc::groth16::parameters::MPCParameters;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("contribute")

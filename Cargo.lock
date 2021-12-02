@@ -1514,6 +1514,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "phase2"
+version = "0.2.2"
+source = "git+https://github.com/Zokrates/phase2#dbdc1def651ebcef459888e813880e58fcc16f3f"
+dependencies = [
+ "bellman_ce",
+ "blake2 0.9.2",
+ "blake2-rfc",
+ "byteorder",
+ "crossbeam",
+ "getrandom 0.2.3",
+ "num_cpus",
+ "pairing_ce",
+ "rand 0.4.6",
+]
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2484,6 +2500,7 @@ dependencies = [
  "hex 0.3.2",
  "lazy_static",
  "log",
+ "phase2",
  "rand 0.4.6",
  "regex 0.2.11",
  "rust-crypto",
@@ -2493,7 +2510,6 @@ dependencies = [
  "zokrates_core",
  "zokrates_field",
  "zokrates_fs_resolver",
- "zokrates_mpc",
 ]
 
 [[package]]
@@ -2601,20 +2617,6 @@ version = "0.5.2"
 dependencies = [
  "tempfile",
  "zokrates_common",
-]
-
-[[package]]
-name = "zokrates_mpc"
-version = "0.1.0"
-dependencies = [
- "bellman_ce",
- "blake2-rfc",
- "byteorder",
- "crossbeam",
- "getrandom 0.2.3",
- "num_cpus",
- "pairing_ce",
- "rand 0.4.6",
 ]
 
 [[package]]

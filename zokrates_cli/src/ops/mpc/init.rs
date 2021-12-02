@@ -1,5 +1,6 @@
 use crate::constants::{FLATTENED_CODE_DEFAULT_PATH, MPC_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
+use phase2::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -7,7 +8,6 @@ use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::proof_system::bellman::Computation;
 use zokrates_field::Bn128Field;
-use zokrates_mpc::groth16::parameters::MPCParameters;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("init")
@@ -67,7 +67,7 @@ fn cli_mpc_init(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Resu
     let mut radix_reader = BufReader::with_capacity(1024 * 1024, radix_file);
 
     let circuit = Computation::without_witness(ir_prog);
-    let params = MPCParameters::new(circuit, true, &mut radix_reader).unwrap();
+    let params = MPCParameters::new(circuit, &mut radix_reader).unwrap();
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)

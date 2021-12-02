@@ -36,8 +36,9 @@ Initializing MPC...
 Writing initial parameters to `mpc.params`
 ```
 
-Using the `-r` flag we pass a path of the file that contains parameters for our circuit with a depth of `2^n` (`phase1radix2m{n}`).
-The paramaters with various circuit depths can be computed using [phase2-bn254](https://github.com/kobigurk/phase2-bn254) utility by picking the latest response from [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau) and following procedures explained in the mentioned repositories.
+Using the `-r` flag, we pass a path to the file that contains the parameters for our circuit with depth `2^n` (`phase1radix2m{n}`).
+The parameters for various circuit depths can be computed using [phase2-bn254](https://github.com/kobigurk/phase2-bn254) utility 
+by picking the latest response from [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau) and following the instructions in the mentioned repositories.
 
 ## Making a contribution
 

@@ -7,7 +7,6 @@ members = [
     "zokrates_fs_resolver",
     "zokrates_stdlib",
     "zokrates_embed",
-    "zokrates_mpc",
     "zokrates_abi",
     "zokrates_test",
     "zokrates_core_test",
