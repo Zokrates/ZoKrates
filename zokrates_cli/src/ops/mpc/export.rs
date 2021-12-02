@@ -1,11 +1,13 @@
-use crate::constants::{MPC_DEFAULT_PATH, PROVING_KEY_DEFAULT_PATH, VERIFICATION_KEY_DEFAULT_PATH};
+use crate::constants::{
+    BLS12_381, BN128, MPC_DEFAULT_PATH, PROVING_KEY_DEFAULT_PATH, VERIFICATION_KEY_DEFAULT_PATH,
+};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use phase2::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
 use zokrates_core::proof_system::bellman::groth16::serialization::parameters_to_verification_key;
-use zokrates_field::{BellmanFieldExtensions, Bn128Field};
+use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("export")
@@ -19,6 +21,16 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .default_value(MPC_DEFAULT_PATH),
+        )
+        .arg(
+            Arg::with_name("curve")
+                .short("c")
+                .long("curve")
+                .help("Curve used in the ceremony")
+                .takes_value(true)
+                .required(false)
+                .possible_values(&[BN128, BLS12_381])
+                .default_value(BN128),
         )
         .arg(
             Arg::with_name("proving-key-path")
@@ -43,13 +55,23 @@ pub fn subcommand() -> App<'static, 'static> {
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
+    match sub_matches.value_of("curve").unwrap() {
+        BN128 => cli_mpc_export::<Bn128Field>(sub_matches),
+        BLS12_381 => cli_mpc_export::<Bls12_381Field>(sub_matches),
+        _ => unreachable!(),
+    }
+}
+
+pub fn cli_mpc_export<T: Field + BellmanFieldExtensions>(
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
     let mpc_params =
-        MPCParameters::<<Bn128Field as BellmanFieldExtensions>::BellmanEngine>::read(reader, true)
+        MPCParameters::<<T as BellmanFieldExtensions>::BellmanEngine>::read(reader, true)
             .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
 
     println!("Exporting keys from `{}`...", path.display());
@@ -59,7 +81,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut pk: Vec<u8> = Vec::new();
     params.write(&mut pk).unwrap();
 
-    let vk = parameters_to_verification_key::<Bn128Field>(params);
+    let vk = parameters_to_verification_key::<T>(params);
 
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());

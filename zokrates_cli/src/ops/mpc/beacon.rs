@@ -1,10 +1,10 @@
-use crate::constants::MPC_DEFAULT_PATH;
+use crate::constants::{BLS12_381, BN128, MPC_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use phase2::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
-use zokrates_field::{BellmanFieldExtensions, Bn128Field};
+use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("beacon")
@@ -18,6 +18,16 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .default_value(MPC_DEFAULT_PATH),
+        )
+        .arg(
+            Arg::with_name("curve")
+                .short("c")
+                .long("curve")
+                .help("Curve used in the ceremony")
+                .takes_value(true)
+                .required(false)
+                .possible_values(&[BN128, BLS12_381])
+                .default_value(BN128),
         )
         .arg(
             Arg::with_name("hash")
@@ -48,13 +58,23 @@ pub fn subcommand() -> App<'static, 'static> {
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
+    match sub_matches.value_of("curve").unwrap() {
+        BN128 => cli_mpc_beacon::<Bn128Field>(sub_matches),
+        BLS12_381 => cli_mpc_beacon::<Bls12_381Field>(sub_matches),
+        _ => unreachable!(),
+    }
+}
+
+fn cli_mpc_beacon<T: Field + BellmanFieldExtensions>(
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let reader = BufReader::new(file);
     let mut params =
-        MPCParameters::<<Bn128Field as BellmanFieldExtensions>::BellmanEngine>::read(reader, true)
+        MPCParameters::<<T as BellmanFieldExtensions>::BellmanEngine>::read(reader, true)
             .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
 
     let beacon_hash = sub_matches.value_of("hash").unwrap();

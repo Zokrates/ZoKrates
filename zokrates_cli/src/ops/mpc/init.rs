@@ -7,7 +7,7 @@ use std::path::Path;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::proof_system::bellman::Computation;
-use zokrates_field::Bn128Field;
+use zokrates_field::{BellmanFieldExtensions, Field};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("init")
@@ -53,11 +53,15 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     match ProgEnum::deserialize(&mut reader)? {
         ProgEnum::Bn128Program(p) => cli_mpc_init(p, sub_matches),
-        _ => Err("Current protocol only supports bn128 programs".into()),
+        ProgEnum::Bls12_381Program(p) => cli_mpc_init(p, sub_matches),
+        _ => Err("Current protocol only supports bn128/bls12_381 programs".into()),
     }
 }
 
-fn cli_mpc_init(ir_prog: ir::Prog<Bn128Field>, sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_mpc_init<T: Field + BellmanFieldExtensions>(
+    ir_prog: ir::Prog<T>,
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     println!("Initializing MPC...");
 
     let radix_path = Path::new(sub_matches.value_of("radix-path").unwrap());
