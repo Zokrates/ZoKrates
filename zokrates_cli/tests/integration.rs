@@ -458,13 +458,7 @@ mod integration {
 
         for g in glob("./examples/book/mpc_tutorial/**/*").expect("Failed to read glob pattern") {
             let path = g.unwrap();
-            let canonical_path =
-                tmp_base.join(path.strip_prefix("examples/book/mpc_tutorial/").unwrap());
-            if path.is_dir() {
-                std::fs::create_dir(canonical_path.clone()).expect("Failed to create directory");
-                continue;
-            }
-            std::fs::hard_link(path, canonical_path).unwrap();
+            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
         }
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
