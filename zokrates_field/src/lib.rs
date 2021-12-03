@@ -93,7 +93,7 @@ pub trait Field:
     /// Returns this `Field`'s contents as decimal string
     fn to_dec_string(&self) -> String;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
-    //fn inverse_mul(&self) -> Option<Self>;
+    fn inverse_mul(&self) -> Option<Self>;
     /// Returns the smallest value that can be represented by this field type.
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
@@ -190,7 +190,7 @@ mod prime_field {
                             break;
                         }
                     }
-                    size as u32
+                    std::cmp::max(size as u32, 1)
                 }
 
                 fn to_biguint(&self) -> BigUint {
@@ -200,7 +200,7 @@ mod prime_field {
 
                 fn to_byte_vector(&self) -> Vec<u8> {
                     use ark_ff::BigInteger;
-                    self.v.into_repr().to_bytes_be()
+                    self.v.into_repr().to_bytes_le()
                 }
 
                 fn from_byte_vector(bytes: Vec<u8>) -> Self {
@@ -213,6 +213,13 @@ mod prime_field {
 
                 fn to_dec_string(&self) -> String {
                     self.to_string()
+                }
+
+                fn inverse_mul(&self) -> Option<Self> {
+                    use ark_ff::Field;
+                    Some(FieldPrime {
+                        v: self.v.inverse()?,
+                    })
                 }
 
                 fn min_value() -> FieldPrime {
@@ -239,13 +246,9 @@ mod prime_field {
                         v: Fr::from_str(s).map_err(|_| FieldParseError)?,
                     })
                 }
-                fn try_from_str(_: &str, _: u32) -> Result<Self, FieldParseError> {
-                    unimplemented!("try from str")
-                    // let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(FieldParseError)?;
-                    // Ok(FieldPrime {
-                    //     value: &x - x.div_floor(&*P) * &*P,
-                    //     v: field_new!()
-                    // })
+                fn try_from_str(s: &str, radix: u32) -> Result<Self, FieldParseError> {
+                    let x = BigUint::parse_bytes(s.as_bytes(), radix).ok_or(FieldParseError)?;
+                    FieldPrime::try_from(x).map_err(|_| FieldParseError)
                 }
                 fn to_compact_dec_string(&self) -> String {
                     //values up to (p-1)/2 included are represented as positive, values between (p+1)/2 and p-1 as represented as negative by subtracting p
@@ -461,21 +464,16 @@ mod prime_field {
                     assert!(self <= &bound);
                     assert!(other <= &bound);
 
-                    let mut big_res = self.v.into_repr();
+                    let left = self.to_biguint();
+                    let right = other.to_biguint();
 
-                    use ark_ff::BigInteger;
-                    let carry = big_res.add_nocarry(&other.v.into_repr());
+                    let big_res = left + right;
 
-                    if carry {
-                        return None;
-                    }
-
-                    if big_res > bound.v.into_repr() {
+                    // we only go up to 2**(bitwidth - 1) because after that we lose uniqueness of bit decomposition
+                    if big_res > bound.to_biguint() {
                         None
                     } else {
-                        Some(FieldPrime {
-                            v: Fr::from(big_res),
-                        })
+                        Some(self.clone() * other)
                     }
                 }
             }

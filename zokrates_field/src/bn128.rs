@@ -202,6 +202,31 @@ mod tests {
         }
 
         #[test]
+        fn bits() {
+            assert_eq!(FieldPrime::from(0).bits(), 1);
+            assert_eq!(FieldPrime::from(1).bits(), 1);
+            assert_eq!(FieldPrime::from(2).bits(), 2);
+            assert_eq!(FieldPrime::from(3).bits(), 2);
+            assert_eq!(FieldPrime::from(4).bits(), 3);
+        }
+
+        #[test]
+        fn to_biguint() {
+            assert_eq!(
+                FieldPrime::try_from(FieldPrime::from(2).to_biguint()),
+                Ok(FieldPrime::from(2))
+            );
+            assert_eq!(
+                FieldPrime::try_from(FieldPrime::from(0).to_biguint()),
+                Ok(FieldPrime::from(0))
+            );
+            assert_eq!(
+                FieldPrime::try_from(FieldPrime::max_value().to_biguint()),
+                Ok(FieldPrime::max_value())
+            );
+        }
+
+        #[test]
         fn division_negative() {
             let res = FieldPrime::from(-54) / FieldPrime::from(12);
             assert_eq!(FieldPrime::from(-54), FieldPrime::from(12) * res);
@@ -239,7 +264,9 @@ mod tests {
         #[test]
         fn bytes_ser_deser() {
             let fp = FieldPrime::from("101");
+            println!("{}", fp);
             let bv = fp.to_byte_vector();
+            println!("{:#?}", bv);
             assert_eq!(fp, FieldPrime::from_byte_vector(bv));
         }
 
@@ -276,6 +303,7 @@ mod tests {
 
     #[test]
     fn bigint_assertions() {
+        use num_integer::Integer;
         let x = BigInt::parse_bytes(b"65", 10).unwrap();
         assert_eq!(&x + &x, BigInt::parse_bytes(b"130", 10).unwrap());
         assert_eq!(
