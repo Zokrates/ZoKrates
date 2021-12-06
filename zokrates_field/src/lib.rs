@@ -473,7 +473,7 @@ mod prime_field {
                     if big_res > bound.to_biguint() {
                         None
                     } else {
-                        Some(self.clone() * other)
+                        Some(self.clone() + other)
                     }
                 }
             }
