@@ -6,12 +6,12 @@ prime_field!(
     Bn254
 );
 
+ark_extensions!(Bn254);
+
 #[cfg(feature = "bellman")]
 use bellman_ce::pairing::bn256::{Bn256, Fq2};
 #[cfg(feature = "bellman")]
 bellman_extensions!(Bn256, Fq2);
-
-ark_extensions!(Bn254);
 
 #[cfg(test)]
 mod tests {

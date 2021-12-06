@@ -6,5 +6,4 @@ prime_field!(
     Bls12_377
 );
 
-#[cfg(feature = "ark")]
 ark_extensions!(ark_bls12_377::Bls12_377);

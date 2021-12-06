@@ -6,9 +6,6 @@
 
 extern crate num_bigint;
 
-#[cfg(feature = "ark")]
-use ark_ec::PairingEngine;
-
 #[cfg(feature = "bellman")]
 use bellman_ce::pairing::{ff::ScalarEngine, Engine};
 
@@ -36,10 +33,9 @@ pub trait BellmanFieldExtensions {
     fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
 }
 
-#[cfg(feature = "ark")]
 pub trait ArkFieldExtensions {
     /// An associated type to be able to operate with ark ff traits
-    type ArkEngine: PairingEngine;
+    type ArkEngine: ark_ec::PairingEngine;
 
     fn from_ark(e: <Self::ArkEngine as ark_ec::PairingEngine>::Fr) -> Self;
     fn into_ark(self) -> <Self::ArkEngine as ark_ec::PairingEngine>::Fr;
@@ -602,7 +598,6 @@ mod prime_field {
         };
     }
 
-    #[cfg(feature = "ark")]
     macro_rules! ark_extensions {
         ($ark_type:ty) => {
             use crate::ArkFieldExtensions;
@@ -611,16 +606,11 @@ mod prime_field {
                 type ArkEngine = $ark_type;
 
                 fn from_ark(e: <Self::ArkEngine as ark_ec::PairingEngine>::Fr) -> Self {
-                    use ark_ff::{BigInteger, PrimeField};
-                    let mut res: Vec<u8> = vec![];
-                    e.into_repr().write_le(&mut res).unwrap();
-                    Self::from_byte_vector(res)
+                    Self { v: e }
                 }
 
                 fn into_ark(self) -> <Self::ArkEngine as ark_ec::PairingEngine>::Fr {
-                    use core::str::FromStr;
-                    let s = self.to_dec_string();
-                    <Self::ArkEngine as ark_ec::PairingEngine>::Fr::from_str(&s).unwrap()
+                    self.v
                 }
             }
         };
