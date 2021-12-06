@@ -33,7 +33,7 @@ As a next step we initialize a phase 2 ceremony by running the following command
 $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:15}}
 
 Initializing MPC...
-Writing initial parameters to `mpc.params`
+Parameters written to `mpc.params`
 ```
 
 Using the `-r` flag, we pass a path to the file that contains the parameters for our circuit with depth `2^n` (`phase1radix2m{n}`).

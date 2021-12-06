@@ -2,11 +2,11 @@ use crate::constants::{
     BLS12_381, BN128, MPC_DEFAULT_PATH, PROVING_KEY_DEFAULT_PATH, VERIFICATION_KEY_DEFAULT_PATH,
 };
 use clap::{App, Arg, ArgMatches, SubCommand};
-use phase2::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
-use zokrates_core::proof_system::bellman::groth16::serialization::parameters_to_verification_key;
+use zokrates_core::proof_system::bellman::Bellman;
+use zokrates_core::proof_system::{MpcBackend, MpcScheme, G16};
 use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -56,32 +56,25 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match sub_matches.value_of("curve").unwrap() {
-        BN128 => cli_mpc_export::<Bn128Field>(sub_matches),
-        BLS12_381 => cli_mpc_export::<Bls12_381Field>(sub_matches),
+        BN128 => cli_mpc_export::<Bn128Field, G16, Bellman>(sub_matches),
+        BLS12_381 => cli_mpc_export::<Bls12_381Field, G16, Bellman>(sub_matches),
         _ => unreachable!(),
     }
 }
 
-pub fn cli_mpc_export<T: Field + BellmanFieldExtensions>(
+pub fn cli_mpc_export<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBackend<T, S>>(
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
-    let reader = BufReader::new(file);
-    let mpc_params =
-        MPCParameters::<<T as BellmanFieldExtensions>::BellmanEngine>::read(reader, true)
-            .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
+    let mut reader = BufReader::new(file);
 
     println!("Exporting keys from `{}`...", path.display());
 
-    let params = mpc_params.get_params();
-
-    let mut pk: Vec<u8> = Vec::new();
-    params.write(&mut pk).unwrap();
-
-    let vk = parameters_to_verification_key::<T>(params);
+    let keypair =
+        B::export_keypair(&mut reader).map_err(|e| format!("Could not export keypair: {}", e))?;
 
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
@@ -90,7 +83,11 @@ pub fn cli_mpc_export<T: Field + BellmanFieldExtensions>(
     let mut vk_file = File::create(vk_path)
         .map_err(|why| format!("Could not create `{}`: {}", vk_path.display(), why))?;
     vk_file
-        .write_all(serde_json::to_string_pretty(&vk).unwrap().as_bytes())
+        .write_all(
+            serde_json::to_string_pretty(&keypair.vk)
+                .unwrap()
+                .as_bytes(),
+        )
         .map_err(|why| format!("Could not write to `{}`: {}", vk_path.display(), why))?;
 
     println!("Verification key written to `{}`", vk_path.display());
@@ -99,7 +96,7 @@ pub fn cli_mpc_export<T: Field + BellmanFieldExtensions>(
     let mut pk_file = File::create(pk_path)
         .map_err(|why| format!("Could not create `{}`: {}", pk_path.display(), why))?;
     pk_file
-        .write_all(pk.as_ref())
+        .write_all(keypair.pk.as_ref())
         .map_err(|why| format!("Could not write to `{}`: {}", pk_path.display(), why))?;
 
     println!("Proving key written to `{}`", pk_path.display());

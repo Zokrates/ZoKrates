@@ -1,9 +1,10 @@
 use crate::constants::{BLS12_381, BN128, MPC_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use phase2::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use zokrates_core::proof_system::bellman::Bellman;
+use zokrates_core::proof_system::{MpcBackend, MpcScheme, G16};
 use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -51,24 +52,24 @@ pub fn subcommand() -> App<'static, 'static> {
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match sub_matches.value_of("curve").unwrap() {
-        BN128 => cli_mpc_contribute::<Bn128Field>(sub_matches),
-        BLS12_381 => cli_mpc_contribute::<Bls12_381Field>(sub_matches),
+        BN128 => cli_mpc_contribute::<Bn128Field, G16, Bellman>(sub_matches),
+        BLS12_381 => cli_mpc_contribute::<Bls12_381Field, G16, Bellman>(sub_matches),
         _ => unreachable!(),
     }
 }
 
-pub fn cli_mpc_contribute<T: Field + BellmanFieldExtensions>(
+pub fn cli_mpc_contribute<
+    T: Field + BellmanFieldExtensions,
+    S: MpcScheme<T>,
+    B: MpcBackend<T, S>,
+>(
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
         File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
-    let reader = BufReader::new(file);
-    let mut params =
-        MPCParameters::<<T as BellmanFieldExtensions>::BellmanEngine>::read(reader, true)
-            .map_err(|why| format!("Could not read `{}`: {}", path.display(), why))?;
-
+    let mut reader = BufReader::new(file);
     let entropy = sub_matches.value_of("entropy").unwrap();
 
     // Create an RNG based on a mixture of system randomness and user provided randomness
@@ -104,8 +105,16 @@ pub fn cli_mpc_contribute<T: Field + BellmanFieldExtensions>(
         ChaChaRng::from_seed(&seed)
     };
 
+    let output_path = Path::new(sub_matches.value_of("output").unwrap());
+    let output_file = File::create(&output_path)
+        .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
+
+    let mut writer = BufWriter::new(output_file);
+
     println!("Contributing to `{}`...", path.display());
-    let hash = params.contribute(&mut rng);
+
+    let hash = B::contribute(&mut reader, &mut rng, &mut writer)
+        .map_err(|e| format!("Failed to contribute: {}", e))?;
     println!("The BLAKE2b hash of your contribution is:\n");
 
     for line in hash.chunks(16) {
@@ -119,17 +128,10 @@ pub fn cli_mpc_contribute<T: Field + BellmanFieldExtensions>(
         println!();
     }
 
-    let output_path = Path::new(sub_matches.value_of("output").unwrap());
-    let output_file = File::create(&output_path)
-        .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
-
     println!(
         "\nYour contribution has been written to `{}`",
         output_path.display()
     );
-
-    let mut writer = BufWriter::new(output_file);
-    params.write(&mut writer).map_err(|e| e.to_string())?;
 
     Ok(())
 }

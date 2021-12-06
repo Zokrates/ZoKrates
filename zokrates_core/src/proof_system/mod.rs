@@ -12,9 +12,11 @@ pub use self::scheme::*;
 pub use self::solidity::*;
 
 use crate::ir;
+use rand_0_4::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use zokrates_field::Field;
+use std::io::{Read, Write};
+use zokrates_field::{BellmanFieldExtensions, Field};
 
 #[derive(Serialize)]
 pub struct SetupKeypair<V> {
@@ -99,4 +101,27 @@ pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
         srs: Vec<u8>,
         program: ir::Prog<T>,
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;
+}
+
+#[cfg(feature = "bellman")]
+pub trait MpcBackend<T: Field + BellmanFieldExtensions, S: Scheme<T>> {
+    fn initialize<R: Read, W: Write>(
+        program: ir::Prog<T>,
+        phase1_radix: &mut R,
+        output: &mut W,
+    ) -> Result<(), String>;
+
+    fn contribute<R: Read, W: Write, G: Rng>(
+        params: &mut R,
+        rng: &mut G,
+        output: &mut W,
+    ) -> Result<[u8; 64], String>;
+
+    fn verify<R: Read>(
+        params: &mut R,
+        program: ir::Prog<T>,
+        phase1_radix: &mut R,
+    ) -> Result<Vec<[u8; 64]>, String>;
+
+    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }

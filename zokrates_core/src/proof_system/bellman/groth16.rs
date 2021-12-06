@@ -4,7 +4,7 @@ use bellman::groth16::{
 };
 use pairing::{CurveAffine, Engine};
 
-use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
+use crate::proof_system::{Backend, MpcBackend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
@@ -14,6 +14,9 @@ use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
 use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
 use crate::proof_system::Scheme;
+use phase2::MPCParameters;
+use rand_0_4::Rng;
+use std::io::{Read, Write};
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
@@ -93,6 +96,63 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
 
         let vk = serialization::parameters_to_verification_key::<T>(&parameters);
         SetupKeypair::new(vk, pk)
+    }
+}
+
+impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
+    fn initialize<R: Read, W: Write>(
+        program: Prog<T>,
+        phase1_radix: &mut R,
+        output: &mut W,
+    ) -> Result<(), String> {
+        let circuit = Computation::without_witness(program);
+        let params = MPCParameters::new(circuit, phase1_radix).map_err(|e| e.to_string())?;
+        params.write(output).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    fn contribute<R: Read, W: Write, G: Rng>(
+        params: &mut R,
+        rng: &mut G,
+        output: &mut W,
+    ) -> Result<[u8; 64], String> {
+        let mut params =
+            MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
+
+        let hash = params.contribute(rng);
+        params.write(output).map_err(|e| e.to_string())?;
+
+        Ok(hash)
+    }
+
+    fn verify<R: Read>(
+        params: &mut R,
+        program: Prog<T>,
+        phase1_radix: &mut R,
+    ) -> Result<Vec<[u8; 64]>, String> {
+        let params =
+            MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
+
+        let circuit = Computation::without_witness(program);
+        let hashes = params
+            .verify(circuit, phase1_radix)
+            .map_err(|_| "parameters malformed".to_string())?;
+
+        Ok(hashes)
+    }
+
+    fn export_keypair<R: Read>(
+        params: &mut R,
+    ) -> Result<SetupKeypair<<G16 as Scheme<T>>::VerificationKey>, String> {
+        let params =
+            MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
+
+        let params = params.get_params();
+        let mut pk: Vec<u8> = Vec::new();
+        params.write(&mut pk).map_err(|e| e.to_string())?;
+
+        let vk = serialization::parameters_to_verification_key::<T>(&params);
+        Ok(SetupKeypair::new(vk, pk))
     }
 }
 

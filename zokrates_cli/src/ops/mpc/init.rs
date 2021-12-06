@@ -1,12 +1,12 @@
 use crate::constants::{FLATTENED_CODE_DEFAULT_PATH, MPC_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use phase2::MPCParameters;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
-use zokrates_core::proof_system::bellman::Computation;
+use zokrates_core::proof_system::bellman::Bellman;
+use zokrates_core::proof_system::{MpcBackend, MpcScheme, G16};
 use zokrates_field::{BellmanFieldExtensions, Field};
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -52,13 +52,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut reader = BufReader::new(file);
 
     match ProgEnum::deserialize(&mut reader)? {
-        ProgEnum::Bn128Program(p) => cli_mpc_init(p, sub_matches),
-        ProgEnum::Bls12_381Program(p) => cli_mpc_init(p, sub_matches),
+        ProgEnum::Bn128Program(p) => cli_mpc_init::<_, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bls12_381Program(p) => cli_mpc_init::<_, G16, Bellman>(p, sub_matches),
         _ => Err("Current protocol only supports bn128/bls12_381 programs".into()),
     }
 }
 
-fn cli_mpc_init<T: Field + BellmanFieldExtensions>(
+fn cli_mpc_init<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBackend<T, S>>(
     ir_prog: ir::Prog<T>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -68,19 +68,16 @@ fn cli_mpc_init<T: Field + BellmanFieldExtensions>(
     let radix_file = File::open(radix_path)
         .map_err(|why| format!("Could not open `{}`: {}", radix_path.display(), why))?;
 
-    let mut radix_reader = BufReader::with_capacity(1024 * 1024, radix_file);
-
-    let circuit = Computation::without_witness(ir_prog);
-    let params = MPCParameters::new(circuit, &mut radix_reader).unwrap();
+    let mut radix_reader = BufReader::new(radix_file);
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
         .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
-    println!("Writing initial parameters to `{}`", output_path.display());
-
     let mut writer = BufWriter::new(output_file);
-    params.write(&mut writer).map_err(|e| e.to_string())?;
+    B::initialize(ir_prog, &mut radix_reader, &mut writer)
+        .map_err(|e| format!("Failed to initialize: {}", e))?;
 
+    println!("Parameters written to `{}`", output_path.display());
     Ok(())
 }
