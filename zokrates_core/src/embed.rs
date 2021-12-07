@@ -313,18 +313,6 @@ impl FlatEmbed {
             FlatEmbed::SnarkVerifyBls12377 => "_SNARK_VERIFY_BLS12_377",
         }
     }
-
-    // /// Actually get the `FlatFunction` that this `FlatEmbed` represents
-    // pub fn synthetize<T: Field>(&self, generics: &[u32]) -> FlatFunctionIterator<T> {
-    //     match self {
-    //         FlatEmbed::Unpack => unpack_to_bitwidth(generics[0] as usize),
-    //         #[cfg(feature = "bellman")]
-    //         FlatEmbed::Sha256Round => sha256_round(),
-    //         #[cfg(feature = "ark")]
-    //         FlatEmbed::SnarkVerifyBls12377 => snark_verify_bls12_377(generics[0] as usize),
-    //         _ => unreachable!(),
-    //     }
-    // }
 }
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
