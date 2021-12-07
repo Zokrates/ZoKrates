@@ -125,8 +125,8 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(hash)
     }
 
-    fn verify<R: Read>(
-        params: &mut R,
+    fn verify<P: Read, R: Read>(
+        params: &mut P,
         program: Prog<T>,
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String> {
@@ -151,7 +151,7 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         let mut pk: Vec<u8> = Vec::new();
         params.write(&mut pk).map_err(|e| e.to_string())?;
 
-        let vk = serialization::parameters_to_verification_key::<T>(&params);
+        let vk = serialization::parameters_to_verification_key::<T>(params);
         Ok(SetupKeypair::new(vk, pk))
     }
 }

@@ -117,8 +117,8 @@ pub trait MpcBackend<T: Field + BellmanFieldExtensions, S: Scheme<T>> {
         output: &mut W,
     ) -> Result<[u8; 64], String>;
 
-    fn verify<R: Read>(
-        params: &mut R,
+    fn verify<P: Read, R: Read>(
+        params: &mut P,
         program: ir::Prog<T>,
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String>;
