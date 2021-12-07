@@ -185,11 +185,6 @@ fn cli_setup_non_universal<
 ) -> Result<(), String> {
     println!("Performing setup...");
 
-    // print deserialized flattened program if in verbose mode
-    if sub_matches.is_present("verbose") {
-        //println!("{}", program);
-    }
-
     // get paths for proving and verification keys
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
@@ -234,11 +229,6 @@ fn cli_setup_universal<
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Performing setup...");
-
-    // print deserialized flattened program if in verbose mode
-    if sub_matches.is_present("verbose") {
-        //println!("{}", program);
-    }
 
     // get paths for proving and verification keys
     let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
