@@ -180,7 +180,7 @@ fn cli_generate_proof<
         .read_to_end(&mut pk)
         .map_err(|why| format!("Could not read {}: {}", pk_path.display(), why))?;
 
-    let proof = B::generate_proof(program, witness, pk);
+    let proof = B::generate_proof(program, witness, pk)?;
     let mut proof_file = File::create(proof_path).unwrap();
 
     let proof = serde_json::to_string_pretty(&proof).unwrap();
