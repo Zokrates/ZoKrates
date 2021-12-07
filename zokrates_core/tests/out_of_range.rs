@@ -16,10 +16,10 @@ use zokrates_fs_resolver::FileSystemResolver;
 #[test]
 fn lt_field() {
     let source = r#"
-		def main(private field a, private field b) -> field:
+		def main(private field a, private field b):
 	        field x = if a < b then 3333 else 4444 fi
 	        assert(x == 3333)
-			return 1
+			return
 	"#
     .to_string();
 

@@ -150,7 +150,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
-        Ok(n)
+        let id = match n.id {
+            CoreIdentifier::Constant(c) => {
+                CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)?)
+            }
+            id => id,
+        };
+
+        Ok(Identifier { id, ..n })
     }
 
     fn fold_variable(&mut self, v: Variable<'ast, T>) -> Result<Variable<'ast, T>, Self::Error> {
@@ -214,8 +221,8 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     fn fold_select_expression<
         E: Expr<'ast, T>
             + Select<'ast, T>
-            + From<TypedExpression<'ast, T>>
-            + Into<TypedExpression<'ast, T>>,
+            + Into<TypedExpression<'ast, T>>
+            + From<TypedExpression<'ast, T>>,
     >(
         &mut self,
         ty: &E::Ty,
@@ -1072,6 +1079,9 @@ pub fn fold_declaration_constant<'ast, T: Field, F: ResultFolder<'ast, T>>(
         DeclarationConstant::Expression(e) => {
             Ok(DeclarationConstant::Expression(f.fold_expression(e)?))
         }
+        DeclarationConstant::Constant(c) => Ok(DeclarationConstant::Constant(
+            f.fold_canonical_constant_identifier(c)?,
+        )),
         c => Ok(c),
     }
 }
@@ -1238,11 +1248,14 @@ pub fn fold_program<'ast, T: Field, F: ResultFolder<'ast, T>>(
     p: TypedProgram<'ast, T>,
 ) -> Result<TypedProgram<'ast, T>, F::Error> {
     Ok(TypedProgram {
+        main: f.fold_module_id(p.main)?,
         modules: p
             .modules
             .into_iter()
-            .map(|(module_id, module)| f.fold_module(module).map(|m| (module_id, m)))
+            .map(|(module_id, module)| {
+                let module_id = f.fold_module_id(module_id)?;
+                f.fold_module(module).map(|m| (module_id, m))
+            })
             .collect::<Result<_, _>>()?,
-        main: f.fold_module_id(p.main)?,
     })
 }

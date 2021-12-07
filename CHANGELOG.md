@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.8] - 2021-11-23
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.8 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Fix reduction of constants (#1050, @schaeff)
+- Implement type aliasing (#982, @dark64)
+- Remove confusing returns (#1037, @schaeff)
+- Reduce cost of dynamic comparison (#1025, @schaeff)
+- Fix false positives and false negatives in struct generic inference (#1016, @schaeff)
+- Make field to uint casts truncate values bigger than uint max (#997, @dark64)
+- Add Marlin proving scheme to the backend table in the book (#1034, @schaeff)
+- Fail at compile time when complex types are known not to be equal (#1032, @schaeff)
+- Allow more postfix expressions, exit gracefully when trying to call anything else than an identifier (#1030, @schaeff)
+- Add optional message to assert statement (#1012, @dark64)
+- Introduce ternary operator (#1010, @dark64)
+
 ## [0.7.7] - 2021-10-04
 
 ### Release

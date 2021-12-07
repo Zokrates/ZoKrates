@@ -413,11 +413,8 @@ mod tests {
     fn array() {
         let s = "[[true, false]]";
         assert_eq!(
-            parse_strict::<Bn128Field>(
-                s,
-                vec![ConcreteType::array((ConcreteType::Boolean, 2usize))]
-            )
-            .unwrap(),
+            parse_strict::<Bn128Field>(s, vec![ConcreteType::array((ConcreteType::Boolean, 2u32))])
+                .unwrap(),
             Values(vec![Value::Array(vec![
                 Value::Boolean(true),
                 Value::Boolean(false)

@@ -7,6 +7,6 @@ import "./unpack_unchecked"
 // For example, `0` can map to `[0, 0, ..., 0]` or to `bits(p)`
 def main(field i) -> bool[256]:
 
-    bool[254] b = unpack_unchecked::<254>(i)
+    bool[254] b = unpack_unchecked(i)
 
     return [false, false, ...b]
