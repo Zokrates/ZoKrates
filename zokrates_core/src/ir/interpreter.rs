@@ -132,22 +132,17 @@ impl Interpreter {
                 ],
             },
             Solver::Bits(bit_width) => {
-                let padding = bit_width.saturating_sub(T::get_required_bits());
+                // get all the bits
+                let bits = inputs[0].to_bits_be();
 
-                let bit_width = bit_width - padding;
+                // only keep at most `bit_width` of them, starting from the least significant
+                let bits = bits[bits.len().saturating_sub(*bit_width)..].to_vec();
 
-                let num = inputs[0].clone();
-
-                (0..padding)
-                    .map(|_| T::zero())
-                    .chain((0..bit_width).rev().scan(num, |state, i| {
-                        if T::from(2).pow(i) <= *state {
-                            *state = (*state).clone() - T::from(2).pow(i);
-                            Some(T::one())
-                        } else {
-                            Some(T::zero())
-                        }
-                    }))
+                // pad with zeroes so that the result is exactly `bit_width` long
+                (0..bit_width - bits.len())
+                    .map(|_| 0)
+                    .chain(bits)
+                    .map(T::from)
                     .collect()
             }
             Solver::Xor => {
