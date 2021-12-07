@@ -214,17 +214,14 @@ mod prime_field {
                 }
 
                 fn min_value() -> FieldPrime {
-                    FieldPrime { v: Fr::from(0u32) }
+                    FieldPrime { v: Fr::zero() }
                 }
                 fn max_value() -> FieldPrime {
-                    FieldPrime {
-                        v: Fr::from(0u32) - Fr::from(1u32),
-                    }
+                    FieldPrime { v: -Fr::one() }
                 }
                 fn max_unique_value() -> FieldPrime {
                     FieldPrime {
-                        v: Fr::from(2u32).pow([Self::get_required_bits() as u64 - 1])
-                            - Fr::from(1u32),
+                        v: Fr::from(2u32).pow([Self::get_required_bits() as u64 - 1]) - Fr::one(),
                     }
                 }
                 fn get_required_bits() -> usize {
@@ -272,7 +269,7 @@ mod prime_field {
 
             impl Default for FieldPrime {
                 fn default() -> Self {
-                    FieldPrime { v: Fr::from(0u32) }
+                    FieldPrime { v: Fr::zero() }
                 }
             }
 
@@ -292,7 +289,7 @@ mod prime_field {
                 fn from(num: i32) -> Self {
                     if num < 0 {
                         FieldPrime {
-                            v: Fr::zero() - Fr::from((-num) as u32),
+                            v: -Fr::from((-num) as u32),
                         }
                     } else {
                         FieldPrime {

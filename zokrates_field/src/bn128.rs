@@ -33,22 +33,6 @@ mod tests {
             );
         }
 
-        // #[test]
-        // fn positive_number() {
-        //     assert_eq!(
-        //         "1234245612".parse::<BigInt>().unwrap(),
-        //         FieldPrime::from("1234245612").value
-        //     );
-        // }
-
-        // #[test]
-        // fn negative_number() {
-        //     assert_eq!(
-        //         P.checked_sub(&"12".parse::<BigInt>().unwrap()).unwrap(),
-        //         FieldPrime::from("-12").value
-        //     );
-        // }
-
         #[test]
         fn addition() {
             assert_eq!(
