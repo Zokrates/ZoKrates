@@ -1,25 +1,23 @@
 # Performing a trusted setup using a multi-party computation protocol (MPC)
 
-The zk-SNARK technology requires a trusted setup which is a special procedure we can run to generate the proving and verification keys.
-In order to make sure this procedure is done in a secure way, we must ensure that no one is able to fake proofs and steal user funds, so it has to be done
-in a decentralized way. In order to fake ZK proofs, an attacker must compromise every participant of the ceremony which is highly unlikely as the probability of it goes down as the number of participants goes up.
-In this section of the book, we will walk you through the steps of performing a phase 2 ceremony.
+The zk-SNARK schemes supported by ZoKrates require a trusted setup. This procedure must be run to generate the proving and verification keys. This procedure generates some data often refered to as "toxic waste" which can be used to create fake proofs which will be accepted by the verifier. The entity running the trusted setup is trusted to delete this toxic waste. 
+Using an MPC protocol, we can run the trusted setup in a decentralized way, so that this responsibility is shared among all participants of the setup. If at least one participant is honest and deletes their part of the toxic waste, then no fake proofs can be created by anyone.
+This section of the book describes the steps to perform a trusted setup for the Groth16 scheme.
 
 ## Pre-requisites
 
-Trusted setup is done in two steps. The first step, also known as phase 1, is universal for all SNARKS and is called Powers of Tau. The second step is called phase 2 and is circuit-specific, so it should
-be done separately for each different SNARK. There is an existing phase 1 ceremony being conducted by the Ethereum community named [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau), which output we can use in our phase 2 ceremony.
+The trusted setup is done in two steps. The first step, also known as "phase 1", does not depend on the program and is called Powers of Tau. The second step is called "phase 2" and is circuit-specific, so it should be done separately for each different program. The Ethereum community runs a phase 1 setup called [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau), whose output we can use. Therefore, we only need to run phase 2 of the setup.
 
 ## Compiling a circuit
 
-We will start this tutorial by using ZoKrates to compile a basic circuit.
-First, we create a new file named `circuit.zok` with the following content:
+We will start this tutorial by using ZoKrates to compile a basic program.
+First, we create a new file named `program.zok` with the following content:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/mpc_tutorial/circuit.zok}}
+{{#include ../../../zokrates_cli/examples/book/mpc_tutorial/program.zok}}
 ```
 
-We compile the program into an arithmetic circuit using the `compile` command.
+We compile the program using the `compile` command.
 
 ```
 {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:11}}
@@ -27,7 +25,7 @@ We compile the program into an arithmetic circuit using the `compile` command.
 
 ## Initializing a phase 2 ceremony
 
-As a next step we initialize a phase 2 ceremony by running the following command:
+We then initialize a phase 2 ceremony with the following command:
 
 ```
 $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:15}}
@@ -36,9 +34,9 @@ Initializing MPC...
 Parameters written to `mpc.params`
 ```
 
-Using the `-r` flag, we pass a path to the file that contains the parameters for our circuit with depth `2^n` (`phase1radix2m{n}`).
-The parameters for various circuit depths can be computed using [phase2-bn254](https://github.com/kobigurk/phase2-bn254) utility 
-by picking the latest response from [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau) and following the instructions in the mentioned repositories.
+Using the `-r` flag, we pass a path to the file which contains the parameters for our circuit with depth `2^n` (`phase1radix2m{n}`).
+The parameters for various circuit depths can be computed using the [phase2-bn254](https://github.com/kobigurk/phase2-bn254) utility 
+by picking the latest response from the [Perpetual Powers of Tau](https://github.com/weijiekoh/perpetualpowersoftau) and following the instructions in the mentioned repositories.
 
 ## Making a contribution
 
@@ -64,11 +62,11 @@ Your contribution has been written to `alice.params`
 Alice must give some randomness to the contribution, which is done by the `-e` flag.
 
 Examples of entropy sources:
-* `/dev/urandom` from one or more devices,
-* The most recent block hash,
-* Randomly mashing keys on the keyboard etc.
+* `/dev/urandom` from one or more devices
+* The most recent block hash
+* Randomly mashing keys on the keyboard
 
-Secondly, the output file `alice.params` is sent to Bob (managed by the coordinator) who runs his contribution:
+Secondly, the output file `alice.params` is sent to Bob who runs his contribution:
 
 ```
 $ {{#include ../../../zokrates_cli/examples/book/mpc_tutorial/test.sh:21}}
@@ -129,9 +127,9 @@ Your contribution has been written to `final.params`
 
 The random beacon is the `2^n` iteration of `SHA256` over the hash evaluated on
 some high entropy and publicly available data. Possible sources of data could be: 
-* The closing value of the stock market on a certain date,
-* The output of a selected set of national lotteries, 
-* The value of a block at a particular height in one or more blockchains,
+* The closing value of the stock market on a certain date
+* The output of a selected set of national lotteries 
+* The value of a block at a particular height in one or more blockchains
 * [League of Entropy](https://www.cloudflare.com/leagueofentropy/) (drand)
 
 ## Verifying contributions
