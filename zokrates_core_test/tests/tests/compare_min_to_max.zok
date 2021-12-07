@@ -1,7 +1,7 @@
 from "field" import FIELD_MAX
 
-// as p - 1 is greater than p/2, comparing to it should fail
 // /!\ should be called with a = 0
+// as `|a - FIELD_MAX| < 2**(N-2)` the comparison should succeed
 
 def main(field a) -> bool:
   field p = FIELD_MAX + a

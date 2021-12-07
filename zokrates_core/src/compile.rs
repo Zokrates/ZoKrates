@@ -196,14 +196,17 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     // flatten input program
     log::debug!("Flatten");
     let program_flattened = Flattener::flatten(typed_ast, config);
+    log::trace!("\n{}", program_flattened);
 
     // constant propagation after call resolution
     log::debug!("Propagate flat program");
     let program_flattened = program_flattened.propagate();
+    log::trace!("\n{}", program_flattened);
 
     // convert to ir
     log::debug!("Convert to IR");
     let ir_prog = ir::Prog::from(program_flattened);
+    log::trace!("\n{}", ir_prog);
 
     // optimize
     log::debug!("Optimise IR");

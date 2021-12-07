@@ -1078,6 +1078,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         })
                         // ignore spreads over empty arrays
                         .filter_map(|e| match e {
+                            // clippy makes a wrong suggestion here:
+                            // ```
+                            // this creates an owned instance just for comparison
+                            // UExpression::from(0u32)
+                            // help: try: `0u32`
+                            // ```
+                            // But for `UExpression`, `PartialEq<Self>` is different from `PartialEq<u32>` (the latter is too optimistic in this case)
+                            #[allow(clippy::cmp_owned)]
                             TypedExpressionOrSpread::Spread(s)
                                 if s.array.size() == UExpression::from(0u32) =>
                             {
@@ -1197,16 +1205,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 let e1 = self.fold_struct_expression(e1)?;
                 let e2 = self.fold_struct_expression(e2)?;
 
-                if let (Ok(t1), Ok(t2)) = (
-                    ConcreteType::try_from(e1.get_type()),
-                    ConcreteType::try_from(e2.get_type()),
-                ) {
-                    if t1 != t2 {
-                        return Err(Error::Type(format!(
-                            "Cannot compare {} of type {} to {} of type {}",
-                            e1, t1, e2, t2
-                        )));
-                    }
+                let t1 = e1.get_type();
+                let t2 = e2.get_type();
+
+                if t1 != t2 {
+                    return Err(Error::Type(format!(
+                        "Cannot compare {} of type {} to {} of type {}",
+                        e1, t1, e2, t2
+                    )));
                 };
 
                 Ok(BooleanExpression::StructEq(box e1, box e2))
@@ -1470,7 +1476,7 @@ mod tests {
                         ]
                         .into(),
                     )
-                    .annotate(Type::FieldElement, 3usize),
+                    .annotate(Type::FieldElement, 3u32),
                     UExpressionInner::Add(box 1u32.into(), box 1u32.into())
                         .annotate(UBitwidth::B32),
                 );

@@ -340,7 +340,7 @@ impl<'ast, T: Field> Flattener<T> {
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
         ty: &typed_absy::types::ConcreteType,
-        size: usize,
+        size: u32,
         e: typed_absy::ArrayExpressionInner<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_array_expression_inner(self, statements_buffer, ty, size, e)
@@ -410,7 +410,7 @@ fn fold_array_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     ty: &typed_absy::types::ConcreteType,
-    size: usize,
+    size: u32,
     array: typed_absy::ArrayExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match array {
@@ -443,7 +443,7 @@ fn fold_array_expression_inner<'ast, T: Field>(
                 .flat_map(|e| f.fold_expression_or_spread(statements_buffer, e))
                 .collect();
 
-            assert_eq!(exprs.len(), size * ty.get_primitive_count());
+            assert_eq!(exprs.len(), size as usize * ty.get_primitive_count());
 
             exprs
         }
@@ -464,7 +464,7 @@ fn fold_array_expression_inner<'ast, T: Field>(
 
             match (from.into_inner(), to.into_inner()) {
                 (zir::UExpressionInner::Value(from), zir::UExpressionInner::Value(to)) => {
-                    assert_eq!(size, to.saturating_sub(from) as usize);
+                    assert_eq!(size, to.saturating_sub(from) as u32);
 
                     let element_size = ty.get_primitive_count();
                     let start = from as usize * element_size;
@@ -1114,10 +1114,7 @@ fn fold_array_expression<'ast, T: Field>(
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     e: typed_absy::ArrayExpression<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    let size = match e.size().into_inner() {
-        typed_absy::UExpressionInner::Value(v) => v,
-        _ => unreachable!(),
-    } as usize;
+    let size: u32 = e.size().try_into().unwrap();
     f.fold_array_expression_inner(
         statements_buffer,
         &typed_absy::types::ConcreteType::try_from(e.inner_type().clone()).unwrap(),

@@ -641,6 +641,103 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         )
     }
 
+    fn lt_check(
+        &mut self,
+        statements_flattened: &mut FlatStatements<T>,
+        lhs_flattened: FlatExpression<T>,
+        rhs_flattened: FlatExpression<T>,
+        bit_width: usize,
+    ) -> FlatExpression<T> {
+        match (lhs_flattened, rhs_flattened) {
+            (x, FlatExpression::Number(constant)) => {
+                self.constant_lt_check(statements_flattened, x, constant)
+            }
+            // (c < x <= p - 1) <=> (0 <= p - 1 - x < p - 1 - c)
+            (FlatExpression::Number(constant), x) => self.constant_lt_check(
+                statements_flattened,
+                FlatExpression::Sub(box T::max_value().into(), box x),
+                T::max_value() - constant,
+            ),
+            (lhs_flattened, rhs_flattened) => {
+                let lhs_id = self.define(lhs_flattened, statements_flattened);
+                let rhs_id = self.define(rhs_flattened, statements_flattened);
+
+                // shifted_sub := 2**safe_width + lhs - rhs
+                let shifted_sub = FlatExpression::Add(
+                    box FlatExpression::Number(T::from(2).pow(bit_width)),
+                    box FlatExpression::Sub(
+                        box FlatExpression::Identifier(lhs_id),
+                        box FlatExpression::Identifier(rhs_id),
+                    ),
+                );
+
+                let sub_width = bit_width + 1;
+
+                // define variables for the bits
+                let shifted_sub_bits_be: Vec<FlatVariable> =
+                    (0..sub_width).map(|_| self.use_sym()).collect();
+
+                // add a directive to get the bits
+                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
+                    shifted_sub_bits_be.clone(),
+                    Solver::bits(sub_width),
+                    vec![shifted_sub.clone()],
+                )));
+
+                // bitness checks
+                for bit in shifted_sub_bits_be.iter() {
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Identifier(*bit),
+                        FlatExpression::Mult(
+                            box FlatExpression::Identifier(*bit),
+                            box FlatExpression::Identifier(*bit),
+                        ),
+                        RuntimeError::LtFinalBitness,
+                    ));
+                }
+
+                // sum(sym_b{i} * 2**i)
+                let mut expr = FlatExpression::Number(T::from(0));
+
+                for (i, bit) in shifted_sub_bits_be.iter().take(sub_width).enumerate() {
+                    expr = FlatExpression::Add(
+                        box expr,
+                        box FlatExpression::Mult(
+                            box FlatExpression::Identifier(*bit),
+                            box FlatExpression::Number(T::from(2).pow(sub_width - i - 1)),
+                        ),
+                    );
+                }
+
+                statements_flattened.push(FlatStatement::Condition(
+                    shifted_sub,
+                    expr,
+                    RuntimeError::LtFinalSum,
+                ));
+
+                // to make this check symetric, we ban the value `a - b == -2**N`, as the value `a - b == 2**N` is already banned
+                let fail = self.eq_check(
+                    statements_flattened,
+                    FlatExpression::Sub(
+                        box FlatExpression::Identifier(rhs_id),
+                        box FlatExpression::Identifier(lhs_id),
+                    ),
+                    FlatExpression::Number(T::from(2).pow(bit_width)),
+                );
+                statements_flattened.push(FlatStatement::Condition(
+                    fail,
+                    FlatExpression::Number(T::from(0)),
+                    RuntimeError::LtSymetric,
+                ));
+
+                FlatExpression::Sub(
+                    box FlatExpression::Number(T::one()),
+                    box FlatExpression::Identifier(shifted_sub_bits_be[0]),
+                )
+            }
+        }
+    }
+
     /// Flattens a boolean expression
     ///
     /// # Arguments
@@ -673,195 +770,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // Get the bit width to know the size of the binary decompositions for this Field
                 let bit_width = T::get_required_bits();
 
-                // We know from semantic checking that lhs and rhs have the same type
-                // What the expression will flatten to depends on that type
+                let safe_width = bit_width - 2; // dynamic comparison is not complete, it only applies to field elements whose difference is strictly smaller than 2**(bitwidth - 2)
 
                 let lhs_flattened = self.flatten_field_expression(statements_flattened, lhs);
                 let rhs_flattened = self.flatten_field_expression(statements_flattened, rhs);
 
-                match (lhs_flattened, rhs_flattened) {
-                    (x, FlatExpression::Number(constant)) => {
-                        self.constant_lt_check(statements_flattened, x, constant)
-                    }
-                    // (c < x <= p - 1) <=> (0 <= p - 1 - x < p - 1 - c)
-                    (FlatExpression::Number(constant), x) => self.constant_lt_check(
-                        statements_flattened,
-                        FlatExpression::Sub(box T::max_value().into(), box x),
-                        T::max_value() - constant,
-                    ),
-                    (lhs_flattened, rhs_flattened) => {
-                        let safe_width = bit_width - 2; // dynamic comparison is not complete, it only applies to words of width `bit_width - 2`
-
-                        // lhs
-                        let lhs_id = self.define(lhs_flattened, statements_flattened);
-
-                        // check that lhs and rhs are within the right range, i.e., their higher two bits are zero. We use big-endian so they are at positions 0 and 1
-
-                        // lhs
-                        {
-                            // define variables for the bits
-                            let lhs_bits_be: Vec<FlatVariable> =
-                                (0..safe_width).map(|_| self.use_sym()).collect();
-
-                            // add a directive to get the bits
-                            statements_flattened.push(FlatStatement::Directive(
-                                FlatDirective::new(
-                                    lhs_bits_be.clone(),
-                                    Solver::bits(safe_width),
-                                    vec![lhs_id],
-                                ),
-                            ));
-
-                            // bitness checks
-                            for bit in lhs_bits_be.iter().take(safe_width) {
-                                statements_flattened.push(FlatStatement::Condition(
-                                    FlatExpression::Identifier(*bit),
-                                    FlatExpression::Mult(
-                                        box FlatExpression::Identifier(*bit),
-                                        box FlatExpression::Identifier(*bit),
-                                    ),
-                                    RuntimeError::LtBitness,
-                                ));
-                            }
-
-                            // bit decomposition check
-                            let mut lhs_sum = FlatExpression::Number(T::from(0));
-
-                            for (i, bit) in lhs_bits_be.iter().take(safe_width).enumerate() {
-                                lhs_sum = FlatExpression::Add(
-                                    box lhs_sum,
-                                    box FlatExpression::Mult(
-                                        box FlatExpression::Identifier(*bit),
-                                        box FlatExpression::Number(
-                                            T::from(2).pow(safe_width - i - 1),
-                                        ),
-                                    ),
-                                );
-                            }
-
-                            statements_flattened.push(FlatStatement::Condition(
-                                FlatExpression::Identifier(lhs_id),
-                                lhs_sum,
-                                RuntimeError::LtSum,
-                            ));
-                        }
-
-                        // rhs
-                        let rhs_id = self.define(rhs_flattened, statements_flattened);
-
-                        // rhs
-                        {
-                            // define variables for the bits
-                            let rhs_bits_be: Vec<FlatVariable> =
-                                (0..safe_width).map(|_| self.use_sym()).collect();
-
-                            // add a directive to get the bits
-                            statements_flattened.push(FlatStatement::Directive(
-                                FlatDirective::new(
-                                    rhs_bits_be.clone(),
-                                    Solver::bits(safe_width),
-                                    vec![rhs_id],
-                                ),
-                            ));
-
-                            // bitness checks
-                            for bit in rhs_bits_be.iter().take(safe_width) {
-                                statements_flattened.push(FlatStatement::Condition(
-                                    FlatExpression::Identifier(*bit),
-                                    FlatExpression::Mult(
-                                        box FlatExpression::Identifier(*bit),
-                                        box FlatExpression::Identifier(*bit),
-                                    ),
-                                    RuntimeError::LtBitness,
-                                ));
-                            }
-
-                            // bit decomposition check
-                            let mut rhs_sum = FlatExpression::Number(T::from(0));
-
-                            for (i, bit) in rhs_bits_be.iter().take(safe_width).enumerate() {
-                                rhs_sum = FlatExpression::Add(
-                                    box rhs_sum,
-                                    box FlatExpression::Mult(
-                                        box FlatExpression::Identifier(*bit),
-                                        box FlatExpression::Number(
-                                            T::from(2).pow(safe_width - i - 1),
-                                        ),
-                                    ),
-                                );
-                            }
-
-                            statements_flattened.push(FlatStatement::Condition(
-                                FlatExpression::Identifier(rhs_id),
-                                rhs_sum,
-                                RuntimeError::LtSum,
-                            ));
-                        }
-
-                        // sym := (lhs * 2) - (rhs * 2)
-                        let subtraction_result = FlatExpression::Sub(
-                            box FlatExpression::Mult(
-                                box FlatExpression::Number(T::from(2)),
-                                box FlatExpression::Identifier(lhs_id),
-                            ),
-                            box FlatExpression::Mult(
-                                box FlatExpression::Number(T::from(2)),
-                                box FlatExpression::Identifier(rhs_id),
-                            ),
-                        );
-
-                        // define variables for the bits
-                        let sub_bits_be: Vec<FlatVariable> =
-                            (0..bit_width).map(|_| self.use_sym()).collect();
-
-                        // add a directive to get the bits
-                        statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
-                            sub_bits_be.clone(),
-                            Solver::bits(bit_width),
-                            vec![subtraction_result.clone()],
-                        )));
-
-                        // bitness checks
-                        for bit in sub_bits_be.iter().take(bit_width) {
-                            statements_flattened.push(FlatStatement::Condition(
-                                FlatExpression::Identifier(*bit),
-                                FlatExpression::Mult(
-                                    box FlatExpression::Identifier(*bit),
-                                    box FlatExpression::Identifier(*bit),
-                                ),
-                                RuntimeError::LtFinalBitness,
-                            ));
-                        }
-
-                        // check that the decomposition is in the field with a strict `< p` checks
-                        self.enforce_constant_le_check(
-                            statements_flattened,
-                            &sub_bits_be,
-                            &T::max_value().bit_vector_be(),
-                        );
-
-                        // sum(sym_b{i} * 2**i)
-                        let mut expr = FlatExpression::Number(T::from(0));
-
-                        for (i, bit) in sub_bits_be.iter().take(bit_width).enumerate() {
-                            expr = FlatExpression::Add(
-                                box expr,
-                                box FlatExpression::Mult(
-                                    box FlatExpression::Identifier(*bit),
-                                    box FlatExpression::Number(T::from(2).pow(bit_width - i - 1)),
-                                ),
-                            );
-                        }
-
-                        statements_flattened.push(FlatStatement::Condition(
-                            subtraction_result,
-                            expr,
-                            RuntimeError::LtFinalSum,
-                        ));
-
-                        FlatExpression::Identifier(sub_bits_be[bit_width - 1])
-                    }
-                }
+                self.lt_check(
+                    statements_flattened,
+                    lhs_flattened,
+                    rhs_flattened,
+                    safe_width,
+                )
             }
             BooleanExpression::BoolEq(box lhs, box rhs) => {
                 // lhs and rhs are booleans, they flatten to 0 or 1
@@ -944,79 +863,23 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 BooleanExpression::FieldLe(rhs, lhs),
             ),
             BooleanExpression::UintLt(box lhs, box rhs) => {
-                let lhs_flattened = self.flatten_uint_expression(statements_flattened, lhs);
-                let rhs_flattened = self.flatten_uint_expression(statements_flattened, rhs);
+                let bit_width = lhs.bitwidth.to_usize();
+                assert!(lhs.metadata.as_ref().unwrap().should_reduce.to_bool());
+                assert!(rhs.metadata.as_ref().unwrap().should_reduce.to_bool());
 
-                // Get the bit width to know the size of the binary decompositions for this Field
-                // This is not this uint bitwidth
-                let bit_width = T::get_required_bits();
+                let lhs_flattened = self
+                    .flatten_uint_expression(statements_flattened, lhs)
+                    .get_field_unchecked();
+                let rhs_flattened = self
+                    .flatten_uint_expression(statements_flattened, rhs)
+                    .get_field_unchecked();
 
-                // lhs
-                let lhs_id = self.define(lhs_flattened.get_field_unchecked(), statements_flattened);
-                let rhs_id = self.define(rhs_flattened.get_field_unchecked(), statements_flattened);
-
-                // sym := (lhs * 2) - (rhs * 2)
-                let subtraction_result = FlatExpression::Sub(
-                    box FlatExpression::Mult(
-                        box FlatExpression::Number(T::from(2)),
-                        box FlatExpression::Identifier(lhs_id),
-                    ),
-                    box FlatExpression::Mult(
-                        box FlatExpression::Number(T::from(2)),
-                        box FlatExpression::Identifier(rhs_id),
-                    ),
-                );
-
-                // define variables for the bits
-                let sub_bits_be: Vec<FlatVariable> =
-                    (0..bit_width).map(|_| self.use_sym()).collect();
-
-                // add a directive to get the bits
-                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
-                    sub_bits_be.clone(),
-                    Solver::bits(bit_width),
-                    vec![subtraction_result.clone()],
-                )));
-
-                // bitness checks
-                for bit in sub_bits_be.iter().take(bit_width) {
-                    statements_flattened.push(FlatStatement::Condition(
-                        FlatExpression::Identifier(*bit),
-                        FlatExpression::Mult(
-                            box FlatExpression::Identifier(*bit),
-                            box FlatExpression::Identifier(*bit),
-                        ),
-                        RuntimeError::LtFinalBitness,
-                    ));
-                }
-
-                // check that the decomposition is in the field with a strict `< p` checks
-                self.enforce_constant_le_check(
+                self.lt_check(
                     statements_flattened,
-                    &sub_bits_be,
-                    &T::max_value().bit_vector_be(),
-                );
-
-                // sum(sym_b{i} * 2**i)
-                let mut expr = FlatExpression::Number(T::from(0));
-
-                for (i, bit) in sub_bits_be.iter().enumerate().take(bit_width) {
-                    expr = FlatExpression::Add(
-                        box expr,
-                        box FlatExpression::Mult(
-                            box FlatExpression::Identifier(*bit),
-                            box FlatExpression::Number(T::from(2).pow(bit_width - i - 1)),
-                        ),
-                    );
-                }
-
-                statements_flattened.push(FlatStatement::Condition(
-                    subtraction_result,
-                    expr,
-                    RuntimeError::LtFinalSum,
-                ));
-
-                FlatExpression::Identifier(sub_bits_be[bit_width - 1])
+                    lhs_flattened,
+                    rhs_flattened,
+                    bit_width,
+                )
             }
             BooleanExpression::UintLe(box lhs, box rhs) => {
                 let lt = self.flatten_boolean_expression(
