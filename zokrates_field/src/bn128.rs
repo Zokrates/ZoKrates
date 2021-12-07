@@ -1,10 +1,6 @@
 use ark_bn254::Bn254;
 
-prime_field!(
-    b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
-    "bn128",
-    Bn254
-);
+prime_field!("bn128", Bn254);
 
 ark_extensions!(Bn254);
 
@@ -202,6 +198,11 @@ mod tests {
         }
 
         #[test]
+        fn required_bits() {
+            assert_eq!(FieldPrime::get_required_bits(), 254);
+        }
+
+        #[test]
         fn bits() {
             assert_eq!(FieldPrime::from(0).bits(), 1);
             assert_eq!(FieldPrime::from(1).bits(), 1);
@@ -256,7 +257,6 @@ mod tests {
         #[test]
         fn serde_json_ser_deser() {
             let serialized = serde_json::to_string(&FieldPrime::from("11")).unwrap();
-            println!("{}", serialized);
             let deserialized = serde_json::from_str(&serialized).unwrap();
             assert_eq!(FieldPrime::from("11"), deserialized);
         }
@@ -264,9 +264,7 @@ mod tests {
         #[test]
         fn bytes_ser_deser() {
             let fp = FieldPrime::from("101");
-            println!("{}", fp);
             let bv = fp.to_byte_vector();
-            println!("{:#?}", bv);
             assert_eq!(fp, FieldPrime::from_byte_vector(bv));
         }
 
@@ -299,25 +297,6 @@ mod tests {
                 &p_minus_one_over_two_plus_one.to_compact_dec_string()
             );
         }
-    }
-
-    #[test]
-    fn bigint_assertions() {
-        use num_integer::Integer;
-        let x = BigInt::parse_bytes(b"65", 10).unwrap();
-        assert_eq!(&x + &x, BigInt::parse_bytes(b"130", 10).unwrap());
-        assert_eq!(
-            "1".parse::<BigInt>().unwrap(),
-            "3".parse::<BigInt>()
-                .unwrap()
-                .div_floor(&"2".parse::<BigInt>().unwrap())
-        );
-        assert_eq!(
-            "-2".parse::<BigInt>().unwrap(),
-            "-3".parse::<BigInt>()
-                .unwrap()
-                .div_floor(&"2".parse::<BigInt>().unwrap())
-        );
     }
 
     #[cfg(feature = "bellman")]

@@ -149,11 +149,10 @@ pub trait Field:
 #[macro_use]
 mod prime_field {
     macro_rules! prime_field {
-        ($modulus:expr, $name:expr, $v:ty) => {
+        ($name:expr, $v:ty) => {
             use crate::{Field, FieldParseError, Pow};
             use ark_ff::{Field as ArkField, PrimeField};
-            use lazy_static::lazy_static;
-            use num_bigint::{BigInt, BigUint};
+            use num_bigint::BigUint;
             use num_traits::{CheckedDiv, One, Zero};
             use serde::de::{self, Visitor};
             use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -162,10 +161,6 @@ mod prime_field {
             use std::fmt;
             use std::fmt::{Debug, Display};
             use std::ops::{Add, Div, Mul, Sub};
-
-            lazy_static! {
-                static ref P: BigInt = BigInt::parse_bytes($modulus, 10).unwrap();
-            }
 
             type Fr = <$v as ark_ec::PairingEngine>::Fr;
 
@@ -233,7 +228,8 @@ mod prime_field {
                     }
                 }
                 fn get_required_bits() -> usize {
-                    (*P).bits()
+                    use ark_ff::FpParameters;
+                    <Fr as PrimeField>::Params::MODULUS_BITS as usize
                 }
                 fn try_from_dec_str(s: &str) -> Result<Self, FieldParseError> {
                     use std::str::FromStr;
@@ -259,8 +255,10 @@ mod prime_field {
                 }
                 fn id() -> [u8; 4] {
                     let mut res = [0u8; 4];
+                    use ark_ff::BigInteger;
+                    use ark_ff::FpParameters;
                     use sha2::{Digest, Sha256};
-                    let hash = Sha256::digest(&P.to_bytes_le().1);
+                    let hash = Sha256::digest(&<Fr as PrimeField>::Params::MODULUS.to_bytes_le());
                     for i in 0..4 {
                         res[i] = hash[i];
                     }
