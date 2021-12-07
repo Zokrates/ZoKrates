@@ -170,7 +170,7 @@ pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<Js
 #[wasm_bindgen]
 pub fn setup(program: &[u8]) -> Result<JsValue, JsValue> {
     let program_flattened = deserialize_program(program)?;
-    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program_flattened);
+    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program_flattened)?;
     Ok(JsValue::from_serde(&keypair).unwrap())
 }
 
@@ -195,7 +195,7 @@ pub fn generate_proof(program: &[u8], witness: JsValue, pk: &[u8]) -> Result<JsV
         program_flattened,
         ir_witness,
         pk.to_vec(),
-    );
+    )?;
 
     Ok(JsValue::from_serde(&proof).unwrap())
 }
