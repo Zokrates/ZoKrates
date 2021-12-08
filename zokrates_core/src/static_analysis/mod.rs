@@ -5,6 +5,7 @@
 //! @date 2018
 
 mod branch_isolator;
+mod condition_redefiner;
 mod constant_argument_checker;
 mod constant_resolver;
 mod flat_propagation;
@@ -19,6 +20,7 @@ mod variable_write_remover;
 mod zir_propagation;
 
 use self::branch_isolator::Isolator;
+use self::condition_redefiner::ConditionRedefiner;
 use self::constant_argument_checker::ConstantArgumentChecker;
 use self::flatten_complex_types::Flattener;
 use self::out_of_bounds::OutOfBoundsChecker;
@@ -156,6 +158,11 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // detect out of bounds reads and writes
         log::debug!("Static analyser: Detect out of bound accesses");
         let r = OutOfBoundsChecker::check(r).map_err(Error::from)?;
+        log::trace!("\n{}", r);
+
+        // redefine conditions
+        log::debug!("Static analyser: Redefine conditions");
+        let r = ConditionRedefiner::redefine(r);
         log::trace!("\n{}", r);
 
         // convert to zir, removing complex types
