@@ -2,7 +2,6 @@
     "entry_point": "./tests/tests/panics/deep_branch.zok",
     "curves": ["Bn128"],
     "config": {
-        "allow_unconstrained_variables": false,
         "isolate_branches": true
     },
 	"tests": [

@@ -149,10 +149,14 @@ fn compile_and_run<T: Field>(t: Tests) {
     let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
     let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
-    let artifacts = compile::<T, _>(code, entry_point.clone(), Some(&resolver), &config).unwrap();
+    let arena = typed_arena::Arena::new();
 
-    let bin = artifacts.prog();
-    let abi = artifacts.abi();
+    let artifacts =
+        compile::<T, _>(code, entry_point.clone(), Some(&resolver), config, &arena).unwrap();
+
+    let (bin, abi) = artifacts.into_inner();
+    // here we do want the program in memory because we want to run many tests on it
+    let bin = bin.collect();
 
     if let Some(target_count) = t.max_constraint_count {
         let count = bin.constraint_count();
@@ -184,7 +188,7 @@ fn compile_and_run<T: Field>(t: Tests) {
                 .unwrap()
         };
 
-        let output = interpreter.execute(bin, &input);
+        let output = interpreter.execute(bin.clone(), &input);
 
         if let Err(e) = compare(output, test.output) {
             let mut code = File::open(&entry_point).unwrap();

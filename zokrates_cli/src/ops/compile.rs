@@ -4,15 +4,16 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use serde_json::to_writer_pretty;
 use std::convert::TryFrom;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
-use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig, CompileError};
+use typed_arena::Arena;
+use zokrates_core::compile::{compile, CompileConfig, CompileError};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("compile")
-        .about("Compiles into flattened conditions. Produces two files: human-readable '.ztf' file for debugging and binary file")
+        .about("Compiles into a runnable constraint system")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
@@ -52,24 +53,10 @@ pub fn subcommand() -> App<'static, 'static> {
         .required(false)
         .possible_values(constants::CURVES)
         .default_value(constants::BN128)
-    ).arg(Arg::with_name("allow-unconstrained-variables")
-        .long("allow-unconstrained-variables")
-        .help("Allow unconstrained variables by inserting dummy constraints")
-        .required(false)
     ).arg(Arg::with_name("isolate-branches")
         .long("isolate-branches")
         .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")
         .required(false)
-    ).arg(Arg::with_name("ztf")
-        .long("ztf")
-        .help("Write human readable output (ztf)")
-        .required(false)
-    )
-    .arg(Arg::with_name("light") // TODO: deprecated, should be removed
-        .long("light")
-        .required(false)
-        .overrides_with_all(&["ztf", "verbose"])
-        .hidden(true)
     )
 }
 
@@ -84,20 +71,10 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 }
 
 fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
-    // TODO: remove the warning once light flag is removed entirely
-    if sub_matches.is_present("light") {
-        println!(
-            "Warning: the --light flag is deprecated and will be removed in a coming release.\n\
-            Terminal output is now off by default and can be activated with the --verbose flag.\n\
-            Human-readable output file (ztf) is now off by default and can be activated with the --ztf flag.\n"
-        )
-    }
-
     println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
     let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
-    let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
     log::debug!("Load entry point file {}", path.display());
 
@@ -128,16 +105,17 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )),
     }?;
 
-    let config = CompileConfig::default()
-        .allow_unconstrained_variables(sub_matches.is_present("allow-unconstrained-variables"))
-        .isolate_branches(sub_matches.is_present("isolate-branches"));
+    let config =
+        CompileConfig::default().isolate_branches(sub_matches.is_present("isolate-branches"));
 
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
 
     log::debug!("Compile");
 
-    let artifacts: CompilationArtifacts<T> = compile(source, path, Some(&resolver), &config)
-        .map_err(|e| {
+    let arena = Arena::new();
+
+    let artifacts =
+        compile::<T, _>(source, path, Some(&resolver), config, &arena).map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
                 e.0.iter()
@@ -147,10 +125,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             )
         })?;
 
-    let program_flattened = artifacts.prog();
-
-    // number of constraints the flattened program will translate to.
-    let num_constraints = program_flattened.constraint_count();
+    let (program_flattened, abi) = artifacts.into_inner();
 
     // serialize flattened program and write to binary file
     log::debug!("Serialize program");
@@ -166,34 +141,9 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let abi_spec_file = File::create(&abi_spec_path)
         .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
 
-    let abi = artifacts.abi();
-
     let mut writer = BufWriter::new(abi_spec_file);
     to_writer_pretty(&mut writer, &abi).map_err(|_| "Unable to write data to file.".to_string())?;
 
-    if sub_matches.is_present("verbose") {
-        // debugging output
-        println!("Compiled program:\n{}", program_flattened);
-    }
-
     println!("Compiled code written to '{}'", bin_output_path.display());
-
-    if sub_matches.is_present("ztf") {
-        // write human-readable output file
-        log::debug!("Serialize human readable program");
-        let hr_output_file = File::create(&hr_output_path)
-            .map_err(|why| format!("Could not create {}: {}", hr_output_path.display(), why))?;
-
-        let mut hrofb = BufWriter::new(hr_output_file);
-        writeln!(&mut hrofb, "{}", program_flattened)
-            .map_err(|_| "Unable to write data to file".to_string())?;
-        hrofb
-            .flush()
-            .map_err(|_| "Unable to flush buffer".to_string())?;
-
-        println!("Human readable code to '{}'", hr_output_path.display());
-    }
-
-    println!("Number of constraints: {}", num_constraints);
     Ok(())
 }

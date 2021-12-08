@@ -16,25 +16,13 @@ fn hash<T: Field>(s: &Statement<T>) -> Hash {
     hasher.finish()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DuplicateOptimizer {
     seen: HashSet<Hash>,
 }
 
-impl DuplicateOptimizer {
-    fn new() -> Self {
-        DuplicateOptimizer {
-            seen: HashSet::new(),
-        }
-    }
-
-    pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
-        Self::new().fold_module(p)
-    }
-}
-
 impl<T: Field> Folder<T> for DuplicateOptimizer {
-    fn fold_module(&mut self, p: Prog<T>) -> Prog<T> {
+    fn fold_program(&mut self, p: Prog<T>) -> Prog<T> {
         // in order to correctly identify duplicates, we need to first canonicalize the statements
         let mut canonicalizer = Canonicalizer;
 
@@ -47,7 +35,7 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
             ..p
         };
 
-        fold_module(self, p)
+        fold_program(self, p)
     }
 
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
@@ -87,13 +75,16 @@ mod tests {
                     LinComb::zero(),
                 ),
             ],
-            returns: vec![],
+            return_count: 0,
             arguments: vec![],
         };
 
         let expected = p.clone();
 
-        assert_eq!(DuplicateOptimizer::optimize(p), expected);
+        assert_eq!(
+            DuplicateOptimizer::default().fold_program(p).collect(),
+            expected
+        );
     }
 
     #[test]
@@ -120,7 +111,7 @@ mod tests {
                 constraint.clone(),
                 constraint.clone(),
             ],
-            returns: vec![],
+            return_count: 0,
             arguments: vec![],
         };
 
@@ -135,10 +126,13 @@ mod tests {
                     LinComb::zero(),
                 ),
             ],
-            returns: vec![],
+            return_count: 0,
             arguments: vec![],
         };
 
-        assert_eq!(DuplicateOptimizer::optimize(p), expected);
+        assert_eq!(
+            DuplicateOptimizer::default().fold_program(p).collect(),
+            expected
+        );
     }
 }

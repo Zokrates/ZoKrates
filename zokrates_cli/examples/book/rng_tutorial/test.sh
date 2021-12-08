@@ -7,7 +7,7 @@ function zokrates() {
   ZOKRATES_STDLIB=$stdlib $bin $*
 }
 
-zokrates compile -i get_hash.zok -o get_hash --ztf
+zokrates compile -i get_hash.zok -o get_hash && zokrates inspect -i get_hash
 zokrates compute-witness --verbose -i get_hash -a 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
 
 mkdir alice bob

@@ -14,7 +14,6 @@ mod propagation;
 mod reducer;
 mod struct_concretizer;
 mod uint_optimizer;
-mod unconstrained_vars;
 mod variable_write_remover;
 mod zir_propagation;
 
@@ -26,10 +25,8 @@ use self::propagation::Propagator;
 use self::reducer::reduce_program;
 use self::struct_concretizer::StructConcretizer;
 use self::uint_optimizer::UintOptimizer;
-use self::unconstrained_vars::UnconstrainedVariableDetector;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::compile::CompileConfig;
-use crate::ir::Prog;
 use crate::static_analysis::constant_resolver::ConstantResolver;
 use crate::static_analysis::zir_propagation::ZirPropagator;
 use crate::typed_absy::{abi::Abi, TypedProgram};
@@ -37,20 +34,12 @@ use crate::zir::ZirProgram;
 use std::fmt;
 use zokrates_field::Field;
 
-pub trait Analyse {
-    type Error;
-
-    fn analyse(self) -> Result<Self, Self::Error>
-    where
-        Self: Sized;
-}
 #[derive(Debug)]
 pub enum Error {
     Reducer(self::reducer::Error),
     Propagation(self::propagation::Error),
     ZirPropagation(self::zir_propagation::Error),
     NonConstantArgument(self::constant_argument_checker::Error),
-    UnconstrainedVariable(self::unconstrained_vars::Error),
     OutOfBounds(self::out_of_bounds::Error),
 }
 
@@ -84,12 +73,6 @@ impl From<constant_argument_checker::Error> for Error {
     }
 }
 
-impl From<unconstrained_vars::Error> for Error {
-    fn from(e: unconstrained_vars::Error) -> Self {
-        Error::UnconstrainedVariable(e)
-    }
-}
-
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -97,7 +80,6 @@ impl fmt::Display for Error {
             Error::Propagation(e) => write!(f, "{}", e),
             Error::ZirPropagation(e) => write!(f, "{}", e),
             Error::NonConstantArgument(e) => write!(f, "{}", e),
-            Error::UnconstrainedVariable(e) => write!(f, "{}", e),
             Error::OutOfBounds(e) => write!(f, "{}", e),
         }
     }
@@ -174,15 +156,5 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         log::trace!("\n{}", zir);
 
         Ok((zir, abi))
-    }
-}
-
-impl<T: Field> Analyse for Prog<T> {
-    type Error = Error;
-
-    fn analyse(self) -> Result<Self, Self::Error> {
-        log::debug!("Static analyser: Detect unconstrained zir");
-        UnconstrainedVariableDetector::detect(&self).map_err(Error::from)?;
-        Ok(self)
     }
 }

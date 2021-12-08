@@ -1075,6 +1075,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
+name = "half"
+version = "1.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1846,6 +1852,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_cbor"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.130"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2383,7 +2399,6 @@ name = "zokrates_cli"
 version = "0.7.8"
 dependencies = [
  "assert_cli",
- "bincode",
  "cfg-if 0.1.10",
  "clap",
  "dirs",
@@ -2393,8 +2408,11 @@ dependencies = [
  "lazy_static",
  "log",
  "regex 0.2.11",
+ "serde",
+ "serde_cbor",
  "serde_json",
  "tempdir",
+ "typed-arena",
  "zokrates_abi",
  "zokrates_core",
  "zokrates_field",
@@ -2421,7 +2439,6 @@ dependencies = [
  "ark-relations",
  "ark-serialize",
  "bellman_ce",
- "bincode",
  "cc",
  "cfg-if 0.1.10",
  "cmake",
@@ -2441,6 +2458,7 @@ dependencies = [
  "reduce",
  "regex 0.2.11",
  "serde",
+ "serde_cbor",
  "serde_json",
  "sha2 0.9.8",
  "typed-arena",
@@ -2545,6 +2563,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "typed-arena",
  "zokrates_abi",
  "zokrates_core",
  "zokrates_field",

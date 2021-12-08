@@ -4,7 +4,7 @@ use crate::proof_system::libsnark::{
 };
 use crate::proof_system::{Backend, G1Affine, G2Affine, NonUniversalBackend, Proof, SetupKeypair};
 
-use crate::ir::{Prog, Witness};
+use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::libsnark::serialization::{read_g1, read_g2, write_g1, write_g2};
 use crate::proof_system::pghr13::{ProofPoints, VerificationKey, PGHR13};
 use crate::proof_system::Scheme;
@@ -42,11 +42,13 @@ extern "C" {
 }
 
 impl Backend<Bn128Field, PGHR13> for Libsnark {
-    fn generate_proof(
-        program: Prog<Bn128Field>,
+    fn generate_proof<I: IntoIterator<Item = Statement<Bn128Field>>>(
+        program: ProgIterator<Bn128Field, I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> Proof<<PGHR13 as Scheme<Bn128Field>>::ProofPoints> {
+        let program = program.collect();
+
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program.clone(), witness.clone());
 
@@ -156,9 +158,11 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
 }
 
 impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
-    fn setup(
-        program: Prog<Bn128Field>,
+    fn setup<I: IntoIterator<Item = Statement<Bn128Field>>>(
+        program: ProgIterator<Bn128Field, I>,
     ) -> SetupKeypair<<PGHR13 as Scheme<Bn128Field>>::VerificationKey> {
+        let program = program.collect();
+
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -230,7 +234,7 @@ mod tests {
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
             arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-            returns: vec![FlatVariable::public(0)],
+            return_count: 1,
             statements: vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
@@ -241,7 +245,7 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &vec![Bn128Field::from(42)])
+            .execute(program.clone(), &vec![Bn128Field::from(42)])
             .unwrap();
 
         let proof =
