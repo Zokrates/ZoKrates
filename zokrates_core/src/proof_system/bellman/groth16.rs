@@ -8,20 +8,17 @@ use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
-use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Witness};
 use crate::proof_system::bellman::Bellman;
 use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_g1, parse_g2};
 use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
 use crate::proof_system::Scheme;
-use fallible_iterator::IntoFallibleIterator;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof<
-        I: IntoFallibleIterator<Item = Statement<T>, Error = Box<dyn std::error::Error>>,
-    >(
+    fn generate_proof<I: IntoStatements<Field = T>>(
         program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,

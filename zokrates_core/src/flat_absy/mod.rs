@@ -7,6 +7,9 @@
 
 pub mod flat_parameter;
 pub mod flat_variable;
+mod iterators;
+
+pub use self::iterators::{DynamicError, FlatStatements, IntoFlatStatements};
 
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
@@ -100,18 +103,6 @@ impl fmt::Display for RuntimeError {
     }
 }
 
-pub trait IntoFlatStatements:
-    IntoFallibleIterator<Item = FlatStatement<Self::Field>, Error = Box<dyn std::error::Error>>
-{
-    type Field;
-}
-
-impl<T, U: IntoFallibleIterator<Item = FlatStatement<T>, Error = Box<dyn std::error::Error>>>
-    IntoFlatStatements for U
-{
-    type Field = T;
-}
-
 pub type FlatProg<T> = FlatFunction<T>;
 
 #[derive(Clone, PartialEq, Debug, Default)]
@@ -164,7 +155,7 @@ impl<T, I: Iterator<Item = FlatStatement<T>>> FallibleIterator
     for MemoryFlatStatementsIterator<T, I>
 {
     type Item = FlatStatement<T>;
-    type Error = Box<dyn std::error::Error>;
+    type Error = DynamicError;
 
     fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
         Ok(self.statements.next())
@@ -173,7 +164,7 @@ impl<T, I: Iterator<Item = FlatStatement<T>>> FallibleIterator
 
 impl<T> IntoFallibleIterator for MemoryFlatStatements<T> {
     type Item = FlatStatement<T>;
-    type Error = Box<dyn std::error::Error>;
+    type Error = DynamicError;
     type IntoFallibleIter = MemoryFlatStatementsIterator<T, std::vec::IntoIter<FlatStatement<T>>>;
 
     fn into_fallible_iter(self) -> Self::IntoFallibleIter {
@@ -198,7 +189,7 @@ pub struct FlatFunctionIterator<I: IntoFlatStatements> {
 }
 
 impl<I: IntoFlatStatements> FlatFunctionIterator<I> {
-    pub fn collect(self) -> Result<FlatFunction<I::Field>, Box<dyn std::error::Error>> {
+    pub fn collect(self) -> Result<FlatFunction<I::Field>, DynamicError> {
         Ok(FlatFunction {
             statements: MemoryFlatStatements(self.statements.into_fallible_iter().collect()?),
             arguments: self.arguments,

@@ -55,7 +55,7 @@ impl<'ast, T: Field> ResultFold<'ast, T> for StructExpression<'ast, T> {
 }
 
 pub trait ResultFolder<'ast, T: Field>: Sized {
-    type Error: Into<Box<dyn std::error::Error>>;
+    type Error: Into<DynamicError>;
 
     fn fold_program(
         &mut self,

@@ -8,6 +8,7 @@
 pub mod abi;
 pub mod folder;
 pub mod identifier;
+mod iterators;
 pub mod result_folder;
 
 mod integer;
@@ -17,6 +18,7 @@ mod uint;
 pub mod variable;
 
 pub use self::identifier::CoreIdentifier;
+pub use self::iterators::{DynamicError, IntoTypedStatements, TypedStatements};
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteType,
@@ -47,8 +49,7 @@ use zokrates_field::Field;
 pub use self::folder::Folder;
 pub use self::result_folder::ResultFolder;
 use crate::typed_absy::abi::{Abi, AbiInput};
-use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
-use std::iter::FromIterator;
+use fallible_iterator::FallibleIterator;
 use std::ops::{Add, Div, Mul, Sub};
 
 pub use self::identifier::Identifier;
@@ -80,21 +81,6 @@ pub type TypedConstantSymbols<'ast, T> = Vec<(
     TypedConstantSymbol<'ast, T>,
 )>;
 
-pub trait IntoTypedStatements<'ast>:
-    IntoFallibleIterator<Item = TypedStatement<'ast, Self::Field>, Error = Box<dyn std::error::Error>>
-{
-    type Field;
-}
-
-impl<
-        'ast,
-        T,
-        U: IntoFallibleIterator<Item = TypedStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
-    > IntoTypedStatements<'ast> for U
-{
-    type Field = T;
-}
-
 #[derive(Clone, PartialEq, Debug, Default, Hash)]
 pub struct MemoryTypedStatements<'ast, T>(pub Vec<TypedStatement<'ast, T>>);
 
@@ -119,49 +105,6 @@ impl<'ast, T> MemoryTypedStatements<'ast, T> {
 
     pub fn into_inner(self) -> Vec<TypedStatement<'ast, T>> {
         self.0
-    }
-}
-
-impl<'ast, T> IntoIterator for MemoryTypedStatements<'ast, T> {
-    type Item = TypedStatement<'ast, T>;
-    type IntoIter = std::vec::IntoIter<TypedStatement<'ast, T>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl<'ast, T> FromIterator<TypedStatement<'ast, T>> for MemoryTypedStatements<'ast, T> {
-    fn from_iter<I: IntoIterator<Item = TypedStatement<'ast, T>>>(i: I) -> Self {
-        MemoryTypedStatements(i.into_iter().collect())
-    }
-}
-
-pub struct MemoryTypedStatementsIterator<'ast, T, I: Iterator<Item = TypedStatement<'ast, T>>> {
-    statements: I,
-}
-
-impl<'ast, T, I: Iterator<Item = TypedStatement<'ast, T>>> FallibleIterator
-    for MemoryTypedStatementsIterator<'ast, T, I>
-{
-    type Item = TypedStatement<'ast, T>;
-    type Error = Box<dyn std::error::Error>;
-
-    fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
-        Ok(self.statements.next())
-    }
-}
-
-impl<'ast, T> IntoFallibleIterator for MemoryTypedStatements<'ast, T> {
-    type Item = TypedStatement<'ast, T>;
-    type Error = Box<dyn std::error::Error>;
-    type IntoFallibleIter =
-        MemoryTypedStatementsIterator<'ast, T, std::vec::IntoIter<TypedStatement<'ast, T>>>;
-
-    fn into_fallible_iter(self) -> Self::IntoFallibleIter {
-        MemoryTypedStatementsIterator {
-            statements: self.into_iter(),
-        }
     }
 }
 
@@ -417,10 +360,8 @@ pub struct TypedFunctionIterator<'ast, I: IntoTypedStatements<'ast>> {
 impl<'ast, I: IntoTypedStatements<'ast>> TypedFunctionIterator<'ast, I> {
     pub fn collect(
         self,
-    ) -> Result<
-        TypedFunctionIterator<'ast, MemoryTypedStatements<'ast, I::Field>>,
-        Box<dyn std::error::Error>,
-    > {
+    ) -> Result<TypedFunctionIterator<'ast, MemoryTypedStatements<'ast, I::Field>>, DynamicError>
+    {
         Ok(TypedFunctionIterator {
             statements: MemoryTypedStatements(self.statements.into_fallible_iter().collect()?),
             arguments: self.arguments,

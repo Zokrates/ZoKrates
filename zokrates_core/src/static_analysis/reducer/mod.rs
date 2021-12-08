@@ -17,14 +17,11 @@ mod inline;
 mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
-use crate::typed_absy::result_folder::*;
-use crate::typed_absy::CanonicalConstantIdentifier;
-use crate::typed_absy::Folder;
-use std::collections::HashMap;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use crate::typed_absy::{
-    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
+    result_folder::*, ArrayExpressionInner, ArrayType, BlockExpression,
+    CanonicalConstantIdentifier, CoreIdentifier, DynamicError, Expr, Folder, FunctionCall,
     FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId,
     TypedExpression, TypedExpressionList, TypedExpressionListInner, TypedFunction,
     TypedFunctionIterator, TypedFunctionSymbol, TypedProgram, TypedStatement, UExpression,
@@ -619,7 +616,7 @@ impl<'ast, T> ReducerIterator<'ast, T> {
 
 impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
     type Item = TypedStatement<'ast, T>;
-    type Error = Box<dyn std::error::Error>;
+    type Error = DynamicError;
 
     fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
         while self.output.is_empty() && !self.function.statements.is_empty() {

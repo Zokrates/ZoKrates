@@ -16,7 +16,7 @@ use crate::flat_absy::{RuntimeError, *};
 use crate::solvers::Solver;
 use crate::zir::types::{Type, UBitwidth};
 use crate::zir::*;
-use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
+use fallible_iterator::FallibleIterator;
 use std::collections::{
     hash_map::{Entry, HashMap},
     VecDeque,
@@ -30,18 +30,10 @@ pub type FlatStatements<T> = VecDeque<FlatStatement<T>>;
 ///
 /// # Arguments
 /// * `funct` - `ZirFunction` that will be flattened
-pub fn from_function_and_config<
-    'ast,
-    T: Field,
-    I: IntoFallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
->(
+pub fn from_function_and_config<'ast, T: Field, I: IntoZirStatements<'ast, Field = T>>(
     funct: ZirFunctionIterator<'ast, I>,
     config: CompileConfig,
-) -> FlattenerIterator<
-    'ast,
-    T,
-    impl FallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
-> {
+) -> FlattenerIterator<'ast, T, impl ZirStatements<'ast, Field = T>> {
     let mut flattener = Flattener::new(config);
     let mut statements_flattened = FlatStatements::new();
     // push parameters
@@ -62,11 +54,7 @@ pub fn from_function_and_config<
     }
 }
 
-pub struct FlattenerIteratorInner<
-    'ast,
-    T,
-    I: FallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
-> {
+pub struct FlattenerIteratorInner<'ast, T, I: ZirStatements<'ast, Field = T>> {
     pub statements: I,
     pub statements_flattened: FlatStatements<T>,
     pub flattener: Flattener<'ast, T>,
@@ -74,14 +62,11 @@ pub struct FlattenerIteratorInner<
 
 pub type FlattenerIterator<'ast, T, I> = FlatProgIterator<FlattenerIteratorInner<'ast, T, I>>;
 
-impl<
-        'ast,
-        T: Field,
-        I: FallibleIterator<Item = ZirStatement<'ast, T>, Error = Box<dyn std::error::Error>>,
-    > FallibleIterator for FlattenerIteratorInner<'ast, T, I>
+impl<'ast, T: Field, I: ZirStatements<'ast, Field = T>> FallibleIterator
+    for FlattenerIteratorInner<'ast, T, I>
 {
     type Item = FlatStatement<T>;
-    type Error = Box<dyn std::error::Error>;
+    type Error = crate::flat_absy::DynamicError;
 
     fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
         while self.statements_flattened.is_empty() {

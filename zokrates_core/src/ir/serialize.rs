@@ -1,4 +1,4 @@
-use crate::ir::{IntoStatements, MemoryStatements, ProgIterator, Statement};
+use crate::ir::{DynamicError, IntoStatements, MemoryStatements, ProgIterator, Statement};
 use fallible_iterator::FallibleIterator;
 use serde_cbor::{self, StreamDeserializer};
 use std::io::{Read, Write};
@@ -34,7 +34,7 @@ impl<
         Bw6_761I: IntoStatements<Field = Bw6_761Field>,
     > ProgEnum<Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
 {
-    pub fn collect(self) -> Result<MemoryProgEnum, Box<dyn std::error::Error>> {
+    pub fn collect(self) -> Result<MemoryProgEnum, DynamicError> {
         Ok(match self {
             ProgEnum::Bls12_381Program(p) => ProgEnum::Bls12_381Program(p.collect()?),
             ProgEnum::Bn128Program(p) => ProgEnum::Bn128Program(p.collect()?),
@@ -45,7 +45,7 @@ impl<
 }
 
 impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
-    pub fn serialize<W: Write>(self, mut w: W) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn serialize<W: Write>(self, mut w: W) -> Result<(), DynamicError> {
         w.write_all(ZOKRATES_MAGIC)?;
         w.write_all(ZOKRATES_VERSION_2)?;
         w.write_all(&T::id())?;
@@ -81,7 +81,7 @@ impl<'de, R: serde_cbor::de::Read<'de>, T: serde::Deserialize<'de>> FallibleIter
     for UnwrappedStreamDeserializer<'de, R, T>
 {
     type Item = T;
-    type Error = Box<dyn std::error::Error>;
+    type Error = DynamicError;
 
     fn next(&mut self) -> Result<Option<T>, Self::Error> {
         self.s.next().transpose().map_err(|e| e.into())

@@ -8,7 +8,6 @@ use bellman::groth16::{
 };
 use bellman::pairing::ff::ScalarEngine;
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
-use fallible_iterator::IntoFallibleIterator;
 use std::collections::BTreeMap;
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
@@ -148,11 +147,7 @@ impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> ProgIterat
     }
 }
 
-impl<
-        T: BellmanFieldExtensions + Field,
-        I: IntoFallibleIterator<Item = Statement<T>, Error = Box<dyn std::error::Error>>,
-    > Computation<T, I>
-{
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> Computation<T, I> {
     fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
         let mut seed = [0u8; 32];
         getrandom::getrandom(&mut seed)?;
@@ -199,10 +194,8 @@ impl<
     }
 }
 
-impl<
-        T: BellmanFieldExtensions + Field,
-        I: IntoFallibleIterator<Item = Statement<T>, Error = Box<dyn std::error::Error>>,
-    > Circuit<T::BellmanEngine> for Computation<T, I>
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> Circuit<T::BellmanEngine>
+    for Computation<T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,

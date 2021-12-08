@@ -1,5 +1,5 @@
 use crate::typed_absy::types::UBitwidth;
-use crate::typed_absy::{self, Expr};
+use crate::typed_absy::{self, DynamicError, Expr, TypedStatements};
 use crate::zir;
 use fallible_iterator::FallibleIterator;
 use std::collections::VecDeque;
@@ -9,30 +9,17 @@ use zokrates_field::Field;
 use std::convert::{TryFrom, TryInto};
 
 #[derive(Default)]
-pub struct Flattener<
-    'ast,
-    T: Field,
-    I: FallibleIterator<
-        Item = typed_absy::TypedStatement<'ast, T>,
-        Error = Box<dyn std::error::Error>,
-    >,
-> {
+pub struct Flattener<'ast, T: Field, I: TypedStatements<'ast, Field = T>> {
     pub input: I,
     pub output: VecDeque<zir::ZirStatement<'ast, T>>,
     pub flattener: FlattenerInner<T>,
 }
 
-impl<
-        'ast,
-        T: Field,
-        I: FallibleIterator<
-            Item = typed_absy::TypedStatement<'ast, T>,
-            Error = Box<dyn std::error::Error>,
-        >,
-    > FallibleIterator for Flattener<'ast, T, I>
+impl<'ast, T: Field, I: TypedStatements<'ast, Field = T>> FallibleIterator
+    for Flattener<'ast, T, I>
 {
     type Item = zir::ZirStatement<'ast, T>;
-    type Error = Box<dyn std::error::Error>;
+    type Error = DynamicError;
 
     fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
         while self.output.is_empty() {

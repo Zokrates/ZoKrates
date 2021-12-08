@@ -20,7 +20,7 @@ pub fn fold_statements<
     })
 }
 pub trait ResultFolder<'ast, T: Field>: Sized {
-    type Error: Into<Box<dyn std::error::Error>>;
+    type Error: Into<DynamicError>;
 
     fn fold_parameter(&mut self, p: Parameter<'ast>) -> Result<Parameter<'ast>, Self::Error> {
         Ok(Parameter {
