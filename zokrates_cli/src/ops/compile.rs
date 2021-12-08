@@ -125,8 +125,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
             )
         })?;
 
-    let program_flattened = artifacts.prog;
-    let abi = artifacts.abi;
+    let (program_flattened, abi) = artifacts.into_inner();
 
     // serialize flattened program and write to binary file
     log::debug!("Serialize program");

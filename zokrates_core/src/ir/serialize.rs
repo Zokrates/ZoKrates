@@ -1,4 +1,4 @@
-use crate::ir::{ProgIterator, Statement};
+use crate::ir::{Prog, ProgIterator, Statement};
 use serde_cbor;
 use std::io::{Read, Write};
 use zokrates_field::*;
@@ -56,7 +56,7 @@ where
 {
     struct Wrapper<U>(Cell<Option<U>>);
 
-    struct SerializableProgIterator<T: Serialize, I: IntoIterator<Item = crate::ir::Statement<T>>> {
+    struct SerializableProgIterator<T: Serialize, I: IntoIterator<Item = Statement<T>>> {
         arguments: Vec<crate::flat_absy::FlatParameter>,
         return_count: usize,
         statements: Wrapper<I>,
@@ -65,7 +65,7 @@ where
     impl<T, I> Serialize for SerializableProgIterator<T, I>
     where
         T: Serialize + std::fmt::Debug,
-        I: IntoIterator<Item = crate::ir::Statement<T>>,
+        I: IntoIterator<Item = Statement<T>>,
     {
         fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
             use serde::ser::SerializeStruct;
@@ -136,8 +136,7 @@ impl
 
                 match curve {
                     m if m == Bls12_381Field::id() => {
-                        let p: crate::ir::Prog<Bls12_381Field> =
-                            serde_cbor::from_reader(r).unwrap();
+                        let p: Prog<Bls12_381Field> = serde_cbor::from_reader(r).unwrap();
 
                         Ok(ProgEnum::Bls12_381Program(ProgIterator {
                             statements: p.statements.into_iter(),
@@ -146,7 +145,7 @@ impl
                         }))
                     }
                     m if m == Bn128Field::id() => {
-                        let p: crate::ir::Prog<Bn128Field> = serde_cbor::from_reader(r).unwrap();
+                        let p: Prog<Bn128Field> = serde_cbor::from_reader(r).unwrap();
 
                         Ok(ProgEnum::Bn128Program(ProgIterator {
                             statements: p.statements.into_iter(),
@@ -155,8 +154,7 @@ impl
                         }))
                     }
                     m if m == Bls12_377Field::id() => {
-                        let p: crate::ir::Prog<Bls12_377Field> =
-                            serde_cbor::from_reader(r).unwrap();
+                        let p: Prog<Bls12_377Field> = serde_cbor::from_reader(r).unwrap();
 
                         Ok(ProgEnum::Bls12_377Program(ProgIterator {
                             statements: p.statements.into_iter(),
@@ -165,7 +163,7 @@ impl
                         }))
                     }
                     m if m == Bw6_761Field::id() => {
-                        let p: crate::ir::Prog<Bw6_761Field> = serde_cbor::from_reader(r).unwrap();
+                        let p: Prog<Bw6_761Field> = serde_cbor::from_reader(r).unwrap();
 
                         Ok(ProgEnum::Bw6_761Program(ProgIterator {
                             statements: p.statements.into_iter(),

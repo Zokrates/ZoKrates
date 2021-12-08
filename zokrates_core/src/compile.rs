@@ -25,8 +25,8 @@ use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
 pub struct CompilationArtifacts<T, I: IntoIterator<Item = ir::Statement<T>>> {
-    pub prog: ir::ProgIterator<T, I>,
-    pub abi: Abi,
+    prog: ir::ProgIterator<T, I>,
+    abi: Abi,
 }
 
 impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
@@ -36,6 +36,10 @@ impl<T, I: IntoIterator<Item = ir::Statement<T>>> CompilationArtifacts<T, I> {
 
     pub fn abi(&self) -> &Abi {
         &self.abi
+    }
+
+    pub fn into_inner(self) -> (ir::ProgIterator<T, I>, Abi) {
+        (self.prog, self.abi)
     }
 
     pub fn collect(self) -> CompilationArtifacts<T, Vec<ir::Statement<T>>> {

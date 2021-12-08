@@ -154,8 +154,7 @@ fn compile_and_run<T: Field>(t: Tests) {
     let artifacts =
         compile::<T, _>(code, entry_point.clone(), Some(&resolver), config, &arena).unwrap();
 
-    let abi = artifacts.abi;
-    let bin = artifacts.prog;
+    let (bin, abi) = artifacts.into_inner();
     // here we do want the program in memory because we want to run many tests on it
     let bin = bin.collect();
 
