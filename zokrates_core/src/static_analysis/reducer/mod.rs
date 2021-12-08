@@ -18,7 +18,6 @@ mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
 use crate::typed_absy::result_folder::*;
-use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::CanonicalConstantIdentifier;
 use crate::typed_absy::Folder;
 use std::collections::HashMap;
@@ -185,6 +184,7 @@ struct Reducer<'ast, 'a, T> {
     versions: &'a mut Versions<'ast>,
     substitutions: &'a mut Substitutions<'ast>,
     // while this flag is true, we fill `complete_statement_buffer`
+    // as soon as it's false, we fill `statement_buffer`
     send_to_complete_buffer: bool,
 }
 
@@ -224,6 +224,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
     ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
+        // if we reach a function call, we stop yielding statements
         self.send_to_complete_buffer = false;
 
         let generics = e
@@ -249,14 +250,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
         match res {
             Ok(Output::Complete((statements, mut expressions))) => {
-                self.send_to_complete_buffer &= true;
                 self.statement_buffer.extend(statements);
                 Ok(FunctionCallOrExpression::Expression(
                     E::from(expressions.pop().unwrap()).into_inner(),
                 ))
             }
             Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
-                self.send_to_complete_buffer = false;
                 self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
                 Ok(FunctionCallOrExpression::Expression(
@@ -268,13 +267,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 conc.to_string(),
                 decl.to_string()
             ))),
-            Err(InlineError::NonConstant(key, generics, arguments, _)) => {
-                self.send_to_complete_buffer = false;
-
-                Ok(FunctionCallOrExpression::Expression(E::function_call(
-                    key, generics, arguments,
-                )))
-            }
+            Err(InlineError::NonConstant(key, generics, arguments, _)) => Ok(
+                FunctionCallOrExpression::Expression(E::function_call(key, generics, arguments)),
+            ),
             Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                 let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
                     *self
@@ -536,6 +531,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
                     }
                     _ => {
+                        // if slice bounds are not constant, we need to propagate so we stop yielding
                         self.send_to_complete_buffer = false;
                         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
                     }
@@ -577,18 +573,32 @@ pub fn reduce_program<T: Field>(
     }
 }
 
+/// A state machine which yields statements while minimizing the statements in memory
+/// We take the main function and add its statements to an output buffer, making sure to always apply a single expansion
+/// per pass. An expansion is one function call inlining, or one single loop unrolling. As soon as we have reached an expansion
+/// site, we go through the rest of the program without doing any more expansions.
+/// After each pass, we yield all statements in the output buffer before applying another pass. This way, the size of the
+/// program in memory here only ever increases by one function body or loop body
 #[derive(Debug, PartialEq)]
 pub struct ReducerIterator<'ast, T> {
+    /// the original program, required in order to resolve function calls
     program: TypedProgram<'ast, T>,
+    /// the current function, which gets updated as its statements are yielded
     function: TypedFunction<'ast, T>,
+    /// a buffer of statements which are ready to be yielded
     output: VecDeque<TypedStatement<'ast, T>>,
+    /// the current SSA version state
     versions: Versions<'ast>,
+    /// the current constant expression state for propagation
     constants: Constants<'ast, T>,
+    /// the hash of the program, in order to detect a fixed point
     hash: Option<u64>,
+    /// a flag to keep track of whether the initial SSA reduction was applied
     first_ssa_done: bool,
+    /// the state of the SSA versions before and after each for-loop
     new_for_loop_versions: Vec<(Versions<'ast>, Versions<'ast>)>,
+    /// the state of the equivalence between SSA versions, to avoid creating many redefinition statements
     substitutions: Substitutions<'ast>,
-    generics: ConcreteGenericsAssignment<'ast>,
 }
 
 impl<'ast, T> ReducerIterator<'ast, T> {
@@ -603,7 +613,6 @@ impl<'ast, T> ReducerIterator<'ast, T> {
             first_ssa_done: Default::default(),
             new_for_loop_versions: Default::default(),
             substitutions: Default::default(),
-            generics: Default::default(),
         }
     }
 }
@@ -617,7 +626,7 @@ impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
             if !self.first_ssa_done {
                 match ShallowTransformer::transform(
                     self.function.clone(),
-                    &self.generics,
+                    &Default::default(),
                     &mut self.versions,
                 ) {
                     Output::Complete(mut f) => {
@@ -697,17 +706,14 @@ impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
     }
 }
 
-fn reduce_function<'ast, T: Field>(
+fn reduce_function_no_generics<'ast, T: Field>(
     f: TypedFunction<'ast, T>,
-    generics: ConcreteGenericsAssignment<'ast>,
     program: &TypedProgram<'ast, T>,
-) -> Result<TypedFunction<'ast, T>, Error> {
+) -> Result<TypedFunction<'ast, T>, ()> {
     let arguments = f.arguments.clone();
     let signature = f.signature.clone();
 
-    let mut reducer_iterator = ReducerIterator::new(f, program.clone());
-
-    reducer_iterator.generics = generics;
+    let reducer_iterator = ReducerIterator::new(f, program.clone());
 
     let r = TypedFunctionIterator {
         arguments,
@@ -715,11 +721,11 @@ fn reduce_function<'ast, T: Field>(
         statements: reducer_iterator,
     };
 
-    let f = r.collect().map_err(|_| unimplemented!())?;
+    let f = r.collect().map_err(|_| ())?;
 
     Propagator::with_constants(Constants::default())
         .fold_function(f)
-        .map_err(|e| Error::Incompatible(format!("{}", e)))
+        .map_err(|_| ())
 }
 
 fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {

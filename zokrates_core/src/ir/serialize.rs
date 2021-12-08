@@ -44,58 +44,6 @@ impl<
     }
 }
 
-// pub fn _write_as_cbor<T: Serialize + std::fmt::Debug, I, W>(
-//     out: &mut W,
-//     prog_iterator: ProgIterator<T, I>,
-// ) -> serde_cbor::Result<()>
-// where
-//     I: IntoIterator<Item = Statement<T>>,
-//     W: Write,
-// {
-//     struct Wrapper<U>(Cell<Option<U>>);
-
-//     struct SerializableProgIterator<T: Serialize, I: IntoIterator<Item = crate::ir::Statement<T>>> {
-//         arguments: Vec<crate::flat_absy::FlatParameter>,
-//         return_count: usize,
-//         statements: Wrapper<I>,
-//     }
-
-//     impl<T, I> Serialize for SerializableProgIterator<T, I>
-//     where
-//         T: Serialize + std::fmt::Debug,
-//         I: IntoIterator<Item = crate::ir::Statement<T>>,
-//     {
-//         fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-//             use serde::ser::SerializeStruct;
-
-//             let mut spi = s.serialize_struct("SerializableProgIterator", 3)?;
-//             spi.serialize_field("arguments", &self.arguments)?;
-//             spi.serialize_field("return_count", &self.return_count)?;
-//             spi.serialize_field("statements", &self.statements)?;
-//             spi.end()
-//         }
-//     }
-
-//     impl<I, P> Serialize for Wrapper<I>
-//     where
-//         I: IntoIterator<Item = P>,
-//         P: Serialize + std::fmt::Debug,
-//     {
-//         fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-//             s.collect_seq(self.0.take().unwrap())
-//         }
-//     }
-
-//     serde_cbor::to_writer(
-//         out,
-//         &SerializableProgIterator {
-//             arguments: prog_iterator.arguments,
-//             return_count: prog_iterator.return_count,
-//             statements: Wrapper(Cell::new(Some(prog_iterator.statements))),
-//         },
-//     )
-// }
-
 impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
     pub fn serialize<W: Write>(self, mut w: W) -> Result<(), Box<dyn std::error::Error>> {
         w.write_all(ZOKRATES_MAGIC)?;

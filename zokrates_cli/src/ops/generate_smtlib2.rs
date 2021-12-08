@@ -58,7 +58,7 @@ fn cli_smtlib2<T: Field, I: ir::IntoStatements<Field = T>>(
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let mut output_file = File::create(output_path).unwrap();
 
-    let ir_prog = ir_prog.collect().unwrap();
+    let ir_prog = ir_prog.collect().map_err(|e| e.to_string())?;
 
     output_file
         .write(format!("{}", SMTLib2Display(&ir_prog)).as_bytes())
