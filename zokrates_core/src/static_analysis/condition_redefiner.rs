@@ -1,6 +1,7 @@
 use crate::typed_absy::{
-    folder::*, BooleanExpression, Conditional, ConditionalExpression, ConditionalOrExpression,
-    CoreIdentifier, Expr, Identifier, TypedProgram, TypedStatement, Variable,
+    folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
+    ConditionalOrExpression, CoreIdentifier, Expr, Identifier, TypedProgram, TypedStatement,
+    Variable,
 };
 use zokrates_field::Field;
 
@@ -22,6 +23,32 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
         let s = fold_statement(self, s);
         let buffer = std::mem::take(&mut self.buffer);
         buffer.into_iter().chain(s).collect()
+    }
+
+    fn fold_block_expression<E: Fold<'ast, T>>(
+        &mut self,
+        b: BlockExpression<'ast, T, E>,
+    ) -> BlockExpression<'ast, T, E> {
+        // start with a fresh state, but keep the global counter
+        let mut redefiner = ConditionRedefiner {
+            index: self.index,
+            buffer: vec![],
+        };
+
+        let b = fold_block_expression(&mut redefiner, b);
+
+        let b = BlockExpression {
+            statements: std::mem::take(&mut redefiner.buffer)
+                .into_iter()
+                .chain(b.statements)
+                .collect(),
+            ..b
+        };
+
+        // continue from the latest index
+        self.index = redefiner.index;
+
+        b
     }
 
     fn fold_conditional_expression<E: Expr<'ast, T> + Conditional<'ast, T> + Fold<'ast, T>>(
