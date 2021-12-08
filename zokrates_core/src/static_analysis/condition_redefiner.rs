@@ -37,10 +37,13 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
 
         let b = fold_block_expression(&mut redefiner, b);
 
+        // we add the buffer statements *after* the block statements because they refer to the return value,
+        // the buffered statements for the block statements are already included in the result
         let b = BlockExpression {
-            statements: std::mem::take(&mut redefiner.buffer)
+            statements: b
+                .statements
                 .into_iter()
-                .chain(b.statements)
+                .chain(std::mem::take(&mut redefiner.buffer))
                 .collect(),
             ..b
         };
