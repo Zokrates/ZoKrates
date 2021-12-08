@@ -162,7 +162,7 @@ mod tests {
 
                     let res = compile::<Bn128Field, _>(
                         source,
-                        path.clone(),
+                        path,
                         Some(&resolver),
                         CompileConfig::default(),
                         &arena,

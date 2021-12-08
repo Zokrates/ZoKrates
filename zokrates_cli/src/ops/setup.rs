@@ -1,13 +1,11 @@
 use crate::constants;
 use crate::helpers::*;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use fallible_iterator::FallibleIterator;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
-use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
+use zokrates_core::ir::{self, ProgEnum, Statements};
 #[cfg(feature = "ark")]
 use zokrates_core::proof_system::ark::Ark;
 #[cfg(feature = "bellman")]
@@ -221,7 +219,7 @@ fn cli_setup_non_universal<
 
 fn cli_setup_universal<
     T: Field,
-    I: FallibleIterator<Item = ir::Statement<T>, Error = Box<dyn std::error::Error>>,
+    I: Statements<Field = T>,
     S: UniversalScheme<T>,
     B: UniversalBackend<T, S>,
 >(
