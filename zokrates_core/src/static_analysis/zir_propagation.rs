@@ -76,6 +76,41 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     }
                 }
             }
+            ZirStatement::IfElse(e, consequence, alternative) => {
+                match self.fold_boolean_expression(e)? {
+                    BooleanExpression::Value(true) => Ok(consequence
+                        .into_iter()
+                        .map(|s| self.fold_statement(s))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flatten()
+                        .collect()),
+                    BooleanExpression::Value(false) => Ok(alternative
+                        .into_iter()
+                        .map(|s| self.fold_statement(s))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flatten()
+                        .collect()),
+                    e => Ok(vec![ZirStatement::IfElse(
+                        e,
+                        consequence
+                            .into_iter()
+                            .map(|s| self.fold_statement(s))
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into_iter()
+                            .flatten()
+                            .collect(),
+                        alternative
+                            .into_iter()
+                            .map(|s| self.fold_statement(s))
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into_iter()
+                            .flatten()
+                            .collect(),
+                    )]),
+                }
+            }
             ZirStatement::MultipleDefinition(assignees, list) => {
                 for a in &assignees {
                     self.constants.remove(&a.id);
