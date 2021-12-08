@@ -213,58 +213,42 @@ impl<
 }
 
 mod parse {
-    use lazy_static::lazy_static;
-
     use super::*;
-    use crate::proof_system::{Fr, G1Affine, G2Affine};
-    use regex::Regex;
+    use crate::proof_system::{G1Affine, G2Affine};
+    use pairing_ce::CurveAffine;
 
-    lazy_static! {
-        static ref G2_REGEX: Regex = Regex::new(r"G2\(x=Fq2\(Fq\((?P<x0>0[xX][0-9a-fA-F]*)\) \+ Fq\((?P<x1>0[xX][0-9a-fA-F]*)\) \* u\), y=Fq2\(Fq\((?P<y0>0[xX][0-9a-fA-F]*)\) \+ Fq\((?P<y1>0[xX][0-9a-fA-F]*)\) \* u\)\)").unwrap();
-    }
-
-    lazy_static! {
-        static ref G1_REGEX: Regex =
-            Regex::new(r"G1\(x=Fq\((?P<x>0[xX][0-9a-fA-F]*)\), y=Fq\((?P<y>0[xX][0-9a-fA-F]*)\)\)")
-                .unwrap();
-    }
-
-    lazy_static! {
-        static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
+    fn to_hex(bytes: &[u8]) -> String {
+        let mut hex = hex::encode(bytes);
+        hex.insert_str(0, "0x");
+        hex
     }
 
     pub fn parse_g1<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
     ) -> G1Affine {
-        let raw_e = e.to_string();
-        let captures = G1_REGEX.captures(&raw_e).unwrap();
-        G1Affine(
-            captures.name("x").unwrap().as_str().to_string(),
-            captures.name("y").unwrap().as_str().to_string(),
-        )
+        let uncompressed = e.into_uncompressed();
+        let bytes: &[u8] = uncompressed.as_ref();
+
+        let mut iter = bytes.chunks(bytes.len() / 2);
+        let x = to_hex(iter.next().unwrap());
+        let y = to_hex(iter.next().unwrap());
+
+        G1Affine(x, y)
     }
 
     pub fn parse_g2<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
     ) -> G2Affine {
-        let raw_e = e.to_string();
-        let captures = G2_REGEX.captures(&raw_e).unwrap();
-        G2Affine(
-            (
-                captures.name("x0").unwrap().as_str().to_string(),
-                captures.name("x1").unwrap().as_str().to_string(),
-            ),
-            (
-                captures.name("y0").unwrap().as_str().to_string(),
-                captures.name("y1").unwrap().as_str().to_string(),
-            ),
-        )
-    }
+        let uncompressed = e.into_uncompressed();
+        let bytes: &[u8] = uncompressed.as_ref();
 
-    pub fn parse_fr<T: BellmanFieldExtensions>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> Fr {
-        let raw_e = e.to_string();
-        let captures = FR_REGEX.captures(&raw_e).unwrap();
-        captures.name("x").unwrap().as_str().to_string()
+        let mut iter = bytes.chunks(bytes.len() / 4);
+        let x1 = to_hex(iter.next().unwrap());
+        let x0 = to_hex(iter.next().unwrap());
+        let y1 = to_hex(iter.next().unwrap());
+        let y0 = to_hex(iter.next().unwrap());
+
+        G2Affine((x0, x1), (y0, y1))
     }
 }
 

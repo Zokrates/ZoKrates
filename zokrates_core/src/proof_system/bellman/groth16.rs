@@ -2,7 +2,7 @@ use bellman::groth16::{
     prepare_verifying_key, verify_proof, Parameters, PreparedVerifyingKey, Proof as BellmanProof,
     VerifyingKey,
 };
-use pairing::{CurveAffine, Engine};
+use pairing::{ff::to_hex, CurveAffine, Engine};
 
 use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
@@ -11,7 +11,7 @@ use zokrates_field::Field;
 use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
 use crate::proof_system::bellman::Bellman;
 use crate::proof_system::bellman::Computation;
-use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
+use crate::proof_system::bellman::{parse_g1, parse_g2};
 use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
 use crate::proof_system::Scheme;
 use fallible_iterator::IntoFallibleIterator;
@@ -34,7 +34,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
         let public_inputs: Vec<String> = computation
             .public_inputs_values()
             .iter()
-            .map(parse_fr::<T>)
+            .map(|e| format!("0x{}", to_hex(e)))
             .collect();
 
         let proof = computation.prove(&params);
