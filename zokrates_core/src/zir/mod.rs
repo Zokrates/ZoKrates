@@ -1,14 +1,12 @@
 pub mod folder;
 mod from_typed;
 mod identifier;
-mod iterators;
 mod parameter;
 pub mod result_folder;
 pub mod types;
 mod uint;
 mod variable;
 
-pub use self::iterators::{DynamicError, IntoZirStatements, ZirStatements};
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
@@ -21,41 +19,15 @@ use std::convert::TryFrom;
 use std::fmt;
 use zokrates_field::Field;
 
+pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
 pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
-
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct MemoryZirStatements<'ast, T>(Vec<ZirStatement<'ast, T>>);
-
-impl<'ast, T> From<Vec<ZirStatement<'ast, T>>> for MemoryZirStatements<'ast, T> {
-    fn from(v: Vec<ZirStatement<'ast, T>>) -> Self {
-        MemoryZirStatements(v)
-    }
-}
-
-impl<'ast, T> MemoryZirStatements<'ast, T> {
-    pub fn iter(&self) -> std::slice::Iter<ZirStatement<'ast, T>> {
-        self.0.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn into_inner(self) -> Vec<ZirStatement<'ast, T>> {
-        self.0
-    }
-}
 
 pub type ZirProgramIterator<'ast, I> = ZirFunctionIterator<'ast, I>;
 
 /// A typed function
 #[derive(Clone, PartialEq)]
-pub struct ZirFunctionIterator<'ast, I: IntoZirStatements<'ast>> {
+pub struct ZirFunctionIterator<'ast, I: IntoStatements> {
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -64,7 +36,11 @@ pub struct ZirFunctionIterator<'ast, I: IntoZirStatements<'ast>> {
     pub signature: Signature,
 }
 
-pub type ZirFunction<'ast, T> = ZirFunctionIterator<'ast, MemoryZirStatements<'ast, T>>;
+impl<'ast, T> StatementTrait for ZirStatement<'ast, T> {
+    type Field = T;
+}
+
+pub type ZirFunction<'ast, T> = ZirFunctionIterator<'ast, MemoryStatements<ZirStatement<'ast, T>>>;
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -30,10 +30,10 @@ pub type FlatStatements<T> = VecDeque<FlatStatement<T>>;
 ///
 /// # Arguments
 /// * `funct` - `ZirFunction` that will be flattened
-pub fn from_function_and_config<'ast, T: Field, I: IntoZirStatements<'ast, Field = T>>(
+pub fn from_function_and_config<'ast, T: Field, I: IntoStatements<Statement = ZirStatement<'ast, T>>>(
     funct: ZirFunctionIterator<'ast, I>,
     config: CompileConfig,
-) -> FlattenerIterator<'ast, T, impl ZirStatements<'ast, Field = T>> {
+) -> FlattenerIterator<'ast, T, impl Statements<Statement = ZirStatement<'ast, T>>> {
     let mut flattener = Flattener::new(config);
     let mut statements_flattened = FlatStatements::new();
     // push parameters
@@ -54,7 +54,7 @@ pub fn from_function_and_config<'ast, T: Field, I: IntoZirStatements<'ast, Field
     }
 }
 
-pub struct FlattenerIteratorInner<'ast, T, I: ZirStatements<'ast, Field = T>> {
+pub struct FlattenerIteratorInner<'ast, T, I: Statements<Statement = ZirStatement<'ast, T>>> {
     pub statements: I,
     pub statements_flattened: FlatStatements<T>,
     pub flattener: Flattener<'ast, T>,
@@ -62,7 +62,7 @@ pub struct FlattenerIteratorInner<'ast, T, I: ZirStatements<'ast, Field = T>> {
 
 pub type FlattenerIterator<'ast, T, I> = FlatProgIterator<FlattenerIteratorInner<'ast, T, I>>;
 
-impl<'ast, T: Field, I: ZirStatements<'ast, Field = T>> FallibleIterator
+impl<'ast, T: Field, I: Statements<Statement = ZirStatement<'ast, T>>> FallibleIterator
     for FlattenerIteratorInner<'ast, T, I>
 {
     type Item = FlatStatement<T>;
