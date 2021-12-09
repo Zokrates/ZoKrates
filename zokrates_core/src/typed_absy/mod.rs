@@ -91,7 +91,9 @@ impl<'ast, T> StatementTrait for TypedStatement<'ast, T> {
     type Field = T;
 }
 
-impl<'ast, T: Field, I: IntoStatements<Field = T>> TypedFunctionIterator<'ast, I> {
+impl<'ast, T: Field, I: IntoStatements<Field = T, Statement = TypedStatement<'ast, T>>>
+    TypedFunctionIterator<'ast, I>
+{
     pub fn abi(&self) -> Abi {
         Abi {
             inputs: self

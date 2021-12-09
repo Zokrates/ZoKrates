@@ -80,7 +80,7 @@ impl ToString for G2Affine {
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {
-    fn generate_proof<I: ir::IntoStatements<Field = T>>(
+    fn generate_proof<I: ir::IntoStatements<Statement = ir::Statement<T>>>(
         program: ir::ProgIterator<I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
@@ -89,7 +89,7 @@ pub trait Backend<T: Field, S: Scheme<T>> {
     fn verify(vk: S::VerificationKey, proof: Proof<S::ProofPoints>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
-    fn setup<I: ir::IntoStatements<Field = T>>(
+    fn setup<I: ir::IntoStatements<Statement = ir::Statement<T>>>(
         program: ir::ProgIterator<I>,
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }
@@ -97,7 +97,7 @@ pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S>
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
     fn universal_setup(size: u32) -> Vec<u8>;
 
-    fn setup<I: ir::IntoStatements<Field = T>>(
+    fn setup<I: ir::IntoStatements<Statement = ir::Statement<T>>>(
         srs: Vec<u8>,
         program: ir::ProgIterator<I>,
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;

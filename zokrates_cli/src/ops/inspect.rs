@@ -38,7 +38,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_inspect<T: Field, I: ir::IntoStatements<Field = T>>(
+fn cli_inspect<T: Field, I: ir::IntoStatements<Statement = ir::Statement<T>>>(
     ir_prog: ir::ProgIterator<I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {

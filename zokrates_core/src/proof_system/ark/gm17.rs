@@ -6,7 +6,7 @@ use ark_gm17::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
 
-use crate::ir::{IntoStatements, ProgIterator, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
@@ -15,7 +15,7 @@ use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
-    fn setup<I: IntoStatements<Field = T>>(
+    fn setup<I: IntoStatements<Statement = Statement<T>>>(
         program: ProgIterator<I>,
     ) -> Result<SetupKeypair<<GM17 as Scheme<T>>::VerificationKey>, String> {
         let parameters = Computation::without_witness(program).setup();
@@ -42,7 +42,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM1
 }
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
-    fn generate_proof<I: IntoStatements<Field = T>>(
+    fn generate_proof<I: IntoStatements<Statement = Statement<T>>>(
         program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
@@ -111,7 +111,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
 }
 
 impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
-    fn setup<I: IntoStatements<Field = Bw6_761Field>>(
+    fn setup<I: IntoStatements<Statement = Statement<Bw6_761Field>>>(
         program: ProgIterator<I>,
     ) -> Result<SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey>, String> {
         let parameters = Computation::without_witness(program).setup();
@@ -138,7 +138,7 @@ impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
 }
 
 impl Backend<Bw6_761Field, GM17> for Ark {
-    fn generate_proof<I: IntoStatements<Field = Bw6_761Field>>(
+    fn generate_proof<I: IntoStatements<Statement = Statement<Bw6_761Field>>>(
         program: ProgIterator<I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,

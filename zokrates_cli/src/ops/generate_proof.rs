@@ -151,7 +151,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_generate_proof<
     T: Field,
-    I: ir::IntoStatements<Field = T>,
+    I: ir::IntoStatements<Statement = ir::Statement<T>>,
     S: Scheme<T>,
     B: Backend<T, S>,
 >(

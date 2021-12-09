@@ -21,17 +21,17 @@ pub enum ProgEnum<
 }
 
 type MemoryProgEnum = ProgEnum<
-    MemoryStatements<Bls12_381Field>,
-    MemoryStatements<Bn128Field>,
-    MemoryStatements<Bls12_377Field>,
-    MemoryStatements<Bw6_761Field>,
+    MemoryStatements<Statement<Bls12_381Field>>,
+    MemoryStatements<Statement<Bn128Field>>,
+    MemoryStatements<Statement<Bls12_377Field>>,
+    MemoryStatements<Statement<Bw6_761Field>>,
 >;
 
 impl<
-        Bls12_381I: IntoStatements<Field = Bls12_381Field>,
-        Bn128I: IntoStatements<Field = Bn128Field>,
-        Bls12_377I: IntoStatements<Field = Bls12_377Field>,
-        Bw6_761I: IntoStatements<Field = Bw6_761Field>,
+        Bls12_381I: IntoStatements<Field = Bls12_381Field, Statement = Statement<Bls12_381Field>>,
+        Bn128I: IntoStatements<Field = Bn128Field, Statement = Statement<Bn128Field>>,
+        Bls12_377I: IntoStatements<Field = Bls12_377Field, Statement = Statement<Bls12_377Field>>,
+        Bw6_761I: IntoStatements<Field = Bw6_761Field, Statement = Statement<Bw6_761Field>>,
     > ProgEnum<Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
 {
     pub fn collect(self) -> Result<MemoryProgEnum, DynamicError> {
@@ -44,7 +44,7 @@ impl<
     }
 }
 
-impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
+impl<T: Field, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
     pub fn serialize<W: Write>(self, mut w: W) -> Result<(), DynamicError> {
         w.write_all(ZOKRATES_MAGIC)?;
         w.write_all(ZOKRATES_VERSION_2)?;

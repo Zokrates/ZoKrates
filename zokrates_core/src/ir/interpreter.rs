@@ -25,7 +25,7 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field, I: IntoStatements<Field = T>>(
+    pub fn execute<T: Field, I: IntoStatements<Statement = Statement<T>>>(
         &self,
         program: ProgIterator<I>,
         inputs: &[T],

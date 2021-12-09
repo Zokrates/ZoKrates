@@ -4,10 +4,10 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::*;
 use zokrates_field::Field;
 
-pub fn fold_statements<T: Field, F: Folder<T>, I: IntoStatements<Field = T>>(
+pub fn fold_statements<T: Field, F: Folder<T>, I: IntoStatements<Statement = Statement<T>>>(
     mut f: F,
     statements: I,
-) -> impl IntoStatements<Field = T> {
+) -> impl IntoStatements<Statement = Statement<T>> {
     statements
         .into_fallible_iter()
         .flat_map(move |s| Result::<MemoryStatements<_>, _>::Ok(f.fold_statement(s).into()))

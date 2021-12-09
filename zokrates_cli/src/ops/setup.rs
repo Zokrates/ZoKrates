@@ -175,7 +175,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_setup_non_universal<
     T: Field,
-    I: ir::IntoStatements<Field = T>,
+    I: ir::IntoStatements<Statement = ir::Statement<T>>,
     S: NonUniversalScheme<T>,
     B: NonUniversalBackend<T, S>,
 >(
@@ -219,7 +219,7 @@ fn cli_setup_non_universal<
 
 fn cli_setup_universal<
     T: Field,
-    I: Statements<Field = T>,
+    I: Statements<Statement = ir::Statement<T>>,
     S: UniversalScheme<T>,
     B: UniversalBackend<T, S>,
 >(

@@ -4,7 +4,7 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use crate::absy::{Module, OwnedModuleId, Program};
-use crate::ast::IntoStatements;
+use crate::ast::{DynamicError, IntoStatements, MemoryStatements};
 use crate::imports::{self, Importer};
 use crate::ir;
 use crate::macros;
@@ -29,7 +29,7 @@ pub struct CompilationArtifacts<I: ir::IntoStatements> {
     abi: Abi,
 }
 
-impl<I: ir::IntoStatements> CompilationArtifacts<I> {
+impl<T, I: IntoStatements<Statement = ir::Statement<T>>> CompilationArtifacts<I> {
     pub fn prog(self) -> ir::ProgIterator<I> {
         self.prog
     }
@@ -44,8 +44,7 @@ impl<I: ir::IntoStatements> CompilationArtifacts<I> {
 
     pub fn collect(
         self,
-    ) -> Result<CompilationArtifacts<ir::MemoryStatements<I::Field>>, Box<dyn std::error::Error>>
-    {
+    ) -> Result<CompilationArtifacts<MemoryStatements<ir::Statement<T>>>, DynamicError> {
         Ok(CompilationArtifacts {
             prog: self.prog.collect()?,
             abi: self.abi,
@@ -213,7 +212,10 @@ pub fn compile<'ast, T: Field, E: 'ast + Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<CompilationArtifacts<impl ir::IntoStatements<Field = T> + 'ast>, CompileErrors> {
+) -> Result<
+    CompilationArtifacts<impl IntoStatements<Statement = ir::Statement<T>> + 'ast>,
+    CompileErrors,
+> {
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &config, arena)?;
 
     // flatten input program

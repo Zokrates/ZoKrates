@@ -52,7 +52,7 @@ pub struct RedefinitionOptimizer<T> {
 }
 
 impl<T> RedefinitionOptimizer<T> {
-    pub fn init<I: IntoStatements<Field = T>>(p: &ProgIterator<I>) -> Self {
+    pub fn init<I: IntoStatements<Statement = Statement<T>>>(p: &ProgIterator<I>) -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
             ignore: vec![FlatVariable::one()]
