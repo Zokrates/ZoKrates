@@ -4,13 +4,14 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use crate::absy::{Module, OwnedModuleId, Program};
+use crate::ast::{DynamicError, IntoStatements, MemoryStatements};
 use crate::imports::{self, Importer};
-use crate::ir::{self, IntoStatements};
+use crate::ir;
 use crate::macros;
 use crate::semantics::{self, Checker};
 use crate::static_analysis;
 use crate::typed_absy::abi::Abi;
-use crate::zir::{IntoZirStatements, ZirProgramIterator};
+use crate::zir::{ZirProgramIterator, ZirStatement};
 use macros::process_macros;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -23,12 +24,12 @@ use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompilationArtifacts<I: IntoStatements> {
+pub struct CompilationArtifacts<I: ir::IntoStatements> {
     prog: ir::ProgIterator<I>,
     abi: Abi,
 }
 
-impl<I: IntoStatements> CompilationArtifacts<I> {
+impl<T, I: IntoStatements<Statement = ir::Statement<T>>> CompilationArtifacts<I> {
     pub fn prog(self) -> ir::ProgIterator<I> {
         self.prog
     }
@@ -43,8 +44,7 @@ impl<I: IntoStatements> CompilationArtifacts<I> {
 
     pub fn collect(
         self,
-    ) -> Result<CompilationArtifacts<ir::MemoryStatements<I::Field>>, Box<dyn std::error::Error>>
-    {
+    ) -> Result<CompilationArtifacts<MemoryStatements<ir::Statement<T>>>, DynamicError> {
         Ok(CompilationArtifacts {
             prog: self.prog.collect()?,
             abi: self.abi,
@@ -212,7 +212,10 @@ pub fn compile<'ast, T: Field, E: 'ast + Into<imports::Error>>(
     resolver: Option<&dyn Resolver<E>>,
     config: CompileConfig,
     arena: &'ast Arena<String>,
-) -> Result<CompilationArtifacts<impl IntoStatements<Field = T> + 'ast>, CompileErrors> {
+) -> Result<
+    CompilationArtifacts<impl IntoStatements<Statement = ir::Statement<T>> + 'ast>,
+    CompileErrors,
+> {
     let (typed_ast, abi) = check_with_arena(source, location, resolver, &config, arena)?;
 
     // flatten input program
@@ -252,7 +255,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<
     (
-        ZirProgramIterator<'ast, impl IntoZirStatements<'ast, Field = T>>,
+        ZirProgramIterator<'ast, impl IntoStatements<Statement = ZirStatement<'ast, T>>>,
         Abi,
     ),
     CompileErrors,

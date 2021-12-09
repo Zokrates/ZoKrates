@@ -8,7 +8,7 @@ use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
-use crate::ir::{IntoStatements, ProgIterator, Witness};
+use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
 use crate::proof_system::bellman::Bellman;
 use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_g1, parse_g2};
@@ -18,7 +18,7 @@ use crate::proof_system::Scheme;
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
 impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
-    fn generate_proof<I: IntoStatements<Field = T>>(
+    fn generate_proof<I: IntoStatements<Statement = Statement<T>>>(
         program: ProgIterator<I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
@@ -84,7 +84,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 }
 
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
-    fn setup<I: IntoStatements<Field = T>>(
+    fn setup<I: IntoStatements<Statement = Statement<T>>>(
         program: ProgIterator<I>,
     ) -> Result<SetupKeypair<<G16 as Scheme<T>>::VerificationKey>, String> {
         println!("{}", G16_WARNING);

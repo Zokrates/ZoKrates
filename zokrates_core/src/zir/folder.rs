@@ -8,14 +8,14 @@ pub fn fold_statements<
     'ast,
     T: Field,
     F: Folder<'ast, T>,
-    I: IntoZirStatements<'ast, Field = T>,
+    I: IntoStatements<Statement = ZirStatement<'ast, T>>,
 >(
     mut f: F,
     statements: I,
-) -> impl IntoZirStatements<'ast, Field = T> {
+) -> impl IntoStatements<Statement = ZirStatement<'ast, T>> {
     statements
         .into_fallible_iter()
-        .flat_map(move |s| Result::<MemoryZirStatements<_>, _>::Ok(f.fold_statement(s).into()))
+        .flat_map(move |s| Result::<MemoryStatements<_>, _>::Ok(f.fold_statement(s).into()))
 }
 
 pub trait Folder<'ast, T: Field>: Sized {

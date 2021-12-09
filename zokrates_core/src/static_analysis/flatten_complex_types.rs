@@ -1,5 +1,6 @@
+use crate::ast::Statements;
 use crate::typed_absy::types::UBitwidth;
-use crate::typed_absy::{self, DynamicError, Expr, TypedStatements};
+use crate::typed_absy::{self, DynamicError, Expr, TypedStatement};
 use crate::zir;
 use fallible_iterator::FallibleIterator;
 use std::collections::VecDeque;
@@ -9,13 +10,13 @@ use zokrates_field::Field;
 use std::convert::{TryFrom, TryInto};
 
 #[derive(Default)]
-pub struct Flattener<'ast, T: Field, I: TypedStatements<'ast, Field = T>> {
+pub struct Flattener<'ast, T: Field, I: Statements> {
     pub input: I,
     pub output: VecDeque<zir::ZirStatement<'ast, T>>,
     pub flattener: FlattenerInner<T>,
 }
 
-impl<'ast, T: Field, I: TypedStatements<'ast, Field = T>> FallibleIterator
+impl<'ast, T: Field, I: Statements<Statement = TypedStatement<'ast, T>>> FallibleIterator
     for Flattener<'ast, T, I>
 {
     type Item = zir::ZirStatement<'ast, T>;

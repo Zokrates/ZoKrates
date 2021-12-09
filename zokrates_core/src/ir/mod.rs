@@ -11,7 +11,6 @@ mod expression;
 pub mod folder;
 pub mod from_flat;
 mod interpreter;
-mod iterators;
 mod serialize;
 pub mod smtlib2;
 pub mod visitor;
@@ -20,15 +19,19 @@ mod witness;
 pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
 pub use self::serialize::ProgEnum;
-pub use iterators::{DynamicError, IntoStatements, Statements};
 
 pub use self::interpreter::{Error, ExecutionResult, Interpreter};
 pub use self::witness::Witness;
+pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>, Option<RuntimeError>),
     Directive(Directive<T>),
+}
+
+impl<T> StatementTrait for Statement<T> {
+    type Field = T;
 }
 
 impl<T: Field> Statement<T> {
@@ -77,22 +80,7 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Default)]
-pub struct MemoryStatements<T>(Vec<Statement<T>>);
-
-impl<T> From<Vec<Statement<T>>> for MemoryStatements<T> {
-    fn from(v: Vec<Statement<T>>) -> Self {
-        MemoryStatements(v)
-    }
-}
-
-impl<T> MemoryStatements<T> {
-    pub fn iter(&self) -> std::slice::Iter<Statement<T>> {
-        self.0.iter()
-    }
-}
-
-pub type Prog<T> = ProgIterator<MemoryStatements<T>>;
+pub type Prog<T> = ProgIterator<MemoryStatements<Statement<T>>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct ProgIterator<I: IntoStatements> {
@@ -101,10 +89,10 @@ pub struct ProgIterator<I: IntoStatements> {
     pub statements: I,
 }
 
-impl<I: IntoStatements> ProgIterator<I> {
-    pub fn collect(self) -> Result<ProgIterator<MemoryStatements<I::Field>>, DynamicError> {
+impl<T, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
+    pub fn collect(self) -> Result<ProgIterator<MemoryStatements<Statement<T>>>, DynamicError> {
         Ok(ProgIterator {
-            statements: MemoryStatements(self.statements.into_fallible_iter().collect()?),
+            statements: self.statements.into_fallible_iter().collect()?,
             arguments: self.arguments,
             return_count: self.return_count,
         })
@@ -115,7 +103,7 @@ impl<I: IntoStatements> ProgIterator<I> {
     }
 }
 
-impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
+impl<T: Field, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
     pub fn public_inputs(&self, witness: &Witness<T>) -> Vec<T> {
         self.arguments
             .iter()
@@ -135,7 +123,7 @@ impl<T> Prog<T> {
             .count()
     }
 
-    pub fn into_prog_iter(self) -> ProgIterator<impl IntoStatements<Field = T>> {
+    pub fn into_prog_iter(self) -> ProgIterator<impl IntoStatements<Statement = Statement<T>>> {
         ProgIterator {
             statements: self.statements.into_fallible_iter(),
             arguments: self.arguments,

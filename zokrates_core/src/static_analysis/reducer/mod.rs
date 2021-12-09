@@ -598,7 +598,7 @@ pub struct ReducerIterator<'ast, T> {
     substitutions: Substitutions<'ast>,
 }
 
-impl<'ast, T> ReducerIterator<'ast, T> {
+impl<'ast, T: Field> ReducerIterator<'ast, T> {
     pub fn new(function: TypedFunction<'ast, T>, program: TypedProgram<'ast, T>) -> Self {
         Self {
             program,

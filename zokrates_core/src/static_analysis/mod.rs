@@ -35,7 +35,7 @@ use crate::zir;
 use crate::zir::folder::Folder as ZirFolder;
 use crate::zir::result_folder::ResultFolder as ZirResultFolder;
 use crate::zir::ZirFunctionIterator;
-use crate::zir::{IntoZirStatements, ZirProgramIterator};
+use crate::zir::{IntoStatements, ZirProgramIterator, ZirStatement};
 use std::fmt;
 use zokrates_field::Field;
 
@@ -96,7 +96,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         config: &CompileConfig,
     ) -> Result<
         (
-            ZirProgramIterator<'ast, impl IntoZirStatements<'ast, Field = T>>,
+            ZirProgramIterator<'ast, impl IntoStatements<Statement = ZirStatement<'ast, T>>>,
             Abi,
         ),
         Error,

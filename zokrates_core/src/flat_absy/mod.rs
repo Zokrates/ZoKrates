@@ -7,15 +7,13 @@
 
 pub mod flat_parameter;
 pub mod flat_variable;
-mod iterators;
-
-pub use self::iterators::{DynamicError, FlatStatements, IntoFlatStatements};
 
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
 use serde::{Deserialize, Serialize};
 
+pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
 use crate::solvers::Solver;
 use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
 use std::collections::HashMap;
@@ -174,12 +172,16 @@ impl<T> IntoFallibleIterator for MemoryFlatStatements<T> {
     }
 }
 
+impl<T> StatementTrait for FlatStatement<T> {
+    type Field = T;
+}
+
 pub type FlatFunction<T> = FlatFunctionIterator<MemoryFlatStatements<T>>;
 
 pub type FlatProgIterator<I> = FlatFunctionIterator<I>;
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct FlatFunctionIterator<I: IntoFlatStatements> {
+pub struct FlatFunctionIterator<I: IntoStatements> {
     /// Arguments of the function
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
@@ -188,8 +190,8 @@ pub struct FlatFunctionIterator<I: IntoFlatStatements> {
     pub return_count: usize,
 }
 
-impl<I: IntoFlatStatements> FlatFunctionIterator<I> {
-    pub fn collect(self) -> Result<FlatFunction<I::Field>, DynamicError> {
+impl<T, I: IntoStatements<Statement = FlatStatement<T>>> FlatFunctionIterator<I> {
+    pub fn collect(self) -> Result<FlatFunction<T>, DynamicError> {
         Ok(FlatFunction {
             statements: MemoryFlatStatements(self.statements.into_fallible_iter().collect()?),
             arguments: self.arguments,

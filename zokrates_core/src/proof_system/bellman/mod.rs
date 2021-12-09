@@ -20,12 +20,12 @@ pub use self::parse::*;
 pub struct Bellman;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoStatements<Field = T>> {
+pub struct Computation<T, I: IntoStatements<Statement = Statement<T>>> {
     program: ProgIterator<I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T: Field, I: IntoStatements<Field = T>> Computation<T, I> {
+impl<T: Field, I: IntoStatements<Statement = Statement<T>>> Computation<T, I> {
     pub fn with_witness(program: ProgIterator<I>, witness: Witness<T>) -> Self {
         Computation {
             program,
@@ -81,7 +81,9 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> ProgIterator<I> {
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Statement = Statement<T>>>
+    ProgIterator<I>
+{
     pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
@@ -147,7 +149,9 @@ impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> ProgIterat
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> Computation<T, I> {
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Statement = Statement<T>>>
+    Computation<T, I>
+{
     fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
         let mut seed = [0u8; 32];
         getrandom::getrandom(&mut seed)?;
@@ -194,8 +198,8 @@ impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> Computatio
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Field = T>> Circuit<T::BellmanEngine>
-    for Computation<T, I>
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Statement = Statement<T>>>
+    Circuit<T::BellmanEngine> for Computation<T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,

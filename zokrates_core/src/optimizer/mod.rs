@@ -16,11 +16,11 @@ use self::duplicate::DuplicateOptimizer;
 use self::redefinition::RedefinitionOptimizer;
 use self::tautology::TautologyOptimizer;
 
-use crate::ir::{IntoStatements, ProgIterator};
+use crate::ir::{IntoStatements, ProgIterator, Statement};
 use zokrates_field::Field;
 
-impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
-    pub fn optimize(self) -> ProgIterator<impl IntoStatements<Field = T>> {
+impl<T: Field, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
+    pub fn optimize(self) -> ProgIterator<impl IntoStatements<Statement = Statement<T>>> {
         // remove redefinitions
         log::debug!("Initialise optimizer");
 
@@ -38,15 +38,10 @@ impl<T: Field, I: IntoStatements<Field = T>> ProgIterator<I> {
             .into_iter()
             .map(|a| redefinition_optimizer.fold_argument(a))
             .map(|a| {
-                <TautologyOptimizer as Folder<I::Field>>::fold_argument(
-                    &mut tautologies_optimizer,
-                    a,
-                )
+                <TautologyOptimizer as Folder<T>>::fold_argument(&mut tautologies_optimizer, a)
             })
             .map(|a| directive_optimizer.fold_argument(a))
-            .map(|a| {
-                <DuplicateOptimizer as Folder<I::Field>>::fold_argument(&mut duplicate_optimizer, a)
-            })
+            .map(|a| <DuplicateOptimizer as Folder<T>>::fold_argument(&mut duplicate_optimizer, a))
             .collect();
 
         use crate::ir::folder::fold_statements;
