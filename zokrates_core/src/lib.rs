@@ -8,6 +8,7 @@ cfg_if::cfg_if! {
     }
 }
 
+mod ast;
 mod embed;
 mod flatten;
 pub mod imports;

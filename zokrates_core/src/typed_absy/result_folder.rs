@@ -8,14 +8,14 @@ pub fn fold_statements<
     'ast,
     T: Field,
     F: ResultFolder<'ast, T>,
-    I: IntoTypedStatements<'ast, Field = T>,
+    I: IntoStatements<Statement = TypedStatement<'ast, T>>,
 >(
     mut f: F,
     statements: I,
-) -> impl IntoTypedStatements<'ast, Field = T> {
+) -> impl IntoStatements<Statement = TypedStatement<'ast, T>> {
     statements.into_fallible_iter().flat_map(move |s| {
         f.fold_statement(s)
-            .map(MemoryTypedStatements)
+            .map(MemoryStatements)
             .map_err(|e| e.into())
     })
 }
