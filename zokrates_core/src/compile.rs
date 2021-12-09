@@ -4,9 +4,9 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use crate::absy::{Module, OwnedModuleId, Program};
+use crate::ast::IntoStatements;
 use crate::imports::{self, Importer};
 use crate::ir;
-use crate::ast::IntoStatements;
 use crate::macros;
 use crate::semantics::{self, Checker};
 use crate::static_analysis;

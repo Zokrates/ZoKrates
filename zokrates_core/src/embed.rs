@@ -4,7 +4,7 @@ use crate::absy::{
 };
 use crate::flat_absy::{
     FlatDirective, FlatExpression, FlatFunctionIterator, FlatParameter, FlatStatement,
-    FlatVariable, IntoFlatStatements, RuntimeError,
+    FlatVariable, IntoStatements, RuntimeError,
 };
 use crate::solvers::Solver;
 use crate::typed_absy::types::{
@@ -346,7 +346,8 @@ fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
 /// - constraint system variables
 /// - arguments
 #[cfg(feature = "bellman")]
-pub fn sha256_round<T: Field>() -> FlatFunctionIterator<impl IntoFlatStatements<Field = T>> {
+pub fn sha256_round<T: Field>(
+) -> FlatFunctionIterator<impl IntoStatements<Statement = FlatStatement<T>>> {
     use zokrates_field::Bn128Field;
     assert_eq!(T::id(), Bn128Field::id());
 
@@ -453,7 +454,7 @@ pub fn sha256_round<T: Field>() -> FlatFunctionIterator<impl IntoFlatStatements<
 #[cfg(feature = "ark")]
 pub fn snark_verify_bls12_377<T: Field>(
     n: usize,
-) -> FlatFunctionIterator<impl IntoFlatStatements<Field = T>> {
+) -> FlatFunctionIterator<impl IntoStatements<Statement = FlatStatement<T>>> {
     use zokrates_field::Bw6_761Field;
     assert_eq!(T::id(), Bw6_761Field::id());
 
@@ -582,7 +583,7 @@ fn use_variable(
 ///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack_to_bitwidth<T: Field>(
     bit_width: usize,
-) -> FlatFunctionIterator<impl IntoFlatStatements<Field = T>> {
+) -> FlatFunctionIterator<impl IntoStatements<Statement = FlatStatement<T>>> {
     let mut counter = 0;
 
     let mut layout = HashMap::new();

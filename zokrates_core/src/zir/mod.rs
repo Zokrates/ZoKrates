@@ -19,9 +19,9 @@ use std::convert::TryFrom;
 use std::fmt;
 use zokrates_field::Field;
 
-pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
 pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
+pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
 
 pub type ZirProgramIterator<'ast, I> = ZirFunctionIterator<'ast, I>;
 
