@@ -7,6 +7,7 @@ pub enum CoreIdentifier<'ast> {
     Source(&'ast str),
     Call(usize),
     Constant(CanonicalConstantIdentifier<'ast>),
+    Condition(usize),
 }
 
 impl<'ast> fmt::Display for CoreIdentifier<'ast> {
@@ -15,6 +16,7 @@ impl<'ast> fmt::Display for CoreIdentifier<'ast> {
             CoreIdentifier::Source(s) => write!(f, "{}", s),
             CoreIdentifier::Call(i) => write!(f, "#CALL_RETURN_AT_INDEX_{}", i),
             CoreIdentifier::Constant(c) => write!(f, "{}/{}", c.module.display(), c.id),
+            CoreIdentifier::Condition(i) => write!(f, "#CONDITION_{}", i),
         }
     }
 }
