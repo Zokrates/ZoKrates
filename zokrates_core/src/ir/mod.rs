@@ -80,7 +80,9 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-pub type Prog<T> = ProgIterator<MemoryStatements<Statement<T>>>;
+pub type MemoryIrStatements<T> = MemoryStatements<Statement<T>>;
+
+pub type Prog<T> = ProgIterator<MemoryIrStatements<T>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct ProgIterator<I: IntoStatements> {
@@ -90,7 +92,7 @@ pub struct ProgIterator<I: IntoStatements> {
 }
 
 impl<T, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
-    pub fn collect(self) -> Result<ProgIterator<MemoryStatements<Statement<T>>>, DynamicError> {
+    pub fn collect(self) -> Result<ProgIterator<MemoryIrStatements<T>>, DynamicError> {
         Ok(ProgIterator {
             statements: self.statements.into_fallible_iter().collect()?,
             arguments: self.arguments,

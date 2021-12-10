@@ -1,4 +1,4 @@
-use crate::ir::{DynamicError, IntoStatements, MemoryStatements, ProgIterator, Statement};
+use crate::ir::{DynamicError, IntoStatements, MemoryIrStatements, ProgIterator, Statement};
 use fallible_iterator::FallibleIterator;
 use serde_cbor::{self, StreamDeserializer};
 use std::io::{Read, Write};
@@ -9,10 +9,10 @@ const ZOKRATES_VERSION_2: &[u8; 4] = &[0, 0, 0, 2];
 
 #[derive(PartialEq, Debug)]
 pub enum ProgEnum<
-    Bls12_381I: IntoStatements<Field = Bls12_381Field>,
-    Bn128I: IntoStatements<Field = Bn128Field>,
-    Bls12_377I: IntoStatements<Field = Bls12_377Field>,
-    Bw6_761I: IntoStatements<Field = Bw6_761Field>,
+    Bls12_381I: IntoStatements,
+    Bn128I: IntoStatements,
+    Bls12_377I: IntoStatements,
+    Bw6_761I: IntoStatements,
 > {
     Bls12_381Program(ProgIterator<Bls12_381I>),
     Bn128Program(ProgIterator<Bn128I>),
@@ -21,10 +21,10 @@ pub enum ProgEnum<
 }
 
 type MemoryProgEnum = ProgEnum<
-    MemoryStatements<Statement<Bls12_381Field>>,
-    MemoryStatements<Statement<Bn128Field>>,
-    MemoryStatements<Statement<Bls12_377Field>>,
-    MemoryStatements<Statement<Bw6_761Field>>,
+    MemoryIrStatements<Bls12_381Field>,
+    MemoryIrStatements<Bn128Field>,
+    MemoryIrStatements<Bls12_377Field>,
+    MemoryIrStatements<Bw6_761Field>,
 >;
 
 impl<
