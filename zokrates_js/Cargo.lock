@@ -50,6 +50,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-bls12-381"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70e1c2ad76c4f725520440b981df3ce2d635f2baa1122750c757c0cf0f3d4b74"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
+name = "ark-bn254"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ead066869de5e8cb2938123204d1572f09496b629e146a6f80fa8ec508446ba"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
 name = "ark-bw6-761"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1571,7 +1593,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "bellman_ce",
  "cfg-if 0.1.10",
@@ -1600,7 +1622,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_embed"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "ark-bls12-377",
  "ark-bw6-761",
@@ -1620,6 +1642,13 @@ dependencies = [
 name = "zokrates_field"
 version = "0.4.0"
 dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
  "bellman_ce",
  "bincode",
  "lazy_static",
@@ -1634,7 +1663,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.0.36"
+version = "1.0.37"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
@@ -1650,7 +1679,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "pest",
  "pest_derive",
@@ -1658,7 +1687,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "from-pest",
  "lazy_static",
