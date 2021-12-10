@@ -674,11 +674,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         self.enforce_constant_le_check(
             statements_flattened,
             &e_bits_be,
-            &T::max_value().bit_vector_be(),
+            &T::max_value().to_bits_be(),
         );
 
-        let conditions =
-            self.constant_le_check(statements_flattened, &e_bits_be, &c.bit_vector_be());
+        let conditions = self.constant_le_check(statements_flattened, &e_bits_be, &c.to_bits_be());
 
         // return `len(conditions) == sum(conditions)`
         self.eq_check(

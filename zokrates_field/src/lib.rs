@@ -53,8 +53,8 @@ pub trait Field:
     'static
     + Sync
     + Send
+    + From<bool>
     + From<i32>
-    + From<u8>
     + From<u32>
     + From<usize>
     + From<u128>
@@ -102,7 +102,7 @@ pub trait Field:
     /// m` has a single `n`-bit decomposition
     fn max_unique_value() -> Self;
     /// Return the number of bits required to represent this element
-    fn to_bits_be(&self) -> Vec<u8>;
+    fn to_bits_be(&self) -> Vec<bool>;
     /// Returns the number of bits required to represent any element of this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
@@ -117,37 +117,6 @@ pub trait Field:
     fn name() -> &'static str;
     /// Gets the number of bits
     fn bits(&self) -> u32;
-    /// Returns this `Field`'s largest value as a big-endian bit vector
-    /// Always returns `Self::get_required_bits()` elements
-    fn bit_vector_be(&self) -> Vec<bool> {
-        fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
-            bytes
-                .iter()
-                .flat_map(|&v| (0..8).rev().map(move |i| (v >> i) & 1 == 1))
-                .collect()
-        }
-
-        let field_bytes_le = self.to_byte_vector();
-
-        // reverse for big-endianess
-        let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
-        let field_bits_be = bytes_to_bits(&field_bytes_be);
-
-        let field_bits_be: Vec<_> = (0..Self::get_required_bits()
-            .saturating_sub(field_bits_be.len()))
-            .map(|_| &false)
-            .chain(
-                &field_bits_be[field_bits_be
-                    .len()
-                    .saturating_sub(Self::get_required_bits())..],
-            )
-            .cloned()
-            .collect();
-
-        assert_eq!(field_bits_be.len(), Self::get_required_bits());
-
-        field_bits_be
-    }
     /// Returns the value as a BigUint
     fn to_biguint(&self) -> BigUint;
 }
@@ -195,8 +164,10 @@ mod prime_field {
                     BigUint::from_bytes_le(&self.v.into_repr().to_bytes_le())
                 }
 
-                fn to_bits_be(&self) -> Vec<u8> {
-                    self.value.to_radix_be(2).1
+                fn to_bits_be(&self) -> Vec<bool> {
+                    use ark_ff::BigInteger;
+                    let res = self.v.into_repr().to_bits_be();
+                    res[res.len() - Self::get_required_bits()..].to_vec()
                 }
 
                 fn to_byte_vector(&self) -> Vec<u8> {
@@ -309,11 +280,10 @@ mod prime_field {
                 }
             }
 
-            impl From<u8> for FieldPrime {
-                fn from(num: u8) -> Self {
-                    let x = ToBigInt::to_bigint(&num).unwrap();
+            impl From<bool> for FieldPrime {
+                fn from(num: bool) -> Self {
                     FieldPrime {
-                        value: &x - x.div_floor(&*P) * &*P,
+                        v: Fr::from(num as u32),
                     }
                 }
             }

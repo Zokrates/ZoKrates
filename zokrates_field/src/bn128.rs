@@ -25,12 +25,17 @@ mod tests {
         use bincode::{deserialize, serialize, Infinite};
 
         #[test]
-        fn max_value_bits() {
-            let bits = FieldPrime::max_value().bit_vector_be();
+        fn to_bits_be() {
+            let bits = FieldPrime::max_value().to_bits_be();
+            assert_eq!(bits.len(), 254);
             assert_eq!(
                 bits[0..10].to_vec(),
                 vec![true, true, false, false, false, false, false, true, true, false]
             );
+
+            let bits = FieldPrime::one().to_bits_be();
+            assert_eq!(bits.len(), 254);
+            assert_eq!(bits[253], true);
         }
 
         #[test]
