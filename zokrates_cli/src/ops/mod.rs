@@ -5,6 +5,7 @@ pub mod export_verifier;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 pub mod generate_proof;
 pub mod generate_smtlib2;
+pub mod inspect;
 #[cfg(feature = "bellman")]
 pub mod mpc;
 pub mod print_proof;

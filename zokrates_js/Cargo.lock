@@ -784,6 +784,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0a01e0497841a3b2db4f8afa483cce65f7e96a3498bd6c541734792aeac8fe7"
 
 [[package]]
+name = "half"
+version = "1.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1335,6 +1341,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_cbor"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.130"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1677,7 +1693,6 @@ name = "zokrates_core"
 version = "0.6.8"
 dependencies = [
  "bellman_ce",
- "bincode",
  "cfg-if 0.1.10",
  "csv",
  "ff_ce 0.9.0",
@@ -1694,6 +1709,7 @@ dependencies = [
  "reduce",
  "regex",
  "serde",
+ "serde_cbor",
  "serde_json",
  "typed-arena",
  "zokrates_common",
@@ -1744,6 +1760,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde_json",
+ "typed-arena",
  "wasm-bindgen",
  "zokrates_abi",
  "zokrates_common",

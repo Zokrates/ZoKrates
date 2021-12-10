@@ -811,6 +811,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             .get(&import.module_id)
                             .unwrap()
                             .functions_iter()
+                            .into_iter()
                             .filter(|d| d.key.id == import.symbol_id)
                             .map(|d| DeclarationFunctionKey {
                                 module: import.module_id.to_path_buf(),
@@ -1050,6 +1051,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
     fn check_single_main(module: &TypedModule<T>) -> Result<(), ErrorInner> {
         match module
             .functions_iter()
+            .into_iter()
             .filter(|d| d.key.id == "main")
             .count()
         {

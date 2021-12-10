@@ -52,14 +52,19 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut reader = BufReader::new(file);
 
     match ProgEnum::deserialize(&mut reader)? {
-        ProgEnum::Bn128Program(p) => cli_mpc_init::<_, G16, Bellman>(p, sub_matches),
-        ProgEnum::Bls12_381Program(p) => cli_mpc_init::<_, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bn128Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bls12_381Program(p) => cli_mpc_init::<_, _, G16, Bellman>(p, sub_matches),
         _ => Err("Current protocol only supports bn128/bls12_381 programs".into()),
     }
 }
 
-fn cli_mpc_init<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBackend<T, S>>(
-    ir_prog: ir::Prog<T>,
+fn cli_mpc_init<
+    T: Field + BellmanFieldExtensions,
+    I: Iterator<Item = ir::Statement<T>>,
+    S: MpcScheme<T>,
+    B: MpcBackend<T, S>,
+>(
+    program: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Initializing MPC...");
@@ -75,7 +80,7 @@ fn cli_mpc_init<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBacken
         .map_err(|why| format!("Could not create `{}`: {}", output_path.display(), why))?;
 
     let mut writer = BufWriter::new(output_file);
-    B::initialize(ir_prog, &mut radix_reader, &mut writer)
+    B::initialize(program, &mut radix_reader, &mut writer)
         .map_err(|e| format!("Failed to initialize: {}", e))?;
 
     println!("Parameters written to `{}`", output_path.display());

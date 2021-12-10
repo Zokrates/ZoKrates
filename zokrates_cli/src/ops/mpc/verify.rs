@@ -52,14 +52,19 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut reader = BufReader::new(file);
 
     match ProgEnum::deserialize(&mut reader)? {
-        ProgEnum::Bn128Program(p) => cli_mpc_verify::<_, G16, Bellman>(p, sub_matches),
-        ProgEnum::Bls12_381Program(p) => cli_mpc_verify::<_, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bn128Program(p) => cli_mpc_verify::<_, _, G16, Bellman>(p, sub_matches),
+        ProgEnum::Bls12_381Program(p) => cli_mpc_verify::<_, _, G16, Bellman>(p, sub_matches),
         _ => Err("Current protocol only supports bn128/bls12_381 programs".into()),
     }
 }
 
-fn cli_mpc_verify<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBackend<T, S>>(
-    ir_prog: ir::Prog<T>,
+fn cli_mpc_verify<
+    T: Field + BellmanFieldExtensions,
+    I: Iterator<Item = ir::Statement<T>>,
+    S: MpcScheme<T>,
+    B: MpcBackend<T, S>,
+>(
+    program: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Verifying contributions...");
@@ -76,7 +81,7 @@ fn cli_mpc_verify<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBack
 
     let mut radix_reader = BufReader::new(radix_file);
 
-    let result = B::verify(&mut reader, ir_prog, &mut radix_reader)
+    let result = B::verify(&mut reader, program, &mut radix_reader)
         .map_err(|e| format!("Verification failed: {}", e))?;
 
     let contribution_count = result.len();

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 use std::io::Cursor;
 use std::path::PathBuf;
+use typed_arena::Arena;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
 use zokrates_common::Resolver;
@@ -41,13 +42,15 @@ pub struct ComputationResult {
 fn deserialize_program(value: &[u8]) -> Result<ir::Prog<Bn128Field>, JsValue> {
     let prog = ir::ProgEnum::deserialize(value).map_err(|err| JsValue::from_str(&err))?;
     match prog {
-        ir::ProgEnum::Bn128Program(p) => Ok(p),
+        ir::ProgEnum::Bn128Program(p) => Ok(p.collect()),
         _ => Err(JsValue::from_str("Unsupported binary")),
     }
 }
 
 #[inline]
-fn serialize_program(program: &ir::Prog<Bn128Field>) -> Vec<u8> {
+fn serialize_program<I: IntoIterator<Item = ir::Statement<Bn128Field>>>(
+    program: ir::ProgIterator<Bn128Field, I>,
+) -> Vec<u8> {
     let mut buffer = Cursor::new(vec![]);
     program.serialize(&mut buffer);
     buffer.into_inner()
@@ -106,11 +109,15 @@ pub fn compile(
     let config: CompileConfig = config.into_serde().unwrap_or_default();
 
     let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
-    let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
+
+    let arena = Arena::new();
+
+    let artifacts: CompilationArtifacts<Bn128Field, _> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
-        &config,
+        config,
+        &arena,
     )
     .map_err(|ce| {
         JsValue::from_str(
@@ -123,8 +130,8 @@ pub fn compile(
     })?;
 
     let result = CompilationResult {
-        program: serialize_program(artifacts.prog()),
         abi: to_string_pretty(artifacts.abi()).unwrap(),
+        program: serialize_program(artifacts.prog()),
     };
 
     Ok(JsValue::from_serde(&result).unwrap())
@@ -146,7 +153,7 @@ pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<Js
     let interpreter = ir::Interpreter::default();
 
     let witness = interpreter
-        .execute(&program_flattened, &inputs.encode())
+        .execute(program_flattened, &inputs.encode())
         .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
     let return_values: serde_json::Value =

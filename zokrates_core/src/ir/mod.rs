@@ -8,7 +8,7 @@ use zokrates_field::Field;
 
 mod expression;
 pub mod folder;
-mod from_flat;
+pub mod from_flat;
 mod interpreter;
 mod serialize;
 pub mod smtlib2;
@@ -74,25 +74,30 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, Default)]
-pub struct Prog<T> {
-    pub statements: Vec<Statement<T>>,
+pub type Prog<T> = ProgIterator<T, Vec<Statement<T>>>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct ProgIterator<T, I: IntoIterator<Item = Statement<T>>> {
     pub arguments: Vec<FlatParameter>,
-    pub returns: Vec<FlatVariable>,
+    pub return_count: usize,
+    pub statements: I,
 }
 
-impl<T: Field> Prog<T> {
-    pub fn constraint_count(&self) -> usize {
-        self.statements
-            .iter()
-            .filter(|s| matches!(s, Statement::Constraint(..)))
-            .count()
+impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+    pub fn collect(self) -> ProgIterator<T, Vec<Statement<T>>> {
+        ProgIterator {
+            statements: self.statements.into_iter().collect::<Vec<_>>(),
+            arguments: self.arguments,
+            return_count: self.return_count,
+        }
     }
 
-    pub fn arguments_count(&self) -> usize {
-        self.arguments.len()
+    pub fn returns(&self) -> Vec<FlatVariable> {
+        (0..self.return_count).map(FlatVariable::public).collect()
     }
+}
 
+impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     pub fn public_inputs(&self, witness: &Witness<T>) -> Vec<T> {
         self.arguments
             .iter()
@@ -103,24 +108,43 @@ impl<T: Field> Prog<T> {
     }
 }
 
+impl<T> Prog<T> {
+    pub fn constraint_count(&self) -> usize {
+        self.statements
+            .iter()
+            .filter(|s| matches!(s, Statement::Constraint(..)))
+            .count()
+    }
+
+    pub fn into_prog_iter(self) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
+        ProgIterator {
+            statements: self.statements.into_iter(),
+            arguments: self.arguments,
+            return_count: self.return_count,
+        }
+    }
+}
+
 impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "def main({}) -> ({}):\n{}\n\treturn {}",
+            "def main({}) -> ({}):",
             self.arguments
                 .iter()
                 .map(|v| format!("{}", v))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.returns.len(),
-            self.statements
-                .iter()
-                .map(|s| format!("\t{}", s))
-                .collect::<Vec<_>>()
-                .join("\n"),
-            self.returns
-                .iter()
+            self.return_count,
+        )?;
+        for s in &self.statements {
+            writeln!(f, "\t{}", s)?;
+        }
+        writeln!(
+            f,
+            "\treturn {}",
+            (0..self.return_count)
+                .map(FlatVariable::public)
                 .map(|e| format!("{}", e))
                 .collect::<Vec<_>>()
                 .join(", ")

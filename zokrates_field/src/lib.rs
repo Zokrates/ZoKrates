@@ -54,7 +54,11 @@ impl fmt::Debug for FieldParseError {
 }
 
 pub trait Field:
-    From<i32>
+    'static
+    + Sync
+    + Send
+    + From<i32>
+    + From<u8>
     + From<u32>
     + From<usize>
     + From<u128>
@@ -101,6 +105,8 @@ pub trait Field:
     /// Returns the largest value `m` such that there exist a number of bits `n` so that any value smaller or equal to
     /// m` has a single `n`-bit decomposition
     fn max_unique_value() -> Self;
+    /// Return the number of bits required to represent this element
+    fn to_bits_be(&self) -> Vec<u8>;
     /// Returns the number of bits required to represent any element of this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
@@ -182,6 +188,10 @@ mod prime_field {
 
                 fn to_biguint(&self) -> BigUint {
                     self.value.to_biguint().unwrap()
+                }
+
+                fn to_bits_be(&self) -> Vec<u8> {
+                    self.value.to_radix_be(2).1
                 }
 
                 fn to_byte_vector(&self) -> Vec<u8> {
@@ -290,6 +300,15 @@ mod prime_field {
 
             impl From<i32> for FieldPrime {
                 fn from(num: i32) -> Self {
+                    let x = ToBigInt::to_bigint(&num).unwrap();
+                    FieldPrime {
+                        value: &x - x.div_floor(&*P) * &*P,
+                    }
+                }
+            }
+
+            impl From<u8> for FieldPrime {
+                fn from(num: u8) -> Self {
                     let x = ToBigInt::to_bigint(&num).unwrap();
                     FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,

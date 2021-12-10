@@ -3,6 +3,7 @@ extern crate zokrates_core;
 extern crate zokrates_field;
 
 use std::io;
+use typed_arena::Arena;
 use zokrates_common::Resolver;
 use zokrates_core::compile::CompileConfig;
 use zokrates_core::{
@@ -26,11 +27,14 @@ fn lt_field() {
     // the fact that `2*10000 - 2*5555` has two distinct bit decompositions
     // we chose the one which is out of range, ie the sum check features an overflow
 
-    let res: CompilationArtifacts<Bn128Field> = compile(
+    let arena = Arena::new();
+
+    let res: CompilationArtifacts<Bn128Field, _> = compile(
         source,
         "./path/to/file".into(),
         None::<&dyn Resolver<io::Error>>,
-        &CompileConfig::default(),
+        CompileConfig::default(),
+        &arena,
     )
     .unwrap();
 
@@ -58,11 +62,14 @@ fn lt_uint() {
     // the fact that `2*10000 - 2*5555` has two distinct bit decompositions
     // we chose the one which is out of range, ie the sum check features an overflow
 
-    let res: CompilationArtifacts<Bn128Field> = compile(
+    let arena = Arena::new();
+
+    let res: CompilationArtifacts<Bn128Field, _> = compile(
         source,
         "./path/to/file".into(),
         None::<&dyn Resolver<io::Error>>,
-        &CompileConfig::default(),
+        CompileConfig::default(),
+        &arena,
     )
     .unwrap();
 
@@ -99,13 +106,16 @@ fn unpack256() {
     )
     .unwrap();
 
-    let res: CompilationArtifacts<Bn128Field> = compile(
+    let arena = Arena::new();
+
+    let res: CompilationArtifacts<Bn128Field, _> = compile(
         source,
         "./path/to/file".into(),
         Some(&FileSystemResolver::with_stdlib_root(
             stdlib_path.to_str().unwrap(),
         )),
-        &CompileConfig::default(),
+        CompileConfig::default(),
+        &arena,
     )
     .unwrap();
 
@@ -139,13 +149,16 @@ fn unpack256_unchecked() {
     )
     .unwrap();
 
-    let res: CompilationArtifacts<Bn128Field> = compile(
+    let arena = Arena::new();
+
+    let res: CompilationArtifacts<Bn128Field, _> = compile(
         source,
         "./path/to/file".into(),
         Some(&FileSystemResolver::with_stdlib_root(
             stdlib_path.to_str().unwrap(),
         )),
-        &CompileConfig::default(),
+        CompileConfig::default(),
+        &arena,
     )
     .unwrap();
 

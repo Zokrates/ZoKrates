@@ -26,7 +26,7 @@ reduce = "0.1.1"
 # serialization and deserialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-bincode = "0.8.0"
+serde_cbor = "0.11.2"
 hex = "0.4.2"
 regex = "0.2"
 zokrates_field = { version = "0.4.0", path = "../zokrates_field", default-features = false }
