@@ -265,7 +265,7 @@ mod tests {
         // should become
         //
         // bool #CONDITION_0 = c && d
-        // field foo = if c && d then {
+        // field foo = if #CONDITION_0 then {
         //     field a = 1
         //     bool #CONDITION_1 = e && f
         //     if #CONDITION_1 then 2 else 3
