@@ -705,7 +705,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::assignee_access))]
     pub enum AssigneeAccess<'ast> {
-        Select(ArrayAccess<'ast>),
+        Select(Box<ArrayAccess<'ast>>),
         Member(MemberAccess<'ast>),
     }
 

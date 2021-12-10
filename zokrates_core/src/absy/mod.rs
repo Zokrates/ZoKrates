@@ -137,6 +137,7 @@ pub enum SymbolDefinition<'ast> {
     Function(FunctionNode<'ast>),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Symbol<'ast> {
     Here(SymbolDefinition<'ast>),
