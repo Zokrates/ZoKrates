@@ -422,11 +422,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         // add this set of versions to the substitution, pointing to the versions before the loop
                         register(self.substitutions, self.versions, &versions_before);
 
-                        // the versions after the loop are found by applying an offset of 2 to the versions before the loop
+                        // the versions after the loop are found by applying an offset of 1 to the versions before the loop
                         let versions_after = versions_before
                             .clone()
                             .into_iter()
-                            .map(|(k, v)| (k, v + 2))
+                            .map(|(k, v)| (k, v + 1))
                             .collect();
 
                         let mut transformer = ShallowTransformer::with_versions(self.versions);
