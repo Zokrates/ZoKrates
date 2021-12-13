@@ -5,7 +5,7 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
-use zokrates_core::ir::{self, ProgEnum, Statements};
+use zokrates_core::ir::{self, IntoStatements, Ir, ProgEnum};
 #[cfg(feature = "ark")]
 use zokrates_core::proof_system::ark::Ark;
 #[cfg(feature = "bellman")]
@@ -175,11 +175,11 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_setup_non_universal<
     T: Field,
-    I: ir::IntoStatements<Statement = ir::Statement<T>>,
+    I: IntoStatements<Ir<T>>,
     S: NonUniversalScheme<T>,
     B: NonUniversalBackend<T, S>,
 >(
-    program: ir::ProgIterator<I>,
+    program: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Performing setup...");
@@ -219,11 +219,11 @@ fn cli_setup_non_universal<
 
 fn cli_setup_universal<
     T: Field,
-    I: Statements<Statement = ir::Statement<T>>,
+    I: IntoStatements<Ir<T>>,
     S: UniversalScheme<T>,
     B: UniversalBackend<T, S>,
 >(
-    program: ir::ProgIterator<I>,
+    program: ir::ProgIterator<T, I>,
     srs: Vec<u8>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {

@@ -11,7 +11,7 @@ mod solidity;
 pub use self::scheme::*;
 pub use self::solidity::*;
 
-use crate::ir;
+use crate::ir::{self, Ir};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
@@ -80,8 +80,8 @@ impl ToString for G2Affine {
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {
-    fn generate_proof<I: ir::IntoStatements<Statement = ir::Statement<T>>>(
-        program: ir::ProgIterator<I>,
+    fn generate_proof<I: ir::IntoStatements<Ir<T>>>(
+        program: ir::ProgIterator<T, I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
     ) -> Result<Proof<S::ProofPoints>, String>;
@@ -89,16 +89,16 @@ pub trait Backend<T: Field, S: Scheme<T>> {
     fn verify(vk: S::VerificationKey, proof: Proof<S::ProofPoints>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
-    fn setup<I: ir::IntoStatements<Statement = ir::Statement<T>>>(
-        program: ir::ProgIterator<I>,
+    fn setup<I: ir::IntoStatements<Ir<T>>>(
+        program: ir::ProgIterator<T, I>,
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }
 
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
     fn universal_setup(size: u32) -> Vec<u8>;
 
-    fn setup<I: ir::IntoStatements<Statement = ir::Statement<T>>>(
+    fn setup<I: ir::IntoStatements<Ir<T>>>(
         srs: Vec<u8>,
-        program: ir::ProgIterator<I>,
+        program: ir::ProgIterator<T, I>,
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }

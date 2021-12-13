@@ -22,16 +22,20 @@ pub use self::serialize::ProgEnum;
 
 pub use self::interpreter::{Error, ExecutionResult, Interpreter};
 pub use self::witness::Witness;
-pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
+pub use crate::ast::{Ast, DynamicError, IntoStatements, MemoryStatements, Statements};
+
+use std::marker::PhantomData;
+
+pub struct Ir<T>(PhantomData<T>);
+
+impl<T> Ast for Ir<T> {
+    type Statement = Statement<T>;
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>, Option<RuntimeError>),
     Directive(Directive<T>),
-}
-
-impl<T> StatementTrait for Statement<T> {
-    type Field = T;
 }
 
 impl<T: Field> Statement<T> {
@@ -82,22 +86,32 @@ impl<T: Field> fmt::Display for Statement<T> {
 
 pub type MemoryIrStatements<T> = MemoryStatements<Statement<T>>;
 
-pub type Prog<T> = ProgIterator<MemoryIrStatements<T>>;
+pub type Prog<T> = ProgIterator<T, MemoryIrStatements<T>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-pub struct ProgIterator<I: IntoStatements> {
+pub struct ProgIterator<T, I: IntoStatements<Ir<T>>> {
     pub arguments: Vec<FlatParameter>,
     pub return_count: usize,
     pub statements: I,
+    m: PhantomData<T>,
 }
 
-impl<T, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
-    pub fn collect(self) -> Result<ProgIterator<MemoryIrStatements<T>>, DynamicError> {
-        Ok(ProgIterator {
-            statements: self.statements.into_fallible_iter().collect()?,
-            arguments: self.arguments,
-            return_count: self.return_count,
-        })
+impl<T, I: IntoStatements<Ir<T>>> ProgIterator<T, I> {
+    pub fn new(arguments: Vec<FlatParameter>, statements: I, return_count: usize) -> Self {
+        Self {
+            arguments,
+            statements,
+            return_count,
+            m: PhantomData,
+        }
+    }
+
+    pub fn collect(self) -> Result<ProgIterator<T, MemoryIrStatements<T>>, DynamicError> {
+        Ok(ProgIterator::new(
+            self.arguments,
+            self.statements.into_fallible_iter().collect()?,
+            self.return_count,
+        ))
     }
 
     pub fn returns(&self) -> Vec<FlatVariable> {
@@ -105,7 +119,7 @@ impl<T, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
     }
 }
 
-impl<T: Field, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
+impl<T: Field, I: IntoStatements<Ir<T>>> ProgIterator<T, I> {
     pub fn public_inputs(&self, witness: &Witness<T>) -> Vec<T> {
         self.arguments
             .iter()
@@ -125,12 +139,12 @@ impl<T> Prog<T> {
             .count()
     }
 
-    pub fn into_prog_iter(self) -> ProgIterator<impl IntoStatements<Statement = Statement<T>>> {
-        ProgIterator {
-            statements: self.statements.into_fallible_iter(),
-            arguments: self.arguments,
-            return_count: self.return_count,
-        }
+    pub fn into_prog_iter(self) -> ProgIterator<T, impl IntoStatements<Ir<T>>> {
+        ProgIterator::new(
+            self.arguments,
+            self.statements.into_fallible_iter(),
+            self.return_count,
+        )
     }
 }
 

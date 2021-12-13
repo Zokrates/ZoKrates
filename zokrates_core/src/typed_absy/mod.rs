@@ -46,12 +46,21 @@ use zokrates_field::Field;
 
 pub use self::folder::Folder;
 pub use self::result_folder::ResultFolder;
-pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
+pub use crate::ast::{Ast, DynamicError, IntoStatements, MemoryStatements, Statements};
 use crate::typed_absy::abi::{Abi, AbiInput};
 use fallible_iterator::FallibleIterator;
 use std::ops::{Add, Div, Mul, Sub};
 
 pub use self::identifier::Identifier;
+
+pub struct TypedAbsy<'ast, T> {
+    m0: PhantomData<T>,
+    m1: PhantomData<&'ast ()>,
+}
+
+impl<'ast, T> Ast for TypedAbsy<'ast, T> {
+    type Statement = TypedStatement<'ast, T>;
+}
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
 pub type OwnedTypedModuleId = PathBuf;
@@ -87,13 +96,7 @@ pub struct TypedProgram<'ast, T> {
     pub main: OwnedTypedModuleId,
 }
 
-impl<'ast, T> StatementTrait for TypedStatement<'ast, T> {
-    type Field = T;
-}
-
-impl<'ast, T: Field, I: IntoStatements<Field = T, Statement = TypedStatement<'ast, T>>>
-    TypedFunctionIterator<'ast, I>
-{
+impl<'ast, T: Field, I: IntoStatements<TypedAbsy<'ast, T>>> TypedFunctionIterator<'ast, T, I> {
     pub fn abi(&self) -> Abi {
         Abi {
             inputs: self
@@ -101,10 +104,9 @@ impl<'ast, T: Field, I: IntoStatements<Field = T, Statement = TypedStatement<'as
                 .iter()
                 .map(|p| {
                     types::ConcreteType::try_from(
-                        crate::typed_absy::types::try_from_g_type::<
-                            DeclarationConstant<'ast, T>,
-                            UExpression<'ast, T>,
-                        >(p.id._type.clone())
+                        crate::typed_absy::types::try_from_g_type::<_, UExpression<_>>(
+                            p.id._type.clone(),
+                        )
                         .unwrap(),
                     )
                     .map(|ty| AbiInput {
@@ -121,11 +123,8 @@ impl<'ast, T: Field, I: IntoStatements<Field = T, Statement = TypedStatement<'as
                 .iter()
                 .map(|ty| {
                     types::ConcreteType::try_from(
-                        crate::typed_absy::types::try_from_g_type::<
-                            DeclarationConstant<'ast, T>,
-                            UExpression<'ast, T>,
-                        >(ty.clone())
-                        .unwrap(),
+                        crate::typed_absy::types::try_from_g_type::<_, UExpression<_>>(ty.clone())
+                            .unwrap(),
                     )
                     .unwrap()
                 })
@@ -321,20 +320,22 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
 
 /// A typed function interator
 #[derive(Clone, PartialEq, Hash, Debug)]
-pub struct TypedFunctionIterator<'ast, I: IntoStatements> {
+pub struct TypedFunctionIterator<'ast, T, I> {
     /// Arguments of the function
-    pub arguments: Vec<DeclarationParameter<'ast, I::Field>>,
+    pub arguments: Vec<DeclarationParameter<'ast, T>>,
     /// Vector of statements that are executed when running the function
     pub statements: I,
     /// function signature
-    pub signature: DeclarationSignature<'ast, I::Field>,
+    pub signature: DeclarationSignature<'ast, T>,
 }
 
-impl<'ast, T, I: Statements<Statement = TypedStatement<'ast, T>>> TypedFunctionIterator<'ast, I> {
+impl<'ast, T, I: Statements<TypedAbsy<'ast, T>>> TypedFunctionIterator<'ast, T, I> {
     pub fn collect(
         self,
-    ) -> Result<TypedFunctionIterator<'ast, MemoryStatements<TypedStatement<'ast, T>>>, DynamicError>
-    {
+    ) -> Result<
+        TypedFunctionIterator<'ast, T, MemoryStatements<TypedStatement<'ast, T>>>,
+        DynamicError,
+    > {
         Ok(TypedFunctionIterator {
             statements: self.statements.collect()?,
             arguments: self.arguments,
@@ -344,7 +345,7 @@ impl<'ast, T, I: Statements<Statement = TypedStatement<'ast, T>>> TypedFunctionI
 }
 
 pub type TypedFunction<'ast, T> =
-    TypedFunctionIterator<'ast, MemoryStatements<TypedStatement<'ast, T>>>;
+    TypedFunctionIterator<'ast, T, MemoryStatements<TypedStatement<'ast, T>>>;
 
 impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

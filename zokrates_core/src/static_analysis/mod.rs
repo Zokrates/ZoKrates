@@ -8,7 +8,6 @@ mod branch_isolator;
 mod condition_redefiner;
 mod constant_argument_checker;
 mod constant_resolver;
-mod flat_propagation;
 mod flatten_complex_types;
 mod out_of_bounds;
 mod propagation;
@@ -37,7 +36,7 @@ use crate::zir;
 use crate::zir::folder::Folder as ZirFolder;
 use crate::zir::result_folder::ResultFolder as ZirResultFolder;
 use crate::zir::ZirFunctionIterator;
-use crate::zir::{IntoStatements, ZirProgramIterator, ZirStatement};
+use crate::zir::{IntoStatements, Zir, ZirProgramIterator};
 use std::fmt;
 use zokrates_field::Field;
 
@@ -98,7 +97,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         config: &CompileConfig,
     ) -> Result<
         (
-            ZirProgramIterator<'ast, impl IntoStatements<Statement = ZirStatement<'ast, T>>>,
+            ZirProgramIterator<'ast, impl IntoStatements<Zir<'ast, T>>>,
             Abi,
         ),
         Error,
@@ -191,11 +190,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let statements = zir::result_folder::fold_statements(zir_propagator, statements);
         let statements = zir::folder::fold_statements(uint_optimizer, statements);
 
-        let zir = ZirFunctionIterator {
-            statements,
-            arguments,
-            signature,
-        };
+        let zir = ZirFunctionIterator::new(arguments, statements, signature);
 
         Ok((zir, abi))
     }

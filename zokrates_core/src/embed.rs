@@ -3,8 +3,8 @@ use crate::absy::{
     ConstantGenericNode, Expression,
 };
 use crate::flat_absy::{
-    FlatDirective, FlatExpression, FlatFunctionIterator, FlatParameter, FlatStatement,
-    FlatVariable, IntoStatements, RuntimeError,
+    FlatAbsy, FlatDirective, FlatExpression, FlatFunction, FlatFunctionIterator, FlatParameter,
+    FlatStatement, FlatVariable, IntoStatements, RuntimeError,
 };
 use crate::solvers::Solver;
 use crate::typed_absy::types::{
@@ -346,8 +346,7 @@ fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
 /// - constraint system variables
 /// - arguments
 #[cfg(feature = "bellman")]
-pub fn sha256_round<T: Field>(
-) -> FlatFunctionIterator<impl IntoStatements<Statement = FlatStatement<T>>> {
+pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     use zokrates_field::Bn128Field;
     assert_eq!(T::id(), Bn128Field::id());
 
@@ -435,26 +434,20 @@ pub fn sha256_round<T: Field>(
         .into_iter()
         .enumerate()
         .map(|(index, e)| FlatStatement::Definition(FlatVariable::public(index), e));
-    let statements = convert(
-        std::iter::once(directive_statement)
-            .chain(std::iter::once(one_binding_statement))
-            .chain(input_binding_statements)
-            .chain(constraint_statements)
-            .chain(return_statements)
-            .map(Ok),
-    );
+    let statements = std::iter::once(directive_statement)
+        .chain(std::iter::once(one_binding_statement))
+        .chain(input_binding_statements)
+        .chain(constraint_statements)
+        .chain(return_statements)
+        .collect();
 
-    FlatFunctionIterator {
-        arguments,
-        statements,
-        return_count,
-    }
+    FlatFunctionIterator::new(arguments, statements, return_count)
 }
 
 #[cfg(feature = "ark")]
 pub fn snark_verify_bls12_377<T: Field>(
     n: usize,
-) -> FlatFunctionIterator<impl IntoStatements<Statement = FlatStatement<T>>> {
+) -> FlatFunctionIterator<impl IntoStatements<FlatAbsy<T>>> {
     use zokrates_field::Bw6_761Field;
     assert_eq!(T::id(), Bw6_761Field::id());
 
@@ -555,11 +548,7 @@ pub fn snark_verify_bls12_377<T: Field>(
             .map(Ok),
     );
 
-    FlatFunctionIterator {
-        arguments,
-        statements,
-        return_count: 1,
-    }
+    FlatFunctionIterator::new(arguments, statements, 1)
 }
 
 fn use_variable(
@@ -583,7 +572,7 @@ fn use_variable(
 ///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack_to_bitwidth<T: Field>(
     bit_width: usize,
-) -> FlatFunctionIterator<impl IntoStatements<Statement = FlatStatement<T>>> {
+) -> FlatFunctionIterator<impl IntoStatements<FlatAbsy<T>>> {
     let mut counter = 0;
 
     let mut layout = HashMap::new();
@@ -664,11 +653,11 @@ pub fn unpack_to_bitwidth<T: Field>(
             .map(|(index, e)| FlatStatement::Definition(FlatVariable::public(index), e)),
     );
 
-    FlatFunctionIterator {
+    FlatFunctionIterator::new(
         arguments,
-        statements: convert(statements.into_iter().map(Ok)),
-        return_count: bit_width,
-    }
+        convert(statements.into_iter().map(Ok)),
+        bit_width,
+    )
 }
 
 #[cfg(test)]

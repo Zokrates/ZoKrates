@@ -16,11 +16,11 @@ use self::duplicate::DuplicateOptimizer;
 use self::redefinition::RedefinitionOptimizer;
 use self::tautology::TautologyOptimizer;
 
-use crate::ir::{IntoStatements, ProgIterator, Statement};
+use crate::ir::{IntoStatements, Ir, ProgIterator};
 use zokrates_field::Field;
 
-impl<T: Field, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
-    pub fn optimize(self) -> ProgIterator<impl IntoStatements<Statement = Statement<T>>> {
+impl<T: Field, I: IntoStatements<Ir<T>>> ProgIterator<T, I> {
+    pub fn optimize(self) -> ProgIterator<T, impl IntoStatements<Ir<T>>> {
         // remove redefinitions
         log::debug!("Initialise optimizer");
 
@@ -52,10 +52,6 @@ impl<T: Field, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
         let statements = fold_statements(directive_optimizer, statements);
         let statements = fold_statements(duplicate_optimizer, statements);
 
-        ProgIterator {
-            arguments,
-            statements,
-            return_count: self.return_count,
-        }
+        ProgIterator::new(arguments, statements, self.return_count)
     }
 }

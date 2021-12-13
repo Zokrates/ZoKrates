@@ -1,4 +1,4 @@
-use super::{DynamicError, StatementTrait};
+use super::DynamicError;
 use fallible_iterator::{FallibleIterator, FromFallibleIterator, IntoFallibleIterator};
 use std::iter::FromIterator;
 
@@ -52,7 +52,7 @@ impl<S> FromIterator<S> for MemoryStatements<S> {
     }
 }
 
-impl<S: StatementTrait> FromFallibleIterator<S> for MemoryStatements<S> {
+impl<S> FromFallibleIterator<S> for MemoryStatements<S> {
     fn from_fallible_iter<I: IntoFallibleIterator<Item = S>>(i: I) -> Result<Self, I::Error> {
         Ok(MemoryStatements(i.into_fallible_iter().collect()?))
     }

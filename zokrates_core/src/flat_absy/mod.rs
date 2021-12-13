@@ -13,12 +13,18 @@ pub use self::flat_variable::FlatVariable;
 
 use serde::{Deserialize, Serialize};
 
-pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
+pub use crate::ast::{Ast, DynamicError, IntoStatements, MemoryStatements, Statements};
 use crate::solvers::Solver;
-use fallible_iterator::FallibleIterator;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
+
+use std::marker::PhantomData;
+pub struct FlatAbsy<T>(PhantomData<T>);
+
+impl<T> Ast for FlatAbsy<T> {
+    type Statement = FlatStatement<T>;
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum RuntimeError {
@@ -102,16 +108,12 @@ impl fmt::Display for RuntimeError {
 
 pub type FlatProg<T> = FlatFunction<T>;
 
-impl<T> StatementTrait for FlatStatement<T> {
-    type Field = T;
-}
-
 pub type FlatFunction<T> = FlatFunctionIterator<MemoryStatements<FlatStatement<T>>>;
 
 pub type FlatProgIterator<I> = FlatFunctionIterator<I>;
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct FlatFunctionIterator<I: IntoStatements> {
+pub struct FlatFunctionIterator<I> {
     /// Arguments of the function
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
@@ -120,13 +122,13 @@ pub struct FlatFunctionIterator<I: IntoStatements> {
     pub return_count: usize,
 }
 
-impl<T, I: IntoStatements<Statement = FlatStatement<T>>> FlatFunctionIterator<I> {
-    pub fn collect(self) -> Result<FlatFunction<T>, DynamicError> {
-        Ok(FlatFunction {
-            statements: MemoryStatements(self.statements.into_fallible_iter().collect()?),
-            arguments: self.arguments,
-            return_count: self.return_count,
-        })
+impl<I> FlatFunctionIterator<I> {
+    pub fn new(arguments: Vec<FlatParameter>, statements: I, return_count: usize) -> Self {
+        Self {
+            arguments,
+            statements,
+            return_count,
+        }
     }
 }
 

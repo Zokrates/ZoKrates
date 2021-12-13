@@ -5,7 +5,7 @@ use std::io::{BufReader, Write};
 use std::path::Path;
 use zokrates_core::ir;
 use zokrates_core::ir::smtlib2::SMTLib2Display;
-use zokrates_core::ir::ProgEnum;
+use zokrates_core::ir::{IntoStatements, Ir, ProgEnum};
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -49,8 +49,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_smtlib2<T: Field, I: ir::IntoStatements<Statement = ir::Statement<T>>>(
-    ir_prog: ir::ProgIterator<I>,
+fn cli_smtlib2<T: Field, I: IntoStatements<Ir<T>>>(
+    ir_prog: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Generating SMTLib2...");

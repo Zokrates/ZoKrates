@@ -1,6 +1,6 @@
 pub mod groth16;
 
-use crate::ir::{CanonicalLinComb, IntoStatements, ProgIterator, Statement, Witness};
+use crate::ir::{CanonicalLinComb, IntoStatements, Ir, ProgIterator, Statement, Witness};
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
@@ -20,20 +20,20 @@ pub use self::parse::*;
 pub struct Bellman;
 
 #[derive(Clone)]
-pub struct Computation<T, I: IntoStatements<Statement = Statement<T>>> {
-    program: ProgIterator<I>,
+pub struct Computation<T, I: IntoStatements<Ir<T>>> {
+    program: ProgIterator<T, I>,
     witness: Option<Witness<T>>,
 }
 
-impl<T: Field, I: IntoStatements<Statement = Statement<T>>> Computation<T, I> {
-    pub fn with_witness(program: ProgIterator<I>, witness: Witness<T>) -> Self {
+impl<T: Field, I: IntoStatements<Ir<T>>> Computation<T, I> {
+    pub fn with_witness(program: ProgIterator<T, I>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
         }
     }
 
-    pub fn without_witness(program: ProgIterator<I>) -> Self {
+    pub fn without_witness(program: ProgIterator<T, I>) -> Self {
         Computation {
             program,
             witness: None,
@@ -81,9 +81,7 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Statement = Statement<T>>>
-    ProgIterator<I>
-{
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Ir<T>>> ProgIterator<T, I> {
     pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
@@ -149,9 +147,7 @@ impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Statement = Statement<
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Statement = Statement<T>>>
-    Computation<T, I>
-{
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Ir<T>>> Computation<T, I> {
     fn get_random_seed(&self) -> Result<[u32; 8], getrandom::Error> {
         let mut seed = [0u8; 32];
         getrandom::getrandom(&mut seed)?;
@@ -198,8 +194,8 @@ impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Statement = Statement<
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Statement = Statement<T>>>
-    Circuit<T::BellmanEngine> for Computation<T, I>
+impl<T: BellmanFieldExtensions + Field, I: IntoStatements<Ir<T>>> Circuit<T::BellmanEngine>
+    for Computation<T, I>
 {
     fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,

@@ -21,13 +21,24 @@ use zokrates_field::Field;
 
 pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
-pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
+pub use crate::ast::{Ast, DynamicError, IntoStatements, MemoryStatements, Statements};
 
 pub type ZirProgramIterator<'ast, I> = ZirFunctionIterator<'ast, I>;
 
+use std::marker::PhantomData;
+
+pub struct Zir<'ast, T> {
+    m0: PhantomData<T>,
+    m1: PhantomData<&'ast ()>,
+}
+
+impl<'ast, T> Ast for Zir<'ast, T> {
+    type Statement = ZirStatement<'ast, T>;
+}
+
 /// A typed function
 #[derive(Clone, PartialEq)]
-pub struct ZirFunctionIterator<'ast, I: IntoStatements> {
+pub struct ZirFunctionIterator<'ast, I> {
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -36,8 +47,14 @@ pub struct ZirFunctionIterator<'ast, I: IntoStatements> {
     pub signature: Signature,
 }
 
-impl<'ast, T> StatementTrait for ZirStatement<'ast, T> {
-    type Field = T;
+impl<'ast, I> ZirFunctionIterator<'ast, I> {
+    pub fn new(arguments: Vec<Parameter<'ast>>, statements: I, signature: Signature) -> Self {
+        Self {
+            arguments,
+            statements,
+            signature,
+        }
+    }
 }
 
 pub type ZirFunction<'ast, T> = ZirFunctionIterator<'ast, MemoryStatements<ZirStatement<'ast, T>>>;

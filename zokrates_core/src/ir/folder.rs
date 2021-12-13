@@ -4,10 +4,10 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::*;
 use zokrates_field::Field;
 
-pub fn fold_statements<T: Field, F: Folder<T>, I: IntoStatements<Statement = Statement<T>>>(
+pub fn fold_statements<T: Field, F: Folder<T>, I: IntoStatements<Ir<T>>>(
     mut f: F,
     statements: I,
-) -> impl IntoStatements<Statement = Statement<T>> {
+) -> impl IntoStatements<Ir<T>> {
     statements
         .into_fallible_iter()
         .flat_map(move |s| Result::<MemoryStatements<_>, _>::Ok(f.fold_statement(s).into()))
@@ -44,20 +44,18 @@ pub trait Folder<T: Field>: Sized {
 }
 
 pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
-    Prog {
-        arguments: p
-            .arguments
+    ProgIterator::new(
+        p.arguments
             .into_iter()
             .map(|a| f.fold_argument(a))
             .collect(),
-        statements: p
-            .statements
+        p.statements
             .0
             .into_iter()
             .flat_map(|s| f.fold_statement(s))
             .collect(),
-        return_count: p.return_count,
-    }
+        p.return_count,
+    )
 }
 
 pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec<Statement<T>> {

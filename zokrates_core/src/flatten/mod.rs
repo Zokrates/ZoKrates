@@ -30,14 +30,10 @@ pub type FlatStatements<T> = VecDeque<FlatStatement<T>>;
 ///
 /// # Arguments
 /// * `funct` - `ZirFunction` that will be flattened
-pub fn from_function_and_config<
-    'ast,
-    T: Field,
-    I: IntoStatements<Statement = ZirStatement<'ast, T>>,
->(
+pub fn from_function_and_config<'ast, T: Field, I: IntoStatements<Zir<'ast, T>>>(
     funct: ZirFunctionIterator<'ast, I>,
     config: CompileConfig,
-) -> FlattenerIterator<'ast, T, impl Statements<Statement = ZirStatement<'ast, T>>> {
+) -> FlattenerIterator<'ast, T, impl Statements<Zir<'ast, T>>> {
     let mut flattener = Flattener::new(config);
     let mut statements_flattened = FlatStatements::new();
     // push parameters
@@ -47,18 +43,18 @@ pub fn from_function_and_config<
         .map(|p| flattener.use_parameter(&p, &mut statements_flattened))
         .collect();
 
-    FlattenerIterator {
-        arguments: arguments_flattened,
-        statements: FlattenerIteratorInner {
+    FlattenerIterator::new(
+        arguments_flattened,
+        FlattenerIteratorInner {
             statements: funct.statements.into_fallible_iter(),
             statements_flattened,
             flattener,
         },
-        return_count: funct.signature.outputs.len(),
-    }
+        funct.signature.outputs.len(),
+    )
 }
 
-pub struct FlattenerIteratorInner<'ast, T, I: Statements<Statement = ZirStatement<'ast, T>>> {
+pub struct FlattenerIteratorInner<'ast, T, I: Statements<Zir<'ast, T>>> {
     pub statements: I,
     pub statements_flattened: FlatStatements<T>,
     pub flattener: Flattener<'ast, T>,
@@ -66,7 +62,7 @@ pub struct FlattenerIteratorInner<'ast, T, I: Statements<Statement = ZirStatemen
 
 pub type FlattenerIterator<'ast, T, I> = FlatProgIterator<FlattenerIteratorInner<'ast, T, I>>;
 
-impl<'ast, T: Field, I: Statements<Statement = ZirStatement<'ast, T>>> FallibleIterator
+impl<'ast, T: Field, I: Statements<Zir<'ast, T>>> FallibleIterator
     for FlattenerIteratorInner<'ast, T, I>
 {
     type Item = FlatStatement<T>;
@@ -1134,7 +1130,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         params: Vec<FlatUExpression<T>>,
-        funct: FlatFunctionIterator<impl IntoStatements<Statement = FlatStatement<T>>>,
+        funct: FlatFunctionIterator<impl IntoStatements<FlatAbsy<T>>>,
     ) -> Vec<FlatUExpression<T>> {
         let mut replacement_map = HashMap::new();
 

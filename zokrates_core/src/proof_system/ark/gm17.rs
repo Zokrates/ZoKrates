@@ -6,7 +6,7 @@ use ark_gm17::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
 
-use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, Ir, ProgIterator, Witness};
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
@@ -15,8 +15,8 @@ use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
-    fn setup<I: IntoStatements<Statement = Statement<T>>>(
-        program: ProgIterator<I>,
+    fn setup<I: IntoStatements<Ir<T>>>(
+        program: ProgIterator<T, I>,
     ) -> Result<SetupKeypair<<GM17 as Scheme<T>>::VerificationKey>, String> {
         let parameters = Computation::without_witness(program).setup();
 
@@ -42,8 +42,8 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM1
 }
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
-    fn generate_proof<I: IntoStatements<Statement = Statement<T>>>(
-        program: ProgIterator<I>,
+    fn generate_proof<I: IntoStatements<Ir<T>>>(
+        program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Result<Proof<<GM17 as Scheme<T>>::ProofPoints>, String> {
@@ -111,8 +111,8 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
 }
 
 impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
-    fn setup<I: IntoStatements<Statement = Statement<Bw6_761Field>>>(
-        program: ProgIterator<I>,
+    fn setup<I: IntoStatements<Ir<Bw6_761Field>>>(
+        program: ProgIterator<Bw6_761Field, I>,
     ) -> Result<SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey>, String> {
         let parameters = Computation::without_witness(program).setup();
 
@@ -138,8 +138,8 @@ impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
 }
 
 impl Backend<Bw6_761Field, GM17> for Ark {
-    fn generate_proof<I: IntoStatements<Statement = Statement<Bw6_761Field>>>(
-        program: ProgIterator<I>,
+    fn generate_proof<I: IntoStatements<Ir<Bw6_761Field>>>(
+        program: ProgIterator<Bw6_761Field, I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
     ) -> Result<Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints>, String> {

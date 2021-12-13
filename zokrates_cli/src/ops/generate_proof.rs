@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
 use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
+use zokrates_core::ir::{IntoStatements, Ir, ProgEnum};
 #[cfg(feature = "ark")]
 use zokrates_core::proof_system::ark::Ark;
 #[cfg(feature = "bellman")]
@@ -149,13 +149,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_generate_proof<
-    T: Field,
-    I: ir::IntoStatements<Statement = ir::Statement<T>>,
-    S: Scheme<T>,
-    B: Backend<T, S>,
->(
-    program: ir::ProgIterator<I>,
+fn cli_generate_proof<T: Field, I: IntoStatements<Ir<T>>, S: Scheme<T>, B: Backend<T, S>>(
+    program: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Generating proof...");

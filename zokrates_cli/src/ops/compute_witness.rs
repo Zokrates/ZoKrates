@@ -6,7 +6,7 @@ use std::io::{stdin, BufReader, BufWriter, Read};
 use std::path::Path;
 use zokrates_abi::Encode;
 use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
+use zokrates_core::ir::{IntoStatements, Ir, ProgEnum};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
 use zokrates_field::Field;
@@ -76,8 +76,8 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_compute<T: Field, I: ir::IntoStatements<Statement = ir::Statement<T>>>(
-    ir_prog: ir::ProgIterator<I>,
+fn cli_compute<T: Field, I: IntoStatements<Ir<T>>>(
+    ir_prog: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Computing witness...");

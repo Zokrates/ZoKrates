@@ -8,11 +8,11 @@ pub fn fold_statements<
     'ast,
     T: Field,
     F: Folder<'ast, T>,
-    I: IntoStatements<Statement = TypedStatement<'ast, T>>,
+    I: IntoStatements<TypedAbsy<'ast, T>>,
 >(
     mut f: F,
     statements: I,
-) -> impl IntoStatements<Statement = TypedStatement<'ast, T>> {
+) -> impl IntoStatements<TypedAbsy<'ast, T>> {
     statements
         .into_fallible_iter()
         .flat_map(move |s| Result::<MemoryStatements<_>, _>::Ok(f.fold_statement(s).into()))

@@ -10,7 +10,7 @@ use sha2::Sha256;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
-use crate::ir::{IntoStatements, ProgIterator, Statement, Witness};
+use crate::ir::{IntoStatements, Ir, ProgIterator, Witness};
 use crate::proof_system::ark::parse_fr;
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
@@ -45,9 +45,9 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         res
     }
 
-    fn setup<I: IntoStatements<Statement = Statement<T>>>(
+    fn setup<I: IntoStatements<Ir<T>>>(
         srs: Vec<u8>,
-        program: ProgIterator<I>,
+        program: ProgIterator<T, I>,
     ) -> Result<SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey>, String> {
         let program = program.collect().unwrap();
 
@@ -93,8 +93,8 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn generate_proof<I: IntoStatements<Statement = Statement<T>>>(
-        program: ProgIterator<I>,
+    fn generate_proof<I: IntoStatements<Ir<T>>>(
+        program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Result<Proof<<marlin::Marlin as Scheme<T>>::ProofPoints>, String> {

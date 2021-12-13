@@ -1,4 +1,4 @@
-use crate::ir::{DynamicError, IntoStatements, MemoryIrStatements, ProgIterator, Statement};
+use crate::ir::{DynamicError, IntoStatements, Ir, MemoryIrStatements, ProgIterator, Statement};
 use fallible_iterator::FallibleIterator;
 use serde_cbor::{self, StreamDeserializer};
 use std::io::{Read, Write};
@@ -9,15 +9,15 @@ const ZOKRATES_VERSION_2: &[u8; 4] = &[0, 0, 0, 2];
 
 #[derive(PartialEq, Debug)]
 pub enum ProgEnum<
-    Bls12_381I: IntoStatements,
-    Bn128I: IntoStatements,
-    Bls12_377I: IntoStatements,
-    Bw6_761I: IntoStatements,
+    Bls12_381I: IntoStatements<Ir<Bls12_381Field>>,
+    Bn128I: IntoStatements<Ir<Bn128Field>>,
+    Bls12_377I: IntoStatements<Ir<Bls12_377Field>>,
+    Bw6_761I: IntoStatements<Ir<Bw6_761Field>>,
 > {
-    Bls12_381Program(ProgIterator<Bls12_381I>),
-    Bn128Program(ProgIterator<Bn128I>),
-    Bls12_377Program(ProgIterator<Bls12_377I>),
-    Bw6_761Program(ProgIterator<Bw6_761I>),
+    Bls12_381Program(ProgIterator<Bls12_381Field, Bls12_381I>),
+    Bn128Program(ProgIterator<Bn128Field, Bn128I>),
+    Bls12_377Program(ProgIterator<Bls12_377Field, Bls12_377I>),
+    Bw6_761Program(ProgIterator<Bw6_761Field, Bw6_761I>),
 }
 
 type MemoryProgEnum = ProgEnum<
@@ -28,10 +28,10 @@ type MemoryProgEnum = ProgEnum<
 >;
 
 impl<
-        Bls12_381I: IntoStatements<Field = Bls12_381Field, Statement = Statement<Bls12_381Field>>,
-        Bn128I: IntoStatements<Field = Bn128Field, Statement = Statement<Bn128Field>>,
-        Bls12_377I: IntoStatements<Field = Bls12_377Field, Statement = Statement<Bls12_377Field>>,
-        Bw6_761I: IntoStatements<Field = Bw6_761Field, Statement = Statement<Bw6_761Field>>,
+        Bls12_381I: IntoStatements<Ir<Bls12_381Field>>,
+        Bn128I: IntoStatements<Ir<Bn128Field>>,
+        Bls12_377I: IntoStatements<Ir<Bls12_377Field>>,
+        Bw6_761I: IntoStatements<Ir<Bw6_761Field>>,
     > ProgEnum<Bls12_381I, Bn128I, Bls12_377I, Bw6_761I>
 {
     pub fn collect(self) -> Result<MemoryProgEnum, DynamicError> {
@@ -44,7 +44,7 @@ impl<
     }
 }
 
-impl<T: Field, I: IntoStatements<Statement = Statement<T>>> ProgIterator<I> {
+impl<T: Field, I: IntoStatements<Ir<T>>> ProgIterator<T, I> {
     pub fn serialize<W: Write>(self, mut w: W) -> Result<(), DynamicError> {
         w.write_all(ZOKRATES_MAGIC)?;
         w.write_all(ZOKRATES_VERSION_2)?;
@@ -175,38 +175,38 @@ impl<'de, R: Read>
                     m if m == Bls12_381Field::id() => {
                         let s = p.into_iter::<Statement<Bls12_381Field>>();
 
-                        Ok(ProgEnum::Bls12_381Program(ProgIterator {
+                        Ok(ProgEnum::Bls12_381Program(ProgIterator::new(
                             arguments,
+                            UnwrappedStreamDeserializer { s },
                             return_count,
-                            statements: UnwrappedStreamDeserializer { s },
-                        }))
+                        )))
                     }
                     m if m == Bn128Field::id() => {
                         let s = p.into_iter::<Statement<Bn128Field>>();
 
-                        Ok(ProgEnum::Bn128Program(ProgIterator {
+                        Ok(ProgEnum::Bn128Program(ProgIterator::new(
                             arguments,
+                            UnwrappedStreamDeserializer { s },
                             return_count,
-                            statements: UnwrappedStreamDeserializer { s },
-                        }))
+                        )))
                     }
                     m if m == Bls12_377Field::id() => {
                         let s = p.into_iter::<Statement<Bls12_377Field>>();
 
-                        Ok(ProgEnum::Bls12_377Program(ProgIterator {
+                        Ok(ProgEnum::Bls12_377Program(ProgIterator::new(
                             arguments,
+                            UnwrappedStreamDeserializer { s },
                             return_count,
-                            statements: UnwrappedStreamDeserializer { s },
-                        }))
+                        )))
                     }
                     m if m == Bw6_761Field::id() => {
                         let s = p.into_iter::<Statement<Bw6_761Field>>();
 
-                        Ok(ProgEnum::Bw6_761Program(ProgIterator {
+                        Ok(ProgEnum::Bw6_761Program(ProgIterator::new(
                             arguments,
+                            UnwrappedStreamDeserializer { s },
                             return_count,
-                            statements: UnwrappedStreamDeserializer { s },
-                        }))
+                        )))
                     }
                     _ => Err(String::from("Unknown curve identifier")),
                 }
