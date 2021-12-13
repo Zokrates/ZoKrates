@@ -28,8 +28,7 @@ use crate::typed_absy::{
     ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
     FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId,
     TypedExpression, TypedExpressionList, TypedExpressionListInner, TypedFunction,
-    TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedProgram, TypedStatement,
-    UExpression, UExpressionInner, Variable,
+    TypedFunctionSymbol, TypedProgram, TypedStatement, UExpression, UExpressionInner, Variable,
 };
 
 use zokrates_field::Field;
