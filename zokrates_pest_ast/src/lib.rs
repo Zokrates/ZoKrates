@@ -702,10 +702,11 @@ mod ast {
         Member(MemberAccess<'ast>),
     }
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::assignee_access))]
     pub enum AssigneeAccess<'ast> {
-        Select(Box<ArrayAccess<'ast>>),
+        Select(ArrayAccess<'ast>),
         Member(MemberAccess<'ast>),
     }
 
