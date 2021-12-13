@@ -81,21 +81,14 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
         f: TypedFunction<'ast, T>,
         generics: &ConcreteGenericsAssignment<'ast>,
         versions: &'a mut Versions<'ast>,
-    ) -> Output<TypedFunction<'ast, T>, Vec<(Versions<'ast>, Versions<'ast>)>> {
+    ) -> Output<TypedFunction<'ast, T>, Vec<Versions<'ast>>> {
         let mut unroller = ShallowTransformer::with_versions(versions);
 
         let f = unroller.fold_function(f, generics);
 
         match unroller.blocked {
             false => Output::Complete(f),
-            true => Output::Incomplete(
-                f,
-                unroller
-                    .for_loop_backups
-                    .into_iter()
-                    .map(|v| (v.clone(), v.into_iter().map(|(k, v)| (k, v + 1)).collect()))
-                    .collect(),
-            ),
+            true => Output::Incomplete(f, unroller.for_loop_backups),
         }
     }
 
@@ -213,12 +206,12 @@ mod tests {
                 vec![],
             )];
 
-            let statements = loops;
+            let statements = MemoryStatements(loops);
 
             let f = TypedFunction {
                 arguments: vec![],
                 signature: DeclarationSignature::new(),
-                statements: statements.into(),
+                statements,
             };
 
             match ShallowTransformer::transform(
@@ -620,7 +613,7 @@ mod tests {
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],
-                statements: vec![
+                statements: MemoryStatements(vec![
                     TypedStatement::Definition(
                         Variable::uint("n", UBitwidth::B32).into(),
                         TypedExpression::Uint(42u32.into()),
@@ -666,8 +659,7 @@ mod tests {
                     TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into()
                     ]),
-                ]
-                .into(),
+                ]),
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
                         GenericIdentifier::with_name("K").with_index(0).into(),
@@ -690,7 +682,7 @@ mod tests {
 
             let expected = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],
-                statements: vec![
+                statements: MemoryStatements(vec![
                     TypedStatement::Definition(
                         Variable::uint("K", UBitwidth::B32).into(),
                         TypedExpression::Uint(1u32.into()),
@@ -747,8 +739,7 @@ mod tests {
                         Identifier::from("a").version(5),
                     )
                     .into()]),
-                ]
-                .into(),
+                ]),
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
                         GenericIdentifier::with_name("K").with_index(0).into(),
@@ -767,22 +758,12 @@ mod tests {
             let expected = Output::Incomplete(
                 expected,
                 vec![
-                    (
-                        vec![("n".into(), 1), ("a".into(), 1), ("K".into(), 0)]
-                            .into_iter()
-                            .collect::<Versions>(),
-                        vec![("n".into(), 2), ("a".into(), 2), ("K".into(), 1)]
-                            .into_iter()
-                            .collect::<Versions>(),
-                    ),
-                    (
-                        vec![("n".into(), 2), ("a".into(), 3), ("K".into(), 1)]
-                            .into_iter()
-                            .collect::<Versions>(),
-                        vec![("n".into(), 3), ("a".into(), 4), ("K".into(), 2)]
-                            .into_iter()
-                            .collect::<Versions>(),
-                    ),
+                    vec![("n".into(), 1), ("a".into(), 1), ("K".into(), 0)]
+                        .into_iter()
+                        .collect::<Versions>(),
+                    vec![("n".into(), 2), ("a".into(), 3), ("K".into(), 1)]
+                        .into_iter()
+                        .collect::<Versions>(),
                 ],
             );
 
@@ -819,7 +800,7 @@ mod tests {
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],
-                statements: vec![
+                statements: MemoryStatements(vec![
                     TypedStatement::Definition(
                         Variable::uint("n", UBitwidth::B32).into(),
                         TypedExpression::Uint(42u32.into()),
@@ -867,8 +848,7 @@ mod tests {
                     TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into()
                     ]),
-                ]
-                .into(),
+                ]),
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
                         GenericIdentifier::with_name("K").with_index(0).into(),
@@ -891,7 +871,7 @@ mod tests {
 
             let expected = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],
-                statements: vec![
+                statements: MemoryStatements(vec![
                     TypedStatement::Definition(
                         Variable::uint("K", UBitwidth::B32).into(),
                         TypedExpression::Uint(1u32.into()),
@@ -951,8 +931,7 @@ mod tests {
                         Identifier::from("a").version(3),
                     )
                     .into()]),
-                ]
-                .into(),
+                ]),
                 signature: DeclarationSignature::new()
                     .generics(vec![Some(
                         GenericIdentifier::with_name("K").with_index(0).into(),

@@ -1,12 +1,12 @@
 // A folder to inline all constant definitions down to a single literal and register them in the state for later use.
 
 use crate::static_analysis::reducer::{
-    constants_reader::ConstantsReader, reduce_function_no_generics, ConstantDefinitions, Error,
+    constants_reader::ConstantsReader, reduce_function, ConstantDefinitions, Error,
 };
 use crate::typed_absy::{
-    result_folder::*, OwnedTypedModuleId, TypedConstant, TypedConstantSymbol,
-    TypedConstantSymbolDeclaration, TypedModuleId, TypedProgram, TypedSymbolDeclaration,
-    UExpression,
+    result_folder::*, types::ConcreteGenericsAssignment, MemoryStatements, OwnedTypedModuleId,
+    TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId,
+    TypedProgram, TypedSymbolDeclaration, UExpression,
 };
 use std::collections::{BTreeMap, HashSet};
 use zokrates_field::Field;
@@ -114,12 +114,15 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                 // wrap this expression in a function
                 let wrapper = TypedFunction {
                     arguments: vec![],
-                    statements: vec![TypedStatement::Return(vec![c.expression])].into(),
+                    statements: MemoryStatements(vec![TypedStatement::Return(vec![c.expression])]),
                     signature: DeclarationSignature::new().outputs(vec![c.ty.clone()]),
                 };
 
-                let mut inlined_wrapper = reduce_function_no_generics(wrapper, &self.program)
-                    .map_err(|_| Error::ConstantReduction(id.id.to_string(), id.module.clone()))?;
+                let mut inlined_wrapper = reduce_function(
+                    wrapper,
+                    ConcreteGenericsAssignment::default(),
+                    &self.program,
+                )?;
 
                 if let TypedStatement::Return(mut expressions) =
                     inlined_wrapper.statements.0.pop().unwrap()

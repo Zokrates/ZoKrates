@@ -17,15 +17,19 @@ mod inline;
 mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
-use std::collections::{HashMap, VecDeque};
+use crate::typed_absy::result_folder::*;
+use crate::typed_absy::types::ConcreteGenericsAssignment;
+use crate::typed_absy::types::GGenericsAssignment;
+use crate::typed_absy::CanonicalConstantIdentifier;
+use crate::typed_absy::Folder;
+use std::collections::HashMap;
 
 use crate::typed_absy::{
-    result_folder::*, ArrayExpressionInner, ArrayType, BlockExpression,
-    CanonicalConstantIdentifier, CoreIdentifier, DynamicError, Expr, Folder, FunctionCall,
+    ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
     FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId,
     TypedExpression, TypedExpressionList, TypedExpressionListInner, TypedFunction,
-    TypedFunctionIterator, TypedFunctionSymbol, TypedProgram, TypedStatement, UExpression,
-    UExpressionInner, Variable,
+    TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule, TypedProgram, TypedStatement,
+    UExpression, UExpressionInner, Variable,
 };
 
 use zokrates_field::Field;
@@ -34,7 +38,6 @@ use self::constants_writer::ConstantsWriter;
 use self::shallow_ssa::ShallowTransformer;
 
 use crate::static_analysis::propagation::{Constants, Propagator};
-use fallible_iterator::FallibleIterator;
 
 use std::fmt;
 
@@ -84,8 +87,8 @@ impl fmt::Display for Error {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
-struct Substitutions<'ast>(pub HashMap<CoreIdentifier<'ast>, HashMap<usize, usize>>);
+#[derive(Debug, Default)]
+struct Substitutions<'ast>(HashMap<CoreIdentifier<'ast>, HashMap<usize, usize>>);
 
 impl<'ast> Substitutions<'ast> {
     // create an equivalent substitution map where all paths
@@ -173,16 +176,13 @@ fn register<'ast>(
 
 #[derive(Debug)]
 struct Reducer<'ast, 'a, T> {
-    complete_statement_buffer: Vec<TypedStatement<'ast, T>>,
     statement_buffer: Vec<TypedStatement<'ast, T>>,
-    for_loop_versions: Vec<(Versions<'ast>, Versions<'ast>)>,
-    for_loop_versions_after: Vec<(Versions<'ast>, Versions<'ast>)>,
+    for_loop_versions: Vec<Versions<'ast>>,
+    for_loop_versions_after: Vec<Versions<'ast>>,
     program: &'a TypedProgram<'ast, T>,
     versions: &'a mut Versions<'ast>,
     substitutions: &'a mut Substitutions<'ast>,
-    // while this flag is true, we fill `complete_statement_buffer`
-    // as soon as it's false, we fill `statement_buffer`
-    send_to_complete_buffer: bool,
+    complete: bool,
 }
 
 impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
@@ -190,7 +190,7 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         program: &'a TypedProgram<'ast, T>,
         versions: &'a mut Versions<'ast>,
         substitutions: &'a mut Substitutions<'ast>,
-        for_loop_versions: Vec<(Versions<'ast>, Versions<'ast>)>,
+        for_loop_versions: Vec<Versions<'ast>>,
     ) -> Self {
         // we reverse the vector as it's cheaper to `pop` than to take from
         // the head
@@ -199,14 +199,13 @@ impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
         for_loop_versions.reverse();
 
         Reducer {
-            complete_statement_buffer: vec![],
             statement_buffer: vec![],
             for_loop_versions_after: vec![],
             for_loop_versions,
             substitutions,
             program,
             versions,
-            send_to_complete_buffer: true,
+            complete: true,
         }
     }
 }
@@ -221,9 +220,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
     ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
-        // if we reach a function call, we stop yielding statements
-        self.send_to_complete_buffer = false;
-
         let generics = e
             .generics
             .into_iter()
@@ -247,12 +243,14 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
 
         match res {
             Ok(Output::Complete((statements, mut expressions))) => {
+                self.complete &= true;
                 self.statement_buffer.extend(statements);
                 Ok(FunctionCallOrExpression::Expression(
                     E::from(expressions.pop().unwrap()).into_inner(),
                 ))
             }
             Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
+                self.complete = false;
                 self.statement_buffer.extend(statements);
                 self.for_loop_versions_after.extend(delta_for_loop_versions);
                 Ok(FunctionCallOrExpression::Expression(
@@ -261,11 +259,16 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
-                conc, decl
+                conc.to_string(),
+                decl.to_string()
             ))),
-            Err(InlineError::NonConstant(key, generics, arguments, _)) => Ok(
-                FunctionCallOrExpression::Expression(E::function_call(key, generics, arguments)),
-            ),
+            Err(InlineError::NonConstant(key, generics, arguments, _)) => {
+                self.complete = false;
+
+                Ok(FunctionCallOrExpression::Expression(E::function_call(
+                    key, generics, arguments,
+                )))
+            }
             Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
                 let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
                     *self
@@ -300,23 +303,17 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     ) -> Result<BlockExpression<'ast, T, E>, Self::Error> {
         // backup the statements and continue with a fresh state
         let statement_buffer = std::mem::take(&mut self.statement_buffer);
-        let complete_statement_buffer = std::mem::take(&mut self.complete_statement_buffer);
 
         let block = fold_block_expression(self, b)?;
 
         // put the original statements back and extract the statements created by visiting the block
         let extra_statements = std::mem::replace(&mut self.statement_buffer, statement_buffer);
-        let extra_complete_statements = std::mem::replace(
-            &mut self.complete_statement_buffer,
-            complete_statement_buffer,
-        );
 
         // return the visited block, augmented with the statements created while visiting it
         Ok(BlockExpression {
             statements: block
                 .statements
                 .into_iter()
-                .chain(extra_complete_statements)
                 .chain(extra_statements)
                 .collect(),
             ..block
@@ -335,9 +332,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
         let res = match s {
-            m @ TypedStatement::MultipleDefinition(..) if !self.send_to_complete_buffer => {
-                Ok(vec![m])
-            }
             TypedStatement::MultipleDefinition(
                 v,
                 TypedExpressionList {
@@ -368,7 +362,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     Ok(Output::Complete((statements, expressions))) => {
                         assert_eq!(v.len(), expressions.len());
 
-                        self.send_to_complete_buffer = false;
+                        self.complete &= true;
 
                         Ok(statements
                             .into_iter()
@@ -382,7 +376,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                         assert_eq!(v.len(), expressions.len());
 
-                        self.send_to_complete_buffer = false;
+                        self.complete = false;
                         self.for_loop_versions_after.extend(delta_for_loop_versions);
 
                         Ok(statements
@@ -396,10 +390,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                     Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                         "Call site `{}` incompatible with declaration `{}`",
-                        conc, decl
+                        conc.to_string(),
+                        decl.to_string()
                     ))),
                     Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
-                        self.send_to_complete_buffer = false;
+                        self.complete = false;
 
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
@@ -408,40 +403,33 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         )])
                     }
                     Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
-                        self.complete_statement_buffer
-                            .push(TypedStatement::MultipleDefinition(
-                                v,
-                                TypedExpressionListInner::EmbedCall(embed, generics, arguments)
-                                    .annotate(output_types),
-                            ));
-
-                        Ok(vec![])
+                        Ok(vec![TypedStatement::MultipleDefinition(
+                            v,
+                            TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                                .annotate(output_types),
+                        )])
                     }
                 }
             }
-            f @ TypedStatement::For(..) if !self.send_to_complete_buffer => {
-                let v = self.for_loop_versions.pop().unwrap();
-                self.for_loop_versions_after.push(v);
-                Ok(vec![f])
-            }
             TypedStatement::For(v, from, to, statements) => {
-                let (versions_before, versions_after) = self.for_loop_versions.pop().unwrap();
+                let versions_before = self.for_loop_versions.pop().unwrap();
 
                 match (from.as_inner(), to.as_inner()) {
-                    (UExpressionInner::Value(from), UExpressionInner::Value(to))
-                        if *from == *to =>
-                    {
-                        // we know the final versions of the variables after full unrolling of the loop
-                        // the versions after the loop need to point to these, so we add to the substitutions
-                        register(self.substitutions, &versions_after, &versions_before);
-                        Ok(vec![])
-                    }
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
+                        let mut out_statements = vec![];
+
                         // get a fresh set of versions for all variables to use as a starting point inside the loop
                         self.versions.values_mut().for_each(|v| *v += 1);
 
                         // add this set of versions to the substitution, pointing to the versions before the loop
                         register(self.substitutions, self.versions, &versions_before);
+
+                        // the versions after the loop are found by applying an offset of 1 to the versions before the loop
+                        let versions_after = versions_before
+                            .clone()
+                            .into_iter()
+                            .map(|(k, v)| (k, v + 1))
+                            .collect();
 
                         let mut transformer = ShallowTransformer::with_versions(self.versions);
 
@@ -449,62 +437,47 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                             return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
                         }
 
-                        #[allow(clippy::needless_collect)]
-                        let extracted_statements: Vec<_> =
-                            std::iter::once(TypedStatement::Definition(
-                                v.clone().into(),
-                                UExpression::from(*from as u32).into(),
-                            ))
-                            .chain(statements.clone().into_iter())
-                            .map(|s| transformer.fold_statement(s))
-                            .flatten()
-                            .collect();
+                        for index in *from..*to {
+                            let statements: Vec<TypedStatement<_>> =
+                                std::iter::once(TypedStatement::Definition(
+                                    v.clone().into(),
+                                    UExpression::from(index as u32).into(),
+                                ))
+                                .chain(statements.clone().into_iter())
+                                .map(|s| transformer.fold_statement(s))
+                                .flatten()
+                                .collect();
 
-                        let backups: Vec<_> = transformer
-                            .for_loop_backups
-                            .into_iter()
-                            .map(|v| (v.clone(), v.into_iter().map(|(k, v)| (k, v + 1)).collect()))
-                            .collect();
+                            out_statements.extend(statements);
+                        }
+
+                        let backups = transformer.for_loop_backups;
+                        let blocked = transformer.blocked;
+
+                        // we know the final versions of the variables after full unrolling of the loop
+                        // the versions after the loop need to point to these, so we add to the substitutions
+                        register(self.substitutions, &versions_after, self.versions);
 
                         // we may have found new for loops when unrolling this one, which means new backed up versions
                         // we insert these in our backup list and update our cursor
 
                         self.for_loop_versions_after.extend(backups);
-                        self.for_loop_versions_after
-                            .push((self.versions.clone(), versions_after));
 
                         // if the ssa transform got blocked, the reduction is not complete
-                        self.send_to_complete_buffer = false;
+                        self.complete &= !blocked;
 
-                        Ok(extracted_statements
-                            .into_iter()
-                            .chain(vec![TypedStatement::For(
-                                v,
-                                (*from as u32 + 1).into(),
-                                (*to as u32).into(),
-                                statements,
-                            )])
-                            .collect())
+                        Ok(out_statements)
                     }
                     _ => {
                         let from = self.fold_uint_expression(from)?;
                         let to = self.fold_uint_expression(to)?;
-                        self.send_to_complete_buffer = false;
-                        self.for_loop_versions_after
-                            .push((versions_before, versions_after));
+                        self.complete = false;
+                        self.for_loop_versions_after.push(versions_before);
                         Ok(vec![TypedStatement::For(v, from, to, statements)])
                     }
                 }
             }
-            s => {
-                let statements = fold_statement(self, s)?;
-                if self.send_to_complete_buffer {
-                    self.complete_statement_buffer.extend(statements);
-                    Ok(vec![])
-                } else {
-                    Ok(statements)
-                }
-            }
+            s => fold_statement(self, s),
         };
 
         res.map(|res| self.statement_buffer.drain(..).chain(res).collect())
@@ -526,8 +499,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
                     }
                     _ => {
-                        // if slice bounds are not constant, we need to propagate so we stop yielding
-                        self.send_to_complete_buffer = false;
+                        self.complete = false;
                         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
                     }
                 }
@@ -537,10 +509,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
     }
 }
 
-pub fn reduce_program<T: Field>(
-    p: TypedProgram<T>,
-) -> Result<TypedFunctionIterator<ReducerIterator<T>>, Error> {
-    // inline all constants and replace them in the  program
+pub fn reduce_program<T: Field>(p: TypedProgram<T>) -> Result<TypedFunction<T>, Error> {
+    // inline all constants and replace them in the program
+
     let mut constants_writer = ConstantsWriter::with_program(p.clone());
 
     let p = constants_writer.fold_program(p)?;
@@ -559,168 +530,102 @@ pub fn reduce_program<T: Field>(
     };
 
     match main_function.signature.generics.len() {
-        0 => Ok(TypedFunctionIterator {
-            arguments: main_function.arguments.clone(),
-            signature: main_function.signature.clone(),
-            statements: ReducerIterator::new(main_function, p),
-        }),
+        0 => {
+            let main_function = reduce_function(main_function, GGenericsAssignment::default(), &p)?;
+
+            Ok(main_function)
+        }
         _ => Err(Error::GenericsInMain),
     }
 }
 
-/// A state machine which yields statements while minimizing the statements in memory
-/// We take the main function and add its statements to an output buffer, making sure to always apply a single expansion
-/// per pass. An expansion is one function call inlining, or one single loop unrolling. As soon as we have reached an expansion
-/// site, we go through the rest of the program without doing any more expansions.
-/// After each pass, we yield all statements in the output buffer before applying another pass. This way, the size of the
-/// program in memory here only ever increases by one function body or loop body
-#[derive(Debug, PartialEq)]
-pub struct ReducerIterator<'ast, T> {
-    /// the original program, required in order to resolve function calls
-    program: TypedProgram<'ast, T>,
-    /// the current function, which gets updated as its statements are yielded
-    function: TypedFunction<'ast, T>,
-    /// a buffer of statements which are ready to be yielded
-    output: VecDeque<TypedStatement<'ast, T>>,
-    /// the current SSA version state
-    versions: Versions<'ast>,
-    /// the current constant expression state for propagation
-    constants: Constants<'ast, T>,
-    /// the hash of the program, in order to detect a fixed point
-    hash: Option<u64>,
-    /// a flag to keep track of whether the initial SSA reduction was applied
-    first_ssa_done: bool,
-    /// the state of the SSA versions before and after each for-loop
-    new_for_loop_versions: Vec<(Versions<'ast>, Versions<'ast>)>,
-    /// the state of the equivalence between SSA versions, to avoid creating many redefinition statements
-    substitutions: Substitutions<'ast>,
-}
+fn reduce_function<'ast, T: Field>(
+    f: TypedFunction<'ast, T>,
+    generics: ConcreteGenericsAssignment<'ast>,
+    program: &TypedProgram<'ast, T>,
+) -> Result<TypedFunction<'ast, T>, Error> {
+    let mut versions = Versions::default();
 
-impl<'ast, T: Field> ReducerIterator<'ast, T> {
-    pub fn new(function: TypedFunction<'ast, T>, program: TypedProgram<'ast, T>) -> Self {
-        Self {
-            program,
-            function,
-            output: Default::default(),
-            versions: Default::default(),
-            constants: Default::default(),
-            hash: Default::default(),
-            first_ssa_done: Default::default(),
-            new_for_loop_versions: Default::default(),
-            substitutions: Default::default(),
-        }
-    }
-}
+    let mut constants = Constants::default();
 
-impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
-    type Item = TypedStatement<'ast, T>;
-    type Error = DynamicError;
+    let f = match ShallowTransformer::transform(f, &generics, &mut versions) {
+        Output::Complete(f) => Ok(f),
+        Output::Incomplete(new_f, new_for_loop_versions) => {
+            let mut for_loop_versions = new_for_loop_versions;
 
-    fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
-        while self.output.is_empty() && !self.function.statements.is_empty() {
-            if !self.first_ssa_done {
-                match ShallowTransformer::transform(
-                    self.function.clone(),
-                    &Default::default(),
-                    &mut self.versions,
-                ) {
-                    Output::Complete(mut f) => {
-                        self.first_ssa_done = true;
-                        self.output.extend(std::mem::take(&mut f.statements));
-                        self.function = f;
-                        break;
-                    }
-                    Output::Incomplete(new_f, new_for_loop_versions) => {
-                        self.first_ssa_done = true;
-                        self.function = new_f;
-                        self.new_for_loop_versions = new_for_loop_versions;
-                    }
-                };
-            }
+            let mut f = new_f;
 
-            // run one round of the iteration process
-            {
-                self.substitutions = std::mem::take(&mut self.substitutions).canonicalize();
+            let mut substitutions = Substitutions::default();
 
+            let mut hash = None;
+
+            loop {
                 let mut reducer = Reducer::new(
-                    &self.program,
-                    &mut self.versions,
-                    &mut self.substitutions,
-                    std::mem::take(&mut self.new_for_loop_versions),
+                    program,
+                    &mut versions,
+                    &mut substitutions,
+                    for_loop_versions,
                 );
 
-                let statements = std::mem::take(&mut self.function.statements);
-
                 let new_f = TypedFunction {
-                    statements: statements
+                    statements: f
+                        .statements
                         .into_iter()
                         .map(|s| reducer.fold_statement(s))
                         .collect::<Result<Vec<_>, _>>()?
                         .into_iter()
                         .flatten()
                         .collect(),
-                    ..self.function.clone()
+                    ..f
                 };
 
                 assert!(reducer.for_loop_versions.is_empty());
-                self.output.extend(reducer.complete_statement_buffer);
 
-                self.new_for_loop_versions = reducer.for_loop_versions_after;
+                match reducer.complete {
+                    true => {
+                        substitutions = substitutions.canonicalize();
 
-                let mut sub = Sub::new(&self.substitutions);
-                let mut prop = Propagator::with_constants(std::mem::take(&mut self.constants));
+                        let new_f = Sub::new(&substitutions).fold_function(new_f);
 
-                self.output = std::mem::take(&mut self.output)
-                    .into_iter()
-                    .flat_map(|s| sub.fold_statement(s))
-                    .map(|s| prop.fold_statement(s))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .flatten()
-                    .collect();
+                        let mut propagator = Propagator::with_constants(constants);
 
-                let new_f = sub.fold_function(new_f);
+                        let new_f = propagator
+                            .fold_function(new_f)
+                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
 
-                self.function = prop
-                    .fold_function(new_f)
-                    .map_err(|e| Error::Incompatible(format!("{}", e)))?;
+                        constants = propagator.constants;
 
-                self.constants = prop.constants;
+                        break Ok(new_f);
+                    }
+                    false => {
+                        for_loop_versions = reducer.for_loop_versions_after;
 
-                if self.output.is_empty() {
-                    let new_hash = Some(compute_hash(&self.function));
-                    if new_hash == self.hash {
-                        return Err(Error::NoProgress.into());
-                    } else {
-                        self.hash = new_hash
+                        let new_f = Sub::new(&substitutions).fold_function(new_f);
+
+                        let mut propagator = Propagator::with_constants(constants);
+
+                        f = propagator
+                            .fold_function(new_f)
+                            .map_err(|e| Error::Incompatible(format!("{}", e)))?;
+
+                        constants = propagator.constants;
+
+                        let new_hash = Some(compute_hash(&f));
+
+                        if new_hash == hash {
+                            break Err(Error::NoProgress);
+                        } else {
+                            hash = new_hash
+                        }
                     }
                 }
             }
         }
-        Ok(self.output.pop_front())
-    }
-}
+    }?;
 
-fn reduce_function_no_generics<'ast, T: Field>(
-    f: TypedFunction<'ast, T>,
-    program: &TypedProgram<'ast, T>,
-) -> Result<TypedFunction<'ast, T>, ()> {
-    let arguments = f.arguments.clone();
-    let signature = f.signature.clone();
-
-    let reducer_iterator = ReducerIterator::new(f, program.clone());
-
-    let r = TypedFunctionIterator {
-        arguments,
-        signature,
-        statements: reducer_iterator,
-    };
-
-    let f = r.collect().map_err(|_| ())?;
-
-    Propagator::with_constants(Constants::default())
+    Propagator::with_constants(constants)
         .fold_function(f)
-        .map_err(|_| ())
+        .map_err(|e| Error::Incompatible(format!("{}", e)))
 }
 
 fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {
@@ -734,15 +639,13 @@ fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::{
-        DeclarationConstant, DeclarationSignature, GGenericsAssignment,
-    };
+    use crate::typed_absy::types::DeclarationConstant;
+    use crate::typed_absy::types::DeclarationSignature;
     use crate::typed_absy::{
         ArrayExpression, ArrayExpressionInner, DeclarationFunctionKey, DeclarationType,
         DeclarationVariable, FieldElementExpression, GenericIdentifier, Identifier,
-        OwnedTypedModuleId, Select, Type, TypedExpression, TypedExpressionList,
-        TypedExpressionOrSpread, TypedFunctionSymbolDeclaration, TypedModule, Types, UBitwidth,
-        UExpressionInner, Variable,
+        MemoryStatements, OwnedTypedModuleId, Select, Type, TypedExpression, TypedExpressionList,
+        TypedExpressionOrSpread, Types, UBitwidth, UExpressionInner, Variable,
     };
     use zokrates_field::Bn128Field;
 
@@ -776,10 +679,9 @@ mod tests {
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
-            statements: vec![TypedStatement::Return(vec![
+            statements: MemoryStatements(vec![TypedStatement::Return(vec![
                 FieldElementExpression::Identifier("a".into()).into(),
-            ])]
-            .into(),
+            ])]),
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -787,7 +689,7 @@ mod tests {
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
                     TypedExpression::Uint(42u32.into()),
@@ -822,8 +724,7 @@ mod tests {
                         .into(),
                 ),
                 TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -862,9 +763,9 @@ mod tests {
 
         let reduced = reduce_program(p);
 
-        let expected = TypedFunction {
+        let expected: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::Definition(
                     Variable::field_element(Identifier::from("a").version(1)).into(),
                     FieldElementExpression::Identifier("a".into()).into(),
@@ -898,14 +799,13 @@ mod tests {
                     Identifier::from("a").version(2),
                 )
                 .into()]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::FieldElement]),
         };
 
-        assert_eq!(reduced.unwrap().collect().unwrap(), expected);
+        assert_eq!(reduced.unwrap(), expected);
     }
 
     #[test]
@@ -950,18 +850,17 @@ mod tests {
                 GenericIdentifier::with_name("K").with_index(0),
             )
             .into()],
-            statements: vec![TypedStatement::Return(vec![
+            statements: MemoryStatements(vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
-            ])]
-            .into(),
+            ])]),
             signature: foo_signature.clone(),
         };
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
                     TypedExpression::Uint(42u32.into()),
@@ -1005,8 +904,7 @@ mod tests {
                         0u32,
                     ))
                 .into()]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -1042,9 +940,9 @@ mod tests {
 
         let reduced = reduce_program(p);
 
-        let expected = TypedFunction {
+        let expected: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::Definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
                     ArrayExpressionInner::Value(
@@ -1097,14 +995,13 @@ mod tests {
                         0u32,
                     ))
                 .into()]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::FieldElement]),
         };
 
-        assert_eq!(reduced.unwrap().collect().unwrap(), expected);
+        assert_eq!(reduced.unwrap(), expected);
     }
 
     #[test]
@@ -1149,18 +1046,17 @@ mod tests {
                 GenericIdentifier::with_name("K").with_index(0),
             )
             .into()],
-            statements: vec![TypedStatement::Return(vec![
+            statements: MemoryStatements(vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
-            ])]
-            .into(),
+            ])]),
             signature: foo_signature.clone(),
         };
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::Definition(
                     Variable::uint("n", UBitwidth::B32).into(),
                     TypedExpression::Uint(2u32.into()),
@@ -1213,8 +1109,7 @@ mod tests {
                         0u32,
                     ))
                 .into()]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::FieldElement]),
@@ -1250,9 +1145,9 @@ mod tests {
 
         let reduced = reduce_program(p);
 
-        let expected = TypedFunction {
+        let expected: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::Definition(
                     Variable::array("b", Type::FieldElement, 1u32).into(),
                     ArrayExpressionInner::Value(
@@ -1305,14 +1200,13 @@ mod tests {
                         0u32,
                     ))
                 .into()]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new()
                 .inputs(vec![DeclarationType::FieldElement])
                 .outputs(vec![DeclarationType::FieldElement]),
         };
 
-        assert_eq!(reduced.unwrap().collect().unwrap(), expected);
+        assert_eq!(reduced.unwrap(), expected);
     }
 
     #[test]
@@ -1359,7 +1253,7 @@ mod tests {
                 DeclarationConstant::Generic(GenericIdentifier::with_name("K").with_index(0)),
             )
             .into()],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::Definition(
                     Variable::array(
                         "ret",
@@ -1410,8 +1304,7 @@ mod tests {
                         UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
                     )
                     .into()]),
-            ]
-            .into(),
+            ]),
             signature: foo_signature.clone(),
         };
 
@@ -1424,21 +1317,20 @@ mod tests {
                 DeclarationConstant::Generic(GenericIdentifier::with_name("K").with_index(0)),
             )
             .into()],
-            statements: vec![TypedStatement::Return(vec![
+            statements: MemoryStatements(vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(
                         Type::FieldElement,
                         UExpressionInner::Identifier("K".into()).annotate(UBitwidth::B32),
                     )
                     .into(),
-            ])]
-            .into(),
+            ])]),
             signature: bar_signature.clone(),
         };
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
                     TypedExpressionList::function_call(
@@ -1454,8 +1346,7 @@ mod tests {
                     .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Return(vec![]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new(),
         };
 
@@ -1491,9 +1382,9 @@ mod tests {
 
         let reduced = reduce_program(p);
 
-        let expected = TypedFunction {
+        let expected: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::PushCallLog(
                     DeclarationFunctionKey::with_location("main", "foo")
                         .signature(foo_signature.clone()),
@@ -1515,12 +1406,11 @@ mod tests {
                 TypedStatement::PopCallLog,
                 TypedStatement::PopCallLog,
                 TypedStatement::Return(vec![]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new(),
         };
 
-        assert_eq!(reduced.unwrap().collect().unwrap(), expected);
+        assert_eq!(reduced.unwrap(), expected);
     }
 
     #[test]
@@ -1554,18 +1444,17 @@ mod tests {
                 GenericIdentifier::with_name("K").with_index(0),
             )
             .into()],
-            statements: vec![TypedStatement::Return(vec![
+            statements: MemoryStatements(vec![TypedStatement::Return(vec![
                 ArrayExpressionInner::Identifier("a".into())
                     .annotate(Type::FieldElement, 1u32)
                     .into(),
-            ])]
-            .into(),
+            ])]),
             signature: foo_signature.clone(),
         };
 
         let main: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![],
-            statements: vec![
+            statements: MemoryStatements(vec![
                 TypedStatement::MultipleDefinition(
                     vec![Variable::array("b", Type::FieldElement, 1u32).into()],
                     TypedExpressionList::function_call(
@@ -1579,8 +1468,7 @@ mod tests {
                     .annotate(Types::new(vec![Type::array((Type::FieldElement, 1u32))])),
                 ),
                 TypedStatement::Return(vec![]),
-            ]
-            .into(),
+            ]),
             signature: DeclarationSignature::new().inputs(vec![]).outputs(vec![]),
         };
 
@@ -1610,15 +1498,11 @@ mod tests {
             .collect(),
         };
 
-        let reduced = reduce_program(p)
-            .unwrap()
-            .collect()
-            .unwrap_err()
-            .to_string();
+        let reduced = reduce_program(p);
 
         assert_eq!(
             reduced,
-            "Call site `main/foo<_>(field[0]) -> field[1]` incompatible with declaration `main/foo<K>(field[K]) -> field[K]`"
+            Err(Error::Incompatible("Call site `main/foo<_>(field[0]) -> field[1]` incompatible with declaration `main/foo<K>(field[K]) -> field[K]`".into()))
         );
     }
 }
