@@ -191,6 +191,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-groth16"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba848e856c96bc15eb3f68359cd8ea92747eb2be35a177a25e780d307069f38"
+dependencies = [
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-relations",
+ "ark-serialize",
+ "ark-std",
+]
+
+[[package]]
 name = "ark-marlin"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2441,9 +2456,11 @@ dependencies = [
  "ark-bls12-377",
  "ark-bn254",
  "ark-bw6-761",
+ "ark-crypto-primitives",
  "ark-ec",
  "ark-ff",
  "ark-gm17",
+ "ark-groth16",
  "ark-marlin",
  "ark-poly",
  "ark-poly-commit",
