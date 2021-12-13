@@ -15,10 +15,9 @@ use serde::{Deserialize, Serialize};
 
 pub use crate::ast::{DynamicError, IntoStatements, MemoryStatements, StatementTrait, Statements};
 use crate::solvers::Solver;
-use fallible_iterator::{FallibleIterator, IntoFallibleIterator};
+use fallible_iterator::FallibleIterator;
 use std::collections::HashMap;
 use std::fmt;
-use std::iter::FromIterator;
 use zokrates_field::Field;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
@@ -103,80 +102,11 @@ impl fmt::Display for RuntimeError {
 
 pub type FlatProg<T> = FlatFunction<T>;
 
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct MemoryFlatStatements<T>(Vec<FlatStatement<T>>);
-
-impl<T> From<Vec<FlatStatement<T>>> for MemoryFlatStatements<T> {
-    fn from(v: Vec<FlatStatement<T>>) -> Self {
-        MemoryFlatStatements(v)
-    }
-}
-
-impl<T> MemoryFlatStatements<T> {
-    pub fn iter(&self) -> std::slice::Iter<FlatStatement<T>> {
-        self.0.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn into_inner(self) -> Vec<FlatStatement<T>> {
-        self.0
-    }
-}
-
-impl<T> IntoIterator for MemoryFlatStatements<T> {
-    type Item = FlatStatement<T>;
-    type IntoIter = std::vec::IntoIter<FlatStatement<T>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl<T> FromIterator<FlatStatement<T>> for MemoryFlatStatements<T> {
-    fn from_iter<I: IntoIterator<Item = FlatStatement<T>>>(i: I) -> Self {
-        MemoryFlatStatements(i.into_iter().collect())
-    }
-}
-
-pub struct MemoryFlatStatementsIterator<T, I: Iterator<Item = FlatStatement<T>>> {
-    statements: I,
-}
-
-impl<T, I: Iterator<Item = FlatStatement<T>>> FallibleIterator
-    for MemoryFlatStatementsIterator<T, I>
-{
-    type Item = FlatStatement<T>;
-    type Error = DynamicError;
-
-    fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
-        Ok(self.statements.next())
-    }
-}
-
-impl<T> IntoFallibleIterator for MemoryFlatStatements<T> {
-    type Item = FlatStatement<T>;
-    type Error = DynamicError;
-    type IntoFallibleIter = MemoryFlatStatementsIterator<T, std::vec::IntoIter<FlatStatement<T>>>;
-
-    fn into_fallible_iter(self) -> Self::IntoFallibleIter {
-        MemoryFlatStatementsIterator {
-            statements: self.into_iter(),
-        }
-    }
-}
-
 impl<T> StatementTrait for FlatStatement<T> {
     type Field = T;
 }
 
-pub type FlatFunction<T> = FlatFunctionIterator<MemoryFlatStatements<T>>;
+pub type FlatFunction<T> = FlatFunctionIterator<MemoryStatements<FlatStatement<T>>>;
 
 pub type FlatProgIterator<I> = FlatFunctionIterator<I>;
 
@@ -193,7 +123,7 @@ pub struct FlatFunctionIterator<I: IntoStatements> {
 impl<T, I: IntoStatements<Statement = FlatStatement<T>>> FlatFunctionIterator<I> {
     pub fn collect(self) -> Result<FlatFunction<T>, DynamicError> {
         Ok(FlatFunction {
-            statements: MemoryFlatStatements(self.statements.into_fallible_iter().collect()?),
+            statements: MemoryStatements(self.statements.into_fallible_iter().collect()?),
             arguments: self.arguments,
             return_count: self.return_count,
         })
