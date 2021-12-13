@@ -144,7 +144,7 @@ impl Interpreter {
 
                 // pad with zeroes so that the result is exactly `bit_width` long
                 (0..bit_width - bits.len())
-                    .map(|_| 0)
+                    .map(|_| false)
                     .chain(bits)
                     .map(T::from)
                     .collect()
