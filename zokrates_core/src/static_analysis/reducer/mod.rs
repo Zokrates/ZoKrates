@@ -257,8 +257,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
-                conc.to_string(),
-                decl.to_string()
+                conc, decl
             ))),
             Err(InlineError::NonConstant(key, generics, arguments, _)) => {
                 self.complete = false;
@@ -388,8 +387,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                     Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                         "Call site `{}` incompatible with declaration `{}`",
-                        conc.to_string(),
-                        decl.to_string()
+                        conc, decl
                     ))),
                     Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
                         self.complete = false;
@@ -442,8 +440,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                                     UExpression::from(index as u32).into(),
                                 ))
                                 .chain(statements.clone().into_iter())
-                                .map(|s| transformer.fold_statement(s))
-                                .flatten()
+                                .flat_map(|s| transformer.fold_statement(s))
                                 .collect();
 
                             out_statements.extend(statements);
