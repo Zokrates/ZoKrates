@@ -5,6 +5,7 @@
 //! @date 2018
 
 mod branch_isolator;
+mod condition_redefiner;
 mod constant_argument_checker;
 mod constant_resolver;
 mod flat_propagation;
@@ -18,6 +19,7 @@ mod variable_write_remover;
 mod zir_propagation;
 
 use self::branch_isolator::Isolator;
+use self::condition_redefiner::ConditionRedefiner;
 use self::constant_argument_checker::ConstantArgumentChecker;
 use self::flatten_complex_types::{Flattener, FlattenerInner};
 use self::out_of_bounds::OutOfBoundsChecker;
@@ -135,6 +137,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let mut type_flattener_inner = FlattenerInner::default();
         let mut zir_propagator = ZirPropagator::default();
         let mut uint_optimizer = UintOptimizer::default();
+        let condition_redefiner = ConditionRedefiner::default();
 
         let arguments = r.arguments;
         let statements = r.statements.into_fallible_iter();
@@ -175,6 +178,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
             typed_absy::result_folder::fold_statements(constant_argument_checker, statements);
         let statements =
             typed_absy::result_folder::fold_statements(out_of_bounds_checker, statements);
+        let statements = typed_absy::folder::fold_statements(condition_redefiner, statements);
 
         let type_flattener = Flattener {
             input: statements.into_fallible_iter(),

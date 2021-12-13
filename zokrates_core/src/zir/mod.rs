@@ -343,17 +343,14 @@ impl<'ast, T> Iterator for ConjunctionIterator<BooleanExpression<'ast, T>> {
     type Item = BooleanExpression<'ast, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.current
-            .pop()
-            .map(|n| match n {
-                BooleanExpression::And(box left, box right) => {
-                    self.current.push(left);
-                    self.current.push(right);
-                    self.next()
-                }
-                n => Some(n),
-            })
-            .flatten()
+        self.current.pop().and_then(|n| match n {
+            BooleanExpression::And(box left, box right) => {
+                self.current.push(left);
+                self.current.push(right);
+                self.next()
+            }
+            n => Some(n),
+        })
     }
 }
 

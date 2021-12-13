@@ -183,6 +183,7 @@ impl<'ast, T> TypedConstantSymbolDeclaration<'ast, T> {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum TypedSymbolDeclaration<'ast, T> {
     Function(TypedFunctionSymbolDeclaration<'ast, T>),
@@ -433,6 +434,7 @@ impl<'ast, T: Field> Typed<'ast, T> for TypedConstant<'ast, T> {
 }
 
 /// Something we can assign to.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedAssignee<'ast, T> {
     Identifier(Variable<'ast, T>),
@@ -1252,8 +1254,7 @@ impl<'ast, T: Clone> ArrayValue<'ast, T> {
     ) -> Option<U> {
         self.0
             .iter()
-            .map(|v| Self::expression_at_aux(v.clone()))
-            .flatten()
+            .flat_map(|v| Self::expression_at_aux(v.clone()))
             .take_while(|e| e.is_some())
             .map(|e| e.unwrap())
             .nth(index)

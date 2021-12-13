@@ -261,8 +261,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             }
             Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                 "Call site `{}` incompatible with declaration `{}`",
-                conc.to_string(),
-                decl.to_string()
+                conc, decl
             ))),
             Err(InlineError::NonConstant(key, generics, arguments, _)) => Ok(
                 FunctionCallOrExpression::Expression(E::function_call(key, generics, arguments)),
@@ -397,8 +396,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                     Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
                         "Call site `{}` incompatible with declaration `{}`",
-                        conc.to_string(),
-                        decl.to_string()
+                        conc, decl
                     ))),
                     Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
                         self.send_to_complete_buffer = false;
