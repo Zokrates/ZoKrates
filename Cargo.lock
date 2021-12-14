@@ -2512,7 +2512,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.7.8"
+version = "0.7.9"
 dependencies = [
  "assert_cli",
  "blake2 0.8.1",
