@@ -4,7 +4,7 @@ set -e
 bin=$1; stdlib=$2
 
 function zokrates() {
-  ZOKRATES_STDLIB=$stdlib $bin $*
+  ZOKRATES_STDLIB=$stdlib $bin "$@"
 }
 
 zokrates compile -i get_hash.zok -o get_hash && zokrates inspect -i get_hash
