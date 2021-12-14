@@ -12,9 +12,11 @@ pub use self::scheme::*;
 pub use self::solidity::*;
 
 use crate::ir;
+use rand_0_4::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use zokrates_field::Field;
+use std::io::{Read, Write};
+use zokrates_field::{BellmanFieldExtensions, Field};
 
 #[derive(Serialize)]
 pub struct SetupKeypair<V> {
@@ -80,8 +82,8 @@ impl ToString for G2Affine {
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {
-    fn generate_proof(
-        program: ir::Prog<T>,
+    fn generate_proof<I: IntoIterator<Item = ir::Statement<T>>>(
+        program: ir::ProgIterator<T, I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<S::ProofPoints>;
@@ -89,14 +91,39 @@ pub trait Backend<T: Field, S: Scheme<T>> {
     fn verify(vk: S::VerificationKey, proof: Proof<S::ProofPoints>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
-    fn setup(program: ir::Prog<T>) -> SetupKeypair<S::VerificationKey>;
+    fn setup<I: IntoIterator<Item = ir::Statement<T>>>(
+        program: ir::ProgIterator<T, I>,
+    ) -> SetupKeypair<S::VerificationKey>;
 }
 
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
     fn universal_setup(size: u32) -> Vec<u8>;
 
-    fn setup(
+    fn setup<I: IntoIterator<Item = ir::Statement<T>>>(
         srs: Vec<u8>,
-        program: ir::Prog<T>,
+        program: ir::ProgIterator<T, I>,
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;
+}
+
+#[cfg(feature = "bellman")]
+pub trait MpcBackend<T: Field + BellmanFieldExtensions, S: Scheme<T>> {
+    fn initialize<R: Read, W: Write, I: IntoIterator<Item = ir::Statement<T>>>(
+        program: ir::ProgIterator<T, I>,
+        phase1_radix: &mut R,
+        output: &mut W,
+    ) -> Result<(), String>;
+
+    fn contribute<R: Read, W: Write, G: Rng>(
+        params: &mut R,
+        rng: &mut G,
+        output: &mut W,
+    ) -> Result<[u8; 64], String>;
+
+    fn verify<P: Read, R: Read, I: IntoIterator<Item = ir::Statement<T>>>(
+        params: &mut P,
+        program: ir::ProgIterator<T, I>,
+        phase1_radix: &mut R,
+    ) -> Result<Vec<[u8; 64]>, String>;
+
+    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }

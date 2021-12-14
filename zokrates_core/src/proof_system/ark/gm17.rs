@@ -6,7 +6,7 @@ use ark_gm17::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
 
-use crate::ir::{Prog, Witness};
+use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
@@ -15,7 +15,9 @@ use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
-    fn setup(program: Prog<T>) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
+    fn setup<I: IntoIterator<Item = Statement<T>>>(
+        program: ProgIterator<T, I>,
+    ) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
         let mut pk: Vec<u8> = Vec::new();
@@ -40,29 +42,30 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM1
 }
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
-    fn generate_proof(
-        program: Prog<T>,
+    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+        program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<<GM17 as Scheme<T>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
-        let params = ProvingKey::<<T as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
-            &mut proving_key.as_slice(),
-        )
-        .unwrap();
-
-        let proof = computation.clone().prove(&params);
-        let proof_points = ProofPoints {
-            a: parse_g1::<T>(&proof.a),
-            b: parse_g2::<T>(&proof.b),
-            c: parse_g1::<T>(&proof.c),
-        };
 
         let inputs = computation
             .public_inputs_values()
             .iter()
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
+
+        let params = ProvingKey::<<T as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
+            &mut proving_key.as_slice(),
+        )
+        .unwrap();
+
+        let proof = computation.prove(&params);
+        let proof_points = ProofPoints {
+            a: parse_g1::<T>(&proof.a),
+            b: parse_g2::<T>(&proof.b),
+            c: parse_g1::<T>(&proof.c),
+        };
 
         Proof::new(proof_points, inputs)
     }
@@ -108,8 +111,8 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
 }
 
 impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
-    fn setup(
-        program: Prog<Bw6_761Field>,
+    fn setup<I: IntoIterator<Item = Statement<Bw6_761Field>>>(
+        program: ProgIterator<Bw6_761Field, I>,
     ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
         let parameters = Computation::without_witness(program).setup();
 
@@ -135,30 +138,31 @@ impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
 }
 
 impl Backend<Bw6_761Field, GM17> for Ark {
-    fn generate_proof(
-        program: Prog<Bw6_761Field>,
+    fn generate_proof<I: IntoIterator<Item = Statement<Bw6_761Field>>>(
+        program: ProgIterator<Bw6_761Field, I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
     ) -> Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
-        let params =
-            ProvingKey::<<Bw6_761Field as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
-                &mut proving_key.as_slice(),
-            )
-                .unwrap();
-
-        let proof = computation.clone().prove(&params);
-        let proof_points = ProofPoints {
-            a: parse_g1::<Bw6_761Field>(&proof.a),
-            b: parse_g2_fq::<Bw6_761Field>(&proof.b),
-            c: parse_g1::<Bw6_761Field>(&proof.c),
-        };
 
         let inputs = computation
             .public_inputs_values()
             .iter()
             .map(parse_fr::<Bw6_761Field>)
             .collect::<Vec<_>>();
+
+        let params =
+            ProvingKey::<<Bw6_761Field as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
+                &mut proving_key.as_slice(),
+            )
+                .unwrap();
+
+        let proof = computation.prove(&params);
+        let proof_points = ProofPoints {
+            a: parse_g1::<Bw6_761Field>(&proof.a),
+            b: parse_g2_fq::<Bw6_761Field>(&proof.b),
+            c: parse_g1::<Bw6_761Field>(&proof.c),
+        };
 
         Proof::new(proof_points, inputs)
     }
@@ -260,7 +264,7 @@ mod tests {
     fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
             arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-            returns: vec![FlatVariable::public(0)],
+            return_count: 1,
             statements: vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
@@ -271,11 +275,14 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &[Bls12_377Field::from(42)])
+            .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bls12_377Field, GM17>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Ark as Backend<Bls12_377Field, GM17>>::generate_proof(
+            program.into(),
+            witness,
+            keypair.pk,
+        );
         let ans = <Ark as Backend<Bls12_377Field, GM17>>::verify(keypair.vk, proof);
 
         assert!(ans);
@@ -285,7 +292,7 @@ mod tests {
     fn verify_bw6_761_field() {
         let program: Prog<Bw6_761Field> = Prog {
             arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-            returns: vec![FlatVariable::public(0)],
+            return_count: 1,
             statements: vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
@@ -296,7 +303,7 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &[Bw6_761Field::from(42)])
+            .execute(program.clone(), &[Bw6_761Field::from(42)])
             .unwrap();
 
         let proof =

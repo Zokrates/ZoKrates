@@ -49,9 +49,6 @@ pub fn visit_module<T: Field, F: Visitor<T>>(f: &mut F, p: &Prog<T>) {
     for expr in p.statements.iter() {
         f.visit_statement(expr);
     }
-    for expr in p.returns.iter() {
-        f.visit_variable(expr);
-    }
 }
 
 pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {

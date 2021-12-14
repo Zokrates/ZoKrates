@@ -10,17 +10,8 @@ use crate::ir::folder::Folder;
 use crate::ir::*;
 use zokrates_field::Field;
 
-pub struct TautologyOptimizer {}
-
-impl TautologyOptimizer {
-    fn new() -> TautologyOptimizer {
-        TautologyOptimizer {}
-    }
-
-    pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
-        TautologyOptimizer::new().fold_module(p)
-    }
-}
+#[derive(Default)]
+pub struct TautologyOptimizer;
 
 impl<T: Field> Folder<T> for TautologyOptimizer {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {

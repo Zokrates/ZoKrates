@@ -1,6 +1,6 @@
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::flat_absy::RuntimeError;
-use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
+use crate::ir::{LinComb, ProgIterator, QuadComb, Statement, Witness};
 use crate::solvers::Solver;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -8,8 +8,6 @@ use std::fmt;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
-
-impl<T: Field> Prog<T> {}
 
 #[derive(Default)]
 pub struct Interpreter {
@@ -27,8 +25,12 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field>(&self, program: &Prog<T>, inputs: &[T]) -> ExecutionResult<T> {
-        self.check_inputs(program, inputs)?;
+    pub fn execute<T: Field, I: IntoIterator<Item = Statement<T>>>(
+        &self,
+        program: ProgIterator<T, I>,
+        inputs: &[T],
+    ) -> ExecutionResult<T> {
+        self.check_inputs(&program, inputs)?;
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
 
@@ -36,7 +38,7 @@ impl Interpreter {
             witness.insert(arg.id, value.clone());
         }
 
-        for statement in program.statements.iter() {
+        for statement in program.statements.into_iter() {
             match statement {
                 Statement::Constraint(quad, lin, error) => match lin.is_assignee(&witness) {
                     true => {
@@ -47,9 +49,7 @@ impl Interpreter {
                         let lhs_value = quad.evaluate(&witness).unwrap();
                         let rhs_value = lin.evaluate(&witness).unwrap();
                         if lhs_value != rhs_value {
-                            return Err(Error::UnsatisfiedConstraint {
-                                error: error.to_owned(),
-                            });
+                            return Err(Error::UnsatisfiedConstraint { error });
                         }
                     }
                 },
@@ -108,7 +108,11 @@ impl Interpreter {
             .collect()
     }
 
-    fn check_inputs<T: Field, U>(&self, program: &Prog<T>, inputs: &[U]) -> Result<(), Error> {
+    fn check_inputs<T: Field, I: IntoIterator<Item = Statement<T>>, U>(
+        &self,
+        program: &ProgIterator<T, I>,
+        inputs: &[U],
+    ) -> Result<(), Error> {
         if program.arguments.len() == inputs.len() {
             Ok(())
         } else {
@@ -132,22 +136,17 @@ impl Interpreter {
                 ],
             },
             Solver::Bits(bit_width) => {
-                let padding = bit_width.saturating_sub(T::get_required_bits());
+                // get all the bits
+                let bits = inputs[0].to_bits_be();
 
-                let bit_width = bit_width - padding;
+                // only keep at most `bit_width` of them, starting from the least significant
+                let bits = bits[bits.len().saturating_sub(*bit_width)..].to_vec();
 
-                let num = inputs[0].clone();
-
-                (0..padding)
-                    .map(|_| T::zero())
-                    .chain((0..bit_width).rev().scan(num, |state, i| {
-                        if T::from(2).pow(i) <= *state {
-                            *state = (*state).clone() - T::from(2).pow(i);
-                            Some(T::one())
-                        } else {
-                            Some(T::zero())
-                        }
-                    }))
+                // pad with zeroes so that the result is exactly `bit_width` long
+                (0..bit_width - bits.len())
+                    .map(|_| false)
+                    .chain(bits)
+                    .map(T::from)
                     .collect()
             }
             Solver::Xor => {

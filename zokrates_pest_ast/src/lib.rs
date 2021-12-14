@@ -702,6 +702,7 @@ mod ast {
         Member(MemberAccess<'ast>),
     }
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::assignee_access))]
     pub enum AssigneeAccess<'ast> {
@@ -1318,7 +1319,7 @@ mod tests {
                                         span: Span::new(source, 76, 77).unwrap()
                                     }
                                 ))),
-                                Span::new(&source, 59, 80).unwrap()
+                                Span::new(source, 59, 80).unwrap()
                             )],
                             span: Span::new(source, 52, 80).unwrap(),
                         })],

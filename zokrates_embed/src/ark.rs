@@ -144,17 +144,12 @@ pub fn generate_verify_constraints(
         var_to_index(&vk.h_gamma_g2.y.c1, num_instance_variables),
     ];
 
-    vk_indices.extend(
-        vk.query
-            .iter()
-            .map(|q| {
-                vec![
-                    var_to_index(&q.x, num_instance_variables),
-                    var_to_index(&q.y, num_instance_variables),
-                ]
-            })
-            .flatten(),
-    );
+    vk_indices.extend(vk.query.iter().flat_map(|q| {
+        vec![
+            var_to_index(&q.x, num_instance_variables),
+            var_to_index(&q.y, num_instance_variables),
+        ]
+    }));
 
     let out_index = match &res {
         Boolean::Is(x) => x

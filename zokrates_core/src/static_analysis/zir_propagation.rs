@@ -76,6 +76,41 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     }
                 }
             }
+            ZirStatement::IfElse(e, consequence, alternative) => {
+                match self.fold_boolean_expression(e)? {
+                    BooleanExpression::Value(true) => Ok(consequence
+                        .into_iter()
+                        .map(|s| self.fold_statement(s))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flatten()
+                        .collect()),
+                    BooleanExpression::Value(false) => Ok(alternative
+                        .into_iter()
+                        .map(|s| self.fold_statement(s))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flatten()
+                        .collect()),
+                    e => Ok(vec![ZirStatement::IfElse(
+                        e,
+                        consequence
+                            .into_iter()
+                            .map(|s| self.fold_statement(s))
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into_iter()
+                            .flatten()
+                            .collect(),
+                        alternative
+                            .into_iter()
+                            .map(|s| self.fold_statement(s))
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into_iter()
+                            .flatten()
+                            .collect(),
+                    )]),
+                }
+            }
             ZirStatement::MultipleDefinition(assignees, list) => {
                 for a in &assignees {
                     self.constants.remove(&a.id);
@@ -112,7 +147,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or_else(|| Error::OutOfBounds(v, e.len() as u128)),
+                        .ok_or(Error::OutOfBounds(v, e.len() as u128)),
                     i => Ok(FieldElementExpression::Select(
                         e,
                         box i.annotate(UBitwidth::B32),
@@ -244,7 +279,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(*v as usize)
                         .cloned()
-                        .ok_or_else(|| Error::OutOfBounds(*v, e.len() as u128)),
+                        .ok_or(Error::OutOfBounds(*v, e.len() as u128)),
                     _ => Ok(BooleanExpression::Select(e, box index)),
                 }
             }
@@ -463,7 +498,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or_else(|| Error::OutOfBounds(v, e.len() as u128))
+                        .ok_or(Error::OutOfBounds(v, e.len() as u128))
                         .map(|e| e.into_inner()),
                     i => Ok(UExpressionInner::Select(e, box i.annotate(UBitwidth::B32))),
                 }

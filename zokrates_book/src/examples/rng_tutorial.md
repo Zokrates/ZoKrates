@@ -31,7 +31,7 @@ Create this file under the name `get_hash.zok`:
 
 Compile the program to a form that is usable for zero knowledge proofs. This command writes 
 the binary to `get_hash`. You can see a textual representation, somewhat analogous to assembler 
-coming from a compiler, at `get_hash.ztf` enabled by the `--ztf` command line option.
+coming from a compiler, at `get_hash.ztf` created by the `inspect` command.
 ```
 {{#include ../../../zokrates_cli/examples/book/rng_tutorial/test.sh:10}}
 ```

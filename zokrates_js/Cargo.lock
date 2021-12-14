@@ -50,6 +50,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-bls12-381"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70e1c2ad76c4f725520440b981df3ce2d635f2baa1122750c757c0cf0f3d4b74"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
+name = "ark-bn254"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ead066869de5e8cb2938123204d1572f09496b629e146a6f80fa8ec508446ba"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
 name = "ark-bw6-761"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -325,6 +347,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake2-rfc"
+version = "0.2.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d6d530bdd2d52966a6d03b7a964add7ae1a288d25214066fd4b600f0f796400"
+dependencies = [
+ "arrayvec",
+ "constant_time_eq",
+]
+
+[[package]]
 name = "blake2-rfc_bellman_edition"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -419,6 +451,78 @@ name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
+
+[[package]]
+name = "crossbeam"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69323bff1fb41c635347b8ead484a5ca6c3f11914d784170b158d8449ab07f8e"
+dependencies = [
+ "cfg-if 0.1.10",
+ "crossbeam-channel",
+ "crossbeam-deque",
+ "crossbeam-epoch",
+ "crossbeam-queue",
+ "crossbeam-utils",
+]
+
+[[package]]
+name = "crossbeam-channel"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b153fe7cbef478c567df0f972e02e6d736db11affe43dfc9c56a9374d1adfb87"
+dependencies = [
+ "crossbeam-utils",
+ "maybe-uninit",
+]
+
+[[package]]
+name = "crossbeam-deque"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c20ff29ded3204c5106278a81a38f4b482636ed4fa1e6cfbeef193291beb29ed"
+dependencies = [
+ "crossbeam-epoch",
+ "crossbeam-utils",
+ "maybe-uninit",
+]
+
+[[package]]
+name = "crossbeam-epoch"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "058ed274caafc1f60c4997b5fc07bf7dc7cca454af7c6e81edffe5f33f70dace"
+dependencies = [
+ "autocfg",
+ "cfg-if 0.1.10",
+ "crossbeam-utils",
+ "lazy_static",
+ "maybe-uninit",
+ "memoffset",
+ "scopeguard",
+]
+
+[[package]]
+name = "crossbeam-queue"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "774ba60a54c213d409d5353bda12d49cd68d14e45036a285234c8d6f91f92570"
+dependencies = [
+ "cfg-if 0.1.10",
+ "crossbeam-utils",
+ "maybe-uninit",
+]
+
+[[package]]
+name = "crossbeam-utils"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3c7c73a2d1e9fc0886a08b93e98eb643461230d5f1925e4036204d5f2e261a8"
+dependencies = [
+ "autocfg",
+ "cfg-if 0.1.10",
+ "lazy_static",
+]
 
 [[package]]
 name = "crunchy"
@@ -702,6 +806,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0a01e0497841a3b2db4f8afa483cce65f7e96a3498bd6c541734792aeac8fe7"
 
 [[package]]
+name = "half"
+version = "1.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -777,10 +887,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
+name = "maybe-uninit"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
+
+[[package]]
 name = "memchr"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
+
+[[package]]
+name = "memoffset"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "043175f069eda7b85febe4a74abbaeff828d9f8b448515d3151a14a3542811aa"
+dependencies = [
+ "autocfg",
+]
 
 [[package]]
 name = "miniz_oxide"
@@ -973,6 +1098,22 @@ dependencies = [
  "maplit",
  "pest",
  "sha-1",
+]
+
+[[package]]
+name = "phase2"
+version = "0.2.2"
+source = "git+https://github.com/Zokrates/phase2#971123223b9cb8c628e885120b120f1ddb413553"
+dependencies = [
+ "bellman_ce",
+ "blake2",
+ "blake2-rfc",
+ "byteorder",
+ "crossbeam",
+ "getrandom 0.2.3",
+ "num_cpus",
+ "pairing_ce",
+ "rand 0.4.6",
 ]
 
 [[package]]
@@ -1189,6 +1330,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "scopeguard"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
+
+[[package]]
 name = "semver"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1213,6 +1360,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_cbor"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
+dependencies = [
+ "half",
+ "serde",
 ]
 
 [[package]]
@@ -1555,10 +1712,9 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "bellman_ce",
- "bincode",
  "cfg-if 0.1.10",
  "csv",
  "ff_ce 0.9.0",
@@ -1569,11 +1725,13 @@ dependencies = [
  "num",
  "num-bigint 0.2.6",
  "pairing_ce",
+ "phase2",
  "rand 0.4.6",
  "rand 0.7.3",
  "reduce",
  "regex",
  "serde",
+ "serde_cbor",
  "serde_json",
  "typed-arena",
  "zokrates_common",
@@ -1584,7 +1742,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_embed"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "ark-bls12-377",
  "ark-bw6-761",
@@ -1604,6 +1762,13 @@ dependencies = [
 name = "zokrates_field"
 version = "0.4.0"
 dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
  "bellman_ce",
  "bincode",
  "lazy_static",
@@ -1618,12 +1783,13 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.0.36"
+version = "1.0.37"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
  "serde",
  "serde_json",
+ "typed-arena",
  "wasm-bindgen",
  "zokrates_abi",
  "zokrates_common",
@@ -1633,7 +1799,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "pest",
  "pest_derive",
@@ -1641,7 +1807,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "from-pest",
  "lazy_static",
