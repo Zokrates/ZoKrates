@@ -148,20 +148,6 @@ pub fn get_random_seed() -> Result<[u8; 32], getrandom::Error> {
 }
 
 impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    // pub fn prove(self, params: &ProvingKey<T::ArkEngine>) -> Proof<T::ArkEngine> {
-    //     let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
-    //
-    //     let public_inputs = self.public_inputs_values();
-    //
-    //     let proof = create_random_proof(self, params, rng).unwrap();
-    //
-    //     let pvk = prepare_verifying_key(&params.vk);
-    //
-    //     assert!(verify_proof(&pvk, &proof, &public_inputs).unwrap());
-    //
-    //     proof
-    // }
-
     pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
         self.program
             .public_inputs(self.witness.as_ref().unwrap())
@@ -169,13 +155,6 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Comput
             .map(|v| v.clone().into_ark())
             .collect()
     }
-
-    // pub fn setup(self) -> ProvingKey<T::ArkEngine> {
-    //     let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
-    //
-    //     // run setup phase
-    //     generate_random_parameters(self, rng).unwrap()
-    // }
 }
 
 impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
