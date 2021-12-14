@@ -12,9 +12,11 @@ pub use self::scheme::*;
 pub use self::solidity::*;
 
 use crate::ir;
+use rand_0_4::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Field};
+use std::io::{Read, Write};
+use zokrates_field::{BellmanFieldExtensions, Bls12_377Field, Bls12_381Field, Bn128Field, Field};
 
 pub trait NotBw6_761Field {}
 impl NotBw6_761Field for Bls12_377Field {}
@@ -106,4 +108,27 @@ pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
         srs: Vec<u8>,
         program: ir::ProgIterator<T, I>,
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;
+}
+
+#[cfg(feature = "bellman")]
+pub trait MpcBackend<T: Field + BellmanFieldExtensions, S: Scheme<T>> {
+    fn initialize<R: Read, W: Write, I: IntoIterator<Item = ir::Statement<T>>>(
+        program: ir::ProgIterator<T, I>,
+        phase1_radix: &mut R,
+        output: &mut W,
+    ) -> Result<(), String>;
+
+    fn contribute<R: Read, W: Write, G: Rng>(
+        params: &mut R,
+        rng: &mut G,
+        output: &mut W,
+    ) -> Result<[u8; 64], String>;
+
+    fn verify<P: Read, R: Read, I: IntoIterator<Item = ir::Statement<T>>>(
+        params: &mut P,
+        program: ir::ProgIterator<T, I>,
+        phase1_radix: &mut R,
+    ) -> Result<Vec<[u8; 64]>, String>;
+
+    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }

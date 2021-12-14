@@ -12,7 +12,7 @@ default = ["bellman", "ark"]
 libsnark = ["cc", "cmake", "git2"]
 bellman = ["bellman_ce", "pairing_ce", "ff_ce", "zokrates_field/bellman"]
 wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
-multicore = ["bellman_ce/multicore"]
+multicore = ["bellman_ce/multicore", "phase2/multicore"]
 ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-groth16", "ark-crypto-primitives", "ark-serialize", "ark-relations", "ark-marlin", "ark-poly", "ark-poly-commit", "sha2"]
 
 [dependencies]
@@ -37,6 +37,7 @@ getrandom = { version = "0.2", features = ["js"] }
 rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
+phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false }
 
 # bellman
 bellman_ce = { version = "^0.3", default-features = false, optional = true }

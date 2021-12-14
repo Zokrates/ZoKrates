@@ -48,6 +48,8 @@ fn cli() -> Result<(), String> {
             compute_witness::subcommand(),
             #[cfg(feature = "ark")]
             universal_setup::subcommand(),
+            #[cfg(feature = "bellman")]
+            mpc::subcommand(),
             #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
@@ -66,6 +68,8 @@ fn cli() -> Result<(), String> {
         ("compute-witness", Some(sub_matches)) => compute_witness::exec(sub_matches),
         #[cfg(feature = "ark")]
         ("universal-setup", Some(sub_matches)) => universal_setup::exec(sub_matches),
+        #[cfg(feature = "bellman")]
+        ("mpc", Some(sub_matches)) => mpc::exec(sub_matches),
         #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
@@ -139,7 +143,14 @@ mod tests {
                         continue;
                     }
 
-                    if path.extension().expect("extension expected") == "sh" {
+                    let extension = path.extension();
+
+                    // we can ignore scripts (`*.sh˙) and files with no extension
+                    if ["", "sh"].contains(
+                        &extension
+                            .map(|e| e.to_str().unwrap_or_default())
+                            .unwrap_or_default(),
+                    ) {
                         continue;
                     }
 

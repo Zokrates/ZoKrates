@@ -1,6 +1,8 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
 use crate::proof_system::solidity::solidity_pairing_lib;
-use crate::proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
+use crate::proof_system::{
+    G1Affine, G2Affine, MpcScheme, SolidityCompatibleField, SolidityCompatibleScheme,
+};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
@@ -29,6 +31,7 @@ impl<T: Field> Scheme<T> for G16 {
 }
 
 impl<T: Field> NonUniversalScheme<T> for G16 {}
+impl<T: Field> MpcScheme<T> for G16 {}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
     fn export_solidity_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
