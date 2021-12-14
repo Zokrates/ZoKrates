@@ -10,9 +10,9 @@ use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::ark::{get_random_seed, Computation};
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
 use crate::proof_system::ark::{serialization, Ark};
-use crate::proof_system::gm17::{NotBw6_761Field, ProofPoints, VerificationKey, GM17};
-use crate::proof_system::Scheme;
+use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
+use crate::proof_system::{NotBw6_761Field, Scheme};
 use ark_bw6_761::BW6_761;
 use rand_0_7::SeedableRng;
 
