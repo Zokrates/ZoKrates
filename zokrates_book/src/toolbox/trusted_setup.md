@@ -14,7 +14,7 @@ We will start this tutorial by using ZoKrates to compile a basic program.
 First, we create a new file named `program.zok` with the following content:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/mpc_tutorial/program.zok}}
+{{#include ../../../zokrates_cli/examples/book/mpc_tutorial/circuit.zok}}
 ```
 
 We compile the program using the `compile` command.
