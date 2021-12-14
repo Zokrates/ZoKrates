@@ -29,7 +29,7 @@ serde_json = "1.0"
 serde_cbor = "0.11.2"
 hex = "0.4.2"
 regex = "0.2"
-zokrates_field = { version = "0.4.0", path = "../zokrates_field", default-features = false }
+zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
 zokrates_pest_ast = { version = "0.2.0", path = "../zokrates_pest_ast" }
 zokrates_common = { path = "../zokrates_common" }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
