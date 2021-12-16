@@ -28,10 +28,10 @@ serde = { version = "1.0", features = ["derive"] }
 dirs = "3.0.1"
 lazy_static = "1.4.0"
 byteorder = "1"
-rust-crypto = "0.2.36"
 rand = "0.4"
 hex = "0.3.1"
 blake2 = "0.8.1"
+sha2 = "0.10.0"
 
 [dev-dependencies]
 glob = "0.2.11"
