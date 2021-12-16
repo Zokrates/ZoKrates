@@ -6,7 +6,7 @@ executors:
       image: ubuntu-2004:202101-01
   macos:
     macos:
-      xcode: 12.2.0
+      xcode: 12.4.0
 
 jobs:
   build:
@@ -278,7 +278,7 @@ workflows:
 #          <<: *tag-only
           pre-steps:
             - install_rust
-          build-with: SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version) cargo
+          build-with: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo
           add-target: true
           matrix:
             alias: cross-build-apple-silicon
