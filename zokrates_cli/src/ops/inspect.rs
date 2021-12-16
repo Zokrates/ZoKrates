@@ -9,7 +9,7 @@ use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("inspect")
-        .about("Outputs a compiled program to a file in a human readable format")
+        .about("Inspects a compiled program")
         .arg(
             Arg::with_name("input")
                 .short("i")
@@ -26,7 +26,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // read compiled program
     let path = Path::new(sub_matches.value_of("input").unwrap());
     let file =
-        File::open(&path).map_err(|why| format!("Could not open {}: {}", path.display(), why))?;
+        File::open(&path).map_err(|why| format!("Could not open `{}`: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
 
@@ -42,15 +42,21 @@ fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     ir_prog: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
+    let ir_prog: ir::Prog<T> = ir_prog.collect();
+
+    println!("{:<18} {}", "curve:", T::name());
+    println!("{:<18} {}", "constraint_count:", ir_prog.constraint_count());
+    println!("{:<18} {}", "arguments:", ir_prog.arguments.len());
+    println!("{:<18} {}", "return_count:", ir_prog.return_count);
+
     let output_path = PathBuf::from(sub_matches.value_of("input").unwrap()).with_extension("ztf");
     let mut output_file = File::create(&output_path).unwrap();
-
-    let ir_prog: ir::Prog<T> = ir_prog.collect();
 
     output_file
         .write(format!("{}", ir_prog).as_bytes())
         .map_err(|why| format!("Could not save ztf: {:?}", why))?;
 
-    println!("ztf file written to '{}'", output_path.display());
+    println!("\nztf file written to '{}'", output_path.display());
+
     Ok(())
 }
