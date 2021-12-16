@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_js"
-version = "1.0.37"
+version = "1.0.38"
 authors = ["Darko Macesic"]
 edition = "2018"
 
