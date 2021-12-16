@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.10] - 2021-12-16
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.10 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Fix building issue with `aarch64-apple-darwin` target (M1) (#1074, @dark64)
+
 ## [0.7.9] - 2021-12-14
 
 ### Release
