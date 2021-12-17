@@ -135,7 +135,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut writer = BufWriter::new(bin_output_file);
 
     match program_flattened.serialize(&mut writer) {
-        Ok(_) => {
+        Ok(constraint_count) => {
             // serialize ABI spec and write to JSON file
             log::debug!("Serialize ABI");
             let abi_spec_file = File::create(&abi_spec_path)
@@ -146,6 +146,9 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
                 .map_err(|_| "Unable to write data to file.".to_string())?;
 
             println!("Compiled code written to '{}'", bin_output_path.display());
+
+            println!("Number of constraints: {}", constraint_count);
+
             Ok(())
         }
         Err(e) => {

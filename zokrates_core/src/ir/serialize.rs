@@ -45,7 +45,9 @@ impl<
 }
 
 impl<T: Field, I: IntoStatements<Ir<T>>> ProgIterator<T, I> {
-    pub fn serialize<W: Write>(self, mut w: W) -> Result<(), DynamicError> {
+    /// serialize a program iterator, returning the number of constraints serialized
+    /// Note that we only return constraints, not other statements such as directives
+    pub fn serialize<W: Write>(self, mut w: W) -> Result<usize, DynamicError> {
         w.write_all(ZOKRATES_MAGIC)?;
         w.write_all(ZOKRATES_VERSION_2)?;
         w.write_all(&T::id())?;
@@ -55,11 +57,15 @@ impl<T: Field, I: IntoStatements<Ir<T>>> ProgIterator<T, I> {
 
         let mut statements = self.statements.into_fallible_iter();
 
+        let mut count = 0;
         while let Some(s) = statements.next()? {
+            if matches!(s, Statement::Constraint(..)) {
+                count += 1;
+            }
             serde_cbor::to_writer(&mut w, &s)?;
         }
 
-        Ok(())
+        Ok(count)
     }
 }
 
