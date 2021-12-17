@@ -23,7 +23,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .arg(
             Arg::with_name("ztf")
                 .long("ztf")
-                .help("Writes human readable output (ztf) to disk")
+                .help("Writes human readable output (ztf) to a file")
                 .required(false),
         )
 }
