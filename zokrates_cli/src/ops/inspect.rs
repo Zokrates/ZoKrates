@@ -1,7 +1,7 @@
 use crate::constants::FLATTENED_CODE_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
-use std::io::{BufReader, Write};
+use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
@@ -59,15 +59,18 @@ fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     if sub_matches.is_present("ztf") {
         let output_path =
             PathBuf::from(sub_matches.value_of("input").unwrap()).with_extension("ztf");
-        let mut output_file = File::create(&output_path).unwrap();
 
-        output_file
-            .write(format!("# {}\n", curve).as_bytes())
-            .and(output_file.write(format!("# {}\n", constraint_count).as_bytes()))
-            .and(output_file.write(ir_prog.to_string().as_bytes()))
+        let output_file = File::create(&output_path).unwrap();
+        let mut w = BufWriter::new(output_file);
+
+        writeln!(w, "{}", curve)
+            .and(writeln!(w, "{}", constraint_count))
+            .and(write!(w, "{}", ir_prog))
             .map_err(|why| format!("Could not write to `{}`: {}", output_path.display(), why))?;
 
-        println!("\nztf file written to '{}'", output_path.display());
+        w.flush().expect("could not flush buffer");
+
+        println!("ztf file written to '{}'", output_path.display());
     }
 
     Ok(())
