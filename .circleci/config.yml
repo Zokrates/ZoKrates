@@ -275,18 +275,18 @@ workflows:
               target:
                 - x86_64-apple-darwin
       - cross_build:
-          <<: *tag-only
-          pre-steps:
-            - install_rust
-          build-with: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo
-          add-target: true
-          matrix:
-            alias: cross-build-apple-silicon
-            parameters:
-              os:
-                - macos
-              target:
-                - aarch64-apple-darwin
+         <<: *tag-only
+         pre-steps:
+           - install_rust
+         build-with: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo
+         add-target: true
+         matrix:
+           alias: cross-build-apple-silicon
+           parameters:
+             os:
+               - macos
+             target:
+               - aarch64-apple-darwin
       - publish_artifacts:
           <<: *tag-only
           requires:

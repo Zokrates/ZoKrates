@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_embed"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
@@ -10,7 +10,7 @@ wasm = ["bellman_ce/wasm", "sapling-crypto_ce/wasm"]
 multicore = ["bellman_ce/multicore", "sapling-crypto_ce/multicore"]
 
 [dependencies]
-zokrates_field = { version = "0.4.0", path = "../zokrates_field", default-features = false }
+zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
 bellman_ce = { version = "^0.3", default-features = false }
 sapling-crypto_ce = { version = "^0.1", default-features = false }
 ark-bls12-377 = { version = "^0.2.0", features = ["curve", "r1cs"], default-features = false }

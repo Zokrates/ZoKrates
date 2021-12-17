@@ -4,7 +4,7 @@ use bellman::groth16::{
 };
 use pairing::{ff::to_hex, CurveAffine, Engine};
 
-use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
+use crate::proof_system::{Backend, MpcBackend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
@@ -14,6 +14,9 @@ use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_g1, parse_g2};
 use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
 use crate::proof_system::Scheme;
+use phase2::MPCParameters;
+use rand_0_4::Rng;
+use std::io::{Read, Write};
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
@@ -93,7 +96,77 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
         let mut pk: Vec<u8> = Vec::new();
         parameters.write(&mut pk).unwrap();
 
-        let vk = VerificationKey {
+        let vk = serialization::parameters_to_verification_key::<T>(&parameters);
+        Ok(SetupKeypair::new(vk, pk))
+    }
+}
+
+impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
+    fn initialize<R: Read, W: Write, I: IntoStatements<Ir<T>>>(
+        program: ProgIterator<T, I>,
+        phase1_radix: &mut R,
+        output: &mut W,
+    ) -> Result<(), String> {
+        let circuit = Computation::without_witness(program);
+        let params = MPCParameters::new(circuit, phase1_radix).map_err(|e| e.to_string())?;
+        params.write(output).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    fn contribute<R: Read, W: Write, G: Rng>(
+        params: &mut R,
+        rng: &mut G,
+        output: &mut W,
+    ) -> Result<[u8; 64], String> {
+        let mut params =
+            MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
+
+        let hash = params.contribute(rng);
+        params.write(output).map_err(|e| e.to_string())?;
+
+        Ok(hash)
+    }
+
+    fn verify<P: Read, R: Read, I: IntoStatements<Ir<T>>>(
+        params: &mut P,
+        program: ProgIterator<T, I>,
+        phase1_radix: &mut R,
+    ) -> Result<Vec<[u8; 64]>, String> {
+        let params =
+            MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
+
+        let circuit = Computation::without_witness(program);
+        let hashes = params
+            .verify(circuit, phase1_radix)
+            .map_err(|_| "parameters malformed".to_string())?;
+
+        Ok(hashes)
+    }
+
+    fn export_keypair<R: Read>(
+        params: &mut R,
+    ) -> Result<SetupKeypair<<G16 as Scheme<T>>::VerificationKey>, String> {
+        let params =
+            MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
+
+        let params = params.get_params();
+        let mut pk: Vec<u8> = Vec::new();
+        params.write(&mut pk).map_err(|e| e.to_string())?;
+
+        let vk = serialization::parameters_to_verification_key::<T>(params);
+        Ok(SetupKeypair::new(vk, pk))
+    }
+}
+
+pub mod serialization {
+    use super::*;
+    use crate::proof_system::{G1Affine, G2Affine};
+    use pairing::from_hex;
+
+    pub fn parameters_to_verification_key<T: Field + BellmanFieldExtensions>(
+        parameters: &Parameters<T::BellmanEngine>,
+    ) -> VerificationKey<G1Affine, G2Affine> {
+        VerificationKey {
             alpha: parse_g1::<T>(&parameters.vk.alpha_g1),
             beta: parse_g2::<T>(&parameters.vk.beta_g2),
             gamma: parse_g2::<T>(&parameters.vk.gamma_g2),
@@ -104,17 +177,8 @@ impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman 
                 .iter()
                 .map(|g1| parse_g1::<T>(g1))
                 .collect(),
-        };
-
-        Ok(SetupKeypair::new(vk, pk))
+        }
     }
-}
-
-mod serialization {
-    use pairing::{from_hex, CurveAffine, Engine};
-
-    use crate::proof_system::{G1Affine, G2Affine};
-    use zokrates_field::BellmanFieldExtensions;
 
     pub fn to_g1<T: BellmanFieldExtensions>(
         g1: G1Affine,

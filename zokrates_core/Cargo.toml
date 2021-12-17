@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_core"
-version = "0.6.8"
+version = "0.6.9"
 edition = "2018"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/Zokrates/ZoKrates"
@@ -12,7 +12,7 @@ default = ["bellman", "ark"]
 libsnark = ["cc", "cmake", "git2"]
 bellman = ["bellman_ce", "pairing_ce", "ff_ce", "zokrates_field/bellman"]
 wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
-multicore = ["bellman_ce/multicore"]
+multicore = ["bellman_ce/multicore", "phase2/multicore"]
 ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-serialize", "ark-relations", "ark-marlin", "ark-poly", "ark-poly-commit", "sha2"]
 
 [dependencies]
@@ -29,7 +29,7 @@ serde_json = "1.0"
 serde_cbor = "0.11.2"
 hex = "0.4.2"
 regex = "0.2"
-zokrates_field = { version = "0.4.0", path = "../zokrates_field", default-features = false }
+zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
 zokrates_pest_ast = { version = "0.2.0", path = "../zokrates_pest_ast" }
 zokrates_common = { path = "../zokrates_common" }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
@@ -38,6 +38,7 @@ rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
 fallible-iterator = "0.2.0"
+phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false }
 
 # bellman
 bellman_ce = { version = "^0.3", default-features = false, optional = true }

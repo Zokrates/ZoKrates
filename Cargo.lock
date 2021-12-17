@@ -123,7 +123,7 @@ dependencies = [
  "ark-relations",
  "ark-snark",
  "ark-std",
- "blake2",
+ "blake2 0.9.2",
  "derivative",
  "digest 0.9.0",
  "tracing",
@@ -429,13 +429,35 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "blake2"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94cb07b0da6a73955f8fb85d24c466778e70cda767a568229b104f0264089330"
+dependencies = [
+ "byte-tools",
+ "crypto-mac 0.7.0",
+ "digest 0.8.1",
+ "opaque-debug 0.2.3",
+]
+
+[[package]]
+name = "blake2"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a4e37d16930f5459780f5621038b6382b9bb37c19016f39fb6b5808d831f174"
 dependencies = [
- "crypto-mac",
+ "crypto-mac 0.8.0",
  "digest 0.9.0",
  "opaque-debug 0.3.0",
+]
+
+[[package]]
+name = "blake2-rfc"
+version = "0.2.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d6d530bdd2d52966a6d03b7a964add7ae1a288d25214066fd4b600f0f796400"
+dependencies = [
+ "arrayvec",
+ "constant_time_eq",
 ]
 
 [[package]]
@@ -466,6 +488,15 @@ name = "block-buffer"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
+dependencies = [
+ "generic-array 0.14.4",
+]
+
+[[package]]
+name = "block-buffer"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1d36a02058e76b040de25a4464ba1c80935655595b661505c8b39b664828b95"
 dependencies = [
  "generic-array 0.14.4",
 ]
@@ -697,13 +728,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
+name = "crypto-common"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "683d6b536309245c849479fba3da410962a43ed8e51c26b729208ec0ac2798d0"
+dependencies = [
+ "generic-array 0.14.4",
+]
+
+[[package]]
+name = "crypto-mac"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4434400df11d95d556bac068ddfedd482915eb18fe8bea89bc80b6e4b1c179e5"
+dependencies = [
+ "generic-array 0.12.4",
+ "subtle 1.0.0",
+]
+
+[[package]]
 name = "crypto-mac"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b584a330336237c1eecd3e94266efb216c56ed91225d634cb2991c5f3fd1aeab"
 dependencies = [
  "generic-array 0.14.4",
- "subtle",
+ "subtle 2.4.1",
 ]
 
 [[package]]
@@ -776,6 +826,17 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
 dependencies = [
+ "generic-array 0.14.4",
+]
+
+[[package]]
+name = "digest"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b697d66081d42af4fba142d56918a3cb21dc8eb63372c6b85d14f44fb9c5979b"
+dependencies = [
+ "block-buffer 0.10.0",
+ "crypto-common",
  "generic-array 0.14.4",
 ]
 
@@ -883,7 +944,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83c0a6a2c53b0bd6d8cae976816dc8a171e0554c03f304e3dac110473e0219fd"
 dependencies = [
  "byteorder",
- "hex",
+ "hex 0.4.3",
  "rand 0.4.6",
 ]
 
@@ -895,7 +956,7 @@ checksum = "4592897f75fd1bd178e5ec12d9d7df3d1943464feda2cbce1e708a484e82c8f6"
 dependencies = [
  "byteorder",
  "ff_derive_ce",
- "hex",
+ "hex 0.4.3",
  "rand 0.4.6",
 ]
 
@@ -1122,6 +1183,12 @@ checksum = "c7a30908dbce072eca83216eab939d2290080e00ca71611b96a09e5cdce5f3fa"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "hex"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
 
 [[package]]
 name = "hex"
@@ -1498,6 +1565,22 @@ dependencies = [
  "maplit",
  "pest",
  "sha-1",
+]
+
+[[package]]
+name = "phase2"
+version = "0.2.2"
+source = "git+https://github.com/Zokrates/phase2#971123223b9cb8c628e885120b120f1ddb413553"
+dependencies = [
+ "bellman_ce",
+ "blake2 0.9.2",
+ "blake2-rfc",
+ "byteorder",
+ "crossbeam",
+ "getrandom 0.2.3",
+ "num_cpus",
+ "pairing_ce",
+ "rand 0.4.6",
 ]
 
 [[package]]
@@ -1946,6 +2029,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha2"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "900d964dd36bb15bcf2f2b35694c072feab74969a54f2bbeec7a2d725d2bdcb6"
+dependencies = [
+ "cfg-if 1.0.0",
+ "cpufeatures",
+ "digest 0.10.1",
+]
+
+[[package]]
 name = "single"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1980,6 +2074,12 @@ name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
+
+[[package]]
+name = "subtle"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d67a5a62ba6e01cb2192ff309324cb4875d0c451d55fe2319433abe7a05a8ee"
 
 [[package]]
 name = "subtle"
@@ -2421,21 +2521,26 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.7.8"
+version = "0.7.9"
 dependencies = [
  "assert_cli",
+ "blake2 0.8.1",
+ "byteorder",
  "cfg-if 0.1.10",
  "clap",
  "dirs",
  "env_logger",
  "fs_extra",
  "glob 0.2.11",
+ "hex 0.3.2",
  "lazy_static",
  "log",
+ "rand 0.4.6",
  "regex 0.2.11",
  "serde",
  "serde_cbor",
  "serde_json",
+ "sha2 0.10.0",
  "tempdir",
  "typed-arena",
  "zokrates_abi",
@@ -2450,7 +2555,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.8"
+version = "0.6.9"
 dependencies = [
  "ark-bls12-377",
  "ark-bn254",
@@ -2472,12 +2577,13 @@ dependencies = [
  "ff_ce 0.9.0",
  "getrandom 0.2.3",
  "git2",
- "hex",
+ "hex 0.4.3",
  "lazy_static",
  "log",
  "num",
  "num-bigint 0.2.6",
  "pairing_ce",
+ "phase2",
  "pretty_assertions",
  "rand 0.4.6",
  "rand 0.7.3",
@@ -2506,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_embed"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ark-bls12-377",
  "ark-bw6-761",
@@ -2524,7 +2630,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_field"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -2565,7 +2671,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "from-pest",
  "glob 0.2.11",
@@ -2577,7 +2683,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "fs_extra",
  "zokrates_test",
@@ -2586,7 +2692,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_test"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "serde",
  "serde_derive",
