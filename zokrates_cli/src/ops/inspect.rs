@@ -68,7 +68,8 @@ fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
             .and(write!(w, "{}", ir_prog))
             .map_err(|why| format!("Could not write to `{}`: {}", output_path.display(), why))?;
 
-        w.flush().expect("could not flush buffer");
+        w.flush()
+            .map_err(|why| format!("Failed to flush the buffer: {}", why))?;
 
         println!("ztf file written to '{}'", output_path.display());
     }
