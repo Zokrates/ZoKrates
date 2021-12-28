@@ -63,8 +63,8 @@ fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
         let output_file = File::create(&output_path).unwrap();
         let mut w = BufWriter::new(output_file);
 
-        writeln!(w, "{}", curve)
-            .and(writeln!(w, "{}", constraint_count))
+        writeln!(w, "# {}", curve)
+            .and(writeln!(w, "# {}", constraint_count))
             .and(write!(w, "{}", ir_prog))
             .map_err(|why| format!("Could not write to `{}`: {}", output_path.display(), why))?;
 
