@@ -411,6 +411,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut FlatStatements<T>,
         a: &[FlatExpression<T>],
         b: &[bool],
+        error: RuntimeError,
     ) {
         let conditions = self.constant_le_check(statements_flattened, a, b);
 
@@ -424,7 +425,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened.push_back(FlatStatement::Condition(
             FlatExpression::Number(T::from(0)),
             FlatExpression::Sub(box conditions_sum, box T::from(conditions_count).into()),
-            RuntimeError::Le,
+            error,
         ));
     }
 
@@ -601,6 +602,43 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         self.constant_field_le_check(statements_flattened, e, c - T::one())
     }
 
+    /// Enforce a range check against a constant: the range check isn't verified iff a constraint will fail
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `e` - the `FlatExpression` that's being checked against the range
+    /// * `c` - the constant upper bound of the range
+    fn enforce_constant_lt_check(
+        &mut self,
+        statements_flattened: &mut FlatStatements<T>,
+        e: FlatExpression<T>,
+        c: T,
+        error: RuntimeError,
+    ) {
+        if c == T::zero() {
+            statements_flattened.push_back(FlatStatement::Condition(
+                c.into(),
+                FlatExpression::Number(T::from(1)),
+                error,
+            ));
+            return;
+        }
+
+        let c = c - T::one();
+        let c_bit_width = c.bits() as usize;
+
+        let e_bits_be = self.get_bits(&e, c_bit_width, c_bit_width, statements_flattened);
+        let c_bits_be = c.to_bits_be();
+
+        self.enforce_constant_le_check(
+            statements_flattened,
+            &e_bits_be,
+            &c_bits_be[T::get_required_bits() - c_bit_width..],
+            error,
+        );
+    }
+
     /// Compute a range check against a constant
     ///
     /// # Arguments
@@ -620,14 +658,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let e_var = self.define(e, statements_flattened);
         let e_id = FlatExpression::Identifier(e_var);
 
-        let width = T::get_required_bits();
-        let e_bits_be = self.get_bits(&e_id, width, width, statements_flattened);
+        let bitwidth = T::get_required_bits();
+        let e_bits_be = self.get_bits(&e_id, bitwidth, bitwidth, statements_flattened);
 
         // check that this decomposition does not overflow the field
         self.enforce_constant_le_check(
             statements_flattened,
             &e_bits_be,
             &T::max_value().to_bits_be(),
+            RuntimeError::Le,
         );
 
         let c_bits_be: Vec<bool> = c.to_bits_be();
@@ -2279,6 +2318,106 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             error.into(),
                         )
                     }
+                    BooleanExpression::FieldLt(box lhs, box rhs) => {
+                        let lhs = self.flatten_field_expression(statements_flattened, lhs);
+                        let rhs = self.flatten_field_expression(statements_flattened, rhs);
+                        match (lhs, rhs) {
+                            (e, FlatExpression::Number(constant)) => {
+                                self.enforce_constant_lt_check(
+                                    statements_flattened,
+                                    e,
+                                    constant,
+                                    error.into(),
+                                );
+                            }
+                            (FlatExpression::Number(constant), e) => {
+                                let e = FlatExpression::Sub(box T::max_value().into(), box e);
+                                let constant = T::max_value() - constant;
+
+                                self.enforce_constant_lt_check(
+                                    statements_flattened,
+                                    e,
+                                    constant,
+                                    error.into(),
+                                );
+                            }
+                            (lhs, rhs) => {
+                                let bit_width = T::get_required_bits();
+                                let safe_width = bit_width - 2; // dynamic comparison is not complete
+                                self.lt_check(statements_flattened, lhs, rhs, safe_width);
+                            }
+                        }
+                    }
+                    BooleanExpression::FieldLe(box lhs, box rhs) => {
+                        let lhs = self.flatten_field_expression(statements_flattened, lhs.clone());
+                        let rhs = self.flatten_field_expression(statements_flattened, rhs.clone());
+
+                        match (lhs, rhs) {
+                            (e, FlatExpression::Number(constant)) => {
+                                let bitwidth = constant.bits() as usize;
+                                let e_bits_be =
+                                    self.get_bits(&e, bitwidth, bitwidth, statements_flattened);
+
+                                self.enforce_constant_le_check(
+                                    statements_flattened,
+                                    &e_bits_be,
+                                    &constant.to_bits_be()[T::get_required_bits() - bitwidth..],
+                                    error.into(),
+                                );
+                            }
+                            (FlatExpression::Number(constant), e) => {
+                                let e = FlatExpression::Sub(box T::max_value().into(), box e);
+                                let constant = T::max_value() - constant;
+                                let bitwidth = constant.bits() as usize;
+
+                                let e_bits_be =
+                                    self.get_bits(&e, bitwidth, bitwidth, statements_flattened);
+
+                                self.enforce_constant_le_check(
+                                    statements_flattened,
+                                    &e_bits_be,
+                                    &constant.to_bits_be()[T::get_required_bits() - bitwidth..],
+                                    error.into(),
+                                );
+                            }
+                            (lhs, rhs) => {
+                                let bit_width = T::get_required_bits();
+                                let safe_width = bit_width - 2; // dynamic comparison is not complete
+
+                                let lt = self.lt_check(
+                                    statements_flattened,
+                                    lhs.clone(),
+                                    rhs.clone(),
+                                    safe_width,
+                                );
+                                let eq = self.eq_check(statements_flattened, lhs, rhs);
+
+                                let e = FlatExpression::Add(box eq, box lt);
+                                if e.is_linear() {
+                                    statements_flattened.push_back(FlatStatement::Condition(
+                                        e,
+                                        FlatExpression::Number(T::from(1)),
+                                        error.into(),
+                                    ));
+                                } else {
+                                    // swap so that left side is linear
+                                    statements_flattened.push_back(FlatStatement::Condition(
+                                        FlatExpression::Number(T::from(1)),
+                                        e,
+                                        error.into(),
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    BooleanExpression::FieldGt(lhs, rhs) => self.flatten_statement(
+                        statements_flattened,
+                        ZirStatement::Assertion(BooleanExpression::FieldLt(rhs, lhs), error),
+                    ),
+                    BooleanExpression::FieldGe(lhs, rhs) => self.flatten_statement(
+                        statements_flattened,
+                        ZirStatement::Assertion(BooleanExpression::FieldLe(rhs, lhs), error),
+                    ),
                     BooleanExpression::UintEq(box lhs, box rhs) => {
                         let lhs = self
                             .flatten_uint_expression(statements_flattened, lhs)
@@ -2305,7 +2444,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             error.into(),
                         )
                     }
-                    _ => {
+                    e => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
                         let e = self.flatten_boolean_expression(statements_flattened, e);
 
