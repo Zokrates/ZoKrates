@@ -16,7 +16,9 @@ use rand_0_4::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
-use zokrates_field::{BellmanFieldExtensions, Bls12_377Field, Bls12_381Field, Bn128Field, Field};
+#[cfg(feature = "bellman")]
+use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::Field;
 
 pub trait NotBw6_761Field {}
 impl NotBw6_761Field for Bls12_377Field {}

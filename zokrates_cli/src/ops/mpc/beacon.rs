@@ -87,10 +87,9 @@ fn cli_mpc_beacon<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBack
     // Create an RNG based on the outcome of the random beacon
     let mut rng = {
         use byteorder::{BigEndian, ReadBytesExt};
-        use crypto::digest::Digest;
-        use crypto::sha2::Sha256;
         use rand::chacha::ChaChaRng;
         use rand::SeedableRng;
+        use sha2::{Digest, Sha256};
 
         // The hash used for the beacon
         let mut cur_hash = hex::decode(beacon_hash)
@@ -115,9 +114,7 @@ fn cli_mpc_beacon<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBack
                 println!();
             }
 
-            let mut h = Sha256::new();
-            h.input(&cur_hash);
-            h.result(&mut cur_hash);
+            cur_hash = Sha256::digest(&cur_hash).to_vec();
         }
 
         print!("Final result of beacon: ");

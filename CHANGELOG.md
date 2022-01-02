@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.9] - 2021-12-14
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.9 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Add support for trusted setup ceremony using multi-party contribution (MPC) protocol (#1044, @dark64)
+- Use ark-ff under the hood for optimized field operations (#1061, @schaeff)
+- Reduce compiler memory usage using iterators, change the serialization format to CBOR (#1041, @schaeff)
+- Improve the performance of the bit decomposition solver (#1062, @schaeff)
+
 ## [0.7.8] - 2021-11-23
 
 ### Release
