@@ -49,8 +49,8 @@ impl fmt::Display for Error {
     }
 }
 
-#[derive(Debug)]
-pub struct Propagator<'ast, T: Field> {
+#[derive(Debug, Default)]
+pub struct Propagator<'ast, T> {
     // constants keeps track of constant expressions
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
     pub constants: Constants<'ast, T>,

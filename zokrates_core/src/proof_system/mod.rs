@@ -16,7 +16,9 @@ use rand_0_4::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
-use zokrates_field::{BellmanFieldExtensions, Field};
+#[cfg(feature = "bellman")]
+use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::Field;
 
 #[derive(Serialize)]
 pub struct SetupKeypair<V> {

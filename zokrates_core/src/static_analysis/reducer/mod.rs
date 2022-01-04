@@ -17,7 +17,7 @@ mod inline;
 mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use crate::typed_absy::{
     result_folder::*, ArrayExpressionInner, ArrayType, BlockExpression,
@@ -35,6 +35,7 @@ use self::shallow_ssa::ShallowTransformer;
 
 use crate::static_analysis::propagation::{Constants, Propagator};
 use fallible_iterator::FallibleIterator;
+use std::collections::VecDeque;
 
 use std::fmt;
 
@@ -129,6 +130,20 @@ impl<'ast> Substitutions<'ast> {
         sub.keys()
             .fold(HashMap::new(), |cache, k| add_to_cache(&sub, cache, *k))
     }
+
+    fn register(&mut self, substitute: &Versions<'ast>, with: &Versions<'ast>) {
+        for (id, key, value) in substitute
+            .iter()
+            .filter_map(|(id, version)| with.get(id).map(|to| (id, version, to)))
+            .filter(|(_, key, value)| key != value)
+        {
+            let sub = self.0.entry(id.clone()).or_default();
+
+            // redirect `k` to `v`, unless `v` is already redirected to `v0`, in which case we redirect to `v0`
+
+            sub.insert(*key, *sub.get(value).unwrap_or(value));
+        }
+    }
 }
 
 struct Sub<'a, 'ast> {
@@ -153,65 +168,37 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for Sub<'a, 'ast> {
     }
 }
 
-fn register<'ast>(
-    substitutions: &mut Substitutions<'ast>,
-    substitute: &Versions<'ast>,
-    with: &Versions<'ast>,
-) {
-    for (id, key, value) in substitute
-        .iter()
-        .filter_map(|(id, version)| with.get(id).map(|to| (id, version, to)))
-        .filter(|(_, key, value)| key != value)
-    {
-        let sub = substitutions.0.entry(id.clone()).or_default();
-
-        // redirect `k` to `v`, unless `v` is already redirected to `v0`, in which case we redirect to `v0`
-
-        sub.insert(*key, *sub.get(value).unwrap_or(value));
-    }
-}
-
 #[derive(Debug)]
-struct Reducer<'ast, 'a, T> {
-    complete_statement_buffer: Vec<TypedStatement<'ast, T>>,
+struct Reducer<'ast, T> {
+    complete_statement_buffer: VecDeque<TypedStatement<'ast, T>>,
     statement_buffer: Vec<TypedStatement<'ast, T>>,
-    for_loop_versions: Vec<(Versions<'ast>, Versions<'ast>)>,
-    for_loop_versions_after: Vec<(Versions<'ast>, Versions<'ast>)>,
-    program: &'a TypedProgram<'ast, T>,
-    versions: &'a mut Versions<'ast>,
-    substitutions: &'a mut Substitutions<'ast>,
-    // while this flag is true, we fill `complete_statement_buffer`
-    // as soon as it's false, we fill `statement_buffer`
-    send_to_complete_buffer: bool,
+    for_loop_versions_stack: Vec<(Versions<'ast>, Versions<'ast>)>,
+    program: TypedProgram<'ast, T>,
+    versions: Versions<'ast>,
+    substitutions: Substitutions<'ast>,
+    blocked: bool,
 }
 
-impl<'ast, 'a, T: Field> Reducer<'ast, 'a, T> {
+impl<'ast, T: Field> Reducer<'ast, T> {
     fn new(
-        program: &'a TypedProgram<'ast, T>,
-        versions: &'a mut Versions<'ast>,
-        substitutions: &'a mut Substitutions<'ast>,
-        for_loop_versions: Vec<(Versions<'ast>, Versions<'ast>)>,
+        program: TypedProgram<'ast, T>,
+        versions: Versions<'ast>,
+        substitutions: Substitutions<'ast>,
+        for_loop_versions_stack: Vec<(Versions<'ast>, Versions<'ast>)>,
     ) -> Self {
-        // we reverse the vector as it's cheaper to `pop` than to take from
-        // the head
-        let mut for_loop_versions = for_loop_versions;
-
-        for_loop_versions.reverse();
-
         Reducer {
-            complete_statement_buffer: vec![],
+            complete_statement_buffer: VecDeque::default(),
             statement_buffer: vec![],
-            for_loop_versions_after: vec![],
-            for_loop_versions,
+            blocked: false,
+            for_loop_versions_stack,
             substitutions,
             program,
             versions,
-            send_to_complete_buffer: true,
         }
     }
 }
 
-impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
+impl<'ast, T: Field> ResultFolder<'ast, T> for Reducer<'ast, T> {
     type Error = Error;
 
     fn fold_function_call_expression<
@@ -221,8 +208,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
     ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
-        // if we reach a function call, we stop yielding statements
-        self.send_to_complete_buffer = false;
+        self.blocked = true;
 
         let generics = e
             .generics
@@ -241,8 +227,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             generics,
             arguments,
             ty,
-            self.program,
-            self.versions,
+            &self.program,
+            &mut self.versions,
         );
 
         match res {
@@ -254,7 +240,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             }
             Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                 self.statement_buffer.extend(statements);
-                self.for_loop_versions_after.extend(delta_for_loop_versions);
+                self.for_loop_versions_stack
+                    .extend(delta_for_loop_versions.into_iter().rev());
                 Ok(FunctionCallOrExpression::Expression(
                     E::from(expressions[0].clone()).into_inner(),
                 ))
@@ -334,10 +321,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         &mut self,
         s: TypedStatement<'ast, T>,
     ) -> Result<Vec<TypedStatement<'ast, T>>, Self::Error> {
+        assert!(self.complete_statement_buffer.is_empty());
+        assert!(!self.blocked);
+
         let res = match s {
-            m @ TypedStatement::MultipleDefinition(..) if !self.send_to_complete_buffer => {
-                Ok(vec![m])
-            }
             TypedStatement::MultipleDefinition(
                 v,
                 TypedExpressionList {
@@ -362,28 +349,27 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     generics,
                     arguments,
                     &types,
-                    self.program,
-                    self.versions,
+                    &self.program,
+                    &mut self.versions,
                 ) {
                     Ok(Output::Complete((statements, expressions))) => {
                         assert_eq!(v.len(), expressions.len());
 
-                        self.send_to_complete_buffer = false;
-
-                        Ok(statements
-                            .into_iter()
-                            .chain(
+                        self.complete_statement_buffer.extend(
+                            statements.into_iter().chain(
                                 v.into_iter()
                                     .zip(expressions)
                                     .map(|(v, e)| TypedStatement::Definition(v, e)),
-                            )
-                            .collect())
+                            ),
+                        );
+
+                        Ok(vec![])
                     }
                     Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
                         assert_eq!(v.len(), expressions.len());
-
-                        self.send_to_complete_buffer = false;
-                        self.for_loop_versions_after.extend(delta_for_loop_versions);
+                        self.blocked = true; // this is never read after this
+                        self.for_loop_versions_stack
+                            .extend(delta_for_loop_versions.into_iter().rev());
 
                         Ok(statements
                             .into_iter()
@@ -399,8 +385,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         conc, decl
                     ))),
                     Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
-                        self.send_to_complete_buffer = false;
-
+                        self.blocked = true;
                         Ok(vec![TypedStatement::MultipleDefinition(
                             v,
                             TypedExpressionList::function_call(key, generics, arguments)
@@ -408,24 +393,22 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         )])
                     }
                     Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
-                        self.complete_statement_buffer
-                            .push(TypedStatement::MultipleDefinition(
+                        self.complete_statement_buffer.push_back(
+                            TypedStatement::MultipleDefinition(
                                 v,
                                 TypedExpressionListInner::EmbedCall(embed, generics, arguments)
                                     .annotate(output_types),
-                            ));
+                            ),
+                        );
 
                         Ok(vec![])
                     }
                 }
             }
-            f @ TypedStatement::For(..) if !self.send_to_complete_buffer => {
-                let v = self.for_loop_versions.pop().unwrap();
-                self.for_loop_versions_after.push(v);
-                Ok(vec![f])
-            }
             TypedStatement::For(v, from, to, statements) => {
-                let (versions_before, versions_after) = self.for_loop_versions.pop().unwrap();
+                self.blocked = true; // never read after
+
+                let (versions_before, versions_after) = self.for_loop_versions_stack.pop().unwrap();
 
                 match (from.as_inner(), to.as_inner()) {
                     (UExpressionInner::Value(from), UExpressionInner::Value(to))
@@ -433,7 +416,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     {
                         // we know the final versions of the variables after full unrolling of the loop
                         // the versions after the loop need to point to these, so we add to the substitutions
-                        register(self.substitutions, &versions_after, &versions_before);
+                        self.substitutions
+                            .register(&versions_after, &versions_before);
                         Ok(vec![])
                     }
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
@@ -441,9 +425,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         self.versions.values_mut().for_each(|v| *v += 1);
 
                         // add this set of versions to the substitution, pointing to the versions before the loop
-                        register(self.substitutions, self.versions, &versions_before);
+                        self.substitutions
+                            .register(&self.versions, &versions_before);
 
-                        let mut transformer = ShallowTransformer::with_versions(self.versions);
+                        let mut transformer = ShallowTransformer::with_versions(&mut self.versions);
 
                         if to - from > MAX_FOR_LOOP_SIZE {
                             return Err(Error::LoopTooLarge(to.saturating_sub(*from)));
@@ -469,12 +454,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         // we may have found new for loops when unrolling this one, which means new backed up versions
                         // we insert these in our backup list and update our cursor
 
-                        self.for_loop_versions_after.extend(backups);
-                        self.for_loop_versions_after
+                        self.for_loop_versions_stack
                             .push((self.versions.clone(), versions_after));
-
-                        // if the ssa transform got blocked, the reduction is not complete
-                        self.send_to_complete_buffer = false;
+                        self.for_loop_versions_stack
+                            .extend(backups.into_iter().rev());
 
                         Ok(extracted_statements
                             .into_iter()
@@ -489,8 +472,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     _ => {
                         let from = self.fold_uint_expression(from)?;
                         let to = self.fold_uint_expression(to)?;
-                        self.send_to_complete_buffer = false;
-                        self.for_loop_versions_after
+                        self.for_loop_versions_stack
                             .push((versions_before, versions_after));
                         Ok(vec![TypedStatement::For(v, from, to, statements)])
                     }
@@ -498,11 +480,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
             }
             s => {
                 let statements = fold_statement(self, s)?;
-                if self.send_to_complete_buffer {
+                if self.blocked {
+                    Ok(statements)
+                } else {
                     self.complete_statement_buffer.extend(statements);
                     Ok(vec![])
-                } else {
-                    Ok(statements)
                 }
             }
         };
@@ -527,7 +509,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                     }
                     _ => {
                         // if slice bounds are not constant, we need to propagate so we stop yielding
-                        self.send_to_complete_buffer = false;
+                        self.blocked = true;
                         Ok(ArrayExpressionInner::Slice(box array, box from, box to))
                     }
                 }
@@ -558,56 +540,66 @@ pub fn reduce_program<T: Field>(
         _ => unreachable!(),
     };
 
+    let mut versions = Versions::new();
+
+    let (main_function, for_loop_versions) =
+        match ShallowTransformer::transform(main_function, &Default::default(), &mut versions) {
+            Output::Complete(f) => (f, vec![]),
+            Output::Incomplete(new_f, new_for_loop_versions) => (new_f, new_for_loop_versions),
+        };
+
     match main_function.signature.generics.len() {
         0 => Ok(TypedFunctionIterator {
-            arguments: main_function.arguments.clone(),
-            signature: main_function.signature.clone(),
-            statements: ReducerIterator::new(main_function, p),
+            arguments: main_function.arguments,
+            signature: main_function.signature,
+            statements: ReducerIterator::new(
+                main_function.statements.0,
+                p,
+                versions,
+                for_loop_versions,
+            ),
         }),
         _ => Err(Error::GenericsInMain),
     }
 }
 
-/// A state machine which yields statements while minimizing the statements in memory
-/// We take the main function and add its statements to an output buffer, making sure to always apply a single expansion
-/// per pass. An expansion is one function call inlining, or one single loop unrolling. As soon as we have reached an expansion
-/// site, we go through the rest of the program without doing any more expansions.
-/// After each pass, we yield all statements in the output buffer before applying another pass. This way, the size of the
-/// program in memory here only ever increases by one function body or loop body
-#[derive(Debug, PartialEq)]
+/// A stack-based state machine aimed at minimizing the number of statements we need to keep in memory
+/// At each step, we
+/// - pop the next statement from the stack
+/// - propagate it
+/// - reduce it
+/// - put the complete statements into a buffer
+/// - and put the rest of the statements back onto the stack
+#[derive(Debug)]
 pub struct ReducerIterator<'ast, T> {
-    /// the original program, required in order to resolve function calls
-    program: TypedProgram<'ast, T>,
     /// the current function, which gets updated as its statements are yielded
-    function: TypedFunction<'ast, T>,
-    /// a buffer of statements which are ready to be yielded
-    output: VecDeque<TypedStatement<'ast, T>>,
-    /// the current SSA version state
-    versions: Versions<'ast>,
-    /// the current constant expression state for propagation
-    constants: Constants<'ast, T>,
-    /// the hash of the program, in order to detect a fixed point
+    stack: Vec<TypedStatement<'ast, T>>,
+    /// A propagator holding the current constant expression state
+    propagator: Propagator<'ast, T>,
+    /// A reducer to be called when needed
+    reducer: Reducer<'ast, T>,
+    /// A hash to detect if we stalled
     hash: Option<u64>,
-    /// a flag to keep track of whether the initial SSA reduction was applied
-    first_ssa_done: bool,
-    /// the state of the SSA versions before and after each for-loop
-    new_for_loop_versions: Vec<(Versions<'ast>, Versions<'ast>)>,
-    /// the state of the equivalence between SSA versions, to avoid creating many redefinition statements
-    substitutions: Substitutions<'ast>,
 }
 
 impl<'ast, T: Field> ReducerIterator<'ast, T> {
-    pub fn new(function: TypedFunction<'ast, T>, program: TypedProgram<'ast, T>) -> Self {
+    pub fn new(
+        mut statements: Vec<TypedStatement<'ast, T>>,
+        program: TypedProgram<'ast, T>,
+        versions: Versions<'ast>,
+        mut for_loop_versions_stack: Vec<(Versions<'ast>, Versions<'ast>)>,
+    ) -> Self {
         Self {
-            program,
-            function,
-            output: Default::default(),
-            versions: Default::default(),
-            constants: Default::default(),
+            stack: {
+                statements.reverse();
+                statements
+            },
+            reducer: Reducer::new(program, versions, Default::default(), {
+                for_loop_versions_stack.reverse();
+                for_loop_versions_stack
+            }),
+            propagator: Default::default(),
             hash: Default::default(),
-            first_ssa_done: Default::default(),
-            new_for_loop_versions: Default::default(),
-            substitutions: Default::default(),
         }
     }
 }
@@ -617,87 +609,43 @@ impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
     type Error = DynamicError;
 
     fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
-        while self.output.is_empty() && !self.function.statements.is_empty() {
-            if !self.first_ssa_done {
-                match ShallowTransformer::transform(
-                    self.function.clone(),
-                    &Default::default(),
-                    &mut self.versions,
-                ) {
-                    Output::Complete(mut f) => {
-                        self.first_ssa_done = true;
-                        self.output.extend(std::mem::take(&mut f.statements));
-                        self.function = f;
-                        break;
-                    }
-                    Output::Incomplete(new_f, new_for_loop_versions) => {
-                        self.first_ssa_done = true;
-                        self.function = new_f;
-                        self.new_for_loop_versions = new_for_loop_versions;
-                    }
-                };
-            }
+        while self.reducer.complete_statement_buffer.is_empty() && !self.stack.is_empty() {
+            let top = self.stack.pop().unwrap();
 
-            // run one round of the iteration process
-            {
-                self.substitutions = std::mem::take(&mut self.substitutions).canonicalize();
+            let mut sub = Sub::new(&self.reducer.substitutions);
 
-                let mut reducer = Reducer::new(
-                    &self.program,
-                    &mut self.versions,
-                    &mut self.substitutions,
-                    std::mem::take(&mut self.new_for_loop_versions),
-                );
+            let top = sub.fold_statement(top).pop().unwrap();
 
-                let statements = std::mem::take(&mut self.function.statements);
+            let mut tops = self.propagator.fold_statement(top)?;
 
-                let new_f = TypedFunction {
-                    statements: statements
-                        .into_iter()
-                        .map(|s| reducer.fold_statement(s))
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter()
-                        .flatten()
-                        .collect(),
-                    ..self.function.clone()
-                };
+            let top = tops.pop();
 
-                assert!(reducer.for_loop_versions.is_empty());
-                self.output.extend(reducer.complete_statement_buffer);
+            assert!(tops.is_empty());
 
-                self.new_for_loop_versions = reducer.for_loop_versions_after;
+            match top {
+                Some(top) => {
+                    let top = self.reducer.fold_statement(top)?;
+                    self.reducer.blocked = false;
+                    self.stack.extend(top.into_iter().rev());
+                }
+                None => {}
+            };
 
-                let mut sub = Sub::new(&self.substitutions);
-                let mut prop = Propagator::with_constants(std::mem::take(&mut self.constants));
+            let current_hash = self.hash;
+            let new_hash = compute_hash(&self.stack);
 
-                self.output = std::mem::take(&mut self.output)
-                    .into_iter()
-                    .flat_map(|s| sub.fold_statement(s))
-                    .map(|s| prop.fold_statement(s))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .flatten()
-                    .collect();
-
-                let new_f = sub.fold_function(new_f);
-
-                self.function = prop
-                    .fold_function(new_f)
-                    .map_err(|e| Error::Incompatible(format!("{}", e)))?;
-
-                self.constants = prop.constants;
-
-                if self.output.is_empty() {
-                    let new_hash = Some(compute_hash(&self.function));
-                    if new_hash == self.hash {
+            match current_hash {
+                Some(current_hash) => {
+                    if new_hash == current_hash {
                         return Err(Error::NoProgress.into());
-                    } else {
-                        self.hash = new_hash
                     }
                 }
+                None => {}
             }
+
+            self.hash = Some(new_hash);
         }
-        Ok(self.output.pop_front())
+        Ok(self.reducer.complete_statement_buffer.pop_front())
     }
 }
 
@@ -705,10 +653,14 @@ fn reduce_function_no_generics<'ast, T: Field>(
     f: TypedFunction<'ast, T>,
     program: &TypedProgram<'ast, T>,
 ) -> Result<TypedFunction<'ast, T>, ()> {
-    let arguments = f.arguments.clone();
-    let signature = f.signature.clone();
+    let arguments = f.arguments;
+    let signature = f.signature;
 
-    let reducer_iterator = ReducerIterator::new(f, program.clone());
+    let versions = Versions::default();
+    let for_loop_versions = vec![];
+
+    let reducer_iterator =
+        ReducerIterator::new(f.statements.0, program.clone(), versions, for_loop_versions);
 
     let r = TypedFunctionIterator {
         arguments,
@@ -723,11 +675,12 @@ fn reduce_function_no_generics<'ast, T: Field>(
         .map_err(|_| ())
 }
 
-fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {
+fn compute_hash<T: Field>(stack: &[TypedStatement<T>]) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     let mut s = DefaultHasher::new();
-    f.hash(&mut s);
+    stack.get(0).hash(&mut s);
+    stack.len().hash(&mut s);
     s.finish()
 }
 
