@@ -141,12 +141,6 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> ProgIt
     }
 }
 
-pub fn get_random_seed() -> Result<[u8; 32], getrandom::Error> {
-    let mut seed = [0u8; 32];
-    getrandom::getrandom(&mut seed)?;
-    Ok(seed)
-}
-
 impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
     pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
         self.program

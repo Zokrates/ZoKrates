@@ -7,7 +7,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
 
 use crate::ir::{ProgIterator, Statement, Witness};
-use crate::proof_system::ark::{get_random_seed, Computation};
+use crate::proof_system::ark::Computation;
 use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
 use crate::proof_system::ark::{serialization, Ark};
 use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
@@ -22,7 +22,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM1
     ) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
         let computation = Computation::without_witness(program);
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(get_random_seed().unwrap());
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let (pk, vk) = ArkGM17::<T::ArkEngine>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();
@@ -60,7 +60,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
         )
         .unwrap();
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(get_random_seed().unwrap());
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let proof = ArkGM17::<T::ArkEngine>::prove(&pk, computation, rng).unwrap();
 
         let proof_points = ProofPoints {
@@ -118,7 +118,7 @@ impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
     ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
         let computation = Computation::without_witness(program);
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(get_random_seed().unwrap());
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let (pk, vk) = ArkGM17::<BW6_761>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();
@@ -157,7 +157,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
             )
                 .unwrap();
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(get_random_seed().unwrap());
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let proof = ArkGM17::<BW6_761>::prove(&pk, computation, rng).unwrap();
 
         let proof_points = ProofPoints {

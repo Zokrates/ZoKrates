@@ -10,7 +10,7 @@ use zokrates_field::{ArkFieldExtensions, Bw6_761Field};
 
 use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::ark::Computation;
-use crate::proof_system::ark::{get_random_seed, parse_fr, serialization, Ark};
+use crate::proof_system::ark::{parse_fr, serialization, Ark};
 use crate::proof_system::ark::{parse_g1, parse_g2};
 use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
 use crate::proof_system::Scheme;
@@ -40,7 +40,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, G16> for Ark {
         )
         .unwrap();
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(get_random_seed().unwrap());
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let proof = Groth16::<T::ArkEngine>::prove(&pk, computation, rng).unwrap();
 
         let proof_points = ProofPoints {
@@ -97,7 +97,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, G16
 
         let computation = Computation::without_witness(program);
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(get_random_seed().unwrap());
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let (pk, vk) = Groth16::<T::ArkEngine>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();
@@ -134,7 +134,7 @@ impl Backend<Bw6_761Field, G16> for Ark {
         let pk =
             ProvingKey::<BW6_761>::deserialize_uncompressed(&mut proving_key.as_slice()).unwrap();
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(get_random_seed().unwrap());
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let proof = Groth16::<BW6_761>::prove(&pk, computation, rng).unwrap();
 
         let proof_points = ProofPoints {
@@ -191,7 +191,7 @@ impl NonUniversalBackend<Bw6_761Field, G16> for Ark {
 
         let computation = Computation::without_witness(program);
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(get_random_seed().unwrap());
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let (pk, vk) = Groth16::<BW6_761>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();

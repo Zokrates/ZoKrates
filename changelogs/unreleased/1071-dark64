@@ -1,1 +1,1 @@
-Support for ark-groth16 implementation
+Support for the `groth16` scheme using the ark backend, support the usage of the `bls12_381` curve with the `gm17` and `marlin` scheme
