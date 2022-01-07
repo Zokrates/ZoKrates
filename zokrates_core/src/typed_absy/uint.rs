@@ -190,6 +190,7 @@ pub enum UExpressionInner<'ast, T> {
     Conditional(ConditionalExpression<'ast, T, UExpression<'ast, T>>),
     Member(MemberExpression<'ast, T, UExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
+    Element(ElementExpression<'ast, T, UExpression<'ast, T>>),
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {

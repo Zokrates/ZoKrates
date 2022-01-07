@@ -554,8 +554,10 @@ pub enum Expression<'ast> {
     InlineArray(Vec<SpreadOrExpression<'ast>>),
     ArrayInitializer(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     InlineStruct(UserTypeId, Vec<(Identifier<'ast>, ExpressionNode<'ast>)>),
+    InlineTuple(Vec<ExpressionNode<'ast>>),
     Select(Box<ExpressionNode<'ast>>, Box<RangeOrExpression<'ast>>),
     Member(Box<ExpressionNode<'ast>>, Box<Identifier<'ast>>),
+    Element(Box<ExpressionNode<'ast>>, u32),
     Or(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     BitXor(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     BitAnd(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
@@ -637,6 +639,16 @@ impl<'ast> fmt::Display for Expression<'ast> {
                 }
                 write!(f, "]")
             }
+            Expression::InlineTuple(ref exprs) => {
+                write!(f, "(")?;
+                for (i, e) in exprs.iter().enumerate() {
+                    write!(f, "{},", e)?;
+                    if i < exprs.len() - 1 {
+                        write!(f, " ")?;
+                    }
+                }
+                write!(f, ")")
+            }
             Expression::ArrayInitializer(ref e, ref count) => write!(f, "[{}; {}]", e, count),
             Expression::InlineStruct(ref id, ref members) => {
                 write!(f, "{} {{", id)?;
@@ -650,6 +662,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
             }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
+            Expression::Element(ref tuple, ref id) => write!(f, "{}.{}", tuple, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
             Expression::BitXor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
             Expression::BitAnd(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),

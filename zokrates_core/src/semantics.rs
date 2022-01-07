@@ -22,7 +22,8 @@ use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 use crate::typed_absy::types::{
     check_type, specialize_declaration_type, ArrayType, DeclarationArrayType, DeclarationConstant,
     DeclarationFunctionKey, DeclarationSignature, DeclarationStructMember, DeclarationStructType,
-    DeclarationType, GenericIdentifier, StructLocation, StructMember,
+    DeclarationTupleType, DeclarationType, GenericIdentifier, StructLocation, StructMember,
+    TupleType,
 };
 use std::hash::{Hash, Hasher};
 
@@ -504,6 +505,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }
             DeclarationType::Struct(ref struct_ty) => {
                 StructExpression::try_from_typed(checked_expr, struct_ty).map(TypedExpression::from)
+            }
+            DeclarationType::Tuple(ref tuple_ty) => {
+                TupleExpression::try_from_typed(checked_expr, tuple_ty).map(TypedExpression::from)
             }
             DeclarationType::Int => Err(checked_expr), // Integers cannot be assigned
         }
@@ -1377,6 +1381,13 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     size,
                 )))
             }
+            UnresolvedType::Tuple(elements) => {
+                let checked_elements: Vec<_> = elements
+                    .into_iter()
+                    .map(|e| self.check_type(e, module_id, types))
+                    .collect::<Result<_, _>>()?;
+                Ok(Type::Tuple(TupleType::new(checked_elements)))
+            }
             UnresolvedType::User(id, generics) => {
                 let declared_ty =
                     types
@@ -1534,6 +1545,23 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 Ok(DeclarationType::Array(DeclarationArrayType::new(
                     self.check_declaration_type(*t, module_id, state, generics_map, used_generics)?,
                     checked_size,
+                )))
+            }
+            UnresolvedType::Tuple(elements) => {
+                let checked_elements: Vec<_> = elements
+                    .into_iter()
+                    .map(|e| {
+                        self.check_declaration_type(
+                            e,
+                            module_id,
+                            state,
+                            generics_map,
+                            used_generics,
+                        )
+                    })
+                    .collect::<Result<_, _>>()?;
+                Ok(DeclarationType::Tuple(DeclarationTupleType::new(
+                    checked_elements,
                 )))
             }
             UnresolvedType::User(id, generics) => {
@@ -1846,6 +1874,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
                     Type::Struct(ref struct_ty) => {
                         StructExpression::try_from_typed(checked_expr, struct_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Tuple(ref tuple_ty) => {
+                        TupleExpression::try_from_typed(checked_expr, tuple_ty)
                             .map(TypedExpression::from)
                     }
                     Type::Int => Err(checked_expr), // Integers cannot be assigned
@@ -2161,6 +2193,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 .annotate(members)
                                 .into())
                         }
+                        Type::Tuple(tuple_ty) => Ok(TupleExpressionInner::Identifier(id.id.into())
+                            .annotate(tuple_ty)
+                            .into()),
                         Type::Int => unreachable!(),
                     },
                     None => Err(ErrorInner {
@@ -2595,6 +2630,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     generics_checked,
                                     arguments_checked,
                                 ).annotate(*array_ty.ty, array_ty.size).into()),
+                                Type::Tuple(tuple_ty) => Ok(TupleExpression::function_call(
+                                    function_key,
+                                    generics_checked,
+                                    arguments_checked,
+                                ).annotate(tuple_ty).into()),
                             },
                             n => Err(ErrorInner {
                                 pos: Some(pos),
@@ -2952,13 +2992,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     Type::Boolean => Ok(BooleanExpression::select(a, index).into()),
                                     Type::Array(..) => Ok(ArrayExpression::select(a, index).into()),
                                     Type::Struct(..) => Ok(StructExpression::select(a, index).into()),
+                                    Type::Tuple(..) => Ok(TupleExpression::select(a, index).into()),
                                     Type::Int => unreachable!(),
                                 }
                             }
                             a => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
-                                    "Cannot access element as index {} of type {} on expression {} of type {}",
+                                    "Cannot access element at index {} of type {} on expression {} of type {}",
                                     index,
                                     index.get_type(),
                                     a,
@@ -2967,6 +3008,44 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             }),
                         }
                     }
+                }
+            }
+            Expression::Element(box e, index) => {
+                let e = self.check_expression(e, module_id, types)?;
+                match e {
+                    TypedExpression::Tuple(t) => {
+                        let ty = t.ty().elements.get(index as usize);
+
+                        match ty {
+                            Some(ty) => match ty {
+                                Type::Int => unreachable!(),
+                                Type::FieldElement => {
+                                    Ok(FieldElementExpression::element(t, index).into())
+                                }
+                                Type::Boolean => Ok(BooleanExpression::element(t, index).into()),
+                                Type::Uint(..) => Ok(UExpression::element(t, index).into()),
+                                Type::Array(..) => Ok(ArrayExpression::element(t, index).into()),
+                                Type::Struct(..) => Ok(StructExpression::element(t, index).into()),
+                                Type::Tuple(..) => Ok(TupleExpression::element(t, index).into()),
+                            },
+                            None => Err(ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Tuple of size {} cannot be accessed at index {}",
+                                    t.ty().elements.len(),
+                                    index
+                                ),
+                            }),
+                        }
+                    }
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Cannot access tuple element {} on expression of type {}",
+                            index,
+                            e.get_type()
+                        ),
+                    }),
                 }
             }
             Expression::Member(box e, box id) => {
@@ -2992,6 +3071,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 }
                                 Type::Struct(..) => {
                                     Ok(StructExpression::member(s, id.to_string()).into())
+                                }
+                                Type::Tuple(..) => {
+                                    Ok(TupleExpression::member(s, id.to_string()).into())
                                 }
                             },
                             None => Err(ErrorInner {
@@ -3094,6 +3176,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         .annotate(inferred_type, size)
                         .into(),
                 )
+            }
+            Expression::InlineTuple(elements) => {
+                let elements: Vec<_> = elements
+                    .into_iter()
+                    .map(|e| self.check_expression(e, module_id, types))
+                    .collect::<Result<_, _>>()?;
+                let ty = TupleType::new(elements.iter().map(|e| e.get_type()).collect());
+                Ok(TupleExpressionInner::Value(elements).annotate(ty).into())
             }
             Expression::ArrayInitializer(box e, box count) => {
                 let e = self.check_expression(e, module_id, types)?;

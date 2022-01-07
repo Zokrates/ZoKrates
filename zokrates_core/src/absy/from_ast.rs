@@ -410,6 +410,7 @@ impl<'ast> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast> {
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
             pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
             pest::Expression::InlineArray(e) => absy::ExpressionNode::from(e),
+            pest::Expression::InlineTuple(e) => absy::ExpressionNode::from(e),
             pest::Expression::InlineStruct(e) => absy::ExpressionNode::from(e),
             pest::Expression::ArrayInitializer(e) => absy::ExpressionNode::from(e),
             pest::Expression::Unary(e) => absy::ExpressionNode::from(e),
@@ -596,6 +597,20 @@ impl<'ast> From<pest::InlineArrayExpression<'ast>> for absy::ExpressionNode<'ast
     }
 }
 
+impl<'ast> From<pest::InlineTupleExpression<'ast>> for absy::ExpressionNode<'ast> {
+    fn from(tuple: pest::InlineTupleExpression<'ast>) -> absy::ExpressionNode<'ast> {
+        use crate::absy::NodeValue;
+        absy::Expression::InlineTuple(
+            tuple
+                .elements
+                .into_iter()
+                .map(absy::ExpressionNode::from)
+                .collect(),
+        )
+        .span(tuple.span)
+    }
+}
+
 impl<'ast> From<pest::InlineStructExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(s: pest::InlineStructExpression<'ast>) -> absy::ExpressionNode<'ast> {
         use crate::absy::NodeValue;
@@ -682,9 +697,15 @@ impl<'ast> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<'ast> {
                     box absy::RangeOrExpression::from(a.expression),
                 )
                 .span(a.span),
-                pest::Access::Member(m) => {
-                    absy::Expression::Member(box acc, box m.id.span.as_str()).span(m.span)
-                }
+                pest::Access::Dot(m) => match m.inner {
+                    pest::IdentifierOrDecimal::Identifier(id) => {
+                        absy::Expression::Member(box acc, box id.span.as_str()).span(m.span)
+                    }
+                    pest::IdentifierOrDecimal::Decimal(id) => {
+                        absy::Expression::Element(box acc, id.span.as_str().parse().unwrap())
+                            .span(m.span)
+                    }
+                },
             })
     }
 }
@@ -783,9 +804,12 @@ impl<'ast> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast> {
                 pest::AssigneeAccess::Select(s) => {
                     absy::Assignee::Select(box acc, box absy::RangeOrExpression::from(s.expression))
                 }
-                pest::AssigneeAccess::Member(m) => {
-                    absy::Assignee::Member(box acc, box m.id.span.as_str())
-                }
+                pest::AssigneeAccess::Dot(a) => match a.inner {
+                    pest::IdentifierOrDecimal::Identifier(id) => {
+                        absy::Assignee::Member(box acc, box id.span.as_str())
+                    }
+                    _ => unimplemented!(),
+                },
             }
             .span(span.clone())
         })
@@ -808,7 +832,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
-                    pest::BasicOrStructType::Basic(t) => match t {
+                    pest::BasicOrStructOrTupleType::Basic(t) => match t {
                         pest::BasicType::Field(t) => UnresolvedType::FieldElement.span(t.span),
                         pest::BasicType::Boolean(t) => UnresolvedType::Boolean.span(t.span),
                         pest::BasicType::U8(t) => UnresolvedType::Uint(8).span(t.span),
@@ -816,7 +840,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                         pest::BasicType::U32(t) => UnresolvedType::Uint(32).span(t.span),
                         pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
                     },
-                    pest::BasicOrStructType::Struct(t) => UnresolvedType::User(
+                    pest::BasicOrStructOrTupleType::Struct(t) => UnresolvedType::User(
                         t.id.span.as_str().to_string(),
                         t.explicit_generics.map(|explicit_generics| {
                             explicit_generics
@@ -833,6 +857,13 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                                 })
                                 .collect()
                         }),
+                    )
+                    .span(t.span),
+                    pest::BasicOrStructOrTupleType::Tuple(t) => UnresolvedType::Tuple(
+                        t.elements
+                            .into_iter()
+                            .map(absy::UnresolvedTypeNode::from)
+                            .collect(),
                     )
                     .span(t.span),
                 };
@@ -869,6 +900,13 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                 }),
             )
             .span(s.span),
+            pest::Type::Tuple(t) => UnresolvedType::Tuple(
+                t.elements
+                    .into_iter()
+                    .map(absy::UnresolvedTypeNode::from)
+                    .collect(),
+            )
+            .span(t.span),
         }
     }
 }

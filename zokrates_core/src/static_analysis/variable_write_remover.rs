@@ -97,6 +97,27 @@ impl<'ast> VariableWriteRemover {
                                             ConditionalKind::IfElse,
                                         )
                                         .into(),
+                                        Type::Tuple(..) => TupleExpression::conditional(
+                                            BooleanExpression::UintEq(
+                                                box i.into(),
+                                                box head.clone(),
+                                            ),
+                                            match Self::choose_many(
+                                                TupleExpression::select(base.clone(), i).into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            ) {
+                                                TypedExpression::Tuple(e) => e,
+                                                e => unreachable!(
+                                            "the interior was expected to be a tuple, was {}",
+                                            e.get_type()
+                                        ),
+                                            },
+                                            TupleExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
+                                        )
+                                        .into(),
                                         Type::FieldElement => FieldElementExpression::conditional(
                                             BooleanExpression::UintEq(
                                                 box i.into(),
@@ -263,6 +284,19 @@ impl<'ast> VariableWriteRemover {
                                             StructExpression::member(base.clone(), member.id).into()
                                         }
                                     }
+                                    Type::Tuple(..) => {
+                                        if member.id == head {
+                                            Self::choose_many(
+                                                TupleExpression::member(base.clone(), head.clone())
+                                                    .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            TupleExpression::member(base.clone(), member.id).into()
+                                        }
+                                    }
                                 })
                                 .collect(),
                         )
@@ -342,6 +376,11 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                         Type::Struct(members) => {
                             StructExpressionInner::Identifier(variable.id.clone())
                                 .annotate(members)
+                                .into()
+                        }
+                        Type::Tuple(tuple_ty) => {
+                            TupleExpressionInner::Identifier(variable.id.clone())
+                                .annotate(tuple_ty)
                                 .into()
                         }
                     };

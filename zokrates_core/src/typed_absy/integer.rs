@@ -1,14 +1,14 @@
 use crate::typed_absy::types::{
     ArrayType, DeclarationArrayType, DeclarationConstant, DeclarationStructMember,
-    DeclarationStructType, DeclarationType, GArrayType, GStructType, GType, GenericIdentifier,
-    StructType, Type,
+    DeclarationStructType, DeclarationType, GArrayType, GStructType, GTupleType, GType,
+    GenericIdentifier, StructType, TupleType, Type,
 };
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
     ArrayExpression, ArrayExpressionInner, BooleanExpression, Conditional, ConditionalExpression,
     Expr, FieldElementExpression, Select, SelectExpression, StructExpression,
-    StructExpressionInner, Typed, TypedExpression, TypedExpressionOrSpread, TypedSpread,
-    UExpression, UExpressionInner,
+    StructExpressionInner, TupleExpression, TupleExpressionInner, Typed, TypedExpression,
+    TypedExpressionOrSpread, TypedSpread, UExpression, UExpressionInner,
 };
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -197,6 +197,26 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                         .into(),
                 ))
             }
+            (Tuple(lhs), Tuple(rhs)) => {
+                let common_type = lhs
+                    .get_type()
+                    .get_common_pattern(rhs.get_type())
+                    .map_err(|_| (lhs.clone().into(), rhs.clone().into()))?;
+
+                let common_type = match common_type {
+                    DeclarationType::Tuple(ty) => ty,
+                    _ => unreachable!(),
+                };
+
+                Ok((
+                    TupleExpression::try_from_int(lhs.clone(), &common_type)
+                        .map_err(|lhs| (lhs.clone(), rhs.clone().into()))?
+                        .into(),
+                    TupleExpression::try_from_int(rhs, &common_type)
+                        .map_err(|rhs| (lhs.clone().into(), rhs.clone()))?
+                        .into(),
+                ))
+            }
             (Uint(lhs), Uint(rhs)) => Ok((lhs.into(), rhs.into())),
             (Boolean(lhs), Boolean(rhs)) => Ok((lhs.into(), rhs.into())),
             (FieldElement(lhs), FieldElement(rhs)) => Ok((lhs.into(), rhs.into())),
@@ -222,6 +242,9 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
             }
             GType::Struct(struct_ty) => {
                 StructExpression::try_from_typed(e, struct_ty).map(TypedExpression::from)
+            }
+            GType::Tuple(tuple_ty) => {
+                TupleExpression::try_from_typed(e, tuple_ty).map(TypedExpression::from)
             }
             GType::Int => Err(e),
         }
@@ -651,6 +674,10 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
     ) -> Result<Self, TypedExpression<'ast, T>> {
         let struct_ty = struc.ty().clone();
 
+        if struct_ty.members.len() != target_struct_ty.members.len() {
+            return Err(struc.into());
+        }
+
         match struc.into_inner() {
             StructExpressionInner::Value(inline_struct) => inline_struct
                 .into_iter()
@@ -682,6 +709,54 @@ impl<'ast, T: Field> StructExpression<'ast, T> {
     ) -> Result<Self, TypedExpression<'ast, T>> {
         match e {
             TypedExpression::Struct(e) => Self::try_from_int(e, target_struct_ty),
+            e => Err(e),
+        }
+    }
+}
+
+impl<'ast, T: Field> TupleExpression<'ast, T> {
+    pub fn try_from_int<S: PartialEq<UExpression<'ast, T>>>(
+        tuple: Self,
+        target_tuple_ty: &GTupleType<S>,
+    ) -> Result<Self, TypedExpression<'ast, T>> {
+        let tuple_ty = tuple.ty().clone();
+
+        if tuple_ty.elements.len() != target_tuple_ty.elements.len() {
+            return Err(tuple.into());
+        }
+
+        match tuple.into_inner() {
+            TupleExpressionInner::Value(inline_tuple) => inline_tuple
+                .into_iter()
+                .zip(target_tuple_ty.elements.iter())
+                .map(|(value, target_ty)| TypedExpression::align_to_type(value, &*target_ty))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|v| {
+                    let ty = TupleType::new(v.iter().map(|e| e.get_type()).collect());
+                    TupleExpressionInner::Value(v).annotate(ty)
+                })
+                .map_err(|(v, _)| v),
+            s => {
+                if tuple_ty
+                    .elements
+                    .iter()
+                    .zip(target_tuple_ty.elements.iter())
+                    .all(|(t, target_t)| *target_t == *t)
+                {
+                    Ok(s.annotate(tuple_ty))
+                } else {
+                    Err(s.annotate(tuple_ty).into())
+                }
+            }
+        }
+    }
+
+    pub fn try_from_typed<S: PartialEq<UExpression<'ast, T>>>(
+        e: TypedExpression<'ast, T>,
+        target_tuple_ty: &GTupleType<S>,
+    ) -> Result<Self, TypedExpression<'ast, T>> {
+        match e {
+            TypedExpression::Tuple(e) => Self::try_from_int(e, target_tuple_ty),
             e => Err(e),
         }
     }

@@ -26,5 +26,8 @@ fn from_type(t: typed_absy::types::ConcreteType) -> Vec<zir::types::Type> {
             .into_iter()
             .flat_map(|struct_member| from_type(*struct_member.ty))
             .collect(),
+        typed_absy::types::ConcreteType::Tuple(tuple_ty) => {
+            tuple_ty.elements.into_iter().flat_map(from_type).collect()
+        }
     }
 }

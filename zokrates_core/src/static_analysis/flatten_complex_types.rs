@@ -46,6 +46,14 @@ fn flatten_identifier_rec<'ast>(
                 )
             })
             .collect(),
+        typed_absy::types::ConcreteType::Tuple(tuple_ty) => tuple_ty
+            .elements
+            .iter()
+            .enumerate()
+            .flat_map(|(i, ty)| {
+                flatten_identifier_rec(zir::SourceIdentifier::Element(box id.clone(), i as u32), ty)
+            })
+            .collect(),
     }
 }
 
@@ -104,6 +112,16 @@ impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::StructExpression<'ast, T> 
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         f.fold_struct_expression(statements_buffer, self)
+    }
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for typed_absy::TupleExpression<'ast, T> {
+    fn flatten(
+        self,
+        f: &mut Flattener<T>,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        f.fold_tuple_expression(statements_buffer, self)
     }
 }
 
@@ -240,6 +258,9 @@ impl<'ast, T: Field> Flattener<T> {
             typed_absy::TypedExpression::Struct(e) => {
                 self.fold_struct_expression(statements_buffer, e)
             }
+            typed_absy::TypedExpression::Tuple(e) => {
+                self.fold_tuple_expression(statements_buffer, e)
+            }
             typed_absy::TypedExpression::Int(_) => unreachable!(),
         }
     }
@@ -255,10 +276,17 @@ impl<'ast, T: Field> Flattener<T> {
     fn fold_struct_expression(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
-
         e: typed_absy::StructExpression<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_struct_expression(self, statements_buffer, e)
+    }
+
+    fn fold_tuple_expression(
+        &mut self,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+        e: typed_absy::TupleExpression<'ast, T>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        fold_tuple_expression(self, statements_buffer, e)
     }
 
     fn fold_expression_list(
@@ -295,6 +323,14 @@ impl<'ast, T: Field> Flattener<T> {
         m: typed_absy::MemberExpression<'ast, T, E>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_member_expression(self, statements_buffer, m)
+    }
+
+    fn fold_element_expression<E>(
+        &mut self,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+        e: typed_absy::ElementExpression<'ast, T, E>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        fold_element_expression(self, statements_buffer, e)
     }
 
     fn fold_select_expression<E>(
@@ -345,6 +381,7 @@ impl<'ast, T: Field> Flattener<T> {
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_array_expression_inner(self, statements_buffer, ty, size, e)
     }
+
     fn fold_struct_expression_inner(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
@@ -352,6 +389,15 @@ impl<'ast, T: Field> Flattener<T> {
         e: typed_absy::StructExpressionInner<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_struct_expression_inner(self, statements_buffer, ty, e)
+    }
+
+    fn fold_tuple_expression_inner(
+        &mut self,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+        ty: &typed_absy::types::ConcreteTupleType,
+        e: typed_absy::TupleExpressionInner<'ast, T>,
+    ) -> Vec<zir::ZirExpression<'ast, T>> {
+        fold_tuple_expression_inner(self, statements_buffer, ty, e)
     }
 }
 
@@ -485,6 +531,9 @@ fn fold_array_expression_inner<'ast, T: Field>(
                 _ => unreachable!(),
             }
         }
+        typed_absy::ArrayExpressionInner::Element(element) => {
+            f.fold_element_expression(statements_buffer, element)
+        }
     }
 }
 
@@ -532,6 +581,59 @@ fn fold_struct_expression_inner<'ast, T: Field>(
         typed_absy::StructExpressionInner::Select(select) => {
             f.fold_select_expression(statements_buffer, select)
         }
+        typed_absy::StructExpressionInner::Element(element) => {
+            f.fold_element_expression(statements_buffer, element)
+        }
+    }
+}
+
+fn fold_tuple_expression_inner<'ast, T: Field>(
+    f: &mut Flattener<T>,
+    statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    ty: &typed_absy::types::ConcreteTupleType,
+    tuple: typed_absy::TupleExpressionInner<'ast, T>,
+) -> Vec<zir::ZirExpression<'ast, T>> {
+    match tuple {
+        typed_absy::TupleExpressionInner::Block(block) => {
+            block
+                .statements
+                .into_iter()
+                .for_each(|s| f.fold_statement(statements_buffer, s));
+            f.fold_tuple_expression(statements_buffer, *block.value)
+        }
+        typed_absy::TupleExpressionInner::Identifier(id) => {
+            let variables = flatten_identifier_rec(
+                f.fold_name(id),
+                &typed_absy::types::ConcreteType::tuple(ty.clone()),
+            );
+            variables
+                .into_iter()
+                .map(|v| match v._type {
+                    zir::Type::FieldElement => zir::FieldElementExpression::Identifier(v.id).into(),
+                    zir::Type::Boolean => zir::BooleanExpression::Identifier(v.id).into(),
+                    zir::Type::Uint(bitwidth) => zir::UExpressionInner::Identifier(v.id)
+                        .annotate(bitwidth)
+                        .into(),
+                })
+                .collect()
+        }
+        typed_absy::TupleExpressionInner::Value(exprs) => exprs
+            .into_iter()
+            .flat_map(|e| f.fold_expression(statements_buffer, e))
+            .collect(),
+        typed_absy::TupleExpressionInner::FunctionCall(..) => unreachable!(),
+        typed_absy::TupleExpressionInner::Conditional(c) => {
+            f.fold_conditional_expression(statements_buffer, c)
+        }
+        typed_absy::TupleExpressionInner::Member(m) => {
+            f.fold_member_expression(statements_buffer, m)
+        }
+        typed_absy::TupleExpressionInner::Select(select) => {
+            f.fold_select_expression(statements_buffer, select)
+        }
+        typed_absy::TupleExpressionInner::Element(element) => {
+            f.fold_element_expression(statements_buffer, element)
+        }
     }
 }
 
@@ -569,6 +671,45 @@ fn fold_member_expression<'ast, T: Field, E>(
     let s = f.fold_struct_expression(statements_buffer, s);
 
     s[offset..offset + size].to_vec()
+}
+
+fn fold_element_expression<'ast, T: Field, E>(
+    f: &mut Flattener<T>,
+    statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    e: typed_absy::ElementExpression<'ast, T, E>,
+) -> Vec<zir::ZirExpression<'ast, T>> {
+    let t = *e.tuple;
+    let id = e.index;
+
+    let tuple_ty = t.ty();
+
+    let size = typed_absy::types::ConcreteType::try_from(
+        tuple_ty
+            .elements
+            .iter()
+            .enumerate()
+            .find(|(i, _)| *i as u32 == id)
+            .unwrap()
+            .1
+            .clone(),
+    )
+    .unwrap()
+    .get_primitive_count();
+
+    let offset: usize = tuple_ty
+        .elements
+        .iter()
+        .take(id as usize)
+        .map(|ty| {
+            typed_absy::types::ConcreteType::try_from(ty.clone())
+                .unwrap()
+                .get_primitive_count()
+        })
+        .sum();
+
+    let t = f.fold_tuple_expression(statements_buffer, t);
+
+    t[offset..offset + size].to_vec()
 }
 
 fn fold_select_expression<'ast, T: Field, E>(
@@ -761,6 +902,12 @@ fn fold_field_expression<'ast, T: Field>(
             .unwrap()
             .try_into()
             .unwrap(),
+        typed_absy::FieldElementExpression::Element(element) => f
+            .fold_element_expression(statements_buffer, element)
+            .pop()
+            .unwrap()
+            .try_into()
+            .unwrap(),
         typed_absy::FieldElementExpression::Block(block) => {
             block
                 .statements
@@ -927,6 +1074,12 @@ fn fold_boolean_expression<'ast, T: Field>(
             .unwrap()
             .try_into()
             .unwrap(),
+        typed_absy::BooleanExpression::Element(m) => f
+            .fold_element_expression(statements_buffer, m)
+            .pop()
+            .unwrap()
+            .try_into()
+            .unwrap(),
     }
 }
 
@@ -1070,6 +1223,13 @@ fn fold_uint_expression_inner<'ast, T: Field>(
         )
         .unwrap()
         .into_inner(),
+        typed_absy::UExpressionInner::Element(m) => zir::UExpression::try_from(
+            f.fold_element_expression(statements_buffer, m)
+                .pop()
+                .unwrap(),
+        )
+        .unwrap()
+        .into_inner(),
         typed_absy::UExpressionInner::Conditional(c) => zir::UExpression::try_from(
             f.fold_conditional_expression(statements_buffer, c)
                 .pop()
@@ -1131,6 +1291,18 @@ fn fold_struct_expression<'ast, T: Field>(
     f.fold_struct_expression_inner(
         statements_buffer,
         &typed_absy::types::ConcreteStructType::try_from(e.ty().clone()).unwrap(),
+        e.into_inner(),
+    )
+}
+
+fn fold_tuple_expression<'ast, T: Field>(
+    f: &mut Flattener<T>,
+    statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    e: typed_absy::TupleExpression<'ast, T>,
+) -> Vec<zir::ZirExpression<'ast, T>> {
+    f.fold_tuple_expression_inner(
+        statements_buffer,
+        &typed_absy::types::ConcreteTupleType::try_from(e.ty().clone()).unwrap(),
         e.into_inner(),
     )
 }

@@ -38,6 +38,12 @@ impl<'ast, T: Field> Fold<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> Fold<'ast, T> for TupleExpression<'ast, T> {
+    fn fold<F: Folder<'ast, T>>(self, f: &mut F) -> Self {
+        f.fold_tuple_expression(self)
+    }
+}
+
 pub trait Folder<'ast, T: Field>: Sized {
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         fold_program(self, p)
@@ -155,6 +161,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         match t {
             Array(array_type) => Array(self.fold_array_type(array_type)),
             Struct(struct_type) => Struct(self.fold_struct_type(struct_type)),
+            Tuple(tuple_type) => Tuple(self.fold_tuple_type(tuple_type)),
             t => t,
         }
     }
@@ -167,6 +174,12 @@ pub trait Folder<'ast, T: Field>: Sized {
         ArrayType {
             ty: box self.fold_type(*t.ty),
             size: self.fold_uint_expression(t.size),
+        }
+    }
+
+    fn fold_tuple_type(&mut self, t: TupleType<'ast, T>) -> TupleType<'ast, T> {
+        TupleType {
+            elements: t.elements.into_iter().map(|t| self.fold_type(t)).collect(),
         }
     }
 
@@ -206,6 +219,19 @@ pub trait Folder<'ast, T: Field>: Sized {
         DeclarationArrayType {
             ty: box self.fold_declaration_type(*t.ty),
             size: self.fold_declaration_constant(t.size),
+        }
+    }
+
+    fn fold_declaration_tuple_type(
+        &mut self,
+        t: DeclarationTupleType<'ast, T>,
+    ) -> DeclarationTupleType<'ast, T> {
+        DeclarationTupleType {
+            elements: t
+                .elements
+                .into_iter()
+                .map(|t| self.fold_declaration_type(t))
+                .collect(),
         }
     }
 
@@ -279,6 +305,7 @@ pub trait Folder<'ast, T: Field>: Sized {
             TypedExpression::Boolean(e) => self.fold_boolean_expression(e).into(),
             TypedExpression::Uint(e) => self.fold_uint_expression(e).into(),
             TypedExpression::Array(e) => self.fold_array_expression(e).into(),
+            TypedExpression::Tuple(e) => self.fold_tuple_expression(e).into(),
             TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
             TypedExpression::Int(e) => self.fold_int_expression(e).into(),
         }
@@ -315,6 +342,16 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_member_expression(self, ty, e)
     }
 
+    fn fold_element_expression<
+        E: Expr<'ast, T> + Element<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
+        &mut self,
+        ty: &E::Ty,
+        e: ElementExpression<'ast, T, E>,
+    ) -> ElementOrExpression<'ast, T, E> {
+        fold_element_expression(self, ty, e)
+    }
+
     fn fold_function_call_expression<
         E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
     >(
@@ -344,6 +381,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         e: StructExpression<'ast, T>,
     ) -> StructExpression<'ast, T> {
         fold_struct_expression(self, e)
+    }
+
+    fn fold_tuple_expression(&mut self, e: TupleExpression<'ast, T>) -> TupleExpression<'ast, T> {
+        fold_tuple_expression(self, e)
     }
 
     fn fold_expression_list(
@@ -395,6 +436,14 @@ pub trait Folder<'ast, T: Field>: Sized {
         e: ArrayExpressionInner<'ast, T>,
     ) -> ArrayExpressionInner<'ast, T> {
         fold_array_expression_inner(self, ty, e)
+    }
+
+    fn fold_tuple_expression_inner(
+        &mut self,
+        ty: &TupleType<'ast, T>,
+        e: TupleExpressionInner<'ast, T>,
+    ) -> TupleExpressionInner<'ast, T> {
+        fold_tuple_expression_inner(self, ty, e)
     }
 
     fn fold_struct_expression_inner(
@@ -494,48 +543,48 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     ty: &ArrayType<'ast, T>,
     e: ArrayExpressionInner<'ast, T>,
 ) -> ArrayExpressionInner<'ast, T> {
+    use ArrayExpressionInner::*;
+
     match e {
-        ArrayExpressionInner::Block(block) => {
-            ArrayExpressionInner::Block(f.fold_block_expression(block))
-        }
-        ArrayExpressionInner::Identifier(id) => ArrayExpressionInner::Identifier(f.fold_name(id)),
-        ArrayExpressionInner::Value(exprs) => ArrayExpressionInner::Value(
+        Block(block) => Block(f.fold_block_expression(block)),
+        Identifier(id) => Identifier(f.fold_name(id)),
+        Value(exprs) => Value(
             exprs
                 .into_iter()
                 .map(|e| f.fold_expression_or_spread(e))
                 .collect(),
         ),
-        ArrayExpressionInner::FunctionCall(function_call) => {
-            match f.fold_function_call_expression(ty, function_call) {
-                FunctionCallOrExpression::FunctionCall(function_call) => {
-                    ArrayExpressionInner::FunctionCall(function_call)
-                }
-                FunctionCallOrExpression::Expression(u) => u,
-            }
-        }
-        ArrayExpressionInner::Conditional(c) => match f.fold_conditional_expression(ty, c) {
-            ConditionalOrExpression::Conditional(s) => ArrayExpressionInner::Conditional(s),
+        FunctionCall(function_call) => match f.fold_function_call_expression(ty, function_call) {
+            FunctionCallOrExpression::FunctionCall(function_call) => FunctionCall(function_call),
+            FunctionCallOrExpression::Expression(u) => u,
+        },
+        Conditional(c) => match f.fold_conditional_expression(ty, c) {
+            ConditionalOrExpression::Conditional(s) => Conditional(s),
             ConditionalOrExpression::Expression(u) => u,
         },
-        ArrayExpressionInner::Select(select) => match f.fold_select_expression(ty, select) {
-            SelectOrExpression::Select(s) => ArrayExpressionInner::Select(s),
+        Select(select) => match f.fold_select_expression(ty, select) {
+            SelectOrExpression::Select(s) => Select(s),
             SelectOrExpression::Expression(u) => u,
         },
-        ArrayExpressionInner::Member(m) => match f.fold_member_expression(ty, m) {
-            MemberOrExpression::Member(m) => ArrayExpressionInner::Member(m),
+        Member(m) => match f.fold_member_expression(ty, m) {
+            MemberOrExpression::Member(m) => Member(m),
             MemberOrExpression::Expression(u) => u,
         },
-        ArrayExpressionInner::Slice(box array, box from, box to) => {
+        Slice(box array, box from, box to) => {
             let array = f.fold_array_expression(array);
             let from = f.fold_uint_expression(from);
             let to = f.fold_uint_expression(to);
-            ArrayExpressionInner::Slice(box array, box from, box to)
+            Slice(box array, box from, box to)
         }
-        ArrayExpressionInner::Repeat(box e, box count) => {
+        Repeat(box e, box count) => {
             let e = f.fold_expression(e);
             let count = f.fold_uint_expression(count);
-            ArrayExpressionInner::Repeat(box e, box count)
+            Repeat(box e, box count)
         }
+        Element(m) => match f.fold_element_expression(ty, m) {
+            ElementOrExpression::Element(m) => Element(m),
+            ElementOrExpression::Expression(u) => u,
+        },
     }
 }
 
@@ -544,33 +593,65 @@ pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     ty: &StructType<'ast, T>,
     e: StructExpressionInner<'ast, T>,
 ) -> StructExpressionInner<'ast, T> {
+    use StructExpressionInner::*;
+
     match e {
-        StructExpressionInner::Block(block) => {
-            StructExpressionInner::Block(f.fold_block_expression(block))
-        }
-        StructExpressionInner::Identifier(id) => StructExpressionInner::Identifier(f.fold_name(id)),
-        StructExpressionInner::Value(exprs) => {
-            StructExpressionInner::Value(exprs.into_iter().map(|e| f.fold_expression(e)).collect())
-        }
-        StructExpressionInner::FunctionCall(function_call) => {
-            match f.fold_function_call_expression(ty, function_call) {
-                FunctionCallOrExpression::FunctionCall(function_call) => {
-                    StructExpressionInner::FunctionCall(function_call)
-                }
-                FunctionCallOrExpression::Expression(u) => u,
-            }
-        }
-        StructExpressionInner::Conditional(c) => match f.fold_conditional_expression(ty, c) {
-            ConditionalOrExpression::Conditional(s) => StructExpressionInner::Conditional(s),
+        Block(block) => Block(f.fold_block_expression(block)),
+        Identifier(id) => Identifier(f.fold_name(id)),
+        Value(exprs) => Value(exprs.into_iter().map(|e| f.fold_expression(e)).collect()),
+        FunctionCall(function_call) => match f.fold_function_call_expression(ty, function_call) {
+            FunctionCallOrExpression::FunctionCall(function_call) => FunctionCall(function_call),
+            FunctionCallOrExpression::Expression(u) => u,
+        },
+        Conditional(c) => match f.fold_conditional_expression(ty, c) {
+            ConditionalOrExpression::Conditional(s) => Conditional(s),
             ConditionalOrExpression::Expression(u) => u,
         },
-        StructExpressionInner::Select(select) => match f.fold_select_expression(ty, select) {
-            SelectOrExpression::Select(s) => StructExpressionInner::Select(s),
+        Select(select) => match f.fold_select_expression(ty, select) {
+            SelectOrExpression::Select(s) => Select(s),
             SelectOrExpression::Expression(u) => u,
         },
-        StructExpressionInner::Member(m) => match f.fold_member_expression(ty, m) {
-            MemberOrExpression::Member(m) => StructExpressionInner::Member(m),
+        Member(m) => match f.fold_member_expression(ty, m) {
+            MemberOrExpression::Member(m) => Member(m),
             MemberOrExpression::Expression(u) => u,
+        },
+        Element(m) => match f.fold_element_expression(ty, m) {
+            ElementOrExpression::Element(m) => Element(m),
+            ElementOrExpression::Expression(u) => u,
+        },
+    }
+}
+
+pub fn fold_tuple_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    ty: &TupleType<'ast, T>,
+    e: TupleExpressionInner<'ast, T>,
+) -> TupleExpressionInner<'ast, T> {
+    use TupleExpressionInner::*;
+
+    match e {
+        Block(block) => Block(f.fold_block_expression(block)),
+        Identifier(id) => Identifier(f.fold_name(id)),
+        Value(exprs) => Value(exprs.into_iter().map(|e| f.fold_expression(e)).collect()),
+        FunctionCall(function_call) => match f.fold_function_call_expression(ty, function_call) {
+            FunctionCallOrExpression::FunctionCall(function_call) => FunctionCall(function_call),
+            FunctionCallOrExpression::Expression(u) => u,
+        },
+        Conditional(c) => match f.fold_conditional_expression(ty, c) {
+            ConditionalOrExpression::Conditional(s) => Conditional(s),
+            ConditionalOrExpression::Expression(u) => u,
+        },
+        Select(select) => match f.fold_select_expression(ty, select) {
+            SelectOrExpression::Select(s) => Select(s),
+            SelectOrExpression::Expression(u) => u,
+        },
+        Member(m) => match f.fold_member_expression(ty, m) {
+            MemberOrExpression::Member(m) => Member(m),
+            MemberOrExpression::Expression(u) => u,
+        },
+        Element(m) => match f.fold_element_expression(ty, m) {
+            ElementOrExpression::Element(m) => Element(m),
+            ElementOrExpression::Expression(u) => u,
         },
     }
 }
@@ -579,73 +660,70 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: FieldElementExpression<'ast, T>,
 ) -> FieldElementExpression<'ast, T> {
+    use FieldElementExpression::*;
+
     match e {
-        FieldElementExpression::Block(block) => {
-            FieldElementExpression::Block(f.fold_block_expression(block))
-        }
-        FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
-        FieldElementExpression::Identifier(id) => {
-            FieldElementExpression::Identifier(f.fold_name(id))
-        }
-        FieldElementExpression::Add(box e1, box e2) => {
+        Block(block) => Block(f.fold_block_expression(block)),
+        Number(n) => Number(n),
+        Identifier(id) => Identifier(f.fold_name(id)),
+        Add(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            FieldElementExpression::Add(box e1, box e2)
+            Add(box e1, box e2)
         }
-        FieldElementExpression::Sub(box e1, box e2) => {
+        Sub(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            FieldElementExpression::Sub(box e1, box e2)
+            Sub(box e1, box e2)
         }
-        FieldElementExpression::Mult(box e1, box e2) => {
+        Mult(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            FieldElementExpression::Mult(box e1, box e2)
+            Mult(box e1, box e2)
         }
-        FieldElementExpression::Div(box e1, box e2) => {
+        Div(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            FieldElementExpression::Div(box e1, box e2)
+            Div(box e1, box e2)
         }
-        FieldElementExpression::Pow(box e1, box e2) => {
+        Pow(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_uint_expression(e2);
-            FieldElementExpression::Pow(box e1, box e2)
+            Pow(box e1, box e2)
         }
-        FieldElementExpression::Neg(box e) => {
+        Neg(box e) => {
             let e = f.fold_field_expression(e);
 
-            FieldElementExpression::Neg(box e)
+            Neg(box e)
         }
-        FieldElementExpression::Pos(box e) => {
+        Pos(box e) => {
             let e = f.fold_field_expression(e);
 
-            FieldElementExpression::Pos(box e)
+            Pos(box e)
         }
-        FieldElementExpression::Conditional(c) => {
-            match f.fold_conditional_expression(&Type::FieldElement, c) {
-                ConditionalOrExpression::Conditional(s) => FieldElementExpression::Conditional(s),
-                ConditionalOrExpression::Expression(u) => u,
-            }
-        }
-        FieldElementExpression::FunctionCall(function_call) => {
+        Conditional(c) => match f.fold_conditional_expression(&Type::FieldElement, c) {
+            ConditionalOrExpression::Conditional(s) => Conditional(s),
+            ConditionalOrExpression::Expression(u) => u,
+        },
+        FunctionCall(function_call) => {
             match f.fold_function_call_expression(&Type::FieldElement, function_call) {
                 FunctionCallOrExpression::FunctionCall(function_call) => {
-                    FieldElementExpression::FunctionCall(function_call)
+                    FunctionCall(function_call)
                 }
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        FieldElementExpression::Select(select) => {
-            match f.fold_select_expression(&Type::FieldElement, select) {
-                SelectOrExpression::Select(s) => FieldElementExpression::Select(s),
-                SelectOrExpression::Expression(u) => u,
-            }
-        }
-        FieldElementExpression::Member(m) => match f.fold_member_expression(&Type::FieldElement, m)
-        {
-            MemberOrExpression::Member(m) => FieldElementExpression::Member(m),
+        Select(select) => match f.fold_select_expression(&Type::FieldElement, select) {
+            SelectOrExpression::Select(s) => Select(s),
+            SelectOrExpression::Expression(u) => u,
+        },
+        Member(m) => match f.fold_member_expression(&Type::FieldElement, m) {
+            MemberOrExpression::Member(m) => Member(m),
             MemberOrExpression::Expression(u) => u,
+        },
+        Element(m) => match f.fold_element_expression(&Type::FieldElement, m) {
+            ElementOrExpression::Element(m) => Element(m),
+            ElementOrExpression::Expression(u) => u,
         },
     }
 }
@@ -684,6 +762,22 @@ pub fn fold_member_expression<
     ))
 }
 
+pub fn fold_element_expression<
+    'ast,
+    T: Field,
+    E: Expr<'ast, T> + Element<'ast, T> + From<TypedExpression<'ast, T>>,
+    F: Folder<'ast, T>,
+>(
+    f: &mut F,
+    _: &E::Ty,
+    e: ElementExpression<'ast, T, E>,
+) -> ElementOrExpression<'ast, T, E> {
+    ElementOrExpression::Element(ElementExpression::new(
+        f.fold_tuple_expression(*e.tuple),
+        e.index,
+    ))
+}
+
 pub fn fold_select_expression<
     'ast,
     T: Field,
@@ -711,110 +805,114 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: BooleanExpression<'ast, T>,
 ) -> BooleanExpression<'ast, T> {
+    use BooleanExpression::*;
+
     match e {
-        BooleanExpression::Block(block) => BooleanExpression::Block(f.fold_block_expression(block)),
-        BooleanExpression::Value(v) => BooleanExpression::Value(v),
-        BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)),
-        BooleanExpression::FieldEq(box e1, box e2) => {
+        Block(block) => Block(f.fold_block_expression(block)),
+        Value(v) => Value(v),
+        Identifier(id) => Identifier(f.fold_name(id)),
+        FieldEq(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldEq(box e1, box e2)
+            FieldEq(box e1, box e2)
         }
-        BooleanExpression::BoolEq(box e1, box e2) => {
+        BoolEq(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);
             let e2 = f.fold_boolean_expression(e2);
-            BooleanExpression::BoolEq(box e1, box e2)
+            BoolEq(box e1, box e2)
         }
-        BooleanExpression::ArrayEq(box e1, box e2) => {
+        ArrayEq(box e1, box e2) => {
             let e1 = f.fold_array_expression(e1);
             let e2 = f.fold_array_expression(e2);
-            BooleanExpression::ArrayEq(box e1, box e2)
+            ArrayEq(box e1, box e2)
         }
-        BooleanExpression::StructEq(box e1, box e2) => {
+        StructEq(box e1, box e2) => {
             let e1 = f.fold_struct_expression(e1);
             let e2 = f.fold_struct_expression(e2);
-            BooleanExpression::StructEq(box e1, box e2)
+            StructEq(box e1, box e2)
         }
-        BooleanExpression::UintEq(box e1, box e2) => {
+        UintEq(box e1, box e2) => {
             let e1 = f.fold_uint_expression(e1);
             let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintEq(box e1, box e2)
+            UintEq(box e1, box e2)
         }
-        BooleanExpression::FieldLt(box e1, box e2) => {
+        FieldLt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldLt(box e1, box e2)
+            FieldLt(box e1, box e2)
         }
-        BooleanExpression::FieldLe(box e1, box e2) => {
+        FieldLe(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldLe(box e1, box e2)
+            FieldLe(box e1, box e2)
         }
-        BooleanExpression::FieldGt(box e1, box e2) => {
+        FieldGt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldGt(box e1, box e2)
+            FieldGt(box e1, box e2)
         }
-        BooleanExpression::FieldGe(box e1, box e2) => {
+        FieldGe(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
-            BooleanExpression::FieldGe(box e1, box e2)
+            FieldGe(box e1, box e2)
         }
-        BooleanExpression::UintLt(box e1, box e2) => {
+        UintLt(box e1, box e2) => {
             let e1 = f.fold_uint_expression(e1);
             let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintLt(box e1, box e2)
+            UintLt(box e1, box e2)
         }
-        BooleanExpression::UintLe(box e1, box e2) => {
+        UintLe(box e1, box e2) => {
             let e1 = f.fold_uint_expression(e1);
             let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintLe(box e1, box e2)
+            UintLe(box e1, box e2)
         }
-        BooleanExpression::UintGt(box e1, box e2) => {
+        UintGt(box e1, box e2) => {
             let e1 = f.fold_uint_expression(e1);
             let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintGt(box e1, box e2)
+            UintGt(box e1, box e2)
         }
-        BooleanExpression::UintGe(box e1, box e2) => {
+        UintGe(box e1, box e2) => {
             let e1 = f.fold_uint_expression(e1);
             let e2 = f.fold_uint_expression(e2);
-            BooleanExpression::UintGe(box e1, box e2)
+            UintGe(box e1, box e2)
         }
-        BooleanExpression::Or(box e1, box e2) => {
+        Or(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);
             let e2 = f.fold_boolean_expression(e2);
-            BooleanExpression::Or(box e1, box e2)
+            Or(box e1, box e2)
         }
-        BooleanExpression::And(box e1, box e2) => {
+        And(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);
             let e2 = f.fold_boolean_expression(e2);
-            BooleanExpression::And(box e1, box e2)
+            And(box e1, box e2)
         }
-        BooleanExpression::Not(box e) => {
+        Not(box e) => {
             let e = f.fold_boolean_expression(e);
-            BooleanExpression::Not(box e)
+            Not(box e)
         }
-        BooleanExpression::FunctionCall(function_call) => {
+        FunctionCall(function_call) => {
             match f.fold_function_call_expression(&Type::Boolean, function_call) {
                 FunctionCallOrExpression::FunctionCall(function_call) => {
-                    BooleanExpression::FunctionCall(function_call)
+                    FunctionCall(function_call)
                 }
                 FunctionCallOrExpression::Expression(u) => u,
             }
         }
-        BooleanExpression::Conditional(c) => match f.fold_conditional_expression(&Type::Boolean, c)
-        {
-            ConditionalOrExpression::Conditional(s) => BooleanExpression::Conditional(s),
+        Conditional(c) => match f.fold_conditional_expression(&Type::Boolean, c) {
+            ConditionalOrExpression::Conditional(s) => Conditional(s),
             ConditionalOrExpression::Expression(u) => u,
         },
-        BooleanExpression::Select(select) => match f.fold_select_expression(&Type::Boolean, select)
-        {
-            SelectOrExpression::Select(s) => BooleanExpression::Select(s),
+        Select(select) => match f.fold_select_expression(&Type::Boolean, select) {
+            SelectOrExpression::Select(s) => Select(s),
             SelectOrExpression::Expression(u) => u,
         },
-        BooleanExpression::Member(m) => match f.fold_member_expression(&Type::Boolean, m) {
-            MemberOrExpression::Member(m) => BooleanExpression::Member(m),
+        Member(m) => match f.fold_member_expression(&Type::Boolean, m) {
+            MemberOrExpression::Member(m) => Member(m),
             MemberOrExpression::Expression(u) => u,
+        },
+        Element(m) => match f.fold_element_expression(&Type::Boolean, m) {
+            ElementOrExpression::Element(m) => Element(m),
+            ElementOrExpression::Expression(u) => u,
         },
     }
 }
@@ -834,110 +932,112 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     ty: UBitwidth,
     e: UExpressionInner<'ast, T>,
 ) -> UExpressionInner<'ast, T> {
+    use UExpressionInner::*;
+
     match e {
-        UExpressionInner::Block(block) => UExpressionInner::Block(f.fold_block_expression(block)),
-        UExpressionInner::Value(v) => UExpressionInner::Value(v),
-        UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),
-        UExpressionInner::Add(box left, box right) => {
+        Block(block) => Block(f.fold_block_expression(block)),
+        Value(v) => Value(v),
+        Identifier(id) => Identifier(f.fold_name(id)),
+        Add(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::Add(box left, box right)
+            Add(box left, box right)
         }
-        UExpressionInner::Sub(box left, box right) => {
+        Sub(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::Sub(box left, box right)
+            Sub(box left, box right)
         }
-        UExpressionInner::FloorSub(box left, box right) => {
+        FloorSub(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::FloorSub(box left, box right)
+            FloorSub(box left, box right)
         }
-        UExpressionInner::Mult(box left, box right) => {
+        Mult(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::Mult(box left, box right)
+            Mult(box left, box right)
         }
-        UExpressionInner::Div(box left, box right) => {
+        Div(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::Div(box left, box right)
+            Div(box left, box right)
         }
-        UExpressionInner::Rem(box left, box right) => {
+        Rem(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::Rem(box left, box right)
+            Rem(box left, box right)
         }
-        UExpressionInner::Xor(box left, box right) => {
+        Xor(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::Xor(box left, box right)
+            Xor(box left, box right)
         }
-        UExpressionInner::And(box left, box right) => {
+        And(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::And(box left, box right)
+            And(box left, box right)
         }
-        UExpressionInner::Or(box left, box right) => {
+        Or(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
 
-            UExpressionInner::Or(box left, box right)
+            Or(box left, box right)
         }
-        UExpressionInner::LeftShift(box e, box by) => {
+        LeftShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
             let by = f.fold_uint_expression(by);
 
-            UExpressionInner::LeftShift(box e, box by)
+            LeftShift(box e, box by)
         }
-        UExpressionInner::RightShift(box e, box by) => {
+        RightShift(box e, box by) => {
             let e = f.fold_uint_expression(e);
             let by = f.fold_uint_expression(by);
 
-            UExpressionInner::RightShift(box e, box by)
+            RightShift(box e, box by)
         }
-        UExpressionInner::Not(box e) => {
+        Not(box e) => {
             let e = f.fold_uint_expression(e);
 
-            UExpressionInner::Not(box e)
+            Not(box e)
         }
-        UExpressionInner::Neg(box e) => {
+        Neg(box e) => {
             let e = f.fold_uint_expression(e);
 
-            UExpressionInner::Neg(box e)
+            Neg(box e)
         }
-        UExpressionInner::Pos(box e) => {
+        Pos(box e) => {
             let e = f.fold_uint_expression(e);
 
-            UExpressionInner::Pos(box e)
+            Pos(box e)
         }
-        UExpressionInner::FunctionCall(function_call) => {
-            match f.fold_function_call_expression(&ty, function_call) {
-                FunctionCallOrExpression::FunctionCall(function_call) => {
-                    UExpressionInner::FunctionCall(function_call)
-                }
-                FunctionCallOrExpression::Expression(u) => u,
-            }
-        }
-        UExpressionInner::Select(select) => match f.fold_select_expression(&ty, select) {
-            SelectOrExpression::Select(s) => UExpressionInner::Select(s),
+        FunctionCall(function_call) => match f.fold_function_call_expression(&ty, function_call) {
+            FunctionCallOrExpression::FunctionCall(function_call) => FunctionCall(function_call),
+            FunctionCallOrExpression::Expression(u) => u,
+        },
+        Select(select) => match f.fold_select_expression(&ty, select) {
+            SelectOrExpression::Select(s) => Select(s),
             SelectOrExpression::Expression(u) => u,
         },
-        UExpressionInner::Conditional(c) => match f.fold_conditional_expression(&ty, c) {
-            ConditionalOrExpression::Conditional(s) => UExpressionInner::Conditional(s),
+        Conditional(c) => match f.fold_conditional_expression(&ty, c) {
+            ConditionalOrExpression::Conditional(s) => Conditional(s),
             ConditionalOrExpression::Expression(u) => u,
         },
-        UExpressionInner::Member(m) => match f.fold_member_expression(&ty, m) {
+        Member(m) => match f.fold_member_expression(&ty, m) {
             MemberOrExpression::Member(m) => UExpressionInner::Member(m),
             MemberOrExpression::Expression(u) => u,
+        },
+        Element(m) => match f.fold_element_expression(&ty, m) {
+            ElementOrExpression::Element(m) => Element(m),
+            ElementOrExpression::Expression(u) => u,
         },
     }
 }
@@ -1108,6 +1208,17 @@ pub fn fold_struct_expression<'ast, T: Field, F: Folder<'ast, T>>(
     let ty = f.fold_struct_type(e.ty);
     StructExpression {
         inner: f.fold_struct_expression_inner(&ty, e.inner),
+        ty,
+    }
+}
+
+pub fn fold_tuple_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: TupleExpression<'ast, T>,
+) -> TupleExpression<'ast, T> {
+    let ty = f.fold_tuple_type(e.ty);
+    TupleExpression {
+        inner: f.fold_tuple_expression_inner(&ty, e.inner),
         ty,
     }
 }

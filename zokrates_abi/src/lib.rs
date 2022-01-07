@@ -46,6 +46,7 @@ pub enum Value<T> {
     Boolean(bool),
     Array(Vec<Value<T>>),
     Struct(Vec<(String, Value<T>)>),
+    Tuple(Vec<Value<T>>),
 }
 
 #[derive(PartialEq, Debug)]
@@ -76,6 +77,16 @@ impl<T: Field> fmt::Display for Value<T> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Value::Tuple(elements) => {
+                write!(f, "(")?;
+                for (i, e) in elements.iter().enumerate() {
+                    write!(f, "{},", e)?;
+                    if i < elements.len() - 1 {
+                        write!(f, " ")?;
+                    }
+                }
+                write!(f, ")")
+            }
         }
     }
 }
@@ -100,6 +111,7 @@ impl<T: From<usize>> Encode<T> for Value<T> {
             Value::U64(t) => vec![T::from(t as usize)],
             Value::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
             Value::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
+            Value::Tuple(t) => t.into_iter().flat_map(|v| v.encode()).collect(),
             Value::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
         }
     }
@@ -170,6 +182,18 @@ impl<T: Field> Decode<T> for Value<T> {
                     })
                     .collect(),
             ),
+            ConcreteType::Tuple(tuple_type) => Value::Tuple(
+                tuple_type
+                    .elements
+                    .into_iter()
+                    .scan(0, |state, ty| {
+                        let new_state = *state + ty.get_primitive_count();
+                        let res = Value::decode(raw[*state..new_state].to_vec(), ty);
+                        *state = new_state;
+                        Some(res)
+                    })
+                    .collect(),
+            ),
         }
     }
 }
@@ -191,6 +215,9 @@ impl<T: Field> Value<T> {
             Value::Boolean(b) => serde_json::Value::Bool(b),
             Value::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into_serde_json()).collect())
+            }
+            Value::Tuple(t) => {
+                serde_json::Value::Array(t.into_iter().map(|e| e.into_serde_json()).collect())
             }
             Value::Struct(s) => serde_json::Value::Object(
                 s.into_iter()

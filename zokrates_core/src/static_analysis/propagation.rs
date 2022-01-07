@@ -982,6 +982,30 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
+    fn fold_element_expression<
+        E: Expr<'ast, T> + Element<'ast, T> + From<TypedExpression<'ast, T>>,
+    >(
+        &mut self,
+        _: &E::Ty,
+        m: ElementExpression<'ast, T, E>,
+    ) -> Result<ElementOrExpression<'ast, T, E>, Self::Error> {
+        let index = m.index;
+
+        let tuple = self.fold_tuple_expression(*m.tuple)?;
+
+        let ty = tuple.ty().clone();
+
+        match tuple.into_inner() {
+            TupleExpressionInner::Value(v) => Ok(ElementOrExpression::Expression(
+                E::from(v[index as usize].clone()).into_inner(),
+            )),
+            inner => Ok(ElementOrExpression::Element(ElementExpression::new(
+                inner.annotate(ty),
+                index,
+            ))),
+        }
+    }
+
     fn fold_select_expression<
         E: Expr<'ast, T>
             + Select<'ast, T>
@@ -1130,6 +1154,39 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 Ok(StructExpressionInner::Value(v))
             }
             e => fold_struct_expression_inner(self, ty, e),
+        }
+    }
+
+    fn fold_tuple_expression_inner(
+        &mut self,
+        ty: &TupleType<'ast, T>,
+        e: TupleExpressionInner<'ast, T>,
+    ) -> Result<TupleExpressionInner<'ast, T>, Error> {
+        match e {
+            TupleExpressionInner::Identifier(id) => match self.constants.get(&id) {
+                Some(e) => match e {
+                    TypedExpression::Tuple(e) => Ok(e.as_inner().clone()),
+                    _ => panic!("constant stored for an tuple should be an tuple"),
+                },
+                None => Ok(TupleExpressionInner::Identifier(id)),
+            },
+            TupleExpressionInner::Value(v) => {
+                let v = v.into_iter().zip(ty.elements.iter().enumerate()).map(|(v, (index, element_ty))|
+                    match self.fold_expression(v) {
+                        Ok(v) => match (ConcreteType::try_from(v.get_type().clone()), ConcreteType::try_from(element_ty.clone())) {
+                            (Ok(t1), Ok(t2)) => if t1 == t2 { Ok(v) } else { Err(Error::Type(format!(
+                                "Tuple element `{}` in tuple `{}` expected to have type `{}`, found type `{}`",
+                                index, ty, t2, t1
+                            ))) },
+                            _ => Ok(v)
+                        }
+                        e => e
+                    }
+                ).collect::<Result<_, _>>()?;
+
+                Ok(TupleExpressionInner::Value(v))
+            }
+            e => fold_tuple_expression_inner(self, ty, e),
         }
     }
 
