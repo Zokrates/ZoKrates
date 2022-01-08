@@ -31,8 +31,8 @@
     "build:bundler:dev": "rimraf pkg && npm run wasm-pack -- --target bundler --dev && npm run clean-pkg",
     "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --release && npm run clean-node-pkg",
     "build:node:dev": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --dev && npm run clean-node-pkg",
-    "clean-pkg": "find pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
-    "clean-node-pkg": "find node/pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
+    "clean-pkg": "rimraf pkg/README.md",
+    "clean-node-pkg": "rimraf node/pkg/README.md",
     "pretest": "npm run setup && npm run build:node",
     "test": "mocha --require esm --recursive tests"
   },

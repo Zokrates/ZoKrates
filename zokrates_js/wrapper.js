@@ -35,35 +35,35 @@ module.exports = (dep) => {
     }
 
     return {
-        compile: (source, options = {}) => {
+        compile: async (source, options = {}) => {
             const { location = "main.zok", resolveCallback = () => null, config = {} } = options;
             const callback = (currentLocation, importLocation) => {
                 return resolveFromStdlib(currentLocation, importLocation) || resolveCallback(currentLocation, importLocation);
             };
-            const { program, abi } = zokrates.compile(source, location, callback, config);
+            const ptr = zokrates.compile(source, location, callback, config);
             return {
-                program: new Uint8Array(program),
-                abi
+                program: ptr.get_program(),
+                abi: JSON.parse(ptr.get_abi())
             }
         },
-        setup: (program) => {
+        setup: async (program) => {
             const { vk, pk } = zokrates.setup(program);
             return {
                 vk,
                 pk: new Uint8Array(pk)
             };
         },
-        computeWitness: (artifacts, args) => {
+        computeWitness: async (artifacts, args) => {
             const { program, abi } = artifacts;
             return zokrates.compute_witness(program, abi, JSON.stringify(Array.from(args)));
         },
-        exportSolidityVerifier: (verificationKey) => {
+        exportSolidityVerifier: async (verificationKey) => {
             return zokrates.export_solidity_verifier(verificationKey);
         },
-        generateProof: (program, witness, provingKey) => {
+        generateProof: async (program, witness, provingKey) => {
             return zokrates.generate_proof(program, witness, provingKey);
         },
-        verify: (verificationKey, proof) => {
+        verify: async (verificationKey, proof) => {
             return zokrates.verify(verificationKey, proof);
         }
     }
