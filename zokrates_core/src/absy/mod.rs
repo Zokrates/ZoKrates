@@ -364,6 +364,7 @@ pub enum Assignee<'ast> {
     Identifier(Identifier<'ast>),
     Select(Box<AssigneeNode<'ast>>, Box<RangeOrExpression<'ast>>),
     Member(Box<AssigneeNode<'ast>>, Box<Identifier<'ast>>),
+    Element(Box<AssigneeNode<'ast>>, u32),
 }
 
 pub type AssigneeNode<'ast> = Node<Assignee<'ast>>;
@@ -374,6 +375,7 @@ impl<'ast> fmt::Display for Assignee<'ast> {
             Assignee::Identifier(ref s) => write!(f, "{}", s),
             Assignee::Select(ref a, ref e) => write!(f, "{}[{}]", a, e),
             Assignee::Member(ref s, ref m) => write!(f, "{}.{}", s, m),
+            Assignee::Element(ref s, i) => write!(f, "{}.{}", s, i),
         }
     }
 }

@@ -461,6 +461,18 @@ impl<'ast, T> From<ConcreteTupleType> for TupleType<'ast, T> {
     }
 }
 
+impl<S> TryFrom<GType<S>> for GTupleType<S> {
+    type Error = ();
+
+    fn try_from(t: GType<S>) -> Result<Self, Self::Error> {
+        if let GType::Tuple(t) = t {
+            Ok(t)
+        } else {
+            Err(())
+        }
+    }
+}
+
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
 pub struct StructLocation {
     #[serde(skip)]

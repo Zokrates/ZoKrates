@@ -831,6 +831,11 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_struct_expression(e2);
             StructEq(box e1, box e2)
         }
+        TupleEq(box e1, box e2) => {
+            let e1 = f.fold_tuple_expression(e1);
+            let e2 = f.fold_tuple_expression(e2);
+            TupleEq(box e1, box e2)
+        }
         UintEq(box e1, box e2) => {
             let e1 = f.fold_uint_expression(e1);
             let e2 = f.fold_uint_expression(e2);
@@ -1268,6 +1273,9 @@ pub fn fold_assignee<'ast, T: Field, F: Folder<'ast, T>>(
             TypedAssignee::Select(box f.fold_assignee(a), box f.fold_uint_expression(index))
         }
         TypedAssignee::Member(box s, m) => TypedAssignee::Member(box f.fold_assignee(s), m),
+        TypedAssignee::Element(box s, index) => {
+            TypedAssignee::Element(box f.fold_assignee(s), index)
+        }
     }
 }
 

@@ -808,7 +808,9 @@ impl<'ast> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast> {
                     pest::IdentifierOrDecimal::Identifier(id) => {
                         absy::Assignee::Member(box acc, box id.span.as_str())
                     }
-                    _ => unimplemented!(),
+                    pest::IdentifierOrDecimal::Decimal(id) => {
+                        absy::Assignee::Element(box acc, id.span.as_str().parse().unwrap())
+                    }
                 },
             }
             .span(span.clone())

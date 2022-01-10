@@ -2119,8 +2119,34 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Cannot access field {} on {} as of type {}",
+                            "Cannot access field {} on {} of type {}",
                             member, checked_assignee, ty,
+                        ),
+                    }),
+                }
+            }
+            Assignee::Element(box assignee, index) => {
+                let checked_assignee = self.check_assignee(assignee, module_id, types)?;
+
+                let ty = checked_assignee.get_type();
+                match &ty {
+                    Type::Tuple(tuple_ty) => match tuple_ty.elements.get(index as usize) {
+                        Some(_) => Ok(TypedAssignee::Element(box checked_assignee, index)),
+                        None => Err(ErrorInner {
+                            pos: Some(pos),
+                            message: format!(
+                                "Tuple of size {} cannot be accessed at index {}",
+                                tuple_ty.elements.len(),
+                                index
+                            ),
+                        }),
+                    },
+                    ty => Err(ErrorInner {
+                        pos: Some(pos),
+
+                        message: format!(
+                            "Cannot access element {} on {} of type {}",
+                            index, checked_assignee, ty,
                         ),
                     }),
                 }

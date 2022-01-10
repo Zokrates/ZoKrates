@@ -19,10 +19,11 @@ pub mod variable;
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
-    CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteType,
-    ConstantIdentifier, DeclarationArrayType, DeclarationConstant, DeclarationFunctionKey,
-    DeclarationSignature, DeclarationStructType, DeclarationType, GArrayType, GStructType, GType,
-    GenericIdentifier, IntoTypes, Signature, StructType, TupleType, Type, Types, UBitwidth,
+    CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteTupleType,
+    ConcreteType, ConstantIdentifier, DeclarationArrayType, DeclarationConstant,
+    DeclarationFunctionKey, DeclarationSignature, DeclarationStructType, DeclarationType,
+    GArrayType, GStructType, GType, GenericIdentifier, IntoTypes, Signature, StructType, TupleType,
+    Type, Types, UBitwidth,
 };
 use crate::parser::Position;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
@@ -431,6 +432,7 @@ pub enum TypedAssignee<'ast, T> {
     Identifier(Variable<'ast, T>),
     Select(Box<TypedAssignee<'ast, T>>, Box<UExpression<'ast, T>>),
     Member(Box<TypedAssignee<'ast, T>>, MemberId),
+    Element(Box<TypedAssignee<'ast, T>>, u32),
 }
 
 #[derive(Clone, PartialEq, Hash, Eq, Debug, PartialOrd, Ord)]
@@ -570,6 +572,13 @@ impl<'ast, T: Clone> Typed<'ast, T> for TypedAssignee<'ast, T> {
                     _ => unreachable!("a struct access should only be defined over structs"),
                 }
             }
+            TypedAssignee::Element(ref s, index) => {
+                let s_type = s.get_type();
+                match s_type {
+                    Type::Tuple(tuple_ty) => tuple_ty.elements[index as usize].clone(),
+                    _ => unreachable!("a tuple access should only be defined over tuples"),
+                }
+            }
         }
     }
 }
@@ -580,6 +589,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedAssignee<'ast, T> {
             TypedAssignee::Identifier(ref s) => write!(f, "{}", s.id),
             TypedAssignee::Select(ref a, ref e) => write!(f, "{}[{}]", a, e),
             TypedAssignee::Member(ref s, ref m) => write!(f, "{}.{}", s, m),
+            TypedAssignee::Element(ref s, index) => write!(f, "{}.{}", s, index),
         }
     }
 }
@@ -1200,6 +1210,7 @@ pub enum BooleanExpression<'ast, T> {
         Box<StructExpression<'ast, T>>,
         Box<StructExpression<'ast, T>>,
     ),
+    TupleEq(Box<TupleExpression<'ast, T>>, Box<TupleExpression<'ast, T>>),
     UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(
         Box<BooleanExpression<'ast, T>>,
@@ -1667,6 +1678,7 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::ArrayEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::StructEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::TupleEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),

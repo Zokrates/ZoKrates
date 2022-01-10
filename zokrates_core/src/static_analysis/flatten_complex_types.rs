@@ -211,6 +211,27 @@ impl<'ast, T: Field> Flattener<T> {
 
                 a[offset..offset + size].to_vec()
             }
+            typed_absy::TypedAssignee::Element(box a, index) => {
+                use typed_absy::Typed;
+
+                let tuple_ty = typed_absy::ConcreteTupleType::try_from(
+                    typed_absy::ConcreteType::try_from(a.get_type()).unwrap(),
+                )
+                .unwrap();
+
+                let offset = tuple_ty
+                    .elements
+                    .iter()
+                    .take(index as usize)
+                    .map(|ty| ty.get_primitive_count())
+                    .sum();
+
+                let size = &tuple_ty.elements[index as usize].get_primitive_count();
+
+                let a = self.fold_assignee(a);
+
+                a[offset..offset + size].to_vec()
+            }
         }
     }
 
@@ -990,6 +1011,14 @@ fn fold_boolean_expression<'ast, T: Field>(
         typed_absy::BooleanExpression::StructEq(box e1, box e2) => {
             let e1 = f.fold_struct_expression(statements_buffer, e1);
             let e2 = f.fold_struct_expression(statements_buffer, e2);
+
+            assert_eq!(e1.len(), e2.len());
+
+            conjunction_tree(&e1, &e2)
+        }
+        typed_absy::BooleanExpression::TupleEq(box e1, box e2) => {
+            let e1 = f.fold_tuple_expression(statements_buffer, e1);
+            let e2 = f.fold_tuple_expression(statements_buffer, e2);
 
             assert_eq!(e1.len(), e2.len());
 

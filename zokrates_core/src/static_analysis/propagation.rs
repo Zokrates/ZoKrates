@@ -126,6 +126,20 @@ impl<'ast, 'a, T: Field> Propagator<'ast, 'a, T> {
                 }
                 e => e,
             },
+            TypedAssignee::Element(box assignee, index) => {
+                match self.try_get_constant_mut(assignee) {
+                    Ok((v, c)) => match c {
+                        TypedExpression::Tuple(a) => match a.as_inner_mut() {
+                            TupleExpressionInner::Value(value) => {
+                                Ok((v, &mut value[*index as usize]))
+                            }
+                            _ => unreachable!("should be a tuple value"),
+                        },
+                        _ => unreachable!("should be a tuple expression"),
+                    },
+                    e => e,
+                }
+            }
         }
     }
 }
@@ -1273,6 +1287,22 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 };
 
                 Ok(BooleanExpression::StructEq(box e1, box e2))
+            }
+            BooleanExpression::TupleEq(box e1, box e2) => {
+                let e1 = self.fold_tuple_expression(e1)?;
+                let e2 = self.fold_tuple_expression(e2)?;
+
+                let t1 = e1.get_type();
+                let t2 = e2.get_type();
+
+                if t1 != t2 {
+                    return Err(Error::Type(format!(
+                        "Cannot compare {} of type {} to {} of type {}",
+                        e1, t1, e2, t2
+                    )));
+                };
+
+                Ok(BooleanExpression::TupleEq(box e1, box e2))
             }
             BooleanExpression::FieldLt(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1)?;
