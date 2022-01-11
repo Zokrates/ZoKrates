@@ -79,12 +79,18 @@ impl<T: Field> fmt::Display for Value<T> {
             ),
             Value::Tuple(elements) => {
                 write!(f, "(")?;
-                for (i, e) in elements.iter().enumerate() {
-                    write!(f, "{},", e)?;
-                    if i < elements.len() - 1 {
-                        write!(f, " ")?;
-                    }
-                }
+                match elements.len() {
+                    1 => write!(f, "{},", elements[0]),
+                    _ => write!(
+                        f,
+                        "{}",
+                        elements
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                }?;
                 write!(f, ")")
             }
         }

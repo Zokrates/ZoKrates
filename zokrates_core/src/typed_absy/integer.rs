@@ -1,7 +1,7 @@
 use crate::typed_absy::types::{
     ArrayType, DeclarationArrayType, DeclarationConstant, DeclarationStructMember,
-    DeclarationStructType, DeclarationType, GArrayType, GStructType, GTupleType, GType,
-    GenericIdentifier, StructType, TupleType, Type,
+    DeclarationStructType, DeclarationTupleType, DeclarationType, GArrayType, GStructType,
+    GTupleType, GType, GenericIdentifier, StructType, TupleType, Type,
 };
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
@@ -40,7 +40,7 @@ trait IntegerInference: Sized {
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)>;
 }
 
-impl<'ast, T> IntegerInference for Type<'ast, T> {
+impl<'ast, T: Clone> IntegerInference for Type<'ast, T> {
     type Pattern = DeclarationType<'ast, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
@@ -67,12 +67,16 @@ impl<'ast, T> IntegerInference for Type<'ast, T> {
                 t.get_common_pattern(u)
                     .map_err(|(t, u)| (Type::Struct(t), Type::Struct(u)))?,
             )),
+            (Type::Tuple(t), Type::Tuple(u)) => Ok(DeclarationType::Tuple(
+                t.get_common_pattern(u)
+                    .map_err(|(t, u)| (Type::Tuple(t), Type::Tuple(u)))?,
+            )),
             (t, u) => Err((t, u)),
         }
     }
 }
 
-impl<'ast, T> IntegerInference for ArrayType<'ast, T> {
+impl<'ast, T: Clone> IntegerInference for ArrayType<'ast, T> {
     type Pattern = DeclarationArrayType<'ast, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
@@ -88,7 +92,7 @@ impl<'ast, T> IntegerInference for ArrayType<'ast, T> {
     }
 }
 
-impl<'ast, T> IntegerInference for StructType<'ast, T> {
+impl<'ast, T: Clone> IntegerInference for StructType<'ast, T> {
     type Pattern = DeclarationStructType<'ast, T>;
 
     fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
@@ -116,6 +120,22 @@ impl<'ast, T> IntegerInference for StructType<'ast, T> {
                     g.map(|_| DeclarationConstant::Generic(GenericIdentifier::with_name("DUMMY")))
                 })
                 .collect(),
+        })
+    }
+}
+
+impl<'ast, T: Clone> IntegerInference for TupleType<'ast, T> {
+    type Pattern = DeclarationTupleType<'ast, T>;
+
+    fn get_common_pattern(self, other: Self) -> Result<Self::Pattern, (Self, Self)> {
+        Ok(DeclarationTupleType {
+            elements: self
+                .elements
+                .iter()
+                .zip(other.elements.iter())
+                .map(|(t, u)| t.clone().get_common_pattern(u.clone()))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| (self, other))?,
         })
     }
 }

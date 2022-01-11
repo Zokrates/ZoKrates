@@ -643,12 +643,18 @@ impl<'ast> fmt::Display for Expression<'ast> {
             }
             Expression::InlineTuple(ref exprs) => {
                 write!(f, "(")?;
-                for (i, e) in exprs.iter().enumerate() {
-                    write!(f, "{},", e)?;
-                    if i < exprs.len() - 1 {
-                        write!(f, " ")?;
-                    }
-                }
+                match exprs.len() {
+                    1 => write!(f, "{},", exprs[0]),
+                    _ => write!(
+                        f,
+                        "{}",
+                        exprs
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                }?;
                 write!(f, ")")
             }
             Expression::ArrayInitializer(ref e, ref count) => write!(f, "[{}; {}]", e, count),

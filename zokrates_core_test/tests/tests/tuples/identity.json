@@ -1,0 +1,40 @@
+{
+	"entry_point": "./tests/tests/structs/identity.zok",
+	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+	"tests": [
+		{
+			"input": {
+				"values": ["42", "0"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["42", "0"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["42", "1"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["42", "1"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["42", "3"]
+			},
+			"output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "9",
+						"right": "3",
+						"error": "ArgumentBitness"
+					}
+				}
+			}
+		}
+	]
+}

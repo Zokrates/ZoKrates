@@ -25,12 +25,18 @@ impl<'ast> fmt::Display for UnresolvedType<'ast> {
             UnresolvedType::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
             UnresolvedType::Tuple(ref elements) => {
                 write!(f, "(")?;
-                for (i, e) in elements.iter().enumerate() {
-                    write!(f, "{},", e)?;
-                    if i < elements.len() {
-                        write!(f, " ")?;
-                    }
-                }
+                match elements.len() {
+                    1 => write!(f, "{},", elements[0]),
+                    _ => write!(
+                        f,
+                        "{}",
+                        elements
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                }?;
                 write!(f, ")")
             }
             UnresolvedType::User(ref id, ref generics) => {

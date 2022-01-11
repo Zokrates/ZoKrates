@@ -1454,12 +1454,18 @@ impl<'ast, T: fmt::Display> fmt::Display for TupleExpression<'ast, T> {
             TupleExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             TupleExpressionInner::Value(ref values) => {
                 write!(f, "(")?;
-                for (i, v) in values.iter().enumerate() {
-                    write!(f, "{},", v)?;
-                    if i < values.len() - 1 {
-                        write!(f, " ")?;
-                    }
-                }
+                match values.len() {
+                    1 => write!(f, "{},", values[0]),
+                    _ => write!(
+                        f,
+                        "{}",
+                        values
+                            .iter()
+                            .map(|v| v.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                }?;
                 write!(f, ")")
             }
             TupleExpressionInner::FunctionCall(ref function_call) => {

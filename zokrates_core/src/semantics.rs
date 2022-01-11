@@ -2817,6 +2817,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
                         Ok(BooleanExpression::StructEq(box e1, box e2).into())
                     }
+                    (TypedExpression::Tuple(e1), TypedExpression::Tuple(e2)) => {
+                        Ok(BooleanExpression::TupleEq(box e1, box e2).into())
+                    }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
                     {

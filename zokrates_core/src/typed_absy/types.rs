@@ -425,12 +425,18 @@ impl<'ast, S, R: PartialEq<S>> PartialEq<GTupleType<S>> for GTupleType<R> {
 impl<S: fmt::Display> fmt::Display for GTupleType<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
-        for (i, e) in self.elements.iter().enumerate() {
-            write!(f, "{},", e)?;
-            if i < self.elements.len() - 1 {
-                write!(f, " ")?;
-            }
-        }
+        match self.elements.len() {
+            1 => write!(f, "{},", self.elements[0]),
+            _ => write!(
+                f,
+                "{}",
+                self.elements
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }?;
         write!(f, ")")
     }
 }
