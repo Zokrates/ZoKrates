@@ -315,7 +315,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_member_expression(self, ty, e)
     }
 
-    fn fold_eq_expression<E: Expr<'ast, T> + PartialEq + Fold<'ast, T>>(
+    fn fold_eq_expression<E: Expr<'ast, T> + PartialEq + Constant + Fold<'ast, T>>(
         &mut self,
         e: EqExpression<E>,
     ) -> EqOrBoolean<'ast, T, E> {
