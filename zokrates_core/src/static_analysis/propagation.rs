@@ -1154,13 +1154,13 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
             }
         };
 
-        // if the two expressions are the same, we can reduce to true.
-        // Note that if they are different we cannot reduce to false: `a == 1` may still be true even though `a` and `1` are different expressions
+        // if the two expressions are the same, we can reduce to `true`.
+        // Note that if they are different we cannot reduce to `false`: `a == 1` may still be `true` even though `a` and `1` are different expressions
         if left == right {
             return Ok(EqOrBoolean::Boolean(BooleanExpression::Value(true)));
         }
 
-        // if both expressions are constant, we can reduce the equality check after put them in canonical form
+        // if both expressions are constant, we can reduce the equality check after we put them in canonical form
         if left.is_constant() && right.is_constant() {
             let left = left.into_canonical_constant();
             let right = right.into_canonical_constant();
