@@ -327,11 +327,8 @@ impl<'ast> VariableWriteRemover {
                                     Type::FieldElement => {
                                         if i == head {
                                             Self::choose_many(
-                                                FieldElementExpression::element(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
+                                                FieldElementExpression::element(base.clone(), head)
+                                                    .into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -343,8 +340,7 @@ impl<'ast> VariableWriteRemover {
                                     Type::Uint(..) => {
                                         if i == head {
                                             Self::choose_many(
-                                                UExpression::element(base.clone(), head.clone())
-                                                    .into(),
+                                                UExpression::element(base.clone(), head).into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -356,11 +352,8 @@ impl<'ast> VariableWriteRemover {
                                     Type::Boolean => {
                                         if i == head {
                                             Self::choose_many(
-                                                BooleanExpression::element(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
+                                                BooleanExpression::element(base.clone(), head)
+                                                    .into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -372,11 +365,7 @@ impl<'ast> VariableWriteRemover {
                                     Type::Array(..) => {
                                         if i == head {
                                             Self::choose_many(
-                                                ArrayExpression::element(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
+                                                ArrayExpression::element(base.clone(), head).into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -388,11 +377,8 @@ impl<'ast> VariableWriteRemover {
                                     Type::Struct(..) => {
                                         if i == head {
                                             Self::choose_many(
-                                                StructExpression::element(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
+                                                StructExpression::element(base.clone(), head)
+                                                    .into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
@@ -404,11 +390,7 @@ impl<'ast> VariableWriteRemover {
                                     Type::Tuple(..) => {
                                         if i == head {
                                             Self::choose_many(
-                                                TupleExpression::element(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
+                                                TupleExpression::element(base.clone(), head).into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,

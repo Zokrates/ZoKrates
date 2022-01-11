@@ -35,7 +35,7 @@ mod tests {
 
             let bits = FieldPrime::one().to_bits_be();
             assert_eq!(bits.len(), 254);
-            assert_eq!(bits[253], true);
+            assert!(bits[253]);
         }
 
         #[test]
