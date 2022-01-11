@@ -26,10 +26,13 @@ fn main() {
         });
 
         let commit = Oid::from_str(LIBSNARK_COMMIT).unwrap();
-        let commit = repo.find_commit(commit).unwrap();
+        let head = repo.head().unwrap();
 
-        repo.reset(&commit.as_object(), ResetType::Hard, None)
-            .unwrap();
+        if commit.ne(&head.target().unwrap()) {
+            let commit = repo.find_commit(commit).unwrap();
+            repo.reset(&commit.as_object(), ResetType::Hard, None)
+                .unwrap();
+        }
 
         for mut s in repo.submodules().unwrap() {
             s.update(true, None).unwrap();
