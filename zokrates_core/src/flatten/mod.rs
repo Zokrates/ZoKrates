@@ -628,7 +628,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let c = c - T::one();
         let c_bit_width = c.bits() as usize;
 
-        let e_bits_be = self.get_bits(&e, c_bit_width, c_bit_width, statements_flattened);
+        let e_bits_be = self.get_bits(
+            &e,
+            c_bit_width,
+            c_bit_width,
+            statements_flattened,
+            error.clone(),
+        );
         let c_bits_be = c.to_bits_be();
 
         self.enforce_constant_le_check(
@@ -659,7 +665,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let e_id = FlatExpression::Identifier(e_var);
 
         let bitwidth = T::get_required_bits();
-        let e_bits_be = self.get_bits(&e_id, bitwidth, bitwidth, statements_flattened);
+        let e_bits_be = self.get_bits(
+            &e_id,
+            bitwidth,
+            bitwidth,
+            statements_flattened,
+            RuntimeError::ConstantLtSum,
+        );
 
         // check that this decomposition does not overflow the field
         self.enforce_constant_le_check(
@@ -1334,6 +1346,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             target_bitwidth,
             target_bitwidth,
             statements_flattened,
+            RuntimeError::Sum,
         );
 
         // r in range
@@ -1342,6 +1355,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             target_bitwidth,
             target_bitwidth,
             statements_flattened,
+            RuntimeError::Sum,
         );
 
         // r < d <=> r - d + 2**w < 2**w
@@ -1353,6 +1367,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             target_bitwidth,
             target_bitwidth,
             statements_flattened,
+            RuntimeError::Sum,
         );
 
         // q*d == n - r
@@ -1826,6 +1841,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         actual_bitwidth,
                         target_bitwidth.to_usize(),
                         statements_flattened,
+                        RuntimeError::Sum,
                     ),
                 };
 
@@ -1862,6 +1878,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         from: usize,
         to: usize,
         statements_flattened: &mut FlatStatements<T>,
+        error: RuntimeError,
     ) -> Vec<FlatExpression<T>> {
         assert!(from <= T::get_required_bits());
         assert!(to <= T::get_required_bits());
@@ -1915,7 +1932,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened.push_back(FlatStatement::Condition(
                     e.clone(),
                     sum.clone(),
-                    RuntimeError::Sum,
+                    error,
                 ));
 
                 // truncate to the `to` lowest bits
@@ -2355,8 +2372,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         match (lhs, rhs) {
                             (e, FlatExpression::Number(constant)) => {
                                 let bitwidth = constant.bits() as usize;
-                                let e_bits_be =
-                                    self.get_bits(&e, bitwidth, bitwidth, statements_flattened);
+                                let e_bits_be = self.get_bits(
+                                    &e,
+                                    bitwidth,
+                                    bitwidth,
+                                    statements_flattened,
+                                    error.clone().into(),
+                                );
 
                                 self.enforce_constant_le_check(
                                     statements_flattened,
@@ -2370,8 +2392,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 let constant = T::max_value() - constant;
                                 let bitwidth = constant.bits() as usize;
 
-                                let e_bits_be =
-                                    self.get_bits(&e, bitwidth, bitwidth, statements_flattened);
+                                let e_bits_be = self.get_bits(
+                                    &e,
+                                    bitwidth,
+                                    bitwidth,
+                                    statements_flattened,
+                                    error.clone().into(),
+                                );
 
                                 self.enforce_constant_le_check(
                                     statements_flattened,
@@ -2615,6 +2642,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     bitwidth.to_usize(),
                     bitwidth.to_usize(),
                     statements_flattened,
+                    RuntimeError::Sum,
                 );
             }
             Type::Boolean => {
