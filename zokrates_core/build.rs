@@ -25,16 +25,8 @@ fn main() {
             Repository::clone(LIBSNARK_URL, libsnark_source_path).unwrap()
         });
 
-        repo.checkout_head(None).unwrap();
-
-        let commit = Oid::from_str(LIBSNARK_COMMIT).unwrap();
-        let head = repo.head().unwrap();
-
-        if commit.ne(&head.target().unwrap()) {
-            let commit = repo.find_commit(commit).unwrap();
-            repo.reset(&commit.as_object(), ResetType::Hard, None)
-                .unwrap();
-        }
+        let (object, _) = repo.revparse_ext(LIBSNARK_COMMIT).unwrap();
+        repo.checkout_tree(&object, None).unwrap();
 
         for mut s in repo.submodules().unwrap() {
             s.update(true, None).unwrap();
