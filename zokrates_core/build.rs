@@ -25,6 +25,8 @@ fn main() {
             Repository::clone(LIBSNARK_URL, libsnark_source_path).unwrap()
         });
 
+        repo.checkout_head(None).unwrap();
+
         let commit = Oid::from_str(LIBSNARK_COMMIT).unwrap();
         let head = repo.head().unwrap();
 
