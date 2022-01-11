@@ -1133,7 +1133,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
-    fn fold_eq_expression<E: Expr<'ast, T> + Typed<'ast, T> + ResultFold<'ast, T>>(
+    fn fold_eq_expression<E: Expr<'ast, T> + PartialEq + Typed<'ast, T> + ResultFold<'ast, T>>(
         &mut self,
         e: EqExpression<E>,
     ) -> Result<EqOrBoolean<'ast, T, E>, Self::Error> {
@@ -1151,6 +1151,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 )));
             }
         };
+
+        if left == right {
+            return Ok(EqOrBoolean::Boolean(BooleanExpression::Value(true)));
+        }
 
         Ok(EqOrBoolean::Eq(EqExpression::new(left, right)))
     }

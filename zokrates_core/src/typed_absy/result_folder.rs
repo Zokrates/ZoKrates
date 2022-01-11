@@ -218,7 +218,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_member_expression(self, ty, e)
     }
 
-    fn fold_eq_expression<E: Expr<'ast, T> + Typed<'ast, T> + ResultFold<'ast, T>>(
+    fn fold_eq_expression<E: Expr<'ast, T> + Typed<'ast, T> + PartialEq + ResultFold<'ast, T>>(
         &mut self,
         e: EqExpression<E>,
     ) -> Result<EqOrBoolean<'ast, T, E>, Self::Error> {
@@ -743,12 +743,7 @@ pub fn fold_member_expression<
     )))
 }
 
-pub fn fold_eq_expression<
-    'ast,
-    T: Field,
-    E: Expr<'ast, T> + ResultFold<'ast, T>,
-    F: ResultFolder<'ast, T>,
->(
+pub fn fold_eq_expression<'ast, T: Field, E: ResultFold<'ast, T>, F: ResultFolder<'ast, T>>(
     f: &mut F,
     e: EqExpression<E>,
 ) -> Result<EqOrBoolean<'ast, T, E>, F::Error> {
