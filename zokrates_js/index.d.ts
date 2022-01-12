@@ -48,9 +48,14 @@ declare module 'zokrates-js' {
     output: string
   }
 
+  export interface Abi {
+    inputs: Array<any>,
+    outputs: Array<any>
+  }
+
   export interface CompilationArtifacts {
     program: Uint8Array,
-    abi: string,
+    abi: Abi,
   }
   
   export interface SetupKeypair {
