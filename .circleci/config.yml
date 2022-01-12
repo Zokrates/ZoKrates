@@ -110,7 +110,7 @@ jobs:
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./integration_test.sh
   deploy:
     docker:
-      - image: circleci/python:latest-node
+      - image: cimg/python:3.8-node
     steps:
       - checkout
       - setup_remote_docker:
