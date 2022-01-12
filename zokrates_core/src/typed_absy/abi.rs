@@ -1,7 +1,7 @@
 use crate::typed_absy::types::{ConcreteSignature, ConcreteType};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AbiInput {
     pub name: String,
     pub public: bool,
@@ -11,7 +11,7 @@ pub struct AbiInput {
 
 pub type AbiOutput = ConcreteType;
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Abi {
     pub inputs: Vec<AbiInput>,
     pub outputs: Vec<AbiOutput>,

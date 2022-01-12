@@ -34,7 +34,8 @@
     "clean-pkg": "rimraf pkg/README.md",
     "clean-node-pkg": "rimraf node/pkg/README.md",
     "pretest": "npm run setup && npm run build:node",
-    "test": "mocha --require esm --recursive tests"
+    "test": "npm run run-tests",
+    "run-tests": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
     "dree": "^2.6.1",
@@ -45,7 +46,8 @@
     "rimraf": "^3.0.2",
     "serve": "^11.3.2",
     "text-encoding": "^0.7.0",
-    "toml": "^3.0.0"
+    "toml": "^3.0.0",
+    "wasm-pack": "^0.10.2"
   },
   "dependencies": {}
 }

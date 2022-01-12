@@ -23,18 +23,18 @@ use zokrates_field::Bn128Field;
 #[wasm_bindgen]
 pub struct CompilationResult {
     program: Vec<u8>,
-    abi: String,
+    abi: Abi,
 }
 
 #[wasm_bindgen]
 impl CompilationResult {
-    pub fn get_program(&self) -> js_sys::Uint8Array {
+    pub fn program(&self) -> js_sys::Uint8Array {
         let arr = js_sys::Uint8Array::new_with_length(self.program.len() as u32);
         arr.copy_from(&self.program);
         arr
     }
-    pub fn get_abi(&self) -> js_sys::JsString {
-        js_sys::JsString::from(self.abi.as_str())
+    pub fn abi(&self) -> JsValue {
+        JsValue::from_serde(&self.abi).unwrap()
     }
 }
 
@@ -142,7 +142,7 @@ pub fn compile(
     })?;
 
     Ok(CompilationResult {
-        abi: to_string_pretty(artifacts.abi()).unwrap(),
+        abi: artifacts.abi().clone(),
         program: serialize_program(artifacts.prog()),
     })
 }

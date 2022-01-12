@@ -64,12 +64,12 @@ declare module 'zokrates-js' {
   }
 
   export interface ZoKratesProvider {
-    compile(source: string, options?: CompileOptions): Promise<CompilationArtifacts>;
-    setup(program: Uint8Array): Promise<SetupKeypair>;
-    computeWitness(artifacts: CompilationArtifacts, args: any[]): Promise<ComputationResult>;
-    exportSolidityVerifier(verificationKey: VerificationKey): Promise<string>;
-    generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): Promise<Proof>;
-    verify(verificationKey: VerificationKey, proof: Proof): Promise<boolean>;
+    compile(source: string, options?: CompileOptions): CompilationArtifacts;
+    setup(program: Uint8Array): SetupKeypair;
+    computeWitness(artifacts: CompilationArtifacts, args: any[]): ComputationResult;
+    exportSolidityVerifier(verificationKey: VerificationKey): string;
+    generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): Proof;
+    verify(verificationKey: VerificationKey, proof: Proof): boolean;
   }
 
   export interface Metadata {

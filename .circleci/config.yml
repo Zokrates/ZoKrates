@@ -145,6 +145,25 @@ jobs:
           name: Run tests
           no_output_timeout: "30m"
           command: npm run test
+  zokrates_js_test2:
+    docker:
+      - image: circleci/python:latest-node
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          no_output_timeout: "30m"
+          command: |
+            docker build -t zokrates_js -f zokrates_js/Dockerfile .
+
+            CID=$(docker create zokrates_js)
+
+            docker cp ${CID}:/build zokrates_js/dist
+            docker rm -f ${CID}
+            
+            cd zokrates_js/dist
+            npm publish --dry-run
   cross_build:
     parameters:
       os:
@@ -240,69 +259,70 @@ tag-only: &tag-only
 workflows:
   build-test-and-deploy:
     jobs:
-      - build
-      - test
-      - cpp_format
-      - wasm_test
-      - integration_test
+#      - build
+#      - test
+#      - cpp_format
+#      - wasm_test
+#      - integration_test
       - zokrates_js_build
       - zokrates_js_test
-      - cross_build:
-          <<: *tag-only
-          pre-steps:
-            - install_rust
-            - install_cross
-          matrix:
-            alias: cross-build-linux
-            parameters:
-              os:
-                - linux
-              target:
-                - aarch64-unknown-linux-gnu
-                - arm-unknown-linux-gnueabi
-                - x86_64-unknown-linux-gnu
-                - x86_64-pc-windows-gnu
-      - cross_build:
-          <<: *tag-only
-          pre-steps:
-            - install_rust
-          build-with: cargo
-          matrix:
-            alias: cross-build-macos
-            parameters:
-              os:
-                - macos
-              target:
-                - x86_64-apple-darwin
-      - cross_build:
-         <<: *tag-only
-         pre-steps:
-           - install_rust
-         build-with: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo
-         add-target: true
-         matrix:
-           alias: cross-build-apple-silicon
-           parameters:
-             os:
-               - macos
-             target:
-               - aarch64-apple-darwin
-      - publish_artifacts:
-          <<: *tag-only
-          requires:
-            - cross-build-linux
-            - cross-build-macos
-            - cross-build-apple-silicon
-      - deploy:
-          filters:
-            branches:
-              only:
-                - deploy
-          requires:
-            - build
-            - test
-            - cpp_format
-            - wasm_test
-            - integration_test
-            - zokrates_js_build
-            - zokrates_js_test
+      - zokrates_js_test2
+#      - cross_build:
+#          <<: *tag-only
+#          pre-steps:
+#            - install_rust
+#            - install_cross
+#          matrix:
+#            alias: cross-build-linux
+#            parameters:
+#              os:
+#                - linux
+#              target:
+#                - aarch64-unknown-linux-gnu
+#                - arm-unknown-linux-gnueabi
+#                - x86_64-unknown-linux-gnu
+#                - x86_64-pc-windows-gnu
+#      - cross_build:
+#          <<: *tag-only
+#          pre-steps:
+#            - install_rust
+#          build-with: cargo
+#          matrix:
+#            alias: cross-build-macos
+#            parameters:
+#              os:
+#                - macos
+#              target:
+#                - x86_64-apple-darwin
+#      - cross_build:
+#         <<: *tag-only
+#         pre-steps:
+#           - install_rust
+#         build-with: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo
+#         add-target: true
+#         matrix:
+#           alias: cross-build-apple-silicon
+#           parameters:
+#             os:
+#               - macos
+#             target:
+#               - aarch64-apple-darwin
+#      - publish_artifacts:
+#          <<: *tag-only
+#          requires:
+#            - cross-build-linux
+#            - cross-build-macos
+#            - cross-build-apple-silicon
+#      - deploy:
+#          filters:
+#            branches:
+#              only:
+#                - deploy
+#          requires:
+#            - build
+#            - test
+#            - cpp_format
+#            - wasm_test
+#            - integration_test
+#            - zokrates_js_build
+#            - zokrates_js_test
