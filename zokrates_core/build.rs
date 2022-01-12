@@ -8,7 +8,7 @@ extern crate git2;
 fn main() {
     #[cfg(feature = "libsnark")]
     {
-        use git2::{Oid, Repository, ResetType};
+        use git2::Repository;
         use std::env;
         use std::fs::remove_dir;
         use std::path::PathBuf;
@@ -25,7 +25,7 @@ fn main() {
             Repository::clone(LIBSNARK_URL, libsnark_source_path).unwrap()
         });
 
-        let (object, _) = repo.revparse_ext(LIBSNARK_COMMIT).unwrap();
+        let object = repo.revparse_single(LIBSNARK_COMMIT).unwrap();
         repo.checkout_tree(&object, None).unwrap();
 
         for mut s in repo.submodules().unwrap() {
