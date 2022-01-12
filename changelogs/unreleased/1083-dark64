@@ -1,1 +1,1 @@
-Fix out of memory issues in `zokrates-js`, update API to use promises
+Fix out of memory issues in `zokrates-js`
