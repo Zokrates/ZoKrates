@@ -1,17 +1,24 @@
-FROM zokrates/env:latest as build
+ARG BASE_IMAGE=ubuntu:18.04
+ARG WITH_LIBSNARK=1
 
-ENV WITH_LIBSNARK=1
+FROM zokrates/env:latest as build
+ENV WITH_LIBSNARK=$WITH_LIBSNARK
+
 WORKDIR /build
 
 COPY . src
 RUN cd src; ./build_release.sh
 
-FROM ubuntu:18.04
+FROM $BASE_IMAGE
+
+ARG WITH_LIBSNARK
 ENV ZOKRATES_HOME=/home/zokrates/.zokrates
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgmp3-dev \
-    && useradd -u 1000 -m zokrates
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update; \
+    [ "$WITH_LIBSNARK" = 1 ] && apt-get install -y --no-install-recommends libgmp3-dev; \
+    useradd -u 1000 -m zokrates
 
 USER zokrates
 WORKDIR /home/zokrates
