@@ -108,9 +108,9 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'as
 
         let span = field.span;
 
-        let id = field.id.span.as_str();
+        let id = field.id.identifier.span.as_str();
 
-        let ty = absy::UnresolvedTypeNode::from(field.ty);
+        let ty = absy::UnresolvedTypeNode::from(field.id.ty);
 
         absy::StructDefinitionField { id, ty }.span(span)
     }
@@ -121,10 +121,10 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<
         use crate::absy::NodeValue;
 
         let span = definition.span;
-        let id = definition.id.span.as_str();
+        let id = definition.id.identifier.span.as_str();
 
         let ty = absy::ConstantDefinition {
-            ty: definition.ty.into(),
+            ty: definition.id.ty.into(),
             expression: definition.expression.into(),
         }
         .span(span.clone());
@@ -386,15 +386,15 @@ impl<'ast> From<pest::IterationStatement<'ast>> for absy::StatementNode<'ast> {
         use crate::absy::NodeValue;
         let from = absy::ExpressionNode::from(statement.from);
         let to = absy::ExpressionNode::from(statement.to);
-        let index = statement.index.span.as_str();
-        let ty = absy::UnresolvedTypeNode::from(statement.ty);
+        let index = statement.id.identifier.span.as_str();
+        let ty = absy::UnresolvedTypeNode::from(statement.id.ty);
         let statements: Vec<absy::StatementNode<'ast>> = statement
             .statements
             .into_iter()
             .flat_map(statements_from_statement)
             .collect();
 
-        let var = absy::Variable::new(index, ty).span(statement.index.span);
+        let var = absy::Variable::new(index, ty).span(statement.id.identifier.span);
 
         absy::Statement::For(var, from, to, statements).span(statement.span)
     }

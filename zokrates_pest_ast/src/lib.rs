@@ -164,8 +164,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::struct_field))]
     pub struct StructField<'ast> {
-        pub ty: Type<'ast>,
-        pub id: IdentifierExpression<'ast>,
+        pub id: TypedIdentifier<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -185,8 +184,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::const_definition))]
     pub struct ConstantDefinition<'ast> {
-        pub ty: Type<'ast>,
-        pub id: IdentifierExpression<'ast>,
+        pub id: TypedIdentifier<'ast>,
         pub expression: Expression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -387,8 +385,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::iteration_statement))]
     pub struct IterationStatement<'ast> {
-        pub ty: Type<'ast>,
-        pub index: IdentifierExpression<'ast>,
+        pub id: TypedIdentifier<'ast>,
         pub from: Expression<'ast>,
         pub to: Expression<'ast>,
         pub statements: Vec<Statement<'ast>>,
