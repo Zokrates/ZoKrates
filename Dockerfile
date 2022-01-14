@@ -14,10 +14,8 @@ FROM $BASE_IMAGE
 ARG WITH_LIBSNARK
 ENV ZOKRATES_HOME=/home/zokrates/.zokrates
 
-SHELL ["/bin/bash", "-c"]
-
 RUN apt-get update; \
-    [ "$WITH_LIBSNARK" = 1 ] && apt-get install -y --no-install-recommends libgmp3-dev; \
+    [ "$WITH_LIBSNARK" -eq 1 ] && apt-get install -y --no-install-recommends libgmp3-dev; \
     useradd -u 1000 -m zokrates
 
 USER zokrates
