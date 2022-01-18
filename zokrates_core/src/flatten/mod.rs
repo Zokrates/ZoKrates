@@ -2418,22 +2418,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                     safe_width,
                                 );
                                 let eq = self.eq_check(statements_flattened, lhs, rhs);
-
                                 let e = FlatExpression::Add(box eq, box lt);
-                                if e.is_linear() {
-                                    statements_flattened.push_back(FlatStatement::Condition(
-                                        e,
-                                        FlatExpression::Number(T::from(1)),
-                                        error.into(),
-                                    ));
-                                } else {
-                                    // swap so that left side is linear
-                                    statements_flattened.push_back(FlatStatement::Condition(
-                                        FlatExpression::Number(T::from(1)),
-                                        e,
-                                        error.into(),
-                                    ));
-                                }
+                                statements_flattened.push_back(FlatStatement::Condition(
+                                    e,
+                                    FlatExpression::Number(T::from(1)),
+                                    error.into(),
+                                ));
                             }
                         }
                     }
