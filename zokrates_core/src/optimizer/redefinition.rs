@@ -211,21 +211,18 @@ mod tests {
         let y = FlatVariable::new(1);
         let out = FlatVariable::public(0);
 
-        let p: Prog<Bn128Field> = Prog {
-            arguments: vec![x],
-            statements: vec![
+        let p: Prog<Bn128Field> = Prog::new(
+            vec![x],
+            vec![
                 Statement::definition(y, x.id),
                 Statement::definition(out, y),
             ]
             .into(),
-            return_count: 1,
-        };
+            1,
+        );
 
-        let optimized: Prog<Bn128Field> = Prog {
-            arguments: vec![x],
-            statements: vec![Statement::definition(out, x.id)].into(),
-            return_count: 1,
-        };
+        let optimized: Prog<Bn128Field> =
+            Prog::new(vec![x], vec![Statement::definition(out, x.id)].into(), 1);
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
         assert_eq!(optimizer.fold_program(p), optimized);
@@ -239,11 +236,8 @@ mod tests {
         let one = FlatVariable::one();
         let x = FlatParameter::public(FlatVariable::new(0));
 
-        let p: Prog<Bn128Field> = Prog {
-            arguments: vec![x],
-            statements: vec![Statement::definition(one, x.id)].into(),
-            return_count: 1,
-        };
+        let p: Prog<Bn128Field> =
+            Prog::new(vec![x], vec![Statement::definition(one, x.id)].into(), 1);
 
         let optimized = p.clone();
 
@@ -270,27 +264,27 @@ mod tests {
         let z = FlatVariable::new(2);
         let out = FlatVariable::public(0);
 
-        let p: Prog<Bn128Field> = Prog {
-            arguments: vec![x],
-            statements: vec![
+        let p: Prog<Bn128Field> = Prog::new(
+            vec![x],
+            vec![
                 Statement::definition(y, x.id),
                 Statement::definition(z, y),
                 Statement::constraint(z, y),
                 Statement::definition(out, z),
             ]
             .into(),
-            return_count: 1,
-        };
+            1,
+        );
 
-        let optimized: Prog<Bn128Field> = Prog {
-            arguments: vec![x],
-            statements: vec![
+        let optimized: Prog<Bn128Field> = Prog::new(
+            vec![x],
+            vec![
                 Statement::constraint(x.id, x.id),
                 Statement::definition(out, x.id),
             ]
             .into(),
-            return_count: 1,
-        };
+            1,
+        );
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
         assert_eq!(optimizer.fold_program(p), optimized);
@@ -319,9 +313,9 @@ mod tests {
         let out_1 = FlatVariable::public(0);
         let out_0 = FlatVariable::public(1);
 
-        let p: Prog<Bn128Field> = Prog {
-            arguments: vec![x],
-            statements: vec![
+        let p: Prog<Bn128Field> = Prog::new(
+            vec![x],
+            vec![
                 Statement::definition(y, x.id),
                 Statement::definition(t, Bn128Field::from(1)),
                 Statement::definition(z, y),
@@ -330,18 +324,18 @@ mod tests {
                 Statement::definition(out_1, w),
             ]
             .into(),
-            return_count: 2,
-        };
+            2,
+        );
 
-        let optimized: Prog<Bn128Field> = Prog {
-            arguments: vec![x],
-            statements: vec![
+        let optimized: Prog<Bn128Field> = Prog::new(
+            vec![x],
+            vec![
                 Statement::definition(out_0, x.id),
                 Statement::definition(out_1, Bn128Field::from(1)),
             ]
             .into(),
-            return_count: 2,
-        };
+            2,
+        );
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
 
@@ -370,9 +364,9 @@ mod tests {
         let c = FlatVariable::new(4);
         let r = FlatVariable::public(0);
 
-        let p: Prog<Bn128Field> = Prog {
-            arguments: vec![x, y],
-            statements: vec![
+        let p: Prog<Bn128Field> = Prog::new(
+            vec![x, y],
+            vec![
                 Statement::definition(a, LinComb::from(x.id) + LinComb::from(y.id)),
                 Statement::definition(
                     b,
@@ -389,12 +383,12 @@ mod tests {
                 Statement::definition(r, LinComb::from(a) + LinComb::from(b) + LinComb::from(c)),
             ]
             .into(),
-            return_count: 1,
-        };
+            1,
+        );
 
-        let expected: Prog<Bn128Field> = Prog {
-            arguments: vec![x, y],
-            statements: vec![
+        let expected: Prog<Bn128Field> = Prog::new(
+            vec![x, y],
+            vec![
                 Statement::constraint(
                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
                     LinComb::summand(6, x.id) + LinComb::summand(6, y.id),
@@ -410,8 +404,8 @@ mod tests {
                 ),
             ]
             .into(),
-            return_count: 1,
-        };
+            1,
+        );
 
         let mut optimizer = RedefinitionOptimizer::init(&p);
 
@@ -438,9 +432,9 @@ mod tests {
         let y = FlatParameter::public(FlatVariable::new(1));
         let z = FlatVariable::new(2);
 
-        let p: Prog<Bn128Field> = Prog {
-            arguments: vec![x, y],
-            statements: vec![
+        let p: Prog<Bn128Field> = Prog::new(
+            vec![x, y],
+            vec![
                 Statement::definition(
                     z,
                     QuadComb::from_linear_combinations(LinComb::from(x.id), LinComb::from(y.id)),
@@ -448,8 +442,8 @@ mod tests {
                 Statement::definition(z, LinComb::from(x.id)),
             ]
             .into(),
-            return_count: 0,
-        };
+            0,
+        );
 
         let optimized = p.clone();
 
@@ -470,15 +464,15 @@ mod tests {
 
         let x = FlatParameter::public(FlatVariable::new(0));
 
-        let p: Prog<Bn128Field> = Prog {
-            arguments: vec![x],
-            statements: vec![
+        let p: Prog<Bn128Field> = Prog::new(
+            vec![x],
+            vec![
                 Statement::constraint(x.id, Bn128Field::from(1)),
                 Statement::constraint(x.id, Bn128Field::from(2)),
             ]
             .into(),
-            return_count: 1,
-        };
+            1,
+        );
 
         let optimized = p.clone();
 

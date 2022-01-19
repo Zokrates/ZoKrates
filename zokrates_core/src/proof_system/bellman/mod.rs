@@ -272,15 +272,15 @@ mod tests {
 
         #[test]
         fn identity() {
-            let program: Prog<Bn128Field> = Prog {
-                arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-                return_count: 1,
-                statements: vec![Statement::constraint(
+            let program: Prog<Bn128Field> = Prog::new(
+                vec![FlatParameter::private(FlatVariable::new(0))],
+                vec![Statement::constraint(
                     FlatVariable::new(0),
                     FlatVariable::public(0),
                 )]
                 .into(),
-            };
+                1,
+            );
 
             let interpreter = Interpreter::default();
 
@@ -296,15 +296,15 @@ mod tests {
 
         #[test]
         fn public_identity() {
-            let program: Prog<Bn128Field> = Prog {
-                arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-                return_count: 1,
-                statements: vec![Statement::constraint(
+            let program: Prog<Bn128Field> = Prog::new(
+                vec![FlatParameter::public(FlatVariable::new(0))],
+                vec![Statement::constraint(
                     FlatVariable::new(0),
                     FlatVariable::public(0),
                 )]
                 .into(),
-            };
+                1,
+            );
 
             let interpreter = Interpreter::default();
 
@@ -320,15 +320,15 @@ mod tests {
 
         #[test]
         fn no_arguments() {
-            let program: Prog<Bn128Field> = Prog {
-                arguments: vec![],
-                return_count: 1,
-                statements: vec![Statement::constraint(
+            let program: Prog<Bn128Field> = Prog::new(
+                vec![],
+                vec![Statement::constraint(
                     FlatVariable::one(),
                     FlatVariable::public(0),
                 )]
                 .into(),
-            };
+                1,
+            );
 
             let interpreter = Interpreter::default();
 
@@ -343,13 +343,12 @@ mod tests {
         fn unordered_variables() {
             // public variables must be ordered from 0
             // private variables can be unordered
-            let program: Prog<Bn128Field> = Prog {
-                arguments: vec![
+            let program: Prog<Bn128Field> = Prog::new(
+                vec![
                     FlatParameter::private(FlatVariable::new(42)),
                     FlatParameter::public(FlatVariable::new(51)),
                 ],
-                return_count: 2,
-                statements: vec![
+                vec![
                     Statement::constraint(
                         LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
                         FlatVariable::public(0),
@@ -360,7 +359,8 @@ mod tests {
                     ),
                 ]
                 .into(),
-            };
+                2,
+            );
 
             let interpreter = Interpreter::default();
 
@@ -375,15 +375,15 @@ mod tests {
 
         #[test]
         fn one() {
-            let program: Prog<Bn128Field> = Prog {
-                arguments: vec![FlatParameter::public(FlatVariable::new(42))],
-                return_count: 1,
-                statements: vec![Statement::constraint(
+            let program: Prog<Bn128Field> = Prog::new(
+                vec![FlatParameter::public(FlatVariable::new(42))],
+                vec![Statement::constraint(
                     LinComb::from(FlatVariable::new(42)) + LinComb::one(),
                     FlatVariable::public(0),
                 )]
                 .into(),
-            };
+                1,
+            );
 
             let interpreter = Interpreter::default();
 
@@ -399,18 +399,18 @@ mod tests {
 
         #[test]
         fn with_directives() {
-            let program: Prog<Bn128Field> = Prog {
-                arguments: vec![
+            let program: Prog<Bn128Field> = Prog::new(
+                vec![
                     FlatParameter::private(FlatVariable::new(42)),
                     FlatParameter::public(FlatVariable::new(51)),
                 ],
-                return_count: 1,
-                statements: vec![Statement::constraint(
+                vec![Statement::constraint(
                     LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
                     FlatVariable::public(0),
                 )]
                 .into(),
-            };
+                1,
+            );
 
             let interpreter = Interpreter::default();
 

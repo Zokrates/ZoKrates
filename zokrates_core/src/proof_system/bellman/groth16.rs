@@ -207,15 +207,15 @@ mod tests {
 
     #[test]
     fn verify() {
-        let program: Prog<Bn128Field> = Prog {
-            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-            return_count: 1,
-            statements: vec![Statement::constraint(
+        let program: Prog<Bn128Field> = Prog::new(
+            vec![FlatParameter::public(FlatVariable::new(0))],
+            vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
             )]
             .into(),
-        };
+            1,
+        );
 
         let keypair =
             <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone().into())

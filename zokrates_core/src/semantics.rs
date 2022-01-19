@@ -2740,21 +2740,21 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::FieldEq(box e1, box e2).into())
+                        Ok(BooleanExpression::FieldEq(EqExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::BoolEq(box e1, box e2).into())
+                        Ok(BooleanExpression::BoolEq(EqExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
-                        Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
+                        Ok(BooleanExpression::ArrayEq(EqExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
-                        Ok(BooleanExpression::StructEq(box e1, box e2).into())
+                        Ok(BooleanExpression::StructEq(EqExpression::new(e1, e2)).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
                     {
-                        Ok(BooleanExpression::UintEq(box e1, box e2).into())
+                        Ok(BooleanExpression::UintEq(EqExpression::new(e1, e2)).into())
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),

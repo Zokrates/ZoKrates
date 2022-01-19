@@ -20,16 +20,28 @@ use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::ConcreteSignature as Signature;
 use zokrates_field::Bn128Field;
 
+#[wasm_bindgen]
+pub struct CompilationResult {
+    program: Vec<u8>,
+    abi: Abi,
+}
+
+#[wasm_bindgen]
+impl CompilationResult {
+    pub fn program(&self) -> js_sys::Uint8Array {
+        let arr = js_sys::Uint8Array::new_with_length(self.program.len() as u32);
+        arr.copy_from(&self.program);
+        arr
+    }
+    pub fn abi(&self) -> JsValue {
+        JsValue::from_serde(&self.abi).unwrap()
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ResolverResult {
     source: String,
     location: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct CompilationResult {
-    program: Vec<u8>,
-    abi: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -104,7 +116,7 @@ pub fn compile(
     location: JsValue,
     resolve_callback: &js_sys::Function,
     config: JsValue,
-) -> Result<JsValue, JsValue> {
+) -> Result<CompilationResult, JsValue> {
     let resolver = JsResolver::new(resolve_callback);
     let config: CompileConfig = config.into_serde().unwrap_or_default();
 
@@ -129,18 +141,17 @@ pub fn compile(
         )
     })?;
 
-    let result = CompilationResult {
-        abi: to_string_pretty(artifacts.abi()).unwrap(),
+    Ok(CompilationResult {
+        abi: artifacts.abi().clone(),
         program: serialize_program(artifacts.prog()),
-    };
-
-    Ok(JsValue::from_serde(&result).unwrap())
+    })
 }
 
 #[wasm_bindgen]
 pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<JsValue, JsValue> {
     let program_flattened = deserialize_program(program)?;
-    let abi: Abi = serde_json::from_str(abi.as_string().unwrap().as_str())
+    let abi: Abi = abi
+        .into_serde()
         .map_err(|err| JsValue::from_str(&format!("Could not deserialize abi: {}", err)))?;
 
     let signature: Signature = abi.signature();

@@ -262,15 +262,15 @@ mod tests {
 
     #[test]
     fn verify_bls12_377_field() {
-        let program: Prog<Bls12_377Field> = Prog {
-            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-            return_count: 1,
-            statements: vec![Statement::constraint(
+        let program: Prog<Bls12_377Field> = Prog::new(
+            vec![FlatParameter::public(FlatVariable::new(0))],
+            vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
             )]
             .into(),
-        };
+            1,
+        );
 
         let keypair =
             <Ark as NonUniversalBackend<Bls12_377Field, GM17>>::setup(program.clone()).unwrap();
@@ -293,15 +293,15 @@ mod tests {
 
     #[test]
     fn verify_bw6_761_field() {
-        let program: Prog<Bw6_761Field> = Prog {
-            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-            return_count: 1,
-            statements: vec![Statement::constraint(
+        let program: Prog<Bw6_761Field> = Prog::new(
+            vec![FlatParameter::public(FlatVariable::new(0))],
+            vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
             )]
             .into(),
-        };
+            1,
+        );
 
         let keypair =
             <Ark as NonUniversalBackend<Bw6_761Field, GM17>>::setup(program.clone()).unwrap();

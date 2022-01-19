@@ -8,7 +8,7 @@ extern crate git2;
 fn main() {
     #[cfg(feature = "libsnark")]
     {
-        use git2::{Oid, Repository, ResetType};
+        use git2::Repository;
         use std::env;
         use std::fs::remove_dir;
         use std::path::PathBuf;
@@ -25,11 +25,17 @@ fn main() {
             Repository::clone(LIBSNARK_URL, libsnark_source_path).unwrap()
         });
 
-        let commit = Oid::from_str(LIBSNARK_COMMIT).unwrap();
-        let commit = repo.find_commit(commit).unwrap();
+        // Unencrypted `git://` protocol is no longer supported on GitHub
+        // so we replace all submodule urls to use `https://`
+        let gitmodules_path = libsnark_source_path.join(".gitmodules");
+        let gitmodules = std::fs::read_to_string(&gitmodules_path)
+            .unwrap()
+            .replace("git://", "https://");
 
-        repo.reset(&commit.as_object(), ResetType::Hard, None)
-            .unwrap();
+        std::fs::write(&gitmodules_path, gitmodules).unwrap();
+
+        let object = repo.revparse_single(LIBSNARK_COMMIT).unwrap();
+        repo.checkout_tree(&object, None).unwrap();
 
         for mut s in repo.submodules().unwrap() {
             s.update(true, None).unwrap();

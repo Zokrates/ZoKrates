@@ -21,7 +21,7 @@ impl<T: Field> QuadComb<T> {
 }
 
 pub fn from_flat<T: Field, I: IntoStatements<FlatAbsy<T>>>(
-    flat_prog_iterator: FlatProgIterator<I>,
+    flat_prog_iterator: FlatProgIterator<T, I>,
 ) -> ProgIterator<T, impl IntoStatements<Ir<T>>> {
     use fallible_iterator::FallibleIterator;
 

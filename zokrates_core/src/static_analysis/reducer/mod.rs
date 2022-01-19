@@ -208,8 +208,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Reducer<'ast, T> {
         ty: &E::Ty,
         e: FunctionCallExpression<'ast, T, E>,
     ) -> Result<FunctionCallOrExpression<'ast, T, E>, Self::Error> {
-        self.blocked = true;
-
         let generics = e
             .generics
             .into_iter()
@@ -222,61 +220,71 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Reducer<'ast, T> {
             .map(|e| self.fold_expression(e))
             .collect::<Result<_, _>>()?;
 
-        let res = inline_call::<_, E>(
-            e.function_key.clone(),
-            generics,
-            arguments,
-            ty,
-            &self.program,
-            &mut self.versions,
-        );
+        if self.blocked {
+            Ok(FunctionCallOrExpression::FunctionCall(
+                FunctionCallExpression::new(e.function_key, generics, arguments),
+            ))
+        } else {
+            self.blocked = true;
 
-        match res {
-            Ok(Output::Complete((statements, mut expressions))) => {
-                self.statement_buffer.extend(statements);
-                Ok(FunctionCallOrExpression::Expression(
-                    E::from(expressions.pop().unwrap()).into_inner(),
-                ))
-            }
-            Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
-                self.statement_buffer.extend(statements);
-                self.for_loop_versions_stack
-                    .extend(delta_for_loop_versions.into_iter().rev());
-                Ok(FunctionCallOrExpression::Expression(
-                    E::from(expressions[0].clone()).into_inner(),
-                ))
-            }
-            Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
-                "Call site `{}` incompatible with declaration `{}`",
-                conc, decl
-            ))),
-            Err(InlineError::NonConstant(key, generics, arguments, _)) => Ok(
-                FunctionCallOrExpression::Expression(E::function_call(key, generics, arguments)),
-            ),
-            Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
-                let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
-                    *self
-                        .versions
-                        .entry(CoreIdentifier::Call(0).clone())
-                        .and_modify(|e| *e += 1) // if it was already declared, we increment
-                        .or_insert(0),
-                );
-                let var = Variable::with_id_and_type(
-                    identifier.clone(),
-                    output_types.clone().inner.pop().unwrap(),
-                );
+            let res = inline_call::<_, E>(
+                e.function_key.clone(),
+                generics,
+                arguments,
+                ty,
+                &self.program,
+                &mut self.versions,
+            );
 
-                let v = vec![var.clone().into()];
+            match res {
+                Ok(Output::Complete((statements, mut expressions))) => {
+                    self.statement_buffer.extend(statements);
+                    Ok(FunctionCallOrExpression::Expression(
+                        E::from(expressions.pop().unwrap()).into_inner(),
+                    ))
+                }
+                Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
+                    self.statement_buffer.extend(statements);
+                    self.for_loop_versions_stack
+                        .extend(delta_for_loop_versions.into_iter().rev());
+                    Ok(FunctionCallOrExpression::Expression(
+                        E::from(expressions[0].clone()).into_inner(),
+                    ))
+                }
+                Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
+                    "Call site `{}` incompatible with declaration `{}`",
+                    conc, decl
+                ))),
+                Err(InlineError::NonConstant(key, generics, arguments, _)) => {
+                    Ok(FunctionCallOrExpression::Expression(E::function_call(
+                        key, generics, arguments,
+                    )))
+                }
+                Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
+                    let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
+                        *self
+                            .versions
+                            .entry(CoreIdentifier::Call(0).clone())
+                            .and_modify(|e| *e += 1) // if it was already declared, we increment
+                            .or_insert(0),
+                    );
+                    let var = Variable::with_id_and_type(
+                        identifier.clone(),
+                        output_types.clone().inner.pop().unwrap(),
+                    );
 
-                self.statement_buffer
-                    .push(TypedStatement::MultipleDefinition(
-                        v,
-                        TypedExpressionListInner::EmbedCall(embed, generics, arguments)
-                            .annotate(output_types),
-                    ));
-                Ok(FunctionCallOrExpression::Expression(E::identifier(
-                    identifier,
-                )))
+                    let v = vec![var.clone().into()];
+
+                    self.statement_buffer
+                        .push(TypedStatement::MultipleDefinition(
+                            v,
+                            TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                                .annotate(output_types),
+                        ));
+                    Ok(FunctionCallOrExpression::Expression(E::identifier(
+                        identifier,
+                    )))
+                }
             }
         }
     }
@@ -344,70 +352,86 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Reducer<'ast, T> {
                     .map(|a| self.fold_expression(a))
                     .collect::<Result<_, _>>()?;
 
-                match inline_call::<_, TypedExpressionList<'ast, T>>(
-                    function_call.function_key,
-                    generics,
-                    arguments,
-                    &types,
-                    &self.program,
-                    &mut self.versions,
-                ) {
-                    Ok(Output::Complete((statements, expressions))) => {
-                        assert_eq!(v.len(), expressions.len());
+                if self.blocked {
+                    let function_call = FunctionCallExpression::new(
+                        function_call.function_key,
+                        generics,
+                        arguments,
+                    );
 
-                        self.complete_statement_buffer.extend(
-                            statements.into_iter().chain(
-                                v.into_iter()
-                                    .zip(expressions)
-                                    .map(|(v, e)| TypedStatement::Definition(v, e)),
-                            ),
-                        );
+                    Ok(vec![TypedStatement::MultipleDefinition(
+                        v,
+                        TypedExpressionListInner::FunctionCall(function_call).annotate(types),
+                    )])
+                } else {
+                    self.blocked = true;
 
-                        Ok(vec![])
-                    }
-                    Ok(Output::Incomplete((statements, expressions), delta_for_loop_versions)) => {
-                        assert_eq!(v.len(), expressions.len());
-                        self.blocked = true; // this is never read after this
-                        self.for_loop_versions_stack
-                            .extend(delta_for_loop_versions.into_iter().rev());
+                    match inline_call::<_, TypedExpressionList<'ast, T>>(
+                        function_call.function_key,
+                        generics,
+                        arguments,
+                        &types,
+                        &self.program,
+                        &mut self.versions,
+                    ) {
+                        Ok(Output::Complete((statements, expressions))) => {
+                            assert_eq!(v.len(), expressions.len());
 
-                        Ok(statements
-                            .into_iter()
-                            .chain(
-                                v.into_iter()
-                                    .zip(expressions)
-                                    .map(|(v, e)| TypedStatement::Definition(v, e)),
-                            )
-                            .collect())
-                    }
-                    Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
-                        "Call site `{}` incompatible with declaration `{}`",
-                        conc, decl
-                    ))),
-                    Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
-                        self.blocked = true;
-                        Ok(vec![TypedStatement::MultipleDefinition(
-                            v,
-                            TypedExpressionList::function_call(key, generics, arguments)
-                                .annotate(output_types),
-                        )])
-                    }
-                    Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
-                        self.complete_statement_buffer.push_back(
-                            TypedStatement::MultipleDefinition(
+                            self.complete_statement_buffer.extend(
+                                statements.into_iter().chain(
+                                    v.into_iter()
+                                        .zip(expressions)
+                                        .map(|(v, e)| TypedStatement::Definition(v, e)),
+                                ),
+                            );
+
+                            Ok(vec![])
+                        }
+                        Ok(Output::Incomplete(
+                            (statements, expressions),
+                            delta_for_loop_versions,
+                        )) => {
+                            assert_eq!(v.len(), expressions.len());
+                            self.blocked = true; // this is never read after this
+                            self.for_loop_versions_stack
+                                .extend(delta_for_loop_versions.into_iter().rev());
+
+                            Ok(statements
+                                .into_iter()
+                                .chain(
+                                    v.into_iter()
+                                        .zip(expressions)
+                                        .map(|(v, e)| TypedStatement::Definition(v, e)),
+                                )
+                                .collect())
+                        }
+                        Err(InlineError::Generic(decl, conc)) => Err(Error::Incompatible(format!(
+                            "Call site `{}` incompatible with declaration `{}`",
+                            conc, decl
+                        ))),
+                        Err(InlineError::NonConstant(key, generics, arguments, output_types)) => {
+                            self.blocked = true;
+                            Ok(vec![TypedStatement::MultipleDefinition(
                                 v,
-                                TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                                TypedExpressionList::function_call(key, generics, arguments)
                                     .annotate(output_types),
-                            ),
-                        );
+                            )])
+                        }
+                        Err(InlineError::Flat(embed, generics, arguments, output_types)) => {
+                            self.complete_statement_buffer.push_back(
+                                TypedStatement::MultipleDefinition(
+                                    v,
+                                    TypedExpressionListInner::EmbedCall(embed, generics, arguments)
+                                        .annotate(output_types),
+                                ),
+                            );
 
-                        Ok(vec![])
+                            Ok(vec![])
+                        }
                     }
                 }
             }
             TypedStatement::For(v, from, to, statements) => {
-                self.blocked = true; // never read after
-
                 let (versions_before, versions_after) = self.for_loop_versions_stack.pop().unwrap();
 
                 match (from.as_inner(), to.as_inner()) {
@@ -421,6 +445,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Reducer<'ast, T> {
                         Ok(vec![])
                     }
                     (UExpressionInner::Value(from), UExpressionInner::Value(to)) => {
+                        self.blocked = true;
+
                         // get a fresh set of versions for all variables to use as a starting point inside the loop
                         self.versions.values_mut().for_each(|v| *v += 1);
 
@@ -557,6 +583,7 @@ pub fn reduce_program<T: Field>(
                 p,
                 versions,
                 for_loop_versions,
+                true,
             ),
         }),
         _ => Err(Error::GenericsInMain),
@@ -588,6 +615,7 @@ impl<'ast, T: Field> ReducerIterator<'ast, T> {
         program: TypedProgram<'ast, T>,
         versions: Versions<'ast>,
         mut for_loop_versions_stack: Vec<(Versions<'ast>, Versions<'ast>)>,
+        print: bool,
     ) -> Self {
         Self {
             stack: {
@@ -602,6 +630,20 @@ impl<'ast, T: Field> ReducerIterator<'ast, T> {
             hash: Default::default(),
         }
     }
+
+    fn compute_hash(&self) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut s = DefaultHasher::new();
+        // we want the hashes to collide iff
+        // the stack has the same length and
+        self.stack.len().hash(&mut s);
+        // the next statement is the same and
+        self.stack[0].hash(&mut s);
+        // the propagation state has the same number of elements
+        self.propagator.constants.len().hash(&mut s);
+        s.finish()
+    }
 }
 
 impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
@@ -610,29 +652,9 @@ impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
 
     fn next(&mut self) -> Result<Option<Self::Item>, Self::Error> {
         while self.reducer.complete_statement_buffer.is_empty() && !self.stack.is_empty() {
-            let top = self.stack.pop().unwrap();
-
-            let mut sub = Sub::new(&self.reducer.substitutions);
-
-            let top = sub.fold_statement(top).pop().unwrap();
-
-            let mut tops = self.propagator.fold_statement(top)?;
-
-            let top = tops.pop();
-
-            assert!(tops.is_empty());
-
-            match top {
-                Some(top) => {
-                    let top = self.reducer.fold_statement(top)?;
-                    self.reducer.blocked = false;
-                    self.stack.extend(top.into_iter().rev());
-                }
-                None => {}
-            };
-
+            // first check that we did not reach a fixed point
             let current_hash = self.hash;
-            let new_hash = compute_hash(&self.stack);
+            let new_hash = self.compute_hash();
 
             match current_hash {
                 Some(current_hash) => {
@@ -643,7 +665,32 @@ impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
                 None => {}
             }
 
+            // update the hash
             self.hash = Some(new_hash);
+
+            // reduce the next statement
+            let top = self.stack.pop().unwrap();
+
+            let mut sub = Sub::new(&self.reducer.substitutions);
+
+            let top = sub.fold_statement(top).pop().unwrap();
+
+            let mut tops = self.propagator.fold_statement(top)?;
+
+            tops.reverse();
+
+            let top = tops.pop();
+
+            self.stack.extend(tops.into_iter().rev());
+
+            match top {
+                Some(top) => {
+                    let top = self.reducer.fold_statement(top)?;
+                    self.reducer.blocked = false;
+                    self.stack.extend(top.into_iter().rev());
+                }
+                None => {}
+            };
         }
         Ok(self.reducer.complete_statement_buffer.pop_front())
     }
@@ -659,8 +706,13 @@ fn reduce_function_no_generics<'ast, T: Field>(
     let versions = Versions::default();
     let for_loop_versions = vec![];
 
-    let reducer_iterator =
-        ReducerIterator::new(f.statements.0, program.clone(), versions, for_loop_versions);
+    let reducer_iterator = ReducerIterator::new(
+        f.statements.0,
+        program.clone(),
+        versions,
+        for_loop_versions,
+        false,
+    );
 
     let r = TypedFunctionIterator {
         arguments,
@@ -673,15 +725,6 @@ fn reduce_function_no_generics<'ast, T: Field>(
     Propagator::with_constants(Constants::default())
         .fold_function(f)
         .map_err(|_| ())
-}
-
-fn compute_hash<T: Field>(stack: &[TypedStatement<T>]) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut s = DefaultHasher::new();
-    stack.get(0).hash(&mut s);
-    stack.len().hash(&mut s);
-    s.finish()
 }
 
 #[cfg(test)]
@@ -1023,6 +1066,10 @@ mod tests {
                         .into(),
                 ),
                 TypedStatement::Definition(
+                    Variable::uint("K", UBitwidth::B32).into(),
+                    UExpressionInner::Value(1).annotate(UBitwidth::B32).into(),
+                ),
+                TypedStatement::Definition(
                     Variable::array(
                         Identifier::from(CoreIdentifier::Call(0)).version(0),
                         Type::FieldElement,
@@ -1229,6 +1276,10 @@ mod tests {
                     ArrayExpressionInner::Identifier("b".into())
                         .annotate(Type::FieldElement, 1u32)
                         .into(),
+                ),
+                TypedStatement::Definition(
+                    Variable::uint("K", UBitwidth::B32).into(),
+                    UExpressionInner::Value(1).annotate(UBitwidth::B32).into(),
                 ),
                 TypedStatement::Definition(
                     Variable::array(

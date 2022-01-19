@@ -199,10 +199,9 @@ mod tests {
 
     #[test]
     fn verify_bls12_377_field() {
-        let program: Prog<Bls12_377Field> = Prog {
-            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-            return_count: 1,
-            statements: vec![
+        let program: Prog<Bls12_377Field> = Prog::new(
+            vec![FlatParameter::private(FlatVariable::new(0))],
+            vec![
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
                         FlatVariable::new(0).into(),
@@ -213,7 +212,8 @@ mod tests {
                 Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
             ]
             .into(),
-        };
+            1,
+        );
 
         let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
         let keypair =
@@ -238,10 +238,9 @@ mod tests {
 
     #[test]
     fn verify_bw6_761_field() {
-        let program: Prog<Bw6_761Field> = Prog {
-            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-            return_count: 1,
-            statements: vec![
+        let program: Prog<Bw6_761Field> = Prog::new(
+            vec![FlatParameter::private(FlatVariable::new(0))],
+            vec![
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
                         FlatVariable::new(0).into(),
@@ -252,7 +251,8 @@ mod tests {
                 Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
             ]
             .into(),
-        };
+            1,
+        );
 
         let srs = <Ark as UniversalBackend<Bw6_761Field, Marlin>>::universal_setup(5);
         let keypair =

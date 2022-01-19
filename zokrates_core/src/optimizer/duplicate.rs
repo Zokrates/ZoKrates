@@ -41,8 +41,9 @@ mod tests {
 
     #[test]
     fn identity() {
-        let p: Prog<Bn128Field> = Prog {
-            statements: vec![
+        let p: Prog<Bn128Field> = Prog::new(
+            vec![],
+            vec![
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
                         LinComb::summand(3, FlatVariable::new(3)),
@@ -59,9 +60,8 @@ mod tests {
                 ),
             ]
             .into(),
-            return_count: 0,
-            arguments: vec![],
-        };
+            0,
+        );
 
         let expected = p.clone();
 
@@ -84,8 +84,9 @@ mod tests {
             LinComb::one(),
         );
 
-        let p: Prog<Bn128Field> = Prog {
-            statements: vec![
+        let p: Prog<Bn128Field> = Prog::new(
+            vec![],
+            vec![
                 constraint.clone(),
                 constraint.clone(),
                 Statement::constraint(
@@ -99,12 +100,12 @@ mod tests {
                 constraint.clone(),
             ]
             .into(),
-            return_count: 0,
-            arguments: vec![],
-        };
+            0,
+        );
 
-        let expected = Prog {
-            statements: vec![
+        let expected = Prog::new(
+            vec![],
+            vec![
                 constraint,
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
@@ -115,9 +116,8 @@ mod tests {
                 ),
             ]
             .into(),
-            return_count: 0,
-            arguments: vec![],
-        };
+            0,
+        );
 
         assert_eq!(
             DuplicateOptimizer::default()

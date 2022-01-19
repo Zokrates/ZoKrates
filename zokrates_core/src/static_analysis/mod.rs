@@ -126,10 +126,6 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         log::debug!("Static analyser: Initialise reducer iterator");
         let r = reduce_program(r).map_err(Error::from)?;
 
-        // let r = r.collect().unwrap();
-
-        // println!("{}", r);
-
         log::debug!("Static analyser: Initialise ");
         let mut struct_concretizer = StructConcretizer::default();
         let constants = crate::static_analysis::propagation::Constants::new();

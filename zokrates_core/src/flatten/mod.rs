@@ -60,7 +60,7 @@ pub struct FlattenerIteratorInner<'ast, T, I: Statements<Zir<'ast, T>>> {
     pub flattener: Flattener<'ast, T>,
 }
 
-pub type FlattenerIterator<'ast, T, I> = FlatProgIterator<FlattenerIteratorInner<'ast, T, I>>;
+pub type FlattenerIterator<'ast, T, I> = FlatProgIterator<T, FlattenerIteratorInner<'ast, T, I>>;
 
 impl<'ast, T: Field, I: Statements<Zir<'ast, T>>> FallibleIterator
     for FlattenerIteratorInner<'ast, T, I>
@@ -1130,7 +1130,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
         params: Vec<FlatUExpression<T>>,
-        funct: FlatFunctionIterator<impl IntoStatements<FlatAbsy<T>>>,
+        funct: FlatFunctionIterator<T, impl IntoStatements<FlatAbsy<T>>>,
     ) -> Vec<FlatUExpression<T>> {
         let mut replacement_map = HashMap::new();
 
@@ -2607,10 +2607,9 @@ mod tests {
         };
 
         let flat = flatten_function(function);
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(1)),
@@ -2629,7 +2628,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            0,
+        );
 
         assert_eq!(flat.collect().unwrap(), expected);
     }
@@ -2677,10 +2677,9 @@ mod tests {
 
         let flat = flatten_function(function);
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(1)),
@@ -2702,7 +2701,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            0,
+        );
 
         assert_eq!(flat.collect().unwrap(), expected);
     }
@@ -2752,10 +2752,9 @@ mod tests {
 
         let flat = flatten_function(function);
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(42)),
@@ -2770,7 +2769,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            0,
+        );
 
         assert_eq!(flat.collect().unwrap(), expected);
     }
@@ -2787,9 +2787,9 @@ mod tests {
         //     _0 = 2
         //     _1 = 2
         //     _1 == (_0 * 1)
-        let function = ZirFunction {
-            arguments: vec![],
-            statements: vec![
+        let function = ZirFunction::new(
+            vec![],
+            vec![
                 ZirStatement::Definition(
                     Variable::field_element("x"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
@@ -2808,18 +2808,17 @@ mod tests {
                 ZirStatement::Return(vec![]),
             ]
             .into(),
-            signature: Signature {
+            Signature {
                 inputs: vec![],
                 outputs: vec![],
             },
-        };
+        );
 
         let flat = flatten_function(function);
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(2)),
@@ -2838,7 +2837,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            0,
+        );
 
         assert_eq!(flat.collect().unwrap(), expected);
     }
@@ -2857,9 +2857,9 @@ mod tests {
         //     _1 = 2
         //     _2 = 4
         //     _2 == (_0 * _1)
-        let function = ZirFunction {
-            arguments: vec![],
-            statements: vec![
+        let function = ZirFunction::new(
+            vec![],
+            vec![
                 ZirStatement::Definition(
                     Variable::field_element("x"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
@@ -2885,18 +2885,17 @@ mod tests {
                 ZirStatement::Return(vec![]),
             ]
             .into(),
-            signature: Signature {
+            Signature {
                 inputs: vec![],
                 outputs: vec![],
             },
-        };
+        );
 
         let flat = flatten_function(function);
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(2)),
@@ -2919,7 +2918,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            0,
+        );
 
         assert_eq!(flat.collect().unwrap(), expected);
     }
@@ -2974,10 +2974,9 @@ mod tests {
 
         let flat = flatten_function(function);
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(2)),
@@ -3000,7 +2999,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            0,
+        );
 
         assert_eq!(flat.collect().unwrap(), expected);
     }
@@ -3063,10 +3063,9 @@ mod tests {
 
         let flat = flatten_function(function);
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 0,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(4)),
@@ -3100,7 +3099,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            0,
+        );
 
         assert_eq!(flat.collect().unwrap(), expected);
     }
@@ -3140,10 +3140,9 @@ mod tests {
             },
         };
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 1,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(7)),
@@ -3158,7 +3157,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            1,
+        );
 
         let flattened = flatten_function(function);
 
@@ -3201,10 +3201,9 @@ mod tests {
             },
         };
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 1,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(7)),
@@ -3222,7 +3221,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            1,
+        );
 
         let flattened = flatten_function(function);
 
@@ -3282,10 +3282,9 @@ mod tests {
             },
         };
 
-        let expected = FlatFunction {
-            arguments: vec![],
-            return_count: 1,
-            statements: vec![
+        let expected = FlatFunction::new(
+            vec![],
+            vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
                     FlatExpression::Number(Bn128Field::from(7)),
@@ -3338,7 +3337,8 @@ mod tests {
                 ),
             ]
             .into(),
-        };
+            1,
+        );
 
         let flattened = flatten_function(function);
 

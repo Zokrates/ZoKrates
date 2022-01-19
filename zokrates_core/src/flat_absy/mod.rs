@@ -108,27 +108,41 @@ impl fmt::Display for RuntimeError {
 
 pub type FlatProg<T> = FlatFunction<T>;
 
-pub type FlatFunction<T> = FlatFunctionIterator<MemoryStatements<FlatStatement<T>>>;
+pub type FlatFunction<T> = FlatFunctionIterator<T, MemoryStatements<FlatStatement<T>>>;
 
-pub type FlatProgIterator<I> = FlatFunctionIterator<I>;
+pub type FlatProgIterator<T, I> = FlatFunctionIterator<T, I>;
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct FlatFunctionIterator<I> {
+pub struct FlatFunctionIterator<T, I: IntoStatements<FlatAbsy<T>>> {
     /// Arguments of the function
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
     pub statements: I,
     /// Number of outputs
     pub return_count: usize,
+    m: PhantomData<T>,
 }
 
-impl<I> FlatFunctionIterator<I> {
+impl<T, I: IntoStatements<FlatAbsy<T>>> FlatFunctionIterator<T, I> {
     pub fn new(arguments: Vec<FlatParameter>, statements: I, return_count: usize) -> Self {
         Self {
             arguments,
             statements,
             return_count,
+            m: PhantomData,
         }
+    }
+
+    pub fn collect(
+        self,
+    ) -> Result<FlatFunctionIterator<T, MemoryStatements<FlatStatement<T>>>, DynamicError> {
+        use fallible_iterator::FallibleIterator;
+
+        Ok(FlatProgIterator::new(
+            self.arguments,
+            self.statements.into_fallible_iter().collect()?,
+            self.return_count,
+        ))
     }
 }
 

@@ -14,15 +14,15 @@ use zokrates_core::proof_system::groth16::G16;
 
 #[wasm_bindgen_test]
 fn generate_proof() {
-    let program: Prog<Bn128Field> = Prog {
-        arguments: vec![FlatParameter::public(FlatVariable::new(0))],
-        return_count: 1,
-        statements: vec![Statement::constraint(
+    let program: Prog<Bn128Field> = Prog::new(
+        vec![FlatParameter::public(FlatVariable::new(0))],
+        vec![Statement::constraint(
             FlatVariable::new(0),
             FlatVariable::new(0),
         )]
         .into(),
-    };
+        1,
+    );
 
     let interpreter = Interpreter::default();
     let witness = interpreter

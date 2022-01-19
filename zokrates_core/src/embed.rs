@@ -447,7 +447,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
 #[cfg(feature = "ark")]
 pub fn snark_verify_bls12_377<T: Field>(
     n: usize,
-) -> FlatFunctionIterator<impl IntoStatements<FlatAbsy<T>>> {
+) -> FlatFunctionIterator<T, impl IntoStatements<FlatAbsy<T>>> {
     use zokrates_field::Bw6_761Field;
     assert_eq!(T::id(), Bw6_761Field::id());
 
@@ -572,7 +572,7 @@ fn use_variable(
 ///   as some elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack_to_bitwidth<T: Field>(
     bit_width: usize,
-) -> FlatFunctionIterator<impl IntoStatements<FlatAbsy<T>>> {
+) -> FlatFunctionIterator<T, impl IntoStatements<FlatAbsy<T>>> {
     let mut counter = 0;
 
     let mut layout = HashMap::new();
