@@ -89,48 +89,6 @@ impl fmt::Display for Error {
 struct Substitutions<'ast>(pub HashMap<CoreIdentifier<'ast>, HashMap<usize, usize>>);
 
 impl<'ast> Substitutions<'ast> {
-    // create an equivalent substitution map where all paths
-    // are of length 1
-    fn canonicalize(self) -> Self {
-        Substitutions(
-            self.0
-                .into_iter()
-                .map(|(id, sub)| (id, Self::canonicalize_sub(sub)))
-                .collect(),
-        )
-    }
-
-    // canonicalize substitutions for a given id
-    fn canonicalize_sub(sub: HashMap<usize, usize>) -> HashMap<usize, usize> {
-        fn add_to_cache(
-            sub: &HashMap<usize, usize>,
-            cache: HashMap<usize, usize>,
-            k: usize,
-        ) -> HashMap<usize, usize> {
-            match cache.contains_key(&k) {
-                // `k` is already in the cache, no changes to the cache
-                true => cache,
-                _ => match sub.get(&k) {
-                    // `k` does not point to anything, no changes to the cache
-                    None => cache,
-                    // `k` points to some `v
-                    Some(v) => {
-                        // add `v` to the cache
-                        let cache = add_to_cache(sub, cache, *v);
-                        // `k` points to what `v` points to, or to `v`
-                        let v = cache.get(v).cloned().unwrap_or(*v);
-                        let mut cache = cache;
-                        cache.insert(k, v);
-                        cache
-                    }
-                },
-            }
-        }
-
-        sub.keys()
-            .fold(HashMap::new(), |cache, k| add_to_cache(&sub, cache, *k))
-    }
-
     fn register(&mut self, substitute: &Versions<'ast>, with: &Versions<'ast>) {
         for (id, key, value) in substitute
             .iter()
@@ -467,15 +425,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for Reducer<'ast, T> {
                                 UExpression::from(*from as u32).into(),
                             ))
                             .chain(statements.clone().into_iter())
-                            .map(|s| transformer.fold_statement(s))
-                            .flatten()
+                            .flat_map(|s| transformer.fold_statement(s))
                             .collect();
 
-                        let backups: Vec<_> = transformer
+                        let backups = transformer
                             .for_loop_backups
                             .into_iter()
-                            .map(|v| (v.clone(), v.into_iter().map(|(k, v)| (k, v + 1)).collect()))
-                            .collect();
+                            .map(|v| (v.clone(), v.into_iter().map(|(k, v)| (k, v + 1)).collect()));
 
                         // we may have found new for loops when unrolling this one, which means new backed up versions
                         // we insert these in our backup list and update our cursor
@@ -583,7 +539,6 @@ pub fn reduce_program<T: Field>(
                 p,
                 versions,
                 for_loop_versions,
-                true,
             ),
         }),
         _ => Err(Error::GenericsInMain),
@@ -615,7 +570,6 @@ impl<'ast, T: Field> ReducerIterator<'ast, T> {
         program: TypedProgram<'ast, T>,
         versions: Versions<'ast>,
         mut for_loop_versions_stack: Vec<(Versions<'ast>, Versions<'ast>)>,
-        print: bool,
     ) -> Self {
         Self {
             stack: {
@@ -654,19 +608,14 @@ impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
         while self.reducer.complete_statement_buffer.is_empty() && !self.stack.is_empty() {
             // first check that we did not reach a fixed point
             let current_hash = self.hash;
-            let new_hash = self.compute_hash();
+            let new_hash = Some(self.compute_hash());
 
-            match current_hash {
-                Some(current_hash) => {
-                    if new_hash == current_hash {
-                        return Err(Error::NoProgress.into());
-                    }
-                }
-                None => {}
+            if new_hash == current_hash {
+                return Err(Error::NoProgress.into());
             }
 
             // update the hash
-            self.hash = Some(new_hash);
+            self.hash = new_hash;
 
             // reduce the next statement
             let top = self.stack.pop().unwrap();
@@ -683,14 +632,11 @@ impl<'ast, T: Field> FallibleIterator for ReducerIterator<'ast, T> {
 
             self.stack.extend(tops.into_iter().rev());
 
-            match top {
-                Some(top) => {
-                    let top = self.reducer.fold_statement(top)?;
-                    self.reducer.blocked = false;
-                    self.stack.extend(top.into_iter().rev());
-                }
-                None => {}
-            };
+            if let Some(top) = top {
+                let top = self.reducer.fold_statement(top)?;
+                self.reducer.blocked = false;
+                self.stack.extend(top.into_iter().rev());
+            }
         }
         Ok(self.reducer.complete_statement_buffer.pop_front())
     }
@@ -706,13 +652,8 @@ fn reduce_function_no_generics<'ast, T: Field>(
     let versions = Versions::default();
     let for_loop_versions = vec![];
 
-    let reducer_iterator = ReducerIterator::new(
-        f.statements.0,
-        program.clone(),
-        versions,
-        for_loop_versions,
-        false,
-    );
+    let reducer_iterator =
+        ReducerIterator::new(f.statements.0, program.clone(), versions, for_loop_versions);
 
     let r = TypedFunctionIterator {
         arguments,

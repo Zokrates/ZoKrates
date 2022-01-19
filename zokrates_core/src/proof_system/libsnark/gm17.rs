@@ -1,4 +1,4 @@
-use crate::ir::{IntoStatements, ProgIterator, Witness};
+use crate::ir::{IntoStatements, Ir, ProgIterator, Witness};
 use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use crate::proof_system::libsnark::ffi::{c_free, Buffer, ProofResult, SetupResult};
 use crate::proof_system::libsnark::{
@@ -39,8 +39,8 @@ extern "C" {
 }
 
 impl Backend<Bn128Field, GM17> for Libsnark {
-    fn generate_proof<I: IntoStatements<Field = Bn128Field>>(
-        program: ProgIterator<T, I>,
+    fn generate_proof<I: IntoStatements<Ir<Bn128Field>>>(
+        program: ProgIterator<Bn128Field, I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> Result<Proof<<GM17 as Scheme<Bn128Field>>::ProofPoints>, String> {
@@ -132,8 +132,8 @@ impl Backend<Bn128Field, GM17> for Libsnark {
 }
 
 impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
-    fn setup<I: IntoStatements<Field = Bn128Field>>(
-        program: ProgIterator<T, I>,
+    fn setup<I: IntoStatements<Ir<Bn128Field>>>(
+        program: ProgIterator<Bn128Field, I>,
     ) -> Result<SetupKeypair<<GM17 as Scheme<Bn128Field>>::VerificationKey>, String> {
         let program = program.collect().map_err(|e| e.to_string())?;
 
@@ -192,7 +192,6 @@ impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
     }
 }
 
-#[cfg(feature = "libsnark")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,14 +201,14 @@ mod tests {
 
     #[test]
     fn verify() {
-        let program: Prog<Bn128Field> = Prog {
-            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-            return_count: 1,
-            statements: MemoryStatements::from(vec![Statement::constraint(
+        let program: Prog<Bn128Field> = Prog::new(
+            vec![FlatParameter::private(FlatVariable::new(0))],
+            MemoryStatements::from(vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
             )]),
-        };
+            1,
+        );
 
         let keypair =
             <Libsnark as NonUniversalBackend<Bn128Field, GM17>>::setup(program.clone()).unwrap();

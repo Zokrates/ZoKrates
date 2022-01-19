@@ -4,7 +4,7 @@ use crate::proof_system::libsnark::{
 };
 use crate::proof_system::{Backend, G1Affine, G2Affine, NonUniversalBackend, Proof, SetupKeypair};
 
-use crate::ir::{IntoStatements, ProgIterator, Witness};
+use crate::ir::{IntoStatements, Ir, ProgIterator, Witness};
 use crate::proof_system::libsnark::serialization::{read_g1, read_g2, write_g1, write_g2};
 use crate::proof_system::pghr13::{ProofPoints, VerificationKey, PGHR13};
 use crate::proof_system::Scheme;
@@ -42,8 +42,8 @@ extern "C" {
 }
 
 impl Backend<Bn128Field, PGHR13> for Libsnark {
-    fn generate_proof<I: IntoStatements<Field = Bn128Field>>(
-        program: ProgIterator<T, I>,
+    fn generate_proof<I: IntoStatements<Ir<Bn128Field>>>(
+        program: ProgIterator<Bn128Field, I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> Result<Proof<<PGHR13 as Scheme<Bn128Field>>::ProofPoints>, String> {
@@ -158,8 +158,8 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
 }
 
 impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
-    fn setup<I: IntoStatements<Field = Bn128Field>>(
-        program: ProgIterator<T, I>,
+    fn setup<I: IntoStatements<Ir<Bn128Field>>>(
+        program: ProgIterator<Bn128Field, I>,
     ) -> Result<SetupKeypair<<PGHR13 as Scheme<Bn128Field>>::VerificationKey>, String> {
         let program = program.collect().map_err(|e| e.to_string())?;
 
@@ -222,7 +222,6 @@ impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
     }
 }
 
-#[cfg(feature = "libsnark")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,14 +231,14 @@ mod tests {
 
     #[test]
     fn verify() {
-        let program: Prog<Bn128Field> = Prog {
-            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-            return_count: 1,
-            statements: MemoryStatements::from(vec![Statement::constraint(
+        let program: Prog<Bn128Field> = Prog::new(
+            vec![FlatParameter::private(FlatVariable::new(0))],
+            MemoryStatements::from(vec![Statement::constraint(
                 FlatVariable::new(0),
                 FlatVariable::public(0),
             )]),
-        };
+            1,
+        );
 
         let keypair =
             <Libsnark as NonUniversalBackend<Bn128Field, PGHR13>>::setup(program.clone()).unwrap();
