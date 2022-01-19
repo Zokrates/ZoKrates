@@ -18,7 +18,12 @@ use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 #[cfg(feature = "bellman")]
 use zokrates_field::BellmanFieldExtensions;
-use zokrates_field::Field;
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Field};
+
+pub trait NotBw6_761Field {}
+impl NotBw6_761Field for Bls12_377Field {}
+impl NotBw6_761Field for Bls12_381Field {}
+impl NotBw6_761Field for Bn128Field {}
 
 #[derive(Serialize)]
 pub struct SetupKeypair<V> {

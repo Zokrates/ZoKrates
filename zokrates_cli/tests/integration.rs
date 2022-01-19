@@ -215,13 +215,13 @@ mod integration {
         let backends = map! {
             "bellman" => vec!["g16"],
             "libsnark" => vec!["pghr13"],
-            "ark" => vec!["gm17", "marlin"]
+            "ark" => vec!["g16", "gm17", "marlin"]
         };
 
         #[cfg(not(feature = "libsnark"))]
         let backends = map! {
             "bellman" => vec!["g16"],
-            "ark" => vec!["gm17", "marlin"]
+            "ark" => vec!["g16", "gm17", "marlin"]
         };
 
         // GENERATE A UNIVERSAL SETUP
