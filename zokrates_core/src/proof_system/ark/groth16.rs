@@ -212,3 +212,65 @@ impl NonUniversalBackend<Bw6_761Field, G16> for Ark {
         SetupKeypair::new(vk, pk_vec)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::flat_absy::{FlatParameter, FlatVariable};
+    use crate::ir::{Interpreter, Prog, Statement};
+
+    use super::*;
+    use zokrates_field::{Bls12_377Field, Bw6_761Field};
+
+    #[test]
+    fn verify_bls12_377_field() {
+        let program: Prog<Bls12_377Field> = Prog {
+            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+            return_count: 1,
+            statements: vec![Statement::constraint(
+                FlatVariable::new(0),
+                FlatVariable::public(0),
+            )],
+        };
+
+        let keypair = <Ark as NonUniversalBackend<Bls12_377Field, G16>>::setup(program.clone());
+        let interpreter = Interpreter::default();
+
+        let witness = interpreter
+            .execute(program.clone(), &[Bls12_377Field::from(42)])
+            .unwrap();
+
+        let proof = <Ark as Backend<Bls12_377Field, G16>>::generate_proof(
+            program.into(),
+            witness,
+            keypair.pk,
+        );
+        let ans = <Ark as Backend<Bls12_377Field, G16>>::verify(keypair.vk, proof);
+
+        assert!(ans);
+    }
+
+    #[test]
+    fn verify_bw6_761_field() {
+        let program: Prog<Bw6_761Field> = Prog {
+            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+            return_count: 1,
+            statements: vec![Statement::constraint(
+                FlatVariable::new(0),
+                FlatVariable::public(0),
+            )],
+        };
+
+        let keypair = <Ark as NonUniversalBackend<Bw6_761Field, G16>>::setup(program.clone());
+        let interpreter = Interpreter::default();
+
+        let witness = interpreter
+            .execute(program.clone(), &[Bw6_761Field::from(42)])
+            .unwrap();
+
+        let proof =
+            <Ark as Backend<Bw6_761Field, G16>>::generate_proof(program, witness, keypair.pk);
+        let ans = <Ark as Backend<Bw6_761Field, G16>>::verify(keypair.vk, proof);
+
+        assert!(ans);
+    }
+}
