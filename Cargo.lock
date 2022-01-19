@@ -200,6 +200,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-groth16"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba848e856c96bc15eb3f68359cd8ea92747eb2be35a177a25e780d307069f38"
+dependencies = [
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-relations",
+ "ark-serialize",
+ "ark-std",
+]
+
+[[package]]
 name = "ark-marlin"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1110,8 +1125,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.9.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2560,9 +2577,11 @@ dependencies = [
  "ark-bls12-377",
  "ark-bn254",
  "ark-bw6-761",
+ "ark-crypto-primitives",
  "ark-ec",
  "ark-ff",
  "ark-gm17",
+ "ark-groth16",
  "ark-marlin",
  "ark-poly",
  "ark-poly-commit",

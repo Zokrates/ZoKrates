@@ -124,7 +124,7 @@ pub fn compile(
 
     let arena = Arena::new();
 
-    let artifacts: CompilationArtifacts<_> = core_compile(
+    let artifacts: CompilationArtifacts<_, _> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),

@@ -1,53 +1,32 @@
+use crate::proof_system::{Backend, NonUniversalBackend, NotBw6_761Field, Proof, SetupKeypair};
 use ark_crypto_primitives::SNARK;
-use ark_gm17::{
-    prepare_verifying_key, verify_proof, PreparedVerifyingKey, Proof as ArkProof, ProvingKey,
-    VerifyingKey, GM17 as ArkGM17,
+use ark_groth16::{
+    prepare_verifying_key, verify_proof, Groth16, PreparedVerifyingKey, Proof as ArkProof,
+    ProvingKey, VerifyingKey,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use zokrates_field::{ArkFieldExtensions, Bw6_761Field, Field};
+use zokrates_field::Field;
+use zokrates_field::{ArkFieldExtensions, Bw6_761Field};
 
 use crate::ir::{IntoStatements, Ir, ProgIterator, Witness};
 use crate::proof_system::ark::Computation;
-use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, parse_g2_fq};
-use crate::proof_system::ark::{serialization, Ark};
-use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
-use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
-use crate::proof_system::{NotBw6_761Field, Scheme};
+use crate::proof_system::ark::{parse_fr, serialization, Ark};
+use crate::proof_system::ark::{parse_g1, parse_g2};
+use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
+use crate::proof_system::Scheme;
 use ark_bw6_761::BW6_761;
 use rand_0_7::SeedableRng;
 
-impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
-    fn setup<I: IntoStatements<Ir<T>>>(
-        program: ProgIterator<T, I>,
-    ) -> Result<SetupKeypair<<GM17 as Scheme<T>>::VerificationKey>, String> {
-        let computation = Computation::without_witness(program);
+const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
-        let (pk, vk) = ArkGM17::<T::ArkEngine>::circuit_specific_setup(computation, rng)
-            .map_err(|e| e.to_string())?;
-
-        let mut pk_vec: Vec<u8> = Vec::new();
-        pk.serialize_uncompressed(&mut pk_vec).unwrap();
-
-        let vk = VerificationKey {
-            h: parse_g2::<T>(&vk.h_g2),
-            g_alpha: parse_g1::<T>(&vk.g_alpha_g1),
-            h_beta: parse_g2::<T>(&vk.h_beta_g2),
-            g_gamma: parse_g1::<T>(&vk.g_gamma_g1),
-            h_gamma: parse_g2::<T>(&vk.h_gamma_g2),
-            query: vk.query.iter().map(|g1| parse_g1::<T>(g1)).collect(),
-        };
-
-        Ok(SetupKeypair::new(vk, pk_vec))
-    }
-}
-
-impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
+impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, G16> for Ark {
     fn generate_proof<I: IntoStatements<Ir<T>>>(
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Result<Proof<<GM17 as Scheme<T>>::ProofPoints>, String> {
+    ) -> Result<Proof<<G16 as Scheme<T>>::ProofPoints>, String> {
+        println!("{}", G16_WARNING);
+
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -63,7 +42,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
 
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
         let proof =
-            ArkGM17::<T::ArkEngine>::prove(&pk, computation, rng).map_err(|e| e.to_string())?;
+            Groth16::<T::ArkEngine>::prove(&pk, computation, rng).map_err(|e| e.to_string())?;
 
         let proof_points = ProofPoints {
             a: parse_g1::<T>(&proof.a),
@@ -75,30 +54,27 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
     }
 
     fn verify(
-        vk: <GM17 as Scheme<T>>::VerificationKey,
-        proof: Proof<<GM17 as Scheme<T>>::ProofPoints>,
+        vk: <G16 as Scheme<T>>::VerificationKey,
+        proof: Proof<<G16 as Scheme<T>>::ProofPoints>,
     ) -> bool {
         let vk = VerifyingKey {
-            h_g2: serialization::to_g2::<T>(vk.h),
-            g_alpha_g1: serialization::to_g1::<T>(vk.g_alpha),
-            h_beta_g2: serialization::to_g2::<T>(vk.h_beta),
-            g_gamma_g1: serialization::to_g1::<T>(vk.g_gamma),
-            h_gamma_g2: serialization::to_g2::<T>(vk.h_gamma),
-            query: vk
-                .query
+            alpha_g1: serialization::to_g1::<T>(vk.alpha),
+            beta_g2: serialization::to_g2::<T>(vk.beta),
+            gamma_g2: serialization::to_g2::<T>(vk.gamma),
+            delta_g2: serialization::to_g2::<T>(vk.delta),
+            gamma_abc_g1: vk
+                .gamma_abc
                 .into_iter()
                 .map(serialization::to_g1::<T>)
                 .collect(),
         };
 
+        let pvk: PreparedVerifyingKey<T::ArkEngine> = prepare_verifying_key(&vk);
         let ark_proof = ArkProof {
             a: serialization::to_g1::<T>(proof.proof.a),
             b: serialization::to_g2::<T>(proof.proof.b),
             c: serialization::to_g1::<T>(proof.proof.c),
         };
-
-        let pvk: PreparedVerifyingKey<<T as ArkFieldExtensions>::ArkEngine> =
-            prepare_verifying_key(&vk);
 
         let public_inputs: Vec<_> = proof
             .inputs
@@ -114,38 +90,41 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
     }
 }
 
-impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
-    fn setup<I: IntoStatements<Ir<Bw6_761Field>>>(
-        program: ProgIterator<Bw6_761Field, I>,
-    ) -> Result<SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey>, String> {
+impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, G16> for Ark {
+    fn setup<I: IntoStatements<Ir<T>>>(
+        program: ProgIterator<T, I>,
+    ) -> Result<SetupKeypair<<G16 as Scheme<T>>::VerificationKey>, String> {
+        println!("{}", G16_WARNING);
+
         let computation = Computation::without_witness(program);
 
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
-        let (pk, vk) = ArkGM17::<BW6_761>::circuit_specific_setup(computation, rng)
+        let (pk, vk) = Groth16::<T::ArkEngine>::circuit_specific_setup(computation, rng)
             .map_err(|e| e.to_string())?;
 
         let mut pk_vec: Vec<u8> = Vec::new();
         pk.serialize_uncompressed(&mut pk_vec).unwrap();
 
         let vk = VerificationKey {
-            h: parse_g2_fq::<Bw6_761Field>(&vk.h_g2),
-            g_alpha: parse_g1::<Bw6_761Field>(&vk.g_alpha_g1),
-            h_beta: parse_g2_fq::<Bw6_761Field>(&vk.h_beta_g2),
-            g_gamma: parse_g1::<Bw6_761Field>(&vk.g_gamma_g1),
-            h_gamma: parse_g2_fq::<Bw6_761Field>(&vk.h_gamma_g2),
-            query: vk.query.iter().map(parse_g1::<Bw6_761Field>).collect(),
+            alpha: parse_g1::<T>(&vk.alpha_g1),
+            beta: parse_g2::<T>(&vk.beta_g2),
+            gamma: parse_g2::<T>(&vk.gamma_g2),
+            delta: parse_g2::<T>(&vk.delta_g2),
+            gamma_abc: vk.gamma_abc_g1.iter().map(|g1| parse_g1::<T>(g1)).collect(),
         };
 
         Ok(SetupKeypair::new(vk, pk_vec))
     }
 }
 
-impl Backend<Bw6_761Field, GM17> for Ark {
+impl Backend<Bw6_761Field, G16> for Ark {
     fn generate_proof<I: IntoStatements<Ir<Bw6_761Field>>>(
         program: ProgIterator<Bw6_761Field, I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
-    ) -> Result<Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints>, String> {
+    ) -> Result<Proof<<G16 as Scheme<Bw6_761Field>>::ProofPoints>, String> {
+        println!("{}", G16_WARNING);
+
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -155,17 +134,14 @@ impl Backend<Bw6_761Field, GM17> for Ark {
             .collect::<Vec<_>>();
 
         let pk =
-            ProvingKey::<<Bw6_761Field as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
-                &mut proving_key.as_slice(),
-            )
-                .unwrap();
+            ProvingKey::<BW6_761>::deserialize_uncompressed(&mut proving_key.as_slice()).unwrap();
 
         let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
-        let proof = ArkGM17::<BW6_761>::prove(&pk, computation, rng).map_err(|e| e.to_string())?;
+        let proof = Groth16::<BW6_761>::prove(&pk, computation, rng).map_err(|e| e.to_string())?;
 
         let proof_points = ProofPoints {
             a: parse_g1::<Bw6_761Field>(&proof.a),
-            b: parse_g2_fq::<Bw6_761Field>(&proof.b),
+            b: parse_g2::<Bw6_761Field>(&proof.b),
             c: parse_g1::<Bw6_761Field>(&proof.c),
         };
 
@@ -173,30 +149,27 @@ impl Backend<Bw6_761Field, GM17> for Ark {
     }
 
     fn verify(
-        vk: <GM17 as Scheme<Bw6_761Field>>::VerificationKey,
-        proof: Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints>,
+        vk: <G16 as Scheme<Bw6_761Field>>::VerificationKey,
+        proof: Proof<<G16 as Scheme<Bw6_761Field>>::ProofPoints>,
     ) -> bool {
         let vk = VerifyingKey {
-            h_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h),
-            g_alpha_g1: serialization::to_g1::<Bw6_761Field>(vk.g_alpha),
-            h_beta_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h_beta),
-            g_gamma_g1: serialization::to_g1::<Bw6_761Field>(vk.g_gamma),
-            h_gamma_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h_gamma),
-            query: vk
-                .query
+            alpha_g1: serialization::to_g1::<Bw6_761Field>(vk.alpha),
+            beta_g2: serialization::to_g2::<Bw6_761Field>(vk.beta),
+            gamma_g2: serialization::to_g2::<Bw6_761Field>(vk.gamma),
+            delta_g2: serialization::to_g2::<Bw6_761Field>(vk.delta),
+            gamma_abc_g1: vk
+                .gamma_abc
                 .into_iter()
                 .map(serialization::to_g1::<Bw6_761Field>)
                 .collect(),
         };
 
+        let pvk: PreparedVerifyingKey<BW6_761> = prepare_verifying_key(&vk);
         let ark_proof = ArkProof {
             a: serialization::to_g1::<Bw6_761Field>(proof.proof.a),
-            b: serialization::to_g2_fq::<Bw6_761Field>(proof.proof.b),
+            b: serialization::to_g2::<Bw6_761Field>(proof.proof.b),
             c: serialization::to_g1::<Bw6_761Field>(proof.proof.c),
         };
-
-        let pvk: PreparedVerifyingKey<<Bw6_761Field as ArkFieldExtensions>::ArkEngine> =
-            prepare_verifying_key(&vk);
 
         let public_inputs: Vec<_> = proof
             .inputs
@@ -209,6 +182,37 @@ impl Backend<Bw6_761Field, GM17> for Ark {
             .collect::<Vec<_>>();
 
         verify_proof(&pvk, &ark_proof, &public_inputs).unwrap()
+    }
+}
+
+impl NonUniversalBackend<Bw6_761Field, G16> for Ark {
+    fn setup<I: IntoStatements<Ir<Bw6_761Field>>>(
+        program: ProgIterator<Bw6_761Field, I>,
+    ) -> Result<SetupKeypair<<G16 as Scheme<Bw6_761Field>>::VerificationKey>, String> {
+        println!("{}", G16_WARNING);
+
+        let computation = Computation::without_witness(program);
+
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let (pk, vk) = Groth16::<BW6_761>::circuit_specific_setup(computation, rng)
+            .map_err(|e| e.to_string())?;
+
+        let mut pk_vec: Vec<u8> = Vec::new();
+        pk.serialize_uncompressed(&mut pk_vec).unwrap();
+
+        let vk = VerificationKey {
+            alpha: parse_g1::<Bw6_761Field>(&vk.alpha_g1),
+            beta: parse_g2::<Bw6_761Field>(&vk.beta_g2),
+            gamma: parse_g2::<Bw6_761Field>(&vk.gamma_g2),
+            delta: parse_g2::<Bw6_761Field>(&vk.delta_g2),
+            gamma_abc: vk
+                .gamma_abc_g1
+                .iter()
+                .map(parse_g1::<Bw6_761Field>)
+                .collect(),
+        };
+
+        Ok(SetupKeypair::new(vk, pk_vec))
     }
 }
 
@@ -232,21 +236,19 @@ mod tests {
             1,
         );
 
-        let keypair =
-            <Ark as NonUniversalBackend<Bls12_377Field, GM17>>::setup(program.clone()).unwrap();
+        let keypair = <Ark as NonUniversalBackend<Bls12_377Field, G16>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
             .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof = <Ark as Backend<Bls12_377Field, GM17>>::generate_proof(
+        let proof = <Ark as Backend<Bls12_377Field, G16>>::generate_proof(
             program.into(),
             witness,
             keypair.pk,
-        )
-        .unwrap();
-        let ans = <Ark as Backend<Bls12_377Field, GM17>>::verify(keypair.vk, proof);
+        );
+        let ans = <Ark as Backend<Bls12_377Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);
     }
@@ -263,8 +265,7 @@ mod tests {
             1,
         );
 
-        let keypair =
-            <Ark as NonUniversalBackend<Bw6_761Field, GM17>>::setup(program.clone()).unwrap();
+        let keypair = <Ark as NonUniversalBackend<Bw6_761Field, G16>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
@@ -272,9 +273,8 @@ mod tests {
             .unwrap();
 
         let proof =
-            <Ark as Backend<Bw6_761Field, GM17>>::generate_proof(program, witness, keypair.pk)
-                .unwrap();
-        let ans = <Ark as Backend<Bw6_761Field, GM17>>::verify(keypair.vk, proof);
+            <Ark as Backend<Bw6_761Field, G16>>::generate_proof(program, witness, keypair.pk);
+        let ans = <Ark as Backend<Bw6_761Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);
     }
