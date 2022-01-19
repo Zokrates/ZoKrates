@@ -10,7 +10,7 @@ use zokrates_core::compile::{
     compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
 };
 use zokrates_core::imports::Error;
-use zokrates_core::ir;
+use zokrates_core::ir::{self, Ir};
 use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::groth16::G16;
 use zokrates_core::proof_system::{
@@ -60,8 +60,8 @@ fn deserialize_program(value: &[u8]) -> Result<ir::Prog<Bn128Field>, JsValue> {
 }
 
 #[inline]
-fn serialize_program<I: ir::IntoStatements<Field = Bn128Field>>(
-    program: ir::ProgIterator<I>,
+fn serialize_program<I: ir::IntoStatements<Ir<Bn128Field>>>(
+    program: ir::ProgIterator<Bn128Field, I>,
 ) -> Vec<u8> {
     let mut buffer = Cursor::new(vec![]);
     program.serialize(&mut buffer).unwrap();
