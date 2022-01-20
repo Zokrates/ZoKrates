@@ -445,14 +445,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             c_bit_width,
             c_bit_width,
             statements_flattened,
-            error.clone().into(),
+            error.clone(),
         );
 
         self.enforce_constant_le_check_bits(
             statements_flattened,
             &e_bits_be,
             &c_bits_be[T::get_required_bits() - c_bit_width..],
-            error.clone().into(),
+            error,
         );
     }
 
@@ -466,9 +466,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // `e < 0` will always result in false value, so we constrain `0 == 1`
         if c == T::zero() {
             statements_flattened.push_back(FlatStatement::Condition(
-                T::from(0).into(),
-                T::from(1).into(),
-                error.into(),
+                T::zero().into(),
+                T::one().into(),
+                error,
             ));
         } else {
             self.enforce_constant_le_check(statements_flattened, e, c - T::one(), error)
