@@ -2300,49 +2300,43 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let lhs = self.flatten_field_expression(statements_flattened, lhs);
                         let rhs = self.flatten_field_expression(statements_flattened, rhs);
 
-                        match (lhs, rhs) {
-                            (e, FlatExpression::Number(c)) => {
-                                assert!(c != T::zero());
-                                let c = c - T::one();
-                                let c_bit_width = c.bits() as usize;
-                                let c_bits_be = c.to_bits_be();
-
-                                let e_bits_be = self.get_bits(
-                                    &FlatUExpression::with_field(e),
-                                    c_bit_width,
-                                    c_bit_width,
-                                    statements_flattened,
-                                    error.clone().into(),
-                                );
-
-                                self.enforce_constant_le_check(
-                                    statements_flattened,
-                                    &e_bits_be,
-                                    &c_bits_be[T::get_required_bits() - c_bit_width..],
+                        let flatten_lt = |e: FlatExpression<T>, c: T| {
+                            // `e < 0` will always result in false value, so we constrain `0 == 1`
+                            if c == T::zero() {
+                                statements_flattened.push_back(FlatStatement::Condition(
+                                    T::from(0).into(),
+                                    T::from(1).into(),
                                     error.into(),
-                                );
+                                ));
+                                return;
                             }
+
+                            let c = c - T::one();
+                            let c_bit_width = c.bits() as usize;
+                            let c_bits_be = c.to_bits_be();
+
+                            let e_bits_be = self.get_bits(
+                                &FlatUExpression::with_field(e),
+                                c_bit_width,
+                                c_bit_width,
+                                statements_flattened,
+                                error.clone().into(),
+                            );
+
+                            self.enforce_constant_le_check(
+                                statements_flattened,
+                                &e_bits_be,
+                                &c_bits_be[T::get_required_bits() - c_bit_width..],
+                                error.into(),
+                            );
+                        };
+
+                        match (lhs, rhs) {
+                            (e, FlatExpression::Number(c)) => flatten_lt(e, c),
                             (FlatExpression::Number(c), e) => {
-                                assert!(c != T::max_value());
-                                let e = FlatExpression::Sub(box T::max_value().into(), box e);
-                                let c = T::max_value() - c - T::one();
-
-                                let c_bit_width = c.bits() as usize;
-                                let c_bits_be = c.to_bits_be();
-
-                                let e_bits_be = self.get_bits(
-                                    &FlatUExpression::with_field(e),
-                                    c_bit_width,
-                                    c_bit_width,
-                                    statements_flattened,
-                                    error.clone().into(),
-                                );
-
-                                self.enforce_constant_le_check(
-                                    statements_flattened,
-                                    &e_bits_be,
-                                    &c_bits_be[T::get_required_bits() - c_bit_width..],
-                                    error.into(),
+                                flatten_lt(
+                                    FlatExpression::Sub(box T::max_value().into(), box e),
+                                    T::max_value() - c,
                                 );
                             }
                             (lhs, rhs) => {
@@ -2353,49 +2347,35 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         }
                     }
                     BooleanExpression::FieldLe(box lhs, box rhs) => {
-                        let lhs = self.flatten_field_expression(statements_flattened, lhs.clone());
-                        let rhs = self.flatten_field_expression(statements_flattened, rhs.clone());
+                        let lhs = self.flatten_field_expression(statements_flattened, lhs);
+                        let rhs = self.flatten_field_expression(statements_flattened, rhs);
+
+                        let mut flatten_le = |e: FlatExpression<T>, c: T| {
+                            let c_bit_width = c.bits() as usize;
+                            let c_bits_be = c.to_bits_be();
+
+                            let e_bits_be = self.get_bits(
+                                &FlatUExpression::with_field(e),
+                                c_bit_width,
+                                c_bit_width,
+                                statements_flattened,
+                                error.clone().into(),
+                            );
+
+                            self.enforce_constant_le_check(
+                                statements_flattened,
+                                &e_bits_be,
+                                &c_bits_be[T::get_required_bits() - c_bit_width..],
+                                error.clone().into(),
+                            );
+                        };
 
                         match (lhs, rhs) {
-                            (e, FlatExpression::Number(c)) => {
-                                let c_bit_width = c.bits() as usize;
-                                let c_bits_be = c.to_bits_be();
-
-                                let e_bits_be = self.get_bits(
-                                    &FlatUExpression::with_field(e),
-                                    c_bit_width,
-                                    c_bit_width,
-                                    statements_flattened,
-                                    error.clone().into(),
-                                );
-
-                                self.enforce_constant_le_check(
-                                    statements_flattened,
-                                    &e_bits_be,
-                                    &c_bits_be[T::get_required_bits() - c_bit_width..],
-                                    error.into(),
-                                );
-                            }
+                            (e, FlatExpression::Number(c)) => flatten_le(e, c),
                             (FlatExpression::Number(c), e) => {
-                                let e = FlatExpression::Sub(box T::max_value().into(), box e);
-                                let c = T::max_value() - c;
-
-                                let c_bits_be = c.to_bits_be();
-                                let c_bit_width = c.bits() as usize;
-
-                                let e_bits_be = self.get_bits(
-                                    &FlatUExpression::with_field(e),
-                                    c_bit_width,
-                                    c_bit_width,
-                                    statements_flattened,
-                                    error.clone().into(),
-                                );
-
-                                self.enforce_constant_le_check(
-                                    statements_flattened,
-                                    &e_bits_be,
-                                    &c_bits_be[T::get_required_bits() - c_bit_width..],
-                                    error.into(),
+                                flatten_le(
+                                    FlatExpression::Sub(box T::max_value().into(), box e),
+                                    T::max_value() - c,
                                 );
                             }
                             (lhs, rhs) => {
