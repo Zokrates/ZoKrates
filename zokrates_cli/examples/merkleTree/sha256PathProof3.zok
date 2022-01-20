@@ -1,19 +1,21 @@
 import "hashes/sha256/512bit" as hash
 import "hashes/utils/256bitsDirectionHelper" as multiplex
 
+const u32 DEPTH = 3
+
 def select(bool condition, u32[8] left, u32[8] right) -> (u32[8], u32[8]):
 	return if condition then right else left fi, if condition then left else right fi
 
 // Merke-Tree inclusion proof for tree depth 4 using sha256
 // directionSelector => true if current digest is on the rhs of the hash
 
-def main(u32[8] root, private u32[8] leaf, private bool[3] directionSelector, private u32[3][8] path) -> bool:
+def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector, private u32[DEPTH][8] path) -> bool:
 	// Start from the leaf
 	u32[8] digest = leaf
 
 	// Loop up the tree
-	for u32 i in 0..3 do
-		u32[8] left, u32[right] = select(directionSelector[i], digest, path[i])
+	for u32 i in 0..DEPTH do
+		u32[8] left, u32[8] right = select(directionSelector[i], digest, path[i])
 		digest = hash(left, right)
 	endfor
 
