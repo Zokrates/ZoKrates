@@ -169,7 +169,7 @@ jobs:
            - run: rustup target add << parameters.target >>
       - run:
           name: Build
-          no_output_timeout: "30m"
+          no_output_timeout: "1h"
           command: RUSTFLAGS="--remap-path-prefix=$PWD=" << parameters.build-with >> build --target << parameters.target >> --release
       - tar_artifacts:
           target: << parameters.target >>
