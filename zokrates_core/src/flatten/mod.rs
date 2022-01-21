@@ -452,7 +452,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // we reduce e `n` bits with `n` the bitwidth of `c`
         // if `e` does not fit in `n` bits, this will fail
         // but as we are asserting `e < c`, `e` not fitting in `n` bits should indeed lead to an unsatisfied constraint
-        let e_bits_be = self.get_bits(
+        let e_bits_be = self.get_bits_unchecked(
             &FlatUExpression::with_field(e),
             c_bit_width,
             c_bit_width,
@@ -687,7 +687,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         // we want to reduce `e <= c` to 0 or 1, without ever throwing. We know the bitwidth of `c` and want to minimize the bitwidth we reduce `e` to.
         // we must use the maximum bitwidth, as otherwise, large enough values of `e` would lead `get_bits` to throw.
-        let e_bits_be = self.get_bits(
+        let e_bits_be = self.get_bits_unchecked(
             &FlatUExpression::with_field(e),
             bitwidth,
             bitwidth,
@@ -695,8 +695,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             RuntimeError::ConstantLtSum,
         );
 
-        let c_bits_be: Vec<bool> = c.to_bits_be();
-        let conditions = self.constant_le_check(statements_flattened, &e_bits_be, &c_bits_be);
+        // check that this decomposition does not overflow the field
+        self.enforce_constant_le_check_bits(
+            statements_flattened,
+            &e_bits_be,
+            &T::max_value().to_bits_be(),
+            RuntimeError::Le,
+        );
+
+        let conditions = self.constant_le_check(statements_flattened, &e_bits_be, &c.to_bits_be());
 
         // return `len(conditions) == sum(conditions)`
         self.eq_check(
@@ -1378,7 +1385,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let target_bitwidth = target_bitwidth.to_usize();
 
         // q in range
-        let _ = self.get_bits(
+        let _ = self.get_bits_unchecked(
             &FlatUExpression::with_field(FlatExpression::from(q)),
             target_bitwidth,
             target_bitwidth,
@@ -1387,7 +1394,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         );
 
         // r in range
-        let _ = self.get_bits(
+        let _ = self.get_bits_unchecked(
             &FlatUExpression::with_field(FlatExpression::from(r)),
             target_bitwidth,
             target_bitwidth,
@@ -1396,7 +1403,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         );
 
         // r < d <=> r - d + 2**w < 2**w
-        let _ = self.get_bits(
+        let _ = self.get_bits_unchecked(
             &FlatUExpression::with_field(FlatExpression::Add(
                 box FlatExpression::Sub(box r.into(), box d.clone()),
                 box FlatExpression::Number(T::from(2_u128.pow(target_bitwidth as u32))),
@@ -1871,7 +1878,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let res = match should_reduce {
             true => {
-                let bits = self.get_bits(
+                let bits = self.get_bits_unchecked(
                     &res,
                     actual_bitwidth,
                     target_bitwidth.to_usize(),
@@ -1918,9 +1925,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Notes
     /// * `from` and `to` must be smaller or equal to `T::get_required_bits()`, the bitwidth of the prime field
-    /// * if and only if `to` is `T::get_required_bits()`, the result may not be unique. Therefore in this case an additional range check on the output decomposition
-    /// is added to force it to be in range
-    fn get_bits(
+    /// * the result is not checked to be in range. This is fine for `to < T::get_required_bits()`, but otherwise it is the caller's responsibility to add that check
+    fn get_bits_unchecked(
         &mut self,
         e: &FlatUExpression<T>,
         from: usize,
@@ -1988,16 +1994,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         sum.clone(),
                         error.clone(),
                     ));
-
-                    // if the result is not unique, check that this decomposition does not overflow the field
-                    if to == T::get_required_bits() {
-                        self.enforce_constant_le_check_bits(
-                            statements_flattened,
-                            &bits,
-                            &T::max_value().to_bits_be(),
-                            error,
-                        );
-                    }
 
                     // truncate to the `to` lowest bits
                     let bits = bits[from - to..].to_vec();
@@ -2655,7 +2651,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             Type::Uint(bitwidth) => {
                 // to constrain unsigned integer inputs to be in range, we get their bit decomposition.
                 // it will be cached
-                self.get_bits(
+                self.get_bits_unchecked(
                     &FlatUExpression::with_field(FlatExpression::Identifier(variable)),
                     bitwidth.to_usize(),
                     bitwidth.to_usize(),
