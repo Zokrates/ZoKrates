@@ -432,6 +432,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         ));
     }
 
+    /// Enforce a range check against a constant: the range check isn't verified iff a constraint will fail
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `e` - the expression we enforce to be in range
+    /// * `c` - the constant upper bound of the range
     fn enforce_constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
@@ -461,6 +468,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         );
     }
 
+    /// Enforce a range check against a constant: the range check isn't verified iff a constraint will fail
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `e` - the expression we enforce to be in range
+    /// * `c` - the constant upper bound of the range
     fn enforce_constant_lt_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
@@ -669,7 +683,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         e: FlatExpression<T>,
         c: T,
     ) -> FlatExpression<T> {
-        let e: FlatExpression<T> = self.define(e, statements_flattened).into();
         let bitwidth = T::get_required_bits();
 
         // we want to reduce `e <= c` to 0 or 1, without ever throwing. We know the bitwidth of `c` and want to minimize the bitwidth we reduce `e` to.
@@ -1893,6 +1906,20 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         res
     }
 
+    /// Get the bits for a FlatUExpression
+    ///
+    /// # Arguments
+    ///
+    /// * `e` - the FlatUExpression to get the bits from
+    /// * `from` - the original bitwidth of `e`
+    /// * `to` - the bitwidth of the output representation
+    /// * `statement_buffer` - a buffer to add statements to
+    /// * `error` - the error to throw at runtime in case anything fails
+    ///
+    /// # Notes
+    /// * `from` and `to` must be smaller or equal to `T::get_required_bits()`, the bitwidth of the prime field
+    /// * if and only if `to` is `T::get_required_bits()`, the result may not be unique. Therefore in this case an additional range check on the output decomposition
+    /// is added to force it to be in range
     fn get_bits(
         &mut self,
         e: &FlatUExpression<T>,
