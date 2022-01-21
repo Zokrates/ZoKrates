@@ -1992,7 +1992,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened.push_back(FlatStatement::Condition(
                         e.field.clone().unwrap(),
                         sum.clone(),
-                        error.clone(),
+                        error,
                     ));
 
                     // truncate to the `to` lowest bits
