@@ -16,8 +16,10 @@ use crate::flat_absy::{RuntimeError, *};
 use crate::solvers::Solver;
 use crate::zir::types::{Type, UBitwidth};
 use crate::zir::*;
-use std::collections::hash_map::Entry;
-use std::collections::{hash_map::HashMap, VecDeque};
+use std::collections::{
+    hash_map::{Entry, HashMap},
+    VecDeque,
+};
 use std::convert::TryFrom;
 use zokrates_field::Field;
 
@@ -430,6 +432,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         ));
     }
 
+    /// Enforce a range check against a constant: the range check isn't verified iff a constraint will fail
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `e` - the expression we enforce to be in range
+    /// * `c` - the constant upper bound of the range
     fn enforce_constant_le_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
@@ -456,6 +465,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         );
     }
 
+    /// Enforce a range check against a constant: the range check isn't verified iff a constraint will fail
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `e` - the expression we enforce to be in range
+    /// * `c` - the constant upper bound of the range
     fn enforce_constant_lt_check(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
@@ -664,7 +680,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         e: FlatExpression<T>,
         c: T,
     ) -> FlatExpression<T> {
-        let e: FlatExpression<T> = self.define(e, statements_flattened).into();
         let bitwidth = T::get_required_bits();
 
         let e_bits_be = self.get_bits(
@@ -683,8 +698,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             RuntimeError::Le,
         );
 
-        let c_bits_be: Vec<bool> = c.to_bits_be();
-        let conditions = self.constant_le_check(statements_flattened, &e_bits_be, &c_bits_be);
+        let conditions = self.constant_le_check(statements_flattened, &e_bits_be, &c.to_bits_be());
 
         // return `len(conditions) == sum(conditions)`
         self.eq_check(
