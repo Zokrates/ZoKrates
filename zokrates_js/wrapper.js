@@ -40,10 +40,10 @@ module.exports = (dep) => {
             const callback = (currentLocation, importLocation) => {
                 return resolveFromStdlib(currentLocation, importLocation) || resolveCallback(currentLocation, importLocation);
             };
-            const { program, abi } = zokrates.compile(source, location, callback, config);
+            const ptr = zokrates.compile(source, location, callback, config);
             return {
-                program: new Uint8Array(program),
-                abi
+                program: ptr.program(),
+                abi: ptr.abi()
             }
         },
         setup: (program) => {
