@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.11] - 2022-01-21
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.11 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Improve Merkle tree examples (#1077, @schaeff)
+- Support for the `groth16` scheme using the ark backend, support the usage of the `bls12_381` curve with the `gm17` and `marlin` scheme (#1071, @dark64)
+- Fix out of memory issues in `zokrates-js` (#1083, @dark64)
+- Improve `inspect` command to include information about constraint count and curve (#1072, @dark64)
+
 ## [0.7.10] - 2021-12-16
 
 ### Release
