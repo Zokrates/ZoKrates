@@ -36,7 +36,8 @@ ty_array = { ty_basic_or_struct_or_tuple ~ ("[" ~ expression ~ "]")+ }
 ty = { ty_array | ty_basic | ty_struct | ty_tuple }
 ty_list = _{(ty ~ ("," ~ ty)*)?}
 // tuples
-ty_tuple = { "(" ~ (ty_tuple_multiple_inner | ty_tuple_single_inner) ~ ")" }
+ty_tuple = { "(" ~ (ty_tuple_multiple_inner | ty_tuple_single_inner | ty_tuple_empty_inner ) ~ ")" }
+ty_tuple_empty_inner = _{ "" }
 ty_tuple_single_inner = _{ ty ~ "," }
 ty_tuple_multiple_inner = _{ ty ~ ("," ~ ty)+ ~ ","? }
 // structs
@@ -79,7 +80,8 @@ range = { from_expression? ~ ".." ~ to_expression? }
 from_expression = { expression }
 to_expression = { expression }
 
-inline_tuple_expression = { "(" ~ (inline_tuple_multiple_expression_inner | inline_tuple_single_expression_inner) ~ ")" }
+inline_tuple_expression = { "(" ~ (inline_tuple_multiple_expression_inner | inline_tuple_single_expression_inner | inline_tuple_empty_expression_inner) ~ ")" }
+inline_tuple_empty_expression_inner = _{ "" }
 inline_tuple_single_expression_inner = _{ expression ~ "," }
 inline_tuple_multiple_expression_inner = _{ expression ~ ("," ~ expression)+ ~ ","? }
 
