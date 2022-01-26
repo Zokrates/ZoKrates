@@ -1,71 +1,114 @@
 const getAbsolutePath = (basePath, relativePath) => {
-    if (relativePath[0] !== '.') {
-        return relativePath;
-    }
-    var stack = basePath.split('/');
-    var chunks = relativePath.split('/');
-    stack.pop();
+  if (relativePath[0] !== ".") {
+    return relativePath;
+  }
+  var stack = basePath.split("/");
+  var chunks = relativePath.split("/");
+  stack.pop();
 
-    for (var i = 0; i < chunks.length; i++) {
-        if (chunks[i] == '.') {
-            continue;
-        } else if (chunks[i] == '..') {
-            stack.pop();
-        } else {
-            stack.push(chunks[i]);
-        }
+  for (var i = 0; i < chunks.length; i++) {
+    if (chunks[i] == ".") {
+      continue;
+    } else if (chunks[i] == "..") {
+      stack.pop();
+    } else {
+      stack.push(chunks[i]);
     }
-    return stack.join('/');
-}
+  }
+  return stack.join("/");
+};
 
 const getImportPath = (currentLocation, importLocation) => {
-    let path = getAbsolutePath(currentLocation, importLocation);
-    const extension = path.slice((path.lastIndexOf(".") - 1 >>> 0) + 2);
-    return extension ? path : path.concat('.zok');
-}
+  let path = getAbsolutePath(currentLocation, importLocation);
+  const extension = path.slice(((path.lastIndexOf(".") - 1) >>> 0) + 2);
+  return extension ? path : path.concat(".zok");
+};
 
 module.exports = (dep) => {
-    const { zokrates, stdlib } = dep;
+  const { zokrates, stdlib } = dep;
 
-    const resolveFromStdlib = (currentLocation, importLocation) => {
-        let key = getImportPath(currentLocation, importLocation);
-        let source = stdlib[key];
-        return source ? { source, location: key } : null;
-    }
+  const resolveFromStdlib = (currentLocation, importLocation) => {
+    let key = getImportPath(currentLocation, importLocation);
+    let source = stdlib[key];
+    return source ? { source, location: key } : null;
+  };
 
-    return {
-        compile: (source, options = {}) => {
-            const { curve = "bn128", location = "main.zok", resolveCallback = () => null, config = {} } = options;
-            const callback = (currentLocation, importLocation) => {
-                return resolveFromStdlib(currentLocation, importLocation) || resolveCallback(currentLocation, importLocation);
-            };
-            const { program, abi } = zokrates.compile(source, location, callback, config, { curve });
-            return {
-                program: new Uint8Array(program),
-                abi
-            }
-        },
-        computeWitness: (artifacts, args) => {
-            const { program, abi } = artifacts;
-            return zokrates.compute_witness(program, abi, JSON.stringify(Array.from(args)));
-        },
-        setup: (program, options) => {
-            return zokrates.setup(program, options);
-        },
-        universalSetup: (curve, size) => {
-            return zokrates.universal_setup(curve, size);
-        },
-        setupWithSrs: (srs, program, options) => {
-            return zokrates.setup_with_srs(srs, program, options);
-        },
-        generateProof: (program, witness, provingKey, options) => {
-            return zokrates.generate_proof(program, witness, provingKey, options);
-        },
-        verify: (vk, proof, options) => {
-            return zokrates.verify(vk, proof, options);
-        },
-        exportSolidityVerifier: (vk, options) => {
-            return zokrates.export_solidity_verifier(vk, options);
-        }
-    }
+  const defaultProvider = {
+    compile: (source, compileOptions = {}) => {
+      const {
+        curve = "bn128",
+        location = "main.zok",
+        resolveCallback = () => null,
+        config = {},
+      } = compileOptions;
+      const callback = (currentLocation, importLocation) => {
+        return (
+          resolveFromStdlib(currentLocation, importLocation) ||
+          resolveCallback(currentLocation, importLocation)
+        );
+      };
+      const { program, abi } = zokrates.compile(
+        source,
+        location,
+        callback,
+        config,
+        curve
+      );
+      return {
+        program: new Uint8Array(program),
+        abi,
+      };
+    },
+    computeWitness: (artifacts, args) => {
+      const { program, abi } = artifacts;
+      return zokrates.compute_witness(
+        program,
+        abi,
+        JSON.stringify(Array.from(args))
+      );
+    },
+    setup: (program, options) => {
+      return zokrates.setup(program, options);
+    },
+    universalSetup: (curve, size) => {
+      return zokrates.universal_setup(curve, size);
+    },
+    setupWithSrs: (srs, program, options) => {
+      return zokrates.setup_with_srs(srs, program, options);
+    },
+    generateProof: (program, witness, provingKey, options) => {
+      return zokrates.generate_proof(program, witness, provingKey, options);
+    },
+    verify: (vk, proof, options) => {
+      return zokrates.verify(vk, proof, options);
+    },
+    exportSolidityVerifier: (vk, options) => {
+      return zokrates.export_solidity_verifier(vk, options);
+    },
+  };
+
+  const withOptions = (options) => ({
+    compile: (source, compileOptions = {}) =>
+      defaultProvider.compile(source, {
+        ...compileOptions,
+        curve: options.curve,
+      }),
+    computeWitness: (artifacts, args) =>
+      defaultProvider.computeWitness(artifacts, args),
+    setup: (program) => defaultProvider.setup(program, options),
+    universalSetup: (size) =>
+      defaultProvider.universalSetup(options.curve, size),
+    setupWithSrs: (srs, program) =>
+      defaultProvider.setupWithSrs(srs, program, options),
+    generateProof: (program, witness, provingKey) =>
+      defaultProvider.generateProof(program, witness, provingKey, options),
+    verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
+    exportSolidityVerifier: (vk) =>
+      defaultProvider.exportSolidityVerifier(vk, options),
+  });
+
+  return {
+    withOptions,
+    ...defaultProvider,
+  };
 };

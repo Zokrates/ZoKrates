@@ -67,14 +67,14 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
             )
             .map_err(|_| {
                 Error::new(format!(
-                    "Error thrown in JS callback: could not resolve {}",
+                    "Error thrown in JS callback: could not resolve `{}`",
                     import_location.display()
                 ))
             })?;
 
         if value.is_null() || value.is_undefined() {
             Err(Error::new(format!(
-                "Could not resolve {}",
+                "Could not resolve `{}`",
                 import_location.display()
             )))
         } else {
@@ -210,15 +210,10 @@ pub fn compile(
     location: JsValue,
     resolve_callback: &js_sys::Function,
     config: JsValue,
-    options: JsValue,
+    curve: JsValue,
 ) -> Result<JsValue, JsValue> {
-    let options: serde_json::Value = options.into_serde().unwrap();
-    let curve = CurveParameter::try_from(
-        options["curve"]
-            .as_str()
-            .ok_or_else(|| JsValue::from_str("missing field `curve` in `options` object"))?,
-    )
-    .map_err(|e| JsValue::from_str(&e))?;
+    let curve = CurveParameter::try_from(curve.as_string().unwrap().as_str())
+        .map_err(|e| JsValue::from_str(&e))?;
 
     match curve {
         CurveParameter::Bn128 => {
@@ -358,7 +353,7 @@ pub fn universal_setup(curve: JsValue, size: u32) -> Result<Vec<u8>, JsValue> {
             Ok(internal::universal_setup_of_size::<Bw6_761Field, Marlin, Ark>(size))
         }
         c => Err(JsValue::from_str(&format!(
-            "Unsupported curve `{:?}` provided in universal setup",
+            "Unsupported curve `{:?}` provided to universal setup",
             c
         ))),
     }
