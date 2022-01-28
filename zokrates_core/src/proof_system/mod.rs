@@ -12,9 +12,11 @@ pub use self::scheme::*;
 pub use self::solidity::*;
 
 use crate::ir;
+#[cfg(feature = "bellman")]
 use rand_0_4::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "bellman")]
 use std::io::{Read, Write};
 #[cfg(feature = "bellman")]
 use zokrates_field::BellmanFieldExtensions;

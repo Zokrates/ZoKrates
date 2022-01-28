@@ -1,6 +1,5 @@
 declare module "zokrates-js" {
   export type Curve = "bn128" | "bls12_381" | "bls12_377" | "bw6_761";
-  export type Backend = "bellman" | "ark";
   export type Scheme = "g16" | "gm17" | "marlin";
 
   export type VerificationKey = object;
@@ -16,6 +15,7 @@ declare module "zokrates-js" {
   }
 
   export interface CompileOptions {
+    curve?: Curve,
     location?: string;
     resolveCallback?: ResolveCallback;
     config?: CompileConfig;
@@ -52,9 +52,8 @@ declare module "zokrates-js" {
   }
 
   export type Options = {
-    curve: Scheme;
-    backend: Backend;
-    scheme: Curve;
+    scheme: Scheme;
+    curve: Curve;
   };
 
   type AtLeast<T, K extends keyof T> = Partial<T> & Pick<T, K>;
@@ -92,19 +91,19 @@ declare module "zokrates-js" {
     ): ComputationResult;
     setup(
       program: Uint8Array,
-      options: AtLeast<Options, "backend" | "scheme">
+      options: AtLeast<Options, "scheme">
     ): SetupKeypair;
     universalSetup(curve: Curve, size: number): Uint8Array;
     setupWithSrs(
       srs: Uint8Array,
       program: Uint8Array,
-      options: AtLeast<Options, "backend" | "scheme">
+      options: AtLeast<Options, "scheme">
     ): SetupKeypair;
     generateProof(
       program: Uint8Array,
       witness: string,
       provingKey: Uint8Array,
-      options: AtLeast<Options, "backend" | "scheme">
+      options: AtLeast<Options, "scheme">
     ): Proof;
     verify(
       verificationKey: VerificationKey,
@@ -113,7 +112,7 @@ declare module "zokrates-js" {
     ): boolean;
     exportSolidityVerifier(
       verificationKey: VerificationKey,
-      options: AtLeast<Options, "curve" | "scheme">
+      options: Options
     ): string;
   }
 

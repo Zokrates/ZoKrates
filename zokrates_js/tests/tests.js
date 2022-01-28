@@ -125,6 +125,15 @@ describe("tests", function () {
       });
     });
 
+    if (options.curve === "bn128" && ["g16", "gm17"].includes(options.scheme)) {
+      it("export verifier", () => {
+        assert.doesNotThrow(() => {
+          let verifier = provider.exportSolidityVerifier(keypair.vk);
+          assert.ok(verifier.includes("contract"));
+        });
+      });
+    }
+
     it("generate proof", () => {
       assert.doesNotThrow(() => {
         proof = provider.generateProof(
@@ -144,25 +153,11 @@ describe("tests", function () {
     });
   };
 
-  describe("bellman", () => {
-    describe("g16", () => {
-      for (const curve of ["bn128", "bls12_381"]) {
-        describe(curve, () =>
-          runWithOptions({ backend: "bellman", scheme: "g16", curve })
-        );
+  for (const scheme of ["g16", "gm17", "marlin"]) {
+    describe(scheme, () => {
+      for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
+        describe(curve, () => runWithOptions({ scheme, curve }));
       }
     });
-  });
-
-  describe("ark", () => {
-    for (const scheme of ["g16", "gm17", "marlin"]) {
-      describe(scheme, () => {
-        for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
-          describe(curve, () =>
-            runWithOptions({ backend: "ark", scheme, curve })
-          );
-        }
-      });
-    }
-  });
+  }
 });

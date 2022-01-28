@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use typed_arena::Arena;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
-use zokrates_common::helpers::{BackendParameter, CurveParameter, Parameters, SchemeParameter};
+use zokrates_common::helpers::{CurveParameter, SchemeParameter};
 use zokrates_common::Resolver;
 use zokrates_core::compile::{
     compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
@@ -15,7 +15,6 @@ use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::proof_system::ark::Ark;
-use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::groth16::G16;
 use zokrates_core::proof_system::{
     Backend, Marlin, NonUniversalBackend, NonUniversalScheme, Proof, Scheme,
@@ -24,12 +23,6 @@ use zokrates_core::proof_system::{
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::ConcreteSignature as Signature;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
 
 #[wasm_bindgen]
 pub struct CompilationResult {
@@ -86,7 +79,7 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
             )
             .map_err(|_| {
                 Error::new(format!(
-                    "Error thrown in JS callback: could not resolve `{}`",
+                    "Could not resolve `{}`: error thrown in resolve callback",
                     import_location.display()
                 ))
             })?;
@@ -154,14 +147,14 @@ mod internal {
     ) -> Result<JsValue, JsValue> {
         let abi: Abi = abi
             .into_serde()
-            .map_err(|err| JsValue::from_str(&format!("Could not deserialize abi: {}", err)))?;
+            .map_err(|err| JsValue::from_str(&format!("Could not deserialize `abi`: {}", err)))?;
 
         let signature: Signature = abi.signature();
         let input = args.as_string().unwrap();
 
         let inputs = parse_strict(&input, signature.inputs)
             .map(Inputs::Abi)
-            .map_err(|why| JsValue::from_str(&why.to_string()))?;
+            .map_err(|err| JsValue::from_str(&err.to_string()))?;
 
         let interpreter = ir::Interpreter::default();
 
@@ -278,14 +271,14 @@ pub fn export_solidity_verifier(vk: JsValue, options: JsValue) -> Result<JsValue
     let curve = CurveParameter::try_from(
         options["curve"]
             .as_str()
-            .ok_or_else(|| JsValue::from_str("missing field `curve` in `options` object"))?,
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `curve`"))?,
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
     let scheme = SchemeParameter::try_from(
         options["scheme"]
             .as_str()
-            .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?,
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `scheme`"))?,
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
@@ -300,7 +293,7 @@ pub fn export_solidity_verifier(vk: JsValue, options: JsValue) -> Result<JsValue
         >>::export_solidity_verifier(
             vk.into_serde().unwrap()
         )),
-        _ => Err(JsValue::from_str("Could not export solidity verifier")),
+        _ => Err(JsValue::from_str("Not supported")),
     }?;
 
     Ok(JsValue::from_str(verifier.as_str()))
@@ -309,70 +302,58 @@ pub fn export_solidity_verifier(vk: JsValue, options: JsValue) -> Result<JsValue
 #[wasm_bindgen]
 pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
-    let backend = options["backend"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `backend` in `options` object"))?;
 
-    let scheme = options["scheme"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?;
+    let scheme = SchemeParameter::try_from(
+        options["scheme"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `scheme`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
 
     let prog = ir::ProgEnum::deserialize(program)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
-    let parameters =
-        Parameters::try_from((backend, prog.curve(), scheme)).map_err(|e| JsValue::from_str(&e))?;
-
-    match parameters {
-        Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Bellman>(p)),
-            ProgEnum::Bls12_381Program(p) => {
-                Ok(internal::setup_non_universal::<_, G16, Bellman>(p))
-            }
-            _ => unreachable!(),
-        },
-        Parameters(BackendParameter::Ark, _, SchemeParameter::G16) => match prog {
+    match scheme {
+        SchemeParameter::G16 => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
             ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
             ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
             ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
         },
-        Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
+        SchemeParameter::GM17 => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
         },
-        _ => Err(JsValue::from_str("Unsupported combination of parameters")),
+        _ => Err(JsValue::from_str("Unsupported scheme")),
     }
 }
 
 #[wasm_bindgen]
 pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
-    let backend = options["backend"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `backend` in `options` object"))?;
 
-    let scheme = options["scheme"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?;
+    let scheme = SchemeParameter::try_from(
+        options["scheme"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `scheme`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
 
     let prog = ir::ProgEnum::deserialize(program)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
-    let parameters =
-        Parameters::try_from((backend, prog.curve(), scheme)).map_err(|e| JsValue::from_str(&e))?;
 
-    match parameters {
-        Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
+    match scheme {
+        SchemeParameter::MARLIN => match prog {
             ProgEnum::Bn128Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
             ProgEnum::Bls12_381Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
             ProgEnum::Bls12_377Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
             ProgEnum::Bw6_761Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
         },
-        _ => Err(JsValue::from_str("Unsupported combination of parameters")),
+        _ => Err(JsValue::from_str("Given scheme is not universal")),
     }
 }
 
@@ -409,31 +390,20 @@ pub fn generate_proof(
     options: JsValue,
 ) -> Result<JsValue, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
-    let backend = options["backend"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `backend` in `options` object"))?;
 
-    let scheme = options["scheme"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?;
+    let scheme = SchemeParameter::try_from(
+        options["scheme"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `scheme`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
 
     let prog = ir::ProgEnum::deserialize(program)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
-    let parameters =
-        Parameters::try_from((backend, prog.curve(), scheme)).map_err(|e| JsValue::from_str(&e))?;
 
-    match parameters {
-        Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => {
-                internal::generate_proof::<_, G16, Bellman>(p, witness, pk)
-            }
-            ProgEnum::Bls12_381Program(p) => {
-                internal::generate_proof::<_, G16, Bellman>(p, witness, pk)
-            }
-            _ => unreachable!(),
-        },
-        Parameters(BackendParameter::Ark, _, SchemeParameter::G16) => match prog {
+    match scheme {
+        SchemeParameter::G16 => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
             ProgEnum::Bls12_381Program(p) => {
                 internal::generate_proof::<_, G16, Ark>(p, witness, pk)
@@ -443,7 +413,7 @@ pub fn generate_proof(
             }
             ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
         },
-        Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
+        SchemeParameter::GM17 => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
             ProgEnum::Bls12_381Program(p) => {
                 internal::generate_proof::<_, GM17, Ark>(p, witness, pk)
@@ -453,7 +423,7 @@ pub fn generate_proof(
             }
             ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
         },
-        Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
+        SchemeParameter::MARLIN => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, Marlin, Ark>(p, witness, pk),
             ProgEnum::Bls12_381Program(p) => {
                 internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
@@ -465,72 +435,45 @@ pub fn generate_proof(
                 internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
             }
         },
-        _ => unreachable!(),
     }
 }
 
 #[wasm_bindgen]
 pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
-    let backend = options["backend"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `backend` in `options` object"))?;
+    let curve = CurveParameter::try_from(
+        options["curve"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `curve`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
 
-    let curve = options["curve"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `curve` in `options` object"))?;
+    let scheme = SchemeParameter::try_from(
+        options["scheme"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `scheme`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
 
-    let scheme = options["scheme"]
-        .as_str()
-        .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?;
-
-    let parameters =
-        Parameters::try_from((backend, curve, scheme)).map_err(|e| JsValue::from_str(&e))?;
-
-    match parameters {
-        Parameters(BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => {
-            internal::verify::<Bn128Field, G16, Bellman>(vk, proof)
-        }
-        Parameters(BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => {
-            internal::verify::<Bls12_381Field, G16, Bellman>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => {
-            internal::verify::<Bn128Field, G16, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::G16) => {
-            internal::verify::<Bls12_381Field, G16, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::G16) => {
-            internal::verify::<Bls12_377Field, G16, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::G16) => {
-            internal::verify::<Bw6_761Field, G16, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-            internal::verify::<Bn128Field, GM17, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::GM17) => {
-            internal::verify::<Bls12_381Field, GM17, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => {
-            internal::verify::<Bls12_377Field, GM17, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => {
-            internal::verify::<Bw6_761Field, GM17, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            internal::verify::<Bn128Field, Marlin, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => {
-            internal::verify::<Bls12_381Field, Marlin, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
-            internal::verify::<Bls12_377Field, Marlin, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
-            internal::verify::<Bw6_761Field, Marlin, Ark>(vk, proof)
-        }
-        _ => unreachable!(),
+    match scheme {
+        SchemeParameter::G16 => match curve {
+            CurveParameter::Bn128 => internal::verify::<Bn128Field, G16, Ark>(vk, proof),
+            CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, G16, Ark>(vk, proof),
+            CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, G16, Ark>(vk, proof),
+            CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, G16, Ark>(vk, proof),
+        },
+        SchemeParameter::GM17 => match curve {
+            CurveParameter::Bn128 => internal::verify::<Bn128Field, GM17, Ark>(vk, proof),
+            CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, GM17, Ark>(vk, proof),
+            CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, GM17, Ark>(vk, proof),
+            CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, GM17, Ark>(vk, proof),
+        },
+        SchemeParameter::MARLIN => match curve {
+            CurveParameter::Bn128 => internal::verify::<Bn128Field, Marlin, Ark>(vk, proof),
+            CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, Marlin, Ark>(vk, proof),
+            CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, Marlin, Ark>(vk, proof),
+            CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, Marlin, Ark>(vk, proof),
+        },
     }
 }
 

@@ -6,7 +6,6 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
-use zokrates_common::constants as common_constants;
 use zokrates_common::helpers::CurveParameter;
 use zokrates_core::compile::{compile, CompileConfig, CompileError};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
@@ -52,8 +51,8 @@ pub fn subcommand() -> App<'static, 'static> {
         .help("Curve to be used in the compilation")
         .takes_value(true)
         .required(false)
-        .possible_values(common_constants::CURVES)
-        .default_value(common_constants::BN128)
+        .possible_values(constants::CURVES)
+        .default_value(zokrates_common::constants::BN128)
     ).arg(Arg::with_name("isolate-branches")
         .long("isolate-branches")
         .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")

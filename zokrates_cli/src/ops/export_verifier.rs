@@ -4,7 +4,6 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
-use zokrates_common::constants as common_constants;
 use zokrates_common::helpers::{CurveParameter, SchemeParameter};
 use zokrates_core::proof_system::*;
 use zokrates_field::Bn128Field;
@@ -39,8 +38,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Curve to be used to export the verifier")
                 .takes_value(true)
                 .required(false)
-                .possible_values(common_constants::CURVES)
-                .default_value(common_constants::BN128),
+                .possible_values(constants::CURVES)
+                .default_value(zokrates_common::constants::BN128),
         )
         .arg(
             Arg::with_name("proving-scheme")
@@ -50,8 +49,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .possible_values(common_constants::SCHEMES)
-                .default_value(common_constants::G16),
+                .possible_values(constants::SCHEMES)
+                .default_value(zokrates_common::constants::G16),
         )
 }
 
@@ -69,6 +68,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         (CurveParameter::Bn128, SchemeParameter::GM17) => {
             cli_export_verifier::<Bn128Field, GM17>(sub_matches)
         }
+        #[cfg(feature = "libsnark")]
         (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
             cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
         }

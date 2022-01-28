@@ -4,7 +4,6 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
-use zokrates_common::constants as common_constants;
 use zokrates_common::helpers::*;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
@@ -58,8 +57,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Backend to use")
                 .takes_value(true)
                 .required(false)
-                .possible_values(common_constants::BACKENDS)
-                .default_value(common_constants::BELLMAN),
+                .possible_values(constants::BACKENDS)
+                .default_value(zokrates_common::constants::BELLMAN),
         )
         .arg(
             Arg::with_name("proving-scheme")
@@ -68,8 +67,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Proving scheme to use in the setup")
                 .takes_value(true)
                 .required(false)
-                .possible_values(common_constants::SCHEMES)
-                .default_value(common_constants::G16),
+                .possible_values(constants::SCHEMES)
+                .default_value(zokrates_common::constants::G16),
         )
         .arg(
             Arg::with_name("universal-setup-path")
