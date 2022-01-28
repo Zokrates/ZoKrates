@@ -133,12 +133,10 @@ jobs:
       - run:
           name: Build
           no_output_timeout: "30m"
-          command: npm run build
+          command: npm run build:dev
       - save_cache:
           paths:
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
+            - target
           key: js-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
   zokrates_js_test:
     docker:
