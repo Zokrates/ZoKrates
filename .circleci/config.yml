@@ -125,7 +125,8 @@ jobs:
     resource_class: large
     working_directory: ~/project/zokrates_js
     steps:
-      - checkout
+      - checkout:
+          path: ~/project
       - restore_cache:
           keys:
             - js-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
