@@ -122,19 +122,34 @@ jobs:
   zokrates_js_build:
     docker:
       - image: zokrates/env:latest
+    resource_class: large
+    working_directory: ~/project/zokrates_js
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - js-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build
           no_output_timeout: "30m"
-          command: cd zokrates_js && npm run build
+          command: npm run build
+      - save_cache:
+          paths:
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: js-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
+    resource_class: large
     working_directory: ~/project/zokrates_js
     steps:
       - checkout:
           path: ~/project
+      - restore_cache:
+          keys:
+            - js-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Check format
           command: cargo fmt --all -- --check
