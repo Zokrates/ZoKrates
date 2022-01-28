@@ -127,7 +127,7 @@ jobs:
       - run:
           name: Build
           no_output_timeout: "30m"
-          command: cd zokrates_js && npm run build:dev
+          command: cd zokrates_js && npm run build
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
