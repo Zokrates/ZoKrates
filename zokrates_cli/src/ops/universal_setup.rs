@@ -10,7 +10,7 @@ use zokrates_common::helpers::*;
 use zokrates_core::proof_system::ark::Ark;
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 use zokrates_core::proof_system::*;
-use zokrates_field::{Bls12_377Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("universal-setup")
@@ -65,16 +65,20 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     match parameters {
         #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            cli_universal_setup::<Bn128Field, Marlin, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => {
+            cli_universal_setup::<Bls12_381Field, Marlin, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bls12_377Field, Marlin, Ark>(sub_matches)
         }
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
             cli_universal_setup::<Bw6_761Field, Marlin, Ark>(sub_matches)
-        }
-        #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            cli_universal_setup::<Bn128Field, Marlin, Ark>(sub_matches)
         }
         _ => unreachable!(),
     }

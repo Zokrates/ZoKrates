@@ -49,11 +49,16 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_smtlib2<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_smtlib2<T: Field, I: Iterator<Item = ir::Statement<T>>>(
+    ir_prog: ir::ProgIterator<T, I>,
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     println!("Generating SMTLib2...");
 
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let mut output_file = File::create(output_path).unwrap();
+
+    let ir_prog = ir_prog.collect();
 
     output_file
         .write(format!("{}", SMTLib2Display(&ir_prog)).as_bytes())

@@ -101,29 +101,42 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     match parameters {
         #[cfg(feature = "bellman")]
         Parameters(BackendParameter::Bellman, _, SchemeParameter::G16) => match prog {
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16, Bellman>(p, sub_matches),
-            ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, G16, Bellman>(p, sub_matches),
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, G16, Bellman>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => {
+                cli_generate_proof::<_, _, G16, Bellman>(p, sub_matches)
+            }
             _ => unreachable!(),
+        },
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, _, SchemeParameter::G16) => match prog {
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
+            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, G16, Ark>(p, sub_matches),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
-            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, GM17, Ark>(p, sub_matches),
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17, Ark>(p, sub_matches),
-            _ => unreachable!(),
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
+            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, GM17, Ark>(p, sub_matches),
         },
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
-            ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
-            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
-            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, Marlin, Ark>(p, sub_matches),
-            _ => unreachable!(),
+            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
+            ProgEnum::Bls12_381Program(p) => {
+                cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
+            }
+            ProgEnum::Bls12_377Program(p) => {
+                cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches)
+            }
+            ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, _, Marlin, Ark>(p, sub_matches),
         },
         #[cfg(feature = "libsnark")]
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
             match prog {
                 ProgEnum::Bn128Program(p) => {
-                    cli_generate_proof::<_, GM17, Libsnark>(p, sub_matches)
+                    cli_generate_proof::<_, _, GM17, Libsnark>(p, sub_matches)
                 }
                 _ => unreachable!(),
             }
@@ -132,7 +145,7 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
             match prog {
                 ProgEnum::Bn128Program(p) => {
-                    cli_generate_proof::<_, PGHR13, Libsnark>(p, sub_matches)
+                    cli_generate_proof::<_, _, PGHR13, Libsnark>(p, sub_matches)
                 }
                 _ => unreachable!(),
             }
@@ -141,8 +154,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 }
 
-fn cli_generate_proof<T: Field, S: Scheme<T>, B: Backend<T, S>>(
-    program: ir::Prog<T>,
+fn cli_generate_proof<
+    T: Field,
+    I: Iterator<Item = ir::Statement<T>>,
+    S: Scheme<T>,
+    B: Backend<T, S>,
+>(
+    program: ir::ProgIterator<T, I>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
     println!("Generating proof...");

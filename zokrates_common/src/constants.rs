@@ -8,9 +8,9 @@ pub const BLS12_377: &str = "bls12_377";
 pub const BW6_761: &str = "bw6_761";
 
 pub const G16: &str = "g16";
-pub const PGHR13: &str = "pghr13";
 pub const GM17: &str = "gm17";
 pub const MARLIN: &str = "marlin";
+pub const PGHR13: &str = "pghr13";
 
 #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
 pub const BACKENDS: &[&str] = if cfg!(feature = "libsnark") {

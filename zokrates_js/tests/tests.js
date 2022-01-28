@@ -89,61 +89,63 @@ describe("tests", function () {
   });
 
   const runWithOptions = (options) => {
+    let provider;
     let artifacts;
     let computationResult;
     let keypair;
     let proof;
 
     before((done) => {
-      const code = "def main(private field a) -> field: return a + a";
-      artifacts = zokrates.compile(code, { curve: options.curve });
-      computationResult = zokrates.computeWitness(artifacts, ["2"]);
+      provider = zokrates.withOptions(options);
       done();
+    });
+
+    it("compile", () => {
+      assert.doesNotThrow(() => {
+        const code =
+          "def main(private field a, field b) -> bool: return a * a == b";
+        artifacts = provider.compile(code);
+      });
+    });
+
+    it("compute witness", () => {
+      assert.doesNotThrow(() => {
+        computationResult = provider.computeWitness(artifacts, ["2", "4"]);
+      });
     });
 
     it("setup", () => {
       assert.doesNotThrow(() => {
         if (options.scheme === "marlin") {
-          const srs = zokrates.universalSetup(options.curve, 2);
-          keypair = zokrates.setupWithSrs(srs, artifacts.program, options);
+          const srs = provider.universalSetup(4);
+          keypair = provider.setupWithSrs(srs, artifacts.program);
         } else {
-          keypair = zokrates.setup(artifacts.program, options);
+          keypair = provider.setup(artifacts.program);
         }
       });
     });
 
     it("generate proof", () => {
       assert.doesNotThrow(() => {
-        proof = zokrates.generateProof(
+        proof = provider.generateProof(
           artifacts.program,
           computationResult.witness,
-          keypair.pk,
-          options
+          keypair.pk
         );
         assert.ok(proof !== undefined);
-        assert.ok(proof.proof.hasOwnProperty("a"));
-        assert.ok(proof.proof.hasOwnProperty("b"));
-        assert.ok(proof.proof.hasOwnProperty("c"));
-        assert.equal(proof.inputs.length, 1);
+        assert.equal(proof.inputs.length, 2);
       });
     });
 
-    it("verify with valid proof", () => {
+    it("verify", () => {
       assert.doesNotThrow(() => {
-        assert(zokrates.verify(keypair.vk, proof, options) === true);
+        assert(provider.verify(keypair.vk, proof) === true);
       });
-    });
-
-    it("falsify proof", () => {
-      let tmp = proof["proof"]["a"][0];
-      proof["proof"]["a"][0] = proof["proof"]["a"][1];
-      proof["proof"]["a"][1] = tmp;
-      assert(zokrates.verify(keypair.vk, proof, options) === false);
     });
   };
 
   describe("bellman", () => {
-    describe("groth16", () => {
+    describe("g16", () => {
       for (const curve of ["bn128", "bls12_381"]) {
         describe(curve, () =>
           runWithOptions({ backend: "bellman", scheme: "g16", curve })
@@ -153,11 +155,11 @@ describe("tests", function () {
   });
 
   describe("ark", () => {
-    for (const scheme of ["gm17", "marlin"]) {
+    for (const scheme of ["g16", "gm17", "marlin"]) {
       describe(scheme, () => {
-        for (const curve of ["bn128", "bls12_377", "bw6_761"]) {
+        for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
           describe(curve, () =>
-            runWithOptions({ backend: "ark", scheme: "gm17", curve })
+            runWithOptions({ backend: "ark", scheme, curve })
           );
         }
       });

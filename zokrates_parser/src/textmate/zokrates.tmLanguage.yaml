@@ -202,19 +202,23 @@ repository:
             -
                 comment: 'control flow keywords'
                 name: keyword.control.zokrates
-                match: \b(do|else|for|do|endfor|if|then|fi|return|assert)\b
+                match: \b(for|in|do|endfor|if|then|else|fi|return|assert)\b
             -
                 comment: 'storage keywords'
                 name: storage.type.zokrates
                 match: \b(struct)\b
             -
-                comment: const
+                comment: 'const keyword'
                 name: keyword.other.const.zokrates
-                match: \bconst\b
+                match: \b(const)\b
             -
-                comment: def
+                comment: 'type keyword'
+                name: keyword.other.type.zokrates
+                match: \b(type)\b
+            -
+                comment: 'def keyword'
                 name: keyword.other.def.zokrates
-                match: \bdef\b
+                match: \b(def)\b
             -
                 comment: 'import keywords'
                 name: keyword.other.import.zokrates

@@ -3,11 +3,7 @@ declare module "zokrates-js" {
   export type Backend = "bellman" | "ark";
   export type Scheme = "g16" | "gm17" | "marlin";
 
-  export type Fq = string;
-  export type Fq2 = [Fq, Fq];
-
-  export type G1Affine = [Fq, Fq];
-  export type G2Affine = [Fq2, Fq2];
+  export type VerificationKey = object;
   export type ProvingKey = Uint8Array;
 
   export type ResolveCallback = (
@@ -16,8 +12,7 @@ declare module "zokrates-js" {
   ) => ResolverResult;
 
   export interface CompileConfig {
-    allow_unconstrained_variables?: boolean;
-    isolate_branches?: boolean;
+    isolate_branches?: boolean
   }
 
   export interface CompileOptions {
@@ -26,22 +21,8 @@ declare module "zokrates-js" {
     config?: CompileConfig;
   }
 
-  export interface VerificationKey {
-    alpha: G1Affine;
-    beta: G2Affine;
-    gamma: G2Affine;
-    delta: G2Affine;
-    gamma_abc: G1Affine[];
-  }
-
-  export interface ProofPoints {
-    a: G1Affine;
-    b: G2Affine;
-    c: G1Affine;
-  }
-
-  export interface Proof {
-    proof: ProofPoints;
+  export type Proof = {
+    proof: object;
     inputs: string[];
   }
 
@@ -55,9 +36,14 @@ declare module "zokrates-js" {
     output: string;
   }
 
+  export interface Abi {
+    inputs: Array<any>,
+    outputs: Array<any>
+  }
+
   export interface CompilationArtifacts {
-    program: Uint8Array;
-    abi: string;
+    program: Uint8Array,
+    abi: Abi,
   }
 
   export interface SetupKeypair {

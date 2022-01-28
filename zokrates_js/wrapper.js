@@ -47,16 +47,10 @@ module.exports = (dep) => {
           resolveCallback(currentLocation, importLocation)
         );
       };
-      const { program, abi } = zokrates.compile(
-        source,
-        location,
-        callback,
-        config,
-        curve
-      );
+      const ptr = zokrates.compile(source, location, callback, config, curve);
       return {
-        program: new Uint8Array(program),
-        abi,
+          program: ptr.program(),
+          abi: ptr.abi()
       };
     },
     computeWitness: (artifacts, args) => {

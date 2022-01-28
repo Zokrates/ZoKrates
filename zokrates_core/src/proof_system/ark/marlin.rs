@@ -10,7 +10,7 @@ use sha2::Sha256;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
-use crate::ir::{Prog, Witness};
+use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::ark::parse_fr;
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
@@ -48,10 +48,12 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         res
     }
 
-    fn setup(
-        universal_srs: Vec<u8>,
-        program: Prog<T>,
+    fn setup<I: IntoIterator<Item = Statement<T>>>(
+        srs: Vec<u8>,
+        program: ProgIterator<T, I>,
     ) -> Result<SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey>, String> {
+        let program = program.collect();
+
         if program.constraint_count() < MINIMUM_CONSTRAINT_COUNT {
             return Err(format!("Programs must have a least {} constraints. This program is too small to generate a setup with Marlin, see [this issue](https://github.com/arkworks-rs/marlin/issues/79)", MINIMUM_CONSTRAINT_COUNT));
         }
@@ -64,7 +66,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
                 T::ArkEngine,
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
-        >::deserialize(&mut universal_srs.as_slice())
+        >::deserialize(&mut srs.as_slice())
         .unwrap();
 
         let (pk, vk) = ArkMarlin::<
@@ -94,8 +96,8 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 }
 
 impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
-    fn generate_proof(
-        program: Prog<T>,
+    fn generate_proof<I: IntoIterator<Item = Statement<T>>>(
+        program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
     ) -> Proof<<marlin::Marlin as Scheme<T>>::ProofPoints> {
@@ -208,7 +210,7 @@ mod tests {
     fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
             arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-            returns: vec![FlatVariable::public(0)],
+            return_count: 1,
             statements: vec![
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
@@ -223,15 +225,19 @@ mod tests {
 
         let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
         let keypair =
-            <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone()).unwrap();
+            <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone().into())
+                .unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &[Bls12_377Field::from(42)])
+            .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof =
-            <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(program, witness, keypair.pk);
+        let proof = <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(
+            program.clone(),
+            witness,
+            keypair.pk,
+        );
         let ans = <Ark as Backend<Bls12_377Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);
@@ -241,7 +247,7 @@ mod tests {
     fn verify_bw6_761_field() {
         let program: Prog<Bw6_761Field> = Prog {
             arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-            returns: vec![FlatVariable::public(0)],
+            return_count: 1,
             statements: vec![
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
@@ -260,7 +266,7 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &[Bw6_761Field::from(42)])
+            .execute(program.clone(), &[Bw6_761Field::from(42)])
             .unwrap();
 
         let proof =

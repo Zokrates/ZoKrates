@@ -76,6 +76,41 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     }
                 }
             }
+            ZirStatement::IfElse(e, consequence, alternative) => {
+                match self.fold_boolean_expression(e)? {
+                    BooleanExpression::Value(true) => Ok(consequence
+                        .into_iter()
+                        .map(|s| self.fold_statement(s))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flatten()
+                        .collect()),
+                    BooleanExpression::Value(false) => Ok(alternative
+                        .into_iter()
+                        .map(|s| self.fold_statement(s))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .flatten()
+                        .collect()),
+                    e => Ok(vec![ZirStatement::IfElse(
+                        e,
+                        consequence
+                            .into_iter()
+                            .map(|s| self.fold_statement(s))
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into_iter()
+                            .flatten()
+                            .collect(),
+                        alternative
+                            .into_iter()
+                            .map(|s| self.fold_statement(s))
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into_iter()
+                            .flatten()
+                            .collect(),
+                    )]),
+                }
+            }
             ZirStatement::MultipleDefinition(assignees, list) => {
                 for a in &assignees {
                     self.constants.remove(&a.id);
@@ -112,7 +147,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or_else(|| Error::OutOfBounds(v, e.len() as u128)),
+                        .ok_or(Error::OutOfBounds(v, e.len() as u128)),
                     i => Ok(FieldElementExpression::Select(
                         e,
                         box i.annotate(UBitwidth::B32),
@@ -244,7 +279,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(*v as usize)
                         .cloned()
-                        .ok_or_else(|| Error::OutOfBounds(*v, e.len() as u128)),
+                        .ok_or(Error::OutOfBounds(*v, e.len() as u128)),
                     _ => Ok(BooleanExpression::Select(e, box index)),
                 }
             }
@@ -255,6 +290,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 ) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         Ok(BooleanExpression::Value(n1 < n2))
+                    }
+                    (_, FieldElementExpression::Number(c)) if c == T::zero() => {
+                        Ok(BooleanExpression::Value(false))
+                    }
+                    (FieldElementExpression::Number(c), _) if c == T::max_value() => {
+                        Ok(BooleanExpression::Value(false))
                     }
                     (e1, e2) => Ok(BooleanExpression::FieldLt(box e1, box e2)),
                 }
@@ -288,6 +329,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 ) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         Ok(BooleanExpression::Value(n1 > n2))
+                    }
+                    (_, FieldElementExpression::Number(c)) if c == T::max_value() => {
+                        Ok(BooleanExpression::Value(false))
+                    }
+                    (FieldElementExpression::Number(c), _) if c == T::zero() => {
+                        Ok(BooleanExpression::Value(false))
                     }
                     (e1, e2) => Ok(BooleanExpression::FieldGt(box e1, box e2)),
                 }
@@ -463,7 +510,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or_else(|| Error::OutOfBounds(v, e.len() as u128))
+                        .ok_or(Error::OutOfBounds(v, e.len() as u128))
                         .map(|e| e.into_inner()),
                     i => Ok(UExpressionInner::Select(e, box i.annotate(UBitwidth::B32))),
                 }
@@ -954,6 +1001,22 @@ mod tests {
                 )),
                 Ok(BooleanExpression::Value(false))
             );
+
+            assert_eq!(
+                propagator.fold_boolean_expression(BooleanExpression::FieldLt(
+                    box FieldElementExpression::Identifier("a".into()),
+                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                )),
+                Ok(BooleanExpression::Value(false))
+            );
+
+            assert_eq!(
+                propagator.fold_boolean_expression(BooleanExpression::FieldLt(
+                    box FieldElementExpression::Number(Bn128Field::max_value()),
+                    box FieldElementExpression::Identifier("a".into()),
+                )),
+                Ok(BooleanExpression::Value(false))
+            );
         }
 
         #[test]
@@ -1014,6 +1077,22 @@ mod tests {
                 propagator.fold_boolean_expression(BooleanExpression::FieldGt(
                     box FieldElementExpression::Number(Bn128Field::from(3)),
                     box FieldElementExpression::Number(Bn128Field::from(3)),
+                )),
+                Ok(BooleanExpression::Value(false))
+            );
+
+            assert_eq!(
+                propagator.fold_boolean_expression(BooleanExpression::FieldGt(
+                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                    box FieldElementExpression::Identifier("a".into()),
+                )),
+                Ok(BooleanExpression::Value(false))
+            );
+
+            assert_eq!(
+                propagator.fold_boolean_expression(BooleanExpression::FieldGt(
+                    box FieldElementExpression::Identifier("a".into()),
+                    box FieldElementExpression::Number(Bn128Field::max_value()),
                 )),
                 Ok(BooleanExpression::Value(false))
             );

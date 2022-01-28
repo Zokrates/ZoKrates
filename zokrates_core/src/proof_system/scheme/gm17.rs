@@ -1,16 +1,12 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
 use crate::proof_system::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
 use crate::proof_system::{
-    G1Affine, G2Affine, G2AffineFq, SolidityCompatibleField, SolidityCompatibleScheme,
+    G1Affine, G2Affine, G2AffineFq, NotBw6_761Field, SolidityCompatibleField,
+    SolidityCompatibleScheme,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
-
-pub trait NotBw6_761Field {}
-impl NotBw6_761Field for Bls12_377Field {}
-impl NotBw6_761Field for Bls12_381Field {}
-impl NotBw6_761Field for Bn128Field {}
+use zokrates_field::{Bw6_761Field, Field};
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct GM17;

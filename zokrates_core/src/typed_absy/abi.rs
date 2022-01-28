@@ -1,7 +1,7 @@
 use crate::typed_absy::types::{ConcreteSignature, ConcreteType};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AbiInput {
     pub name: String,
     pub public: bool,
@@ -11,7 +11,7 @@ pub struct AbiInput {
 
 pub type AbiOutput = ConcreteType;
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Abi {
     pub inputs: Vec<AbiInput>,
     pub outputs: Vec<AbiOutput>,
@@ -226,12 +226,12 @@ mod tests {
                 ty: ConcreteType::Struct(ConcreteStructType::new(
                     "".into(),
                     "Bar".into(),
-                    vec![Some(1usize)],
+                    vec![Some(1u32)],
                     vec![ConcreteStructMember::new(
                         String::from("a"),
                         ConcreteType::Array(ConcreteArrayType::new(
                             ConcreteType::FieldElement,
-                            1usize,
+                            1u32,
                         )),
                     )],
                 )),
@@ -395,7 +395,7 @@ mod tests {
                             ConcreteStructMember::new(String::from("c"), ConcreteType::Boolean),
                         ],
                     )),
-                    2usize,
+                    2u32,
                 )),
             }],
             outputs: vec![ConcreteType::Boolean],
@@ -449,8 +449,8 @@ mod tests {
                 name: String::from("a"),
                 public: false,
                 ty: ConcreteType::Array(ConcreteArrayType::new(
-                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2usize)),
-                    2usize,
+                    ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 2u32)),
+                    2u32,
                 )),
             }],
             outputs: vec![ConcreteType::FieldElement],

@@ -146,12 +146,6 @@ pub struct UExpression<'ast, T> {
     pub inner: UExpressionInner<'ast, T>,
 }
 
-impl<'ast, T> From<u32> for UExpression<'ast, T> {
-    fn from(u: u32) -> Self {
-        UExpressionInner::Value(u as u128).annotate(UBitwidth::B32)
-    }
-}
-
 impl<'ast, T> From<u16> for UExpression<'ast, T> {
     fn from(u: u16) -> Self {
         UExpressionInner::Value(u as u128).annotate(UBitwidth::B16)
@@ -164,8 +158,8 @@ impl<'ast, T> From<u8> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T> PartialEq<usize> for UExpression<'ast, T> {
-    fn eq(&self, other: &usize) -> bool {
+impl<'ast, T> PartialEq<u32> for UExpression<'ast, T> {
+    fn eq(&self, other: &u32) -> bool {
         match self.as_inner() {
             UExpressionInner::Value(v) => *v == *other as u128,
             _ => true,
@@ -193,7 +187,7 @@ pub enum UExpressionInner<'ast, T> {
     FunctionCall(FunctionCallExpression<'ast, T, UExpression<'ast, T>>),
     LeftShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     RightShift(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    IfElse(IfElseExpression<'ast, T, UExpression<'ast, T>>),
+    Conditional(ConditionalExpression<'ast, T, UExpression<'ast, T>>),
     Member(MemberExpression<'ast, T, UExpression<'ast, T>>),
     Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
 }

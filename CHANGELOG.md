@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.11] - 2022-01-21
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.11 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Improve Merkle tree examples (#1077, @schaeff)
+- Support for the `groth16` scheme using the ark backend, support the usage of the `bls12_381` curve with the `gm17` and `marlin` scheme (#1071, @dark64)
+- Fix out of memory issues in `zokrates-js` (#1083, @dark64)
+- Improve `inspect` command to include information about constraint count and curve (#1072, @dark64)
+
+## [0.7.10] - 2021-12-16
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.10 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Fix building issue with `aarch64-apple-darwin` target (M1) (#1074, @dark64)
+
+## [0.7.9] - 2021-12-14
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.9 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Add support for trusted setup ceremony using multi-party contribution (MPC) protocol (#1044, @dark64)
+- Use ark-ff under the hood for optimized field operations (#1061, @schaeff)
+- Reduce compiler memory usage using iterators, change the serialization format to CBOR (#1041, @schaeff)
+- Improve the performance of the bit decomposition solver (#1062, @schaeff)
+
+## [0.7.8] - 2021-11-23
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.8 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Fix reduction of constants (#1050, @schaeff)
+- Implement type aliasing (#982, @dark64)
+- Remove confusing returns (#1037, @schaeff)
+- Reduce cost of dynamic comparison (#1025, @schaeff)
+- Fix false positives and false negatives in struct generic inference (#1016, @schaeff)
+- Make field to uint casts truncate values bigger than uint max (#997, @dark64)
+- Add Marlin proving scheme to the backend table in the book (#1034, @schaeff)
+- Fail at compile time when complex types are known not to be equal (#1032, @schaeff)
+- Allow more postfix expressions, exit gracefully when trying to call anything else than an identifier (#1030, @schaeff)
+- Add optional message to assert statement (#1012, @dark64)
+- Introduce ternary operator (#1010, @dark64)
+
 ## [0.7.7] - 2021-10-04
 
 ### Release

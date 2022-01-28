@@ -28,9 +28,9 @@ fn write_test<W: Write>(test_file: &mut W, test_path: &Path, base_path: &Path) {
             .unwrap()
             .display()
             .to_string()
-            .replace("/", "_")
+            .replace('/', "_")
             .replace(".json", "")
-            .replace(".", "")
+            .replace('.', "")
     );
 
     write!(

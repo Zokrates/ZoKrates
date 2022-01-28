@@ -20,3 +20,5 @@ pub trait Scheme<T: Field> {
 pub trait NonUniversalScheme<T: Field>: Scheme<T> {}
 
 pub trait UniversalScheme<T: Field>: Scheme<T> {}
+
+pub trait MpcScheme<T: Field>: Scheme<T> {}

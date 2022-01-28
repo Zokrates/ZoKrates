@@ -26,6 +26,12 @@ An if-expression allows you to branch your code depending on a boolean condition
 {{#include ../../../zokrates_cli/examples/book/if_else.zok}}
 ```
 
+The conditional expression can also be written using a ternary operator:
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/ternary.zok}}
+```
+
 There are two important caveats when it comes to conditional expressions. Before we go into them, let's define two concepts:
 - for an execution of the program, *an executed branch* is a branch which has to be paid for when executing the program, generating proofs, etc.
 - for an execution of the program, *a logically executed branch* is a branch which is "chosen" by the condition of an if-expression. This is the more intuitive notion of execution, and there is only one for each if-expression.

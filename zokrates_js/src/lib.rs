@@ -3,6 +3,7 @@ use serde_json::to_string_pretty;
 use std::convert::TryFrom;
 use std::io::Cursor;
 use std::path::PathBuf;
+use typed_arena::Arena;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
 use zokrates_common::helpers::{BackendParameter, CurveParameter, Parameters, SchemeParameter};
@@ -24,16 +25,34 @@ use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::ConcreteSignature as Signature;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+#[wasm_bindgen]
+pub struct CompilationResult {
+    program: Vec<u8>,
+    abi: Abi,
+}
+
+#[wasm_bindgen]
+impl CompilationResult {
+    pub fn program(&self) -> js_sys::Uint8Array {
+        let arr = js_sys::Uint8Array::new_with_length(self.program.len() as u32);
+        arr.copy_from(&self.program);
+        arr
+    }
+    pub fn abi(&self) -> JsValue {
+        JsValue::from_serde(&self.abi).unwrap()
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ResolverResult {
     source: String,
     location: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct CompilationResult {
-    program: Vec<u8>,
-    abi: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -92,16 +111,19 @@ mod internal {
         location: JsValue,
         resolve_callback: &js_sys::Function,
         config: JsValue,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<CompilationResult, JsValue> {
         let resolver = JsResolver::new(resolve_callback);
+        let config: CompileConfig = config.into_serde().unwrap_or_default();
+
         let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
 
-        let config: CompileConfig = config.into_serde().unwrap_or_default();
-        let artifacts: CompilationArtifacts<T> = core_compile(
+        let arena = Arena::new();
+        let artifacts: CompilationArtifacts<T, _> = core_compile(
             source.as_string().unwrap(),
             PathBuf::from(location.as_string().unwrap()),
             Some(&resolver),
-            &config,
+            config,
+            &arena,
         )
         .map_err(|ce| {
             JsValue::from_str(
@@ -113,16 +135,16 @@ mod internal {
             )
         })?;
 
+        let abi = artifacts.abi().clone();
+
         let program = artifacts.prog();
         let mut buffer = Cursor::new(vec![]);
         program.serialize(&mut buffer);
 
-        let result = CompilationResult {
+        Ok(CompilationResult {
+            abi,
             program: buffer.into_inner(),
-            abi: to_string_pretty(artifacts.abi()).unwrap(),
-        };
-
-        Ok(JsValue::from_serde(&result).unwrap())
+        })
     }
 
     pub fn compute<T: Field>(
@@ -130,7 +152,8 @@ mod internal {
         abi: JsValue,
         args: JsValue,
     ) -> Result<JsValue, JsValue> {
-        let abi: Abi = serde_json::from_str(abi.as_string().unwrap().as_str())
+        let abi: Abi = abi
+            .into_serde()
             .map_err(|err| JsValue::from_str(&format!("Could not deserialize abi: {}", err)))?;
 
         let signature: Signature = abi.signature();
@@ -143,7 +166,7 @@ mod internal {
         let interpreter = ir::Interpreter::default();
 
         let witness = interpreter
-            .execute(&program, &inputs.encode())
+            .execute(program, &inputs.encode())
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
         let return_values: serde_json::Value =
@@ -165,9 +188,14 @@ mod internal {
         JsValue::from_serde(&keypair).unwrap()
     }
 
-    pub fn setup_universal<T: Field, S: UniversalScheme<T>, B: UniversalBackend<T, S>>(
+    pub fn setup_universal<
+        T: Field,
+        I: IntoIterator<Item = ir::Statement<T>>,
+        S: UniversalScheme<T>,
+        B: UniversalBackend<T, S>,
+    >(
         srs: &[u8],
-        program: ir::Prog<T>,
+        program: ir::ProgIterator<T, I>,
     ) -> Result<JsValue, JsValue> {
         let keypair = B::setup(srs.to_vec(), program).map_err(|e| JsValue::from_str(&e))?;
         Ok(JsValue::from_serde(&keypair).unwrap())
@@ -211,7 +239,7 @@ pub fn compile(
     resolve_callback: &js_sys::Function,
     config: JsValue,
     curve: JsValue,
-) -> Result<JsValue, JsValue> {
+) -> Result<CompilationResult, JsValue> {
     let curve = CurveParameter::try_from(curve.as_string().unwrap().as_str())
         .map_err(|e| JsValue::from_str(&e))?;
 
@@ -233,8 +261,10 @@ pub fn compile(
 
 #[wasm_bindgen]
 pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<JsValue, JsValue> {
-    let p = ir::ProgEnum::deserialize(program).map_err(|err| JsValue::from_str(&err))?;
-    match p {
+    let prog = ir::ProgEnum::deserialize(program)
+        .map_err(|err| JsValue::from_str(&err))?
+        .collect();
+    match prog {
         ProgEnum::Bn128Program(p) => internal::compute::<_>(p, abi, args),
         ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args),
         ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args),
@@ -287,7 +317,10 @@ pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
         .as_str()
         .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?;
 
-    let prog = ir::ProgEnum::deserialize(program).map_err(|err| JsValue::from_str(&err))?;
+    let prog = ir::ProgEnum::deserialize(program)
+        .map_err(|err| JsValue::from_str(&err))?
+        .collect();
+
     let parameters =
         Parameters::try_from((backend, prog.curve(), scheme)).map_err(|e| JsValue::from_str(&e))?;
 
@@ -299,11 +332,17 @@ pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
             }
             _ => unreachable!(),
         },
+        Parameters(BackendParameter::Ark, _, SchemeParameter::G16) => match prog {
+            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
+            ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
+            ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
+            ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
+        },
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
+            ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
-            _ => unreachable!(),
         },
         _ => Err(JsValue::from_str("Unsupported combination of parameters")),
     }
@@ -320,16 +359,18 @@ pub fn setup_with_srs(srs: &[u8], program: &[u8], options: JsValue) -> Result<Js
         .as_str()
         .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?;
 
-    let prog = ir::ProgEnum::deserialize(program).map_err(|err| JsValue::from_str(&err))?;
+    let prog = ir::ProgEnum::deserialize(program)
+        .map_err(|err| JsValue::from_str(&err))?
+        .collect();
     let parameters =
         Parameters::try_from((backend, prog.curve(), scheme)).map_err(|e| JsValue::from_str(&e))?;
 
     match parameters {
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
-            ProgEnum::Bn128Program(p) => internal::setup_universal::<_, Marlin, Ark>(srs, p),
-            ProgEnum::Bls12_377Program(p) => internal::setup_universal::<_, Marlin, Ark>(srs, p),
-            ProgEnum::Bw6_761Program(p) => internal::setup_universal::<_, Marlin, Ark>(srs, p),
-            _ => unreachable!(),
+            ProgEnum::Bn128Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
+            ProgEnum::Bls12_381Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
+            ProgEnum::Bls12_377Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
+            ProgEnum::Bw6_761Program(p) => internal::setup_universal::<_, _, Marlin, Ark>(srs, p),
         },
         _ => Err(JsValue::from_str("Unsupported combination of parameters")),
     }
@@ -344,6 +385,11 @@ pub fn universal_setup(curve: JsValue, size: u32) -> Result<Vec<u8>, JsValue> {
         CurveParameter::Bn128 => {
             Ok(internal::universal_setup_of_size::<Bn128Field, Marlin, Ark>(size))
         }
+        CurveParameter::Bls12_381 => Ok(internal::universal_setup_of_size::<
+            Bls12_381Field,
+            Marlin,
+            Ark,
+        >(size)),
         CurveParameter::Bls12_377 => Ok(internal::universal_setup_of_size::<
             Bls12_377Field,
             Marlin,
@@ -352,10 +398,6 @@ pub fn universal_setup(curve: JsValue, size: u32) -> Result<Vec<u8>, JsValue> {
         CurveParameter::Bw6_761 => {
             Ok(internal::universal_setup_of_size::<Bw6_761Field, Marlin, Ark>(size))
         }
-        c => Err(JsValue::from_str(&format!(
-            "Unsupported curve `{:?}` provided to universal setup",
-            c
-        ))),
     }
 }
 
@@ -375,7 +417,9 @@ pub fn generate_proof(
         .as_str()
         .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?;
 
-    let prog = ir::ProgEnum::deserialize(program).map_err(|err| JsValue::from_str(&err))?;
+    let prog = ir::ProgEnum::deserialize(program)
+        .map_err(|err| JsValue::from_str(&err))?
+        .collect();
     let parameters =
         Parameters::try_from((backend, prog.curve(), scheme)).map_err(|e| JsValue::from_str(&e))?;
 
@@ -389,23 +433,37 @@ pub fn generate_proof(
             }
             _ => unreachable!(),
         },
+        Parameters(BackendParameter::Ark, _, SchemeParameter::G16) => match prog {
+            ProgEnum::Bn128Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
+            ProgEnum::Bls12_381Program(p) => {
+                internal::generate_proof::<_, G16, Ark>(p, witness, pk)
+            }
+            ProgEnum::Bls12_377Program(p) => {
+                internal::generate_proof::<_, G16, Ark>(p, witness, pk)
+            }
+            ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
+        },
         Parameters(BackendParameter::Ark, _, SchemeParameter::GM17) => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
+            ProgEnum::Bls12_381Program(p) => {
+                internal::generate_proof::<_, GM17, Ark>(p, witness, pk)
+            }
             ProgEnum::Bls12_377Program(p) => {
                 internal::generate_proof::<_, GM17, Ark>(p, witness, pk)
             }
             ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
-            _ => unreachable!(),
         },
         Parameters(BackendParameter::Ark, _, SchemeParameter::MARLIN) => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, Marlin, Ark>(p, witness, pk),
+            ProgEnum::Bls12_381Program(p) => {
+                internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
+            }
             ProgEnum::Bls12_377Program(p) => {
                 internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
             }
             ProgEnum::Bw6_761Program(p) => {
                 internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
             }
-            _ => unreachable!(),
         },
         _ => unreachable!(),
     }
@@ -426,7 +484,8 @@ pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, 
         .as_str()
         .ok_or_else(|| JsValue::from_str("missing field `scheme` in `options` object"))?;
 
-    let parameters = Parameters::try_from((backend, curve, scheme))?;
+    let parameters =
+        Parameters::try_from((backend, curve, scheme)).map_err(|e| JsValue::from_str(&e))?;
 
     match parameters {
         Parameters(BackendParameter::Bellman, CurveParameter::Bn128, SchemeParameter::G16) => {
@@ -435,23 +494,41 @@ pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, 
         Parameters(BackendParameter::Bellman, CurveParameter::Bls12_381, SchemeParameter::G16) => {
             internal::verify::<Bls12_381Field, G16, Bellman>(vk, proof)
         }
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => {
+            internal::verify::<Bn128Field, G16, Ark>(vk, proof)
+        }
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::G16) => {
+            internal::verify::<Bls12_381Field, G16, Ark>(vk, proof)
+        }
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::G16) => {
+            internal::verify::<Bls12_377Field, G16, Ark>(vk, proof)
+        }
+        Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::G16) => {
+            internal::verify::<Bw6_761Field, G16, Ark>(vk, proof)
+        }
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
+            internal::verify::<Bn128Field, GM17, Ark>(vk, proof)
+        }
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::GM17) => {
+            internal::verify::<Bls12_381Field, GM17, Ark>(vk, proof)
+        }
         Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => {
             internal::verify::<Bls12_377Field, GM17, Ark>(vk, proof)
         }
         Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::GM17) => {
             internal::verify::<Bw6_761Field, GM17, Ark>(vk, proof)
         }
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-            internal::verify::<Bn128Field, GM17, Ark>(vk, proof)
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            internal::verify::<Bn128Field, Marlin, Ark>(vk, proof)
+        }
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => {
+            internal::verify::<Bls12_381Field, Marlin, Ark>(vk, proof)
         }
         Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
             internal::verify::<Bls12_377Field, Marlin, Ark>(vk, proof)
         }
         Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
             internal::verify::<Bw6_761Field, Marlin, Ark>(vk, proof)
-        }
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            internal::verify::<Bn128Field, Marlin, Ark>(vk, proof)
         }
         _ => unreachable!(),
     }

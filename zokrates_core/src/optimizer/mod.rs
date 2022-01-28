@@ -10,41 +10,56 @@ mod duplicate;
 mod redefinition;
 mod tautology;
 
+use self::canonicalizer::Canonicalizer;
 use self::directive::DirectiveOptimizer;
 use self::duplicate::DuplicateOptimizer;
 use self::redefinition::RedefinitionOptimizer;
 use self::tautology::TautologyOptimizer;
 
-use crate::ir::Prog;
+use crate::ir::{ProgIterator, Statement};
 use zokrates_field::Field;
 
-impl<T: Field> Prog<T> {
-    pub fn optimize(self) -> Self {
+impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+    pub fn optimize(self) -> ProgIterator<T, impl IntoIterator<Item = Statement<T>>> {
         // remove redefinitions
-        log::debug!("Constraints: {}", self.constraint_count());
-        log::debug!("Optimizer: Remove redefinitions");
-        let r = RedefinitionOptimizer::optimize(self);
-        log::debug!("Done");
+        log::debug!(
+            "Optimizer: Remove redefinitions and tautologies and directives and duplicates"
+        );
 
-        // remove constraints that are always satisfied
-        log::debug!("Constraints: {}", r.constraint_count());
-        log::debug!("Optimizer: Remove tautologies");
-        let r = TautologyOptimizer::optimize(r);
-        log::debug!("Done");
+        // define all optimizer steps
+        let mut redefinition_optimizer = RedefinitionOptimizer::init(&self);
+        let mut tautologies_optimizer = TautologyOptimizer::default();
+        let mut directive_optimizer = DirectiveOptimizer::default();
+        let mut canonicalizer = Canonicalizer::default();
+        let mut duplicate_optimizer = DuplicateOptimizer::default();
 
-        // deduplicate directives which take the same input
-        log::debug!("Constraints: {}", r.constraint_count());
-        log::debug!("Optimizer: Remove duplicate directive");
-        let r = DirectiveOptimizer::optimize(r);
-        log::debug!("Done");
+        use crate::ir::folder::Folder;
 
-        // remove duplicate constraints
-        log::debug!("Constraints: {}", r.constraint_count());
-        log::debug!("Optimizer: Remove duplicate constraints");
-        let r = DuplicateOptimizer::optimize(r);
-        log::debug!("Done");
+        let r = ProgIterator {
+            arguments: self
+                .arguments
+                .into_iter()
+                .map(|a| redefinition_optimizer.fold_argument(a))
+                .map(|a| {
+                    <TautologyOptimizer as Folder<T>>::fold_argument(&mut tautologies_optimizer, a)
+                })
+                .map(|a| directive_optimizer.fold_argument(a))
+                .map(|a| {
+                    <DuplicateOptimizer as Folder<T>>::fold_argument(&mut duplicate_optimizer, a)
+                })
+                .collect(),
+            statements: self
+                .statements
+                .into_iter()
+                .flat_map(move |s| redefinition_optimizer.fold_statement(s))
+                .flat_map(move |s| tautologies_optimizer.fold_statement(s))
+                .flat_map(move |s| canonicalizer.fold_statement(s))
+                .flat_map(move |s| directive_optimizer.fold_statement(s))
+                .flat_map(move |s| duplicate_optimizer.fold_statement(s)),
+            return_count: self.return_count,
+        };
 
-        log::debug!("Constraints: {}", r.constraint_count());
+        log::debug!("Done");
         r
     }
 }

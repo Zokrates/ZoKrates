@@ -1,5 +1,6 @@
 use crate::absy;
 
+use crate::absy::SymbolDefinition;
 use num_bigint::BigUint;
 use std::path::Path;
 use zokrates_pest_ast as pest;
@@ -10,6 +11,7 @@ impl<'ast> From<pest::File<'ast>> for absy::Module<'ast> {
             pest::SymbolDeclaration::Import(i) => import_directive_to_symbol_vec(i),
             pest::SymbolDeclaration::Constant(c) => vec![c.into()],
             pest::SymbolDeclaration::Struct(s) => vec![s.into()],
+            pest::SymbolDeclaration::Type(t) => vec![t.into()],
             pest::SymbolDeclaration::Function(f) => vec![f.into()],
         }))
     }
@@ -130,6 +132,31 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<
         absy::SymbolDeclaration {
             id,
             symbol: absy::Symbol::Here(absy::SymbolDefinition::Constant(ty)),
+        }
+        .span(span)
+    }
+}
+
+impl<'ast> From<pest::TypeDefinition<'ast>> for absy::SymbolDeclarationNode<'ast> {
+    fn from(definition: pest::TypeDefinition<'ast>) -> absy::SymbolDeclarationNode<'ast> {
+        use crate::absy::NodeValue;
+
+        let span = definition.span;
+        let id = definition.id.span.as_str();
+
+        let ty = absy::TypeDefinition {
+            generics: definition
+                .generics
+                .into_iter()
+                .map(absy::ConstantGenericNode::from)
+                .collect(),
+            ty: definition.ty.into(),
+        }
+        .span(span.clone());
+
+        absy::SymbolDeclaration {
+            id,
+            symbol: absy::Symbol::Here(SymbolDefinition::Type(ty)),
         }
         .span(span)
     }
@@ -378,6 +405,7 @@ impl<'ast> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast> {
         match expression {
             pest::Expression::Binary(e) => absy::ExpressionNode::from(e),
             pest::Expression::Ternary(e) => absy::ExpressionNode::from(e),
+            pest::Expression::IfElse(e) => absy::ExpressionNode::from(e),
             pest::Expression::Literal(e) => absy::ExpressionNode::from(e),
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
             pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
@@ -478,13 +506,27 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     }
 }
 
+impl<'ast> From<pest::IfElseExpression<'ast>> for absy::ExpressionNode<'ast> {
+    fn from(expression: pest::IfElseExpression<'ast>) -> absy::ExpressionNode<'ast> {
+        use crate::absy::NodeValue;
+        absy::Expression::Conditional(
+            box absy::ExpressionNode::from(*expression.condition),
+            box absy::ExpressionNode::from(*expression.consequence),
+            box absy::ExpressionNode::from(*expression.alternative),
+            absy::ConditionalKind::IfElse,
+        )
+        .span(expression.span)
+    }
+}
+
 impl<'ast> From<pest::TernaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::TernaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
         use crate::absy::NodeValue;
-        absy::Expression::IfElse(
-            box absy::ExpressionNode::from(*expression.first),
-            box absy::ExpressionNode::from(*expression.second),
-            box absy::ExpressionNode::from(*expression.third),
+        absy::Expression::Conditional(
+            box absy::ExpressionNode::from(*expression.condition),
+            box absy::ExpressionNode::from(*expression.consequence),
+            box absy::ExpressionNode::from(*expression.alternative),
+            absy::ConditionalKind::Ternary,
         )
         .span(expression.span)
     }

@@ -13,12 +13,12 @@ pub use ast::{
     CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber,
     DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
     FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
-    IdentifierExpression, ImportDirective, ImportSymbol, InlineArrayExpression,
+    IdentifierExpression, IfElseExpression, ImportDirective, ImportSymbol, InlineArrayExpression,
     InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression, Parameter,
     PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
     Statement, StructDefinition, StructField, SymbolDeclaration, TernaryExpression, ToExpression,
-    Type, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression, UnaryOperator, Underscore,
-    Visibility,
+    Type, TypeDefinition, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression,
+    UnaryOperator, Underscore, Visibility,
 };
 
 mod ast {
@@ -38,6 +38,7 @@ mod ast {
     // based on https://docs.python.org/3/reference/expressions.html#operator-precedence
     fn build_precedence_climber() -> PrecClimber<Rule> {
         PrecClimber::new(vec![
+            Operator::new(Rule::op_ternary, Assoc::Right),
             Operator::new(Rule::op_or, Assoc::Left),
             Operator::new(Rule::op_and, Assoc::Left),
             Operator::new(Rule::op_lt, Assoc::Left)
@@ -89,6 +90,12 @@ mod ast {
             Rule::op_bit_or => Expression::binary(BinaryOperator::BitOr, lhs, rhs, span),
             Rule::op_right_shift => Expression::binary(BinaryOperator::RightShift, lhs, rhs, span),
             Rule::op_left_shift => Expression::binary(BinaryOperator::LeftShift, lhs, rhs, span),
+            Rule::op_ternary => Expression::ternary(
+                lhs,
+                Box::new(Expression::from_pest(&mut pair.into_inner()).unwrap()),
+                rhs,
+                span,
+            ),
             _ => unreachable!(),
         })
     }
@@ -140,6 +147,7 @@ mod ast {
         Import(ImportDirective<'ast>),
         Constant(ConstantDefinition<'ast>),
         Struct(StructDefinition<'ast>),
+        Type(TypeDefinition<'ast>),
         Function(FunctionDefinition<'ast>),
     }
 
@@ -180,6 +188,16 @@ mod ast {
         pub ty: Type<'ast>,
         pub id: IdentifierExpression<'ast>,
         pub expression: Expression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::type_definition))]
+    pub struct TypeDefinition<'ast> {
+        pub id: IdentifierExpression<'ast>,
+        pub generics: Vec<IdentifierExpression<'ast>>,
+        pub ty: Type<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -412,6 +430,7 @@ mod ast {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Expression<'ast> {
         Ternary(TernaryExpression<'ast>),
+        IfElse(IfElseExpression<'ast>),
         Binary(BinaryExpression<'ast>),
         Unary(UnaryExpression<'ast>),
         Postfix(PostfixExpression<'ast>),
@@ -427,7 +446,7 @@ mod ast {
     pub enum Term<'ast> {
         Expression(Expression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
-        Ternary(TernaryExpression<'ast>),
+        IfElse(IfElseExpression<'ast>),
         Primary(PrimaryExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
@@ -543,7 +562,7 @@ mod ast {
         fn from(t: Term<'ast>) -> Self {
             match t {
                 Term::Expression(e) => e,
-                Term::Ternary(e) => Expression::Ternary(e),
+                Term::IfElse(e) => Expression::IfElse(e),
                 Term::Primary(e) => e.into(),
                 Term::InlineArray(e) => Expression::InlineArray(e),
                 Term::InlineStruct(e) => Expression::InlineStruct(e),
@@ -683,6 +702,7 @@ mod ast {
         Member(MemberAccess<'ast>),
     }
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::assignee_access))]
     pub enum AssigneeAccess<'ast> {
@@ -761,27 +781,49 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::conditional_expression))]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct TernaryExpression<'ast> {
-        pub first: Box<Expression<'ast>>,
-        pub second: Box<Expression<'ast>>,
-        pub third: Box<Expression<'ast>>,
+        pub condition: Box<Expression<'ast>>,
+        pub consequence: Box<Expression<'ast>>,
+        pub alternative: Box<Expression<'ast>>,
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::if_else_expression))]
+    pub struct IfElseExpression<'ast> {
+        pub condition: Box<Expression<'ast>>,
+        pub consequence: Box<Expression<'ast>>,
+        pub alternative: Box<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
     impl<'ast> Expression<'ast> {
+        pub fn if_else(
+            condition: Box<Expression<'ast>>,
+            consequence: Box<Expression<'ast>>,
+            alternative: Box<Expression<'ast>>,
+            span: Span<'ast>,
+        ) -> Self {
+            Expression::IfElse(IfElseExpression {
+                condition,
+                consequence,
+                alternative,
+                span,
+            })
+        }
+
         pub fn ternary(
-            first: Box<Expression<'ast>>,
-            second: Box<Expression<'ast>>,
-            third: Box<Expression<'ast>>,
+            condition: Box<Expression<'ast>>,
+            consequence: Box<Expression<'ast>>,
+            alternative: Box<Expression<'ast>>,
             span: Span<'ast>,
         ) -> Self {
             Expression::Ternary(TernaryExpression {
-                first,
-                second,
-                third,
+                condition,
+                consequence,
+                alternative,
                 span,
             })
         }
@@ -806,6 +848,7 @@ mod ast {
                 Expression::Identifier(i) => &i.span,
                 Expression::Literal(c) => c.span(),
                 Expression::Ternary(t) => &t.span,
+                Expression::IfElse(ie) => &ie.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
                 Expression::InlineStruct(s) => &s.span,
@@ -1071,20 +1114,6 @@ mod tests {
         pub fn pow(left: Expression<'ast>, right: Expression<'ast>, span: Span<'ast>) -> Self {
             Self::binary(BinaryOperator::Pow, Box::new(left), Box::new(right), span)
         }
-
-        pub fn if_else(
-            condition: Expression<'ast>,
-            consequence: Expression<'ast>,
-            alternative: Expression<'ast>,
-            span: Span<'ast>,
-        ) -> Self {
-            Self::ternary(
-                Box::new(condition),
-                Box::new(consequence),
-                Box::new(alternative),
-                span,
-            )
-        }
     }
 
     #[test]
@@ -1263,7 +1292,7 @@ mod tests {
                         }))],
                         statements: vec![Statement::Return(ReturnStatement {
                             expressions: vec![Expression::if_else(
-                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                Box::new(Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         suffix: None,
                                         value: DecimalNumber {
@@ -1271,8 +1300,8 @@ mod tests {
                                         },
                                         span: Span::new(source, 62, 63).unwrap()
                                     }
-                                )),
-                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                ))),
+                                Box::new(Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         suffix: None,
                                         value: DecimalNumber {
@@ -1280,8 +1309,8 @@ mod tests {
                                         },
                                         span: Span::new(source, 69, 70).unwrap()
                                     }
-                                )),
-                                Expression::Literal(LiteralExpression::DecimalLiteral(
+                                ))),
+                                Box::new(Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         suffix: None,
                                         value: DecimalNumber {
@@ -1289,7 +1318,7 @@ mod tests {
                                         },
                                         span: Span::new(source, 76, 77).unwrap()
                                     }
-                                )),
+                                ))),
                                 Span::new(source, 59, 80).unwrap()
                             )],
                             span: Span::new(source, 52, 80).unwrap(),

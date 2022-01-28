@@ -37,10 +37,9 @@ impl<'ast> VariableWriteRemover {
                     let inner_ty = base.inner_type();
                     let size = base.size();
 
-                    let size = match size.as_inner() {
-                        UExpressionInner::Value(v) => *v as u32,
-                        _ => unreachable!(),
-                    };
+                    use std::convert::TryInto;
+
+                    let size: u32 = size.try_into().unwrap();
 
                     let head = indices.remove(0);
                     let tail = indices;
@@ -56,11 +55,11 @@ impl<'ast> VariableWriteRemover {
                                 (0..size)
                                     .map(|i| match inner_ty {
                                         Type::Int => unreachable!(),
-                                        Type::Array(..) => ArrayExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                        Type::Array(..) => ArrayExpression::conditional(
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 ArrayExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -74,13 +73,14 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             ArrayExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
-                                        Type::Struct(..) => StructExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                        Type::Struct(..) => StructExpression::conditional(
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 StructExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -94,13 +94,14 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             StructExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
-                                        Type::FieldElement => FieldElementExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                        Type::FieldElement => FieldElementExpression::conditional(
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 FieldElementExpression::select(base.clone(), i)
                                                     .into(),
@@ -115,13 +116,14 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             FieldElementExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
-                                        Type::Boolean => BooleanExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                        Type::Boolean => BooleanExpression::conditional(
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 BooleanExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -135,13 +137,14 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             BooleanExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
-                                        Type::Uint(..) => UExpression::if_else(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                        Type::Uint(..) => UExpression::conditional(
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 UExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -155,6 +158,7 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             UExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
                                     })
