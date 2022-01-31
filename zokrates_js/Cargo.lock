@@ -1785,8 +1785,6 @@ name = "zokrates_core"
 version = "0.6.10"
 dependencies = [
  "ark-bls12-377",
- "ark-bls12-381",
- "ark-bn254",
  "ark-bw6-761",
  "ark-crypto-primitives",
  "ark-ec",
