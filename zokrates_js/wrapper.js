@@ -81,25 +81,28 @@ module.exports = (dep) => {
     },
   };
 
-  const withOptions = (options) => ({
-    compile: (source, compileOptions = {}) =>
-      defaultProvider.compile(source, {
-        ...compileOptions,
-        curve: options.curve,
-      }),
-    computeWitness: (artifacts, args) =>
-      defaultProvider.computeWitness(artifacts, args),
-    setup: (program) => defaultProvider.setup(program, options),
-    universalSetup: (size) =>
-      defaultProvider.universalSetup(options.curve, size),
-    setupWithSrs: (srs, program) =>
-      defaultProvider.setupWithSrs(srs, program, options),
-    generateProof: (program, witness, provingKey) =>
-      defaultProvider.generateProof(program, witness, provingKey, options),
-    verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
-    exportSolidityVerifier: (vk) =>
-      defaultProvider.exportSolidityVerifier(vk, options),
-  });
+  const withOptions = function (options) {
+    return {
+      withOptions: withOptions.bind(options),
+      compile: (source, compileOptions = {}) =>
+        defaultProvider.compile(source, {
+          ...compileOptions,
+          curve: options.curve,
+        }),
+      computeWitness: (artifacts, args) =>
+        defaultProvider.computeWitness(artifacts, args),
+      setup: (program) => defaultProvider.setup(program, options),
+      universalSetup: (size) =>
+        defaultProvider.universalSetup(options.curve, size),
+      setupWithSrs: (srs, program) =>
+        defaultProvider.setupWithSrs(srs, program, options),
+      generateProof: (program, witness, provingKey) =>
+        defaultProvider.generateProof(program, witness, provingKey, options),
+      verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
+      exportSolidityVerifier: (vk) =>
+        defaultProvider.exportSolidityVerifier(vk, options),
+    };
+  };
 
   return {
     withOptions,
