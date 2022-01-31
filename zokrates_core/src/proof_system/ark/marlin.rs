@@ -24,10 +24,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
     fn universal_setup(size: u32) -> Vec<u8> {
         use rand_0_7::SeedableRng;
 
-        let mut seed = [0u8; 32];
-        getrandom::getrandom(&mut seed).unwrap();
-
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(seed);
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 
         let srs = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -105,10 +102,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         use rand_0_7::SeedableRng;
 
-        let mut seed = [0u8; 32];
-        getrandom::getrandom(&mut seed).unwrap();
-
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(seed);
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 
         let pk = IndexProverKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -180,10 +174,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         use rand_0_7::SeedableRng;
 
-        let mut seed = [0u8; 32];
-        getrandom::getrandom(&mut seed).unwrap();
-
-        let rng = &mut rand_0_7::rngs::StdRng::from_seed(seed);
+        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
 
         ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,

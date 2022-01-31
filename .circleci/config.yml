@@ -127,9 +127,12 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - run:
+          name: Create combined lock file
+          command: cat Cargo.lock package-lock.json > combined.lock
       - restore_cache:
           keys:
-            - js-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - zjs-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "combined.lock" }}
       - run:
           name: Build
           no_output_timeout: "30m"
@@ -137,7 +140,8 @@ jobs:
       - save_cache:
           paths:
             - target
-          key: js-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - node_modules
+          key: zjs-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "combined.lock" }}
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
@@ -146,9 +150,12 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - run:
+          name: Create combined lock file
+          command: cat Cargo.lock package-lock.json > combined.lock
       - restore_cache:
           keys:
-            - js-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - zjs-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "combined.lock" }}
       - run:
           name: Check format
           command: cargo fmt --all -- --check

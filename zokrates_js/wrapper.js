@@ -49,8 +49,8 @@ module.exports = (dep) => {
       };
       const ptr = zokrates.compile(source, location, callback, config, curve);
       return {
-          program: ptr.program(),
-          abi: ptr.abi()
+        program: ptr.program(),
+        abi: ptr.abi(),
       };
     },
     computeWitness: (artifacts, args) => {
@@ -103,6 +103,6 @@ module.exports = (dep) => {
 
   return {
     withOptions,
-    ...defaultProvider,
+    ...withOptions({ scheme: "g16", curve: "bn128" }),
   };
 };

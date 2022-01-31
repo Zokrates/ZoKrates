@@ -435,6 +435,7 @@ pub fn generate_proof(
                 internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
             }
         },
+        _ => Err(JsValue::from_str("Unsupported scheme")),
     }
 }
 
@@ -474,6 +475,7 @@ pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, 
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, Marlin, Ark>(vk, proof),
         },
+        _ => Err(JsValue::from_str("Unsupported scheme")),
     }
 }
 

@@ -24,9 +24,8 @@ pub enum BackendParameter {
 pub enum SchemeParameter {
     G16,
     GM17,
-    MARLIN,
-    #[cfg(feature = "libsnark")]
     PGHR13,
+    MARLIN,
 }
 
 impl TryFrom<&str> for CurveParameter {
@@ -66,9 +65,8 @@ impl TryFrom<&str> for SchemeParameter {
         match s {
             G16 => Ok(SchemeParameter::G16),
             GM17 => Ok(SchemeParameter::GM17),
-            MARLIN => Ok(SchemeParameter::MARLIN),
-            #[cfg(feature = "libsnark")]
             PGHR13 => Ok(SchemeParameter::PGHR13),
+            MARLIN => Ok(SchemeParameter::MARLIN),
             _ => Err(format!("Unknown proving scheme {}", s)),
         }
     }

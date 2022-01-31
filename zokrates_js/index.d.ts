@@ -11,11 +11,11 @@ declare module "zokrates-js" {
   ) => ResolverResult;
 
   export interface CompileConfig {
-    isolate_branches?: boolean
+    isolate_branches?: boolean;
   }
 
   export interface CompileOptions {
-    curve?: Curve,
+    curve?: Curve;
     location?: string;
     resolveCallback?: ResolveCallback;
     config?: CompileConfig;
@@ -24,7 +24,7 @@ declare module "zokrates-js" {
   export type Proof = {
     proof: object;
     inputs: string[];
-  }
+  };
 
   export interface ResolverResult {
     source: string;
@@ -37,13 +37,13 @@ declare module "zokrates-js" {
   }
 
   export interface Abi {
-    inputs: Array<any>,
-    outputs: Array<any>
+    inputs: Array<any>;
+    outputs: Array<any>;
   }
 
   export interface CompilationArtifacts {
-    program: Uint8Array,
-    abi: Abi,
+    program: Uint8Array;
+    abi: Abi;
   }
 
   export interface SetupKeypair {
@@ -56,9 +56,8 @@ declare module "zokrates-js" {
     curve: Curve;
   };
 
-  type AtLeast<T, K extends keyof T> = Partial<T> & Pick<T, K>;
-
-  export type SpecializedZoKratesProvider = {
+  export interface ZoKratesProvider {
+    withOptions(options: Options): ZoKratesProvider;
     compile(
       source: string,
       compileOptions?: CompileOptions
@@ -77,43 +76,6 @@ declare module "zokrates-js" {
     ): Proof;
     verify(verificationKey: VerificationKey, proof: Proof): boolean;
     exportSolidityVerifier(verificationKey: VerificationKey): string;
-  };
-
-  export interface ZoKratesProvider {
-    withOptions(options: Options): SpecializedZoKratesProvider;
-    compile(
-      source: string,
-      compileOptions?: CompileOptions
-    ): CompilationArtifacts;
-    computeWitness(
-      artifacts: CompilationArtifacts,
-      args: any[]
-    ): ComputationResult;
-    setup(
-      program: Uint8Array,
-      options: AtLeast<Options, "scheme">
-    ): SetupKeypair;
-    universalSetup(curve: Curve, size: number): Uint8Array;
-    setupWithSrs(
-      srs: Uint8Array,
-      program: Uint8Array,
-      options: AtLeast<Options, "scheme">
-    ): SetupKeypair;
-    generateProof(
-      program: Uint8Array,
-      witness: string,
-      provingKey: Uint8Array,
-      options: AtLeast<Options, "scheme">
-    ): Proof;
-    verify(
-      verificationKey: VerificationKey,
-      proof: Proof,
-      options: Options
-    ): boolean;
-    exportSolidityVerifier(
-      verificationKey: VerificationKey,
-      options: Options
-    ): string;
   }
 
   export interface Metadata {
