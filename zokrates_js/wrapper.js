@@ -105,7 +105,6 @@ module.exports = (dep) => {
   };
 
   return {
-    withOptions,
     ...withOptions({ scheme: "g16", curve: "bn128" }),
   };
 };
