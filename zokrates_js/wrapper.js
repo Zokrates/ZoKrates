@@ -81,9 +81,9 @@ module.exports = (dep) => {
     },
   };
 
-  const withOptions = function (options) {
+  const withOptions = (options) => {
     return {
-      withOptions: withOptions.bind(options),
+      withOptions,
       compile: (source, compileOptions = {}) =>
         defaultProvider.compile(source, {
           ...compileOptions,
