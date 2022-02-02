@@ -1,5 +1,5 @@
 {
-    "entry_point": "./tests/tests/structs/empty.zok",
+    "entry_point": "./tests/tests/tuples/empty.zok",
     "curves": ["Bn128"],
     "tests": [
         {
