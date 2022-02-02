@@ -714,6 +714,7 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
         enum Components<S> {
             Array(GArrayType<S>),
             Struct(GStructType<S>),
+            Tuple(GTupleType<S>),
         }
 
         #[derive(Deserialize)]
@@ -753,6 +754,15 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
                     .ok_or_else(|| D::Error::custom("missing `components` field".to_string()))?;
                 match components {
                     Components::Struct(struct_type) => Ok(GType::Struct(struct_type)),
+                    _ => Err(D::Error::custom("invalid `components` variant".to_string())),
+                }
+            }
+            "tuple" => {
+                let components = mapping
+                    .components
+                    .ok_or_else(|| D::Error::custom("missing `components` field".to_string()))?;
+                match components {
+                    Components::Tuple(tuple_type) => Ok(GType::Tuple(tuple_type)),
                     _ => Err(D::Error::custom("invalid `components` variant".to_string())),
                 }
             }

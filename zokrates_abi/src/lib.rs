@@ -291,6 +291,22 @@ fn parse_value<T: Field>(
                     .map(Value::Array)
             }
         }
+        (ConcreteType::Tuple(tuple_type), serde_json::Value::Array(a)) => {
+            let size = tuple_type.elements.len();
+            if a.len() != size {
+                Err(Error::Type(format!(
+                    "Expected tuple of size {}, found array of size {}",
+                    size,
+                    a.len()
+                )))
+            } else {
+                a.into_iter()
+                    .zip(tuple_type.elements.iter())
+                    .map(|(v, ty)| parse_value(v, ty.clone()))
+                    .collect::<Result<_, _>>()
+                    .map(Value::Tuple)
+            }
+        }
         (ConcreteType::Struct(struct_type), serde_json::Value::Object(mut o)) => {
             if o.len() != struct_type.members_count() {
                 Err(Error::Type(format!(
