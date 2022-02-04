@@ -1,9 +1,9 @@
 {
 	"entry_point": "./tests/tests/structs/member_order.zok",
 	"curves": ["Bn128"],
+	"abi": true,
 	"tests": [
 		{
-            "abi": true, 
 			"input": {
 				"values": [{
                     "a":true,

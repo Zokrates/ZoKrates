@@ -1,0 +1,15 @@
+
+def sum<N>(big[N] a) -> big:
+    big res = 0
+    for u32 i in 0..N do
+        res = res + a[i]
+    endfor
+    return res
+
+// cost
+// 5 * 4 * 65 = 1300 for input range checks
+// 0 for addition
+// 4 * (64 + ceiling(log2(5)) + 1) = 272 for result reduction
+// total 1572
+def main(big[5] a) -> big:
+    return sum(a)

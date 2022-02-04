@@ -1,0 +1,16 @@
+
+def prod<N>(big[N] a) -> big:
+    big res = 1
+    for u32 i in 0..N do
+        res = res * a[i]
+    endfor
+    return res
+
+// cost
+// 5 * 4 * 65 = 1300 for input range checks
+// 8 to check the result (over 8 limbs = 512 bits)
+// free to truncate
+// repeat 4 more times
+// total 1300 + 4 * 8 = 1332
+def main(big[5] a) -> big:
+    return prod(a)

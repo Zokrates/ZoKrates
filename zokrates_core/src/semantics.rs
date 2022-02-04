@@ -493,6 +493,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
             DeclarationType::FieldElement => {
                 FieldElementExpression::try_from_typed(checked_expr).map(TypedExpression::from)
             }
+            DeclarationType::Big => {
+                BigExpression::try_from_typed(checked_expr).map(TypedExpression::from)
+            }
             DeclarationType::Boolean => {
                 BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
             }
@@ -1334,6 +1337,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         match ty {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
+            UnresolvedType::Big => Ok(Type::Big),
             UnresolvedType::Boolean => Ok(Type::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(Type::uint(bitwidth)),
             UnresolvedType::Array(t, size) => {
@@ -1522,6 +1526,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             UnresolvedType::FieldElement => Ok(DeclarationType::FieldElement),
             UnresolvedType::Boolean => Ok(DeclarationType::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(DeclarationType::uint(bitwidth)),
+            UnresolvedType::Big => Ok(DeclarationType::Big),
             UnresolvedType::Array(t, size) => {
                 let checked_size = self.check_generic_expression(
                     size.clone(),
@@ -1835,6 +1840,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 match var_type {
                     Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
                         .map(TypedExpression::from),
+                    Type::Big => {
+                        BigExpression::try_from_typed(checked_expr).map(TypedExpression::from)
+                    }
                     Type::Boolean => {
                         BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
                     }
@@ -2136,6 +2144,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         match expr.value {
             Expression::IntConstant(v) => Ok(IntExpression::Value(v).into()),
+            Expression::BigConstant(v) => Ok(BigExpression::Value(v).into()),
             Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
@@ -2151,6 +2160,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         Type::FieldElement => {
                             Ok(FieldElementExpression::Identifier(id.id.into()).into())
                         }
+                        Type::Big => Ok(BigExpression::Identifier(id.id.into()).into()),
                         Type::Array(array_type) => {
                             Ok(ArrayExpressionInner::Identifier(id.id.into())
                                 .annotate(*array_type.ty, array_type.size)
@@ -2187,6 +2197,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (Int(e1), Int(e2)) => Ok(IntExpression::Add(box e1, box e2).into()),
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Add(box e1, box e2).into())
+                    }
+                    (TypedExpression::Big(e1), TypedExpression::Big(e2)) => {
+                        Ok(BigExpression::Add(box e1, box e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
@@ -2253,6 +2266,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     (Int(e1), Int(e2)) => Ok(IntExpression::Mult(box e1, box e2).into()),
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Mult(box e1, box e2).into())
+                    }
+                    (TypedExpression::Big(e1), TypedExpression::Big(e2)) => {
+                        Ok(BigExpression::Mult(box e1, box e2).into())
                     }
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2))
                         if e1.get_type() == e2.get_type() =>
@@ -2571,6 +2587,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             1 => match output_types.pop().unwrap() {
                                 Type::Int => unreachable!(),
                                 Type::FieldElement => Ok(FieldElementExpression::function_call(
+                                    function_key,
+                                    generics_checked,
+                                    arguments_checked,
+                                ).into()),
+                                Type::Big => Ok(BigExpression::function_call(
                                     function_key,
                                     generics_checked,
                                     arguments_checked,
@@ -2948,6 +2969,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     Type::FieldElement => {
                                         Ok(FieldElementExpression::select(a, index).into())
                                     }
+                                    Type::Big => {
+                                        Ok(BigExpression::select(a, index).into())
+                                    }
                                     Type::Uint(..) => Ok(UExpression::select(a, index).into()),
                                     Type::Boolean => Ok(BooleanExpression::select(a, index).into()),
                                     Type::Array(..) => Ok(ArrayExpression::select(a, index).into()),
@@ -2983,6 +3007,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 Type::FieldElement => {
                                     Ok(FieldElementExpression::member(s, id.to_string()).into())
                                 }
+                                Type::Big => Ok(BigExpression::member(s, id.to_string()).into()),
                                 Type::Boolean => {
                                     Ok(BooleanExpression::member(s, id.to_string()).into())
                                 }

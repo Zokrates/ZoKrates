@@ -1,6 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u64/mul.zok",
   "max_constraint_count": 261,
+  "abi": true,
   "tests": [
     {
       "input": {

@@ -11,6 +11,7 @@ use crate::embed::FlatEmbed;
 use crate::typed_absy::result_folder::*;
 use crate::typed_absy::types::Type;
 use crate::typed_absy::*;
+use num_traits::Zero;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
@@ -384,6 +385,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                             true => {
                                 let r: Option<TypedExpression<'ast, T>> = match embed {
                                     FlatEmbed::BitArrayLe => Ok(None), // todo
+                                    FlatEmbed::IntegerMul => Ok(None),
+                                    FlatEmbed::IntegerMulUnsafe => Ok(None),
                                     FlatEmbed::U64FromBits => Ok(Some(process_u_from_bits(
                                         assignees.clone(),
                                         arguments.clone(),
@@ -707,7 +710,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                         box UExpressionInner::Value(v).annotate(bitwidth),
                     )),
                 },
-                (e1, e2) => Ok(UExpressionInner::Sub(
+                (e1, e2) => Ok(UExpressionInner::FloorSub(
                     box e1.annotate(bitwidth),
                     box e2.annotate(bitwidth),
                 )),
@@ -947,6 +950,45 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 }
             }
             e => fold_field_expression(self, e),
+        }
+    }
+
+    fn fold_big_expression(
+        &mut self,
+        e: BigExpression<'ast, T>,
+    ) -> Result<BigExpression<'ast, T>, Error> {
+        match e {
+            BigExpression::Identifier(id) => match self.constants.get(&id) {
+                Some(e) => match e {
+                    TypedExpression::Big(e) => Ok(e.clone()),
+                    _ => unreachable!("constant stored for a big should be a big"),
+                },
+                None => Ok(BigExpression::Identifier(id)),
+            },
+            BigExpression::Add(box e1, box e2) => {
+                match (self.fold_big_expression(e1)?, self.fold_big_expression(e2)?) {
+                    (BigExpression::Value(n1), BigExpression::Value(n2)) => {
+                        Ok(BigExpression::Value(
+                            (n1 + n2) % num_bigint::BigUint::from(2usize).pow(256),
+                        ))
+                    }
+                    (e, BigExpression::Value(v)) | (BigExpression::Value(v), e) if v.is_zero() => {
+                        Ok(e)
+                    }
+                    (e1, e2) => Ok(BigExpression::Add(box e1, box e2)),
+                }
+            }
+            BigExpression::Mult(box e1, box e2) => {
+                match (self.fold_big_expression(e1)?, self.fold_big_expression(e2)?) {
+                    (BigExpression::Value(n1), BigExpression::Value(n2)) => {
+                        Ok(BigExpression::Value(
+                            (n1 * n2) % num_bigint::BigUint::from(2usize).pow(256),
+                        ))
+                    }
+                    (e1, e2) => Ok(BigExpression::Mult(box e1, box e2)),
+                }
+            }
+            e => fold_big_expression(self, e),
         }
     }
 

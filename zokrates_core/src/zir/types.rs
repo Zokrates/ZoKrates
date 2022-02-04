@@ -6,6 +6,7 @@ pub type MemberId = String;
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub enum Type {
     FieldElement,
+    Big,
     Boolean,
     Uint(UBitwidth),
 }
@@ -55,6 +56,7 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Type::FieldElement => write!(f, "field"),
+            Type::Big => write!(f, "big"),
             Type::Boolean => write!(f, "bool"),
             Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
         }
@@ -65,6 +67,7 @@ impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Type::FieldElement => write!(f, "field"),
+            Type::Big => write!(f, "big"),
             Type::Boolean => write!(f, "bool"),
             Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
         }
@@ -75,6 +78,7 @@ impl Type {
     fn to_slug(&self) -> String {
         match self {
             Type::FieldElement => String::from("f"),
+            Type::Big => String::from("l"),
             Type::Boolean => String::from("b"),
             Type::Uint(bitwidth) => format!("u{}", bitwidth),
         }
@@ -88,6 +92,7 @@ impl Type {
     pub fn get_primitive_count(&self) -> usize {
         match self {
             Type::FieldElement => 1,
+            Type::Big => 4,
             Type::Boolean => 1,
             Type::Uint(_) => 1,
         }

@@ -227,7 +227,7 @@ pub fn check<T: Field, E: Into<imports::Error>>(
     check_with_arena::<T, _>(source, location, resolver, config, &arena).map(|_| ())
 }
 
-fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
+pub fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,

@@ -21,6 +21,10 @@ impl<'ast> Variable<'ast> {
         Self::with_id_and_type(id, Type::uint(bitwidth))
     }
 
+    pub fn big(id: Identifier<'ast>) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::Big)
+    }
+
     pub fn with_id_and_type<I: Into<Identifier<'ast>>>(id: I, _type: Type) -> Variable<'ast> {
         Variable {
             id: id.into(),

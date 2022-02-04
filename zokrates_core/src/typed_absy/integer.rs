@@ -5,10 +5,10 @@ use crate::typed_absy::types::{
 };
 use crate::typed_absy::UBitwidth;
 use crate::typed_absy::{
-    ArrayExpression, ArrayExpressionInner, BooleanExpression, Conditional, ConditionalExpression,
-    Expr, FieldElementExpression, Select, SelectExpression, StructExpression,
-    StructExpressionInner, Typed, TypedExpression, TypedExpressionOrSpread, TypedSpread,
-    UExpression, UExpressionInner,
+    ArrayExpression, ArrayExpressionInner, BigExpression, BooleanExpression, Conditional,
+    ConditionalExpression, Expr, FieldElementExpression, Select, SelectExpression,
+    StructExpression, StructExpressionInner, Typed, TypedExpression, TypedExpressionOrSpread,
+    TypedSpread, UExpression, UExpressionInner,
 };
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -59,6 +59,8 @@ impl<'ast, T> IntegerInference for Type<'ast, T> {
                     Err((Type::Uint(b0), Type::Uint(b1)))
                 }
             }
+            (Type::Big, Type::Int) => Ok(DeclarationType::Big),
+            (Type::Int, Type::Big) => Ok(DeclarationType::Big),
             (Type::Array(t), Type::Array(u)) => Ok(DeclarationType::Array(
                 t.get_common_pattern(u)
                     .map_err(|(t, u)| (Type::Array(t), Type::Array(u)))?,
@@ -142,6 +144,18 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                     .map_err(|rhs| (lhs.into(), rhs.into()))?
                     .into(),
             )),
+            (Int(lhs), Big(rhs)) => Ok((
+                BigExpression::try_from_int(lhs)
+                    .map_err(|lhs| (lhs.into(), rhs.clone().into()))?
+                    .into(),
+                Big(rhs),
+            )),
+            (Big(lhs), Int(rhs)) => Ok((
+                Big(lhs.clone()),
+                BigExpression::try_from_int(rhs)
+                    .map_err(|rhs| (lhs.into(), rhs.into()))?
+                    .into(),
+            )),
             (Int(lhs), Uint(rhs)) => Ok((
                 UExpression::try_from_int(lhs, &rhs.bitwidth())
                     .map_err(|lhs| (lhs.into(), rhs.clone().into()))?
@@ -200,6 +214,7 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
             (Uint(lhs), Uint(rhs)) => Ok((lhs.into(), rhs.into())),
             (Boolean(lhs), Boolean(rhs)) => Ok((lhs.into(), rhs.into())),
             (FieldElement(lhs), FieldElement(rhs)) => Ok((lhs.into(), rhs.into())),
+            (Big(lhs), Big(rhs)) => Ok((lhs.into(), rhs.into())),
             (Int(lhs), Int(rhs)) => Ok((lhs.into(), rhs.into())),
             (lhs, rhs) => Err((lhs, rhs)),
         }
@@ -214,6 +229,7 @@ impl<'ast, T: Field> TypedExpression<'ast, T> {
                 FieldElementExpression::try_from_typed(e).map(TypedExpression::from)
             }
             GType::Boolean => BooleanExpression::try_from_typed(e).map(TypedExpression::from),
+            GType::Big => BigExpression::try_from_typed(e).map(TypedExpression::from),
             GType::Uint(bitwidth) => {
                 UExpression::try_from_typed(e, bitwidth).map(TypedExpression::from)
             }
@@ -442,6 +458,81 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                         Ok(FieldElementExpression::select(
                             ArrayExpressionInner::Value(values.into())
                                 .annotate(Type::FieldElement, size),
+                            index,
+                        ))
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            i => Err(i),
+        }
+    }
+}
+
+impl<'ast, T: Field> BigExpression<'ast, T> {
+    pub fn try_from_typed(e: TypedExpression<'ast, T>) -> Result<Self, TypedExpression<'ast, T>> {
+        match e {
+            TypedExpression::Big(e) => Ok(e),
+            TypedExpression::Int(e) => {
+                Self::try_from_int(e.clone()).map_err(|_| TypedExpression::Int(e))
+            }
+            e => Err(e),
+        }
+    }
+
+    pub fn try_from_int(i: IntExpression<'ast, T>) -> Result<Self, IntExpression<'ast, T>> {
+        match i {
+            IntExpression::Value(i) => {
+                if i < BigUint::from(2usize).pow(256) {
+                    Ok(Self::Value(i))
+                } else {
+                    Err(IntExpression::Value(i))
+                }
+            }
+            IntExpression::Add(box e1, box e2) => Ok(Self::Add(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::Mult(box e1, box e2) => Ok(Self::Mult(
+                box Self::try_from_int(e1)?,
+                box Self::try_from_int(e2)?,
+            )),
+            IntExpression::Conditional(c) => Ok(Self::Conditional(ConditionalExpression::new(
+                *c.condition,
+                Self::try_from_int(*c.consequence)?,
+                Self::try_from_int(*c.alternative)?,
+                c.kind,
+            ))),
+            IntExpression::Select(select) => {
+                let array = *select.array;
+                let index = *select.index;
+
+                let size = array.size();
+
+                match array.into_inner() {
+                    ArrayExpressionInner::Value(values) => {
+                        let values = values
+                            .into_iter()
+                            .map(|v| {
+                                TypedExpressionOrSpread::align_to_type(
+                                    v,
+                                    &DeclarationArrayType::new(
+                                        DeclarationType::Big,
+                                        DeclarationConstant::from(0u32),
+                                    ),
+                                )
+                                .map_err(|(e, _)| match e {
+                                    TypedExpressionOrSpread::Expression(e) => {
+                                        IntExpression::try_from(e).unwrap()
+                                    }
+                                    TypedExpressionOrSpread::Spread(a) => {
+                                        IntExpression::select(a.array, 0u32)
+                                    }
+                                })
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        Ok(BigExpression::select(
+                            ArrayExpressionInner::Value(values.into()).annotate(Type::Big, size),
                             index,
                         ))
                     }

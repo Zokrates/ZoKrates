@@ -1,11 +1,13 @@
 #![feature(box_patterns, box_syntax)]
 
+use num_bigint::BigUint;
+
 pub enum Inputs<T> {
     Raw(Vec<T>),
     Abi(Values<T>),
 }
 
-impl<T: From<usize>> Encode<T> for Inputs<T> {
+impl<T: From<u64>> Encode<T> for Inputs<T> {
     fn encode(self) -> Vec<T> {
         match self {
             Inputs::Raw(v) => v,
@@ -43,18 +45,20 @@ pub enum Value<T> {
     U32(u32),
     U64(u64),
     Field(T),
+    Big(BigUint),
     Boolean(bool),
     Array(Vec<Value<T>>),
     Struct(Vec<(String, Value<T>)>),
 }
 
 #[derive(PartialEq, Debug)]
-pub struct Values<T>(Vec<Value<T>>);
+pub struct Values<T>(pub Vec<Value<T>>);
 
 impl<T: Field> fmt::Display for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::Field(v) => write!(f, "{}", v),
+            Value::Big(v) => write!(f, "{}", v),
             Value::U8(v) => write!(f, "{:#04x}", v),
             Value::U16(v) => write!(f, "{:#06x}", v),
             Value::U32(v) => write!(f, "{:#010x}", v),
@@ -90,14 +94,24 @@ pub trait Decode<T> {
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self;
 }
 
-impl<T: From<usize>> Encode<T> for Value<T> {
+impl<T: From<u64>> Encode<T> for Value<T> {
     fn encode(self) -> Vec<T> {
         match self {
             Value::Field(t) => vec![t],
-            Value::U8(t) => vec![T::from(t as usize)],
-            Value::U16(t) => vec![T::from(t as usize)],
-            Value::U32(t) => vec![T::from(t as usize)],
-            Value::U64(t) => vec![T::from(t as usize)],
+            Value::Big(t) => t
+                .to_u64_digits()
+                .into_iter()
+                .chain(std::iter::repeat(0))
+                .take(4)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .map(T::from)
+                .collect::<Vec<_>>(),
+            Value::U8(t) => vec![T::from(t as u64)],
+            Value::U16(t) => vec![T::from(t as u64)],
+            Value::U32(t) => vec![T::from(t as u64)],
+            Value::U64(t) => vec![T::from(t as u64)],
             Value::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
             Value::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
             Value::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
@@ -109,7 +123,9 @@ impl<T: Field> Decode<T> for Values<T> {
     type Expected = Vec<ConcreteType>;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
-        Values(
+        println!("RAW {:?}", raw);
+        println!("expected {:?}", expected);
+        let res = Values(
             expected
                 .into_iter()
                 .scan(0, |state, e| {
@@ -119,7 +135,11 @@ impl<T: Field> Decode<T> for Values<T> {
                     Some(res)
                 })
                 .collect(),
-        )
+        );
+
+        println!("RES {:?}", res);
+
+        res
     }
 }
 
@@ -132,6 +152,14 @@ impl<T: Field> Decode<T> for Value<T> {
         match expected {
             ConcreteType::Int => unreachable!(),
             ConcreteType::FieldElement => Value::Field(raw.pop().unwrap()),
+            ConcreteType::Big => Value::Big(BigUint::new(
+                raw[..4]
+                    .iter()
+                    .rev()
+                    .map(|limb| limb.to_dec_string().parse::<u64>().unwrap())
+                    .flat_map(|big| [(big << 32 >> 32) as u32, (big >> 32) as u32])
+                    .collect::<Vec<_>>(),
+            )),
             ConcreteType::Uint(UBitwidth::B8) => {
                 Value::U8(raw.pop().unwrap().to_dec_string().parse().unwrap())
             }
@@ -174,7 +202,7 @@ impl<T: Field> Decode<T> for Value<T> {
     }
 }
 
-impl<T: From<usize>> Encode<T> for Values<T> {
+impl<T: From<u64>> Encode<T> for Values<T> {
     fn encode(self) -> Vec<T> {
         self.0.into_iter().flat_map(|v| v.encode()).collect()
     }
@@ -184,6 +212,7 @@ impl<T: Field> Value<T> {
     pub fn into_serde_json(self) -> serde_json::Value {
         match self {
             Value::Field(f) => serde_json::Value::String(f.to_dec_string()),
+            Value::Big(b) => serde_json::Value::String(b.to_string()),
             Value::U8(u) => serde_json::Value::String(format!("{:#04x}", u)),
             Value::U16(u) => serde_json::Value::String(format!("{:#06x}", u)),
             Value::U32(u) => serde_json::Value::String(format!("{:#010x}", u)),
@@ -217,6 +246,14 @@ fn parse_value<T: Field>(
                 .or_else(|_| T::try_from_str(s.as_str().trim_start_matches("0x"), 16))
                 .map(Value::Field)
                 .map_err(|_| Error::Type(format!("Could not parse `{}` to field type", s)))
+        }
+        (ConcreteType::Big, serde_json::Value::String(s)) => {
+            BigUint::parse_bytes(&s.as_bytes(), 10)
+                .or_else(|| {
+                    BigUint::parse_bytes(s.as_str().trim_start_matches("0x").as_bytes(), 16)
+                })
+                .map(Value::Big)
+                .ok_or_else(|| Error::Type(format!("Could not parse `{}` to big type", s)))
         }
         (ConcreteType::Uint(UBitwidth::B8), serde_json::Value::String(s)) => s
             .as_str()
@@ -505,6 +542,7 @@ mod tests {
     fn into_serde() {
         let values = Values::<Bn128Field>(vec![
             Value::Field(1.into()),
+            Value::Big(BigUint::from(2u64).pow(256) - 1u64),
             Value::U8(2u8),
             Value::U16(3u16),
             Value::U32(4u32),
@@ -523,6 +561,7 @@ mod tests {
             serde_value,
             serde_json::Value::Array(vec![
                 serde_json::Value::String("1".into()),
+                serde_json::Value::String("115792089237316195423570985008687907853269984665640564039457584007913129639935".into()),
                 serde_json::Value::String("0x02".into()),
                 serde_json::Value::String("0x0003".into()),
                 serde_json::Value::String("0x00000004".into()),
@@ -541,26 +580,32 @@ mod tests {
         use super::*;
 
         #[test]
+        fn bigs() {
+            let v: Values<u64> = Values(vec![Value::Big(1u64.into()), Value::Big(2u64.into())]);
+            assert_eq!(v.encode(), vec![0, 0, 0, 1, 0, 0, 0, 2]);
+        }
+
+        #[test]
         fn fields() {
-            let v = Values(vec![Value::Field(1), Value::Field(2)]);
+            let v = Values(vec![Value::Field(1u64), Value::Field(2)]);
             assert_eq!(v.encode(), vec![1, 2]);
         }
 
         #[test]
         fn u8s() {
-            let v = Values::<usize>(vec![Value::U8(1), Value::U8(2)]);
+            let v = Values::<u64>(vec![Value::U8(1), Value::U8(2)]);
             assert_eq!(v.encode(), vec![1, 2]);
         }
 
         #[test]
         fn bools() {
-            let v: Values<usize> = Values(vec![Value::Boolean(true), Value::Boolean(false)]);
+            let v: Values<u64> = Values(vec![Value::Boolean(true), Value::Boolean(false)]);
             assert_eq!(v.encode(), vec![1, 0]);
         }
 
         #[test]
         fn array() {
-            let v: Values<usize> = Values(vec![Value::Array(vec![
+            let v: Values<u64> = Values(vec![Value::Array(vec![
                 Value::Boolean(true),
                 Value::Boolean(false),
             ])]);
@@ -569,7 +614,7 @@ mod tests {
 
         #[test]
         fn struc() {
-            let v: Values<usize> = Values(vec![Value::Struct(
+            let v: Values<u64> = Values(vec![Value::Struct(
                 vec![("a".to_string(), Value::Field(42))]
                     .into_iter()
                     .collect(),

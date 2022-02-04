@@ -14,6 +14,7 @@ fn from_type(t: typed_absy::types::ConcreteType) -> Vec<zir::types::Type> {
     match t {
         typed_absy::types::ConcreteType::Int => unreachable!(),
         typed_absy::types::ConcreteType::FieldElement => vec![zir::Type::FieldElement],
+        typed_absy::types::ConcreteType::Big => vec![zir::Type::Big],
         typed_absy::types::ConcreteType::Boolean => vec![zir::Type::Boolean],
         typed_absy::types::ConcreteType::Uint(bitwidth) => {
             vec![zir::Type::uint(bitwidth.to_usize())]

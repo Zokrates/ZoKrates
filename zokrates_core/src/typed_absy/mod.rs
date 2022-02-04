@@ -28,6 +28,7 @@ use crate::parser::Position;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
+use num_bigint::BigUint;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
@@ -487,6 +488,12 @@ impl<'ast, T> From<FieldElementExpression<'ast, T>> for TypedExpressionOrSpread<
     }
 }
 
+impl<'ast, T> From<BigExpression<'ast, T>> for TypedExpressionOrSpread<'ast, T> {
+    fn from(e: BigExpression<'ast, T>) -> Self {
+        TypedExpressionOrSpread::Expression(e.into())
+    }
+}
+
 impl<'ast, T> From<BooleanExpression<'ast, T>> for TypedExpressionOrSpread<'ast, T> {
     fn from(e: BooleanExpression<'ast, T>) -> Self {
         TypedExpressionOrSpread::Expression(e.into())
@@ -713,6 +720,7 @@ pub trait Typed<'ast, T> {
 pub enum TypedExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
+    Big(BigExpression<'ast, T>),
     Uint(UExpression<'ast, T>),
     Array(ArrayExpression<'ast, T>),
     Struct(StructExpression<'ast, T>),
@@ -728,6 +736,12 @@ impl<'ast, T> From<BooleanExpression<'ast, T>> for TypedExpression<'ast, T> {
 impl<'ast, T> From<FieldElementExpression<'ast, T>> for TypedExpression<'ast, T> {
     fn from(e: FieldElementExpression<'ast, T>) -> TypedExpression<T> {
         TypedExpression::FieldElement(e)
+    }
+}
+
+impl<'ast, T> From<BigExpression<'ast, T>> for TypedExpression<'ast, T> {
+    fn from(e: BigExpression<'ast, T>) -> TypedExpression<T> {
+        TypedExpression::Big(e)
     }
 }
 
@@ -760,6 +774,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{}", e),
+            TypedExpression::Big(ref e) => write!(f, "{}", e),
             TypedExpression::Uint(ref e) => write!(f, "{}", e),
             TypedExpression::Array(ref e) => write!(f, "{}", e),
             TypedExpression::Struct(ref s) => write!(f, "{}", s),
@@ -806,6 +821,7 @@ impl<'ast, T: Clone> Typed<'ast, T> for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => e.get_type(),
             TypedExpression::FieldElement(ref e) => e.get_type(),
+            TypedExpression::Big(ref e) => e.get_type(),
             TypedExpression::Array(ref e) => e.get_type(),
             TypedExpression::Uint(ref e) => e.get_type(),
             TypedExpression::Struct(ref s) => s.get_type(),
@@ -829,6 +845,12 @@ impl<'ast, T: Clone> Typed<'ast, T> for StructExpression<'ast, T> {
 impl<'ast, T: Clone> Typed<'ast, T> for FieldElementExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         Type::FieldElement
+    }
+}
+
+impl<'ast, T: Clone> Typed<'ast, T> for BigExpression<'ast, T> {
+    fn get_type(&self) -> Type<'ast, T> {
+        Type::Big
     }
 }
 
@@ -1137,6 +1159,20 @@ impl<'ast, T> From<T> for FieldElementExpression<'ast, T> {
     }
 }
 
+/// An expression of type `BigInteger`
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+pub enum BigExpression<'ast, T> {
+    Block(BlockExpression<'ast, T, Self>),
+    Value(BigUint),
+    Identifier(Identifier<'ast>),
+    Add(Box<Self>, Box<Self>),
+    Mult(Box<Self>, Box<Self>),
+    Conditional(ConditionalExpression<'ast, T, Self>),
+    FunctionCall(FunctionCallExpression<'ast, T, Self>),
+    Member(MemberExpression<'ast, T, Self>),
+    Select(SelectExpression<'ast, T, Self>),
+}
+
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum BooleanExpression<'ast, T> {
@@ -1371,6 +1407,15 @@ impl<'ast, T> From<TypedExpression<'ast, T>> for FieldElementExpression<'ast, T>
     }
 }
 
+impl<'ast, T> From<TypedExpression<'ast, T>> for BigExpression<'ast, T> {
+    fn from(te: TypedExpression<'ast, T>) -> BigExpression<'ast, T> {
+        match te {
+            TypedExpression::Big(e) => e,
+            _ => unreachable!("downcast failed"),
+        }
+    }
+}
+
 impl<'ast, T> From<TypedExpression<'ast, T>> for BooleanExpression<'ast, T> {
     fn from(te: TypedExpression<'ast, T>) -> BooleanExpression<'ast, T> {
         match te {
@@ -1495,6 +1540,24 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             }
             FieldElementExpression::Member(ref m) => write!(f, "{}", m),
             FieldElementExpression::Select(ref select) => write!(f, "{}", select),
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for BigExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            BigExpression::Block(ref block) => write!(f, "{}", block),
+            BigExpression::Value(ref i) => write!(f, "{}b", i),
+            BigExpression::Identifier(ref var) => write!(f, "{}", var),
+            BigExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            BigExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            BigExpression::Conditional(ref c) => write!(f, "{}", c),
+            BigExpression::FunctionCall(ref function_call) => {
+                write!(f, "{}", function_call)
+            }
+            BigExpression::Member(ref m) => write!(f, "{}", m),
+            BigExpression::Select(ref select) => write!(f, "{}", select),
         }
     }
 }
@@ -1625,6 +1688,7 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
     fn from(v: Variable<'ast, T>) -> Self {
         match v.get_type() {
             Type::FieldElement => FieldElementExpression::Identifier(v.id).into(),
+            Type::Big => BigExpression::Identifier(v.id).into(),
             Type::Boolean => BooleanExpression::Identifier(v.id).into(),
             Type::Array(ty) => ArrayExpressionInner::Identifier(v.id)
                 .annotate(*ty.ty, ty.size)
@@ -1657,6 +1721,27 @@ impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
 
     fn ty(&self) -> &Self::Ty {
         &Type::FieldElement
+    }
+
+    fn into_inner(self) -> Self::Inner {
+        self
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        self
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
+    }
+}
+
+impl<'ast, T: Field> Expr<'ast, T> for BigExpression<'ast, T> {
+    type Inner = Self;
+    type Ty = Type<'ast, T>;
+
+    fn ty(&self) -> &Self::Ty {
+        &Type::Big
     }
 
     fn into_inner(self) -> Self::Inner {
@@ -1881,6 +1966,22 @@ impl<'ast, T> Conditional<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> Conditional<'ast, T> for BigExpression<'ast, T> {
+    fn conditional(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+        kind: ConditionalKind,
+    ) -> Self {
+        BigExpression::Conditional(ConditionalExpression::new(
+            condition,
+            consequence,
+            alternative,
+            kind,
+        ))
+    }
+}
+
 impl<'ast, T> Conditional<'ast, T> for UExpression<'ast, T> {
     fn conditional(
         condition: BooleanExpression<'ast, T>,
@@ -1959,12 +2060,19 @@ impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> Select<'ast, T> for BigExpression<'ast, T> {
+    fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
+        BigExpression::Select(SelectExpression::new(array, index.into()))
+    }
+}
+
 impl<'ast, T: Field> Select<'ast, T> for TypedExpression<'ast, T> {
     fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
         match *array.ty().ty {
             Type::Array(..) => ArrayExpression::select(array, index).into(),
             Type::Struct(..) => StructExpression::select(array, index).into(),
             Type::FieldElement => FieldElementExpression::select(array, index).into(),
+            Type::Big => BigExpression::select(array, index).into(),
             Type::Boolean => BooleanExpression::select(array, index).into(),
             Type::Int => IntExpression::select(array, index).into(),
             Type::Uint(..) => UExpression::select(array, index).into(),
@@ -2012,6 +2120,12 @@ pub trait Member<'ast, T>: Sized {
 impl<'ast, T> Member<'ast, T> for FieldElementExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
         FieldElementExpression::Member(MemberExpression::new(s, id))
+    }
+}
+
+impl<'ast, T> Member<'ast, T> for BigExpression<'ast, T> {
+    fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
+        BigExpression::Member(MemberExpression::new(s, id))
     }
 }
 
@@ -2073,6 +2187,12 @@ impl<'ast, T: Field> Id<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> Id<'ast, T> for BigExpression<'ast, T> {
+    fn identifier(id: Identifier<'ast>) -> Self::Inner {
+        BigExpression::Identifier(id)
+    }
+}
+
 impl<'ast, T: Field> Id<'ast, T> for BooleanExpression<'ast, T> {
     fn identifier(id: Identifier<'ast>) -> Self::Inner {
         BooleanExpression::Identifier(id)
@@ -2121,6 +2241,16 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for FieldElementExpression<'ast, T> {
         arguments: Vec<TypedExpression<'ast, T>>,
     ) -> Self::Inner {
         FieldElementExpression::FunctionCall(FunctionCallExpression::new(key, generics, arguments))
+    }
+}
+
+impl<'ast, T: Field> FunctionCall<'ast, T> for BigExpression<'ast, T> {
+    fn function_call(
+        key: DeclarationFunctionKey<'ast, T>,
+        generics: Vec<Option<UExpression<'ast, T>>>,
+        arguments: Vec<TypedExpression<'ast, T>>,
+    ) -> Self::Inner {
+        BigExpression::FunctionCall(FunctionCallExpression::new(key, generics, arguments))
     }
 }
 
@@ -2186,6 +2316,12 @@ impl<'ast, T: Field> Block<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> Block<'ast, T> for BigExpression<'ast, T> {
+    fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
+        BigExpression::Block(BlockExpression::new(statements, value))
+    }
+}
+
 impl<'ast, T: Field> Block<'ast, T> for BooleanExpression<'ast, T> {
     fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
         BooleanExpression::Block(BlockExpression::new(statements, value))
@@ -2229,6 +2365,12 @@ pub trait Constant: Sized {
 impl<'ast, T: Field> Constant for FieldElementExpression<'ast, T> {
     fn is_constant(&self) -> bool {
         matches!(self, FieldElementExpression::Number(..))
+    }
+}
+
+impl<'ast, T: Field> Constant for BigExpression<'ast, T> {
+    fn is_constant(&self) -> bool {
+        matches!(self, BigExpression::Value(..))
     }
 }
 
@@ -2391,6 +2533,7 @@ impl<'ast, T: Field> Constant for TypedExpression<'ast, T> {
     fn is_constant(&self) -> bool {
         match self {
             TypedExpression::FieldElement(e) => e.is_constant(),
+            TypedExpression::Big(e) => e.is_constant(),
             TypedExpression::Boolean(e) => e.is_constant(),
             TypedExpression::Array(e) => e.is_constant(),
             TypedExpression::Struct(e) => e.is_constant(),
@@ -2402,6 +2545,7 @@ impl<'ast, T: Field> Constant for TypedExpression<'ast, T> {
     fn into_canonical_constant(self) -> Self {
         match self {
             TypedExpression::FieldElement(e) => e.into_canonical_constant().into(),
+            TypedExpression::Big(e) => e.into_canonical_constant().into(),
             TypedExpression::Boolean(e) => e.into_canonical_constant().into(),
             TypedExpression::Array(e) => e.into_canonical_constant().into(),
             TypedExpression::Struct(e) => e.into_canonical_constant().into(),

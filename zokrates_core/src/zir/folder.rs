@@ -42,6 +42,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     fn fold_expression(&mut self, e: ZirExpression<'ast, T>) -> ZirExpression<'ast, T> {
         match e {
             ZirExpression::FieldElement(e) => self.fold_field_expression(e).into(),
+            ZirExpression::Big(e) => self.fold_big_expression(e).into(),
             ZirExpression::Boolean(e) => self.fold_boolean_expression(e).into(),
             ZirExpression::Uint(e) => self.fold_uint_expression(e).into(),
         }
@@ -71,6 +72,18 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> FieldElementExpression<'ast, T> {
         fold_field_expression(self, e)
     }
+
+    fn fold_big_expression_inner(
+        &mut self,
+        e: BigExpressionInner<'ast, T>,
+    ) -> BigExpressionInner<'ast, T> {
+        fold_big_expression_inner(self, e)
+    }
+
+    fn fold_big_expression(&mut self, e: BigExpression<'ast, T>) -> BigExpression<'ast, T> {
+        fold_big_expression(self, e)
+    }
+
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
@@ -169,6 +182,46 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let cons = f.fold_field_expression(cons);
             let alt = f.fold_field_expression(alt);
             FieldElementExpression::IfElse(box cond, box cons, box alt)
+        }
+    }
+}
+
+pub fn fold_big_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: BigExpression<'ast, T>,
+) -> BigExpression<'ast, T> {
+    BigExpression {
+        inner: f.fold_big_expression_inner(e.inner),
+        ..e
+    }
+}
+
+pub fn fold_big_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: BigExpressionInner<'ast, T>,
+) -> BigExpressionInner<'ast, T> {
+    match e {
+        BigExpressionInner::Value(n) => BigExpressionInner::Value(n),
+        BigExpressionInner::Identifier(id) => BigExpressionInner::Identifier(f.fold_name(id)),
+        BigExpressionInner::Select(a, box i) => BigExpressionInner::Select(
+            a.into_iter().map(|a| f.fold_big_expression(a)).collect(),
+            box f.fold_uint_expression(i),
+        ),
+        BigExpressionInner::Add(box e1, box e2) => {
+            let e1 = f.fold_big_expression(e1);
+            let e2 = f.fold_big_expression(e2);
+            BigExpressionInner::Add(box e1, box e2)
+        }
+        BigExpressionInner::Mult(box e1, box e2) => {
+            let e1 = f.fold_big_expression(e1);
+            let e2 = f.fold_big_expression(e2);
+            BigExpressionInner::Mult(box e1, box e2)
+        }
+        BigExpressionInner::IfElse(box cond, box cons, box alt) => {
+            let cond = f.fold_boolean_expression(cond);
+            let cons = f.fold_big_expression(cons);
+            let alt = f.fold_big_expression(alt);
+            BigExpressionInner::IfElse(box cond, box cons, box alt)
         }
     }
 }

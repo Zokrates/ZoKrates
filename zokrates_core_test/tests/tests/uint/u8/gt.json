@@ -1,6 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u8/gt.zok",
   "max_constraint_count": 681,
+  "abi": true,
   "tests": [
     {
       "input": {
@@ -8,7 +9,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["1"]
+          "values": [true]
         }
       }
     },
@@ -18,7 +19,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0"]
+          "values": [false]
         }
       }
     }

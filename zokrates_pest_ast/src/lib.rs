@@ -253,6 +253,7 @@ mod ast {
         U16(U16Type<'ast>),
         U32(U32Type<'ast>),
         U64(U64Type<'ast>),
+        Big(BigType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -309,6 +310,13 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_u64))]
     pub struct U64Type<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_big))]
+    pub struct BigType<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -907,6 +915,7 @@ mod ast {
         U32(U32Suffix<'ast>),
         U64(U64Suffix<'ast>),
         Field(FieldSuffix<'ast>),
+        Big(BigSuffix<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -933,6 +942,13 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::decimal_suffix_u64))]
     pub struct U64Suffix<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_suffix_big))]
+    pub struct BigSuffix<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

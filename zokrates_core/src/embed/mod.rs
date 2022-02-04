@@ -46,6 +46,8 @@ pub enum FlatEmbed {
     Sha256Round,
     #[cfg(feature = "ark")]
     SnarkVerifyBls12377,
+    IntegerMul,
+    IntegerMulUnsafe,
 }
 
 impl FlatEmbed {
@@ -170,6 +172,43 @@ impl FlatEmbed {
                     .into(), // 18 + (2 * n) // vk
                 ])
                 .outputs(vec![UnresolvedType::Boolean.into()]),
+            FlatEmbed::IntegerMul => UnresolvedSignature::new()
+                .inputs(vec![
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.into(),
+                        Expression::U32Constant(4).into(),
+                    )
+                    .into(),
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.into(),
+                        Expression::U32Constant(4).into(),
+                    )
+                    .into(),
+                ])
+                .outputs(vec![UnresolvedType::array(
+                    UnresolvedType::FieldElement.into(),
+                    Expression::U32Constant(8).into(),
+                )
+                .into()]),
+            FlatEmbed::IntegerMulUnsafe => UnresolvedSignature::new()
+                .generics(vec!["N".into(), "M".into()])
+                .inputs(vec![
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.into(),
+                        Expression::Identifier("N").into(),
+                    )
+                    .into(),
+                    UnresolvedType::array(
+                        UnresolvedType::FieldElement.into(),
+                        Expression::Identifier("N").into(),
+                    )
+                    .into(),
+                ])
+                .outputs(vec![UnresolvedType::array(
+                    UnresolvedType::FieldElement.into(),
+                    Expression::Identifier("M").into(),
+                )
+                .into()]),
         }
     }
 
@@ -279,6 +318,38 @@ impl FlatEmbed {
                     )), // 18 + (2 * n) // vk
                 ])
                 .outputs(vec![DeclarationType::Boolean]),
+            FlatEmbed::IntegerMul => DeclarationSignature::new()
+                .inputs(vec![
+                    DeclarationType::array((DeclarationType::FieldElement, 4u32)),
+                    DeclarationType::array((DeclarationType::FieldElement, 4u32)),
+                ])
+                .outputs(vec![DeclarationType::array((
+                    DeclarationType::FieldElement,
+                    8u32,
+                ))]),
+            FlatEmbed::IntegerMulUnsafe => DeclarationSignature::new()
+                .generics(vec![
+                    Some(DeclarationConstant::Generic(
+                        GenericIdentifier::with_name("N").with_index(0),
+                    )),
+                    Some(DeclarationConstant::Generic(
+                        GenericIdentifier::with_name("M").with_index(1),
+                    )),
+                ])
+                .inputs(vec![
+                    DeclarationType::array((
+                        DeclarationType::FieldElement,
+                        GenericIdentifier::with_name("N").with_index(0),
+                    )),
+                    DeclarationType::array((
+                        DeclarationType::FieldElement,
+                        GenericIdentifier::with_name("N").with_index(0),
+                    )),
+                ])
+                .outputs(vec![DeclarationType::array((
+                    DeclarationType::FieldElement,
+                    GenericIdentifier::with_name("M").with_index(1),
+                ))]),
         }
     }
 
@@ -310,6 +381,8 @@ impl FlatEmbed {
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
             #[cfg(feature = "ark")]
             FlatEmbed::SnarkVerifyBls12377 => "_SNARK_VERIFY_BLS12_377",
+            FlatEmbed::IntegerMul => "_INTEGER_MUL",
+            FlatEmbed::IntegerMulUnsafe => "_INTEGER_MUL_UNSAFE",
         }
     }
 }
@@ -445,6 +518,63 @@ pub fn sha256_round<T: Field>(
         statements,
         return_count,
     }
+}
+
+pub fn integer_mul_unsafe<T: Field>(
+    limb_count: usize,
+) -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>> {
+    let arguments_var: Vec<_> = (0..limb_count * 2).map(|i| FlatVariable::new(i)).collect();
+
+    let arguments = arguments_var
+        .iter()
+        .map(|v| FlatParameter::private(v.clone()))
+        .collect();
+
+    let arguments_expr: Vec<FlatExpression<T>> =
+        arguments_var.into_iter().map(|v| v.into()).collect();
+
+    let outputs: Vec<FlatVariable> = (0..limb_count * 2)
+        .map(|i| FlatVariable::public(i))
+        .collect();
+
+    let statements = vec![FlatStatement::Directive(FlatDirective {
+        outputs,
+        inputs: arguments_expr,
+        solver: Solver::IntegerMul(limb_count),
+    })];
+
+    FlatFunctionIterator {
+        arguments,
+        statements,
+        return_count: limb_count * 2,
+    }
+}
+
+pub fn integer_mul<T: Field>() -> FlatFunctionIterator<T, impl IntoIterator<Item = FlatStatement<T>>>
+{
+    let source = include_str!("integer_mul.zok").to_string();
+
+    let arena = typed_arena::Arena::new();
+
+    let (typed_ast, _): (crate::zir::ZirProgram<'_, T>, _) =
+        crate::compile::check_with_arena::<T, ()>(
+            source,
+            std::path::PathBuf::default(),
+            None,
+            &crate::compile::CompileConfig::default(),
+            &arena,
+        )
+        .unwrap();
+
+    // flatten input program
+    log::debug!("Flatten");
+    let program_flattened = crate::flatten::FlattenerIterator::from_function_and_config(
+        typed_ast.main,
+        crate::compile::CompileConfig::default(),
+    )
+    .collect();
+
+    program_flattened
 }
 
 #[cfg(feature = "ark")]

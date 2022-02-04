@@ -25,6 +25,12 @@ pub struct Error {
     message: String,
 }
 
+impl From<()> for Error {
+    fn from(a: ()) -> Self {
+        unreachable!()
+    }
+}
+
 impl Error {
     pub fn new<T: Into<String>>(message: T) -> Error {
         Error {
@@ -183,6 +189,14 @@ impl Importer {
                 "u8_from_bits" => SymbolDeclaration {
                     id: symbol.get_alias(),
                     symbol: Symbol::Flat(FlatEmbed::U8FromBits),
+                },
+                "integer_mul" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Flat(FlatEmbed::IntegerMul),
+                },
+                "integer_mul_unsafe" => SymbolDeclaration {
+                    id: symbol.get_alias(),
+                    symbol: Symbol::Flat(FlatEmbed::IntegerMulUnsafe),
                 },
                 "FIELD_SIZE_IN_BITS" => SymbolDeclaration {
                     id: symbol.get_alias(),

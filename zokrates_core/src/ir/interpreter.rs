@@ -228,6 +228,42 @@ impl Interpreter {
                     &inputs[*n + 8usize..],
                 )
             }
+            Solver::IntegerMul(limb_count) => {
+                use num_bigint::BigUint;
+
+                assert_eq!(inputs.len(), limb_count * 2);
+
+                let left = &inputs[0..*limb_count];
+                let right = &inputs[*limb_count..];
+
+                // interpret them as biguint and multiply them
+
+                let left = BigUint::new(
+                    left.iter()
+                        .rev()
+                        .map(|limb| limb.to_dec_string().parse::<u64>().unwrap())
+                        .flat_map(|big| [(big << 32 >> 32) as u32, (big >> 32) as u32])
+                        .collect::<Vec<_>>(),
+                );
+                let right = BigUint::new(
+                    right
+                        .iter()
+                        .rev()
+                        .map(|limb| limb.to_dec_string().parse::<u64>().unwrap())
+                        .flat_map(|big| [(big << 32 >> 32) as u32, (big >> 32) as u32])
+                        .collect::<Vec<_>>(),
+                );
+                let res = left * right;
+
+                let limbs: Vec<_> = res
+                    .iter_u64_digits()
+                    .map(|d| d.into())
+                    .chain(std::iter::repeat(0u64))
+                    .take(limb_count * 2)
+                    .collect();
+
+                limbs.into_iter().rev().map(T::from).collect()
+            }
         };
 
         assert_eq!(res.len(), expected_output_count);

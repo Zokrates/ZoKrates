@@ -56,6 +56,7 @@ pub trait Field:
     + From<bool>
     + From<i32>
     + From<u32>
+    + From<u64>
     + From<usize>
     + From<u128>
     + TryFrom<BigUint, Error = ()>
@@ -290,6 +291,12 @@ mod prime_field {
 
             impl From<u32> for FieldPrime {
                 fn from(num: u32) -> Self {
+                    FieldPrime { v: Fr::from(num) }
+                }
+            }
+
+            impl From<u64> for FieldPrime {
+                fn from(num: u64) -> Self {
                     FieldPrime { v: Fr::from(num) }
                 }
             }

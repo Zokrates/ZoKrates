@@ -11,6 +11,7 @@ pub enum UnresolvedType<'ast> {
     FieldElement,
     Boolean,
     Uint(usize),
+    Big,
     Array(Box<UnresolvedTypeNode<'ast>>, ExpressionNode<'ast>),
     User(UserTypeId, Option<Vec<Option<ExpressionNode<'ast>>>>),
 }
@@ -21,6 +22,7 @@ impl<'ast> fmt::Display for UnresolvedType<'ast> {
             UnresolvedType::FieldElement => write!(f, "field"),
             UnresolvedType::Boolean => write!(f, "bool"),
             UnresolvedType::Uint(bitwidth) => write!(f, "u{}", bitwidth),
+            UnresolvedType::Big => write!(f, "big"),
             UnresolvedType::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
             UnresolvedType::User(ref id, ref generics) => {
                 write!(

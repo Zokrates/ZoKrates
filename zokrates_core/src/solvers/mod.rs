@@ -15,6 +15,7 @@ pub enum Solver {
     Sha256Round,
     #[cfg(feature = "ark")]
     SnarkVerifyBls12377(usize),
+    IntegerMul(usize),
 }
 
 impl fmt::Display for Solver {
@@ -38,6 +39,7 @@ impl Solver {
             Solver::Sha256Round => (768, 26935),
             #[cfg(feature = "ark")]
             Solver::SnarkVerifyBls12377(n) => (26 + 3 * n, 41991 + 4972 * n),
+            Solver::IntegerMul(limb_count) => (2 * limb_count, 2 * limb_count),
         }
     }
 }

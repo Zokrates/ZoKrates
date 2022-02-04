@@ -710,6 +710,9 @@ impl<'ast> From<pest::DecimalLiteralExpression<'ast>> for absy::ExpressionNode<'
                 pest::DecimalSuffix::U8(_) => {
                     absy::Expression::U8Constant(expression.value.span.as_str().parse().unwrap())
                 }
+                pest::DecimalSuffix::Big(_) => {
+                    absy::Expression::BigConstant(expression.value.span.as_str().parse().unwrap())
+                }
             }
             .span(expression.span),
             None => absy::Expression::IntConstant(
@@ -805,6 +808,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                 pest::BasicType::U16(t) => UnresolvedType::Uint(16).span(t.span),
                 pest::BasicType::U32(t) => UnresolvedType::Uint(32).span(t.span),
                 pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
+                pest::BasicType::Big(t) => UnresolvedType::Big.span(t.span),
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
@@ -815,6 +819,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode<'ast> {
                         pest::BasicType::U16(t) => UnresolvedType::Uint(16).span(t.span),
                         pest::BasicType::U32(t) => UnresolvedType::Uint(32).span(t.span),
                         pest::BasicType::U64(t) => UnresolvedType::Uint(64).span(t.span),
+                        pest::BasicType::Big(t) => UnresolvedType::Big.span(t.span),
                     },
                     pest::BasicOrStructType::Struct(t) => UnresolvedType::User(
                         t.id.span.as_str().to_string(),

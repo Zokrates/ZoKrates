@@ -1,10 +1,11 @@
 {
 	"entry_point": "./tests/tests/uint/if_else.zok",
 	"max_constraint_count": 31,
+	"abi": true,
 	"tests": [
 		{
 			"input": {
-				"values": ["1", "0x00", "0xff"]
+				"values": [true, "0x00", "0xff"]
 			},
 			"output": {
 				"Ok": {
@@ -14,7 +15,7 @@
 		},
 		{
 			"input": {
-				"values": ["0", "0x00", "0xff"]
+				"values": [false, "0x00", "0xff"]
 			},
 			"output": {
 				"Ok": {

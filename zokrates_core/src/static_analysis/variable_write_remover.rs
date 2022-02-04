@@ -119,6 +119,27 @@ impl<'ast> VariableWriteRemover {
                                             ConditionalKind::IfElse,
                                         )
                                         .into(),
+                                        Type::Big => BigExpression::conditional(
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
+                                            match Self::choose_many(
+                                                BigExpression::select(base.clone(), i).into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            ) {
+                                                TypedExpression::Big(e) => e,
+                                                e => unreachable!(
+                                                    "the interior was expected to be a big, was {}",
+                                                    e.get_type()
+                                                ),
+                                            },
+                                            BigExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
+                                        )
+                                        .into(),
                                         Type::Boolean => BooleanExpression::conditional(
                                             BooleanExpression::UintEq(EqExpression::new(
                                                 i.into(),
@@ -202,6 +223,19 @@ impl<'ast> VariableWriteRemover {
                                         } else {
                                             FieldElementExpression::member(base.clone(), member.id)
                                                 .into()
+                                        }
+                                    }
+                                    Type::Big => {
+                                        if member.id == head {
+                                            Self::choose_many(
+                                                BigExpression::member(base.clone(), head.clone())
+                                                    .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            BigExpression::member(base.clone(), member.id).into()
                                         }
                                     }
                                     Type::Uint(..) => {
@@ -330,6 +364,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                         Type::FieldElement => {
                             FieldElementExpression::Identifier(variable.id.clone()).into()
                         }
+                        Type::Big => BigExpression::Identifier(variable.id.clone()).into(),
                         Type::Boolean => BooleanExpression::Identifier(variable.id.clone()).into(),
                         Type::Uint(bitwidth) => UExpressionInner::Identifier(variable.id.clone())
                             .annotate(bitwidth)

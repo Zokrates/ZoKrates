@@ -570,6 +570,7 @@ impl fmt::Display for UBitwidth {
 pub enum GType<S> {
     FieldElement,
     Boolean,
+    Big,
     Array(GArrayType<S>),
     Struct(GStructType<S>),
     Uint(UBitwidth),
@@ -586,6 +587,7 @@ impl<Z: Serialize> Serialize for GType<Z> {
         match self {
             GType::FieldElement => s.serialize_newtype_variant("Type", 0, "type", "field"),
             GType::Boolean => s.serialize_newtype_variant("Type", 1, "type", "bool"),
+            GType::Big => s.serialize_newtype_variant("Type", 1, "type", "big"),
             GType::Array(array_type) => {
                 let mut map = s.serialize_map(Some(2))?;
                 map.serialize_entry("type", "array")?;
@@ -644,6 +646,7 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
         let mapping = Mapping::deserialize(d)?;
         match mapping.ty.as_str() {
             "field" => strict_type(mapping, GType::FieldElement),
+            "big" => strict_type(mapping, GType::Big),
             "bool" => strict_type(mapping, GType::Boolean),
             "array" => {
                 let components = mapping
@@ -683,7 +686,7 @@ impl<'ast, S, R: PartialEq<S>> PartialEq<GType<S>> for GType<R> {
         match (self, other) {
             (Array(l), Array(r)) => l == r,
             (Struct(l), Struct(r)) => l == r,
-            (FieldElement, FieldElement) | (Boolean, Boolean) => true,
+            (FieldElement, FieldElement) | (Boolean, Boolean) | (Big, Big) => true,
             (Uint(l), Uint(r)) => l == r,
             _ => false,
         }
@@ -694,6 +697,7 @@ pub fn try_from_g_type<T: TryInto<U>, U>(t: GType<T>) -> Result<GType<U>, Specia
     match t {
         GType::FieldElement => Ok(GType::FieldElement),
         GType::Boolean => Ok(GType::Boolean),
+        GType::Big => Ok(GType::Big),
         GType::Int => Ok(GType::Int),
         GType::Uint(bitwidth) => Ok(GType::Uint(bitwidth)),
         GType::Array(array_type) => Ok(GType::Array(try_from_g_array_type(array_type)?)),
@@ -753,6 +757,7 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
         match self {
             GType::FieldElement => write!(f, "field"),
             GType::Boolean => write!(f, "bool"),
+            GType::Big => write!(f, "big"),
             GType::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}", array_type),
@@ -841,6 +846,7 @@ impl ConcreteType {
             GType::FieldElement => String::from("f"),
             GType::Int => unreachable!(),
             GType::Boolean => String::from("b"),
+            GType::Big => String::from("l"),
             GType::Uint(bitwidth) => format!("u{}", bitwidth),
             GType::Array(array_type) => format!("{}[{}]", array_type.ty.to_slug(), array_type.size),
             GType::Struct(struct_type) => format!(
@@ -856,11 +862,30 @@ impl ConcreteType {
 }
 
 impl ConcreteType {
+    // the number of zir elements the type maps to
+    pub fn get_zir_primitive_count(&self) -> usize {
+        match self {
+            GType::FieldElement => 1,
+            GType::Boolean => 1,
+            GType::Big => 1,
+            GType::Uint(_) => 1,
+            GType::Array(array_type) => {
+                array_type.size as usize * array_type.ty.get_zir_primitive_count()
+            }
+            GType::Int => unreachable!(),
+            GType::Struct(struct_type) => struct_type
+                .iter()
+                .map(|member| member.ty.get_zir_primitive_count())
+                .sum(),
+        }
+    }
+
     // the number of field elements the type maps to
     pub fn get_primitive_count(&self) -> usize {
         match self {
             GType::FieldElement => 1,
             GType::Boolean => 1,
+            GType::Big => 4,
             GType::Uint(_) => 1,
             GType::Array(array_type) => {
                 array_type.size as usize * array_type.ty.get_primitive_count()
@@ -1042,7 +1067,8 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
                 && check_generic(&t0.size, Some(&t1.size), constants)
         }
         (DeclarationType::FieldElement, GType::FieldElement)
-        | (DeclarationType::Boolean, GType::Boolean) => true,
+        | (DeclarationType::Boolean, GType::Boolean)
+        | (DeclarationType::Big, GType::Big) => true,
         (DeclarationType::Uint(b0), GType::Uint(b1)) => b0 == b1,
         (DeclarationType::Struct(s0), GType::Struct(s1)) => {
             s0.canonical_location == s1.canonical_location
@@ -1087,6 +1113,7 @@ pub fn specialize_declaration_type<
         }
         DeclarationType::FieldElement => GType::FieldElement,
         DeclarationType::Boolean => GType::Boolean,
+        DeclarationType::Big => GType::Big,
         DeclarationType::Uint(b0) => GType::Uint(b0),
         DeclarationType::Struct(s0) => {
             // here we specialize Foo<Generics> {FooDef<InsideGenerics>} with some values for Generics
@@ -1550,7 +1577,7 @@ mod tests {
     #[test]
     fn array() {
         let t = ConcreteType::Array(ConcreteArrayType::new(ConcreteType::FieldElement, 42u32));
-        assert_eq!(t.get_primitive_count(), 42);
+        assert_eq!(t.get_zir_primitive_count(), 42);
     }
 
     #[test]

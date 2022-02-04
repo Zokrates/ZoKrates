@@ -1,6 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u32/neq.zok",
   "max_constraint_count": 69,
+  "abi": true,
   "tests": [
     {
       "input": {
@@ -8,7 +9,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0"]
+          "values": [false]
         }
       }
     },
@@ -18,7 +19,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["1"]
+          "values": [true]
         }
       }
     }

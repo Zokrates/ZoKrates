@@ -1,0 +1,41 @@
+from "EMBED" import integer_mul_unsafe 
+from "EMBED" import u32_to_bits
+
+def u32_to_field(u32 i) -> field:
+    bool[32] bits = u32_to_bits(i)
+    field res = 0
+    for u32 j in 0..32 do
+        u32 exponent = 32 - j - 1
+        res = res + if bits[j] then 2 ** exponent else 0 fi
+    endfor
+    return res
+
+def main(field[4] x, field[4] y) -> field[8]:
+
+    u32 N = 4
+    u32 M = 2 * N
+
+    // inject the result
+    field[M] z = integer_mul_unsafe(x, y)
+
+    // constrain it
+	u32 correct = 2*N - 1
+ 
+	for u32 ci in 1..(2*N) do
+		field q0 = 0
+		field q1 = 0
+		field q2 = 0
+ 
+		for u32 i in 0..N do
+			q0 = q0 + x[i]*u32_to_field(ci)**i
+			q1 = q1 + y[i]*u32_to_field(ci)**i
+		endfor
+ 
+		for u32 i in 0..(2*N-1) do
+			q2 = q2 + z[i]*u32_to_field(ci)**i
+		endfor
+ 
+		correct = correct - if q0 * q1 == q2 then 1 else 0 fi
+	endfor
+ 
+	return z

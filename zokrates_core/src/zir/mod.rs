@@ -1,12 +1,15 @@
+mod big;
 pub mod folder;
 mod from_typed;
 mod identifier;
 mod parameter;
+mod reduction;
 pub mod result_folder;
 pub mod types;
 mod uint;
 mod variable;
 
+pub use self::big::{BigExpression, BigExpressionInner, BigMetadata};
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
@@ -174,6 +177,7 @@ pub trait Typed {
 pub enum ZirExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
+    Big(BigExpression<'ast, T>),
     Uint(UExpression<'ast, T>),
 }
 
@@ -189,6 +193,12 @@ impl<'ast, T: Field> From<FieldElementExpression<'ast, T>> for ZirExpression<'as
     }
 }
 
+impl<'ast, T: Field> From<BigExpression<'ast, T>> for ZirExpression<'ast, T> {
+    fn from(e: BigExpression<'ast, T>) -> ZirExpression<T> {
+        ZirExpression::Big(e)
+    }
+}
+
 impl<'ast, T: Field> From<UExpression<'ast, T>> for ZirExpression<'ast, T> {
     fn from(e: UExpression<'ast, T>) -> ZirExpression<T> {
         ZirExpression::Uint(e)
@@ -200,6 +210,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirExpression<'ast, T> {
         match *self {
             ZirExpression::Boolean(ref e) => write!(f, "{}", e),
             ZirExpression::FieldElement(ref e) => write!(f, "{}", e),
+            ZirExpression::Big(ref e) => write!(f, "{}", e),
             ZirExpression::Uint(ref e) => write!(f, "{}", e),
         }
     }
@@ -210,6 +221,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpression<'ast, T> {
         match *self {
             ZirExpression::Boolean(ref e) => write!(f, "{:?}", e),
             ZirExpression::FieldElement(ref e) => write!(f, "{:?}", e),
+            ZirExpression::Big(ref e) => write!(f, "{:?}", e),
             ZirExpression::Uint(ref e) => write!(f, "{:?}", e),
         }
     }
@@ -220,6 +232,7 @@ impl<'ast, T: Field> Typed for ZirExpression<'ast, T> {
         match *self {
             ZirExpression::Boolean(ref e) => e.get_type(),
             ZirExpression::FieldElement(ref e) => e.get_type(),
+            ZirExpression::Big(ref e) => e.get_type(),
             ZirExpression::Uint(ref e) => e.get_type(),
         }
     }
@@ -228,6 +241,12 @@ impl<'ast, T: Field> Typed for ZirExpression<'ast, T> {
 impl<'ast, T: Field> Typed for FieldElementExpression<'ast, T> {
     fn get_type(&self) -> Type {
         Type::FieldElement
+    }
+}
+
+impl<'ast, T: Field> Typed for BigExpression<'ast, T> {
+    fn get_type(&self) -> Type {
+        Type::Big
     }
 }
 
@@ -377,6 +396,17 @@ impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for FieldElementExpression<'ast, T
     }
 }
 
+impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for BigExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(te: ZirExpression<'ast, T>) -> Result<BigExpression<'ast, T>, Self::Error> {
+        match te {
+            ZirExpression::Big(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
 impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for BooleanExpression<'ast, T> {
     type Error = ();
 
@@ -419,6 +449,33 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
             FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => {
+                write!(
+                    f,
+                    "if {} then {} else {} fi",
+                    condition, consequent, alternative
+                )
+            }
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for BigExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.as_inner() {
+            BigExpressionInner::Value(ref i) => write!(f, "{}", i),
+            BigExpressionInner::Identifier(ref var) => write!(f, "{}", var),
+            BigExpressionInner::Select(ref a, ref i) => write!(
+                f,
+                "[{}][{}]",
+                a.iter()
+                    .map(|a| a.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                i
+            ),
+            BigExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            BigExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            BigExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => {
                 write!(
                     f,
                     "if {} then {} else {} fi",
@@ -559,6 +616,16 @@ impl<'ast, T> IfElse<'ast, T> for FieldElementExpression<'ast, T> {
         alternative: Self,
     ) -> Self {
         FieldElementExpression::IfElse(box condition, box consequence, box alternative)
+    }
+}
+
+impl<'ast, T> IfElse<'ast, T> for BigExpression<'ast, T> {
+    fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self {
+        BigExpressionInner::IfElse(box condition, box consequence, box alternative).annotate()
     }
 }
 

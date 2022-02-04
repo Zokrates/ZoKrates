@@ -1,7 +1,8 @@
 {
     "entry_point": "./tests/tests/uint/u64/div.zok",
     "max_constraint_count": 328,
-    "tests": [
+    "abi": true,
+  "tests": [
         {
             "input": {
                 "values": ["0x1000000000000000", "0x1000000000000000"]

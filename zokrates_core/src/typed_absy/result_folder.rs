@@ -14,6 +14,12 @@ impl<'ast, T: Field> ResultFold<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> ResultFold<'ast, T> for BigExpression<'ast, T> {
+    fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
+        f.fold_big_expression(self)
+    }
+}
+
 impl<'ast, T: Field> ResultFold<'ast, T> for BooleanExpression<'ast, T> {
     fn fold<F: ResultFolder<'ast, T>>(self, f: &mut F) -> Result<Self, F::Error> {
         f.fold_boolean_expression(self)
@@ -372,6 +378,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     ) -> Result<TypedExpression<'ast, T>, Self::Error> {
         match e {
             TypedExpression::FieldElement(e) => Ok(self.fold_field_expression(e)?.into()),
+            TypedExpression::Big(e) => Ok(self.fold_big_expression(e)?.into()),
             TypedExpression::Boolean(e) => Ok(self.fold_boolean_expression(e)?.into()),
             TypedExpression::Uint(e) => Ok(self.fold_uint_expression(e)?.into()),
             TypedExpression::Array(e) => Ok(self.fold_array_expression(e)?.into()),
@@ -422,6 +429,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
         fold_field_expression(self, e)
     }
+
+    fn fold_big_expression(
+        &mut self,
+        e: BigExpression<'ast, T>,
+    ) -> Result<BigExpression<'ast, T>, Self::Error> {
+        fold_big_expression(self, e)
+    }
+
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
@@ -677,6 +692,46 @@ pub fn fold_field_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 SelectOrExpression::Expression(u) => u,
             }
         }
+    };
+    Ok(e)
+}
+
+pub fn fold_big_expression<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    e: BigExpression<'ast, T>,
+) -> Result<BigExpression<'ast, T>, F::Error> {
+    let e = match e {
+        BigExpression::Block(block) => BigExpression::Block(f.fold_block_expression(block)?),
+        BigExpression::Value(v) => BigExpression::Value(v),
+        BigExpression::Identifier(id) => BigExpression::Identifier(f.fold_name(id)?),
+        BigExpression::Add(box e1, box e2) => {
+            let e1 = f.fold_big_expression(e1)?;
+            let e2 = f.fold_big_expression(e2)?;
+            BigExpression::Add(box e1, box e2)
+        }
+        BigExpression::Mult(box e1, box e2) => {
+            let e1 = f.fold_big_expression(e1)?;
+            let e2 = f.fold_big_expression(e2)?;
+            BigExpression::Mult(box e1, box e2)
+        }
+        BigExpression::Conditional(c) => match f.fold_conditional_expression(&Type::Big, c)? {
+            ConditionalOrExpression::Conditional(c) => BigExpression::Conditional(c),
+            ConditionalOrExpression::Expression(u) => u,
+        },
+        BigExpression::FunctionCall(function_call) => {
+            match f.fold_function_call_expression(&Type::Big, function_call)? {
+                FunctionCallOrExpression::FunctionCall(c) => BigExpression::FunctionCall(c),
+                FunctionCallOrExpression::Expression(u) => u,
+            }
+        }
+        BigExpression::Member(m) => match f.fold_member_expression(&Type::Big, m)? {
+            MemberOrExpression::Member(m) => BigExpression::Member(m),
+            MemberOrExpression::Expression(u) => u,
+        },
+        BigExpression::Select(select) => match f.fold_select_expression(&Type::Big, select)? {
+            SelectOrExpression::Select(s) => BigExpression::Select(s),
+            SelectOrExpression::Expression(u) => u,
+        },
     };
     Ok(e)
 }
