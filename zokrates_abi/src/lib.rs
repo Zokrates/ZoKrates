@@ -5,7 +5,7 @@ pub enum Inputs<T> {
     Abi(Values<T>),
 }
 
-impl<T: From<usize>> Encode<T> for Inputs<T> {
+impl<T: Field> Encode<T> for Inputs<T> {
     fn encode(self) -> Vec<T> {
         match self {
             Inputs::Raw(v) => v,
@@ -90,15 +90,15 @@ pub trait Decode<T> {
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self;
 }
 
-impl<T: From<usize>> Encode<T> for Value<T> {
+impl<T: Field> Encode<T> for Value<T> {
     fn encode(self) -> Vec<T> {
         match self {
             Value::Field(t) => vec![t],
-            Value::U8(t) => vec![T::from(t as usize)],
-            Value::U16(t) => vec![T::from(t as usize)],
-            Value::U32(t) => vec![T::from(t as usize)],
-            Value::U64(t) => vec![T::from(t as usize)],
-            Value::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
+            Value::U8(v) => vec![T::from(v)],
+            Value::U16(v) => vec![T::from(v)],
+            Value::U32(v) => vec![T::from(v)],
+            Value::U64(v) => vec![T::from(v)],
+            Value::Boolean(b) => vec![T::from(b)],
             Value::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
             Value::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
         }
@@ -174,7 +174,7 @@ impl<T: Field> Decode<T> for Value<T> {
     }
 }
 
-impl<T: From<usize>> Encode<T> for Values<T> {
+impl<T: Field> Encode<T> for Values<T> {
     fn encode(self) -> Vec<T> {
         self.0.into_iter().flat_map(|v| v.encode()).collect()
     }
@@ -542,39 +542,39 @@ mod tests {
 
         #[test]
         fn fields() {
-            let v = Values(vec![Value::Field(1), Value::Field(2)]);
-            assert_eq!(v.encode(), vec![1, 2]);
+            let v = Values::<Bn128Field>(vec![Value::Field(1.into()), Value::Field(2.into())]);
+            assert_eq!(v.encode(), vec![1.into(), 2.into()]);
         }
 
         #[test]
         fn u8s() {
-            let v = Values::<usize>(vec![Value::U8(1), Value::U8(2)]);
-            assert_eq!(v.encode(), vec![1, 2]);
+            let v = Values::<Bn128Field>(vec![Value::U8(1), Value::U8(2)]);
+            assert_eq!(v.encode(), vec![1.into(), 2.into()]);
         }
 
         #[test]
         fn bools() {
-            let v: Values<usize> = Values(vec![Value::Boolean(true), Value::Boolean(false)]);
-            assert_eq!(v.encode(), vec![1, 0]);
+            let v: Values<Bn128Field> = Values(vec![Value::Boolean(true), Value::Boolean(false)]);
+            assert_eq!(v.encode(), vec![1.into(), 0.into()]);
         }
 
         #[test]
         fn array() {
-            let v: Values<usize> = Values(vec![Value::Array(vec![
+            let v: Values<Bn128Field> = Values(vec![Value::Array(vec![
                 Value::Boolean(true),
                 Value::Boolean(false),
             ])]);
-            assert_eq!(v.encode(), vec![1, 0]);
+            assert_eq!(v.encode(), vec![1.into(), 0.into()]);
         }
 
         #[test]
         fn struc() {
-            let v: Values<usize> = Values(vec![Value::Struct(
-                vec![("a".to_string(), Value::Field(42))]
+            let v: Values<Bn128Field> = Values(vec![Value::Struct(
+                vec![("a".to_string(), Value::Field(42.into()))]
                     .into_iter()
                     .collect(),
             )]);
-            assert_eq!(v.encode(), vec![42]);
+            assert_eq!(v.encode(), vec![42.into()]);
         }
     }
 }
