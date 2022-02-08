@@ -1,9 +1,10 @@
-use crate::constants;
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
+use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
@@ -28,7 +29,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::WITNESS_DEFAULT_PATH),
+                .default_value(cli_constants::WITNESS_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("proving-key-path")
@@ -38,7 +39,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::PROVING_KEY_DEFAULT_PATH),
+                .default_value(cli_constants::PROVING_KEY_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("proof-path")
@@ -48,7 +49,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::JSON_PROOF_PATH),
+                .default_value(cli_constants::JSON_PROOF_PATH),
         )
         .arg(
             Arg::with_name("input")
@@ -58,7 +59,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::FLATTENED_CODE_DEFAULT_PATH),
+                .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("backend")
@@ -67,8 +68,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Backend to use")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::BACKENDS)
-                .default_value(zokrates_common::constants::BELLMAN),
+                .possible_values(cli_constants::BACKENDS)
+                .default_value(constants::BELLMAN),
         )
         .arg(
             Arg::with_name("proving-scheme")
@@ -78,8 +79,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::SCHEMES)
-                .default_value(zokrates_common::constants::G16),
+                .possible_values(cli_constants::SCHEMES)
+                .default_value(constants::G16),
         )
 }
 

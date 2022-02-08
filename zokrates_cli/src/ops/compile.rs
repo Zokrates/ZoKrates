@@ -1,4 +1,4 @@
-use crate::constants;
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use serde_json::to_writer_pretty;
 use std::convert::TryFrom;
@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
+use zokrates_common::constants::BN128;
 use zokrates_common::helpers::CurveParameter;
 use zokrates_core::compile::{compile, CompileConfig, CompileError};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
@@ -28,7 +29,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .takes_value(true)
         .required(false)
         .env("ZOKRATES_STDLIB")
-        .default_value(constants::DEFAULT_STDLIB_PATH.as_str())
+        .default_value(cli_constants::DEFAULT_STDLIB_PATH.as_str())
     ).arg(Arg::with_name("abi-spec")
         .short("s")
         .long("abi-spec")
@@ -36,7 +37,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(constants::ABI_SPEC_DEFAULT_PATH)
+        .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH)
     ).arg(Arg::with_name("output")
         .short("o")
         .long("output")
@@ -44,15 +45,15 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(constants::FLATTENED_CODE_DEFAULT_PATH)
+        .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH)
     ).arg(Arg::with_name("curve")
         .short("c")
         .long("curve")
         .help("Curve to be used in the compilation")
         .takes_value(true)
         .required(false)
-        .possible_values(constants::CURVES)
-        .default_value(zokrates_common::constants::BN128)
+        .possible_values(cli_constants::CURVES)
+        .default_value(BN128)
     ).arg(Arg::with_name("isolate-branches")
         .long("isolate-branches")
         .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")

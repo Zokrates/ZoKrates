@@ -1,4 +1,4 @@
-use crate::constants::{MPC_DEFAULT_PATH, PROVING_KEY_DEFAULT_PATH, VERIFICATION_KEY_DEFAULT_PATH};
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, Write};
@@ -19,7 +19,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(MPC_DEFAULT_PATH),
+                .default_value(cli_constants::MPC_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("curve")
@@ -39,7 +39,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(PROVING_KEY_DEFAULT_PATH),
+                .default_value(cli_constants::PROVING_KEY_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("verification-key-path")
@@ -49,7 +49,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(VERIFICATION_KEY_DEFAULT_PATH),
+                .default_value(cli_constants::VERIFICATION_KEY_DEFAULT_PATH),
         )
 }
 

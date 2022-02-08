@@ -1,4 +1,4 @@
-use crate::constants::JSON_PROOF_PATH;
+use crate::cli_constants::JSON_PROOF_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use serde_json::Value;
 use std::fs::File;

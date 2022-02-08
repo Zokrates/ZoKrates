@@ -1,9 +1,10 @@
-use crate::constants;
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use zokrates_common::constants;
 use zokrates_common::helpers::*;
 #[cfg(feature = "ark")]
 use zokrates_core::proof_system::ark::Ark;
@@ -21,8 +22,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Curve to be used in the universal setup")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::CURVES)
-                .default_value(zokrates_common::constants::BN128),
+                .possible_values(cli_constants::CURVES)
+                .default_value(constants::BN128),
         )
         .arg(
             Arg::with_name("universal-setup-path")
@@ -32,7 +33,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::UNIVERSAL_SETUP_DEFAULT_PATH),
+                .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("proving-scheme")
@@ -41,8 +42,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Proving scheme to use in the setup")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::UNIVERSAL_SCHEMES)
-                .default_value(zokrates_common::constants::MARLIN),
+                .possible_values(cli_constants::UNIVERSAL_SCHEMES)
+                .default_value(constants::MARLIN),
         )
         .arg(
             Arg::with_name("size")
@@ -51,13 +52,13 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Size of the trusted setup passed as an exponent. For example, 8 for 2**8")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::UNIVERSAL_SETUP_DEFAULT_SIZE),
+                .default_value(cli_constants::UNIVERSAL_SETUP_DEFAULT_SIZE),
         )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let parameters = Parameters::try_from((
-        zokrates_common::constants::ARK,
+        constants::ARK,
         sub_matches.value_of("curve").unwrap(),
         sub_matches.value_of("proving-scheme").unwrap(),
     ))?;
