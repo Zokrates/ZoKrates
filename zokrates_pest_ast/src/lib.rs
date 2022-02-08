@@ -14,11 +14,11 @@ pub use ast::{
     DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
     FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
     IdentifierExpression, IfElseExpression, ImportDirective, ImportSymbol, InlineArrayExpression,
-    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression, Parameter,
-    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
-    Statement, StructDefinition, StructField, SymbolDeclaration, TernaryExpression, ToExpression,
-    Type, TypeDefinition, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression,
-    UnaryOperator, Underscore, Visibility,
+    InlineStructExpression, InlineStructMember, IterationStatement, LetStatement,
+    LiteralExpression, Parameter, PostfixExpression, Range, RangeOrExpression, ReturnStatement,
+    Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField, SymbolDeclaration,
+    TernaryExpression, ToExpression, Type, TypeDefinition, TypedIdentifier,
+    TypedIdentifierOrAssignee, UnaryExpression, UnaryOperator, Underscore, Visibility,
 };
 
 mod ast {
@@ -352,9 +352,19 @@ mod ast {
     #[pest_ast(rule(Rule::statement))]
     pub enum Statement<'ast> {
         Return(ReturnStatement<'ast>),
+        Let(LetStatement<'ast>),
         Definition(DefinitionStatement<'ast>),
         Assertion(AssertionStatement<'ast>),
         Iteration(IterationStatement<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::let_statement))]
+    pub struct LetStatement<'ast> {
+        pub id: IdentifierExpression<'ast>,
+        pub expression: Expression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]

@@ -383,6 +383,7 @@ impl<'ast> fmt::Display for Assignee<'ast> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'ast> {
     Return(ExpressionListNode<'ast>),
+    Let(Identifier<'ast>, ExpressionNode<'ast>),
     Declaration(VariableNode<'ast>),
     Definition(AssigneeNode<'ast>, ExpressionNode<'ast>),
     Assertion(ExpressionNode<'ast>, Option<String>),
@@ -402,6 +403,7 @@ impl<'ast> fmt::Display for Statement<'ast> {
         match *self {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Declaration(ref var) => write!(f, "{}", var),
+            Statement::Let(ref id, ref e) => write!(f, "let {} = {}", id, e),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Assertion(ref e, ref message) => {
                 write!(f, "assert({}", e)?;

@@ -1171,8 +1171,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }
 
                     match self.check_statement(stat, module_id, &state.types) {
-                        Ok(statement) => {
-                            if let TypedStatement::Return(e) = &statement {
+                        Ok(mut statements) => {
+                            if let TypedStatement::Return(e) = &statements[0] {
                                 match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
                                     == s.outputs
                                 {
@@ -1195,7 +1195,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     }),
                                 }
                             };
-                            statements_checked.push(statement);
+                            statements_checked.append(&mut statements);
                         }
                         Err(e) => {
                             errors.extend(e);
@@ -1708,8 +1708,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let mut checked_statements = vec![];
 
         for stat in statements {
-            let checked_stat = self.check_statement(stat, module_id, types)?;
-            checked_statements.push(checked_stat);
+            let mut checked_stat = self.check_statement(stat, module_id, types)?;
+            checked_statements.append(&mut checked_stat);
         }
 
         Ok(TypedStatement::For(var, from, to, checked_statements))
@@ -1720,7 +1720,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         stat: StatementNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
-    ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
+    ) -> Result<Vec<TypedStatement<'ast, T>>, Vec<ErrorInner>> {
         let pos = stat.pos();
 
         match stat.value {
@@ -1749,8 +1749,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             vec![ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
-                                    "Expected return value to be of type {}, found {}",
-                                    e.1, e.0
+                                    "Expected return value to be of type {}, found {} of type {}",
+                                    e.1,
+                                    e.0,
+                                    e.0.get_type()
                                 ),
                             }]
                         }) {
@@ -1799,12 +1801,61 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     return Err(errors);
                 }
 
-                Ok(res)
+                Ok(vec![res])
+            }
+            Statement::Let(id, e) => {
+                // check the expression to be assigned
+                let checked_expr = self
+                    .check_expression(e, module_id, types)
+                    .map_err(|e| vec![e])?;
+
+                let ty = checked_expr.get_type();
+                let typed_expr = match ty {
+                    Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
+                        .map(TypedExpression::from),
+                    Type::Boolean => {
+                        BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
+                    }
+                    Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, &bitwidth)
+                        .map(TypedExpression::from),
+                    Type::Array(ref array_ty) => {
+                        ArrayExpression::try_from_typed(checked_expr, array_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Struct(ref struct_ty) => {
+                        StructExpression::try_from_typed(checked_expr, struct_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Int => Err(checked_expr), // Integers cannot be assigned
+                }
+                .map_err(|e| {
+                    vec![ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expression `{}` of type `{}` cannot be assigned to `{}`",
+                            e,
+                            e.get_type(),
+                            id
+                        ),
+                    }]
+                })?;
+
+                let var = Variable::with_id_and_type(id, typed_expr.get_type());
+                match self.insert_into_scope(var.clone()) {
+                    true => Ok(vec![
+                        TypedStatement::Declaration(var.clone()),
+                        TypedStatement::Definition(TypedAssignee::Identifier(var), typed_expr),
+                    ]),
+                    false => Err(vec![ErrorInner {
+                        pos: Some(pos),
+                        message: format!("Duplicate declaration for variable named {}", var.id),
+                    }]),
+                }
             }
             Statement::Declaration(var) => {
                 let var = self.check_variable(var, module_id, types)?;
                 match self.insert_into_scope(var.clone()) {
-                    true => Ok(TypedStatement::Declaration(var)),
+                    true => Ok(vec![TypedStatement::Declaration(var)]),
                     false => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Duplicate declaration for variable named {}", var.id),
@@ -1860,7 +1911,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         var_type
                     ),
                 })
-                .map(|rhs| TypedStatement::Definition(var, rhs))
+                .map(|rhs| vec![TypedStatement::Definition(var, rhs)])
                 .map_err(|e| vec![e])
             }
             Statement::Assertion(e, message) => {
@@ -1869,14 +1920,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .map_err(|e| vec![e])?;
 
                 match e {
-                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(
+                    TypedExpression::Boolean(e) => Ok(vec![TypedStatement::Assertion(
                         e,
                         RuntimeError::SourceAssertion(AssertionMetadata {
                             file: module_id.display().to_string(),
                             position: pos.0,
                             message,
                         }),
-                    )),
+                    )]),
                     e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
@@ -1895,7 +1946,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 self.exit_scope();
 
-                res
+                res.map(|s| vec![s])
             }
             Statement::MultipleDefinition(assignees, rhs) => {
                 match rhs.value {
@@ -1976,7 +2027,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                                 let call = TypedExpressionList::function_call(f.clone(), generics_checked.unwrap_or_else(|| vec![None; f.signature.generics.len()]), arguments_checked).annotate(Types { inner: assignees.iter().map(|a| a.get_type()).collect()});
 
-                                Ok(TypedStatement::MultipleDefinition(assignees, call))
+                                Ok(vec![TypedStatement::MultipleDefinition(assignees, call)])
                     		},
                     		0 => Err(ErrorInner {                         pos: Some(pos),
  message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),

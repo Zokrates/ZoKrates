@@ -49,13 +49,15 @@ vis = { vis_private | vis_public }
 // Statements
 statement = { (return_statement // does not require subsequent newline
               | (iteration_statement
+                | let_statement
                 | definition_statement
                 | expression_statement
                 ) ~ NEWLINE
             ) ~ NEWLINE* }
 
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
-return_statement = { "return" ~ expression_list}
+return_statement = { "return" ~ expression_list }
+let_statement = { "let" ~ identifier ~ "=" ~ expression }
 definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
 expression_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")"}
 
@@ -167,6 +169,7 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
 // the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly
 // accepted
-keyword = @{"assert"|"as"|"bool"|"const"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
-            "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
-            }
+keyword = @{
+    "assert"|"as"|"bool"|"const"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
+    "in"|"let"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
+}

@@ -253,6 +253,7 @@ impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
 fn statements_from_statement(statement: pest::Statement) -> Vec<absy::StatementNode> {
     match statement {
         pest::Statement::Definition(s) => statements_from_definition(s),
+        pest::Statement::Let(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Iteration(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Assertion(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Return(s) => vec![absy::StatementNode::from(s)],
@@ -348,6 +349,15 @@ fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy
 
             declarations.chain(std::iter::once(multi_def)).collect()
         }
+    }
+}
+
+impl<'ast> From<pest::LetStatement<'ast>> for absy::StatementNode<'ast> {
+    fn from(statement: pest::LetStatement<'ast>) -> absy::StatementNode<'ast> {
+        use crate::absy::NodeValue;
+
+        absy::Statement::Let(statement.id.span.as_str(), statement.expression.into())
+            .span(statement.span)
     }
 }
 
