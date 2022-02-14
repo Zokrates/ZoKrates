@@ -1,2 +1,2 @@
 def main((field, bool,) a) -> ((field, bool,)):
-	return a
+    return a
