@@ -13,7 +13,7 @@ type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    OutOfBounds(u128, u128),
+    OutOfBounds(usize, usize),
     DivisionByZero,
     AssertionFailed(RuntimeError),
 }
@@ -147,7 +147,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(v, e.len() as u128)),
+                        .ok_or(Error::OutOfBounds(v as usize, e.len())),
                     i => Ok(FieldElementExpression::Select(
                         e,
                         box i.annotate(UBitwidth::B32),
@@ -279,7 +279,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(*v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(*v, e.len() as u128)),
+                        .ok_or(Error::OutOfBounds(*v as usize, e.len())),
                     _ => Ok(BooleanExpression::Select(e, box index)),
                 }
             }
@@ -510,7 +510,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(v, e.len() as u128))
+                        .ok_or(Error::OutOfBounds(v as usize, e.len()))
                         .map(|e| e.into_inner()),
                     i => Ok(UExpressionInner::Select(e, box i.annotate(UBitwidth::B32))),
                 }
