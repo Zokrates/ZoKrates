@@ -1,6 +1,7 @@
 {
     "entry_point": "./tests/tests/uint/u32/rem.zok",
     "max_constraint_count": 168,
+    "abi": true,
     "tests": [
         {
             "input": {

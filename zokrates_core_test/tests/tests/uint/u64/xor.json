@@ -1,6 +1,7 @@
 {
     "entry_point": "./tests/tests/uint/u64/xor.zok",
     "max_constraint_count": 195,
+    "abi": true,
     "tests": [
         {
             "input": {

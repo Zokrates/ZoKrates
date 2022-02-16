@@ -1,6 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u64/lte.zok",
   "max_constraint_count": 795,
+  "abi": true,
   "tests": [
     {
       "input": {
@@ -8,7 +9,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["1"]
+          "values": [true]
         }
       }
     },
@@ -18,7 +19,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["1"]
+          "values": [true]
         }
       }
     },
@@ -28,7 +29,7 @@
       },
       "output": {
         "Ok": {
-          "values": ["0"]
+          "values": [false]
         }
       }
     }

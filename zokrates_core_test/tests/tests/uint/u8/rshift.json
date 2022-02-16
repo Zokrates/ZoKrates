@@ -1,6 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u8/rshift.zok",
   "max_constraint_count": 10,
+  "abi": true,
   "tests": [
     {
       "input": {

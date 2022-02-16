@@ -63,7 +63,7 @@ declare module "zokrates-js" {
       compileOptions?: CompileOptions
     ): CompilationArtifacts;
     computeWitness(
-      artifacts: CompilationArtifacts,
+      input: CompilationArtifacts | Uint8Array,
       args: any[]
     ): ComputationResult;
     setup(program: Uint8Array): SetupKeypair;

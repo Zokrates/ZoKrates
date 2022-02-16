@@ -1,6 +1,7 @@
 {
     "entry_point": "./tests/tests/uint/u32/and.zok",
     "max_constraint_count": 99,
+    "abi": true,
     "tests": [
         {
             "input": {

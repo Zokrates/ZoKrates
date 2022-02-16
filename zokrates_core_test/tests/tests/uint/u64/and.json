@@ -1,6 +1,7 @@
 {
     "entry_point": "./tests/tests/uint/u64/and.zok",
     "max_constraint_count": 195,
+    "abi": true,
     "tests": [
         {
             "input": {
@@ -28,7 +29,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": ["0x224422002244220"]
+                    "values": ["0x0224422002244220"]
                 }
             }
         }
