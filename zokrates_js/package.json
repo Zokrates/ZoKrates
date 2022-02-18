@@ -33,7 +33,7 @@
     "build:node:dev": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --dev && npm run clean-node-pkg",
     "clean-pkg": "rimraf pkg/README.md",
     "clean-node-pkg": "rimraf node/pkg/README.md",
-    "pretest": "npm run setup && npm run build:node",
+    "pretest": "npm run setup && npm run build:node:dev",
     "test": "npm run run-tests",
     "run-tests": "mocha --timeout 30000 --require esm --recursive tests"
   },
