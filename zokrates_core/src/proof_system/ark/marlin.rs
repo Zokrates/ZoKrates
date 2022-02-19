@@ -1,20 +1,29 @@
-use ark_marlin::{IndexProverKey, IndexVerifierKey, Proof as ArkProof};
+use ark_marlin::{
+    ahp::indexer::IndexInfo, ahp::prover::ProverMsg, IndexProverKey, IndexVerifierKey,
+    Proof as ArkProof,
+};
 
 use ark_marlin::Marlin as ArkMarlin;
 
 use ark_ec::PairingEngine;
 use ark_poly::univariate::DensePolynomial;
-use ark_poly_commit::marlin_pc::MarlinKZG10;
+use ark_poly_commit::{
+    data_structures::BatchLCProof,
+    kzg10::Commitment as KZG10Commitment,
+    kzg10::Proof as KZG10Proof,
+    kzg10::VerifierKey as KZG10VerifierKey,
+    marlin_pc::{Commitment, MarlinKZG10, VerifierKey},
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use sha2::Sha256;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
 use crate::ir::{ProgIterator, Statement, Witness};
-use crate::proof_system::ark::parse_fr;
 use crate::proof_system::ark::Ark;
 use crate::proof_system::ark::Computation;
-use crate::proof_system::marlin::{self, ProofPoints, VerificationKey};
+use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, serialization};
+use crate::proof_system::marlin::{self, KZGVerifierKey, ProofPoints, VerificationKey};
 use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, Proof, SetupKeypair, UniversalBackend};
 
@@ -22,9 +31,9 @@ const MINIMUM_CONSTRAINT_COUNT: usize = 2;
 
 impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark {
     fn universal_setup(size: u32) -> Vec<u8> {
-        use rand_0_7::SeedableRng;
+        use rand_0_8::SeedableRng;
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         let srs = ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -82,11 +91,33 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         let mut serialized_pk: Vec<u8> = Vec::new();
         pk.serialize_uncompressed(&mut serialized_pk).unwrap();
 
-        let mut serialized_vk: Vec<u8> = Vec::new();
-        vk.serialize_uncompressed(&mut serialized_vk).unwrap();
-
         Ok(SetupKeypair::new(
-            VerificationKey { raw: serialized_vk },
+            VerificationKey {
+                index_comms: vk
+                    .index_comms
+                    .into_iter()
+                    .map(|c| (parse_g1::<T>(&c.comm.0), None))
+                    .collect(),
+                num_constraints: vk.index_info.num_constraints,
+                num_non_zero: vk.index_info.num_non_zero,
+                num_instance_variables: vk.index_info.num_instance_variables,
+                num_variables: vk.index_info.num_variables,
+                vk: KZGVerifierKey {
+                    g: parse_g1::<T>(&vk.verifier_key.vk.g),
+                    gamma_g: parse_g1::<T>(&vk.verifier_key.vk.gamma_g),
+                    h: parse_g2::<T>(&vk.verifier_key.vk.h),
+                    beta_h: parse_g2::<T>(&vk.verifier_key.vk.beta_h),
+                },
+                max_degree: vk.verifier_key.max_degree,
+                supported_degree: vk.verifier_key.supported_degree,
+                degree_bounds_and_shift_powers: vk.verifier_key.degree_bounds_and_shift_powers.map(
+                    |vk| {
+                        vk.into_iter()
+                            .map(|(bound, pow)| (bound, parse_g1::<T>(&pow)))
+                            .collect()
+                    },
+                ),
+            },
             serialized_pk,
         ))
     }
@@ -100,9 +131,9 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
     ) -> Proof<<marlin::Marlin as Scheme<T>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
 
-        use rand_0_7::SeedableRng;
+        use rand_0_8::SeedableRng;
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         let pk = IndexProverKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -134,7 +165,33 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         Proof::new(
             ProofPoints {
-                raw: serialized_proof,
+                commitments: proof
+                    .commitments
+                    .into_iter()
+                    .map(|r| {
+                        r.into_iter()
+                            .map(|c| {
+                                (
+                                    parse_g1::<T>(&c.comm.0),
+                                    c.shifted_comm
+                                        .map(|shifted_comm| parse_g1::<T>(&shifted_comm.0)),
+                                )
+                            })
+                            .collect()
+                    })
+                    .collect(),
+                evaluations: proof.evaluations.into_iter().map(T::from_ark).collect(),
+                pc_proof_proof: proof
+                    .pc_proof
+                    .proof
+                    .into_iter()
+                    .map(|p| (parse_g1::<T>(&p.w), p.random_v.map(T::from_ark)))
+                    .collect(),
+                pc_proof_evals: proof
+                    .pc_proof
+                    .evals
+                    .map(|evals| evals.into_iter().map(T::from_ark).collect()),
+                prover_messages_count: proof.prover_messages.len(),
             },
             inputs,
         )
@@ -160,8 +217,45 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 T::ArkEngine,
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
-        >::deserialize_uncompressed(&mut proof.proof.raw.as_slice())
-        .unwrap();
+        > {
+            commitments: proof
+                .proof
+                .commitments
+                .into_iter()
+                .map(|r| {
+                    r.into_iter()
+                        .map(|(c, shifted_comm)| Commitment {
+                            comm: KZG10Commitment(serialization::to_g1::<T>(c)),
+                            shifted_comm: shifted_comm.map(|shifted_comm| {
+                                KZG10Commitment(serialization::to_g1::<T>(shifted_comm))
+                            }),
+                        })
+                        .collect()
+                })
+                .collect(),
+            evaluations: proof
+                .proof
+                .evaluations
+                .into_iter()
+                .map(|v| v.into_ark())
+                .collect(),
+            prover_messages: vec![ProverMsg::EmptyMessage; proof.proof.prover_messages_count],
+            pc_proof: BatchLCProof {
+                proof: proof
+                    .proof
+                    .pc_proof_proof
+                    .into_iter()
+                    .map(|(w, random_v)| KZG10Proof {
+                        w: serialization::to_g1::<T>(w),
+                        random_v: random_v.map(|v| v.into_ark()),
+                    })
+                    .collect(),
+                evals: proof
+                    .proof
+                    .pc_proof_evals
+                    .map(|evals| evals.into_iter().map(|eval| eval.into_ark()).collect()),
+            },
+        };
 
         let vk = IndexVerifierKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -169,12 +263,45 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 T::ArkEngine,
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
-        >::deserialize_uncompressed(&mut vk.raw.as_slice())
-        .unwrap();
+        > {
+            index_info: IndexInfo::new(
+                vk.num_variables,
+                vk.num_constraints,
+                vk.num_non_zero,
+                vk.num_instance_variables,
+            ),
+            index_comms: vk
+                .index_comms
+                .into_iter()
+                .map(|(c, shifted_comm)| Commitment {
+                    comm: KZG10Commitment(serialization::to_g1::<T>(c)),
+                    shifted_comm: shifted_comm.map(|shifted_comm| {
+                        KZG10Commitment(serialization::to_g1::<T>(shifted_comm))
+                    }),
+                })
+                .collect(),
+            verifier_key: VerifierKey {
+                degree_bounds_and_shift_powers: vk.degree_bounds_and_shift_powers.map(|vk| {
+                    vk.into_iter()
+                        .map(|(bound, pow)| (bound, serialization::to_g1::<T>(pow)))
+                        .collect()
+                }),
+                max_degree: vk.max_degree,
+                supported_degree: vk.supported_degree,
+                vk: KZG10VerifierKey {
+                    g: serialization::to_g1::<T>(vk.vk.g),
+                    gamma_g: serialization::to_g1::<T>(vk.vk.gamma_g),
+                    h: serialization::to_g2::<T>(vk.vk.h.clone()),
+                    beta_h: serialization::to_g2::<T>(vk.vk.beta_h.clone()),
+                    prepared_h: serialization::to_g2::<T>(vk.vk.h).into(),
+                    prepared_beta_h: serialization::to_g2::<T>(vk.vk.beta_h).into(),
+                },
+            },
+        };
 
-        use rand_0_7::SeedableRng;
+        use rand_0_8::SeedableRng;
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         ArkMarlin::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,

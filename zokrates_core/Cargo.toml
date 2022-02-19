@@ -35,7 +35,7 @@ zokrates_common = { path = "../zokrates_common" }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
 getrandom = { version = "0.2", features = ["js"] }
 rand_0_4 = { version = "0.4", package = "rand" }
-rand_0_7 = { version = "0.7", package = "rand", features = ["wasm-bindgen"] }
+rand_0_8 = { version = "0.8", package = "rand" }
 csv = "1"
 phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false }
 
@@ -45,19 +45,19 @@ pairing_ce = { version = "^0.21", optional = true }
 ff_ce = { version = "^0.9", optional = true }
 
 # ark
-ark-ff = { version = "^0.2.0", default-features = false, optional = true }
-ark-ec = { version = "^0.2.0", default-features = false, optional = true }
-ark-bn254 = { version = "^0.2.0", features = ["curve"], default-features = false, optional = true }
-ark-bls12-377 = { version = "^0.2.0", features = ["curve"], default-features = false, optional = true }
-ark-bw6-761 = { version = "^0.2.0", default-features = false, optional = true }
-ark-gm17 = { version = "^0.2.0", default-features = false, optional = true }
-ark-groth16 = { version = "^0.2.0", default-features = false, optional = true }
-ark-serialize = { version = "^0.2.0", default-features = false, optional = true }
-ark-relations = { version = "^0.2.0", default-features = false, optional = true }
-ark-marlin = { version = "^0.2.0", default-features = false, optional = true }
-ark-poly = { version = "^0.2.0", default-features = false, optional = true }
-ark-poly-commit = { version = "^0.2.0", default-features = false, optional = true }
-ark-crypto-primitives = { version = "^0.2.0", default-features = false, optional = true }
+ark-ff = { version = "^0.3.0", default-features = false, optional = true }
+ark-ec = { version = "^0.3.0", default-features = false, optional = true }
+ark-bn254 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
+ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
+ark-bw6-761 = { version = "^0.3.0", default-features = false, optional = true }
+ark-gm17 = { version = "^0.3.0", default-features = false, optional = true }
+ark-groth16 = { version = "^0.3.0", default-features = false, optional = true }
+ark-serialize = { version = "^0.3.0", default-features = false, optional = true }
+ark-relations = { version = "^0.3.0", default-features = false, optional = true }
+ark-marlin = { git = "https://github.com/nirvantyagi/marlin", branch = "master", default-features = false, optional = true }
+ark-poly = { version = "^0.3.0", default-features = false, optional = true }
+ark-poly-commit = { version = "^0.3.0", default-features = false, optional = true }
+ark-crypto-primitives = { version = "^0.3.0", default-features = false, optional = true }
 sha2 = { version = "0.9.3", optional = true }
 
 [dev-dependencies]
