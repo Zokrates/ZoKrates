@@ -16,6 +16,7 @@ use ark_poly_commit::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use sha2::Sha256;
+use rand_0_8::SeedableRng;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
@@ -31,7 +32,6 @@ const MINIMUM_CONSTRAINT_COUNT: usize = 2;
 
 impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark {
     fn universal_setup(size: u32) -> Vec<u8> {
-        use rand_0_8::SeedableRng;
 
         let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
@@ -130,8 +130,6 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
         proving_key: Vec<u8>,
     ) -> Proof<<marlin::Marlin as Scheme<T>>::ProofPoints> {
         let computation = Computation::with_witness(program, witness);
-
-        use rand_0_8::SeedableRng;
 
         let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
@@ -298,8 +296,6 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 },
             },
         };
-
-        use rand_0_8::SeedableRng;
 
         let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 

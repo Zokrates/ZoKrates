@@ -63,7 +63,10 @@ sha2 = { version = "0.9.3", optional = true }
 [dev-dependencies]
 wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
+ethabi = "16.0.0"
+primitive-types = { version = "0.10", features = ["rlp"] }
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
+zokrates_solidity_test = { path = "../zokrates_solidity_test"}
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
