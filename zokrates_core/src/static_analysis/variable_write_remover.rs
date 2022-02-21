@@ -56,10 +56,10 @@ impl<'ast> VariableWriteRemover {
                                     .map(|i| match inner_ty {
                                         Type::Int => unreachable!(),
                                         Type::Array(..) => ArrayExpression::conditional(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 ArrayExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -77,10 +77,10 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Struct(..) => StructExpression::conditional(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 StructExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -98,10 +98,10 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Tuple(..) => TupleExpression::conditional(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 TupleExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -119,10 +119,10 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::FieldElement => FieldElementExpression::conditional(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 FieldElementExpression::select(base.clone(), i)
                                                     .into(),
@@ -141,10 +141,10 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Boolean => BooleanExpression::conditional(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 BooleanExpression::select(base.clone(), i).into(),
                                                 tail.clone(),
@@ -162,10 +162,10 @@ impl<'ast> VariableWriteRemover {
                                         )
                                         .into(),
                                         Type::Uint(..) => UExpression::conditional(
-                                            BooleanExpression::UintEq(
-                                                box i.into(),
-                                                box head.clone(),
-                                            ),
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
                                             match Self::choose_many(
                                                 UExpression::select(base.clone(), i).into(),
                                                 tail.clone(),

@@ -362,6 +362,14 @@ impl<'ast, T: Field> Flattener<T> {
         fold_select_expression(self, statements_buffer, select)
     }
 
+    fn fold_eq_expression<E: Flatten<'ast, T>>(
+        &mut self,
+        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+        eq: typed_absy::EqExpression<E>,
+    ) -> zir::BooleanExpression<'ast, T> {
+        fold_eq_expression(self, statements_buffer, eq)
+    }
+
     fn fold_field_expression(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
@@ -970,6 +978,16 @@ fn conjunction_tree<'ast, T: Field>(
     }
 }
 
+fn fold_eq_expression<'ast, T: Field, E: Flatten<'ast, T>>(
+    f: &mut Flattener<T>,
+    statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
+    e: typed_absy::EqExpression<E>,
+) -> zir::BooleanExpression<'ast, T> {
+    let left = e.left.flatten(f, statements_buffer);
+    let right = e.right.flatten(f, statements_buffer);
+    conjunction_tree(&left, &right)
+}
+
 fn fold_boolean_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
@@ -990,46 +1008,12 @@ fn fold_boolean_expression<'ast, T: Field>(
                 .unwrap()
                 .id,
         ),
-        typed_absy::BooleanExpression::FieldEq(box e1, box e2) => {
-            let e1 = f.fold_field_expression(statements_buffer, e1);
-            let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::BooleanExpression::FieldEq(box e1, box e2)
-        }
-        typed_absy::BooleanExpression::BoolEq(box e1, box e2) => {
-            let e1 = f.fold_boolean_expression(statements_buffer, e1);
-            let e2 = f.fold_boolean_expression(statements_buffer, e2);
-            zir::BooleanExpression::BoolEq(box e1, box e2)
-        }
-        typed_absy::BooleanExpression::ArrayEq(box e1, box e2) => {
-            let e1 = f.fold_array_expression(statements_buffer, e1);
-            let e2 = f.fold_array_expression(statements_buffer, e2);
-
-            assert_eq!(e1.len(), e2.len());
-
-            conjunction_tree(&e1, &e2)
-        }
-        typed_absy::BooleanExpression::StructEq(box e1, box e2) => {
-            let e1 = f.fold_struct_expression(statements_buffer, e1);
-            let e2 = f.fold_struct_expression(statements_buffer, e2);
-
-            assert_eq!(e1.len(), e2.len());
-
-            conjunction_tree(&e1, &e2)
-        }
-        typed_absy::BooleanExpression::TupleEq(box e1, box e2) => {
-            let e1 = f.fold_tuple_expression(statements_buffer, e1);
-            let e2 = f.fold_tuple_expression(statements_buffer, e2);
-
-            assert_eq!(e1.len(), e2.len());
-
-            conjunction_tree(&e1, &e2)
-        }
-        typed_absy::BooleanExpression::UintEq(box e1, box e2) => {
-            let e1 = f.fold_uint_expression(statements_buffer, e1);
-            let e2 = f.fold_uint_expression(statements_buffer, e2);
-
-            zir::BooleanExpression::UintEq(box e1, box e2)
-        }
+        typed_absy::BooleanExpression::FieldEq(e) => f.fold_eq_expression(statements_buffer, e),
+        typed_absy::BooleanExpression::BoolEq(e) => f.fold_eq_expression(statements_buffer, e),
+        typed_absy::BooleanExpression::ArrayEq(e) => f.fold_eq_expression(statements_buffer, e),
+        typed_absy::BooleanExpression::StructEq(e) => f.fold_eq_expression(statements_buffer, e),
+        typed_absy::BooleanExpression::TupleEq(e) => f.fold_eq_expression(statements_buffer, e),
+        typed_absy::BooleanExpression::UintEq(e) => f.fold_eq_expression(statements_buffer, e),
         typed_absy::BooleanExpression::FieldLt(box e1, box e2) => {
             let e1 = f.fold_field_expression(statements_buffer, e1);
             let e2 = f.fold_field_expression(statements_buffer, e2);

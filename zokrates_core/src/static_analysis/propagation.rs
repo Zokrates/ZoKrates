@@ -1204,6 +1204,45 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
         }
     }
 
+    fn fold_eq_expression<
+        E: Expr<'ast, T> + PartialEq + Constant + Typed<'ast, T> + ResultFold<'ast, T>,
+    >(
+        &mut self,
+        e: EqExpression<E>,
+    ) -> Result<EqOrBoolean<'ast, T, E>, Self::Error> {
+        let left = e.left.fold(self)?;
+        let right = e.right.fold(self)?;
+
+        if let (Ok(t_left), Ok(t_right)) = (
+            ConcreteType::try_from(left.get_type()),
+            ConcreteType::try_from(right.get_type()),
+        ) {
+            if t_left != t_right {
+                return Err(Error::Type(format!(
+                    "Cannot compare {} of type {} to {} of type {}",
+                    left, t_left, right, t_right
+                )));
+            }
+        };
+
+        // if the two expressions are the same, we can reduce to `true`.
+        // Note that if they are different we cannot reduce to `false`: `a == 1` may still be `true` even though `a` and `1` are different expressions
+        if left == right {
+            return Ok(EqOrBoolean::Boolean(BooleanExpression::Value(true)));
+        }
+
+        // if both expressions are constant, we can reduce the equality check after we put them in canonical form
+        if left.is_constant() && right.is_constant() {
+            let left = left.into_canonical_constant();
+            let right = right.into_canonical_constant();
+            Ok(EqOrBoolean::Boolean(BooleanExpression::Value(
+                left == right,
+            )))
+        } else {
+            Ok(EqOrBoolean::Eq(EqExpression::new(left, right)))
+        }
+    }
+
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
@@ -1221,89 +1260,6 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 },
                 None => Ok(BooleanExpression::Identifier(id)),
             },
-            BooleanExpression::FieldEq(box e1, box e2) => {
-                let e1 = self.fold_field_expression(e1)?;
-                let e2 = self.fold_field_expression(e2)?;
-
-                match (e1, e2) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::Value(n1 == n2))
-                    }
-                    (e1, e2) => Ok(BooleanExpression::FieldEq(box e1, box e2)),
-                }
-            }
-            BooleanExpression::UintEq(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
-
-                match (e1.as_inner(), e2.as_inner()) {
-                    (UExpressionInner::Value(n1), UExpressionInner::Value(n2)) => {
-                        Ok(BooleanExpression::Value(n1 == n2))
-                    }
-                    _ => Ok(BooleanExpression::UintEq(box e1, box e2)),
-                }
-            }
-            BooleanExpression::BoolEq(box e1, box e2) => {
-                let e1 = self.fold_boolean_expression(e1)?;
-                let e2 = self.fold_boolean_expression(e2)?;
-
-                match (e1, e2) {
-                    (BooleanExpression::Value(n1), BooleanExpression::Value(n2)) => {
-                        Ok(BooleanExpression::Value(n1 == n2))
-                    }
-                    (e1, e2) => Ok(BooleanExpression::BoolEq(box e1, box e2)),
-                }
-            }
-            BooleanExpression::ArrayEq(box e1, box e2) => {
-                let e1 = self.fold_array_expression(e1)?;
-                let e2 = self.fold_array_expression(e2)?;
-
-                if let (Ok(t1), Ok(t2)) = (
-                    ConcreteType::try_from(e1.get_type()),
-                    ConcreteType::try_from(e2.get_type()),
-                ) {
-                    if t1 != t2 {
-                        return Err(Error::Type(format!(
-                            "Cannot compare {} of type {} to {} of type {}",
-                            e1, t1, e2, t2
-                        )));
-                    }
-                };
-
-                Ok(BooleanExpression::ArrayEq(box e1, box e2))
-            }
-            BooleanExpression::StructEq(box e1, box e2) => {
-                let e1 = self.fold_struct_expression(e1)?;
-                let e2 = self.fold_struct_expression(e2)?;
-
-                let t1 = e1.get_type();
-                let t2 = e2.get_type();
-
-                if t1 != t2 {
-                    return Err(Error::Type(format!(
-                        "Cannot compare {} of type {} to {} of type {}",
-                        e1, t1, e2, t2
-                    )));
-                };
-
-                Ok(BooleanExpression::StructEq(box e1, box e2))
-            }
-            BooleanExpression::TupleEq(box e1, box e2) => {
-                let e1 = self.fold_tuple_expression(e1)?;
-                let e2 = self.fold_tuple_expression(e2)?;
-
-                let t1 = e1.get_type();
-                let t2 = e2.get_type();
-
-                if t1 != t2 {
-                    return Err(Error::Type(format!(
-                        "Cannot compare {} of type {} to {} of type {}",
-                        e1, t1, e2, t2
-                    )));
-                };
-
-                Ok(BooleanExpression::TupleEq(box e1, box e2))
-            }
             BooleanExpression::FieldLt(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1)?;
                 let e2 = self.fold_field_expression(e2)?;
@@ -1609,25 +1565,47 @@ mod tests {
 
             #[test]
             fn field_eq() {
-                let e_true = BooleanExpression::FieldEq(
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                );
+                let e_constant_true = BooleanExpression::FieldEq(EqExpression::new(
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                ));
 
-                let e_false = BooleanExpression::FieldEq(
-                    box FieldElementExpression::Number(Bn128Field::from(4)),
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                );
+                let e_constant_false = BooleanExpression::FieldEq(EqExpression::new(
+                    FieldElementExpression::Number(Bn128Field::from(4)),
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                ));
+
+                let e_identifier_true: BooleanExpression<Bn128Field> =
+                    BooleanExpression::FieldEq(EqExpression::new(
+                        FieldElementExpression::Identifier("a".into()),
+                        FieldElementExpression::Identifier("a".into()),
+                    ));
+
+                let e_identifier_unchanged: BooleanExpression<Bn128Field> =
+                    BooleanExpression::FieldEq(EqExpression::new(
+                        FieldElementExpression::Identifier("a".into()),
+                        FieldElementExpression::Identifier("b".into()),
+                    ));
 
                 assert_eq!(
                     Propagator::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(e_true),
+                        .fold_boolean_expression(e_constant_true),
                     Ok(BooleanExpression::Value(true))
                 );
                 assert_eq!(
                     Propagator::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(e_false),
+                        .fold_boolean_expression(e_constant_false),
                     Ok(BooleanExpression::Value(false))
+                );
+                assert_eq!(
+                    Propagator::with_constants(&mut Constants::new())
+                        .fold_boolean_expression(e_identifier_true),
+                    Ok(BooleanExpression::Value(true))
+                );
+                assert_eq!(
+                    Propagator::with_constants(&mut Constants::new())
+                        .fold_boolean_expression(e_identifier_unchanged.clone()),
+                    Ok(e_identifier_unchanged)
                 );
             }
 
@@ -1635,37 +1613,171 @@ mod tests {
             fn bool_eq() {
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(BooleanExpression::BoolEq(
-                            box BooleanExpression::Value(false),
-                            box BooleanExpression::Value(false)
-                        )),
+                        .fold_boolean_expression(BooleanExpression::BoolEq(EqExpression::new(
+                            BooleanExpression::Value(false),
+                            BooleanExpression::Value(false)
+                        ))),
                     Ok(BooleanExpression::Value(true))
                 );
 
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(BooleanExpression::BoolEq(
-                            box BooleanExpression::Value(true),
-                            box BooleanExpression::Value(true)
-                        )),
+                        .fold_boolean_expression(BooleanExpression::BoolEq(EqExpression::new(
+                            BooleanExpression::Value(true),
+                            BooleanExpression::Value(true)
+                        ))),
                     Ok(BooleanExpression::Value(true))
                 );
 
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(BooleanExpression::BoolEq(
-                            box BooleanExpression::Value(true),
-                            box BooleanExpression::Value(false)
-                        )),
+                        .fold_boolean_expression(BooleanExpression::BoolEq(EqExpression::new(
+                            BooleanExpression::Value(true),
+                            BooleanExpression::Value(false)
+                        ))),
                     Ok(BooleanExpression::Value(false))
                 );
 
                 assert_eq!(
                     Propagator::<Bn128Field>::with_constants(&mut Constants::new())
-                        .fold_boolean_expression(BooleanExpression::BoolEq(
-                            box BooleanExpression::Value(false),
-                            box BooleanExpression::Value(true)
-                        )),
+                        .fold_boolean_expression(BooleanExpression::BoolEq(EqExpression::new(
+                            BooleanExpression::Value(false),
+                            BooleanExpression::Value(true)
+                        ))),
+                    Ok(BooleanExpression::Value(false))
+                );
+            }
+
+            #[test]
+            fn array_eq() {
+                let e_constant_true = BooleanExpression::ArrayEq(EqExpression::new(
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::Number(Bn128Field::from(2usize)).into(),
+                        )]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32),
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::Number(Bn128Field::from(2usize)).into(),
+                        )]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32),
+                ));
+
+                let e_constant_false = BooleanExpression::ArrayEq(EqExpression::new(
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::Number(Bn128Field::from(2usize)).into(),
+                        )]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32),
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::Number(Bn128Field::from(4usize)).into(),
+                        )]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32),
+                ));
+
+                let e_identifier_true: BooleanExpression<Bn128Field> =
+                    BooleanExpression::ArrayEq(EqExpression::new(
+                        ArrayExpressionInner::Identifier("a".into())
+                            .annotate(Type::FieldElement, 1u32),
+                        ArrayExpressionInner::Identifier("a".into())
+                            .annotate(Type::FieldElement, 1u32),
+                    ));
+
+                let e_identifier_unchanged: BooleanExpression<Bn128Field> =
+                    BooleanExpression::ArrayEq(EqExpression::new(
+                        ArrayExpressionInner::Identifier("a".into())
+                            .annotate(Type::FieldElement, 1u32),
+                        ArrayExpressionInner::Identifier("b".into())
+                            .annotate(Type::FieldElement, 1u32),
+                    ));
+
+                let e_non_canonical_true = BooleanExpression::ArrayEq(EqExpression::new(
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Spread(
+                            ArrayExpressionInner::Value(
+                                vec![TypedExpressionOrSpread::Expression(
+                                    FieldElementExpression::Number(Bn128Field::from(2usize)).into(),
+                                )]
+                                .into(),
+                            )
+                            .annotate(Type::FieldElement, 1u32)
+                            .into(),
+                        )
+                        .into()]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32),
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::Number(Bn128Field::from(2usize)).into(),
+                        )]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32),
+                ));
+
+                let e_non_canonical_false = BooleanExpression::ArrayEq(EqExpression::new(
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Spread(
+                            ArrayExpressionInner::Value(
+                                vec![TypedExpressionOrSpread::Expression(
+                                    FieldElementExpression::Number(Bn128Field::from(2usize)).into(),
+                                )]
+                                .into(),
+                            )
+                            .annotate(Type::FieldElement, 1u32)
+                            .into(),
+                        )
+                        .into()]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32),
+                    ArrayExpressionInner::Value(
+                        vec![TypedExpressionOrSpread::Expression(
+                            FieldElementExpression::Number(Bn128Field::from(4usize)).into(),
+                        )]
+                        .into(),
+                    )
+                    .annotate(Type::FieldElement, 1u32),
+                ));
+
+                assert_eq!(
+                    Propagator::with_constants(&mut Constants::new())
+                        .fold_boolean_expression(e_constant_true),
+                    Ok(BooleanExpression::Value(true))
+                );
+                assert_eq!(
+                    Propagator::with_constants(&mut Constants::new())
+                        .fold_boolean_expression(e_constant_false),
+                    Ok(BooleanExpression::Value(false))
+                );
+                assert_eq!(
+                    Propagator::with_constants(&mut Constants::new())
+                        .fold_boolean_expression(e_identifier_true),
+                    Ok(BooleanExpression::Value(true))
+                );
+                assert_eq!(
+                    Propagator::with_constants(&mut Constants::new())
+                        .fold_boolean_expression(e_identifier_unchanged.clone()),
+                    Ok(e_identifier_unchanged)
+                );
+                assert_eq!(
+                    Propagator::with_constants(&mut Constants::new())
+                        .fold_boolean_expression(e_non_canonical_true),
+                    Ok(BooleanExpression::Value(true))
+                );
+                assert_eq!(
+                    Propagator::with_constants(&mut Constants::new())
+                        .fold_boolean_expression(e_non_canonical_false),
                     Ok(BooleanExpression::Value(false))
                 );
             }

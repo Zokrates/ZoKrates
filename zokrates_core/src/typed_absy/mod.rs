@@ -910,6 +910,28 @@ impl<'ast, T> TypedExpressionListInner<'ast, T> {
         TypedExpressionList { inner: self, types }
     }
 }
+
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+pub struct EqExpression<E> {
+    pub left: Box<E>,
+    pub right: Box<E>,
+}
+
+impl<E> EqExpression<E> {
+    pub fn new(left: E, right: E) -> Self {
+        EqExpression {
+            left: box left,
+            right: box right,
+        }
+    }
+}
+
+impl<E: fmt::Display> fmt::Display for EqExpression<E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} == {}", self.left, self.right)
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct BlockExpression<'ast, T, E> {
     pub statements: Vec<TypedStatement<'ast, T>>,
@@ -1197,21 +1219,12 @@ pub enum BooleanExpression<'ast, T> {
     UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    FieldEq(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
-    BoolEq(
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
-    ),
-    ArrayEq(Box<ArrayExpression<'ast, T>>, Box<ArrayExpression<'ast, T>>),
-    StructEq(
-        Box<StructExpression<'ast, T>>,
-        Box<StructExpression<'ast, T>>,
-    ),
-    TupleEq(Box<TupleExpression<'ast, T>>, Box<TupleExpression<'ast, T>>),
-    UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    FieldEq(EqExpression<FieldElementExpression<'ast, T>>),
+    BoolEq(EqExpression<BooleanExpression<'ast, T>>),
+    ArrayEq(EqExpression<ArrayExpression<'ast, T>>),
+    StructEq(EqExpression<StructExpression<'ast, T>>),
+    TupleEq(EqExpression<TupleExpression<'ast, T>>),
+    UintEq(EqExpression<UExpression<'ast, T>>),
     Or(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
@@ -1263,7 +1276,7 @@ impl<'ast, T> IntoIterator for ArrayValue<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> ArrayValue<'ast, T> {
+impl<'ast, T: Field> ArrayValue<'ast, T> {
     fn expression_at_aux<
         U: Select<'ast, T> + From<TypedExpression<'ast, T>> + Into<TypedExpression<'ast, T>>,
     >(
@@ -1680,12 +1693,12 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::ArrayEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::StructEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::TupleEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::FieldEq(ref e) => write!(f, "{}", e),
+            BooleanExpression::BoolEq(ref e) => write!(f, "{}", e),
+            BooleanExpression::ArrayEq(ref e) => write!(f, "{}", e),
+            BooleanExpression::StructEq(ref e) => write!(f, "{}", e),
+            BooleanExpression::TupleEq(ref e) => write!(f, "{}", e),
+            BooleanExpression::UintEq(ref e) => write!(f, "{}", e),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
@@ -1780,7 +1793,7 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 
 // Common behaviour across expressions
 
-pub trait Expr<'ast, T>: From<TypedExpression<'ast, T>> {
+pub trait Expr<'ast, T>: fmt::Display + From<TypedExpression<'ast, T>> {
     type Inner;
     type Ty: Clone + IntoTypes<'ast, T>;
 
@@ -1793,7 +1806,7 @@ pub trait Expr<'ast, T>: From<TypedExpression<'ast, T>> {
     fn as_inner_mut(&mut self) -> &mut Self::Inner;
 }
 
-impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
+impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
 
@@ -1814,7 +1827,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
+impl<'ast, T: Field> Expr<'ast, T> for BooleanExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
 
@@ -1835,7 +1848,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Expr<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
     type Inner = UExpressionInner<'ast, T>;
     type Ty = UBitwidth;
 
@@ -1856,7 +1869,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Expr<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Field> Expr<'ast, T> for StructExpression<'ast, T> {
     type Inner = StructExpressionInner<'ast, T>;
     type Ty = StructType<'ast, T>;
 
@@ -1877,7 +1890,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for StructExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
+impl<'ast, T: Field> Expr<'ast, T> for ArrayExpression<'ast, T> {
     type Inner = ArrayExpressionInner<'ast, T>;
     type Ty = ArrayType<'ast, T>;
 
@@ -1898,7 +1911,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for ArrayExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Expr<'ast, T> for TupleExpression<'ast, T> {
+impl<'ast, T: Field> Expr<'ast, T> for TupleExpression<'ast, T> {
     type Inner = TupleExpressionInner<'ast, T>;
     type Ty = TupleType<'ast, T>;
 
@@ -1919,7 +1932,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for TupleExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
+impl<'ast, T: Field> Expr<'ast, T> for IntExpression<'ast, T> {
     type Inner = Self;
     type Ty = Type<'ast, T>;
 
@@ -1940,7 +1953,7 @@ impl<'ast, T: Clone> Expr<'ast, T> for IntExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Expr<'ast, T> for TypedExpressionList<'ast, T> {
+impl<'ast, T: Field> Expr<'ast, T> for TypedExpressionList<'ast, T> {
     type Inner = TypedExpressionListInner<'ast, T>;
     type Ty = Types<'ast, T>;
 
@@ -1970,6 +1983,11 @@ pub enum FunctionCallOrExpression<'ast, T, E: Expr<'ast, T>> {
 pub enum SelectOrExpression<'ast, T, E: Expr<'ast, T>> {
     Select(SelectExpression<'ast, T, E>),
     Expression(E::Inner),
+}
+
+pub enum EqOrBoolean<'ast, T, E> {
+    Eq(EqExpression<E>),
+    Boolean(BooleanExpression<'ast, T>),
 }
 
 pub enum MemberOrExpression<'ast, T, E: Expr<'ast, T>> {
@@ -2140,7 +2158,7 @@ impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Clone> Select<'ast, T> for TypedExpression<'ast, T> {
+impl<'ast, T: Field> Select<'ast, T> for TypedExpression<'ast, T> {
     fn select<I: Into<UExpression<'ast, T>>>(array: ArrayExpression<'ast, T>, index: I) -> Self {
         match *array.ty().ty {
             Type::Array(..) => ArrayExpression::select(array, index).into(),

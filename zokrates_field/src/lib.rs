@@ -53,11 +53,14 @@ pub trait Field:
     'static
     + Sync
     + Send
+    + From<u128>
+    + From<u64>
+    + From<u32>
+    + From<u16>
+    + From<u8>
+    + From<usize>
     + From<bool>
     + From<i32>
-    + From<u32>
-    + From<usize>
-    + From<u128>
     + TryFrom<BigUint, Error = ()>
     + Zero
     + One
@@ -266,30 +269,32 @@ mod prime_field {
                 }
             }
 
-            impl From<i32> for FieldPrime {
-                fn from(num: i32) -> Self {
-                    if num < 0 {
-                        FieldPrime {
-                            v: -Fr::from((-num) as u32),
-                        }
-                    } else {
-                        FieldPrime {
-                            v: Fr::from(num as u32),
-                        }
-                    }
+            impl From<u128> for FieldPrime {
+                fn from(num: u128) -> Self {
+                    FieldPrime { v: Fr::from(num) }
                 }
             }
 
-            impl From<bool> for FieldPrime {
-                fn from(num: bool) -> Self {
-                    FieldPrime {
-                        v: Fr::from(num as u32),
-                    }
+            impl From<u64> for FieldPrime {
+                fn from(num: u64) -> Self {
+                    FieldPrime { v: Fr::from(num) }
                 }
             }
 
             impl From<u32> for FieldPrime {
                 fn from(num: u32) -> Self {
+                    FieldPrime { v: Fr::from(num) }
+                }
+            }
+
+            impl From<u16> for FieldPrime {
+                fn from(num: u16) -> Self {
+                    FieldPrime { v: Fr::from(num) }
+                }
+            }
+
+            impl From<u8> for FieldPrime {
+                fn from(num: u8) -> Self {
                     FieldPrime { v: Fr::from(num) }
                 }
             }
@@ -302,9 +307,23 @@ mod prime_field {
                 }
             }
 
-            impl From<u128> for FieldPrime {
-                fn from(num: u128) -> Self {
-                    FieldPrime { v: Fr::from(num) }
+            impl From<bool> for FieldPrime {
+                fn from(b: bool) -> Self {
+                    FieldPrime { v: Fr::from(b) }
+                }
+            }
+
+            impl From<i32> for FieldPrime {
+                fn from(num: i32) -> Self {
+                    if num < 0 {
+                        FieldPrime {
+                            v: -Fr::from((-num) as u32),
+                        }
+                    } else {
+                        FieldPrime {
+                            v: Fr::from(num as u32),
+                        }
+                    }
                 }
             }
 

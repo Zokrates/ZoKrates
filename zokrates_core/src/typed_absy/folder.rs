@@ -352,6 +352,13 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_element_expression(self, ty, e)
     }
 
+    fn fold_eq_expression<E: Expr<'ast, T> + PartialEq + Constant + Fold<'ast, T>>(
+        &mut self,
+        e: EqExpression<E>,
+    ) -> EqOrBoolean<'ast, T, E> {
+        fold_eq_expression(self, e)
+    }
+
     fn fold_function_call_expression<
         E: Id<'ast, T> + From<TypedExpression<'ast, T>> + Expr<'ast, T> + FunctionCall<'ast, T>,
     >(
@@ -778,6 +785,13 @@ pub fn fold_element_expression<
     ))
 }
 
+pub fn fold_eq_expression<'ast, T: Field, E: Fold<'ast, T>, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: EqExpression<E>,
+) -> EqOrBoolean<'ast, T, E> {
+    EqOrBoolean::Eq(EqExpression::new(e.left.fold(f), e.right.fold(f)))
+}
+
 pub fn fold_select_expression<
     'ast,
     T: Field,
@@ -808,39 +822,33 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     use BooleanExpression::*;
 
     match e {
-        Block(block) => Block(f.fold_block_expression(block)),
-        Value(v) => Value(v),
-        Identifier(id) => Identifier(f.fold_name(id)),
-        FieldEq(box e1, box e2) => {
-            let e1 = f.fold_field_expression(e1);
-            let e2 = f.fold_field_expression(e2);
-            FieldEq(box e1, box e2)
-        }
-        BoolEq(box e1, box e2) => {
-            let e1 = f.fold_boolean_expression(e1);
-            let e2 = f.fold_boolean_expression(e2);
-            BoolEq(box e1, box e2)
-        }
-        ArrayEq(box e1, box e2) => {
-            let e1 = f.fold_array_expression(e1);
-            let e2 = f.fold_array_expression(e2);
-            ArrayEq(box e1, box e2)
-        }
-        StructEq(box e1, box e2) => {
-            let e1 = f.fold_struct_expression(e1);
-            let e2 = f.fold_struct_expression(e2);
-            StructEq(box e1, box e2)
-        }
-        TupleEq(box e1, box e2) => {
-            let e1 = f.fold_tuple_expression(e1);
-            let e2 = f.fold_tuple_expression(e2);
-            TupleEq(box e1, box e2)
-        }
-        UintEq(box e1, box e2) => {
-            let e1 = f.fold_uint_expression(e1);
-            let e2 = f.fold_uint_expression(e2);
-            UintEq(box e1, box e2)
-        }
+        Block(block) => BooleanExpression::Block(f.fold_block_expression(block)),
+        Value(v) => BooleanExpression::Value(v),
+        Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)),
+        FieldEq(e) => match f.fold_eq_expression(e) {
+            EqOrBoolean::Eq(e) => BooleanExpression::FieldEq(e),
+            EqOrBoolean::Boolean(u) => u,
+        },
+        BoolEq(e) => match f.fold_eq_expression(e) {
+            EqOrBoolean::Eq(e) => BooleanExpression::BoolEq(e),
+            EqOrBoolean::Boolean(u) => u,
+        },
+        ArrayEq(e) => match f.fold_eq_expression(e) {
+            EqOrBoolean::Eq(e) => BooleanExpression::ArrayEq(e),
+            EqOrBoolean::Boolean(u) => u,
+        },
+        StructEq(e) => match f.fold_eq_expression(e) {
+            EqOrBoolean::Eq(e) => BooleanExpression::StructEq(e),
+            EqOrBoolean::Boolean(u) => u,
+        },
+        TupleEq(e) => match f.fold_eq_expression(e) {
+            EqOrBoolean::Eq(e) => BooleanExpression::TupleEq(e),
+            EqOrBoolean::Boolean(u) => u,
+        },
+        UintEq(e) => match f.fold_eq_expression(e) {
+            EqOrBoolean::Eq(e) => BooleanExpression::UintEq(e),
+            EqOrBoolean::Boolean(u) => u,
+        },
         FieldLt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);

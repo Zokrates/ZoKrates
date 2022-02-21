@@ -1,0 +1,1 @@
+Fix encoding issue causing invalid values on u64 inputs in js environment
