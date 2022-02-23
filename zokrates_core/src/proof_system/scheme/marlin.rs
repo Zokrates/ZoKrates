@@ -30,6 +30,8 @@ pub struct KZGVerifierKey<G1, G2> {
 
 #[derive(Serialize, Deserialize)]
 pub struct VerificationKey<G1, G2> {
+    // Fiat-Shamir initial seed
+    pub fs_seed: Vec<u8>,
     // index_info
     pub num_variables: usize,
     pub num_constraints: usize,
@@ -91,6 +93,27 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
                     }
                 }
                 populate_degree_bounds
+            })
+            .replace("<%fs_init_seed_len%>", &(vk.fs_seed.len() / 32).to_string())
+            .replace("<%fs_init_seed_overflow_len%>", &{
+                let seed_len_in_32_byte_words = vk.fs_seed.len() / 32;
+                let seed_len_overflow_in_bytes = vk.fs_seed.len() - (seed_len_in_32_byte_words * 32);
+                seed_len_overflow_in_bytes.to_string()
+            })
+            .replace("<%fs_populate_init_seed%>", &{
+                let mut populate_init_seed = String::new();
+                for i in 0..vk.fs_seed.len() / 32 {
+                    let word_32_bytes = hex::encode(&vk.fs_seed[i*32..i*32 + 32]);
+                    populate_init_seed.push_str(&format!("init_seed[{}] = 0x{};", i, &word_32_bytes));
+                    if i < vk.fs_seed.len() / 32 - 1 {
+                        populate_init_seed.push_str("\n            ");
+                    }
+                }
+                populate_init_seed
+            })
+            .replace("<%fs_init_seed_overflow%>", &{
+                let seed_len_in_32_byte_words = vk.fs_seed.len() / 32;
+                format!("0x{}", hex::encode(&vk.fs_seed[seed_len_in_32_byte_words * 32..]))
             });
 
 
@@ -153,13 +176,41 @@ contract Verifier {
         vk.degree_shifted_powers = new Pairing.G1Point[](<%vk_degree_bounds_length%>);
         <%vk_populate_degree_bounds%>
     }
-    function verify(uint[] memory input, Proof memory proof) public view returns (uint) {
+    function verify(uint256[] memory input, Proof memory proof) public view returns (bytes32) {
         uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifierKey memory vk = verifierKey();
         for (uint i = 0; i < input.length; i++) {
             require(input[i] < snark_scalar_field);
         }
-        return 0;
+        bytes32 fs_seed;
+        {
+            bytes32[<%fs_init_seed_len%>] memory init_seed;
+            <%fs_populate_init_seed%>
+            bytes<%fs_init_seed_overflow_len%> init_seed_overflow = <%fs_init_seed_overflow%>;
+            uint256[] memory input_reverse = new uint256[](input.length);
+            for (uint i = 0; i < input.length; i++) {
+                input_reverse[i] = be_to_le(input[i]);
+            }
+            fs_seed = keccak256(abi.encodePacked(init_seed, init_seed_overflow, input_reverse));
+        }
+        return fs_seed;
+    }
+    function be_to_le(uint256 input) internal pure returns (uint256 v) {
+        v = input;
+        // swap bytes
+        v = ((v & 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00) >> 8) |
+            ((v & 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF) << 8);
+        // swap 2-byte long pairs
+        v = ((v & 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000) >> 16) |
+            ((v & 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF) << 16);
+        // swap 4-byte long pairs
+        v = ((v & 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000) >> 32) |
+            ((v & 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF) << 32);
+        // swap 8-byte long pairs
+        v = ((v & 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000) >> 64) |
+            ((v & 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF) << 64);
+        // swap 16-byte long pairs
+        v = (v >> 128) | (v << 128);
     }
 }
 "#;
@@ -294,6 +345,7 @@ mod tests {
         //assert!(ans);
 
         let mut src = <Marlin as SolidityCompatibleScheme<Bn128Field>>::export_solidity_verifier(keypair.vk);
+        //println!("{}", &src);
         src = src.replace("\"", "\\\"");
 
         let solc_config = r#"

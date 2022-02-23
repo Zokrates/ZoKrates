@@ -1,12 +1,14 @@
 use ark_marlin::{
     ahp::indexer::IndexInfo, ahp::prover::ProverMsg, IndexProverKey, IndexVerifierKey,
     Proof as ArkProof,
+    rng::FiatShamirRng,
 };
 
 use ark_marlin::Marlin as ArkMarlin;
 
+use ark_ff::{ToBytes, FromBytes, to_bytes};
 use ark_ec::PairingEngine;
-use ark_poly::univariate::DensePolynomial;
+use ark_poly::{univariate::DensePolynomial, GeneralEvaluationDomain, EvaluationDomain};
 use ark_poly_commit::{
     data_structures::BatchLCProof,
     kzg10::Commitment as KZG10Commitment,
@@ -15,8 +17,11 @@ use ark_poly_commit::{
     marlin_pc::{Commitment, MarlinKZG10, VerifierKey},
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use sha2::Sha256;
-use rand_0_8::SeedableRng;
+use sha3::Keccak256;
+use rand_0_8::{SeedableRng, RngCore, Error};
+use num::Zero;
+use digest::Digest;
+use std::marker::PhantomData;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
@@ -30,19 +35,79 @@ use crate::proof_system::{Backend, Proof, SetupKeypair, UniversalBackend};
 
 const MINIMUM_CONSTRAINT_COUNT: usize = 2;
 
+/// Simple hash-based Fiat-Shamir RNG that allows for efficient solidity verification.
+pub struct HashFiatShamirRng<D: Digest> {
+    seed: [u8; 32],
+    ctr: u32,
+    digest: PhantomData<D>,
+}
+
+impl<D: Digest> RngCore for HashFiatShamirRng<D> {
+    fn next_u32(&mut self) -> u32 {
+        let mut bytes = [0; 4];
+        self.fill_bytes(&mut bytes);
+        u32::from_be_bytes(bytes)
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        let mut bytes = [0; 8];
+        self.fill_bytes(&mut bytes);
+        u64::from_be_bytes(bytes)
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        let bytes_per_hash = D::output_size();
+        let n_hashes = (dest.len() - 1) / bytes_per_hash + 1;
+        let mut seed_ctr = self.seed.to_vec();
+        for i in 0..n_hashes {
+            seed_ctr.extend_from_slice(&self.ctr.to_be_bytes());
+            let h = D::digest(&seed_ctr);
+            let len = dest.len();
+            if i*bytes_per_hash + bytes_per_hash >= len {
+                dest[i * bytes_per_hash..].copy_from_slice(&h.as_slice()[..len - i*bytes_per_hash]);
+            } else {
+                dest[i * bytes_per_hash..i * bytes_per_hash + bytes_per_hash].copy_from_slice(h.as_slice());
+            }
+            self.ctr += 1;
+            seed_ctr.truncate(seed_ctr.len() - 4);
+        }
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        Ok(self.fill_bytes(dest))
+    }
+}
+
+impl<D: Digest> FiatShamirRng for HashFiatShamirRng<D> {
+    fn initialize<'a, T: 'a + ToBytes>(initial_input: &'a T) -> Self {
+        let mut bytes = Vec::new();
+        initial_input.write(&mut bytes).expect("failed to convert to bytes");
+        let seed = FromBytes::read(D::digest(&bytes).as_ref()).expect("failed to get [u8; 32]");
+        Self {
+            seed: seed,
+            ctr: 0,
+            digest: PhantomData,
+        }
+    }
+
+    fn absorb<'a, T: 'a + ToBytes>(&mut self, new_input: &'a T) {
+        let mut bytes = Vec::new();
+        new_input.write(&mut bytes).expect("failed to convert to bytes");
+        bytes.extend_from_slice(&self.seed);
+        self.seed = FromBytes::read(D::digest(&bytes).as_ref()).expect("failed to get [u8; 32]");
+        self.ctr = 0;
+    }
+}
+
+type PCInst<T> = MarlinKZG10<<T as ArkFieldExtensions>::ArkEngine, DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>>;
+type MarlinInst<T> = ArkMarlin<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr, PCInst<T>, HashFiatShamirRng<Keccak256>>;
+
 impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark {
     fn universal_setup(size: u32) -> Vec<u8> {
 
         let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
-        let srs = ArkMarlin::<
-            <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
-            MarlinKZG10<
-                T::ArkEngine,
-                DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
-            >,
-            Sha256,
-        >::universal_setup(
+        let srs = MarlinInst::<T>::universal_setup(
             2usize.pow(size), 2usize.pow(size), 2usize.pow(size), rng
         )
         .unwrap();
@@ -75,14 +140,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         >::deserialize(&mut srs.as_slice())
         .unwrap();
 
-        let (pk, vk) = ArkMarlin::<
-            <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
-            MarlinKZG10<
-                T::ArkEngine,
-                DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
-            >,
-            Sha256,
-        >::index(&srs, computation)
+        let (pk, vk) = MarlinInst::<T>::index(&srs, computation)
         .map_err(|e| match e {
             ark_marlin::Error::IndexTooLarge => String::from("The universal setup is too small for this program, please provide a larger universal setup"),
             _ => String::from("Unknown error specializing the universal setup for this program")
@@ -90,9 +148,11 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 
         let mut serialized_pk: Vec<u8> = Vec::new();
         pk.serialize_uncompressed(&mut serialized_pk).unwrap();
+        let fs_seed = to_bytes![&MarlinInst::<T>::PROTOCOL_NAME, &vk].unwrap();
 
         Ok(SetupKeypair::new(
             VerificationKey {
+                fs_seed: fs_seed,
                 index_comms: vk
                     .index_comms
                     .into_iter()
@@ -142,20 +202,19 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
         >::deserialize_uncompressed(&mut proving_key.as_slice())
         .unwrap();
 
-        let inputs = computation
-            .public_inputs_values()
+        let mut public_inputs = computation.public_inputs_values();
+        let domain_x = GeneralEvaluationDomain::<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>::new(public_inputs.len() + 1).unwrap();
+        public_inputs.resize(
+            core::cmp::max(public_inputs.len(), domain_x.size() - 1),
+            <<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>::zero(),
+        );
+
+        let inputs = public_inputs
             .iter()
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        let proof = ArkMarlin::<
-            <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
-            MarlinKZG10<
-                T::ArkEngine,
-                DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
-            >,
-            Sha256,
-        >::prove(&pk, computation, rng)
+        let proof = MarlinInst::<T>::prove(&pk, computation, rng)
         .unwrap();
 
         let mut serialized_proof: Vec<u8> = Vec::new();
@@ -299,14 +358,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
-        ArkMarlin::<
-            <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
-            MarlinKZG10<
-                T::ArkEngine,
-                DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
-            >,
-            Sha256,
-        >::verify(&vk, &inputs, &proof, rng)
+        MarlinInst::<T>::verify(&vk, &inputs, &proof, rng)
         .unwrap()
     }
 }

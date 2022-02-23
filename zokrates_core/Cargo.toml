@@ -13,7 +13,7 @@ libsnark = ["cc", "cmake", "git2"]
 bellman = ["bellman_ce", "pairing_ce", "ff_ce", "zokrates_field/bellman"]
 wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
 multicore = ["bellman_ce/multicore", "phase2/multicore"]
-ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-groth16", "ark-crypto-primitives", "ark-serialize", "ark-relations", "ark-marlin", "ark-poly", "ark-poly-commit", "sha2"]
+ark = ["ark-ff", "ark-ec", "ark-bn254", "ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-groth16", "ark-crypto-primitives", "ark-serialize", "ark-relations", "ark-marlin", "ark-poly", "ark-poly-commit", "sha3", "digest" ]
 
 [dependencies]
 log = "0.4"
@@ -54,11 +54,12 @@ ark-gm17 = { version = "^0.3.0", default-features = false, optional = true }
 ark-groth16 = { version = "^0.3.0", default-features = false, optional = true }
 ark-serialize = { version = "^0.3.0", default-features = false, optional = true }
 ark-relations = { version = "^0.3.0", default-features = false, optional = true }
-ark-marlin = { git = "https://github.com/nirvantyagi/marlin", branch = "master", default-features = false, optional = true }
+ark-marlin = { git = "https://github.com/nirvantyagi/marlin", branch = "zokrates-marlin", features = ["std"], default-features = false, optional = true }
 ark-poly = { version = "^0.3.0", default-features = false, optional = true }
 ark-poly-commit = { version = "^0.3.0", default-features = false, optional = true }
 ark-crypto-primitives = { version = "^0.3.0", default-features = false, optional = true }
-sha2 = { version = "0.9.3", optional = true }
+sha3 = { version = "0.9", optional = true }
+digest = { version = "0.9", optional = true }
 
 [dev-dependencies]
 wasm-bindgen-test = "^0.3.0"
