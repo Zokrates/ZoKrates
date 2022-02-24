@@ -114,10 +114,30 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
             .replace("<%fs_init_seed_overflow%>", &{
                 let seed_len_in_32_byte_words = vk.fs_seed.len() / 32;
                 format!("0x{}", hex::encode(&vk.fs_seed[seed_len_in_32_byte_words * 32..]))
-            });
+            })
+            .replace("<%h_domain_size%>", &{
+                let size = if vk.num_constraints.is_power_of_two() {
+                    vk.num_constraints as u64
+                } else {
+                    vk.num_constraints.next_power_of_two() as u64
+                };
+                size.to_string()
+            })
+            .replace("<%k_domain_size%>", &{
+                let size = if vk.num_non_zero.is_power_of_two() {
+                    vk.num_non_zero as u64
+                } else {
+                    vk.num_non_zero.next_power_of_two() as u64
+                };
+                size.to_string()
+            })
+            .replace("<%f_mod%>", "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001")
+            .replace("<%f_r2%>", "0x0216d0b17f4e44a58c49833d53bb808553fe3ab1e35c59e31bb8e645ae216da7")
+            .replace("<%f_r%>", "0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb")
+            .replace("<%f_inv%>", "0xc2e1f593efffffff");
 
 
-        format!(
+            format!(
             "{}{}",
             solidity_pairing_lib, src
         )
@@ -176,13 +196,13 @@ contract Verifier {
         vk.degree_shifted_powers = new Pairing.G1Point[](<%vk_degree_bounds_length%>);
         <%vk_populate_degree_bounds%>
     }
-    function verify(uint256[] memory input, Proof memory proof) public view returns (bytes32) {
-        uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+    function verify(uint256[] memory input, Proof memory proof) public view returns (uint256) {
         VerifierKey memory vk = verifierKey();
         for (uint i = 0; i < input.length; i++) {
-            require(input[i] < snark_scalar_field);
+            require(input[i] < <%f_mod%>);
         }
         bytes32 fs_seed;
+        uint32 ctr;
         {
             bytes32[<%fs_init_seed_len%>] memory init_seed;
             <%fs_populate_init_seed%>
@@ -193,7 +213,126 @@ contract Verifier {
             }
             fs_seed = keccak256(abi.encodePacked(init_seed, init_seed_overflow, input_reverse));
         }
-        return fs_seed;
+        {
+            ctr = 0;
+            uint8 one = 1;
+            uint8 zero = 0;
+            uint256[2] memory empty = [0, be_to_le(1)];
+            fs_seed = keccak256(abi.encodePacked(
+                    abi.encodePacked(
+                        be_to_le(proof.comms_1[0].X), be_to_le(proof.comms_1[0].Y), zero,
+                        zero,
+                        empty, one
+                    ),
+                    abi.encodePacked(
+                        be_to_le(proof.comms_1[1].X), be_to_le(proof.comms_1[1].Y), zero,
+                        zero,
+                        empty, one
+                    ),
+                    abi.encodePacked(
+                        be_to_le(proof.comms_1[2].X), be_to_le(proof.comms_1[2].Y), zero,
+                        zero,
+                        empty, one
+                    ),
+                    abi.encodePacked(
+                        be_to_le(proof.comms_1[3].X), be_to_le(proof.comms_1[3].Y), zero,
+                        zero,
+                        empty, one
+                    ),
+                    fs_seed
+            ));
+        }
+        uint256[7] memory challenges;
+        {
+            uint256 f;
+            (f, ctr) = sample_field(fs_seed, ctr);
+            while (expmod(f, <%h_domain_size%>, <%f_mod%>) == 0) {
+                (f, ctr) = sample_field(fs_seed, ctr);
+            }
+            challenges[0] = f;
+            (f, ctr) = sample_field(fs_seed, ctr);
+            challenges[1] = f;
+            (f, ctr) = sample_field(fs_seed, ctr);
+            challenges[2] = f;
+            (f, ctr) = sample_field(fs_seed, ctr);
+            challenges[3] = f;
+        }
+        //return montgomery_reduction(challenges[0]);
+        {
+            ctr = 0;
+            uint8 one = 1;
+            uint8 zero = 0;
+            uint256[2] memory empty = [0, be_to_le(1)];
+            fs_seed = keccak256(abi.encodePacked(
+                    abi.encodePacked(
+                        be_to_le(proof.comms_2[0].X), be_to_le(proof.comms_2[0].Y), zero,
+                        zero,
+                        empty, one
+                    ),
+                    abi.encodePacked(
+                        be_to_le(proof.comms_2[1].X), be_to_le(proof.comms_2[1].Y), zero,
+                        one,
+                        be_to_le(proof.degree_bound_comms_2_g1.X), be_to_le(proof.degree_bound_comms_2_g1.Y), zero
+                    ),
+                    abi.encodePacked(
+                        be_to_le(proof.comms_2[2].X), be_to_le(proof.comms_2[2].Y), zero,
+                        zero,
+                        empty, one
+                    ),
+                    fs_seed
+            ));
+        }
+        //return fs_seed;
+        {
+            uint256 f;
+            (f, ctr) = sample_field(fs_seed, ctr);
+            while (expmod(f, <%h_domain_size%>, <%f_mod%>) == 0) {
+                (f, ctr) = sample_field(fs_seed, ctr);
+            }
+            challenges[4] = f;
+        }
+        //return montgomery_reduction(challenges[4]);
+        {
+            ctr = 0;
+            uint8 one = 1;
+            uint8 zero = 0;
+            uint256[2] memory empty = [0, be_to_le(1)];
+            fs_seed = keccak256(abi.encodePacked(
+                    abi.encodePacked(
+                        be_to_le(proof.comms_3[0].X), be_to_le(proof.comms_3[0].Y), zero,
+                        one,
+                        be_to_le(proof.degree_bound_comms_3_g2.X), be_to_le(proof.degree_bound_comms_3_g2.Y), zero
+                    ),
+                    abi.encodePacked(
+                        be_to_le(proof.comms_3[1].X), be_to_le(proof.comms_3[1].Y), zero,
+                        zero,
+                        empty, one
+                    ),
+                    fs_seed
+            ));
+        }
+        //return fs_seed;
+        {
+            uint256 f;
+            (f, ctr) = sample_field(fs_seed, ctr);
+            challenges[5] = f;
+        }
+        //return montgomery_reduction(challenges[5]);
+        {
+            ctr = 0;
+            uint256[] memory evals_reverse = new uint256[](proof.evals.length);
+            for (uint i = 0; i < proof.evals.length; i++) {
+                evals_reverse[i] = be_to_le(proof.evals[i]);
+            }
+            fs_seed = keccak256(abi.encodePacked(evals_reverse, fs_seed));
+        }
+        //return fs_seed;
+        {
+            uint256 f;
+            (f, ctr) = sample_field_128(fs_seed, ctr);
+            challenges[6] = from_montgomery_reduction(f);
+        }
+        return montgomery_reduction(challenges[6]);
     }
     function be_to_le(uint256 input) internal pure returns (uint256 v) {
         v = input;
@@ -211,6 +350,86 @@ contract Verifier {
             ((v & 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF) << 64);
         // swap 16-byte long pairs
         v = (v >> 128) | (v << 128);
+    }
+    function sample_field(bytes32 fs_seed, uint32 ctr) internal pure returns (uint256, uint32) {
+        // https://github.com/arkworks-rs/algebra/blob/master/ff/src/fields/models/fp/mod.rs#L561
+        while (true) {
+            uint256 v;
+            for (uint i = 0; i < 4; i++) {
+                v |= (uint256(keccak256(abi.encodePacked(fs_seed, ctr))) & uint256(0xFFFFFFFFFFFFFFFF)) << ((3-i) * 64);
+                ctr += 1;
+            }
+            v = be_to_le(v);
+            v &= (1 << 254) - 1;
+            if (v < <%f_mod%>) {
+                return (v, ctr);
+            }
+        }
+    }
+    function sample_field_128(bytes32 fs_seed, uint32 ctr) internal pure returns (uint256, uint32) {
+        // https://github.com/arkworks-rs/algebra/blob/master/ff/src/fields/models/fp/mod.rs#L561
+        uint256 v;
+        for (uint i = 0; i < 2; i++) {
+            v |= (uint256(keccak256(abi.encodePacked(fs_seed, ctr))) & uint256(0xFFFFFFFFFFFFFFFF)) << ((3-i) * 64);
+            ctr += 1;
+        }
+        v = be_to_le(v);
+        return (v, ctr);
+    }
+    function montgomery_reduction(uint256 r) internal pure returns (uint256 v) {
+        uint256[4] memory limbs;
+        uint256[4] memory mod_limbs;
+        for (uint i = 0; i < 4; i++) {
+            limbs[i] = (r >> (i * 64)) & uint256(0xFFFFFFFFFFFFFFFF);
+            mod_limbs[i] = (<%f_mod%> >> (i * 64)) & uint256(0xFFFFFFFFFFFFFFFF);
+        }
+        // Montgomery Reduction
+        for (uint i = 0; i < 4; i++) {
+            uint256 k = mulmod(limbs[i], <%f_inv%>, 1 << 64);
+            uint256 carry = 0;
+            carry = (limbs[i] + (k * mod_limbs[0]) + carry) >> 64;
+
+            for (uint j = 0; j < 4; j++) {
+                uint256 tmp = limbs[(i + j) % 4] + (k * mod_limbs[j]) + carry;
+                limbs[(i + j) % 4] = tmp & uint256(0xFFFFFFFFFFFFFFFF);
+                carry = tmp >> 64;
+            }
+            limbs[i % 4] = carry;
+        }
+        for (uint i = 0; i < 4; i++) {
+            v |= (limbs[i] & uint256(0xFFFFFFFFFFFFFFFF)) << (i * 64);
+        }
+    }
+    function from_montgomery_reduction(uint256 r) internal view returns (uint256) {
+        if (r == 0) {
+            return 0;
+        } else {
+            return mulmod(r, <%f_r%>, <%f_mod%>);
+        }
+    }
+    function submod(uint256 a, uint256 b, uint256 n) internal pure returns (uint256) {
+        return addmod(a, n - b, n);
+    }
+    function expmod(uint256 _base, uint256 _exponent, uint256 _modulus) internal view returns (uint256 retval){
+        bool success;
+        uint256[1] memory output;
+        uint[6] memory input;
+        input[0] = 0x20;        // baseLen = new(big.Int).SetBytes(getData(input, 0, 32))
+        input[1] = 0x20;        // expLen  = new(big.Int).SetBytes(getData(input, 32, 32))
+        input[2] = 0x20;        // modLen  = new(big.Int).SetBytes(getData(input, 64, 32))
+        input[3] = _base;
+        input[4] = _exponent;
+        input[5] = _modulus;
+        assembly {
+            success := staticcall(sub(gas(), 2000), 5, input, 0xc0, output, 0x20)
+        // Use "invalid" to make gas estimation work
+            switch success case 0 { invalid() }
+        }
+        require(success);
+        return output[0];
+    }
+    function inverse(uint256 a) internal view returns (uint256){
+        return expmod(a, <%f_mod%> - 2, <%f_mod%>);
     }
 }
 "#;
