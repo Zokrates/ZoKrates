@@ -6,7 +6,7 @@ use ark_marlin::{
 
 use ark_marlin::Marlin as ArkMarlin;
 
-use ark_ff::{ToBytes, FromBytes, to_bytes, PrimeField, FpParameters, BigInteger};
+use ark_ff::{FftField, ToBytes, FromBytes, to_bytes, PrimeField, FpParameters, BigInteger};
 use ark_ec::PairingEngine;
 use ark_poly::{univariate::DensePolynomial, GeneralEvaluationDomain, EvaluationDomain};
 use ark_poly_commit::{
@@ -21,7 +21,10 @@ use sha3::Keccak256;
 use rand_0_8::{SeedableRng, RngCore, Error};
 use num::Zero;
 use digest::Digest;
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+    convert::TryFrom,
+};
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
@@ -53,7 +56,7 @@ impl<D: Digest> RngCore for HashFiatShamirRng<D> {
     fn next_u64(&mut self) -> u64 {
         let mut bytes = [0; 8];
         self.fill_bytes(&mut bytes);
-        println!("next_u64: {:?}", &bytes);
+        //println!("next_u64: {:?}", &bytes);
         u64::from_be_bytes(bytes)
     }
 
@@ -153,11 +156,16 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
 
         let mut serialized_pk: Vec<u8> = Vec::new();
         pk.serialize_uncompressed(&mut serialized_pk).unwrap();
+
+        // Precompute some useful values for solidity contract
         let fs_seed = to_bytes![&MarlinInst::<T>::PROTOCOL_NAME, &vk].unwrap();
+        let x_root_of_unity = <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr::get_root_of_unity(usize::try_from(vk.index_info.num_instance_variables).unwrap()).unwrap();
+        println!("x_root_of_unity: {:?}", ark_ff::to_bytes![&x_root_of_unity]);
 
         Ok(SetupKeypair::new(
             VerificationKey {
                 fs_seed: fs_seed,
+                x_root_of_unity: parse_fr::<T>(&x_root_of_unity),
                 index_comms: vk
                     .index_comms
                     .into_iter()
@@ -221,6 +229,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         let proof = MarlinInst::<T>::prove(&pk, computation, rng)
         .unwrap();
+        MarlinInst::<T>::verify(&pk.index_vk, &public_inputs, &proof, rng).unwrap();
 
         let mut serialized_proof: Vec<u8> = Vec::new();
         proof.serialize_uncompressed(&mut serialized_proof).unwrap();

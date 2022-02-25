@@ -1,5 +1,5 @@
 use crate::proof_system::scheme::{Scheme, UniversalScheme};
-use crate::proof_system::{G1Affine, G2Affine, NotBw6_761Field};
+use crate::proof_system::{G1Affine, G2Affine, Fr, NotBw6_761Field};
 use crate::proof_system::solidity::{SolidityCompatibleScheme, SolidityCompatibleField, solidity_pairing_lib};
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
@@ -29,9 +29,10 @@ pub struct KZGVerifierKey<G1, G2> {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct VerificationKey<G1, G2> {
-    // Fiat-Shamir initial seed
+pub struct VerificationKey<Fr, G1, G2> {
+    // Useful values to precompute for solidity contract
     pub fs_seed: Vec<u8>,
+    pub x_root_of_unity: Fr,
     // index_info
     pub num_variables: usize,
     pub num_constraints: usize,
@@ -47,7 +48,7 @@ pub struct VerificationKey<G1, G2> {
 }
 
 impl<T: Field> Scheme<T> for Marlin {
-    type VerificationKey = VerificationKey<G1Affine, G2Affine>;
+    type VerificationKey = VerificationKey<Fr, G1Affine, G2Affine>;
     type ProofPoints = ProofPoints<T, G1Affine>;
 }
 
@@ -131,6 +132,17 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
                 };
                 size.to_string()
             })
+            .replace("<%x_domain_size%>", &{
+                let x = vk.num_instance_variables;
+                println!("x: {}", x);
+                let size = if x.is_power_of_two() {
+                    x as u64
+                } else {
+                    x.next_power_of_two() as u64
+                };
+                size.to_string()
+            })
+            .replace("<%x_root%>", &vk.x_root_of_unity.to_string())
             .replace("<%f_mod%>", "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001")
             .replace("<%f_r2%>", "0x0216d0b17f4e44a58c49833d53bb808553fe3ab1e35c59e31bb8e645ae216da7")
             .replace("<%f_r%>", "0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb")
@@ -176,7 +188,7 @@ contract Verifier {
         Pairing.G1Point degree_bound_comms_3_g2;
         uint256[] evals;
         Pairing.G1Point batch_lc_proof_1;
-        uint256 degree_bound_batch_lc_proof_1;
+        uint256 batch_lc_proof_1_r;
         Pairing.G1Point batch_lc_proof_2;
     }
     function verifierKey() internal pure returns (VerifierKey memory vk) {
@@ -196,7 +208,7 @@ contract Verifier {
         vk.degree_shifted_powers = new Pairing.G1Point[](<%vk_degree_bounds_length%>);
         <%vk_populate_degree_bounds%>
     }
-    function verify(uint256[] memory input, Proof memory proof) public view returns (uint256) {
+    function verify(uint256[] memory input, Proof memory proof) public view returns (bool) {
         VerifierKey memory vk = verifierKey();
         for (uint i = 0; i < input.length; i++) {
             require(input[i] < <%f_mod%>);
@@ -246,18 +258,17 @@ contract Verifier {
         {
             uint256 f;
             (f, ctr) = sample_field(fs_seed, ctr);
-            while (expmod(f, <%h_domain_size%>, <%f_mod%>) == 0) {
+            while (eval_vanishing_poly(f, <%h_domain_size%>) == 0) {
                 (f, ctr) = sample_field(fs_seed, ctr);
             }
-            challenges[0] = f;
+            challenges[0] = montgomery_reduction(f);
             (f, ctr) = sample_field(fs_seed, ctr);
-            challenges[1] = f;
+            challenges[1] = montgomery_reduction(f);
             (f, ctr) = sample_field(fs_seed, ctr);
-            challenges[2] = f;
+            challenges[2] = montgomery_reduction(f);
             (f, ctr) = sample_field(fs_seed, ctr);
-            challenges[3] = f;
+            challenges[3] = montgomery_reduction(f);
         }
-        //return montgomery_reduction(challenges[0]);
         {
             ctr = 0;
             uint8 one = 1;
@@ -286,12 +297,11 @@ contract Verifier {
         {
             uint256 f;
             (f, ctr) = sample_field(fs_seed, ctr);
-            while (expmod(f, <%h_domain_size%>, <%f_mod%>) == 0) {
+            while (eval_vanishing_poly(f, <%h_domain_size%>) == 0) {
                 (f, ctr) = sample_field(fs_seed, ctr);
             }
-            challenges[4] = f;
+            challenges[4] = montgomery_reduction(f);
         }
-        //return montgomery_reduction(challenges[4]);
         {
             ctr = 0;
             uint8 one = 1;
@@ -315,9 +325,8 @@ contract Verifier {
         {
             uint256 f;
             (f, ctr) = sample_field(fs_seed, ctr);
-            challenges[5] = f;
+            challenges[5] = montgomery_reduction(f);
         }
-        //return montgomery_reduction(challenges[5]);
         {
             ctr = 0;
             uint256[] memory evals_reverse = new uint256[](proof.evals.length);
@@ -330,9 +339,104 @@ contract Verifier {
         {
             uint256 f;
             (f, ctr) = sample_field_128(fs_seed, ctr);
-            challenges[6] = from_montgomery_reduction(f);
+            challenges[6] = f;
         }
-        return montgomery_reduction(challenges[6]);
+        {
+            uint256[6] memory intermediate_evals;
+
+            intermediate_evals[0] = eval_unnormalized_bivariate_lagrange_poly(
+                    challenges[0],
+                    challenges[4],
+                    <%h_domain_size%>
+            );
+            intermediate_evals[1] = eval_vanishing_poly(challenges[0], <%h_domain_size%>);
+            intermediate_evals[2] = eval_vanishing_poly(challenges[4], <%h_domain_size%>);
+            intermediate_evals[3] = eval_vanishing_poly(challenges[4], <%x_domain_size%>);
+
+            {
+                uint256[<%x_domain_size%>] memory lagrange_coeffs = eval_all_lagrange_coeffs_x_domain(challenges[4]);
+                intermediate_evals[4] = lagrange_coeffs[0];
+                for (uint i = 1; i < lagrange_coeffs.length; i++) {
+                    intermediate_evals[4] = addmod(intermediate_evals[4], mulmod(lagrange_coeffs[i], input[i-1], <%f_mod%>), <%f_mod%>);
+                }
+            }
+            intermediate_evals[5] = eval_vanishing_poly(challenges[5], <%k_domain_size%>);
+
+            // index comms: row, col, a_val, b_val, c_val, row_col
+            // proof comms: w, z_a, z_b, mask_poly || t, g_1, h_1 || g_2, h_2
+            // proof evaluations: g1, g2, t, z_b
+            // linear combinations sorted: g_1, g_2, inner_sc, outer_sc, t, z_b
+            // challenges: alpha, eta_a, eta_b, eta_c, beta, gamma, opening_challenge
+            // intermediate:
+            // r_alpha_at_beta, v_H_at_alpha, v_H_at_beta, v_X_at_beta, x_at_beta, v_K_at_gamma
+            {
+                // beta commitments: g_1, outer_sc, t, z_b
+                uint256[4] memory beta_evals;
+                Pairing.G1Point[4] memory beta_commitments;
+                beta_evals[0] = proof.evals[0];
+                beta_evals[2] = proof.evals[2];
+                beta_evals[3] = proof.evals[3];
+                beta_commitments[0] = proof.comms_2[1];
+                beta_commitments[2] = proof.comms_2[0];
+                beta_commitments[3] = proof.comms_1[2];
+                {
+                    // outer sum check: mask_poly, z_a, 1, w, 1, h_1, 1
+                    uint256[7] memory outer_sc_coeffs;
+                    outer_sc_coeffs[0] = 1;
+                    outer_sc_coeffs[1] = mulmod(intermediate_evals[0], addmod(challenges[1], mulmod(challenges[3], proof.evals[3], <%f_mod%>), <%f_mod%>), <%f_mod%>);
+                    outer_sc_coeffs[2] = mulmod(intermediate_evals[0], mulmod(challenges[2], proof.evals[3], <%f_mod%>), <%f_mod%>);
+                    outer_sc_coeffs[3] = mulmod(intermediate_evals[3], submod(0, proof.evals[2], <%f_mod%>), <%f_mod%>);
+                    outer_sc_coeffs[4] = mulmod(intermediate_evals[4], submod(0, proof.evals[2], <%f_mod%>), <%f_mod%>);
+                    outer_sc_coeffs[5] = submod(0, intermediate_evals[2], <%f_mod%>);
+                    outer_sc_coeffs[6] = mulmod(proof.evals[0], submod(0, challenges[4], <%f_mod%>), <%f_mod%>);
+
+                    beta_commitments[1] = proof.comms_1[3];
+                    beta_commitments[1] = beta_commitments[1].addition(proof.comms_1[1].scalar_mul(outer_sc_coeffs[1]));
+                    beta_commitments[1] = beta_commitments[1].addition(proof.comms_1[0].scalar_mul(outer_sc_coeffs[3]));
+                    beta_commitments[1] = beta_commitments[1].addition(proof.comms_2[2].scalar_mul(outer_sc_coeffs[5]));
+                    beta_evals[1] = submod(beta_evals[1], outer_sc_coeffs[2], <%f_mod%>);
+                    beta_evals[1] = submod(beta_evals[1], outer_sc_coeffs[4], <%f_mod%>);
+                    beta_evals[1] = submod(beta_evals[1], outer_sc_coeffs[6], <%f_mod%>);
+                }
+                Pairing.G1Point memory beta_combined_comm;
+                uint256 beta_combined_eval;
+                {
+                    Pairing.G1Point memory g1_shift_vk;
+                    for (uint i = 0; i < vk.degree_bounds.length; i++) {
+                        if (vk.degree_bounds[i] == <%h_domain_size%> - 2) {
+                            g1_shift_vk = vk.degree_shifted_powers[i];
+                        }
+                    }
+                    beta_combined_comm = beta_commitments[0];
+                    beta_combined_eval = beta_evals[0];
+                    uint256 beta_opening_challenge = challenges[6];
+                    {
+                        Pairing.G1Point memory tmp = proof.degree_bound_comms_2_g1.addition(g1_shift_vk.scalar_mul(beta_evals[0]).negate());
+                        tmp = tmp.scalar_mul(beta_opening_challenge);
+                        beta_combined_comm = beta_combined_comm.addition(tmp);
+                    }
+                    beta_opening_challenge = mulmod(beta_opening_challenge, challenges[6], <%f_mod%>);
+                    beta_combined_comm = beta_combined_comm.addition(beta_commitments[1].scalar_mul(beta_opening_challenge));
+                    beta_combined_eval = addmod(beta_combined_eval, mulmod(beta_evals[1], beta_opening_challenge, <%f_mod%>), <%f_mod%>);
+                    beta_opening_challenge = mulmod(beta_opening_challenge, challenges[6], <%f_mod%>);
+                    beta_combined_comm = beta_combined_comm.addition(beta_commitments[2].scalar_mul(beta_opening_challenge));
+                    beta_combined_eval = addmod(beta_combined_eval, mulmod(beta_evals[2], beta_opening_challenge, <%f_mod%>), <%f_mod%>);
+                    beta_opening_challenge = mulmod(beta_opening_challenge, challenges[6], <%f_mod%>);
+                    beta_combined_comm = beta_combined_comm.addition(beta_commitments[3].scalar_mul(beta_opening_challenge));
+                    beta_combined_eval = addmod(beta_combined_eval, mulmod(beta_evals[3], beta_opening_challenge, <%f_mod%>), <%f_mod%>);
+                }
+                {
+                    Pairing.G1Point memory check = beta_combined_comm.addition(proof.batch_lc_proof_1.scalar_mul(challenges[4]));
+                    check = check.addition(vk.vk.g.scalar_mul(beta_combined_eval).negate());
+                    check = check.addition(vk.vk.gamma_g.scalar_mul(proof.batch_lc_proof_1_r).negate());
+                    bool valid = Pairing.pairingProd2(proof.batch_lc_proof_1.negate(), vk.vk.beta_h, check, vk.vk.h);
+                    return valid;
+                }
+            }
+
+        }
+        return false;
+
     }
     function be_to_le(uint256 input) internal pure returns (uint256 v) {
         v = input;
@@ -430,6 +534,41 @@ contract Verifier {
     }
     function inverse(uint256 a) internal view returns (uint256){
         return expmod(a, <%f_mod%> - 2, <%f_mod%>);
+    }
+    function eval_vanishing_poly(uint256 x, uint256 domain_size) internal view returns (uint256){
+        return submod(expmod(x, domain_size, <%f_mod%>), 1, <%f_mod%>);
+    }
+    function eval_unnormalized_bivariate_lagrange_poly(uint256 x, uint256 y, uint256 domain_size) internal view returns (uint256){
+        require(x != y);
+        uint256 tmp = submod(eval_vanishing_poly(x, domain_size), eval_vanishing_poly(y, domain_size), <%f_mod%>);
+        return mulmod(tmp, inverse(submod(x, y, <%f_mod%>)), <%f_mod%>);
+    }
+    function eval_all_lagrange_coeffs_x_domain(uint256 x) internal view returns (uint256[<%x_domain_size%>] memory){
+        uint256[<%x_domain_size%>] memory coeffs;
+        uint256 domain_size = <%x_domain_size%>;
+        uint256 root = <%x_root%>;
+        uint256 v_at_x = eval_vanishing_poly(x, domain_size);
+        uint256 root_inv = inverse(root);
+        if (v_at_x == 0) {
+            uint256 omega_i = 1;
+            for (uint i = 0; i < domain_size; i++) {
+                if (omega_i == x) {
+                    coeffs[i] = 1;
+                    return coeffs;
+                }
+                omega_i = mulmod(omega_i, root, <%f_mod%>);
+            }
+        } else {
+            uint256 l_i = mulmod(inverse(v_at_x), domain_size, <%f_mod%>);
+            uint256 neg_elem = 1;
+            for (uint i = 0; i < domain_size; i++) {
+                coeffs[i] = mulmod(submod(x, neg_elem, <%f_mod%>), l_i, <%f_mod%>);
+                coeffs[i] = inverse(coeffs[i]);
+                l_i = mulmod(l_i, root_inv, <%f_mod%>);
+                neg_elem = mulmod(neg_elem, root, <%f_mod%>);
+            }
+            return coeffs;
+        }
     }
 }
 "#;
