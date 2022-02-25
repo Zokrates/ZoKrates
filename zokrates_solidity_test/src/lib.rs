@@ -35,13 +35,9 @@ pub fn to_be_bytes(n: &U256) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        address::Address,
-        contract::Contract,
-        evm::{Evm},
-    };
-    use rand::{rngs::StdRng, SeedableRng};
+    use crate::{address::Address, contract::Contract, evm::Evm};
     use ethabi::Token;
+    use rand::{rngs::StdRng, SeedableRng};
 
     #[test]
     fn simple_storage_contract_test() {
@@ -61,21 +57,49 @@ mod tests {
         evm.create_account(&deployer, 0);
 
         // Deploy contract
-        let create_result = evm.deploy(contract.encode_create_contract_bytes(&[]).unwrap(), &deployer).unwrap();
+        let create_result = evm
+            .deploy(
+                contract.encode_create_contract_bytes(&[]).unwrap(),
+                &deployer,
+            )
+            .unwrap();
         let contract_addr = create_result.addr.clone();
         println!("Contract deploy gas cost: {}", create_result.gas);
 
         // Call get function on contract
-        let get_result = evm.call(contract.encode_call_contract_bytes("get", &[]).unwrap(), &contract_addr, &deployer).unwrap();
+        let get_result = evm
+            .call(
+                contract.encode_call_contract_bytes("get", &[]).unwrap(),
+                &contract_addr,
+                &deployer,
+            )
+            .unwrap();
         assert_eq!(&get_result.out, &to_be_bytes(&U256::from(0)));
         println!("{:?}", get_result);
 
         // Call set function on contract
-        let set_result = evm.call(contract.encode_call_contract_bytes("set", &[Token::Tuple(vec![Token::Uint(U256::from(40))])]).unwrap(), &contract_addr, &deployer).unwrap();
+        let set_result = evm
+            .call(
+                contract
+                    .encode_call_contract_bytes(
+                        "set",
+                        &[Token::Tuple(vec![Token::Uint(U256::from(40))])],
+                    )
+                    .unwrap(),
+                &contract_addr,
+                &deployer,
+            )
+            .unwrap();
         println!("{:?}", set_result);
 
         // Call get function on contract
-        let get_result = evm.call(contract.encode_call_contract_bytes("get", &[]).unwrap(), &contract_addr, &deployer).unwrap();
+        let get_result = evm
+            .call(
+                contract.encode_call_contract_bytes("get", &[]).unwrap(),
+                &contract_addr,
+                &deployer,
+            )
+            .unwrap();
         assert_eq!(&get_result.out, &to_be_bytes(&U256::from(40)));
         println!("{:?}", get_result);
     }

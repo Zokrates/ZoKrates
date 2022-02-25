@@ -15,7 +15,7 @@ use crate::proof_system::ark::{parse_g1, parse_g2};
 use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
 use crate::proof_system::Scheme;
 use ark_bw6_761::BW6_761;
-use rand_0_8::{SeedableRng, rngs::StdRng};
+use rand_0_8::{rngs::StdRng, SeedableRng};
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 

@@ -1,6 +1,8 @@
 use crate::proof_system::scheme::{Scheme, UniversalScheme};
-use crate::proof_system::{G1Affine, G2Affine, Fr, NotBw6_761Field};
-use crate::proof_system::solidity::{SolidityCompatibleScheme, SolidityCompatibleField, solidity_pairing_lib};
+use crate::proof_system::solidity::{
+    solidity_pairing_lib, SolidityCompatibleField, SolidityCompatibleScheme,
+};
+use crate::proof_system::{Fr, G1Affine, G2Affine, NotBw6_761Field};
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
@@ -61,11 +63,18 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
 
         // Replace public parameters in template
         let src = template
-            .replace("<%vk_index_comms_length%>", &vk.index_comms.len().to_string())
+            .replace(
+                "<%vk_index_comms_length%>",
+                &vk.index_comms.len().to_string(),
+            )
             .replace("<%vk_populate_index_comms%>", &{
                 let mut populate_index_comms = String::new();
                 for (i, (g, _)) in vk.index_comms.iter().enumerate() {
-                    populate_index_comms.push_str(&format!("vk.index_comms[{}] = Pairing.G1Point({});", i, &g.to_string()));
+                    populate_index_comms.push_str(&format!(
+                        "vk.index_comms[{}] = Pairing.G1Point({});",
+                        i,
+                        &g.to_string()
+                    ));
                     if i < vk.index_comms.len() - 1 {
                         populate_index_comms.push_str("\n        ");
                     }
@@ -76,14 +85,29 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
             .replace("<%vk_kzg_gamma_g%>", &vk.vk.gamma_g.to_string())
             .replace("<%vk_kzg_h%>", &vk.vk.h.to_string())
             .replace("<%vk_kzg_beta_h%>", &vk.vk.beta_h.to_string())
-            .replace("<%vk_degree_bounds_length%>", &vk.degree_bounds_and_shift_powers.as_ref().unwrap().len().to_string())
+            .replace(
+                "<%vk_degree_bounds_length%>",
+                &vk.degree_bounds_and_shift_powers
+                    .as_ref()
+                    .unwrap()
+                    .len()
+                    .to_string(),
+            )
             .replace("<%vk_g1_shift%>", &{
                 let h_domain_size = if vk.num_constraints.is_power_of_two() {
                     vk.num_constraints
                 } else {
                     vk.num_constraints.next_power_of_two()
                 };
-                vk.degree_bounds_and_shift_powers.as_ref().unwrap().iter().filter(|(b, _)| *b == h_domain_size - 2).next().unwrap().1.to_string()
+                vk.degree_bounds_and_shift_powers
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .filter(|(b, _)| *b == h_domain_size - 2)
+                    .next()
+                    .unwrap()
+                    .1
+                    .to_string()
             })
             .replace("<%vk_g2_shift%>", &{
                 let k_domain_size = if vk.num_non_zero.is_power_of_two() {
@@ -91,19 +115,29 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
                 } else {
                     vk.num_non_zero.next_power_of_two()
                 };
-                vk.degree_bounds_and_shift_powers.as_ref().unwrap().iter().filter(|(b, _)| *b == k_domain_size - 2).next().unwrap().1.to_string()
+                vk.degree_bounds_and_shift_powers
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .filter(|(b, _)| *b == k_domain_size - 2)
+                    .next()
+                    .unwrap()
+                    .1
+                    .to_string()
             })
             .replace("<%fs_init_seed_len%>", &(vk.fs_seed.len() / 32).to_string())
             .replace("<%fs_init_seed_overflow_len%>", &{
                 let seed_len_in_32_byte_words = vk.fs_seed.len() / 32;
-                let seed_len_overflow_in_bytes = vk.fs_seed.len() - (seed_len_in_32_byte_words * 32);
+                let seed_len_overflow_in_bytes =
+                    vk.fs_seed.len() - (seed_len_in_32_byte_words * 32);
                 seed_len_overflow_in_bytes.to_string()
             })
             .replace("<%fs_populate_init_seed%>", &{
                 let mut populate_init_seed = String::new();
                 for i in 0..vk.fs_seed.len() / 32 {
-                    let word_32_bytes = hex::encode(&vk.fs_seed[i*32..i*32 + 32]);
-                    populate_init_seed.push_str(&format!("init_seed[{}] = 0x{};", i, &word_32_bytes));
+                    let word_32_bytes = hex::encode(&vk.fs_seed[i * 32..i * 32 + 32]);
+                    populate_init_seed
+                        .push_str(&format!("init_seed[{}] = 0x{};", i, &word_32_bytes));
                     if i < vk.fs_seed.len() / 32 - 1 {
                         populate_init_seed.push_str("\n            ");
                     }
@@ -112,7 +146,10 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
             })
             .replace("<%fs_init_seed_overflow%>", &{
                 let seed_len_in_32_byte_words = vk.fs_seed.len() / 32;
-                format!("0x{}", hex::encode(&vk.fs_seed[seed_len_in_32_byte_words * 32..]))
+                format!(
+                    "0x{}",
+                    hex::encode(&vk.fs_seed[seed_len_in_32_byte_words * 32..])
+                )
             })
             .replace("<%h_domain_size%>", &{
                 let size = if vk.num_constraints.is_power_of_two() {
@@ -140,15 +177,17 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
                 size.to_string()
             })
             .replace("<%x_root%>", &vk.x_root_of_unity.to_string())
-            .replace("<%f_mod%>", "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001")
-            .replace("<%f_r%>", "0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb")
+            .replace(
+                "<%f_mod%>",
+                "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+            )
+            .replace(
+                "<%f_r%>",
+                "0x0e0a77c19a07df2f666ea36f7879462e36fc76959f60cd29ac96341c4ffffffb",
+            )
             .replace("<%f_inv%>", "0xc2e1f593efffffff");
 
-
-            format!(
-            "{}{}",
-            solidity_pairing_lib, src
-        )
+        format!("{}{}", solidity_pairing_lib, src)
     }
 }
 
@@ -591,28 +630,26 @@ contract Verifier {
 mod tests {
     use crate::flat_absy::{FlatParameter, FlatVariable};
     use crate::ir::{Interpreter, Prog, QuadComb, Statement};
-    use crate::proof_system::{UniversalBackend, Backend, Proof, Fr};
-    use crate::proof_system::ark::{Ark, parse_fr};
+    use crate::proof_system::ark::{parse_fr, Ark};
+    use crate::proof_system::{Backend, Fr, Proof, UniversalBackend};
     use zokrates_field::ArkFieldExtensions;
 
     use super::*;
-    use zokrates_field::{Bn128Field};
-    use zokrates_solidity_test::{
-        contract::Contract,
-        evm::Evm,
-        address::Address,
-        to_be_bytes,
-    };
-    use rand_0_8::{rngs::StdRng, SeedableRng};
-    use ethabi::{Token};
+    use ethabi::Token;
     use primitive_types::U256;
-
+    use rand_0_8::{rngs::StdRng, SeedableRng};
+    use zokrates_field::Bn128Field;
+    use zokrates_solidity_test::{address::Address, contract::Contract, evm::Evm, to_be_bytes};
 
     /// Helper methods for parsing group structure
     pub fn encode_g1_element(g: &G1Affine) -> Token {
         Token::Tuple(vec![
-            Token::Uint(U256::from(&hex::decode(&g.0.trim_start_matches("0x")).unwrap()[..])),
-            Token::Uint(U256::from(&hex::decode(&g.1.trim_start_matches("0x")).unwrap()[..])),
+            Token::Uint(U256::from(
+                &hex::decode(&g.0.trim_start_matches("0x")).unwrap()[..],
+            )),
+            Token::Uint(U256::from(
+                &hex::decode(&g.1.trim_start_matches("0x")).unwrap()[..],
+            )),
         ])
     }
 
@@ -630,38 +667,66 @@ mod tests {
     //}
 
     pub fn encode_fr_element(f: &Fr) -> Token {
-        Token::Uint(U256::from(&hex::decode(&f.trim_start_matches("0x")).unwrap()[..]))
+        Token::Uint(U256::from(
+            &hex::decode(&f.trim_start_matches("0x")).unwrap()[..],
+        ))
     }
 
-    fn encode_verify_input(proof: Proof<<Marlin as Scheme<Bn128Field>>::ProofPoints>,) -> Vec<Token> {
-        let input = Token::Array(proof.inputs.iter().map(|s| {
-            let bytes = hex::decode(s.trim_start_matches("0x")).unwrap();
-            debug_assert_eq!(bytes.len(), 32);
-            Token::Uint(U256::from(&bytes[..]))
-        }).collect::<Vec<_>>());
+    fn encode_verify_input(
+        proof: Proof<<Marlin as Scheme<Bn128Field>>::ProofPoints>,
+    ) -> Vec<Token> {
+        let input = Token::Array(
+            proof
+                .inputs
+                .iter()
+                .map(|s| {
+                    let bytes = hex::decode(s.trim_start_matches("0x")).unwrap();
+                    debug_assert_eq!(bytes.len(), 32);
+                    Token::Uint(U256::from(&bytes[..]))
+                })
+                .collect::<Vec<_>>(),
+        );
 
-        let comms_1_token = Token::Array(proof.proof.commitments[0].iter().map(|(c, _)|{
-            encode_g1_element(c)
-        }).collect::<Vec<_>>());
+        let comms_1_token = Token::Array(
+            proof.proof.commitments[0]
+                .iter()
+                .map(|(c, _)| encode_g1_element(c))
+                .collect::<Vec<_>>(),
+        );
 
-        let comms_2_token = Token::Array(proof.proof.commitments[1].iter().map(|(c, _)|{
-            encode_g1_element(c)
-        }).collect::<Vec<_>>());
+        let comms_2_token = Token::Array(
+            proof.proof.commitments[1]
+                .iter()
+                .map(|(c, _)| encode_g1_element(c))
+                .collect::<Vec<_>>(),
+        );
 
-        let degree_bound_comms_2_g1_token = encode_g1_element(proof.proof.commitments[1][1].1.as_ref().unwrap());
+        let degree_bound_comms_2_g1_token =
+            encode_g1_element(proof.proof.commitments[1][1].1.as_ref().unwrap());
 
-        let comms_3_token = Token::Array(proof.proof.commitments[2].iter().map(|(c, _)|{
-            encode_g1_element(c)
-        }).collect::<Vec<_>>());
+        let comms_3_token = Token::Array(
+            proof.proof.commitments[2]
+                .iter()
+                .map(|(c, _)| encode_g1_element(c))
+                .collect::<Vec<_>>(),
+        );
 
-        let degree_bound_comms_3_g2_token = encode_g1_element(proof.proof.commitments[2][0].1.as_ref().unwrap());
+        let degree_bound_comms_3_g2_token =
+            encode_g1_element(proof.proof.commitments[2][0].1.as_ref().unwrap());
 
-        let evals_token = Token::Array(proof.proof.evaluations.into_iter().map(|f| {
-            encode_fr_element(&parse_fr::<Bn128Field>(&Bn128Field::into_ark(f)))
-        }).collect::<Vec<_>>());
+        let evals_token = Token::Array(
+            proof
+                .proof
+                .evaluations
+                .into_iter()
+                .map(|f| encode_fr_element(&parse_fr::<Bn128Field>(&Bn128Field::into_ark(f))))
+                .collect::<Vec<_>>(),
+        );
 
         let pc_lc_opening_1_token = encode_g1_element(&proof.proof.pc_proof_proof[0].0);
-        let degree_bound_pc_lc_opening_1_token = encode_fr_element(&parse_fr::<Bn128Field>(&Bn128Field::into_ark(proof.proof.pc_proof_proof[0].1.clone().unwrap())));
+        let degree_bound_pc_lc_opening_1_token = encode_fr_element(&parse_fr::<Bn128Field>(
+            &Bn128Field::into_ark(proof.proof.pc_proof_proof[0].1.clone().unwrap()),
+        ));
         let pc_lc_opening_2_token = encode_g1_element(&proof.proof.pc_proof_proof[1].0);
 
         let proof_tokens = vec![
@@ -715,7 +780,8 @@ mod tests {
         //let ans = <Ark as Backend<Bn128Field, Marlin>>::verify(keypair.vk, proof);
         //assert!(ans);
 
-        let mut src = <Marlin as SolidityCompatibleScheme<Bn128Field>>::export_solidity_verifier(keypair.vk);
+        let mut src =
+            <Marlin as SolidityCompatibleScheme<Bn128Field>>::export_solidity_verifier(keypair.vk);
         src = src.replace("\"", "\\\"");
 
         let solc_config = r#"
@@ -734,8 +800,8 @@ mod tests {
                         "": [ "*" ] } }
                 }
             }"#
-            .replace("<%opt%>", &true.to_string())
-            .replace("<%src%>", &src);
+        .replace("<%opt%>", &true.to_string())
+        .replace("<%src%>", &src);
 
         let contract = Contract::compile_from_config(&solc_config, "Verifier").unwrap();
 
@@ -746,14 +812,26 @@ mod tests {
         evm.create_account(&deployer, 0);
 
         // Deploy contract
-        let create_result = evm.deploy(contract.encode_create_contract_bytes(&[]).unwrap(), &deployer).unwrap();
+        let create_result = evm
+            .deploy(
+                contract.encode_create_contract_bytes(&[]).unwrap(),
+                &deployer,
+            )
+            .unwrap();
         let contract_addr = create_result.addr.clone();
         //println!("Contract deploy gas cost: {}", create_result.gas);
 
         // Call verify function on contract
-        let result = evm.call(contract.encode_call_contract_bytes("verify", &encode_verify_input(proof)).unwrap(), &contract_addr, &deployer).unwrap();
+        let result = evm
+            .call(
+                contract
+                    .encode_call_contract_bytes("verify", &encode_verify_input(proof))
+                    .unwrap(),
+                &contract_addr,
+                &deployer,
+            )
+            .unwrap();
         assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
         //println!("{:?}", result);
-
     }
 }

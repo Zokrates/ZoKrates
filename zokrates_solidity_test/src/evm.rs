@@ -28,14 +28,21 @@ impl Evm {
         Self { vm }
     }
 
-    pub fn call(&mut self, input: Vec<u8>, addr: &Address, caller: &Address) -> Result<CallResult, Error> {
+    pub fn call(
+        &mut self,
+        input: Vec<u8>,
+        addr: &Address,
+        caller: &Address,
+    ) -> Result<CallResult, Error> {
         self.vm.env.tx.caller = caller.as_ref().clone();
         self.vm.env.tx.transact_to = TransactTo::Call(addr.as_ref().clone());
         self.vm.env.tx.data = input.into();
         let (op_out, tx_out, gas, log_out) = self.vm.transact_commit();
         let out = match tx_out {
             TransactOut::Call(out) => Ok(out.to_vec()),
-            _ => Err(Box::new(EvmTestError("call contract function failed".to_string()))),
+            _ => Err(Box::new(EvmTestError(
+                "call contract function failed".to_string(),
+            ))),
         }?;
         Ok(CallResult {
             op_out,

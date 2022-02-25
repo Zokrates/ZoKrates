@@ -61,10 +61,7 @@ impl Contract {
         Self::compile_from_config(&solc_config, contract_name)
     }
 
-    pub fn compile_from_config(
-        config: &String,
-        contract_name: &str,
-    ) -> Result<Self, Error> {
+    pub fn compile_from_config(config: &String, contract_name: &str) -> Result<Self, Error> {
         // Compile source file using solc
         // Configuration: https://docs.soliditylang.org/en/v0.8.10/using-the-compiler.html
         let out = from_str::<serde_json::Value>(&compile(config))
@@ -104,7 +101,7 @@ impl Contract {
                     .to_string()
                     .as_bytes(),
             )
-                .map_err(|_| Box::new(EvmTestError("ethabi failed loading abi".to_string())))?;
+            .map_err(|_| Box::new(EvmTestError("ethabi failed loading abi".to_string())))?;
             abi
         };
 
@@ -122,26 +119,30 @@ impl Contract {
                         ))
                     })?;
                 Ok(binary.to_vec())
-            },
+            }
             None => Ok(self.binary.clone()),
         }
     }
 
-    pub fn encode_call_contract_bytes(&self, fn_name: &str, input: &[Token]) -> Result<Vec<u8>, Error> {
+    pub fn encode_call_contract_bytes(
+        &self,
+        fn_name: &str,
+        input: &[Token],
+    ) -> Result<Vec<u8>, Error> {
         match self.abi.functions.get(fn_name) {
             Some(f) => {
                 //let c = f[0].inputs.iter().map(|p| p.kind.clone()).collect::<Vec<_>>();
                 //println!("{:?}", c);
-                let call_binary = f[0].encode_input(input)
-                    .map_err(|_| {
-                        Box::new(EvmTestError(
-                            "abi function failed to encode inputs".to_string(),
-                        ))
-                    })?;
+                let call_binary = f[0].encode_input(input).map_err(|_| {
+                    Box::new(EvmTestError(
+                        "abi function failed to encode inputs".to_string(),
+                    ))
+                })?;
                 Ok(call_binary.to_vec())
-            },
-            None => Err(Box::new(EvmTestError("abi does not include function".to_string()))),
+            }
+            None => Err(Box::new(EvmTestError(
+                "abi does not include function".to_string(),
+            ))),
         }
     }
-
 }

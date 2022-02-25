@@ -14,7 +14,7 @@ use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use crate::proof_system::{NotBw6_761Field, Scheme};
 use ark_bw6_761::BW6_761;
-use rand_0_8::{SeedableRng, rngs::StdRng};
+use rand_0_8::{rngs::StdRng, SeedableRng};
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
     fn setup<I: IntoIterator<Item = Statement<T>>>(
