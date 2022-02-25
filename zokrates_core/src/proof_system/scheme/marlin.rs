@@ -76,20 +76,22 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
             .replace("<%vk_kzg_gamma_g%>", &vk.vk.gamma_g.to_string())
             .replace("<%vk_kzg_h%>", &vk.vk.h.to_string())
             .replace("<%vk_kzg_beta_h%>", &vk.vk.beta_h.to_string())
-            .replace("<%vk_max_degree%>", &vk.max_degree.to_string())
-            .replace("<%vk_supported_degree%>", &vk.supported_degree.to_string())
             .replace("<%vk_degree_bounds_length%>", &vk.degree_bounds_and_shift_powers.as_ref().unwrap().len().to_string())
-            .replace("<%vk_populate_degree_bounds%>", &{
-                let mut populate_degree_bounds = String::new();
-                for (i, (b, g)) in vk.degree_bounds_and_shift_powers.as_ref().unwrap().iter().enumerate() {
-                    populate_degree_bounds.push_str(&format!("vk.degree_bounds[{}] = {};", i, &b.to_string()));
-                    populate_degree_bounds.push_str("\n        ");
-                    populate_degree_bounds.push_str(&format!("vk.degree_shifted_powers[{}] = Pairing.G1Point({});", i, &g.to_string()));
-                    if i < vk.degree_bounds_and_shift_powers.as_ref().unwrap().len() - 1 {
-                        populate_degree_bounds.push_str("\n        ");
-                    }
-                }
-                populate_degree_bounds
+            .replace("<%vk_g1_shift%>", &{
+                let h_domain_size = if vk.num_constraints.is_power_of_two() {
+                    vk.num_constraints
+                } else {
+                    vk.num_constraints.next_power_of_two()
+                };
+                vk.degree_bounds_and_shift_powers.as_ref().unwrap().iter().filter(|(b, _)| *b == h_domain_size - 2).next().unwrap().1.to_string()
+            })
+            .replace("<%vk_g2_shift%>", &{
+                let k_domain_size = if vk.num_non_zero.is_power_of_two() {
+                    vk.num_non_zero
+                } else {
+                    vk.num_non_zero.next_power_of_two()
+                };
+                vk.degree_bounds_and_shift_powers.as_ref().unwrap().iter().filter(|(b, _)| *b == k_domain_size - 2).next().unwrap().1.to_string()
             })
             .replace("<%fs_init_seed_len%>", &(vk.fs_seed.len() / 32).to_string())
             .replace("<%fs_init_seed_overflow_len%>", &{
@@ -130,7 +132,6 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
             })
             .replace("<%x_domain_size%>", &{
                 let x = vk.num_instance_variables;
-                println!("x: {}", x);
                 let size = if x.is_power_of_two() {
                     x as u64
                 } else {
@@ -165,10 +166,8 @@ contract Verifier {
         Pairing.G1Point[] index_comms;
         // verifier key
         KZGVerifierKey vk;
-        uint64 max_degree;
-        uint64 supported_degree;
-        uint64[] degree_bounds;
-        Pairing.G1Point[] degree_shifted_powers;
+        Pairing.G1Point g1_shift;
+        Pairing.G1Point g2_shift;
     }
     struct Proof {
         Pairing.G1Point[] comms_1;
@@ -188,11 +187,8 @@ contract Verifier {
         vk.vk.gamma_g = Pairing.G1Point(<%vk_kzg_gamma_g%>);
         vk.vk.h = Pairing.G2Point(<%vk_kzg_h%>);
         vk.vk.beta_h = Pairing.G2Point(<%vk_kzg_beta_h%>);
-        vk.max_degree = <%vk_max_degree%>;
-        vk.supported_degree = <%vk_supported_degree%>;
-        vk.degree_bounds = new uint64[](<%vk_degree_bounds_length%>);
-        vk.degree_shifted_powers = new Pairing.G1Point[](<%vk_degree_bounds_length%>);
-        <%vk_populate_degree_bounds%>
+        vk.g1_shift = Pairing.G1Point(<%vk_g1_shift%>);
+        vk.g2_shift = Pairing.G1Point(<%vk_g2_shift%>);
     }
     function verify(uint256[] memory input, Proof memory proof) public view returns (bool) {
         VerifierKey memory vk = verifierKey();
@@ -377,17 +373,11 @@ contract Verifier {
                     beta_evals[1] = submod(beta_evals[1], outer_sc_coeffs[6], <%f_mod%>);
                 }
                 {
-                    Pairing.G1Point memory g1_shift_vk;
-                    for (uint i = 0; i < vk.degree_bounds.length; i++) {
-                        if (vk.degree_bounds[i] == <%h_domain_size%> - 2) {
-                            g1_shift_vk = vk.degree_shifted_powers[i];
-                        }
-                    }
                     combined_comm[0] = beta_commitments[0];
                     combined_eval[0] = beta_evals[0];
                     uint256 beta_opening_challenge = challenges[6];
                     {
-                        Pairing.G1Point memory tmp = proof.degree_bound_comms_2_g1.addition(g1_shift_vk.scalar_mul(beta_evals[0]).negate());
+                        Pairing.G1Point memory tmp = proof.degree_bound_comms_2_g1.addition(vk.g1_shift.scalar_mul(beta_evals[0]).negate());
                         tmp = tmp.scalar_mul(beta_opening_challenge);
                         combined_comm[0] = combined_comm[0].addition(tmp);
                     }
@@ -402,13 +392,6 @@ contract Verifier {
                     combined_eval[0] = addmod(combined_eval[0], mulmod(beta_evals[3], beta_opening_challenge, <%f_mod%>), <%f_mod%>);
                 }
             }
-            // index comms: row, col, a_val, b_val, c_val, row_col
-            // proof comms: w, z_a, z_b, mask_poly || t, g_1, h_1 || g_2, h_2
-            // proof evaluations: g1, g2, t, z_b
-            // linear combinations sorted: g_1, g_2, inner_sc, outer_sc, t, z_b
-            // challenges: alpha, eta_a, eta_b, eta_c, beta, gamma, opening_challenge
-            // intermediate:
-            // r_alpha_at_beta, v_H_at_alpha, v_H_at_beta, v_X_at_beta, x_at_beta, v_K_at_gamma
             {
                 // gamma commitments: g_2, inner_sc
                 uint256[2] memory gamma_evals;
@@ -444,17 +427,11 @@ contract Verifier {
                     gamma_evals[1] = submod(0, inner_sc_coeffs[3], <%f_mod%>);
                 }
                 {
-                    Pairing.G1Point memory g2_shift_vk;
-                    for (uint i = 0; i < vk.degree_bounds.length; i++) {
-                        if (vk.degree_bounds[i] == <%k_domain_size%> - 2) {
-                            g2_shift_vk = vk.degree_shifted_powers[i];
-                        }
-                    }
                     combined_comm[1] = gamma_commitments[0];
                     combined_eval[1] = gamma_evals[0];
                     uint256 gamma_opening_challenge = challenges[6];
                     {
-                        Pairing.G1Point memory tmp = proof.degree_bound_comms_3_g2.addition(g2_shift_vk.scalar_mul(gamma_evals[0]).negate());
+                        Pairing.G1Point memory tmp = proof.degree_bound_comms_3_g2.addition(vk.g2_shift.scalar_mul(gamma_evals[0]).negate());
                         tmp = tmp.scalar_mul(gamma_opening_challenge);
                         combined_comm[1] = combined_comm[1].addition(tmp);
                     }
@@ -639,19 +616,18 @@ mod tests {
         ])
     }
 
-    pub fn encode_g2_element(g: &G2Affine) -> Token {
-
-        Token::Tuple(vec![
-            Token::FixedArray(vec![
-                Token::Uint(U256::from(&hex::decode(&g.0.0.trim_start_matches("0x")).unwrap()[..])),
-                Token::Uint(U256::from(&hex::decode(&g.0.1.trim_start_matches("0x")).unwrap()[..])),
-            ]),
-            Token::FixedArray(vec![
-                Token::Uint(U256::from(&hex::decode(&g.1.0.trim_start_matches("0x")).unwrap()[..])),
-                Token::Uint(U256::from(&hex::decode(&g.1.1.trim_start_matches("0x")).unwrap()[..])),
-            ]),
-        ])
-    }
+    //pub fn encode_g2_element(g: &G2Affine) -> Token {
+    //    Token::Tuple(vec![
+    //        Token::FixedArray(vec![
+    //            Token::Uint(U256::from(&hex::decode(&g.0.0.trim_start_matches("0x")).unwrap()[..])),
+    //            Token::Uint(U256::from(&hex::decode(&g.0.1.trim_start_matches("0x")).unwrap()[..])),
+    //        ]),
+    //        Token::FixedArray(vec![
+    //            Token::Uint(U256::from(&hex::decode(&g.1.0.trim_start_matches("0x")).unwrap()[..])),
+    //            Token::Uint(U256::from(&hex::decode(&g.1.1.trim_start_matches("0x")).unwrap()[..])),
+    //        ]),
+    //    ])
+    //}
 
     pub fn encode_fr_element(f: &Fr) -> Token {
         Token::Uint(U256::from(&hex::decode(&f.trim_start_matches("0x")).unwrap()[..]))

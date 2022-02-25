@@ -5,7 +5,6 @@ authors = ["Nirvan Tyagi <nirvan.tyagi@gmail.com>"]
 edition = "2018"
 
 # Modeled after the testing pipeline of the Fe project: https://github.com/ethereum/fe/
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 ethabi = "16.0.0"

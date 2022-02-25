@@ -33,7 +33,7 @@ zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-featur
 zokrates_pest_ast = { version = "0.2.0", path = "../zokrates_pest_ast" }
 zokrates_common = { path = "../zokrates_common" }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
 rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_8 = { version = "0.8", package = "rand" }
 csv = "1"
@@ -54,7 +54,8 @@ ark-gm17 = { version = "^0.3.0", default-features = false, optional = true }
 ark-groth16 = { version = "^0.3.0", default-features = false, optional = true }
 ark-serialize = { version = "^0.3.0", default-features = false, optional = true }
 ark-relations = { version = "^0.3.0", default-features = false, optional = true }
-ark-marlin = { git = "https://github.com/nirvantyagi/marlin", branch = "zokrates-marlin", features = ["std"], default-features = false, optional = true }
+ark-marlin = { git = "https://github.com/nirvantyagi/marlin", branch = "chacha-rng-dependency", default-features = false, optional = true }
+#ark-marlin = { version = "^0.3.0", default-features = false, optional = true }
 ark-poly = { version = "^0.3.0", default-features = false, optional = true }
 ark-poly-commit = { version = "^0.3.0", default-features = false, optional = true }
 ark-crypto-primitives = { version = "^0.3.0", default-features = false, optional = true }

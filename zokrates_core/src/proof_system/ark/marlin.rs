@@ -6,7 +6,7 @@ use ark_marlin::{
 
 use ark_marlin::Marlin as ArkMarlin;
 
-use ark_ff::{FftField, ToBytes, FromBytes, to_bytes, PrimeField, FpParameters, BigInteger};
+use ark_ff::{FftField, ToBytes, FromBytes, to_bytes};
 use ark_ec::PairingEngine;
 use ark_poly::{univariate::DensePolynomial, GeneralEvaluationDomain, EvaluationDomain};
 use ark_poly_commit::{
@@ -49,14 +49,12 @@ impl<D: Digest> RngCore for HashFiatShamirRng<D> {
     fn next_u32(&mut self) -> u32 {
         let mut bytes = [0; 4];
         self.fill_bytes(&mut bytes);
-        //println!("next_u32: {:?}", &bytes);
         u32::from_be_bytes(bytes)
     }
 
     fn next_u64(&mut self) -> u64 {
         let mut bytes = [0; 8];
         self.fill_bytes(&mut bytes);
-        //println!("next_u64: {:?}", &bytes);
         u64::from_be_bytes(bytes)
     }
 
@@ -77,7 +75,6 @@ impl<D: Digest> RngCore for HashFiatShamirRng<D> {
             self.ctr += 1;
             seed_ctr.truncate(seed_ctr.len() - 4);
         }
-        //println!("fill_bytes: {}", dest.len());
     }
 
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
@@ -103,7 +100,6 @@ impl<D: Digest> FiatShamirRng for HashFiatShamirRng<D> {
         bytes.extend_from_slice(&self.seed);
         self.seed = FromBytes::read(D::digest(&bytes).as_ref()).expect("failed to get [u8; 32]");
         self.ctr = 0;
-        println!("new seed: {:?}", &self.seed);
     }
 }
 
@@ -160,7 +156,6 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         // Precompute some useful values for solidity contract
         let fs_seed = to_bytes![&MarlinInst::<T>::PROTOCOL_NAME, &vk].unwrap();
         let x_root_of_unity = <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr::get_root_of_unity(usize::try_from(vk.index_info.num_instance_variables).unwrap()).unwrap();
-        println!("x_root_of_unity: {:?}", ark_ff::to_bytes![&x_root_of_unity]);
 
         Ok(SetupKeypair::new(
             VerificationKey {
@@ -229,16 +224,9 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         let proof = MarlinInst::<T>::prove(&pk, computation, rng)
         .unwrap();
-        MarlinInst::<T>::verify(&pk.index_vk, &public_inputs, &proof, rng).unwrap();
 
         let mut serialized_proof: Vec<u8> = Vec::new();
         proof.serialize_uncompressed(&mut serialized_proof).unwrap();
-
-        //let mut bytes: Vec<u8> = Vec::new();
-        //<<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr as PrimeField>::Params as FpParameters>::INV
-        //    .write(&mut bytes).unwrap();
-        //bytes.reverse();
-        //println!("0x{}", hex::encode(&bytes));
 
         Proof::new(
             ProofPoints {

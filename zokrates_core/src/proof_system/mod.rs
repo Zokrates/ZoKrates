@@ -59,7 +59,7 @@ pub type Fr = String;
 pub type Fq = String;
 pub type Fq2 = (String, String);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct G1Affine(Fq, Fq);
 
 // When G2 is defined on Fq2 field
@@ -67,7 +67,7 @@ pub struct G1Affine(Fq, Fq);
 pub struct G2Affine(Fq2, Fq2);
 
 // When G2 is defined on a Fq field (BW6_761 curve)
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct G2AffineFq(Fq, Fq);
 
 impl ToString for G1Affine {
