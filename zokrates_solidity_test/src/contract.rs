@@ -29,13 +29,13 @@ impl Contract {
         src_file
             .read_to_string(&mut src)
             .map_err(|_| Box::new(EvmTestError("src file read failed".to_string())))?;
-        src = src.replace("\"", "\\\"");
+        src = src.replace('\"', "\\\"");
 
         Self::compile_from_src_string(&src, contract_name, opt)
     }
 
     pub fn compile_from_src_string(
-        src: &String,
+        src: &str,
         contract_name: &str,
         opt: bool,
     ) -> Result<Self, Error> {
@@ -57,39 +57,39 @@ impl Contract {
                 }
             }"#
         .replace("{opt}", &opt.to_string())
-        .replace("{src}", &src);
+        .replace("{src}", src);
         Self::compile_from_config(&solc_config, contract_name)
     }
 
-    pub fn compile_from_config(config: &String, contract_name: &str) -> Result<Self, Error> {
+    pub fn compile_from_config(config: &str, contract_name: &str) -> Result<Self, Error> {
         // Compile source file using solc
         // Configuration: https://docs.soliditylang.org/en/v0.8.10/using-the-compiler.html
         let out = from_str::<serde_json::Value>(&compile(config))
             .map_err(|_| Box::new(EvmTestError("solc compile failed".to_string())))?;
 
-        if out["errors"].is_array() {
-            if out["errors"]
+        if out["errors"].is_array()
+            && out["errors"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .any(|e| e["severity"] == "error")
-            {
-                return Err(Box::new(EvmTestError(format!(
-                    "solc compiled with errors: {}",
-                    out["errors"]
-                ))));
-            }
+        {
+            return Err(Box::new(EvmTestError(format!(
+                "solc compiled with errors: {}",
+                out["errors"]
+            ))));
         }
 
         let binary = {
             let hex_code = out["contracts"]["input.sol"][contract_name]["evm"]["bytecode"]
                 ["object"]
                 .to_string()
-                .replace("\"", "");
-            let binary = hex::decode(&hex_code)
-                .map_err(|_| Box::new(EvmTestError("decode hex binary failed".to_string())))?;
-            binary
+                .replace('\"', "");
+
+            hex::decode(&hex_code)
+                .map_err(|_| Box::new(EvmTestError("decode hex binary failed".to_string())))?
         };
+
         let abi = {
             if out["contracts"]["input.sol"][contract_name]["abi"] == "null" {
                 return Err(Box::new(EvmTestError(
@@ -112,7 +112,7 @@ impl Contract {
         match &self.abi.constructor {
             Some(constructor) => {
                 let binary = constructor
-                    .encode_input(self.binary.clone().into(), init)
+                    .encode_input(self.binary.clone(), init)
                     .map_err(|_| {
                         Box::new(EvmTestError(
                             "abi constructor failed to encode inputs".to_string(),
