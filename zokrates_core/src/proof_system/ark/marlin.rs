@@ -20,6 +20,7 @@ use digest::Digest;
 use num::Zero;
 use rand_0_8::{Error, RngCore, SeedableRng};
 use sha3::Keccak256;
+use std::convert::TryInto;
 use std::{convert::TryFrom, marker::PhantomData};
 
 use zokrates_field::{ArkFieldExtensions, Field};
@@ -256,16 +257,22 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                                         .map(|shifted_comm| parse_g1::<T>(&shifted_comm.0)),
                                 )
                             })
-                            .collect()
+                            .collect::<Vec<_>>()
+                            .try_into()
+                            .unwrap()
                     })
-                    .collect(),
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap(),
                 evaluations: proof.evaluations.into_iter().map(T::from_ark).collect(),
                 pc_proof_proof: proof
                     .pc_proof
                     .proof
                     .into_iter()
                     .map(|p| (parse_g1::<T>(&p.w), p.random_v.map(T::from_ark)))
-                    .collect(),
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap(),
                 pc_proof_evals: proof
                     .pc_proof
                     .evals
@@ -300,12 +307,12 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
             commitments: proof
                 .proof
                 .commitments
-                .into_iter()
+                .iter()
                 .map(|r| {
                     r.into_iter()
                         .map(|(c, shifted_comm)| Commitment {
-                            comm: KZG10Commitment(serialization::to_g1::<T>(c)),
-                            shifted_comm: shifted_comm.map(|shifted_comm| {
+                            comm: KZG10Commitment(serialization::to_g1::<T>(c.clone())),
+                            shifted_comm: shifted_comm.clone().map(|shifted_comm| {
                                 KZG10Commitment(serialization::to_g1::<T>(shifted_comm))
                             }),
                         })
@@ -323,10 +330,10 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 proof: proof
                     .proof
                     .pc_proof_proof
-                    .into_iter()
+                    .iter()
                     .map(|(w, random_v)| KZG10Proof {
-                        w: serialization::to_g1::<T>(w),
-                        random_v: random_v.map(|v| v.into_ark()),
+                        w: serialization::to_g1::<T>(w.clone()),
+                        random_v: random_v.clone().map(|v| v.into_ark()),
                     })
                     .collect(),
                 evals: proof

@@ -11,9 +11,9 @@ pub struct Marlin;
 
 #[derive(Serialize, Deserialize)]
 pub struct ProofPoints<Fr, G1> {
-    pub commitments: Vec<Vec<(G1, Option<G1>)>>,
+    pub commitments: [[(G1, Option<G1>); 2]; 3],
     pub evaluations: Vec<Fr>,
-    pub pc_proof_proof: Vec<(G1, Option<Fr>)>,
+    pub pc_proof_proof: [(G1, Option<Fr>); 2],
     pub pc_proof_evals: Option<Vec<Fr>>,
     pub prover_messages_count: usize,
 }
@@ -832,6 +832,6 @@ mod tests {
             )
             .unwrap();
         assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
-        //println!("{:?}", result);
+        println!("{:?}", result);
     }
 }

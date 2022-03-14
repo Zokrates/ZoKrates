@@ -59,7 +59,7 @@ pub type Fr = String;
 pub type Fq = String;
 pub type Fq2 = (String, String);
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct G1Affine(Fq, Fq);
 
 // When G2 is defined on Fq2 field
