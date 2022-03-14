@@ -4,7 +4,7 @@
   "tests": [
     {
       "input": {
-        "values": ["1", "0"]
+        "values": [true, false]
       },
       "output": {
         "Ok": {
@@ -14,7 +14,7 @@
     },
     {
       "input": {
-        "values": ["0", "1"]
+        "values": [false, true]
       },
       "output": {
         "Ok": {
@@ -24,7 +24,7 @@
     },
     {
       "input": {
-        "values": ["0", "0"]
+        "values": [false, false]
       },
       "output": {
         "Ok": {

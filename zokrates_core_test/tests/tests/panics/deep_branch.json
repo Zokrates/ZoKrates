@@ -8,13 +8,13 @@
         {
             "input": {
                 "values": [
-                    "1", "1", "1"
+                    [true, true, true]
                 ]
             },
             "output": {
 				"Ok": {
                     "values": [
-                        "1", "1", "1"
+                        [true, true, true]
                     ]
                 }
             }
@@ -22,13 +22,13 @@
         {
             "input": {
                 "values": [
-                    "0", "0", "0"
+                    [false, false, false]
                 ]
             },
             "output": {
 				"Ok": {
                     "values": [
-                        "0", "0", "0"
+                        [false, false, false]
                     ]
                 }
             }
@@ -36,13 +36,13 @@
         {
             "input": {
                 "values": [
-                    "0", "1", "0"
+                    [false, true, false]
                 ]
             },
             "output": {
 				"Ok": {
                     "values": [
-                        "0", "1", "0"
+                        [false, true, false]
                     ]
                 }
             }
@@ -50,13 +50,13 @@
         {
             "input": {
                 "values": [
-                    "1", "0", "1"
+                    [true, false, true]
                 ]
             },
             "output": {
 				"Ok": {
                     "values": [
-                        "1", "0", "1"
+                        [true, false, true]
                     ]
                 }
             }

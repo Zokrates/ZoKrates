@@ -1,8 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u32/add.zok",
   "max_constraint_count": 101,
-  "abi": true,
-  "tests": [
+    "tests": [
     {
       "input": {
         "values": ["0xffffffff", "0x00000001"]

@@ -4,9 +4,9 @@
     "tests": [
         {
             "input": {
-                "values": [
-                    "0", "0", "0"
-                ]
+                "values": [[
+                    false, false, false
+                ]]
             },
             "output": {
                 "Err": {
