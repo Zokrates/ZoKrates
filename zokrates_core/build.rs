@@ -2,16 +2,13 @@
 extern crate cc;
 #[cfg(feature = "libsnark")]
 extern crate cmake;
-#[cfg(feature = "libsnark")]
-extern crate git2;
 
 fn main() {
     #[cfg(feature = "libsnark")]
     {
-        use git2::Repository;
         use std::env;
-        use std::fs::remove_dir;
         use std::path::PathBuf;
+        use std::process::Command;
 
         // fetch libsnark source
         const LIBSNARK_URL: &'static str = "https://github.com/scipr-lab/libsnark.git";
@@ -20,25 +17,36 @@ fn main() {
         let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
         let libsnark_source_path = &out_path.join("libsnark");
 
-        let repo = Repository::open(libsnark_source_path).unwrap_or_else(|_| {
-            remove_dir(libsnark_source_path).ok();
-            Repository::clone(LIBSNARK_URL, libsnark_source_path).unwrap()
-        });
+        if !libsnark_source_path.exists() {
+            // Clone the repository
+            let _ = Command::new("git")
+                .current_dir(out_path)
+                .args(&["clone", "--no-checkout", LIBSNARK_URL])
+                .status()
+                .unwrap();
 
-        // Unencrypted `git://` protocol is no longer supported on GitHub
-        // so we replace all submodule urls to use `https://`
-        let gitmodules_path = libsnark_source_path.join(".gitmodules");
-        let gitmodules = std::fs::read_to_string(&gitmodules_path)
-            .unwrap()
-            .replace("git://", "https://");
+            // Checkout the specific commit
+            let _ = Command::new("git")
+                .current_dir(libsnark_source_path)
+                .args(&["checkout", "-f", LIBSNARK_COMMIT])
+                .status()
+                .unwrap();
 
-        std::fs::write(&gitmodules_path, gitmodules).unwrap();
+            // Unencrypted `git://` protocol is no longer supported on GitHub
+            // so we replace all submodule urls to use `https://`
+            let gitmodules_path = libsnark_source_path.join(".gitmodules");
+            let gitmodules = std::fs::read_to_string(&gitmodules_path)
+                .unwrap()
+                .replace("git://", "https://");
 
-        let object = repo.revparse_single(LIBSNARK_COMMIT).unwrap();
-        repo.checkout_tree(&object, None).unwrap();
+            std::fs::write(&gitmodules_path, gitmodules).unwrap();
 
-        for mut s in repo.submodules().unwrap() {
-            s.update(true, None).unwrap();
+            // Update all submodules recursively
+            let _ = Command::new("git")
+                .current_dir(libsnark_source_path)
+                .args(&["submodule", "update", "--init", "--recursive"])
+                .status()
+                .unwrap();
         }
 
         // build libsnark
