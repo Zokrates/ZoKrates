@@ -3,13 +3,12 @@ extern crate cc;
 #[cfg(feature = "libsnark")]
 extern crate cmake;
 
-use std::process::Command;
-
 fn main() {
     #[cfg(feature = "libsnark")]
     {
         use std::env;
         use std::path::PathBuf;
+        use std::process::Command;
 
         // fetch libsnark source
         const LIBSNARK_URL: &'static str = "https://github.com/scipr-lab/libsnark.git";
