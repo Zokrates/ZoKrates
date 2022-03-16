@@ -32,7 +32,7 @@
 //     "curves": ["Bw6_761"],
 //     "tests": [
 //         {
-//             //             "input": {
+//             "input": {
 //                 "values": [
 //                       $(cat proof.json && echo ", " && cat verification.key)
 //                 ]
