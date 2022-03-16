@@ -53,12 +53,13 @@ module.exports = (dep) => {
         abi: ptr.abi(),
       };
     },
-    computeWitness: (artifacts, args) => {
-      const { program, abi } = artifacts;
+    computeWitness: (input, args) => {
+      const { program, abi } =
+        input instanceof Uint8Array ? { program: input, abi: null } : input;
       return zokrates.compute_witness(
         program,
         abi,
-        JSON.stringify(Array.from(args))
+        JSON.stringify(args)
       );
     },
     setup: (program, options) => {

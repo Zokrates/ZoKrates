@@ -21,7 +21,7 @@ use zokrates_core::proof_system::{
     SolidityCompatibleScheme, UniversalBackend, UniversalScheme, GM17,
 };
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::ConcreteSignature as Signature;
+use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
 #[wasm_bindgen]
@@ -145,16 +145,30 @@ mod internal {
         abi: JsValue,
         args: JsValue,
     ) -> Result<JsValue, JsValue> {
-        let abi: Abi = abi
-            .into_serde()
-            .map_err(|err| JsValue::from_str(&format!("Could not deserialize `abi`: {}", err)))?;
-
-        let signature: Signature = abi.signature();
         let input = args.as_string().unwrap();
 
-        let inputs = parse_strict(&input, signature.inputs)
-            .map(Inputs::Abi)
-            .map_err(|err| JsValue::from_str(&err.to_string()))?;
+        let (inputs, signature) = if abi.is_object() {
+            let abi: Abi = abi.into_serde().map_err(|err| {
+                JsValue::from_str(&format!("Could not deserialize `abi`: {}", err))
+            })?;
+
+            let signature = abi.signature();
+            let inputs = parse_strict(&input, signature.inputs.clone())
+                .map(Inputs::Abi)
+                .map_err(|err| JsValue::from_str(&err.to_string()))?;
+
+            (inputs, signature)
+        } else {
+            let signature = ConcreteSignature::new()
+                .inputs(vec![ConcreteType::FieldElement; program.arguments.len()])
+                .outputs(vec![ConcreteType::FieldElement; program.return_count]);
+
+            let inputs = parse_strict(&input, signature.inputs.clone())
+                .map(Inputs::Abi)
+                .map_err(|err| JsValue::from_str(&err.to_string()))?;
+
+            (inputs, signature)
+        };
 
         let interpreter = ir::Interpreter::default();
 

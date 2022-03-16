@@ -49,7 +49,7 @@ pub enum Value<T> {
 }
 
 #[derive(PartialEq, Debug)]
-pub struct Values<T>(Vec<Value<T>>);
+pub struct Values<T>(pub Vec<Value<T>>);
 
 impl<T: Field> fmt::Display for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
