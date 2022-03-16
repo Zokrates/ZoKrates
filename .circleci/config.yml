@@ -23,7 +23,7 @@ jobs:
           command: cargo generate-lockfile
       - restore_cache:
           keys:
-            - cargo-cache-v4-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
@@ -33,7 +33,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: cargo-cache-v4-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
   test:
     docker:
       - image: zokrates/env:latest
@@ -48,7 +48,7 @@ jobs:
           command: cargo generate-lockfile
       - restore_cache:
           keys:
-            - cargo-cache-v4-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Check format
           command: cargo fmt --all -- --check
@@ -82,7 +82,7 @@ jobs:
           command: cargo generate-lockfile
       - restore_cache:
           keys:
-            - cargo-cache-v4-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Test on firefox
           command: |
@@ -103,7 +103,7 @@ jobs:
           command: cargo generate-lockfile
       - restore_cache:
           keys:
-            - cargo-cache-v4-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run integration tests
           no_output_timeout: "30m"

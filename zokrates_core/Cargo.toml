@@ -9,7 +9,7 @@ build = "build.rs"
 
 [features]
 default = ["bellman", "ark"]
-libsnark = ["cc", "cmake", "git2"]
+libsnark = ["cc", "cmake"]
 bellman = ["bellman_ce", "pairing_ce", "ff_ce", "zokrates_field/bellman"]
 wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
 multicore = ["bellman_ce/multicore", "phase2/multicore"]
@@ -68,4 +68,3 @@ zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
 cmake = { version = "=0.1.45", optional = true }
-git2 = { version = "0.13.25", optional = true }
