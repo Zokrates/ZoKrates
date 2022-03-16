@@ -1,9 +1,7 @@
 {
 	"entry_point": "./tests/tests/uint/from_to_bits.zok",
 	"max_constraint_count": 128,
-	"abi": true,
-	"tests": [
-		{
+	"tests": [{
 			"input": {
 				"values": ["0x0000000000000000", "0x00000000", "0x0000", "0x00"]
 			},

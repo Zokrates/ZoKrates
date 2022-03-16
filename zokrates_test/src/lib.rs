@@ -147,7 +147,7 @@ fn compile_and_run<T: Field>(t: Tests) {
     };
 
     let interpreter = zokrates_core::ir::Interpreter::default();
-    let with_abi = t.abi.unwrap_or(false);
+    let with_abi = t.abi.unwrap_or(true);
 
     for test in t.tests.into_iter() {
         let with_abi = test.abi.unwrap_or(with_abi);

@@ -1,9 +1,7 @@
 {
 	"entry_point": "./tests/tests/uint/rotate.zok",
 	"max_constraint_count": 34,
-	"abi": true,
-	"tests": [
-		{
+	"tests": [{
 			"input": {
 				"values": ["0x000000f0"]
 			},

@@ -4,41 +4,41 @@
     "tests": [
         {
             "input": {
-                "values": ["0"]
+                "values": ["0x00000000"]
             },
             "output": {
                 "Ok": {
-                    "values": ["0"]
+                    "values": ["0x00000000"]
                 }
             }
         },
         {
             "input": {
-                "values": ["1"]
+                "values": ["0x00000001"]
             },
             "output": {
                 "Ok": {
-                    "values": ["1073741824"]
+                    "values": ["0x40000000"]
                 }
             }
         },
         {
             "input": {
-                "values": ["42"]
+                "values": ["0x0000002a"]
             },
             "output": {
                 "Ok": {
-                    "values": ["2147483658"]
+                    "values": ["0x8000000a"]
                 }
             }
         },
         {
             "input": {
-                "values": ["2147483658"]
+                "values": ["0x8000000a"]
             },
             "output": {
                 "Ok": {
-                    "values": ["2684354562"]
+                    "values": ["0xa0000002"]
                 }
             }
         }

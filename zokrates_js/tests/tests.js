@@ -177,7 +177,7 @@ describe("tests", function () {
     const source = fs.readFileSync(entryPoint).toString();
     const curves = test.curves || ["Bn128"];
     const tests = test.tests || [];
-    const withAbi = test.abi === true;
+    const withAbi = test.abi !== false;
 
     const fileSystemResolver = (from, to) => {
       let parsedPath = path.parse(
