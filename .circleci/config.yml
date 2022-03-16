@@ -38,6 +38,8 @@ jobs:
     docker:
       - image: zokrates/env:latest
     resource_class: large
+    environment:
+      MAKEFLAGS: -j 2
     steps:
       - checkout
       - run:
