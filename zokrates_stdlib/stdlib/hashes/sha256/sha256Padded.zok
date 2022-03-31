@@ -29,7 +29,7 @@ def sha256Padded<N>(bool[N] input) -> u32[8]:
     u32[block_count][16] padded = pad(input)
     return sha256(padded)
 
-// A function that takes a u32[N] array as input, pads it,
+// A function that takes a u8[N] array as input, pads it,
 // and returns the sha256 output as a u32[8]
 def main<N>(u8[N] input) -> u32[8]:
     u32 L = N * 8
