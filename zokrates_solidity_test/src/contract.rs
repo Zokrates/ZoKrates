@@ -1,5 +1,5 @@
-use ethabi::{Contract as ContractAbi, Token};
-use serde_json::from_str;
+use ethabi::{Address, Contract as ContractAbi, Token};
+use serde_json::{from_str, json};
 use solc::compile;
 
 use std::{fs::File, io::Read, path::Path};
@@ -31,33 +31,46 @@ impl Contract {
             .map_err(|_| Box::new(EvmTestError("src file read failed".to_string())))?;
         src = src.replace("\"", "\\\"");
 
-        Self::compile_from_src_string(&src, contract_name, opt)
+        Self::compile_from_src_string(&src, contract_name, opt, &[])
     }
 
     pub fn compile_from_src_string(
-        src: &String,
+        src: &str,
         contract_name: &str,
         opt: bool,
+        libraries: &[(&str, Token)],
     ) -> Result<Self, Error> {
         // Compile source file using solc
         // Configuration: https://docs.soliditylang.org/en/v0.8.10/using-the-compiler.html
         // TODO: Change output selection to only compile 'input' file
-        let solc_config = r#"
-            {
+        let solc_config = format!(
+            r#"
+            {{
                 "language": "Solidity",
-                "sources": { "input.sol": { "content": "{src}" } },
-                "settings": {
-                    "optimizer": { "enabled": {opt} },
-                    "outputSelection": {
-                        "*": {
+                "sources": {{ "input.sol": {{ "content": {} }} }},
+                "settings": {{
+                    "optimizer": {{ "enabled": {} }},
+                    "libraries": {{ 
+                        "input.sol" : {{ {} }} 
+                    }},
+                    "outputSelection": {{
+                        "*": {{
                             "*": [
                                 "evm.bytecode.object", "abi"
                             ],
-                        "": [ "*" ] } }
-                }
-            }"#
-        .replace("{opt}", &opt.to_string())
-        .replace("{src}", &src);
+                        "": [ "*" ] }}
+                    }}
+                }}
+            }}"#,
+            json!(src),
+            opt,
+            libraries
+                .iter()
+                .map(|(name, address)| format!("\"{}\": \"0x{}\"", name, address))
+                .collect::<Vec<_>>()
+                .join(",\n")
+        );
+
         Self::compile_from_config(&solc_config, contract_name)
     }
 

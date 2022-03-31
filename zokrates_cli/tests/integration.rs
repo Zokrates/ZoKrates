@@ -43,6 +43,24 @@ mod integration {
         // install nodejs dependencies for the verification contract tester
         install_nodejs_deps();
 
+        let global_dir = TempDir::new("global").unwrap();
+        let global_base = global_dir.path();
+        let universal_setup_path = global_base.join("universal_setup.dat");
+
+        // GENERATE A UNIVERSAL SETUP
+        assert_cli::Assert::main_binary()
+            .with_args(&[
+                "universal-setup",
+                "--size",
+                "10",
+                "--proving-scheme",
+                "marlin",
+                "--universal-setup-path",
+                universal_setup_path.to_str().unwrap(),
+            ])
+            .succeeds()
+            .unwrap();
+
         let dir = Path::new("./tests/code");
         assert!(dir.is_dir());
         for entry in fs::read_dir(dir).unwrap() {
@@ -55,14 +73,13 @@ mod integration {
                 let witness = dir.join(program_name).with_extension("expected.witness");
                 let json_input = dir.join(program_name).with_extension("arguments.json");
 
-                if program_name.to_str().unwrap() == "simple_mul" {
-                    test_compile_and_witness(
-                        program_name.to_str().unwrap(),
-                        &prog,
-                        &json_input,
-                        &witness,
-                    );
-                }
+                test_compile_and_witness(
+                    program_name.to_str().unwrap(),
+                    &prog,
+                    &json_input,
+                    &witness,
+                    global_base,
+                );
             }
         }
     }
@@ -81,10 +98,9 @@ mod integration {
         program_path: &Path,
         inputs_path: &Path,
         expected_witness_path: &Path,
+        global_path: &Path,
     ) {
-        println!("test {}", program_name);
-
-        let tmp_dir = TempDir::new(".tmp").unwrap();
+        let tmp_dir = TempDir::new(program_name).unwrap();
         let tmp_base = tmp_dir.path();
         let test_case_path = tmp_base.join(program_name);
         let flattened_path = tmp_base.join(program_name).join("out");
@@ -92,6 +108,7 @@ mod integration {
         let witness_path = tmp_base.join(program_name).join("witness");
         let inline_witness_path = tmp_base.join(program_name).join("inline_witness");
         let proof_path = tmp_base.join(program_name).join("proof.json");
+        let universal_setup_path = global_path.join("universal_setup.dat");
         let verification_key_path = tmp_base
             .join(program_name)
             .join("verification")
@@ -112,7 +129,6 @@ mod integration {
 
         // prepare compile arguments
         let compile = vec![
-            "../target/debug/zokrates",
             "compile",
             "-i",
             program_path.to_str().unwrap(),
@@ -125,11 +141,13 @@ mod integration {
         ];
 
         // compile
-        assert_cli::Assert::command(&compile).succeeds().unwrap();
+        assert_cli::Assert::main_binary()
+            .with_args(&compile)
+            .succeeds()
+            .unwrap();
 
         // COMPUTE_WITNESS
         let compute = vec![
-            "../target/debug/zokrates",
             "compute-witness",
             "-i",
             flattened_path.to_str().unwrap(),
@@ -144,7 +162,8 @@ mod integration {
         // run witness-computation for ABI-encoded inputs through stdin
         let json_input_str = fs::read_to_string(inputs_path).unwrap();
 
-        assert_cli::Assert::command(&compute)
+        assert_cli::Assert::main_binary()
+            .with_args(&compute)
             .stdin(&json_input_str)
             .succeeds()
             .unwrap();
@@ -176,7 +195,6 @@ mod integration {
             .collect();
 
         let mut compute_inline = vec![
-            "../target/debug/zokrates",
             "compute-witness",
             "-i",
             flattened_path.to_str().unwrap(),
@@ -192,7 +210,8 @@ mod integration {
             }
         }
 
-        assert_cli::Assert::command(&compute_inline)
+        assert_cli::Assert::main_binary()
+            .with_args(&compute_inline)
             .succeeds()
             .unwrap();
 
@@ -235,98 +254,85 @@ mod integration {
 
         #[cfg(not(feature = "libsnark"))]
         let backends = map! {
-            "bellman" => vec![],
-            "ark" => vec!["marlin"]
+            "bellman" => vec!["g16"],
+            "ark" => vec!["g16", "gm17", "marlin"]
         };
-
-        // GENERATE A UNIVERSAL SETUP
-        assert_cli::Assert::command(&[
-            "../target/debug/zokrates",
-            "universal-setup",
-            "--size",
-            "5",
-            "--proving-scheme",
-            "marlin",
-        ])
-        .succeeds()
-        .unwrap();
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
                 println!("test with {}, {}", backend, scheme);
                 // SETUP
-                let setup = assert_cli::Assert::command(&[
-                    "../target/debug/zokrates",
-                    "setup",
-                    "-i",
-                    flattened_path.to_str().unwrap(),
-                    "-p",
-                    proving_key_path.to_str().unwrap(),
-                    "-v",
-                    verification_key_path.to_str().unwrap(),
-                    "--backend",
-                    backend,
-                    "--proving-scheme",
-                    scheme,
-                ])
-                .succeeds()
-                .stdout()
-                .doesnt_contain("This program is too small to generate a setup with Marlin")
-                .execute();
-
-                println!("{:?}", setup);
+                let setup = assert_cli::Assert::main_binary()
+                    .with_args(&[
+                        "setup",
+                        "-i",
+                        flattened_path.to_str().unwrap(),
+                        "-p",
+                        proving_key_path.to_str().unwrap(),
+                        "-v",
+                        verification_key_path.to_str().unwrap(),
+                        "--backend",
+                        backend,
+                        "--proving-scheme",
+                        scheme,
+                        "--universal-setup-path",
+                        universal_setup_path.to_str().unwrap(),
+                    ])
+                    .succeeds()
+                    .stdout()
+                    .doesnt_contain("This program is too small to generate a setup with Marlin")
+                    .execute();
 
                 if setup.is_ok() {
                     // GENERATE-PROOF
-                    assert_cli::Assert::command(&[
-                        "../target/debug/zokrates",
-                        "generate-proof",
-                        "-i",
-                        flattened_path.to_str().unwrap(),
-                        "-w",
-                        witness_path.to_str().unwrap(),
-                        "-p",
-                        proving_key_path.to_str().unwrap(),
-                        "--backend",
-                        backend,
-                        "--proving-scheme",
-                        scheme,
-                        "-j",
-                        proof_path.to_str().unwrap(),
-                    ])
-                    .succeeds()
-                    .unwrap();
+                    assert_cli::Assert::main_binary()
+                        .with_args(&[
+                            "generate-proof",
+                            "-i",
+                            flattened_path.to_str().unwrap(),
+                            "-w",
+                            witness_path.to_str().unwrap(),
+                            "-p",
+                            proving_key_path.to_str().unwrap(),
+                            "--backend",
+                            backend,
+                            "--proving-scheme",
+                            scheme,
+                            "-j",
+                            proof_path.to_str().unwrap(),
+                        ])
+                        .succeeds()
+                        .unwrap();
 
                     // CLI VERIFICATION
-                    assert_cli::Assert::command(&[
-                        "../target/debug/zokrates",
-                        "verify",
-                        "--backend",
-                        backend,
-                        "--proving-scheme",
-                        scheme,
-                        "-j",
-                        proof_path.to_str().unwrap(),
-                        "-v",
-                        verification_key_path.to_str().unwrap(),
-                    ])
-                    .succeeds()
-                    .unwrap();
+                    assert_cli::Assert::main_binary()
+                        .with_args(&[
+                            "verify",
+                            "--backend",
+                            backend,
+                            "--proving-scheme",
+                            scheme,
+                            "-j",
+                            proof_path.to_str().unwrap(),
+                            "-v",
+                            verification_key_path.to_str().unwrap(),
+                        ])
+                        .succeeds()
+                        .unwrap();
 
                     // EXPORT-VERIFIER
-                    println!("export verifier");
-                    assert_cli::Assert::command(&[
-                        "../target/debug/zokrates",
-                        "export-verifier",
-                        "-i",
-                        verification_key_path.to_str().unwrap(),
-                        "-o",
-                        verification_contract_path.to_str().unwrap(),
-                        "--proving-scheme",
-                        scheme,
-                    ])
-                    .succeeds()
-                    .unwrap();
+                    assert_cli::Assert::main_binary()
+                        .with_args(&[
+                            "export-verifier",
+                            "-i",
+                            verification_key_path.to_str().unwrap(),
+                            "-o",
+                            verification_contract_path.to_str().unwrap(),
+                            "--proving-scheme",
+                            scheme,
+                        ])
+                        .succeeds()
+                        .unwrap();
 
                     // TEST VERIFIER
                     // Get the contract
@@ -391,29 +397,10 @@ mod integration {
         let deployer = Address::random(&mut rng);
         evm.create_account(&deployer, 0);
 
-        let g2_lib_config = format!(
-            r#"
-        {{
-            "language": "Solidity",
-            "sources": {{
-                "input.sol": {{ "content": {} }}
-            }},
-            "settings": {{
-                "optimizer": {{ "enabled": {} }},
-                "outputSelection": {{
-                    "*": {{
-                        "*": [
-                            "evm.bytecode.object", "abi"
-                        ],
-                    "": [ "*" ] }} }}
-            }}
-        }}"#,
-            json!(SOLIDITY_G2_ADDITION_LIB),
-            true
-        );
-
-        println!("compile lib");
-        let g2_lib = Contract::compile_from_config(&g2_lib_config, "BN256G2").unwrap();
+        // Compile lib
+        let g2_lib =
+            Contract::compile_from_src_string(&SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
+                .unwrap();
 
         // Deploy lib
         let create_result = evm
@@ -421,33 +408,14 @@ mod integration {
             .unwrap();
         let lib_addr = create_result.addr.clone();
 
-        let solc_config = format!(
-            r#"
-        {{
-            "language": "Solidity",
-            "sources": {{
-                "input.sol": {{ "content": {} }}
-            }},
-            "settings": {{
-                "optimizer": {{ "enabled": {} }},
-                "libraries": {{ "input.sol" : {{ 
-                        "BN256G2": "0x{}" 
-                    }} 
-                }} ,
-                "outputSelection": {{
-                    "*": {{
-                        "*": [
-                            "evm.bytecode.object", "abi"
-                        ],
-                    "": [ "*" ] }} }}
-            }}
-        }}"#,
-            json!(src),
+        // Compile contract
+        let contract = Contract::compile_from_src_string(
+            &src,
+            "Verifier",
             true,
-            lib_addr.as_token()
-        );
-
-        let contract = Contract::compile_from_config(&solc_config, "Verifier").unwrap();
+            &[("BN256G2", lib_addr.as_token())],
+        )
+        .unwrap();
 
         // Deploy contract
         let create_result = evm
@@ -457,13 +425,14 @@ mod integration {
             )
             .unwrap();
         let contract_addr = create_result.addr.clone();
-        //println!("Contract deploy gas cost: {}", create_result.gas);
 
+        // convert to the solidity proof format
         let solidity_proof = S::Proof::from(proof.proof);
 
+        // convert to tokens to build a call
         let proof_token = S::to_token(solidity_proof);
 
-        let input_token = Token::Array(
+        let input_token = Token::FixedArray(
             proof
                 .inputs
                 .iter()
@@ -495,7 +464,7 @@ mod integration {
         program_path: &Path,
         expected_smtlib2_path: &Path,
     ) {
-        let tmp_dir = TempDir::new(".tmp").unwrap();
+        let tmp_dir = TempDir::new(program_name).unwrap();
         let tmp_base = tmp_dir.path();
         let test_case_path = tmp_base.join(program_name);
         let flattened_path = tmp_base.join(program_name).join("out");
@@ -508,7 +477,6 @@ mod integration {
 
         // prepare compile arguments
         let compile = vec![
-            "../target/debug/zokrates",
             "compile",
             "-i",
             program_path.to_str().unwrap(),
@@ -519,11 +487,13 @@ mod integration {
         ];
 
         // compile
-        assert_cli::Assert::command(&compile).succeeds().unwrap();
+        assert_cli::Assert::main_binary()
+            .with_args(&compile)
+            .succeeds()
+            .unwrap();
 
         // prepare generate-smtlib2 arguments
         let gen = vec![
-            "../target/debug/zokrates",
             "generate-smtlib2",
             "-i",
             flattened_path.to_str().unwrap(),
@@ -532,7 +502,10 @@ mod integration {
         ];
 
         // generate-smtlib2
-        assert_cli::Assert::command(&gen).succeeds().unwrap();
+        assert_cli::Assert::main_binary()
+            .with_args(&gen)
+            .succeeds()
+            .unwrap();
 
         // load the expected smtlib2
         let mut expected_smtlib2_file = File::open(&expected_smtlib2_path).unwrap();

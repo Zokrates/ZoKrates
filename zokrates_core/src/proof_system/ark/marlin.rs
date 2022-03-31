@@ -145,6 +145,8 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
             return Err(format!("Programs must have a least {} constraints. This program is too small to generate a setup with Marlin, see [this issue](https://github.com/arkworks-rs/marlin/issues/79)", MINIMUM_CONSTRAINT_COUNT));
         }
 
+        let num_public_inputs = program.public_count();
+
         let computation = Computation::without_witness(program);
 
         let srs = ark_marlin::UniversalSRS::<
@@ -182,6 +184,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
                     .into_iter()
                     .map(|c| (parse_g1::<T>(&c.comm.0), None))
                     .collect(),
+                num_public_inputs,
                 num_constraints: vk.index_info.num_constraints,
                 num_non_zero: vk.index_info.num_non_zero,
                 num_instance_variables: vk.index_info.num_instance_variables,
@@ -215,7 +218,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
     ) -> Proof<T, marlin::Marlin> {
         let computation = Computation::with_witness(program, witness);
 
-        let rng = &mut rand_0_8::rngs::StdRng::from_seed([0; 32]);
+        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
 
         let pk = IndexProverKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -226,15 +229,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
         >::deserialize_uncompressed(&mut proving_key.as_slice())
         .unwrap();
 
-        let mut public_inputs = computation.public_inputs_values();
-        let domain_x = GeneralEvaluationDomain::<
-            <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
-        >::new(public_inputs.len() + 1)
-        .unwrap();
-        public_inputs.resize(
-            core::cmp::max(public_inputs.len(), domain_x.size() - 1),
-            <<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>::zero(),
-        );
+        let public_inputs = computation.public_inputs_values();
 
         let inputs = public_inputs.iter().map(parse_fr::<T>).collect::<Vec<_>>();
 
