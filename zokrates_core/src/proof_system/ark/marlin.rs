@@ -212,10 +212,10 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<marlin::Marlin as Scheme<T>>::ProofPoints> {
+    ) -> Proof<T, marlin::Marlin> {
         let computation = Computation::with_witness(program, witness);
 
-        let rng = &mut rand_0_8::rngs::StdRng::from_entropy();
+        let rng = &mut rand_0_8::rngs::StdRng::from_seed([0; 32]);
 
         let pk = IndexProverKey::<
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr,
@@ -240,8 +240,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
         let proof = MarlinInst::<T>::prove(&pk, computation, rng).unwrap();
 
-        let mut serialized_proof: Vec<u8> = Vec::new();
-        proof.serialize_uncompressed(&mut serialized_proof).unwrap();
+        assert!(proof.pc_proof.evals.is_none());
 
         Proof::new(
             ProofPoints {
@@ -257,26 +256,17 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                                         .map(|shifted_comm| parse_g1::<T>(&shifted_comm.0)),
                                 )
                             })
-                            .collect::<Vec<_>>()
-                            .try_into()
-                            .unwrap()
+                            .collect()
                     })
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .unwrap(),
-                evaluations: proof.evaluations.into_iter().map(T::from_ark).collect(),
-                pc_proof_proof: proof
-                    .pc_proof
-                    .proof
+                    .collect(),
+                evaluations: proof
+                    .evaluations
                     .into_iter()
-                    .map(|p| (parse_g1::<T>(&p.w), p.random_v.map(T::from_ark)))
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .unwrap(),
-                pc_proof_evals: proof
-                    .pc_proof
-                    .evals
-                    .map(|evals| evals.into_iter().map(T::from_ark).collect()),
+                    .map(|e| parse_fr::<T>(&e))
+                    .collect(),
+                pc_lc_opening_1: parse_g1::<T>(&proof.pc_proof.proof[0].w),
+                pc_lc_opening_1_degree: parse_fr::<T>(&proof.pc_proof.proof[0].random_v.unwrap()),
+                pc_lc_opening_2: parse_g1::<T>(&proof.pc_proof.proof[1].w),
                 prover_messages_count: proof.prover_messages.len(),
             },
             inputs,
@@ -285,7 +275,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
     fn verify(
         vk: <marlin::Marlin as Scheme<T>>::VerificationKey,
-        proof: Proof<<marlin::Marlin as Scheme<T>>::ProofPoints>,
+        proof: Proof<T, marlin::Marlin>,
     ) -> bool {
         let inputs: Vec<_> = proof
             .inputs
@@ -323,23 +313,32 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 .proof
                 .evaluations
                 .into_iter()
-                .map(|v| v.into_ark())
+                .map(|v| {
+                    T::try_from_str(v.trim_start_matches("0x"), 16)
+                        .unwrap()
+                        .into_ark()
+                })
                 .collect(),
             prover_messages: vec![ProverMsg::EmptyMessage; proof.proof.prover_messages_count],
             pc_proof: BatchLCProof {
-                proof: proof
-                    .proof
-                    .pc_proof_proof
-                    .iter()
-                    .map(|(w, random_v)| KZG10Proof {
-                        w: serialization::to_g1::<T>(w.clone()),
-                        random_v: random_v.clone().map(|v| v.into_ark()),
-                    })
-                    .collect(),
-                evals: proof
-                    .proof
-                    .pc_proof_evals
-                    .map(|evals| evals.into_iter().map(|eval| eval.into_ark()).collect()),
+                proof: vec![
+                    KZG10Proof {
+                        w: serialization::to_g1::<T>(proof.proof.pc_lc_opening_1),
+                        random_v: Some(
+                            T::try_from_str(
+                                proof.proof.pc_lc_opening_1_degree.trim_start_matches("0x"),
+                                16,
+                            )
+                            .unwrap()
+                            .into_ark(),
+                        ),
+                    },
+                    KZG10Proof {
+                        w: serialization::to_g1::<T>(proof.proof.pc_lc_opening_2),
+                        random_v: None,
+                    },
+                ],
+                evals: None,
             },
         };
 

@@ -55,7 +55,7 @@ let jsonContractSource = {
         })
         .send({
             from: accounts[0],
-            gas: '2000000'
+            gas: '20000000'
         })
         .on('receipt', (tx) => {
             if (tx.status == true) {
@@ -64,7 +64,7 @@ let jsonContractSource = {
         })
         .then(newContractInstance => {
             contract = newContractInstance;
-            Promise.all([makeTransaction(accounts[0], true), makeTransaction(accounts[0], false)]);
+            Promise.all([makeTransaction(accounts[0], true)]);
         })
         .catch(err => {
             console.log(err);
@@ -94,6 +94,8 @@ let jsonContractSource = {
             }
         }
 
+        console.log("PROOF:", proof)
+
         verifyTx(proof, account, correct).on('receipt', handleReceipt)
             .catch(handleError);
     }
@@ -102,9 +104,11 @@ let jsonContractSource = {
         var args = proof[0];
         args = proof[1].length > 0 ? [args, proof[1]] : [args];
 
+        console.log(args);
+
         return contract.methods.verifyTx(...args).send({
             from: account,
-            gas: 5000000
+            gas: '20000000'
         });
     }
 

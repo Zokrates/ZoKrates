@@ -25,7 +25,7 @@ typed-arena = "1.4.1"
 reduce = "0.1.1"
 # serialization and deserialization
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_cbor = "0.11.2"
 hex = "0.4.2"
 regex = "0.2"
@@ -61,12 +61,12 @@ ark-poly-commit = { version = "^0.3.0", default-features = false, optional = tru
 ark-crypto-primitives = { version = "^0.3.0", default-features = false, optional = true }
 sha3 = { version = "0.9", optional = true }
 digest = { version = "0.9", optional = true }
+ethabi = { path = "../../ethabi/ethabi" }
+primitive-types = { version = "0.11", features = ["rlp"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
-ethabi = "17.0.0"
-primitive-types = { version = "0.11", features = ["rlp"] }
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 zokrates_solidity_test = { path = "../zokrates_solidity_test"}
 

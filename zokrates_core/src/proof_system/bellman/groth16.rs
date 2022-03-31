@@ -25,7 +25,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<G16 as Scheme<T>>::ProofPoints> {
+    ) -> Proof<T, G16> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::with_witness(program, witness);
@@ -47,10 +47,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
         Proof::new(proof_points, public_inputs)
     }
 
-    fn verify(
-        vk: <G16 as Scheme<T>>::VerificationKey,
-        proof: Proof<<G16 as Scheme<T>>::ProofPoints>,
-    ) -> bool {
+    fn verify(vk: <G16 as Scheme<T>>::VerificationKey, proof: Proof<T, G16>) -> bool {
         let vk = VerifyingKey {
             alpha_g1: serialization::to_g1::<T>(vk.alpha),
             beta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification

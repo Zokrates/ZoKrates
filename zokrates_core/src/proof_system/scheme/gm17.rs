@@ -1,9 +1,10 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
 use crate::proof_system::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
 use crate::proof_system::{
-    G1Affine, G2Affine, G2AffineFq, NotBw6_761Field, SolidityCompatibleField,
-    SolidityCompatibleScheme,
+    encode_g1_element, encode_g2_element, G1Affine, G2Affine, G2AffineFq, NotBw6_761Field,
+    SolidityCompatibleField, SolidityCompatibleScheme, ToToken,
 };
+use ethabi::Token;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::{Bw6_761Field, Field};
@@ -42,7 +43,35 @@ impl Scheme<Bw6_761Field> for GM17 {
     type ProofPoints = ProofPoints<G1Affine, G2AffineFq>;
 }
 
+impl<T: SolidityCompatibleField + NotBw6_761Field> ToToken<T> for GM17 {
+    fn to_token(proof: Self::Proof) -> Token {
+        let a = {
+            let (x, y) = encode_g1_element(&proof.a);
+            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
+        };
+
+        let b = {
+            let ((x0, y0), (x1, y1)) = encode_g2_element(&proof.b);
+            Token::Tuple(vec![
+                Token::FixedArray(vec![Token::Uint(x0), Token::Uint(y0)]),
+                Token::FixedArray(vec![Token::Uint(x1), Token::Uint(y1)]),
+            ])
+        };
+
+        let c = {
+            let (x, y) = encode_g1_element(&proof.c);
+            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
+        };
+
+        let proof_tokens = vec![a, b, c];
+
+        Token::Tuple(proof_tokens)
+    }
+}
+
 impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for GM17 {
+    type Proof = Self::ProofPoints;
+
     fn export_solidity_verifier(vk: <GM17 as Scheme<T>>::VerificationKey) -> String {
         let (mut template_text, solidity_pairing_lib) =
             (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(true));

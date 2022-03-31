@@ -71,6 +71,10 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
             cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
         }
+        (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            println!("export with marlin");
+            cli_export_verifier::<Bn128Field, Marlin>(sub_matches)
+        }
         _ => Err(format!("Could not export verifier with given parameters (curve: {}, scheme: {}): not supported", curve, scheme))
     }
 }
@@ -89,6 +93,7 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
     let vk = serde_json::from_reader(reader)
         .map_err(|why| format!("Could not deserialize verification key: {}", why))?;
 
+    println!("exp");
     let verifier = S::export_solidity_verifier(vk);
 
     //write output file

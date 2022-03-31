@@ -1,21 +1,54 @@
+use crate::proof_system::ark::parse_fr;
 use crate::proof_system::scheme::{Scheme, UniversalScheme};
 use crate::proof_system::solidity::{
     solidity_pairing_lib, SolidityCompatibleField, SolidityCompatibleScheme,
 };
-use crate::proof_system::{Fr, G1Affine, G2Affine, NotBw6_761Field};
+use crate::proof_system::{
+    encode_fr_element, encode_g1_element, Fr, G1Affine, G2Affine, NotBw6_761Field, ToToken,
+};
+use ethabi::Token;
 use serde::{Deserialize, Serialize};
-use zokrates_field::Field;
+use zokrates_field::{ArkFieldExtensions, Field};
 
-#[allow(clippy::upper_case_acronyms)]
 pub struct Marlin;
 
 #[derive(Serialize, Deserialize)]
 pub struct ProofPoints<Fr, G1> {
-    pub commitments: [[(G1, Option<G1>); 2]; 3],
+    pub commitments: Vec<Vec<(G1, Option<G1>)>>,
     pub evaluations: Vec<Fr>,
-    pub pc_proof_proof: [(G1, Option<Fr>); 2],
-    pub pc_proof_evals: Option<Vec<Fr>>,
+    pub pc_lc_opening_1: G1,
+    pub pc_lc_opening_1_degree: Fr,
+    pub pc_lc_opening_2: G1,
     pub prover_messages_count: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SolidityProof<Fr, G1> {
+    pub comms_1: Vec<G1>,
+    pub comms_2: Vec<G1>,
+    pub degree_bound_comms_2_g1: G1,
+    pub comms_3: Vec<G1>,
+    pub degree_bound_comms_3_g2: G1,
+    pub evals: Vec<Fr>,
+    pub batch_lc_proof_1: G1,
+    pub batch_lc_proof_1_r: Fr,
+    pub batch_lc_proof_2: G1,
+}
+
+impl<Fr: Clone, G1: Clone> From<ProofPoints<Fr, G1>> for SolidityProof<Fr, G1> {
+    fn from(p: ProofPoints<Fr, G1>) -> Self {
+        SolidityProof {
+            comms_1: p.commitments[0].clone().into_iter().map(|x| x.0).collect(),
+            comms_2: p.commitments[1].clone().into_iter().map(|x| x.0).collect(),
+            degree_bound_comms_2_g1: p.commitments[1][1].1.clone().unwrap(),
+            comms_3: p.commitments[2].clone().into_iter().map(|x| x.0).collect(),
+            degree_bound_comms_3_g2: p.commitments[2][0].1.clone().unwrap(),
+            evals: p.evaluations,
+            batch_lc_proof_1: p.pc_lc_opening_1,
+            batch_lc_proof_1_r: p.pc_lc_opening_1_degree,
+            batch_lc_proof_2: p.pc_lc_opening_2,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,12 +84,93 @@ pub struct VerificationKey<Fr, G1, G2> {
 
 impl<T: Field> Scheme<T> for Marlin {
     type VerificationKey = VerificationKey<Fr, G1Affine, G2Affine>;
-    type ProofPoints = ProofPoints<T, G1Affine>;
+    type ProofPoints = ProofPoints<Fr, G1Affine>;
 }
 
 impl<T: Field> UniversalScheme<T> for Marlin {}
 
-impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for Marlin {
+impl<T: SolidityCompatibleField + ArkFieldExtensions + NotBw6_761Field> ToToken<T> for Marlin {
+    fn to_token(proof: Self::Proof) -> Token {
+        let comms_1_token = Token::Array(
+            proof
+                .comms_1
+                .iter()
+                .map(encode_g1_element)
+                .map(|(x, y)| Token::Tuple(vec![Token::Uint(x), Token::Uint(y)]))
+                .collect(),
+        );
+
+        let comms_2_token = Token::Array(
+            proof
+                .comms_2
+                .iter()
+                .map(encode_g1_element)
+                .map(|(x, y)| Token::Tuple(vec![Token::Uint(x), Token::Uint(y)]))
+                .collect(),
+        );
+
+        let degree_bound_comms_2_g1_token = {
+            let (x, y) = encode_g1_element(&proof.degree_bound_comms_2_g1);
+            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
+        };
+
+        let comms_3_token = Token::Array(
+            proof
+                .comms_3
+                .iter()
+                .map(encode_g1_element)
+                .map(|(x, y)| Token::Tuple(vec![Token::Uint(x), Token::Uint(y)]))
+                .collect(),
+        );
+
+        let degree_bound_comms_3_g2_token = {
+            let (x, y) = encode_g1_element(&proof.degree_bound_comms_3_g2);
+            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
+        };
+
+        let evals_token = Token::Array(
+            proof
+                .evals
+                .into_iter()
+                .map(|f| encode_fr_element(&f))
+                .map(Token::Uint)
+                .collect::<Vec<_>>(),
+        );
+
+        let pc_lc_opening_1_token = {
+            let (x, y) = encode_g1_element(&proof.batch_lc_proof_1);
+            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
+        };
+
+        let degree_bound_pc_lc_opening_1_token =
+            Token::Uint(encode_fr_element(&proof.batch_lc_proof_1_r));
+
+        let pc_lc_opening_2_token = {
+            let (x, y) = encode_g1_element(&proof.batch_lc_proof_2);
+            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
+        };
+
+        let proof_tokens = vec![
+            comms_1_token,
+            comms_2_token,
+            degree_bound_comms_2_g1_token,
+            comms_3_token,
+            degree_bound_comms_3_g2_token,
+            evals_token,
+            pc_lc_opening_1_token,
+            degree_bound_pc_lc_opening_1_token,
+            pc_lc_opening_2_token,
+        ];
+
+        Token::Tuple(proof_tokens)
+    }
+}
+
+impl<T: SolidityCompatibleField + NotBw6_761Field + ArkFieldExtensions> SolidityCompatibleScheme<T>
+    for Marlin
+{
+    type Proof = SolidityProof<Fr, G1Affine>;
+
     fn export_solidity_verifier(vk: <Marlin as Scheme<T>>::VerificationKey) -> String {
         let (template, solidity_pairing_lib) =
             (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));
@@ -176,6 +290,10 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
                 };
                 size.to_string()
             })
+            .replace(
+                "<%num_instance_variables%>",
+                &vk.num_instance_variables.to_string(),
+            )
             .replace("<%x_root%>", &vk.x_root_of_unity.to_string())
             .replace(
                 "<%f_mod%>",
@@ -229,7 +347,12 @@ contract Verifier {
         vk.g1_shift = Pairing.G1Point(<%vk_g1_shift%>);
         vk.g2_shift = Pairing.G1Point(<%vk_g2_shift%>);
     }
-    function verify(uint256[] memory input, Proof memory proof) public view returns (bool) {
+
+    function verifyTx(Proof memory proof, uint256[] memory input) public view returns (bool) {
+        return verifyTxAux(input, proof);
+    }
+
+    function verifyTxAux(uint256[] memory input, Proof memory proof) internal view returns (bool) {
         VerifierKey memory vk = verifierKey();
         for (uint i = 0; i < input.length; i++) {
             require(input[i] < <%f_mod%>);
@@ -632,117 +755,14 @@ mod tests {
     use crate::ir::{Interpreter, Prog, QuadComb, Statement};
     use crate::proof_system::ark::{parse_fr, Ark};
     use crate::proof_system::{Backend, Fr, Proof, UniversalBackend};
-    use zokrates_field::ArkFieldExtensions;
 
     use super::*;
+    use ethabi::token::{LenientTokenizer, StrictTokenizer, Tokenizer};
     use ethabi::Token;
-    use primitive_types::U256;
+    use primitive_types::{H160, U256};
     use rand_0_8::{rngs::StdRng, SeedableRng};
     use zokrates_field::Bn128Field;
     use zokrates_solidity_test::{address::Address, contract::Contract, evm::Evm, to_be_bytes};
-
-    /// Helper methods for parsing group structure
-    pub fn encode_g1_element(g: &G1Affine) -> Token {
-        Token::Tuple(vec![
-            Token::Uint(U256::from(
-                &hex::decode(&g.0.trim_start_matches("0x")).unwrap()[..],
-            )),
-            Token::Uint(U256::from(
-                &hex::decode(&g.1.trim_start_matches("0x")).unwrap()[..],
-            )),
-        ])
-    }
-
-    //pub fn encode_g2_element(g: &G2Affine) -> Token {
-    //    Token::Tuple(vec![
-    //        Token::FixedArray(vec![
-    //            Token::Uint(U256::from(&hex::decode(&g.0.0.trim_start_matches("0x")).unwrap()[..])),
-    //            Token::Uint(U256::from(&hex::decode(&g.0.1.trim_start_matches("0x")).unwrap()[..])),
-    //        ]),
-    //        Token::FixedArray(vec![
-    //            Token::Uint(U256::from(&hex::decode(&g.1.0.trim_start_matches("0x")).unwrap()[..])),
-    //            Token::Uint(U256::from(&hex::decode(&g.1.1.trim_start_matches("0x")).unwrap()[..])),
-    //        ]),
-    //    ])
-    //}
-
-    pub fn encode_fr_element(f: &Fr) -> Token {
-        Token::Uint(U256::from(
-            &hex::decode(&f.trim_start_matches("0x")).unwrap()[..],
-        ))
-    }
-
-    fn encode_verify_input(
-        proof: Proof<<Marlin as Scheme<Bn128Field>>::ProofPoints>,
-    ) -> Vec<Token> {
-        let input = Token::Array(
-            proof
-                .inputs
-                .iter()
-                .map(|s| {
-                    let bytes = hex::decode(s.trim_start_matches("0x")).unwrap();
-                    debug_assert_eq!(bytes.len(), 32);
-                    Token::Uint(U256::from(&bytes[..]))
-                })
-                .collect::<Vec<_>>(),
-        );
-
-        let comms_1_token = Token::Array(
-            proof.proof.commitments[0]
-                .iter()
-                .map(|(c, _)| encode_g1_element(c))
-                .collect::<Vec<_>>(),
-        );
-
-        let comms_2_token = Token::Array(
-            proof.proof.commitments[1]
-                .iter()
-                .map(|(c, _)| encode_g1_element(c))
-                .collect::<Vec<_>>(),
-        );
-
-        let degree_bound_comms_2_g1_token =
-            encode_g1_element(proof.proof.commitments[1][1].1.as_ref().unwrap());
-
-        let comms_3_token = Token::Array(
-            proof.proof.commitments[2]
-                .iter()
-                .map(|(c, _)| encode_g1_element(c))
-                .collect::<Vec<_>>(),
-        );
-
-        let degree_bound_comms_3_g2_token =
-            encode_g1_element(proof.proof.commitments[2][0].1.as_ref().unwrap());
-
-        let evals_token = Token::Array(
-            proof
-                .proof
-                .evaluations
-                .into_iter()
-                .map(|f| encode_fr_element(&parse_fr::<Bn128Field>(&Bn128Field::into_ark(f))))
-                .collect::<Vec<_>>(),
-        );
-
-        let pc_lc_opening_1_token = encode_g1_element(&proof.proof.pc_proof_proof[0].0);
-        let degree_bound_pc_lc_opening_1_token = encode_fr_element(&parse_fr::<Bn128Field>(
-            &Bn128Field::into_ark(proof.proof.pc_proof_proof[0].1.clone().unwrap()),
-        ));
-        let pc_lc_opening_2_token = encode_g1_element(&proof.proof.pc_proof_proof[1].0);
-
-        let proof_tokens = vec![
-            comms_1_token,
-            comms_2_token,
-            degree_bound_comms_2_g1_token,
-            comms_3_token,
-            degree_bound_comms_3_g2_token,
-            evals_token,
-            pc_lc_opening_1_token,
-            degree_bound_pc_lc_opening_1_token,
-            pc_lc_opening_2_token,
-        ];
-
-        vec![input, Token::Tuple(proof_tokens)]
-    }
 
     #[test]
     fn verify_solidity_bn128() {
@@ -768,7 +788,7 @@ mod tests {
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone(), &[Bn128Field::from(42)])
+            .execute(program.clone(), &[Bn128Field::from(42u32)])
             .unwrap();
 
         let proof = <Ark as Backend<Bn128Field, Marlin>>::generate_proof(
@@ -777,8 +797,8 @@ mod tests {
             keypair.pk,
         );
 
-        //let ans = <Ark as Backend<Bn128Field, Marlin>>::verify(keypair.vk, proof);
-        //assert!(ans);
+        // let ans = <Ark as Backend<Bn128Field, Marlin>>::verify(keypair.vk, proof);
+        // assert!(ans);
 
         let mut src =
             <Marlin as SolidityCompatibleScheme<Bn128Field>>::export_solidity_verifier(keypair.vk);
@@ -808,7 +828,7 @@ mod tests {
         // Setup EVM
         let mut rng = StdRng::seed_from_u64(0u64);
         let mut evm = Evm::new();
-        let deployer = Address::random(&mut rng);
+        let deployer = Address::from(H160::zero());
         evm.create_account(&deployer, 0);
 
         // Deploy contract
@@ -821,11 +841,27 @@ mod tests {
         let contract_addr = create_result.addr.clone();
         //println!("Contract deploy gas cost: {}", create_result.gas);
 
+        let solidity_proof =
+            <Marlin as SolidityCompatibleScheme<Bn128Field>>::Proof::from(proof.proof);
+        let proof_token = <Marlin as ToToken<Bn128Field>>::to_token(solidity_proof);
+        let input_token = Token::Array(
+            proof
+                .inputs
+                .iter()
+                .map(|s| {
+                    let bytes = hex::decode(s.trim_start_matches("0x")).unwrap();
+                    debug_assert_eq!(bytes.len(), 32);
+                    Token::Uint(U256::from(&bytes[..]))
+                })
+                .collect::<Vec<_>>(),
+        );
+        let inputs = [proof_token, input_token];
+
         // Call verify function on contract
         let result = evm
             .call(
                 contract
-                    .encode_call_contract_bytes("verify", &encode_verify_input(proof))
+                    .encode_call_contract_bytes("verifyTx", &inputs)
                     .unwrap(),
                 &contract_addr,
                 &deployer,

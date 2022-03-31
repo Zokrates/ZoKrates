@@ -13,6 +13,7 @@ pub use self::solidity::*;
 
 use crate::ir;
 
+use primitive_types::U256;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Field};
@@ -43,14 +44,14 @@ impl<V: Serialize + DeserializeOwned> SetupKeypair<V> {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Proof<T> {
-    pub proof: T,
-    pub inputs: Vec<String>,
+pub struct Proof<T: Field, S: Scheme<T>> {
+    pub proof: S::ProofPoints,
+    pub inputs: Vec<Fr>,
 }
 
 #[allow(dead_code)]
-impl<T: Serialize + DeserializeOwned> Proof<T> {
-    fn new(proof: T, inputs: Vec<String>) -> Self {
+impl<T: Field, S: Scheme<T>> Proof<T, S> {
+    fn new(proof: S::ProofPoints, inputs: Vec<String>) -> Self {
         Proof { proof, inputs }
     }
 }
@@ -60,7 +61,7 @@ pub type Fq = String;
 pub type Fq2 = (String, String);
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct G1Affine(Fq, Fq);
+pub struct G1Affine(pub Fq, pub Fq);
 
 // When G2 is defined on Fq2 field
 #[derive(Serialize, Deserialize, Clone)]
@@ -93,14 +94,39 @@ impl ToString for G2Affine {
     }
 }
 
+/// Helper methods for parsing group structure
+pub fn encode_g1_element(g: &G1Affine) -> (U256, U256) {
+    (
+        U256::from(&hex::decode(&g.0.trim_start_matches("0x")).unwrap()[..]),
+        U256::from(&hex::decode(&g.1.trim_start_matches("0x")).unwrap()[..]),
+    )
+}
+
+pub fn encode_g2_element(g: &G2Affine) -> ((U256, U256), (U256, U256)) {
+    (
+        (
+            U256::from(&hex::decode(&g.0 .0.trim_start_matches("0x")).unwrap()[..]),
+            U256::from(&hex::decode(&g.0 .1.trim_start_matches("0x")).unwrap()[..]),
+        ),
+        (
+            U256::from(&hex::decode(&g.1 .0.trim_start_matches("0x")).unwrap()[..]),
+            U256::from(&hex::decode(&g.1 .1.trim_start_matches("0x")).unwrap()[..]),
+        ),
+    )
+}
+
+pub fn encode_fr_element(f: &Fr) -> U256 {
+    U256::from(&hex::decode(&f.trim_start_matches("0x")).unwrap()[..])
+}
+
 pub trait Backend<T: Field, S: Scheme<T>> {
     fn generate_proof<I: IntoIterator<Item = ir::Statement<T>>>(
         program: ir::ProgIterator<T, I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<S::ProofPoints>;
+    ) -> Proof<T, S>;
 
-    fn verify(vk: S::VerificationKey, proof: Proof<S::ProofPoints>) -> bool;
+    fn verify(vk: S::VerificationKey, proof: Proof<T, S>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
     fn setup<I: IntoIterator<Item = ir::Statement<T>>>(

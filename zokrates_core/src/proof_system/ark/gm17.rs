@@ -46,7 +46,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<GM17 as Scheme<T>>::ProofPoints> {
+    ) -> Proof<T, GM17> {
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -72,10 +72,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
         Proof::new(proof_points, inputs)
     }
 
-    fn verify(
-        vk: <GM17 as Scheme<T>>::VerificationKey,
-        proof: Proof<<GM17 as Scheme<T>>::ProofPoints>,
-    ) -> bool {
+    fn verify(vk: <GM17 as Scheme<T>>::VerificationKey, proof: Proof<T, GM17>) -> bool {
         let vk = VerifyingKey {
             h_g2: serialization::to_g2::<T>(vk.h),
             g_alpha_g1: serialization::to_g1::<T>(vk.g_alpha),
@@ -142,7 +139,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
         program: ProgIterator<Bw6_761Field, I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints> {
+    ) -> Proof<Bw6_761Field, GM17> {
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -171,7 +168,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
 
     fn verify(
         vk: <GM17 as Scheme<Bw6_761Field>>::VerificationKey,
-        proof: Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints>,
+        proof: Proof<Bw6_761Field, GM17>,
     ) -> bool {
         let vk = VerifyingKey {
             h_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h),

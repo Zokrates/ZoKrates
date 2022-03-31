@@ -24,7 +24,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, G16> for Ark {
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<G16 as Scheme<T>>::ProofPoints> {
+    ) -> Proof<T, G16> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::with_witness(program, witness);
@@ -52,10 +52,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, G16> for Ark {
         Proof::new(proof_points, inputs)
     }
 
-    fn verify(
-        vk: <G16 as Scheme<T>>::VerificationKey,
-        proof: Proof<<G16 as Scheme<T>>::ProofPoints>,
-    ) -> bool {
+    fn verify(vk: <G16 as Scheme<T>>::VerificationKey, proof: Proof<T, G16>) -> bool {
         let vk = VerifyingKey {
             alpha_g1: serialization::to_g1::<T>(vk.alpha),
             beta_g2: serialization::to_g2::<T>(vk.beta),
@@ -120,7 +117,7 @@ impl Backend<Bw6_761Field, G16> for Ark {
         program: ProgIterator<Bw6_761Field, I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<<G16 as Scheme<Bw6_761Field>>::ProofPoints> {
+    ) -> Proof<Bw6_761Field, G16> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::with_witness(program, witness);
@@ -148,7 +145,7 @@ impl Backend<Bw6_761Field, G16> for Ark {
 
     fn verify(
         vk: <G16 as Scheme<Bw6_761Field>>::VerificationKey,
-        proof: Proof<<G16 as Scheme<Bw6_761Field>>::ProofPoints>,
+        proof: Proof<Bw6_761Field, G16>,
     ) -> bool {
         let vk = VerifyingKey {
             alpha_g1: serialization::to_g1::<Bw6_761Field>(vk.alpha),

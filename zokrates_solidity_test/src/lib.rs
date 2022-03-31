@@ -75,7 +75,6 @@ mod tests {
             )
             .unwrap();
         assert_eq!(&get_result.out, &to_be_bytes(&U256::from(0)));
-        println!("{:?}", get_result);
 
         // Call set function on contract
         let set_result = evm
@@ -90,7 +89,6 @@ mod tests {
                 &deployer,
             )
             .unwrap();
-        println!("{:?}", set_result);
 
         // Call get function on contract
         let get_result = evm
