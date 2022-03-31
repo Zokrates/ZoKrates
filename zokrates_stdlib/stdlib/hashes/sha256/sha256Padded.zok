@@ -3,6 +3,7 @@ import "utils/casts/u8_to_bits"
 import "utils/casts/u32_to_bits"
 import "utils/casts/u32_from_bits"
 
+// A padding function that takes a bool[L] array as input and pads it to 512-bit blocks
 def pad<L, M>(bool[L] m) -> u32[M][16]:
    u32 length = L + 64 + 1
    assert(length / 512 + 1 == M)
@@ -21,12 +22,15 @@ def pad<L, M>(bool[L] m) -> u32[M][16]:
     endfor
     return result
 
-
+// A function that takes a bool[N] array as input, pads it,
+// and returns the sha256 output as a u32[8]
 def sha256Padded<N>(bool[N] input) -> u32[8]:
     u32 block_count = (N + 64 + 1) / 512 + 1
     u32[block_count][16] padded = pad(input)
     return sha256(padded)
 
+// A function that takes a u32[N] array as input, pads it,
+// and returns the sha256 output as a u32[8]
 def main<N>(u8[N] input) -> u32[8]:
     u32 L = N * 8
     bool[L] input_bits = [false; L]
