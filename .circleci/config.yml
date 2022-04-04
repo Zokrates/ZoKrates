@@ -34,7 +34,7 @@ jobs:
   test:
     docker:
       - image: zokrates/env:latest
-    resource_class: xlarge
+    resource_class: 2xlarge
     steps:
       - checkout
       - run:
