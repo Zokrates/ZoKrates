@@ -77,7 +77,7 @@ mod tests {
         assert_eq!(&get_result.out, &to_be_bytes(&U256::from(0)));
 
         // Call set function on contract
-        let set_result = evm
+        let _ = evm
             .call(
                 contract
                     .encode_call_contract_bytes(

@@ -7,7 +7,7 @@ use ark_marlin::Marlin as ArkMarlin;
 
 use ark_ec::PairingEngine;
 use ark_ff::{to_bytes, FftField, FromBytes, ToBytes};
-use ark_poly::{univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain};
+use ark_poly::univariate::DensePolynomial;
 use ark_poly_commit::{
     data_structures::BatchLCProof,
     kzg10::Commitment as KZG10Commitment,
@@ -17,10 +17,8 @@ use ark_poly_commit::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use digest::Digest;
-use num::Zero;
 use rand_0_8::{Error, RngCore, SeedableRng};
 use sha3::Keccak256;
-use std::convert::TryInto;
 use std::{convert::TryFrom, marker::PhantomData};
 
 use zokrates_field::{ArkFieldExtensions, Field};

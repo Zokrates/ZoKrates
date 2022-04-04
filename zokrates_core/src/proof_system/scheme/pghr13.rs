@@ -1,10 +1,6 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
 use crate::proof_system::solidity::solidity_pairing_lib;
-use crate::proof_system::{
-    encode_g1_element, encode_g2_element, G1Affine, G2Affine, SolidityCompatibleField,
-    SolidityCompatibleScheme, ToToken,
-};
-use ethabi::Token;
+use crate::proof_system::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
@@ -12,7 +8,7 @@ use zokrates_field::Field;
 #[allow(clippy::upper_case_acronyms)]
 pub struct PGHR13;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ProofPoints<G1, G2> {
     pub a: G1,
     pub a_p: G1,
@@ -42,57 +38,6 @@ impl<T: Field> Scheme<T> for PGHR13 {
 }
 
 impl<T: Field> NonUniversalScheme<T> for PGHR13 {}
-
-impl<T: SolidityCompatibleField> ToToken<T> for PGHR13 {
-    fn to_token(proof: Self::Proof) -> Token {
-        let a = {
-            let (x, y) = encode_g1_element(&proof.a);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let a_p = {
-            let (x, y) = encode_g1_element(&proof.a_p);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let b = {
-            let ((x0, y0), (x1, y1)) = encode_g2_element(&proof.b);
-            Token::Tuple(vec![
-                Token::FixedArray(vec![Token::Uint(x0), Token::Uint(y0)]),
-                Token::FixedArray(vec![Token::Uint(x1), Token::Uint(y1)]),
-            ])
-        };
-
-        let b_p = {
-            let (x, y) = encode_g1_element(&proof.b_p);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let c = {
-            let (x, y) = encode_g1_element(&proof.c);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let c_p = {
-            let (x, y) = encode_g1_element(&proof.c_p);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let h = {
-            let (x, y) = encode_g1_element(&proof.h);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let k = {
-            let (x, y) = encode_g1_element(&proof.k);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let proof_tokens = vec![a, a_p, b, b_p, c, c_p, h, k];
-
-        Token::Tuple(proof_tokens)
-    }
-}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
     type Proof = Self::ProofPoints;

@@ -5,6 +5,8 @@ pub mod bellman;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
 
+pub mod to_token;
+
 mod scheme;
 mod solidity;
 
@@ -13,7 +15,6 @@ pub use self::solidity::*;
 
 use crate::ir;
 
-use primitive_types::U256;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Field};
@@ -92,31 +93,6 @@ impl ToString for G2Affine {
             (self.1).1
         )
     }
-}
-
-/// Helper methods for parsing group structure
-pub fn encode_g1_element(g: &G1Affine) -> (U256, U256) {
-    (
-        U256::from(&hex::decode(&g.0.trim_start_matches("0x")).unwrap()[..]),
-        U256::from(&hex::decode(&g.1.trim_start_matches("0x")).unwrap()[..]),
-    )
-}
-
-pub fn encode_g2_element(g: &G2Affine) -> ((U256, U256), (U256, U256)) {
-    (
-        (
-            U256::from(&hex::decode(&g.0 .0.trim_start_matches("0x")).unwrap()[..]),
-            U256::from(&hex::decode(&g.0 .1.trim_start_matches("0x")).unwrap()[..]),
-        ),
-        (
-            U256::from(&hex::decode(&g.1 .0.trim_start_matches("0x")).unwrap()[..]),
-            U256::from(&hex::decode(&g.1 .1.trim_start_matches("0x")).unwrap()[..]),
-        ),
-    )
-}
-
-pub fn encode_fr_element(f: &Fr) -> U256 {
-    U256::from(&hex::decode(&f.trim_start_matches("0x")).unwrap()[..])
 }
 
 pub trait Backend<T: Field, S: Scheme<T>> {

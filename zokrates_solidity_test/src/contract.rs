@@ -1,4 +1,4 @@
-use ethabi::{Address, Contract as ContractAbi, Token};
+use ethabi::{Contract as ContractAbi, Token};
 use serde_json::{from_str, json};
 use solc::compile;
 
@@ -100,10 +100,8 @@ impl Contract {
                 .to_string()
                 .replace("\"", "");
 
-            let binary = hex::decode(&hex_code).map_err(|e| {
-                println!("{}", e);
-                Box::new(EvmTestError("decode hex binary failed".to_string()))
-            })?;
+            let binary = hex::decode(&hex_code)
+                .map_err(|_| Box::new(EvmTestError("decode hex binary failed".to_string())))?;
             binary
         };
         let abi = {
@@ -147,7 +145,7 @@ impl Contract {
     ) -> Result<Vec<u8>, Error> {
         match self.abi.functions.get(fn_name) {
             Some(f) => {
-                let call_binary = f[0].encode_input(input).map_err(|e| {
+                let call_binary = f[0].encode_input(input).map_err(|_| {
                     Box::new(EvmTestError(
                         "abi function failed to encode inputs".to_string(),
                     ))

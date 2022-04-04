@@ -1,15 +1,13 @@
 use crate::constants::{self, JSON_PROOF_PATH};
 use crate::helpers::{CurveParameter, SchemeParameter};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use serde_json::Value;
 use std::convert::TryInto;
 use std::fs::File;
 use std::path::Path;
 use zokrates_core::proof_system::{
-    marlin, Backend, Marlin, Proof, Scheme, SolidityCompatibleField, SolidityCompatibleScheme, G16,
-    GM17, PGHR13,
+    Marlin, Proof, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17, PGHR13,
 };
-use zokrates_field::{Bls12_381Field, Bn128Field, Field};
+use zokrates_field::Bn128Field;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("print-proof")
@@ -32,17 +30,19 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Format in which the proof should be printed")
                 .takes_value(true)
                 .possible_values(&["remix", "json"])
-                .required(true),
+                .required(true)
+                .default_value("remix"),
         )
         .arg(
             Arg::with_name("proving-scheme")
                 .short("s")
                 .long("proving-scheme")
-                .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
+                .help("Proving scheme the proof was created with")
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::G16)
+                .possible_values(constants::SCHEMES)
+                .default_value(constants::G16),
         )
         .arg(
             Arg::with_name("curve")
@@ -52,7 +52,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .possible_values(constants::CURVES)
-                .default_value(constants::BN128)
+                .default_value(constants::BN128),
         )
 }
 
@@ -62,18 +62,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let parameters: (CurveParameter, SchemeParameter) =
         (curve.try_into().unwrap(), scheme.try_into().unwrap());
-
-    println!(
-        "Printing proof at location {:?} using proving scheme {:?} and curve {:?}",
-        sub_matches
-            .values_of("proof-path")
-            .clone()
-            .unwrap()
-            .next()
-            .unwrap(),
-        parameters.1,
-        parameters.0
-    );
 
     match parameters {
         (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
@@ -110,26 +98,25 @@ fn cli_print_proof<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T>>(
 
     match format {
         "json" => {
-            println!("~~~~~~~~ Copy the output below for valid ABIv2 format ~~~~~~~~");
-            println!();
-            print!("{}", inputs);
+            print!("{}", proof_object);
             print!(",");
-            println!("{}", proof_object);
+            print!("{}", inputs);
             println!();
-            println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         }
         "remix" => {
-            println!("~~~~~~~~ Copy the output below for valid ABIv1 format ~~~~~~~~");
+            print!(
+                "[{}]",
+                proof_object
+                    .as_object()
+                    .unwrap()
+                    .iter()
+                    .map(|(_, value)| value.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            print!(",");
+            print!("{}", inputs);
             println!();
-
-            for (_, value) in proof_object.as_object().unwrap().iter() {
-                print!("{}", value);
-                print!(",");
-            }
-
-            println!("{}", inputs);
-            println!();
-            println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         }
         _ => unreachable!(),
     }

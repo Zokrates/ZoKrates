@@ -1,7 +1,8 @@
 extern crate assert_cli;
 extern crate ethabi;
 extern crate primitive_types;
-extern crate rand;
+extern crate rand_0_4;
+extern crate rand_0_8;
 extern crate serde_json;
 extern crate zokrates_solidity_test;
 
@@ -10,7 +11,7 @@ mod integration {
 
     use glob::glob;
     use primitive_types::U256;
-    use serde_json::{from_reader, json};
+    use serde_json::from_reader;
     use std::fs;
     use std::fs::File;
     use std::io::{BufReader, Read};
@@ -18,10 +19,9 @@ mod integration {
     use std::path::Path;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
-    use zokrates_core::proof_system::marlin::SolidityProof;
     use zokrates_core::proof_system::{
-        Fr, G1Affine, Marlin, Proof, Scheme, SolidityCompatibleField, SolidityCompatibleScheme,
-        ToToken, G16, GM17, PGHR13, SOLIDITY_G2_ADDITION_LIB,
+        to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17, PGHR13,
+        SOLIDITY_G2_ADDITION_LIB,
     };
     use zokrates_core::typed_absy::abi::Abi;
     use zokrates_field::Bn128Field;
@@ -38,11 +38,8 @@ mod integration {
     );
 
     #[test]
-    //#[ignore]
+    #[ignore]
     fn test_compile_and_witness_dir() {
-        // install nodejs dependencies for the verification contract tester
-        install_nodejs_deps();
-
         let global_dir = TempDir::new("global").unwrap();
         let global_base = global_dir.path();
         let universal_setup_path = global_base.join("universal_setup.dat");
@@ -82,15 +79,6 @@ mod integration {
                 );
             }
         }
-    }
-
-    fn install_nodejs_deps() {
-        let out_dir = concat!(env!("OUT_DIR"), "/contract");
-
-        // assert_cli::Assert::command(&["npm", "install"])
-        //     .current_dir(out_dir)
-        //     .succeeds()
-        //     .unwrap();
     }
 
     fn test_compile_and_witness(
@@ -388,11 +376,11 @@ mod integration {
         proof: Proof<Bn128Field, S>,
     ) {
         use ethabi::Token;
-        use rand::{SeedableRng, StdRng};
+        use rand_0_8::{rngs::StdRng, SeedableRng};
         use zokrates_solidity_test::{address::*, contract::*, evm::*, to_be_bytes};
 
         // Setup EVM
-        let mut rng = StdRng::from_seed(&[0]);
+        let mut rng = StdRng::from_seed([0; 32]);
         let mut evm = Evm::new();
         let deployer = Address::random(&mut rng);
         evm.create_account(&deployer, 0);
@@ -430,7 +418,7 @@ mod integration {
         let solidity_proof = S::Proof::from(proof.proof);
 
         // convert to tokens to build a call
-        let proof_token = S::to_token(solidity_proof);
+        let proof_token = S::to_token(solidity_proof.clone());
 
         let input_token = Token::FixedArray(
             proof
@@ -444,7 +432,7 @@ mod integration {
                 .collect::<Vec<_>>(),
         );
 
-        let inputs = [proof_token, input_token];
+        let inputs = [proof_token, input_token.clone()];
 
         // Call verify function on contract
         let result = evm
@@ -456,7 +444,28 @@ mod integration {
                 &deployer,
             )
             .unwrap();
+
         assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
+
+        // modify the proof
+        let modified_solidity_proof = S::modify(solidity_proof.clone());
+
+        let modified_proof_token = S::to_token(modified_solidity_proof.clone());
+
+        let inputs = [modified_proof_token, input_token.clone()];
+
+        // Call verify function on contract
+        let result = evm
+            .call(
+                contract
+                    .encode_call_contract_bytes("verifyTx", &inputs)
+                    .unwrap(),
+                &contract_addr,
+                &deployer,
+            )
+            .unwrap();
+
+        assert_eq!(result.op_out, Return::InvalidOpcode);
     }
 
     fn test_compile_and_smtlib2(

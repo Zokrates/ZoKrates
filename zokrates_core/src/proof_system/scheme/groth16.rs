@@ -1,17 +1,15 @@
 use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
 use crate::proof_system::solidity::solidity_pairing_lib;
 use crate::proof_system::{
-    encode_g1_element, encode_g2_element, G1Affine, G2Affine, MpcScheme, SolidityCompatibleField,
-    SolidityCompatibleScheme, ToToken,
+    G1Affine, G2Affine, MpcScheme, SolidityCompatibleField, SolidityCompatibleScheme,
 };
-use ethabi::Token;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
 pub struct G16;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ProofPoints<G1, G2> {
     pub a: G1,
     pub b: G2,
@@ -34,32 +32,6 @@ impl<T: Field> Scheme<T> for G16 {
 
 impl<T: Field> NonUniversalScheme<T> for G16 {}
 impl<T: Field> MpcScheme<T> for G16 {}
-
-impl<T: SolidityCompatibleField> ToToken<T> for G16 {
-    fn to_token(proof: Self::Proof) -> Token {
-        let a = {
-            let (x, y) = encode_g1_element(&proof.a);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let b = {
-            let ((x0, y0), (x1, y1)) = encode_g2_element(&proof.b);
-            Token::Tuple(vec![
-                Token::FixedArray(vec![Token::Uint(x0), Token::Uint(y0)]),
-                Token::FixedArray(vec![Token::Uint(x1), Token::Uint(y1)]),
-            ])
-        };
-
-        let c = {
-            let (x, y) = encode_g1_element(&proof.c);
-            Token::Tuple(vec![Token::Uint(x), Token::Uint(y)])
-        };
-
-        let proof_tokens = vec![a, b, c];
-
-        Token::Tuple(proof_tokens)
-    }
-}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
     type Proof = Self::ProofPoints;

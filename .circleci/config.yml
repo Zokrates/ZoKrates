@@ -18,9 +18,6 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
       - restore_cache:
           keys:
             - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -37,15 +34,12 @@ jobs:
   test:
     docker:
       - image: zokrates/env:latest
-    resource_class: large
+    resource_class: xlarge
     steps:
       - checkout
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
       - restore_cache:
           keys:
             - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -58,9 +52,6 @@ jobs:
       - run:
           name: Run tests
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
-      # - run:
-      #     name: Generate code coverage report
-      #     command: ./scripts/cov.sh
   cpp_format:
     docker:
       - image: zokrates/env:latest
@@ -77,9 +68,6 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
       - restore_cache:
           keys:
             - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -98,9 +86,6 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
       - restore_cache:
           keys:
             - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -160,9 +145,6 @@ jobs:
     executor: << parameters.os >>
     steps:
       - checkout
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
       - when:
          condition: << parameters.add-target >>
          steps:

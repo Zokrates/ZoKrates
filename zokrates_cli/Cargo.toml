@@ -28,7 +28,8 @@ serde = { version = "1.0", features = ["derive"] }
 dirs = "3.0.1"
 lazy_static = "1.4.0"
 byteorder = "1"
-rand = "0.4"
+rand_0_4 = { version = "0.4", package = "rand" }
+rand_0_8 = { version = "0.8", package = "rand" }
 hex = "0.3.1"
 blake2 = "0.8.1"
 sha2 = "0.10.0"

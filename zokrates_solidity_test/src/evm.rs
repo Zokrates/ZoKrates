@@ -1,5 +1,6 @@
 use primitive_types::U256;
-use revm::{AccountInfo, InMemoryDB, Log, Return, TransactOut, TransactTo, EVM};
+pub use revm::Return;
+use revm::{AccountInfo, InMemoryDB, Log, TransactOut, TransactTo, EVM};
 
 use crate::{address::Address, Error, EvmTestError};
 

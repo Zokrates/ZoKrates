@@ -4,14 +4,10 @@ use zokrates_field::{Bn128Field, Field};
 
 pub trait SolidityCompatibleField: Field {}
 impl SolidityCompatibleField for Bn128Field {}
-
 pub trait SolidityCompatibleScheme<T: SolidityCompatibleField>: Scheme<T> {
-    type Proof: From<Self::ProofPoints> + Serialize + DeserializeOwned;
+    type Proof: From<Self::ProofPoints> + Serialize + DeserializeOwned + Clone;
 
     fn export_solidity_verifier(vk: Self::VerificationKey) -> String;
-}
-pub trait ToToken<T: SolidityCompatibleField>: SolidityCompatibleScheme<T> {
-    fn to_token(proof: Self::Proof) -> ethabi::Token;
 }
 
 pub const SOLIDITY_G2_ADDITION_LIB: &str = r#"// SPDX-License-Identifier: LGPL-3.0-only
