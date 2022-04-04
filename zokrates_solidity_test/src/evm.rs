@@ -22,21 +22,23 @@ pub struct Evm {
     vm: EVM<InMemoryDB>,
 }
 
-impl Evm {
-    pub fn new() -> Self {
+impl Default for Evm {
+    fn default() -> Self {
         let mut vm = revm::new();
         vm.database(InMemoryDB::default());
         Self { vm }
     }
+}
 
+impl Evm {
     pub fn call(
         &mut self,
         input: Vec<u8>,
         addr: &Address,
         caller: &Address,
     ) -> Result<CallResult, Error> {
-        self.vm.env.tx.caller = caller.as_ref().clone();
-        self.vm.env.tx.transact_to = TransactTo::Call(addr.as_ref().clone());
+        self.vm.env.tx.caller = *caller.as_ref();
+        self.vm.env.tx.transact_to = TransactTo::Call(*addr.as_ref());
         self.vm.env.tx.data = input.into();
         let (op_out, tx_out, gas, log_out) = self.vm.transact_commit();
         let out = match tx_out {
@@ -66,7 +68,7 @@ impl Evm {
             .get_key_value(deployer.as_ref())
         {
             Some(_) => {
-                self.vm.env.tx.caller = deployer.as_ref().clone();
+                self.vm.env.tx.caller = *deployer.as_ref();
                 self.vm.env.tx.transact_to = TransactTo::create();
                 self.vm.env.tx.data = contract.into();
                 let (_, tx_out, gas, _) = self.vm.transact_commit();
@@ -87,10 +89,7 @@ impl Evm {
 
     pub fn create_account(&mut self, address: &Address, balance: impl Into<U256>) {
         let acc = AccountInfo::from_balance(balance.into());
-        self.vm
-            .db()
-            .unwrap()
-            .insert_cache(address.as_ref().clone(), acc);
+        self.vm.db().unwrap().insert_cache(*address.as_ref(), acc);
     }
 
     pub fn set_account_balance(
@@ -104,15 +103,10 @@ impl Evm {
             .unwrap()
             .cache()
             .get(address.as_ref())
-            .ok_or(Box::new(EvmTestError(
-                "account address not found".to_string(),
-            )))?
+            .ok_or_else(|| Box::new(EvmTestError("account address not found".to_string())))?
             .clone();
         acc.balance = balance.into();
-        self.vm
-            .db()
-            .unwrap()
-            .insert_cache(address.as_ref().clone(), acc);
+        self.vm.db().unwrap().insert_cache(*address.as_ref(), acc);
         Ok(())
     }
 

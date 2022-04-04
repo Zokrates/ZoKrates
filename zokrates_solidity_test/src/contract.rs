@@ -29,7 +29,6 @@ impl Contract {
         src_file
             .read_to_string(&mut src)
             .map_err(|_| Box::new(EvmTestError("src file read failed".to_string())))?;
-        src = src.replace("\"", "\\\"");
 
         Self::compile_from_src_string(&src, contract_name, opt, &[])
     }
@@ -74,35 +73,33 @@ impl Contract {
         Self::compile_from_config(&solc_config, contract_name)
     }
 
-    pub fn compile_from_config(config: &String, contract_name: &str) -> Result<Self, Error> {
+    pub fn compile_from_config(config: &str, contract_name: &str) -> Result<Self, Error> {
         // Compile source file using solc
         // Configuration: https://docs.soliditylang.org/en/v0.8.10/using-the-compiler.html
         let out = from_str::<serde_json::Value>(&compile(config))
             .map_err(|_| Box::new(EvmTestError("solc compile failed".to_string())))?;
 
-        if out["errors"].is_array() {
-            if out["errors"]
+        if out["errors"].is_array()
+            && out["errors"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .any(|e| e["severity"] == "error")
-            {
-                return Err(Box::new(EvmTestError(format!(
-                    "solc compiled with errors: {}",
-                    out["errors"]
-                ))));
-            }
+        {
+            return Err(Box::new(EvmTestError(format!(
+                "solc compiled with errors: {}",
+                out["errors"]
+            ))));
         }
 
         let binary = {
             let hex_code = out["contracts"]["input.sol"][contract_name]["evm"]["bytecode"]
                 ["object"]
                 .to_string()
-                .replace("\"", "");
+                .replace('\"', "");
 
-            let binary = hex::decode(&hex_code)
-                .map_err(|_| Box::new(EvmTestError("decode hex binary failed".to_string())))?;
-            binary
+            hex::decode(&hex_code)
+                .map_err(|_| Box::new(EvmTestError("decode hex binary failed".to_string())))?
         };
         let abi = {
             if out["contracts"]["input.sol"][contract_name]["abi"] == "null" {
@@ -110,13 +107,12 @@ impl Contract {
                     "solc compiled with null abi".to_string(),
                 )));
             }
-            let abi = ContractAbi::load(
+            ContractAbi::load(
                 out["contracts"]["input.sol"][contract_name]["abi"]
                     .to_string()
                     .as_bytes(),
             )
-            .map_err(|_| Box::new(EvmTestError("ethabi failed loading abi".to_string())))?;
-            abi
+            .map_err(|_| Box::new(EvmTestError("ethabi failed loading abi".to_string())))?
         };
 
         Ok(Contract { binary, abi })
@@ -126,7 +122,7 @@ impl Contract {
         match &self.abi.constructor {
             Some(constructor) => {
                 let binary = constructor
-                    .encode_input(self.binary.clone().into(), init)
+                    .encode_input(self.binary.clone(), init)
                     .map_err(|_| {
                         Box::new(EvmTestError(
                             "abi constructor failed to encode inputs".to_string(),

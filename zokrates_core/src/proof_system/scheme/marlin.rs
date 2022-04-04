@@ -135,8 +135,7 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
                     .as_ref()
                     .unwrap()
                     .iter()
-                    .filter(|(b, _)| *b == h_domain_size - 2)
-                    .next()
+                    .find(|(b, _)| *b == h_domain_size - 2)
                     .unwrap()
                     .1
                     .to_string()
@@ -151,8 +150,7 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> f
                     .as_ref()
                     .unwrap()
                     .iter()
-                    .filter(|(b, _)| *b == k_domain_size - 2)
-                    .next()
+                    .find(|(b, _)| *b == k_domain_size - 2)
                     .unwrap()
                     .1
                     .to_string()

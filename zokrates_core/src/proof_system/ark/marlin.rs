@@ -19,7 +19,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use digest::Digest;
 use rand_0_8::{Error, RngCore, SeedableRng};
 use sha3::Keccak256;
-use std::{convert::TryFrom, marker::PhantomData};
+use std::marker::PhantomData;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
@@ -75,7 +75,8 @@ impl<D: Digest> RngCore for HashFiatShamirRng<D> {
     }
 
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        Ok(self.fill_bytes(dest))
+        self.fill_bytes(dest);
+        Ok(())
     }
 }
 
@@ -87,7 +88,7 @@ impl<D: Digest> FiatShamirRng for HashFiatShamirRng<D> {
             .expect("failed to convert to bytes");
         let seed = FromBytes::read(D::digest(&bytes).as_ref()).expect("failed to get [u8; 32]");
         Self {
-            seed: seed,
+            seed,
             ctr: 0,
             digest: PhantomData,
         }
@@ -169,13 +170,13 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         let fs_seed = to_bytes![&MarlinInst::<T>::PROTOCOL_NAME, &vk].unwrap();
         let x_root_of_unity =
             <<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr::get_root_of_unity(
-                usize::try_from(vk.index_info.num_instance_variables).unwrap(),
+                vk.index_info.num_instance_variables,
             )
             .unwrap();
 
         Ok(SetupKeypair::new(
             VerificationKey {
-                fs_seed: fs_seed,
+                fs_seed,
                 x_root_of_unity: parse_fr::<T>(&x_root_of_unity),
                 index_comms: vk
                     .index_comms
@@ -292,7 +293,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 .commitments
                 .iter()
                 .map(|r| {
-                    r.into_iter()
+                    r.iter()
                         .map(|(c, shifted_comm)| Commitment {
                             comm: KZG10Commitment(serialization::to_g1::<T>(c.clone())),
                             shifted_comm: shifted_comm.clone().map(|shifted_comm| {

@@ -15,13 +15,13 @@ pub type Error = Box<dyn ErrorTrait>;
 pub struct EvmTestError(String);
 
 impl ErrorTrait for EvmTestError {
-    fn source(self: &Self) -> Option<&(dyn ErrorTrait + 'static)> {
+    fn source(&self) -> Option<&(dyn ErrorTrait + 'static)> {
         None
     }
 }
 
 impl fmt::Display for EvmTestError {
-    fn fmt(self: &Self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
