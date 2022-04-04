@@ -97,6 +97,27 @@ impl<'ast> VariableWriteRemover {
                                             ConditionalKind::IfElse,
                                         )
                                         .into(),
+                                        Type::Tuple(..) => TupleExpression::conditional(
+                                            BooleanExpression::UintEq(EqExpression::new(
+                                                i.into(),
+                                                head.clone(),
+                                            )),
+                                            match Self::choose_many(
+                                                TupleExpression::select(base.clone(), i).into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            ) {
+                                                TypedExpression::Tuple(e) => e,
+                                                e => unreachable!(
+                                            "the interior was expected to be a tuple, was {}",
+                                            e.get_type()
+                                        ),
+                                            },
+                                            TupleExpression::select(base.clone(), i),
+                                            ConditionalKind::IfElse,
+                                        )
+                                        .into(),
                                         Type::FieldElement => FieldElementExpression::conditional(
                                             BooleanExpression::UintEq(EqExpression::new(
                                                 i.into(),
@@ -168,7 +189,7 @@ impl<'ast> VariableWriteRemover {
                             .annotate(inner_ty.clone(), size)
                             .into()
                         }
-                        Access::Member(..) => unreachable!("can't get a member from an array"),
+                        _ => unreachable!(),
                     }
                 }
                 TypedExpression::Struct(base) => {
@@ -263,12 +284,127 @@ impl<'ast> VariableWriteRemover {
                                             StructExpression::member(base.clone(), member.id).into()
                                         }
                                     }
+                                    Type::Tuple(..) => {
+                                        if member.id == head {
+                                            Self::choose_many(
+                                                TupleExpression::member(base.clone(), head.clone())
+                                                    .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            TupleExpression::member(base.clone(), member.id).into()
+                                        }
+                                    }
                                 })
                                 .collect(),
                         )
                         .annotate(members)
                         .into(),
-                        Access::Select(..) => unreachable!("can't get a element from a struct"),
+                        _ => unreachable!(),
+                    }
+                }
+                TypedExpression::Tuple(base) => {
+                    let tuple_ty = match base.get_type() {
+                        Type::Tuple(tuple_ty) => tuple_ty.clone(),
+                        _ => unreachable!(),
+                    };
+
+                    let head = indices.remove(0);
+                    let tail = indices;
+
+                    match head {
+                        Access::Element(head) => TupleExpressionInner::Value(
+                            tuple_ty
+                                .clone()
+                                .elements
+                                .into_iter()
+                                .enumerate()
+                                .map(|(i, ty)| (i as u32, ty))
+                                .map(|(i, ty)| match ty {
+                                    Type::Int => unreachable!(),
+                                    Type::FieldElement => {
+                                        if i == head {
+                                            Self::choose_many(
+                                                FieldElementExpression::element(base.clone(), head)
+                                                    .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            FieldElementExpression::element(base.clone(), i).into()
+                                        }
+                                    }
+                                    Type::Uint(..) => {
+                                        if i == head {
+                                            Self::choose_many(
+                                                UExpression::element(base.clone(), head).into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            UExpression::element(base.clone(), i).into()
+                                        }
+                                    }
+                                    Type::Boolean => {
+                                        if i == head {
+                                            Self::choose_many(
+                                                BooleanExpression::element(base.clone(), head)
+                                                    .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            BooleanExpression::element(base.clone(), i).into()
+                                        }
+                                    }
+                                    Type::Array(..) => {
+                                        if i == head {
+                                            Self::choose_many(
+                                                ArrayExpression::element(base.clone(), head).into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            ArrayExpression::element(base.clone(), i).into()
+                                        }
+                                    }
+                                    Type::Struct(..) => {
+                                        if i == head {
+                                            Self::choose_many(
+                                                StructExpression::element(base.clone(), head)
+                                                    .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            StructExpression::element(base.clone(), i).into()
+                                        }
+                                    }
+                                    Type::Tuple(..) => {
+                                        if i == head {
+                                            Self::choose_many(
+                                                TupleExpression::element(base.clone(), head).into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            TupleExpression::element(base.clone(), i).into()
+                                        }
+                                    }
+                                })
+                                .collect(),
+                        )
+                        .annotate(tuple_ty)
+                        .into(),
+                        _ => unreachable!(),
                     }
                 }
                 e => unreachable!("can't make an access on a {}", e.get_type()),
@@ -281,6 +417,7 @@ impl<'ast> VariableWriteRemover {
 enum Access<'ast, T: Field> {
     Select(UExpression<'ast, T>),
     Member(MemberId),
+    Element(u32),
 }
 /// Turn an assignee into its representation as a base variable and a list accesses
 /// a[2][3][4] -> (a, [2, 3, 4])
@@ -297,6 +434,11 @@ fn linear<T: Field>(a: TypedAssignee<T>) -> (Variable<T>, Vec<Access<T>>) {
             indices.push(Access::Member(m));
             (v, indices)
         }
+        TypedAssignee::Element(box s, i) => {
+            let (v, mut indices) = linear(s);
+            indices.push(Access::Element(i));
+            (v, indices)
+        }
     }
 }
 
@@ -308,6 +450,7 @@ fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
             _ => false,
         },
         TypedAssignee::Member(box assignee, _) => is_constant(assignee),
+        TypedAssignee::Element(box assignee, _) => is_constant(assignee),
     }
 }
 
@@ -342,6 +485,11 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                         Type::Struct(members) => {
                             StructExpressionInner::Identifier(variable.id.clone())
                                 .annotate(members)
+                                .into()
+                        }
+                        Type::Tuple(tuple_ty) => {
+                            TupleExpressionInner::Identifier(variable.id.clone())
+                                .annotate(tuple_ty)
                                 .into()
                         }
                     };
