@@ -34,7 +34,7 @@ jobs:
   test:
     docker:
       - image: zokrates/env:latest
-    resource_class: 2xlarge
+    resource_class: xlarge
     steps:
       - checkout
       - run:
@@ -48,7 +48,7 @@ jobs:
           command: cargo fmt --all -- --check
       - run:
           name: Run clippy
-          command: cargo clippy -- -D warnings
+          command: cargo clippy -j 1 -- -D warnings
       - run:
           name: Run tests
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
