@@ -13,6 +13,7 @@ pub enum UnresolvedType<'ast> {
     Uint(usize),
     Array(Box<UnresolvedTypeNode<'ast>>, ExpressionNode<'ast>),
     User(UserTypeId, Option<Vec<Option<ExpressionNode<'ast>>>>),
+    Tuple(Vec<UnresolvedTypeNode<'ast>>),
 }
 
 impl<'ast> fmt::Display for UnresolvedType<'ast> {
@@ -22,6 +23,22 @@ impl<'ast> fmt::Display for UnresolvedType<'ast> {
             UnresolvedType::Boolean => write!(f, "bool"),
             UnresolvedType::Uint(bitwidth) => write!(f, "u{}", bitwidth),
             UnresolvedType::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
+            UnresolvedType::Tuple(ref elements) => {
+                write!(f, "(")?;
+                match elements.len() {
+                    1 => write!(f, "{},", elements[0]),
+                    _ => write!(
+                        f,
+                        "{}",
+                        elements
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                }?;
+                write!(f, ")")
+            }
             UnresolvedType::User(ref id, ref generics) => {
                 write!(
                     f,

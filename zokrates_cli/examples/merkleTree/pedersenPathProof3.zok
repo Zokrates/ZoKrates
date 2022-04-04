@@ -1,25 +1,20 @@
 import "hashes/pedersen/512bit" as hash
-import "ecc/edwardsCompress" as edwardsCompress
 import "hashes/utils/256bitsDirectionHelper" as multiplex
 
-// Merke-Tree inclusion proof for tree depth 3 using SNARK efficient pedersen hashes
-// directionSelector=> true if current digest is on the rhs of the hash
+const u32 DEPTH = 3
 
-def main(u32[8] rootDigest, private u32[8] leafDigest, private bool[3] directionSelector, u32[8] PathDigest0, private u32[8] PathDigest1, private u32[8] PathDigest2):
-	//Setup
-	u32[8] currentDigest = leafDigest
-	
-	//Loop up the tree
-	u32[16] preimage = multiplex(directionSelector[0], currentDigest, PathDigest0)
-	currentDigest = hash(preimage)
+// Merke-Tree inclusion proof for tree depth 4 using SNARK-efficient pedersen hashes
+// directionSelector => true if current digest is on the rhs of the hash
 
-	preimage = multiplex(directionSelector[1], currentDigest, PathDigest1)
-	currentDigest = hash(preimage)
+def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector, private u32[DEPTH][8] path) -> bool:
+	// Start from the leaf
+	u32[8] digest = leaf
 
-	preimage = multiplex(directionSelector[2], currentDigest, PathDigest2)
-	currentDigest = hash(preimage)
+	// Loop up the tree
+	for u32 i in 0..DEPTH do
+		u32[16] preimage = multiplex(directionSelector[i], digest, path[i])
+		digest = hash(preimage)
+	endfor
 
-	assert(rootDigest == currentDigest)
-
-	return
+	return digest == root
 

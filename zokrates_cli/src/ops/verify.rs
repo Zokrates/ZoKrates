@@ -78,6 +78,30 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             cli_verify::<Bls12_381Field, G16, Bellman>(sub_matches)
         }
         #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::G16) => {
+            cli_verify::<Bn128Field, G16, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::G16) => {
+            cli_verify::<Bls12_381Field, G16, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::G16) => {
+            cli_verify::<Bls12_377Field, G16, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::G16) => {
+            cli_verify::<Bw6_761Field, G16, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
+            cli_verify::<Bn128Field, GM17, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::GM17) => {
+            cli_verify::<Bls12_381Field, GM17, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::GM17) => {
             cli_verify::<Bls12_377Field, GM17, Ark>(sub_matches)
         }
@@ -86,8 +110,12 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             cli_verify::<Bw6_761Field, GM17, Ark>(sub_matches)
         }
         #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-            cli_verify::<Bn128Field, GM17, Ark>(sub_matches)
+        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            cli_verify::<Bn128Field, Marlin, Ark>(sub_matches)
+        }
+        #[cfg(feature = "ark")]
+        Parameters(BackendParameter::Ark, CurveParameter::Bls12_381, SchemeParameter::MARLIN) => {
+            cli_verify::<Bls12_381Field, Marlin, Ark>(sub_matches)
         }
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => {
@@ -96,10 +124,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
             cli_verify::<Bw6_761Field, Marlin, Ark>(sub_matches)
-        }
-        #[cfg(feature = "ark")]
-        Parameters(BackendParameter::Ark, CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            cli_verify::<Bn128Field, Marlin, Ark>(sub_matches)
         }
         #[cfg(feature = "libsnark")]
         Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {

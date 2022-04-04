@@ -9,16 +9,16 @@ extern crate lazy_static;
 
 pub use ast::{
     Access, Arguments, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement,
-    Assignee, AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
-    CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression, DecimalNumber,
-    DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType, File,
-    FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
-    IdentifierExpression, IfElseExpression, ImportDirective, ImportSymbol, InlineArrayExpression,
-    InlineStructExpression, InlineStructMember, IterationStatement, LiteralExpression, Parameter,
-    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
-    Statement, StructDefinition, StructField, SymbolDeclaration, TernaryExpression, ToExpression,
-    Type, TypeDefinition, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression,
-    UnaryOperator, Underscore, Visibility,
+    Assignee, AssigneeAccess, BasicOrStructOrTupleType, BasicType, BinaryExpression,
+    BinaryOperator, CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression,
+    DecimalNumber, DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType,
+    File, FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
+    IdentifierExpression, IdentifierOrDecimal, IfElseExpression, ImportDirective, ImportSymbol,
+    InlineArrayExpression, InlineStructExpression, InlineStructMember, InlineTupleExpression,
+    IterationStatement, LiteralExpression, Parameter, PostfixExpression, Range, RangeOrExpression,
+    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
+    SymbolDeclaration, TernaryExpression, ToExpression, Type, TypeDefinition, TypedIdentifier,
+    TypedIdentifierOrAssignee, UnaryExpression, UnaryOperator, Underscore, Visibility,
 };
 
 mod ast {
@@ -240,6 +240,7 @@ mod ast {
         Basic(BasicType<'ast>),
         Array(ArrayType<'ast>),
         Struct(StructType<'ast>),
+        Tuple(TupleType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -263,17 +264,18 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_array))]
     pub struct ArrayType<'ast> {
-        pub ty: BasicOrStructType<'ast>,
+        pub ty: BasicOrStructOrTupleType<'ast>,
         pub dimensions: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::ty_basic_or_struct))]
-    pub enum BasicOrStructType<'ast> {
+    #[pest_ast(rule(Rule::ty_basic_or_struct_or_tuple))]
+    pub enum BasicOrStructOrTupleType<'ast> {
         Struct(StructType<'ast>),
         Basic(BasicType<'ast>),
+        Tuple(TupleType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -316,6 +318,14 @@ mod ast {
     pub struct StructType<'ast> {
         pub id: IdentifierExpression<'ast>,
         pub explicit_generics: Option<ExplicitGenerics<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_tuple))]
+    pub struct TupleType<'ast> {
+        pub elements: Vec<Type<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -435,6 +445,7 @@ mod ast {
         Literal(LiteralExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
+        InlineTuple(InlineTupleExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
     }
 
@@ -446,6 +457,7 @@ mod ast {
         IfElse(IfElseExpression<'ast>),
         Primary(PrimaryExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
+        InlineTuple(InlineTupleExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
     }
 
@@ -562,6 +574,7 @@ mod ast {
                 Term::IfElse(e) => Expression::IfElse(e),
                 Term::Primary(e) => e.into(),
                 Term::InlineArray(e) => Expression::InlineArray(e),
+                Term::InlineTuple(e) => Expression::InlineTuple(e),
                 Term::InlineStruct(e) => Expression::InlineStruct(e),
                 Term::ArrayInitializer(e) => Expression::ArrayInitializer(e),
             }
@@ -657,6 +670,14 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::inline_tuple_expression))]
+    pub struct InlineTupleExpression<'ast> {
+        pub elements: Vec<Expression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::inline_struct_member))]
     pub struct InlineStructMember<'ast> {
         pub id: IdentifierExpression<'ast>,
@@ -696,7 +717,7 @@ mod ast {
     pub enum Access<'ast> {
         Call(CallAccess<'ast>),
         Select(ArrayAccess<'ast>),
-        Member(MemberAccess<'ast>),
+        Dot(DotAccess<'ast>),
     }
 
     #[allow(clippy::large_enum_variant)]
@@ -704,7 +725,7 @@ mod ast {
     #[pest_ast(rule(Rule::assignee_access))]
     pub enum AssigneeAccess<'ast> {
         Select(ArrayAccess<'ast>),
-        Member(MemberAccess<'ast>),
+        Dot(DotAccess<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -756,11 +777,18 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::member_access))]
-    pub struct MemberAccess<'ast> {
-        pub id: IdentifierExpression<'ast>,
+    #[pest_ast(rule(Rule::dot_access))]
+    pub struct DotAccess<'ast> {
+        pub inner: IdentifierOrDecimal<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::identifier_or_decimal))]
+    pub enum IdentifierOrDecimal<'ast> {
+        Identifier(IdentifierExpression<'ast>),
+        Decimal(DecimalNumber<'ast>),
     }
 
     #[derive(Debug, PartialEq, Clone)]
@@ -849,6 +877,7 @@ mod ast {
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
                 Expression::InlineStruct(s) => &s.span,
+                Expression::InlineTuple(t) => &t.span,
                 Expression::ArrayInitializer(a) => &a.span,
                 Expression::Unary(u) => &u.span,
             }
@@ -1479,6 +1508,24 @@ mod tests {
         endfor
         assert(a.member == 1)
         return a
+"#;
+        let res = generate_ast(source);
+        println!("{:#?}", generate_ast(source));
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn tuples() {
+        let source = r#"struct Foo {
+            field a
+        }
+        
+        def foo() -> ((field, field)):
+            return 1, (1, 2)
+        
+        def main((field, field) a, (field,) b) -> (Foo,)[2]:
+            (field, field) c = foo()
+            return [(Foo {a: a.0},); 2]
 "#;
         let res = generate_ast(source);
         println!("{:#?}", generate_ast(source));

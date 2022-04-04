@@ -12,13 +12,23 @@ pub use self::scheme::*;
 pub use self::solidity::*;
 
 use crate::ir;
-use rand_0_4::Rng;
+
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
-#[cfg(feature = "bellman")]
-use zokrates_field::BellmanFieldExtensions;
-use zokrates_field::Field;
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Field};
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "bellman")] {
+        use rand_0_4::Rng;
+        use std::io::{Read, Write};
+        use zokrates_field::BellmanFieldExtensions;
+    }
+}
+
+pub trait NotBw6_761Field {}
+impl NotBw6_761Field for Bls12_377Field {}
+impl NotBw6_761Field for Bls12_381Field {}
+impl NotBw6_761Field for Bn128Field {}
 
 #[derive(Serialize)]
 pub struct SetupKeypair<V> {

@@ -16,7 +16,7 @@ import_symbol_list = _{ import_symbol ~ ("," ~ import_symbol)* }
 function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ return_types ~ block_statement }
 const_definition = {"const" ~ typed_identifier ~ "=" ~ expression }
 type_definition = {"type" ~ identifier ~ constant_generics_declaration? ~ "=" ~ ty }
-return_types = _{ ( "->" ~ ( "(" ~ type_list ~ ")" | ty ))? }
+return_types = _{ ( "->" ~ ( "(" ~ ty_list ~ ")" | ty ))? }
 constant_generics_declaration = _{ "<" ~ constant_generics_list ~ ">" }
 constant_generics_list = _{ identifier ~ ("," ~ identifier)* }
 
@@ -31,10 +31,15 @@ ty_u16 = {"u16"}
 ty_u32 = {"u32"}
 ty_u64 = {"u64"}
 ty_basic = { ty_field | ty_bool | ty_u8 | ty_u16 | ty_u32 | ty_u64 }
-ty_basic_or_struct = { ty_basic | ty_struct }
-ty_array = { ty_basic_or_struct ~ ("[" ~ expression ~ "]")+ }
-ty = { ty_array | ty_basic | ty_struct }
-type_list = _{(ty ~ ("," ~ ty)*)?}
+ty_basic_or_struct_or_tuple = { ty_basic | ty_struct | ty_tuple }
+ty_array = { ty_basic_or_struct_or_tuple ~ ("[" ~ expression ~ "]")+ }
+ty = { ty_array | ty_basic | ty_struct | ty_tuple }
+ty_list = _{(ty ~ ("," ~ ty)*)?}
+// tuples
+ty_tuple = { "(" ~ (ty_tuple_multiple_inner | ty_tuple_single_inner | ty_tuple_empty_inner ) ~ ")" }
+ty_tuple_empty_inner = _{ "" }
+ty_tuple_single_inner = _{ ty ~ "," }
+ty_tuple_multiple_inner = _{ ty ~ ("," ~ ty)+ ~ ","? }
 // structs
 ty_struct = { identifier ~ explicit_generics? }
 // type definitions
@@ -71,15 +76,20 @@ expression = { unaried_term ~ (op_binary ~ unaried_term)* }
 unaried_term = { op_unary? ~ powered_term }
 powered_term = { postfixed_term ~ (op_pow ~ exponent_expression)? }
 postfixed_term = { term ~ access* }
-term = { ("(" ~ expression ~ ")") | inline_struct_expression | if_else_expression | primary_expression | inline_array_expression | array_initializer_expression }
+term = { ("(" ~ expression ~ ")") | inline_tuple_expression | inline_struct_expression | if_else_expression | primary_expression | inline_array_expression | array_initializer_expression }
 spread = { "..." ~ expression }
 range = { from_expression? ~ ".." ~ to_expression? }
 from_expression = { expression }
 to_expression = { expression }
 
+inline_tuple_expression = { "(" ~ (inline_tuple_multiple_expression_inner | inline_tuple_single_expression_inner | inline_tuple_empty_expression_inner) ~ ")" }
+inline_tuple_empty_expression_inner = _{ "" }
+inline_tuple_single_expression_inner = _{ expression ~ "," }
+inline_tuple_multiple_expression_inner = _{ expression ~ ("," ~ expression)+ ~ ","? }
+
 if_else_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
 
-access = { array_access | call_access | member_access }
+access = { array_access | call_access | dot_access }
 array_access = { "[" ~ range_or_expression ~ "]" }
 call_access = { ("::" ~ explicit_generics)? ~ "(" ~ arguments ~ ")" }
 arguments = { expression_list }
@@ -87,7 +97,8 @@ explicit_generics = { "<" ~ constant_generics_values ~ ">" }
 constant_generics_values = _{ constant_generics_value ~ ("," ~ constant_generics_value)* }
 constant_generics_value = { literal | identifier | underscore }
 underscore = { "_" }
-member_access = { "." ~ identifier }
+dot_access = { "." ~ identifier_or_decimal }
+identifier_or_decimal = { identifier | decimal_number }
 
 primary_expression = { identifier | literal }
 
@@ -107,7 +118,7 @@ array_initializer_expression = { "[" ~ expression ~ semicolon ~ expression ~ "]"
 
 typed_identifier = { ty ~ identifier }
 assignee = { identifier ~ assignee_access* }
-assignee_access = { array_access | member_access }
+assignee_access = { array_access | dot_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
 
 // Literals for all types

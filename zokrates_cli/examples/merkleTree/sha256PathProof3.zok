@@ -1,31 +1,23 @@
-import "hashes/sha256/512bit" as sha256
+import "hashes/sha256/512bit" as hash
+import "hashes/utils/256bitsDirectionHelper" as multiplex
 
-def multiplex(bool selector, u32[8] left, u32[8] right) -> (u32[8]):
-	return if selector then right else left fi
+const u32 DEPTH = 3
 
-// Merkle-Tree inclusion proof for tree depth 3
+def select(bool condition, u32[8] left, u32[8] right) -> (u32[8], u32[8]):
+	return if condition then right else left fi, if condition then left else right fi
 
-def main(field treeDepth, u32[8] rootDigest, private u32[8] leafDigest, private bool[2] directionSelector, u32[8] PathDigest0, private u32[8] PathDigest1):
+// Merke-Tree inclusion proof for tree depth 4 using sha256
+// directionSelector => true if current digest is on the rhs of the hash
 
-	//Setup
-	u32[8] currentDigest = leafDigest
-	field counter = 1
-	bool currentDirection = false
-	
-	//Loop up the tree
-	currentDirection = directionSelector[0]
-	u32[8] lhs = multiplex(currentDirection, currentDigest, PathDigest0)
-	u32[8] rhs = multiplex(!currentDirection, currentDigest, PathDigest0)
-	currentDigest = sha256(lhs, rhs)
-	counter = counter + 1
+def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector, private u32[DEPTH][8] path) -> bool:
+	// Start from the leaf
+	u32[8] digest = leaf
 
-	currentDirection = directionSelector[1]
-	lhs = multiplex(currentDirection, currentDigest, PathDigest1)
-	rhs = multiplex(!currentDirection, currentDigest, PathDigest1)
-	currentDigest = sha256(lhs, rhs)
-	counter = counter + 1
+	// Loop up the tree
+	for u32 i in 0..DEPTH do
+		u32[8] left, u32[8] right = select(directionSelector[i], digest, path[i])
+		digest = hash(left, right)
+	endfor
 
-	assert(counter == treeDepth)
-	assert(rootDigest == currentDigest)
+	return digest == root
 
-	return
