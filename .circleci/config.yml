@@ -52,6 +52,7 @@ jobs:
           command: cargo clippy -j 1 -- -D warnings
       - run:
           name: Run tests
+          no_output_timeout: 1h
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
   cpp_format:
     docker:
