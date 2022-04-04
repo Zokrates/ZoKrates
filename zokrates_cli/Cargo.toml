@@ -39,7 +39,7 @@ glob = "0.2.11"
 assert_cli = "0.5"
 tempdir = "0.3"
 zokrates_solidity_test = { version = "0.1", path = "../zokrates_solidity_test", default-features = false }
-ethabi = { path = "../../ethabi/ethabi" }
+ethabi = "17.0.0"
 primitive-types = { version = "0.11", features = ["rlp"] }
 
 [build-dependencies]

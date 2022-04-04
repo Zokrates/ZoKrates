@@ -220,7 +220,7 @@ dependencies = [
 [[package]]
 name = "ark-marlin"
 version = "0.3.0"
-source = "git+https://github.com/nirvantyagi/marlin?branch=chacha-rng-dependency#0fdd2adbcbb1bc83c3e43b91fa7df900fce85b20"
+source = "git+https://github.com/arkworks-rs/marlin?rev=63cfd82#63cfd82b10161fdf8da86b3401204c7370501a98"
 dependencies = [
  "ark-ff",
  "ark-poly",
@@ -987,6 +987,8 @@ dependencies = [
 [[package]]
 name = "ethabi"
 version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b69517146dfab88e9238c00c724fd8e277951c3cc6f22b016d72f422a832213e"
 dependencies = [
  "ethereum-types",
  "hex 0.4.3",

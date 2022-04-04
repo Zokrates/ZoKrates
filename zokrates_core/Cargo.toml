@@ -54,14 +54,13 @@ ark-gm17 = { version = "^0.3.0", default-features = false, optional = true }
 ark-groth16 = { version = "^0.3.0", default-features = false, optional = true }
 ark-serialize = { version = "^0.3.0", default-features = false, optional = true }
 ark-relations = { version = "^0.3.0", default-features = false, optional = true }
-ark-marlin = { git = "https://github.com/nirvantyagi/marlin", branch = "chacha-rng-dependency", default-features = false, optional = true }
-#ark-marlin = { version = "^0.3.0", default-features = false, optional = true }
+ark-marlin = { git = "https://github.com/arkworks-rs/marlin", rev = "63cfd82", default-features = false, optional = true }
 ark-poly = { version = "^0.3.0", default-features = false, optional = true }
 ark-poly-commit = { version = "^0.3.0", default-features = false, optional = true }
 ark-crypto-primitives = { version = "^0.3.0", default-features = false, optional = true }
 sha3 = { version = "0.9", optional = true }
 digest = { version = "0.9", optional = true }
-ethabi = { path = "../../ethabi/ethabi" }
+ethabi = "17.0.0"
 primitive-types = { version = "0.11", features = ["rlp"] }
 
 [dev-dependencies]
