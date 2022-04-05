@@ -381,7 +381,7 @@ mod integration {
 
         // Setup EVM
         let mut rng = StdRng::from_seed([0; 32]);
-        let mut evm = Evm::new();
+        let mut evm = Evm::default();
         let deployer = Address::random(&mut rng);
         evm.create_account(&deployer, 0);
 
