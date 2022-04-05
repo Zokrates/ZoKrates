@@ -734,7 +734,7 @@ mod tests {
         let contract = Contract::compile_from_src_string(&src, "Verifier", true, &[]).unwrap();
 
         // Setup EVM
-        let mut evm = Evm::new();
+        let mut evm = Evm::default();
         let deployer = Address::from(H160::zero());
         evm.create_account(&deployer, 0);
 
