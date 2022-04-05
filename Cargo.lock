@@ -2920,7 +2920,6 @@ dependencies = [
  "zokrates_field",
  "zokrates_fs_resolver",
  "zokrates_pest_ast",
- "zokrates_solidity_test",
 ]
 
 [[package]]

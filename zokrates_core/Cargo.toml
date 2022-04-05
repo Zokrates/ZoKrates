@@ -67,7 +67,6 @@ primitive-types = { version = "0.11", features = ["rlp"] }
 wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
-zokrates_solidity_test = { path = "../zokrates_solidity_test"}
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
