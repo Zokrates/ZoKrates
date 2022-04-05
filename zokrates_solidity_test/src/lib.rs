@@ -52,7 +52,7 @@ mod tests {
             Contract::compile_from_solidity_file(contract_path, "SimpleStorage", false).unwrap();
 
         // Setup EVM
-        let mut evm = Evm::new();
+        let mut evm = Evm::default();
         let deployer = Address::random(&mut rng);
         evm.create_account(&deployer, 0);
 
