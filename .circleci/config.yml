@@ -24,7 +24,6 @@ jobs:
           name: Build
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - save-sccache-cache
-
   test:
     docker:
       - image: zokrates/env:latest
@@ -46,7 +45,6 @@ jobs:
           name: Run tests
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
       - save-sccache-cache
-
   cpp_format:
     docker:
       - image: zokrates/env:latest
@@ -71,7 +69,6 @@ jobs:
             cd zokrates_core
             wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
       - save-sccache-cache
-
   integration_test:
     docker:
       - image: zokrates/env:latest
@@ -89,7 +86,6 @@ jobs:
           no_output_timeout: "30m"
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./integration_test.sh
       - save-sccache-cache
-
   deploy:
     docker:
       - image: cimg/python:3.8-node
