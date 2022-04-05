@@ -46,10 +46,10 @@ jobs:
       - run:
           name: Check format
           command: cargo fmt --all -- --check
-      - run:
-          name: Run clippy
-          no_output_timeout: 1h
-          command: cargo clippy -j 1 -- -D warnings
+      # - run:
+      #     name: Run clippy
+      #     no_output_timeout: 1h
+      #     command: cargo clippy -j 1 -- -D warnings
       - run:
           name: Run tests
           no_output_timeout: 1h
