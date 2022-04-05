@@ -20,7 +20,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-build-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
@@ -30,7 +30,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: cargo-build-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
   test:
     docker:
       - image: zokrates/env:latest
@@ -42,18 +42,25 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-test-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Check format
           command: cargo fmt --all -- --check
-      # - run:
-      #     name: Run clippy
-      #     no_output_timeout: 1h
-      #     command: cargo clippy -j 1 -- -D warnings
+      - run:
+          name: Run clippy
+          no_output_timeout: 1h
+          command: cargo clippy -j 2 -- -D warnings
       - run:
           name: Run tests
           no_output_timeout: 1h
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
+          key: cargo-test-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
   cpp_format:
     docker:
       - image: zokrates/env:latest
@@ -72,7 +79,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-test-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Test on firefox
           command: |
@@ -90,7 +97,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargo-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-test-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Run integration tests
           no_output_timeout: "30m"
