@@ -186,8 +186,7 @@ commands:
           command: |
             apt-get install -y pkg-config libssl-dev
             curl -o- -sSLf https://github.com/mozilla/sccache/releases/download/v0.2.15/sccache-v0.2.15-x86_64-unknown-linux-musl.tar.gz | tar xzf -
-            mkdir -p .cargo/bin
-            mv sccache-v0.2.15-x86_64-unknown-linux-musl/sccache .cargo/bin/sccache
+            mv sccache-v0.2.15-x86_64-unknown-linux-musl/sccache §HOME/bin
             # This configures Rust to use sccache.
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
             # This is the maximum space sccache cache will use on disk.
