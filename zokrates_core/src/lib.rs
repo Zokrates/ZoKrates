@@ -16,7 +16,7 @@ mod optimizer;
 mod parser;
 mod semantics;
 mod solvers;
-mod static_analysis;
+pub mod static_analysis;
 mod zir;
 
 pub mod absy;
