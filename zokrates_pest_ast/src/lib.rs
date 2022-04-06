@@ -13,7 +13,7 @@ pub use ast::{
     BinaryOperator, CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression,
     DecimalNumber, DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType,
     File, FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
-    IdentifierExpression, IdentifierOrDecimal, IfElseExpression, ImportDirective, ImportSymbol,
+    IdentifierExpression, IdentifierOrDecimal, ImportDirective, ImportSymbol,
     InlineArrayExpression, InlineStructExpression, InlineStructMember, InlineTupleExpression,
     IterationStatement, LiteralExpression, Parameter, PostfixExpression, Range, RangeOrExpression,
     ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
@@ -384,7 +384,7 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::expression_statement))]
+    #[pest_ast(rule(Rule::assertion_statement))]
     pub struct AssertionStatement<'ast> {
         pub expression: Expression<'ast>,
         pub message: Option<AnyString<'ast>>,
@@ -437,7 +437,6 @@ mod ast {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Expression<'ast> {
         Ternary(TernaryExpression<'ast>),
-        IfElse(IfElseExpression<'ast>),
         Binary(BinaryExpression<'ast>),
         Unary(UnaryExpression<'ast>),
         Postfix(PostfixExpression<'ast>),
@@ -454,7 +453,6 @@ mod ast {
     pub enum Term<'ast> {
         Expression(Expression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
-        IfElse(IfElseExpression<'ast>),
         Primary(PrimaryExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         InlineTuple(InlineTupleExpression<'ast>),
@@ -571,7 +569,6 @@ mod ast {
         fn from(t: Term<'ast>) -> Self {
             match t {
                 Term::Expression(e) => e,
-                Term::IfElse(e) => Expression::IfElse(e),
                 Term::Primary(e) => e.into(),
                 Term::InlineArray(e) => Expression::InlineArray(e),
                 Term::InlineTuple(e) => Expression::InlineTuple(e),
@@ -814,31 +811,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::if_else_expression))]
-    pub struct IfElseExpression<'ast> {
-        pub condition: Box<Expression<'ast>>,
-        pub consequence: Box<Expression<'ast>>,
-        pub alternative: Box<Expression<'ast>>,
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
     impl<'ast> Expression<'ast> {
-        pub fn if_else(
-            condition: Box<Expression<'ast>>,
-            consequence: Box<Expression<'ast>>,
-            alternative: Box<Expression<'ast>>,
-            span: Span<'ast>,
-        ) -> Self {
-            Expression::IfElse(IfElseExpression {
-                condition,
-                consequence,
-                alternative,
-                span,
-            })
-        }
-
         pub fn ternary(
             condition: Box<Expression<'ast>>,
             consequence: Box<Expression<'ast>>,
@@ -873,7 +846,6 @@ mod ast {
                 Expression::Identifier(i) => &i.span,
                 Expression::Literal(c) => c.span(),
                 Expression::Ternary(t) => &t.span,
-                Expression::IfElse(ie) => &ie.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
                 Expression::InlineStruct(s) => &s.span,
@@ -1291,7 +1263,7 @@ mod tests {
     #[test]
     fn ternary() {
         let source = r#"import "foo"
-                def main() -> (field): return if 1 then 2 else 3 fi
+                def main() -> (field): return 1 ? 2 : 3
 "#;
         assert_eq!(
             generate_ast(source),
@@ -1317,7 +1289,7 @@ mod tests {
                             span: Span::new(source, 44, 49).unwrap()
                         }))],
                         statements: vec![Statement::Return(ReturnStatement {
-                            expressions: vec![Expression::if_else(
+                            expressions: vec![Expression::ternary(
                                 Box::new(Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         suffix: None,

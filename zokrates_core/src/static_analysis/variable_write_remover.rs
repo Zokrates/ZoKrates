@@ -73,7 +73,6 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             ArrayExpression::select(base.clone(), i),
-                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
                                         Type::Struct(..) => StructExpression::conditional(
@@ -94,7 +93,6 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             StructExpression::select(base.clone(), i),
-                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
                                         Type::Tuple(..) => TupleExpression::conditional(
@@ -115,7 +113,6 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             TupleExpression::select(base.clone(), i),
-                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
                                         Type::FieldElement => FieldElementExpression::conditional(
@@ -137,7 +134,6 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             FieldElementExpression::select(base.clone(), i),
-                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
                                         Type::Boolean => BooleanExpression::conditional(
@@ -158,7 +154,6 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             BooleanExpression::select(base.clone(), i),
-                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
                                         Type::Uint(..) => UExpression::conditional(
@@ -179,7 +174,6 @@ impl<'ast> VariableWriteRemover {
                                         ),
                                             },
                                             UExpression::select(base.clone(), i),
-                                            ConditionalKind::IfElse,
                                         )
                                         .into(),
                                     })

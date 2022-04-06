@@ -749,7 +749,6 @@ pub fn fold_conditional_expression<
         f.fold_boolean_expression(*e.condition),
         e.consequence.fold(f),
         e.alternative.fold(f),
-        e.kind,
     ))
 }
 

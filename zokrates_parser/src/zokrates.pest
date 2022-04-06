@@ -54,17 +54,16 @@ vis = { vis_private | vis_public }
 
 // Statements
 statement = { (iteration_statement // does not require semicolon
-              | (return_statement
+              | ((return_statement
                 | definition_statement
-                | expression_statement
-                ) ~ semicolon
-            ) ~ NEWLINE* }
+                | assertion_statement
+                ) ~ semicolon)) ~ NEWLINE* }
 
 block_statement = _{ "{" ~ NEWLINE* ~ statement* ~ NEWLINE* ~ "}" }
 iteration_statement = { "for" ~ typed_identifier ~ "in" ~ expression ~ ".." ~ expression ~ block_statement }
-return_statement = { "return" ~ expression_list}
+return_statement = { "return" ~ expression_list }
 definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
-expression_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")"}
+assertion_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")"}
 
 typed_identifier_or_assignee_list = _{ typed_identifier_or_assignee ~ ("," ~ typed_identifier_or_assignee)* }
 typed_identifier_or_assignee = { typed_identifier | assignee } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
@@ -76,7 +75,7 @@ expression = { unaried_term ~ (op_binary ~ unaried_term)* }
 unaried_term = { op_unary? ~ powered_term }
 powered_term = { postfixed_term ~ (op_pow ~ exponent_expression)? }
 postfixed_term = { term ~ access* }
-term = { ("(" ~ expression ~ ")") | inline_tuple_expression | inline_struct_expression | if_else_expression | primary_expression | inline_array_expression | array_initializer_expression }
+term = { ("(" ~ expression ~ ")") | inline_tuple_expression | inline_struct_expression | primary_expression | inline_array_expression | array_initializer_expression }
 spread = { "..." ~ expression }
 range = { from_expression? ~ ".." ~ to_expression? }
 from_expression = { expression }
@@ -86,8 +85,6 @@ inline_tuple_expression = { "(" ~ (inline_tuple_multiple_expression_inner | inli
 inline_tuple_empty_expression_inner = _{ "" }
 inline_tuple_single_expression_inner = _{ expression ~ "," }
 inline_tuple_multiple_expression_inner = _{ expression ~ ("," ~ expression)+ ~ ","? }
-
-if_else_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
 
 access = { array_access | call_access | dot_access }
 array_access = { "[" ~ range_or_expression ~ "]" }

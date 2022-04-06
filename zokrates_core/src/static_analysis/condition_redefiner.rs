@@ -81,7 +81,6 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
             condition,
             consequence,
             alternative,
-            e.kind,
         ))
     }
 }

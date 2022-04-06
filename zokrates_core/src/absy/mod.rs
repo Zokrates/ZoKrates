@@ -510,12 +510,6 @@ impl<'ast> fmt::Display for Range<'ast> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ConditionalKind {
-    IfElse,
-    Ternary,
-}
-
 /// An expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'ast> {
@@ -539,7 +533,6 @@ pub enum Expression<'ast> {
         Box<ExpressionNode<'ast>>,
         Box<ExpressionNode<'ast>>,
         Box<ExpressionNode<'ast>>,
-        ConditionalKind,
     ),
     FunctionCall(
         Box<ExpressionNode<'ast>>,
@@ -589,17 +582,8 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::Neg(ref e) => write!(f, "(-{})", e),
             Expression::Pos(ref e) => write!(f, "(+{})", e),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
-            Expression::Conditional(ref condition, ref consequent, ref alternative, ref kind) => {
-                match kind {
-                    ConditionalKind::IfElse => write!(
-                        f,
-                        "if {} then {} else {} fi",
-                        condition, consequent, alternative
-                    ),
-                    ConditionalKind::Ternary => {
-                        write!(f, "{} ? {} : {}", condition, consequent, alternative)
-                    }
-                }
+            Expression::Conditional(ref condition, ref consequent, ref alternative) => {
+                write!(f, "{} ? {} : {}", condition, consequent, alternative)
             }
             Expression::FunctionCall(ref i, ref g, ref p) => {
                 if let Some(g) = g {

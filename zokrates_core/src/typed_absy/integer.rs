@@ -452,7 +452,6 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                 *c.condition,
                 Self::try_from_int(*c.consequence)?,
                 Self::try_from_int(*c.alternative)?,
-                c.kind,
             ))),
             IntExpression::Select(select) => {
                 let array = *select.array;
@@ -572,7 +571,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 *c.condition,
                 Self::try_from_int(*c.consequence, bitwidth)?,
                 Self::try_from_int(*c.alternative, bitwidth)?,
-                c.kind,
             )),
             Select(select) => {
                 let array = *select.array;

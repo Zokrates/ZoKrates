@@ -17,7 +17,7 @@ The following table lists the precedence and associativity of all operators. Ope
 | `!=`<br>`==`<br>           | Not Equal<br>Equal<br>                                     | &check;                      | &check;                       | &check;                     | Left          |
 | `&&`                       | Boolean AND                                                | &nbsp;                       | &nbsp;                        | &check;                     | Left          |
 | <code>&#124;&#124;</code>  | Boolean OR                                                 | &nbsp;                       | &nbsp;                        | &check;                     | Left          |
-| `c ? x : y`<br><br>`if c then x else y fi`    | Conditional expression                                     | &check;                      | &check;                       | &check;                     | Right         |         |
+| `c ? x : y`                | Conditional expression                                     | &check;                      | &check;                       | &check;                     | Right         |         |
 
 [^1]: The exponent must be a compile-time constant of type `u32`
 

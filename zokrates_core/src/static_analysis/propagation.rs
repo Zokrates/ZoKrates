@@ -209,7 +209,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     ConditionalOrExpression::Expression(consequence.into_inner())
                 }
                 (condition, consequence, alternative) => ConditionalOrExpression::Conditional(
-                    ConditionalExpression::new(condition, consequence, alternative, e.kind),
+                    ConditionalExpression::new(condition, consequence, alternative),
                 ),
             },
         )

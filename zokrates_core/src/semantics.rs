@@ -2461,7 +2461,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }
             }
-            Expression::Conditional(box condition, box consequence, box alternative, kind) => {
+            Expression::Conditional(box condition, box consequence, box alternative) => {
                 let condition_checked = self.check_expression(condition, module_id, types)?;
                 let consequence_checked = self.check_expression(consequence, module_id, types)?;
                 let alternative_checked = self.check_expression(alternative, module_id, types)?;
@@ -2476,35 +2476,26 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         message: format!("{{consequence}} and {{alternative}} in conditional expression should have the same type, found {}, {}", e1.get_type(), e2.get_type()),
                     })?;
 
-                let kind = match kind {
-                    crate::absy::ConditionalKind::IfElse => {
-                        crate::typed_absy::ConditionalKind::IfElse
-                    }
-                    crate::absy::ConditionalKind::Ternary => {
-                        crate::typed_absy::ConditionalKind::Ternary
-                    }
-                };
-
                 match condition_checked {
                     TypedExpression::Boolean(condition) => {
                         match (consequence_checked, alternative_checked) {
                             (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
-                                Ok(FieldElementExpression::conditional(condition, consequence, alternative, kind).into())
+                                Ok(FieldElementExpression::conditional(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Boolean(consequence), TypedExpression::Boolean(alternative)) => {
-                                Ok(BooleanExpression::conditional(condition, consequence, alternative, kind).into())
+                                Ok(BooleanExpression::conditional(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
-                                Ok(ArrayExpression::conditional(condition, consequence, alternative, kind).into())
+                                Ok(ArrayExpression::conditional(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Struct(consequence), TypedExpression::Struct(alternative)) => {
-                                Ok(StructExpression::conditional(condition, consequence, alternative, kind).into())
+                                Ok(StructExpression::conditional(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Uint(consequence), TypedExpression::Uint(alternative)) => {
-                                Ok(UExpression::conditional(condition, consequence, alternative, kind).into())
+                                Ok(UExpression::conditional(condition, consequence, alternative).into())
                             },
                             (TypedExpression::Int(consequence), TypedExpression::Int(alternative)) => {
-                                Ok(IntExpression::conditional(condition, consequence, alternative, kind).into())
+                                Ok(IntExpression::conditional(condition, consequence, alternative).into())
                             },
                             (c, a) => Err(ErrorInner {
                                 pos: Some(pos),

@@ -28,7 +28,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
             self.fold_boolean_expression(*e.condition),
             E::block(vec![], e.consequence.fold(self)),
             E::block(vec![], e.alternative.fold(self)),
-            e.kind,
         ))
     }
 }
