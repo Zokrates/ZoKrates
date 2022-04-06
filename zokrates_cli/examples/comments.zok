@@ -1,7 +1,8 @@
 // only using add, no need to flatten
-def main(field a) -> field: // a needs to be 1
-  field b = a + 5 // inline comment
-  field c = a + b + a + 4
-  assert(a == 1) // another inline comment
-  field d = a + c + a + b
-  return b + c + d
+def main(field a) -> field { // a needs to be 1
+    field b = a + 5; // inline comment
+    field c = a + b + a + 4;
+    assert(a == 1); // another inline comment
+    field d = a + c + a + b;
+    return b + c + d;
+}

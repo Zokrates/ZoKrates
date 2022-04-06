@@ -1,6 +1,8 @@
-def foo<N>() -> field[N]:
-   return [42; N]
+def foo<N>() -> field[N] {
+   return [42; N];
+}
 
-def main() -> field[2]:
-    field a = foo::<3>()[0]
-    return foo::<2>()
+def main() -> field[2] {
+    field a = foo::<3>()[0];
+    return foo::<2>();
+}

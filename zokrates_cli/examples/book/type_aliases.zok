@@ -1,11 +1,12 @@
-type MyField = field
+type MyField = field;
 
-type Rectangle<L, W> = bool[L][W]
+type Rectangle<L, W> = bool[L][W];
 
-type Square<S> = Rectangle<S, S>
+type Square<S> = Rectangle<S, S>;
 
-def main():
-    MyField f = 42
-    Rectangle<2, 2> r = [[true; 2]; 2]
-    Square<2> s = r
-    return
+def main() {
+    MyField f = 42;
+    Rectangle<2, 2> r = [[true; 2]; 2];
+    Square<2> s = r;
+    return;
+}

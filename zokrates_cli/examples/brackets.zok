@@ -1,4 +1,5 @@
-def main(field a) -> field:
-  field b = (a + 5) * 6
-  field c = 7 * (b + a)
-  return b + c
+def main(field a) -> field {
+    field b = (a + 5) * 6;
+    field c = 7 * (b + a);
+    return b + c;
+}

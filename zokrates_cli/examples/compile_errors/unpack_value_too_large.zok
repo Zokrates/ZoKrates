@@ -1,5 +1,6 @@
-from "EMBED" import unpack
+from "EMBED" import unpack;
 
-def main():
-    bool[2] bits = unpack(4) // we need 3 bits to unpack 4
-    return
+def main() {
+    bool[2] bits = unpack(4); // we need 3 bits to unpack 4
+    return;
+}

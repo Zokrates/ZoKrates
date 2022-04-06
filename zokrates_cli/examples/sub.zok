@@ -1,7 +1,8 @@
 // only using sub, no need to flatten
-def main(field a) -> field:
-  field b = a + 100
-  field c = b + a + b
-  field d = b - a - 3 - a
-  field e = d + 3 - a
-  return d + c + e
+def main(field a) -> field {
+    field b = a + 100;
+    field c = b + a + b;
+    field d = b - a - 3 - a;
+    field e = d + 3 - a;
+    return d + c + e;
+}
