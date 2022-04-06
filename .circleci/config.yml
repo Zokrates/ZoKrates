@@ -18,19 +18,12 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - restore_cache:
-          keys:
-            - cargo-build-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Build
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
-      - save_cache:
-          paths:
-            - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-          key: cargo-build-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - save-sccache-cache
   test:
     docker:
       - image: zokrates/env:latest
@@ -40,9 +33,8 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - restore_cache:
-          keys:
-            - cargo-test-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Check format
           command: cargo fmt --all -- --check
@@ -54,13 +46,7 @@ jobs:
           name: Run tests
           no_output_timeout: 1h
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
-      - save_cache:
-          paths:
-            - /usr/local/cargo/registry
-            - target/release/.fingerprint
-            - target/release/build
-            - target/release/deps
-          key: cargo-test-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - save-sccache-cache
   cpp_format:
     docker:
       - image: zokrates/env:latest
@@ -77,14 +63,14 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - restore_cache:
-          keys:
-            - cargo-test-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Test on firefox
           command: |
             cd zokrates_core
             wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
+      - save-sccache-cache
   integration_test:
     docker:
       - image: zokrates/env:latest
@@ -95,13 +81,13 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - restore_cache:
-          keys:
-            - cargo-test-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Run integration tests
           no_output_timeout: "30m"
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./integration_test.sh
+      - save-sccache-cache
   deploy:
     docker:
       - image: cimg/python:3.8-node
@@ -129,6 +115,8 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Check format
           command: cargo fmt --all -- --check
@@ -139,6 +127,7 @@ jobs:
           name: Run tests
           no_output_timeout: "30m"
           command: npm run test
+      - save-sccache-cache
   cross_build:
     parameters:
       os:
@@ -154,6 +143,8 @@ jobs:
     executor: << parameters.os >>
     steps:
       - checkout
+      - setup-sccache
+      - restore-sccache-cache
       - when:
          condition: << parameters.add-target >>
          steps:
@@ -162,6 +153,7 @@ jobs:
           name: Build
           no_output_timeout: "1h"
           command: RUSTFLAGS="--remap-path-prefix=$PWD=" << parameters.build-with >> build --target << parameters.target >> --release
+      - save-sccache-cache
       - tar_artifacts:
           target: << parameters.target >>
   publish_artifacts:
@@ -188,6 +180,32 @@ jobs:
               -f /tmp/artifacts/{}
 
 commands:
+  setup-sccache:
+    steps:
+      - run:
+          name: Install sccache
+          command: |
+            apt-get install -y pkg-config libssl-dev
+            curl -o- -sSLf https://github.com/mozilla/sccache/releases/download/0.2.14/sccache-0.2.14-x86_64-unknown-linux-musl.tar.gz | tar xzf -
+            mv sccache-0.2.14-x86_64-unknown-linux-musl/sccache /usr/local/cargo/bin/sccache
+            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
+            echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+  restore-sccache-cache:
+    steps:
+      - restore_cache:
+          name: Restore sccache cache
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+  save-sccache-cache:
+    steps:
+      - save_cache:
+          name: Save sccache cache
+          # We use {{ epoch }} to always upload a fresh cache:
+          # Of course, restore_cache will not find this exact key,
+          # but it will fall back to the closest key (aka the most recent).
+          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          paths:
+            - "~/.cache/sccache"
   install_rust:
     steps:
       - run:
