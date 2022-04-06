@@ -188,7 +188,7 @@ commands:
             curl -o- -sSLf https://github.com/mozilla/sccache/releases/download/v0.2.15/sccache-v0.2.15-x86_64-unknown-linux-musl.tar.gz | tar xzf -
             mv sccache-v0.2.15-x86_64-unknown-linux-musl/sccache $HOME/bin
             # This configures Rust to use sccache.
-            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
+            echo 'export "RUSTC_WRAPPER"="$HOME/bin/sccache"' >> $BASH_ENV
             # This is the maximum space sccache cache will use on disk.
             echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
   restore-sccache-cache:
