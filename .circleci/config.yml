@@ -41,7 +41,7 @@ jobs:
       - run:
           name: Run clippy
           no_output_timeout: 1h
-          command: cargo clippy -j 2 -- -D warnings
+          command: cargo clippy -j 4 -- -D warnings
       - run:
           name: Run tests
           no_output_timeout: 1h
