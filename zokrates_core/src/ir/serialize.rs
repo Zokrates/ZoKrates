@@ -71,7 +71,9 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
                 count += 1;
             }
             let s = unconstrained_variable_detector.fold_statement(s);
-            serde_cbor::to_writer(&mut w, &s)?;
+            for s in s {
+                serde_cbor::to_writer(&mut w, &s)?;
+            }
         }
 
         unconstrained_variable_detector
