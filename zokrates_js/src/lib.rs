@@ -64,7 +64,7 @@ fn serialize_program<I: IntoIterator<Item = ir::Statement<Bn128Field>>>(
     program: ir::ProgIterator<Bn128Field, I>,
 ) -> Vec<u8> {
     let mut buffer = Cursor::new(vec![]);
-    program.serialize(&mut buffer);
+    let _ = program.serialize(&mut buffer);
     buffer.into_inner()
 }
 
