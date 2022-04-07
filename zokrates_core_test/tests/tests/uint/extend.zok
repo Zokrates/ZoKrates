@@ -1,49 +1,15 @@
-import "utils/casts/u32_to_bits" as to_bits
-import "utils/casts/u32_from_bits" as from_bits
+import "utils/casts/u32_to_bits" as to_bits;
+import "utils/casts/u32_from_bits" as from_bits;
 
-def right_rotate_2(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[30..], ...b[..30]])
-
-def right_rotate_6(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[26..], ...b[..26]])
-
-def right_rotate_7(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[25..], ...b[..25]])
-
-def right_rotate_11(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[21..], ...b[..21]])
-
-def right_rotate_13(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[19..], ...b[..19]])
-
-def right_rotate_17(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[15..], ...b[..15]])
-
-def right_rotate_18(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[14..], ...b[..14]])
-
-def right_rotate_19(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[13..], ...b[..13]])
-
-def right_rotate_22(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[10..], ...b[..10]])
-
-def right_rotate_25(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	return from_bits([...b[7..], ...b[..7]])
+def right_rotate<N>(u32 e) -> u32 {
+    bool[32] b = to_bits(e);
+    return from_bits([...b[32-N..], ...b[..32-N]]);
+}
 
 // already paying 33 * 64 = 2112 constraints for input constraining. in sha this is done only once. So this is just ~ 152 constraints
-def main(u32[64] w) -> u32:
-	u32 i = 16
-	u32 s0 = right_rotate_7(w[i-15]) ^ right_rotate_18(w[i-15]) ^ (w[i-15] >> 3)
-    u32 s1 = right_rotate_17(w[i-2]) ^ right_rotate_19(w[i-2]) ^ (w[i-2] >> 10)
-    return w[i-16] + s0 + w[i-7] + s1
+def main(u32[64] w) -> u32 {
+	u32 i = 16;
+	u32 s0 = right_rotate::<7>(w[i-15]) ^ right_rotate::<18>(w[i-15]) ^ (w[i-15] >> 3);
+    u32 s1 = right_rotate::<17>(w[i-2]) ^ right_rotate::<19>(w[i-2]) ^ (w[i-2] >> 10);
+    return w[i-16] + s0 + w[i-7] + s1;
+}

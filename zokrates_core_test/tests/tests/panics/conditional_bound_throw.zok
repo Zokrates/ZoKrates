@@ -1,10 +1,11 @@
-def throwing_bound<N>(u32 x) -> u32:
-    assert(x == N)
-    return 1
+def throwing_bound<N>(u32 x) -> u32 {
+    assert(x == N);
+    return 1;
+}
 
 // this compiles: the conditional, even though it can throw, has a constant compile-time value of `1`
 // However, the assertions are still checked at runtime, which leads to panics without branch isolation.
-def main(u32 x):
-  for u32 i in 0..if x == 0 then throwing_bound::<0>(x) else throwing_bound::<1>(x) fi do
-  endfor
-  return
+def main(u32 x) {
+    for u32 i in 0..x == 0 ? throwing_bound::<0>(x) : throwing_bound::<1>(x) {}
+    return;
+}

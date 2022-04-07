@@ -1,5 +1,6 @@
-from "./a" import SIZE_WORDS
+from "./a" import SIZE_WORDS;
 
-def main(field[SIZE_WORDS] a):
-    assert(a == [0; SIZE_WORDS])
-    return
+def main(field[SIZE_WORDS] a) {
+    assert(a == [0; SIZE_WORDS]);
+    return;
+}

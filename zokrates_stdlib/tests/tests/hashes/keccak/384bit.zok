@@ -1,4 +1,4 @@
-import "hashes/keccak/384bit" as keccak384
+import "hashes/keccak/384bit" as keccak384;
 
 // Python code:
 // >>> from Crypto.Hash import keccak
@@ -8,10 +8,11 @@ import "hashes/keccak/384bit" as keccak384
 // >>> digest.hexdigest()
 // 'a944b9b859c1e69d66b52d4cf1f678b24ed8a9ccb0a32bbe882af8a3a1acbd3b68eed9c628307e5d3789f1a64a50e8e7'
 
-def main():
-    u64[6] h = keccak384([42; 20])
+def main() {
+    u64[6] h = keccak384([42; 20]);
     assert(h == [
         0xA944B9B859C1E69D, 0x66B52D4CF1F678B2, 0x4ED8A9CCB0A32BBE,
         0x882AF8A3A1ACBD3B, 0x68EED9C628307E5D, 0x3789F1A64A50E8E7
-    ])
-    return
+    ]);
+    return;
+}

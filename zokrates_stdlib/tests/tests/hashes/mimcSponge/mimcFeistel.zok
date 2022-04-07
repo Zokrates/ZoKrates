@@ -1,4 +1,5 @@
-import "hashes/mimcSponge/mimcFeistel" as mimcFeistel
+import "hashes/mimcSponge/mimcFeistel" as mimcFeistel;
 
-def main(field a, field b, field c) -> field[2]:
-    return mimcFeistel(a, b, c)
+def main(field a, field b, field c) -> field[2] {
+    return mimcFeistel(a, b, c);
+}

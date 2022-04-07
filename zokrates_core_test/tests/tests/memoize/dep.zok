@@ -1,3 +1,4 @@
-def dep(field a) -> field: // this costs 2 constraints per call
-	field res = a ** 4
-	return res
+def dep(field a) -> field { // this costs 2 constraints per call
+    field res = a ** 4;
+    return res;
+}

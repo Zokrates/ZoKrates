@@ -1,3 +1,4 @@
-def main(field x):
-    assert(x >= 2)
-    return
+def main(field x) {
+    assert(x >= 2);
+    return;
+}

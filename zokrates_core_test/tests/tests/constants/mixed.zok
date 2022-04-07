@@ -1,15 +1,16 @@
-const u32 N = 2
-const bool B = true
+const u32 N = 2;
+const bool B = true;
 
 struct Foo {
-    field[N] a
-    bool b
+    field[N] a;
+    bool b;
 }
 
 const Foo[N] F = [
     Foo { a: [1, 2], b: B },
     Foo { a: [3, 4], b: !B }
-]
+];
 
-def main() -> Foo[N]:
-    return F
+def main() -> Foo[N] {
+    return F;
+}

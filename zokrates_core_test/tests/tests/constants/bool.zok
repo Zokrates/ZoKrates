@@ -1,4 +1,5 @@
-const bool BOOLEAN = true
+const bool BOOLEAN = true;
 
-def main() -> bool:
-    return BOOLEAN
+def main() -> bool {
+    return BOOLEAN;
+}

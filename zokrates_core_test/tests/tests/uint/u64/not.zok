@@ -1,2 +1,3 @@
-def main(u64 a) -> u64:
-    return !a
+def main(u64 a) -> u64 {
+    return !a;
+}

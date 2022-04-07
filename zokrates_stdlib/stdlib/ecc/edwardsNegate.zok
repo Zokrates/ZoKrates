@@ -1,9 +1,9 @@
 // Negate a point on an Edwards curve
 // Curve parameters are defined with the last argument
 // Twisted Edwards Curves, BBJLP-2008, section 2 pg 2
-def main(field[2] pt) -> field[2]:
+def main(field[2] pt) -> field[2] {
+    field u = pt[0];
+    field v = pt[1];
 
-    field u = pt[0]
-    field v = pt[1]
-
-    return [-u, v]
+    return [-u, v];
+}

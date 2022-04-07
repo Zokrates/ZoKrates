@@ -1,8 +1,8 @@
-const u32 N = 2
+const u32 N = 2;
 
 struct State {
-    field[N] a
-    field[N][N] b
+    field[N] a;
+    field[N][N] b;
 }
 
 const State STATE = State {
@@ -10,5 +10,6 @@ const State STATE = State {
     b: [[3, 4], [5, 6]]
 }
 
-def main() -> State:
-    return STATE
+def main() -> State {
+    return STATE;
+}

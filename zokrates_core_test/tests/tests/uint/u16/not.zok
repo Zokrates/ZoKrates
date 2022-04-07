@@ -1,2 +1,3 @@
-def main(u16 a) -> u16:
-    return !a
+def main(u16 a) -> u16 {
+    return !a;
+}

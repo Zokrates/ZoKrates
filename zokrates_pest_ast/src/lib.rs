@@ -1116,8 +1116,12 @@ mod tests {
 
     #[test]
     fn one_plus_one() {
-        let source = r#"import "foo"
-                def main() -> (field): return 1 + 1
+        let source = r#"
+        import "foo";
+
+        def main() -> (field) {
+            return 1 + 1;
+        }
 "#;
         assert_eq!(
             generate_ast(source),
@@ -1177,8 +1181,12 @@ mod tests {
 
     #[test]
     fn precedence() {
-        let source = r#"import "foo"
-                def main() -> (field): return 1 + 2 * 3 ** 4
+        let source = r#"
+        import "foo";
+
+        def main() -> (field) {
+            return 1 + 2 * 3 ** 4;
+        }
 "#;
         assert_eq!(
             generate_ast(source),
@@ -1262,8 +1270,12 @@ mod tests {
 
     #[test]
     fn ternary() {
-        let source = r#"import "foo"
-                def main() -> (field): return 1 ? 2 : 3
+        let source = r#"
+        import "foo";
+
+        def main() -> (field) {
+            return 1 ? 2 : 3;
+        }
 "#;
         assert_eq!(
             generate_ast(source),
@@ -1332,7 +1344,7 @@ mod tests {
 
     #[test]
     fn parentheses() {
-        let source = r#"def main() -> (field): return (1)
+        let source = r#"def main() -> (field) { return (1); }
 "#;
         assert_eq!(
             generate_ast(source),
@@ -1370,7 +1382,7 @@ mod tests {
 
     #[test]
     fn multidef() {
-        let source = r#"def main() -> (field): field a, b = foo(1, 2 + 3)
+        let source = r#"def main() -> (field) { field a, b = foo(1, 2 + 3); }
 "#;
         assert_eq!(
             generate_ast(source),
@@ -1465,21 +1477,23 @@ mod tests {
 
     #[test]
     fn playground() {
-        let source = r#"import "foo" as bar
+        let source = r#"
+        import "foo" as bar;
 
         struct Foo {
-            field[2] foo
-            Bar bar
+            field[2] foo;
+            Bar bar;
         }
 
-        def main<P>(private field[Q] a) -> (bool[234 + 6]):
-        field a = 1
-        a[32 + x][55] = foo::<a, _>(y)
-        for field i in 0..3 do
-               assert(a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3)
-        endfor
-        assert(a.member == 1)
-        return a
+        def main<P>(private field[Q] a) -> (bool[234 + 6]) {
+            field a = 1;
+            a[32 + x][55] = foo::<a, _>(y);
+            for field i in 0..3 {
+                assert(a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3);
+            }
+            assert(a.member == 1);
+            return a;
+        }
 "#;
         let res = generate_ast(source);
         println!("{:#?}", generate_ast(source));
@@ -1489,15 +1503,17 @@ mod tests {
     #[test]
     fn tuples() {
         let source = r#"struct Foo {
-            field a
+            field a;
         }
         
-        def foo() -> ((field, field)):
-            return 1, (1, 2)
+        def foo() -> ((field, field)) {
+            return 1, (1, 2);
+        }
         
-        def main((field, field) a, (field,) b) -> (Foo,)[2]:
-            (field, field) c = foo()
-            return [(Foo {a: a.0},); 2]
+        def main((field, field) a, (field,) b) -> (Foo,)[2] {
+            (field, field) c = foo();
+            return [(Foo {a: a.0},); 2];
+        }
 "#;
         let res = generate_ast(source);
         println!("{:#?}", generate_ast(source));

@@ -1,9 +1,10 @@
-def throwing_bound<N>(u32 x) -> u32:
-  assert(x == N)
-	return 1
+def throwing_bound<N>(u32 x) -> u32 {
+    assert(x == N);
+    return 1;
+}
 
 // Even if the bound is constant at compile time, it can throw at runtime
-def main(u32 x):
-  for u32 i in 0..throwing_bound::<1>(x) do
-  endfor
-  return
+def main(u32 x) {
+    for u32 i in 0..throwing_bound::<1>(x) {}
+    return;
+}

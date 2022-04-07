@@ -1,9 +1,10 @@
 #pragma curve bn128
 
-import "./pack" as pack
+import "./pack" as pack;
 
 // pack 256 big-endian bits into one field element
 // Note: This is not a injective operation as `p` is smaller than `2**256 - 1` for bn128
 // For example, `[0, 0,..., 0]` and `bits(p)` both point to `0`
-def main(bool[256] bits) -> field:
-	return pack(bits)
+def main(bool[256] bits) -> field {
+    return pack(bits);
+}
