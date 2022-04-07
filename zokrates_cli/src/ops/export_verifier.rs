@@ -93,7 +93,6 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
     let vk = serde_json::from_reader(reader)
         .map_err(|why| format!("Could not deserialize verification key: {}", why))?;
 
-    println!("exp");
     let verifier = S::export_solidity_verifier(vk);
 
     //write output file
