@@ -88,7 +88,7 @@ impl<T: SolidityCompatibleField> ToToken<T> for PGHR13 {
     }
 
     fn modify(mut proof: Self::Proof) -> Self::Proof {
-        proof.a.0 = str::replace(&proof.a.0, 'a', "f");
+        proof.a.0 = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into();
         proof
     }
 }
@@ -119,7 +119,7 @@ impl<T: SolidityCompatibleField> ToToken<T> for G16 {
     }
 
     fn modify(mut proof: Self::Proof) -> Self::Proof {
-        proof.a.0 = str::replace(&proof.a.0, 'a', "f");
+        proof.a.0 = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into();
         proof
     }
 }
@@ -150,7 +150,7 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> ToToken<T> for GM17 {
     }
 
     fn modify(mut proof: Self::Proof) -> Self::Proof {
-        proof.a.0 = str::replace(&proof.a.0, 'a', "f");
+        proof.a.0 = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into();
         proof
     }
 }
@@ -232,7 +232,8 @@ impl<T: SolidityCompatibleField + NotBw6_761Field> ToToken<T> for Marlin {
     }
 
     fn modify(mut proof: Self::Proof) -> Self::Proof {
-        proof.degree_bound_comms_3_g2.0 = str::replace(&proof.degree_bound_comms_3_g2.0, 'a', "f");
+        proof.degree_bound_comms_3_g2.0 =
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into();
         proof
     }
 }
