@@ -10,7 +10,6 @@ extern crate zokrates_solidity_test;
 mod integration {
     use fs_extra::copy_items;
     use fs_extra::dir::CopyOptions;
-    use glob::glob;
     use primitive_types::U256;
     use serde_json::from_reader;
     use std::fs;

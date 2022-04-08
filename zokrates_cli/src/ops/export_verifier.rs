@@ -72,7 +72,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
             cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
         }
         (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            println!("export with marlin");
             cli_export_verifier::<Bn128Field, Marlin>(sub_matches)
         }
         _ => Err(format!("Could not export verifier with given parameters (curve: {}, scheme: {}): not supported", curve, scheme))
