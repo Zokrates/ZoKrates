@@ -84,6 +84,14 @@ pub struct ProgIterator<T, I: IntoIterator<Item = Statement<T>>> {
 }
 
 impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+    pub fn new(arguments: Vec<FlatParameter>, statements: I, return_count: usize) -> Self {
+        Self {
+            arguments,
+            return_count,
+            statements,
+        }
+    }
+
     pub fn collect(self) -> ProgIterator<T, Vec<Statement<T>>> {
         ProgIterator {
             statements: self.statements.into_iter().collect::<Vec<_>>(),

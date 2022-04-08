@@ -8,7 +8,8 @@ extern crate zokrates_solidity_test;
 
 #[cfg(test)]
 mod integration {
-
+    use fs_extra::copy_items;
+    use fs_extra::dir::CopyOptions;
     use glob::glob;
     use primitive_types::U256;
     use serde_json::from_reader;
@@ -553,16 +554,15 @@ mod integration {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
 
-        for g in glob("./examples/book/rng_tutorial/*").expect("Failed to read glob pattern") {
-            let path = g.unwrap();
-            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
-        }
+        let mut options = CopyOptions::new();
+        options.copy_inside = true;
+        copy_items(&["examples/book/rng_tutorial"], tmp_base, &options).unwrap();
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
         let binary_path = env!("CARGO_BIN_EXE_zokrates");
 
         assert_cli::Assert::command(&["./test.sh", binary_path, stdlib.to_str().unwrap()])
-            .current_dir(tmp_base)
+            .current_dir(tmp_base.join("rng_tutorial"))
             .succeeds()
             .unwrap();
     }
@@ -573,16 +573,15 @@ mod integration {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
 
-        for g in glob("./examples/book/sha256_tutorial/*").expect("Failed to read glob pattern") {
-            let path = g.unwrap();
-            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
-        }
+        let mut options = CopyOptions::new();
+        options.copy_inside = true;
+        copy_items(&["examples/book/sha256_tutorial"], tmp_base, &options).unwrap();
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
         let binary_path = env!("CARGO_BIN_EXE_zokrates");
 
         assert_cli::Assert::command(&["./test.sh", binary_path, stdlib.to_str().unwrap()])
-            .current_dir(tmp_base)
+            .current_dir(tmp_base.join("sha256_tutorial"))
             .succeeds()
             .unwrap();
     }
@@ -593,16 +592,15 @@ mod integration {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
 
-        for g in glob("./examples/book/mpc_tutorial/**/*").expect("Failed to read glob pattern") {
-            let path = g.unwrap();
-            std::fs::hard_link(path.clone(), tmp_base.join(path.file_name().unwrap())).unwrap();
-        }
+        let mut options = CopyOptions::new();
+        options.copy_inside = true;
+        copy_items(&["examples/book/mpc_tutorial"], tmp_base, &options).unwrap();
 
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
         let binary_path = env!("CARGO_BIN_EXE_zokrates");
 
         assert_cli::Assert::command(&["./test.sh", binary_path, stdlib.to_str().unwrap()])
-            .current_dir(tmp_base)
+            .current_dir(tmp_base.join("mpc_tutorial"))
             .succeeds()
             .unwrap();
     }
