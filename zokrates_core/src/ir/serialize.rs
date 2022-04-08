@@ -1,4 +1,7 @@
-use crate::ir::{ProgIterator, Statement};
+use crate::{
+    ir::{ProgIterator, Statement},
+    static_analysis::UnconstrainedVariableDetector,
+};
 use serde_cbor::{self, StreamDeserializer};
 use std::io::{Read, Write};
 use zokrates_field::*;
@@ -49,12 +52,16 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     /// serialize a program iterator, returning the number of constraints serialized
     /// Note that we only return constraints, not other statements such as directives
     pub fn serialize<W: Write>(self, mut w: W) -> Result<usize, DynamicError> {
+        use crate::ir::folder::Folder;
+
         w.write_all(ZOKRATES_MAGIC)?;
         w.write_all(ZOKRATES_VERSION_2)?;
         w.write_all(&T::id())?;
 
         serde_cbor::to_writer(&mut w, &self.arguments)?;
         serde_cbor::to_writer(&mut w, &self.return_count)?;
+
+        let mut unconstrained_variable_detector = UnconstrainedVariableDetector::new(&self);
 
         let statements = self.statements.into_iter();
 
@@ -63,10 +70,16 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
             if matches!(s, Statement::Constraint(..)) {
                 count += 1;
             }
-            serde_cbor::to_writer(&mut w, &s)?;
+            let s = unconstrained_variable_detector.fold_statement(s);
+            for s in s {
+                serde_cbor::to_writer(&mut w, &s)?;
+            }
         }
 
-        Ok(count)
+        unconstrained_variable_detector
+            .finalize()
+            .map(|_| count)
+            .map_err(|count| format!("Error: Found {} unconstrained variable(s)", count).into())
     }
 }
 
