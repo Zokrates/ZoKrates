@@ -412,19 +412,15 @@ mod tests {
 
         let srs = <Ark as UniversalBackend<Bls12_377Field, Marlin>>::universal_setup(5);
         let keypair =
-            <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone().into())
-                .unwrap();
+            <Ark as UniversalBackend<Bls12_377Field, Marlin>>::setup(srs, program.clone()).unwrap();
         let interpreter = Interpreter::default();
 
         let witness = interpreter
             .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof = <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(
-            program.clone(),
-            witness,
-            keypair.pk,
-        );
+        let proof =
+            <Ark as Backend<Bls12_377Field, Marlin>>::generate_proof(program, witness, keypair.pk);
         let ans = <Ark as Backend<Bls12_377Field, Marlin>>::verify(keypair.vk, proof);
 
         assert!(ans);

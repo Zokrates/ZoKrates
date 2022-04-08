@@ -216,19 +216,15 @@ mod tests {
             )],
         };
 
-        let keypair =
-            <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone().into());
+        let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone().into(), &[Bn128Field::from(42)])
+            .execute(program.clone(), &[Bn128Field::from(42)])
             .unwrap();
 
-        let proof = <Bellman as Backend<Bn128Field, G16>>::generate_proof(
-            program.into(),
-            witness,
-            keypair.pk,
-        );
+        let proof =
+            <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
         let ans = <Bellman as Backend<Bn128Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);
