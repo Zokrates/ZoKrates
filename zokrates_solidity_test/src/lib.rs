@@ -15,13 +15,13 @@ pub type Error = Box<dyn ErrorTrait>;
 pub struct EvmTestError(String);
 
 impl ErrorTrait for EvmTestError {
-    fn source(self: &Self) -> Option<&(dyn ErrorTrait + 'static)> {
+    fn source(&self) -> Option<&(dyn ErrorTrait + 'static)> {
         None
     }
 }
 
 impl fmt::Display for EvmTestError {
-    fn fmt(self: &Self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -52,7 +52,7 @@ mod tests {
             Contract::compile_from_solidity_file(contract_path, "SimpleStorage", false).unwrap();
 
         // Setup EVM
-        let mut evm = Evm::new();
+        let mut evm = Evm::default();
         let deployer = Address::random(&mut rng);
         evm.create_account(&deployer, 0);
 
@@ -75,10 +75,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(&get_result.out, &to_be_bytes(&U256::from(0)));
-        println!("{:?}", get_result);
 
         // Call set function on contract
-        let set_result = evm
+        let _ = evm
             .call(
                 contract
                     .encode_call_contract_bytes(
@@ -90,7 +89,6 @@ mod tests {
                 &deployer,
             )
             .unwrap();
-        println!("{:?}", set_result);
 
         // Call get function on contract
         let get_result = evm
