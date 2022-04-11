@@ -11,7 +11,7 @@ use zokrates_field::{Bw6_761Field, Field};
 #[allow(clippy::upper_case_acronyms)]
 pub struct GM17;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ProofPoints<G1, G2> {
     pub a: G1,
     pub b: G2,
@@ -43,6 +43,8 @@ impl Scheme<Bw6_761Field> for GM17 {
 }
 
 impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for GM17 {
+    type Proof = Self::ProofPoints;
+
     fn export_solidity_verifier(vk: <GM17 as Scheme<T>>::VerificationKey) -> String {
         let (mut template_text, solidity_pairing_lib) =
             (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(true));

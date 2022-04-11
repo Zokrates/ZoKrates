@@ -5,6 +5,8 @@ pub mod bellman;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
 
+pub mod to_token;
+
 mod scheme;
 mod solidity;
 
@@ -12,13 +14,18 @@ pub use self::scheme::*;
 pub use self::solidity::*;
 
 use crate::ir;
-use rand_0_4::Rng;
+
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
-#[cfg(feature = "bellman")]
-use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Field};
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "bellman")] {
+        use rand_0_4::Rng;
+        use std::io::{Read, Write};
+        use zokrates_field::BellmanFieldExtensions;
+    }
+}
 
 pub trait NotBw6_761Field {}
 impl NotBw6_761Field for Bls12_377Field {}
@@ -38,14 +45,14 @@ impl<V: Serialize + DeserializeOwned> SetupKeypair<V> {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Proof<T> {
-    pub proof: T,
-    pub inputs: Vec<String>,
+pub struct Proof<T: Field, S: Scheme<T>> {
+    pub proof: S::ProofPoints,
+    pub inputs: Vec<Fr>,
 }
 
 #[allow(dead_code)]
-impl<T: Serialize + DeserializeOwned> Proof<T> {
-    fn new(proof: T, inputs: Vec<String>) -> Self {
+impl<T: Field, S: Scheme<T>> Proof<T, S> {
+    fn new(proof: S::ProofPoints, inputs: Vec<String>) -> Self {
         Proof { proof, inputs }
     }
 }
@@ -54,15 +61,15 @@ pub type Fr = String;
 pub type Fq = String;
 pub type Fq2 = (String, String);
 
-#[derive(Serialize, Deserialize)]
-pub struct G1Affine(Fq, Fq);
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct G1Affine(pub Fq, pub Fq);
 
 // When G2 is defined on Fq2 field
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct G2Affine(Fq2, Fq2);
 
 // When G2 is defined on a Fq field (BW6_761 curve)
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct G2AffineFq(Fq, Fq);
 
 impl ToString for G1Affine {
@@ -93,9 +100,9 @@ pub trait Backend<T: Field, S: Scheme<T>> {
         program: ir::ProgIterator<T, I>,
         witness: ir::Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<S::ProofPoints>;
+    ) -> Proof<T, S>;
 
-    fn verify(vk: S::VerificationKey, proof: Proof<S::ProofPoints>) -> bool;
+    fn verify(vk: S::VerificationKey, proof: Proof<T, S>) -> bool;
 }
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
     fn setup<I: IntoIterator<Item = ir::Statement<T>>>(

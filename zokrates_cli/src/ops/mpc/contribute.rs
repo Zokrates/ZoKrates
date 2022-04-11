@@ -76,8 +76,8 @@ pub fn cli_mpc_contribute<
     let mut rng = {
         use blake2::{Blake2b, Digest};
         use byteorder::{BigEndian, ReadBytesExt};
-        use rand::chacha::ChaChaRng;
-        use rand::{OsRng, Rng, SeedableRng};
+        use rand_0_4::chacha::ChaChaRng;
+        use rand_0_4::{OsRng, Rng, SeedableRng};
 
         let h = {
             let mut system_rng = OsRng::new().unwrap();

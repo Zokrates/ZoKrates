@@ -13,7 +13,7 @@ type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    OutOfBounds(u128, u128),
+    OutOfBounds(usize, usize),
     DivisionByZero,
     AssertionFailed(RuntimeError),
 }
@@ -147,7 +147,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(v, e.len() as u128)),
+                        .ok_or(Error::OutOfBounds(v as usize, e.len())),
                     i => Ok(FieldElementExpression::Select(
                         e,
                         box i.annotate(UBitwidth::B32),
@@ -279,7 +279,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(*v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(*v, e.len() as u128)),
+                        .ok_or(Error::OutOfBounds(*v as usize, e.len())),
                     _ => Ok(BooleanExpression::Select(e, box index)),
                 }
             }
@@ -290,6 +290,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 ) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         Ok(BooleanExpression::Value(n1 < n2))
+                    }
+                    (_, FieldElementExpression::Number(c)) if c == T::zero() => {
+                        Ok(BooleanExpression::Value(false))
+                    }
+                    (FieldElementExpression::Number(c), _) if c == T::max_value() => {
+                        Ok(BooleanExpression::Value(false))
                     }
                     (e1, e2) => Ok(BooleanExpression::FieldLt(box e1, box e2)),
                 }
@@ -323,6 +329,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 ) {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         Ok(BooleanExpression::Value(n1 > n2))
+                    }
+                    (_, FieldElementExpression::Number(c)) if c == T::max_value() => {
+                        Ok(BooleanExpression::Value(false))
+                    }
+                    (FieldElementExpression::Number(c), _) if c == T::zero() => {
+                        Ok(BooleanExpression::Value(false))
                     }
                     (e1, e2) => Ok(BooleanExpression::FieldGt(box e1, box e2)),
                 }
@@ -498,7 +510,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     UExpressionInner::Value(v) => e
                         .get(v as usize)
                         .cloned()
-                        .ok_or(Error::OutOfBounds(v, e.len() as u128))
+                        .ok_or(Error::OutOfBounds(v as usize, e.len()))
                         .map(|e| e.into_inner()),
                     i => Ok(UExpressionInner::Select(e, box i.annotate(UBitwidth::B32))),
                 }
@@ -989,6 +1001,22 @@ mod tests {
                 )),
                 Ok(BooleanExpression::Value(false))
             );
+
+            assert_eq!(
+                propagator.fold_boolean_expression(BooleanExpression::FieldLt(
+                    box FieldElementExpression::Identifier("a".into()),
+                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                )),
+                Ok(BooleanExpression::Value(false))
+            );
+
+            assert_eq!(
+                propagator.fold_boolean_expression(BooleanExpression::FieldLt(
+                    box FieldElementExpression::Number(Bn128Field::max_value()),
+                    box FieldElementExpression::Identifier("a".into()),
+                )),
+                Ok(BooleanExpression::Value(false))
+            );
         }
 
         #[test]
@@ -1049,6 +1077,22 @@ mod tests {
                 propagator.fold_boolean_expression(BooleanExpression::FieldGt(
                     box FieldElementExpression::Number(Bn128Field::from(3)),
                     box FieldElementExpression::Number(Bn128Field::from(3)),
+                )),
+                Ok(BooleanExpression::Value(false))
+            );
+
+            assert_eq!(
+                propagator.fold_boolean_expression(BooleanExpression::FieldGt(
+                    box FieldElementExpression::Number(Bn128Field::from(0)),
+                    box FieldElementExpression::Identifier("a".into()),
+                )),
+                Ok(BooleanExpression::Value(false))
+            );
+
+            assert_eq!(
+                propagator.fold_boolean_expression(BooleanExpression::FieldGt(
+                    box FieldElementExpression::Identifier("a".into()),
+                    box FieldElementExpression::Number(Bn128Field::max_value()),
                 )),
                 Ok(BooleanExpression::Value(false))
             );

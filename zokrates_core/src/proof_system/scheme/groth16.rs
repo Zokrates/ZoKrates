@@ -9,7 +9,7 @@ use zokrates_field::Field;
 
 pub struct G16;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ProofPoints<G1, G2> {
     pub a: G1,
     pub b: G2,
@@ -34,6 +34,8 @@ impl<T: Field> NonUniversalScheme<T> for G16 {}
 impl<T: Field> MpcScheme<T> for G16 {}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for G16 {
+    type Proof = Self::ProofPoints;
+
     fn export_solidity_verifier(vk: <G16 as Scheme<T>>::VerificationKey) -> String {
         let (mut template_text, solidity_pairing_lib_sans_bn256g2) =
             (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));

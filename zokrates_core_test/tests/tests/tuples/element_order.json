@@ -1,0 +1,17 @@
+{
+    "entry_point": "./tests/tests/tuples/element_order.zok",
+    "curves": ["Bn128"],
+    "tests": [
+        {
+            "abi": true,
+            "input": {
+                "values": [["3", true]]
+            },
+            "output": {
+                "Ok": {
+                    "values": []
+                }
+            }
+        }
+    ]
+}
