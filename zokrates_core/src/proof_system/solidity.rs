@@ -1,10 +1,12 @@
 use crate::proof_system::Scheme;
+use serde::{de::DeserializeOwned, Serialize};
 use zokrates_field::{Bn128Field, Field};
 
 pub trait SolidityCompatibleField: Field {}
 impl SolidityCompatibleField for Bn128Field {}
-
 pub trait SolidityCompatibleScheme<T: SolidityCompatibleField>: Scheme<T> {
+    type Proof: From<Self::ProofPoints> + Serialize + DeserializeOwned + Clone;
+
     fn export_solidity_verifier(vk: Self::VerificationKey) -> String;
 }
 

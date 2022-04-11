@@ -10,6 +10,7 @@ members = [
     "zokrates_abi",
     "zokrates_test",
     "zokrates_core_test",
+    "zokrates_solidity_test",
 ]
 
 exclude = ["zokrates_js"]

@@ -214,7 +214,7 @@ pub fn generate_proof(program: &[u8], witness: JsValue, pk: &[u8]) -> Result<JsV
 #[wasm_bindgen]
 pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
     let vk: <G16 as Scheme<Bn128Field>>::VerificationKey = vk.into_serde().unwrap();
-    let proof: Proof<<G16 as Scheme<Bn128Field>>::ProofPoints> = proof.into_serde().unwrap();
+    let proof: Proof<Bn128Field, G16> = proof.into_serde().unwrap();
 
     let ans = <Bellman as Backend<Bn128Field, G16>>::verify(vk, proof);
     Ok(JsValue::from_serde(&ans).unwrap())

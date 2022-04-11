@@ -8,7 +8,7 @@ use zokrates_field::Field;
 #[allow(clippy::upper_case_acronyms)]
 pub struct PGHR13;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ProofPoints<G1, G2> {
     pub a: G1,
     pub a_p: G1,
@@ -40,6 +40,8 @@ impl<T: Field> Scheme<T> for PGHR13 {
 impl<T: Field> NonUniversalScheme<T> for PGHR13 {}
 
 impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for PGHR13 {
+    type Proof = Self::ProofPoints;
+
     fn export_solidity_verifier(vk: <PGHR13 as Scheme<T>>::VerificationKey) -> String {
         let (mut template_text, solidity_pairing_lib) =
             (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));

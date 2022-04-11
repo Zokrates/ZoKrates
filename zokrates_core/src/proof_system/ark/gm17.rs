@@ -14,7 +14,7 @@ use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use crate::proof_system::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 use crate::proof_system::{NotBw6_761Field, Scheme};
 use ark_bw6_761::BW6_761;
-use rand_0_7::SeedableRng;
+use rand_0_8::{rngs::StdRng, SeedableRng};
 
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
     fn setup<I: IntoIterator<Item = Statement<T>>>(
@@ -22,7 +22,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM1
     ) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
         let computation = Computation::without_witness(program);
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut StdRng::from_entropy();
         let (pk, vk) = ArkGM17::<T::ArkEngine>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();
@@ -46,7 +46,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<GM17 as Scheme<T>>::ProofPoints> {
+    ) -> Proof<T, GM17> {
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -60,7 +60,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
         )
         .unwrap();
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut StdRng::from_entropy();
         let proof = ArkGM17::<T::ArkEngine>::prove(&pk, computation, rng).unwrap();
 
         let proof_points = ProofPoints {
@@ -72,10 +72,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
         Proof::new(proof_points, inputs)
     }
 
-    fn verify(
-        vk: <GM17 as Scheme<T>>::VerificationKey,
-        proof: Proof<<GM17 as Scheme<T>>::ProofPoints>,
-    ) -> bool {
+    fn verify(vk: <GM17 as Scheme<T>>::VerificationKey, proof: Proof<T, GM17>) -> bool {
         let vk = VerifyingKey {
             h_g2: serialization::to_g2::<T>(vk.h),
             g_alpha_g1: serialization::to_g1::<T>(vk.g_alpha),
@@ -118,7 +115,7 @@ impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
     ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
         let computation = Computation::without_witness(program);
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut StdRng::from_entropy();
         let (pk, vk) = ArkGM17::<BW6_761>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();
@@ -142,7 +139,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
         program: ProgIterator<Bw6_761Field, I>,
         witness: Witness<Bw6_761Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints> {
+    ) -> Proof<Bw6_761Field, GM17> {
         let computation = Computation::with_witness(program, witness);
 
         let inputs = computation
@@ -157,7 +154,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
             )
                 .unwrap();
 
-        let rng = &mut rand_0_7::rngs::StdRng::from_entropy();
+        let rng = &mut StdRng::from_entropy();
         let proof = ArkGM17::<BW6_761>::prove(&pk, computation, rng).unwrap();
 
         let proof_points = ProofPoints {
@@ -171,7 +168,7 @@ impl Backend<Bw6_761Field, GM17> for Ark {
 
     fn verify(
         vk: <GM17 as Scheme<Bw6_761Field>>::VerificationKey,
-        proof: Proof<<GM17 as Scheme<Bw6_761Field>>::ProofPoints>,
+        proof: Proof<Bw6_761Field, GM17>,
     ) -> bool {
         let vk = VerifyingKey {
             h_g2: serialization::to_g2_fq::<Bw6_761Field>(vk.h),
