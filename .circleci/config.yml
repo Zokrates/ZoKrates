@@ -27,7 +27,7 @@ jobs:
   test:
     docker:
       - image: zokrates/env:latest
-    resource_class: large
+    resource_class: xlarge
     steps:
       - checkout
       - run:
@@ -40,9 +40,11 @@ jobs:
           command: cargo fmt --all -- --check
       - run:
           name: Run clippy
-          command: cargo clippy -- -D warnings
+          no_output_timeout: 1h
+          command: cargo clippy -j 4 -- -D warnings
       - run:
           name: Run tests
+          no_output_timeout: 1h
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
       - save-sccache-cache
   cpp_format:

@@ -23,12 +23,13 @@ zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
 zokrates_core = { version = "0.6", path = "../zokrates_core", default-features = false }
 typed-arena = "1.4.1"
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 serde = { version = "1.0", features = ["derive"] }
 dirs = "3.0.1"
 lazy_static = "1.4.0"
 byteorder = "1"
-rand = "0.4"
+rand_0_4 = { version = "0.4", package = "rand" }
+rand_0_8 = { version = "0.8", package = "rand" }
 hex = "0.3.1"
 blake2 = "0.8.1"
 sha2 = "0.10.0"
@@ -37,6 +38,9 @@ sha2 = "0.10.0"
 glob = "0.2.11"
 assert_cli = "0.5"
 tempdir = "0.3"
+zokrates_solidity_test = { version = "0.1", path = "../zokrates_solidity_test", default-features = false }
+ethabi = "17.0.0"
+primitive-types = { version = "0.11", features = ["rlp"] }
 fs_extra = "1.1.0"
 
 [build-dependencies]

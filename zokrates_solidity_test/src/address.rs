@@ -26,9 +26,3 @@ impl From<H160> for Address {
         Self(hash)
     }
 }
-
-impl Into<Token> for Address {
-    fn into(self) -> Token {
-        self.as_token()
-    }
-}

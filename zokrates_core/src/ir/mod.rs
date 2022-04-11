@@ -103,6 +103,10 @@ impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     pub fn returns(&self) -> Vec<FlatVariable> {
         (0..self.return_count).map(FlatVariable::public).collect()
     }
+
+    pub fn public_count(&self) -> usize {
+        self.arguments.iter().filter(|a| !a.private).count() + self.return_count
+    }
 }
 
 impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
