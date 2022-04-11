@@ -560,7 +560,7 @@ mod integration {
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
         let binary_path = env!("CARGO_BIN_EXE_zokrates");
 
-        assert_cli::Assert::command(&["./test.sh", binary_path, stdlib.to_str().unwrap()])
+        assert_cli::Assert::command(&["bash", "test.sh", binary_path, stdlib.to_str().unwrap()])
             .current_dir(tmp_base.join("rng_tutorial"))
             .succeeds()
             .unwrap();
@@ -579,7 +579,7 @@ mod integration {
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
         let binary_path = env!("CARGO_BIN_EXE_zokrates");
 
-        assert_cli::Assert::command(&["./test.sh", binary_path, stdlib.to_str().unwrap()])
+        assert_cli::Assert::command(&["bash", "test.sh", binary_path, stdlib.to_str().unwrap()])
             .current_dir(tmp_base.join("sha256_tutorial"))
             .succeeds()
             .unwrap();
@@ -598,7 +598,7 @@ mod integration {
         let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
         let binary_path = env!("CARGO_BIN_EXE_zokrates");
 
-        assert_cli::Assert::command(&["./test.sh", binary_path, stdlib.to_str().unwrap()])
+        assert_cli::Assert::command(&["bash", "test.sh", binary_path, stdlib.to_str().unwrap()])
             .current_dir(tmp_base.join("mpc_tutorial"))
             .succeeds()
             .unwrap();
