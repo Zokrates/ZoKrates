@@ -2021,7 +2021,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_abi"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "serde",
  "serde_derive",
@@ -2036,7 +2036,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.10"
+version = "0.6.11"
 dependencies = [
  "bellman_ce",
  "cfg-if 0.1.10",
@@ -2068,7 +2068,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_embed"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "ark-bls12-377",
  "ark-bw6-761",
@@ -2086,7 +2086,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_field"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -2109,7 +2109,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.0.39"
+version = "1.0.41"
 dependencies = [
  "console_error_panic_hook",
  "indexmap",
@@ -2126,7 +2126,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "pest",
  "pest_derive",
@@ -2134,7 +2134,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "from-pest",
  "lazy_static",
