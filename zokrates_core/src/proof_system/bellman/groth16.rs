@@ -25,7 +25,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
         program: ProgIterator<T, I>,
         witness: Witness<T>,
         proving_key: Vec<u8>,
-    ) -> Proof<<G16 as Scheme<T>>::ProofPoints> {
+    ) -> Proof<T, G16> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::with_witness(program, witness);
@@ -47,10 +47,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
         Proof::new(proof_points, public_inputs)
     }
 
-    fn verify(
-        vk: <G16 as Scheme<T>>::VerificationKey,
-        proof: Proof<<G16 as Scheme<T>>::ProofPoints>,
-    ) -> bool {
+    fn verify(vk: <G16 as Scheme<T>>::VerificationKey, proof: Proof<T, G16>) -> bool {
         let vk = VerifyingKey {
             alpha_g1: serialization::to_g1::<T>(vk.alpha),
             beta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
@@ -216,19 +213,15 @@ mod tests {
             )],
         };
 
-        let keypair =
-            <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone().into());
+        let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
         let interpreter = Interpreter::default();
 
         let witness = interpreter
-            .execute(program.clone().into(), &[Bn128Field::from(42)])
+            .execute(program.clone(), &[Bn128Field::from(42)])
             .unwrap();
 
-        let proof = <Bellman as Backend<Bn128Field, G16>>::generate_proof(
-            program.into(),
-            witness,
-            keypair.pk,
-        );
+        let proof =
+            <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
         let ans = <Bellman as Backend<Bn128Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);

@@ -34,6 +34,14 @@ impl<'ast, T> IntoTypes<'ast, T> for ArrayType<'ast, T> {
     }
 }
 
+impl<'ast, T> IntoTypes<'ast, T> for TupleType<'ast, T> {
+    fn into_types(self) -> Types<'ast, T> {
+        Types {
+            inner: vec![Type::Tuple(self)],
+        }
+    }
+}
+
 impl<'ast, T> IntoTypes<'ast, T> for UBitwidth {
     fn into_types(self) -> Types<'ast, T> {
         Types {
@@ -393,6 +401,84 @@ impl<'ast, T> From<ConcreteArrayType> for ArrayType<'ast, T> {
     }
 }
 
+#[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
+pub struct GTupleType<S> {
+    pub elements: Vec<GType<S>>,
+}
+
+impl<S> GTupleType<S> {
+    pub fn new(elements: Vec<GType<S>>) -> Self {
+        GTupleType { elements }
+    }
+}
+
+pub type DeclarationTupleType<'ast, T> = GTupleType<DeclarationConstant<'ast, T>>;
+pub type ConcreteTupleType = GTupleType<u32>;
+pub type TupleType<'ast, T> = GTupleType<UExpression<'ast, T>>;
+
+impl<'ast, S, R: PartialEq<S>> PartialEq<GTupleType<S>> for GTupleType<R> {
+    fn eq(&self, other: &GTupleType<S>) -> bool {
+        *self.elements == *other.elements
+    }
+}
+
+impl<S: fmt::Display> fmt::Display for GTupleType<S> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        match self.elements.len() {
+            1 => write!(f, "{},", self.elements[0]),
+            _ => write!(
+                f,
+                "{}",
+                self.elements
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }?;
+        write!(f, ")")
+    }
+}
+
+fn try_from_g_tuple_type<T: TryInto<U>, U>(
+    t: GTupleType<T>,
+) -> Result<GTupleType<U>, SpecializationError> {
+    Ok(GTupleType {
+        elements: t
+            .elements
+            .into_iter()
+            .map(|t| try_from_g_type(t))
+            .collect::<Result<_, _>>()?,
+    })
+}
+
+impl<'ast, T> TryFrom<TupleType<'ast, T>> for ConcreteTupleType {
+    type Error = SpecializationError;
+
+    fn try_from(t: TupleType<'ast, T>) -> Result<Self, Self::Error> {
+        try_from_g_tuple_type(t)
+    }
+}
+
+impl<'ast, T> From<ConcreteTupleType> for TupleType<'ast, T> {
+    fn from(t: ConcreteTupleType) -> Self {
+        try_from_g_tuple_type(t).unwrap()
+    }
+}
+
+impl<S> TryFrom<GType<S>> for GTupleType<S> {
+    type Error = ();
+
+    fn try_from(t: GType<S>) -> Result<Self, Self::Error> {
+        if let GType::Tuple(t) = t {
+            Ok(t)
+        } else {
+            Err(())
+        }
+    }
+}
+
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
 pub struct StructLocation {
     #[serde(skip)]
@@ -572,6 +658,7 @@ pub enum GType<S> {
     Boolean,
     Array(GArrayType<S>),
     Struct(GStructType<S>),
+    Tuple(GTupleType<S>),
     Uint(UBitwidth),
     Int,
 }
@@ -598,6 +685,12 @@ impl<Z: Serialize> Serialize for GType<Z> {
                 map.serialize_entry("components", struct_type)?;
                 map.end()
             }
+            GType::Tuple(tuple_type) => {
+                let mut map = s.serialize_map(Some(2))?;
+                map.serialize_entry("type", "tuple")?;
+                map.serialize_entry("components", tuple_type)?;
+                map.end()
+            }
             GType::Uint(width) => s.serialize_newtype_variant(
                 "Type",
                 4,
@@ -621,6 +714,7 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
         enum Components<S> {
             Array(GArrayType<S>),
             Struct(GStructType<S>),
+            Tuple(GTupleType<S>),
         }
 
         #[derive(Deserialize)]
@@ -663,6 +757,15 @@ impl<'de, S: Deserialize<'de>> Deserialize<'de> for GType<S> {
                     _ => Err(D::Error::custom("invalid `components` variant".to_string())),
                 }
             }
+            "tuple" => {
+                let components = mapping
+                    .components
+                    .ok_or_else(|| D::Error::custom("missing `components` field".to_string()))?;
+                match components {
+                    Components::Tuple(tuple_type) => Ok(GType::Tuple(tuple_type)),
+                    _ => Err(D::Error::custom("invalid `components` variant".to_string())),
+                }
+            }
             "u8" => strict_type(mapping, GType::Uint(UBitwidth::B8)),
             "u16" => strict_type(mapping, GType::Uint(UBitwidth::B16)),
             "u32" => strict_type(mapping, GType::Uint(UBitwidth::B32)),
@@ -685,6 +788,7 @@ impl<'ast, S, R: PartialEq<S>> PartialEq<GType<S>> for GType<R> {
             (Struct(l), Struct(r)) => l == r,
             (FieldElement, FieldElement) | (Boolean, Boolean) => true,
             (Uint(l), Uint(r)) => l == r,
+            (Tuple(l), Tuple(r)) => l == r,
             _ => false,
         }
     }
@@ -698,6 +802,7 @@ pub fn try_from_g_type<T: TryInto<U>, U>(t: GType<T>) -> Result<GType<U>, Specia
         GType::Uint(bitwidth) => Ok(GType::Uint(bitwidth)),
         GType::Array(array_type) => Ok(GType::Array(try_from_g_array_type(array_type)?)),
         GType::Struct(struct_type) => Ok(GType::Struct(try_from_g_struct_type(struct_type)?)),
+        GType::Tuple(tuple_type) => Ok(GType::Tuple(try_from_g_tuple_type(tuple_type)?)),
     }
 }
 
@@ -757,6 +862,7 @@ impl<S: fmt::Display> fmt::Display for GType<S> {
             GType::Int => write!(f, "{{integer}}"),
             GType::Array(ref array_type) => write!(f, "{}", array_type),
             GType::Struct(ref struct_type) => write!(f, "{}", struct_type),
+            GType::Tuple(ref tuple_type) => write!(f, "{}", tuple_type),
         }
     }
 }
@@ -789,6 +895,10 @@ impl<S: fmt::Display> fmt::Display for GStructType<S> {
 impl<S> GType<S> {
     pub fn array<U: Into<GArrayType<S>>>(array_ty: U) -> Self {
         GType::Array(array_ty.into())
+    }
+
+    pub fn tuple<U: Into<GTupleType<S>>>(tuple_ty: U) -> Self {
+        GType::Tuple(tuple_ty.into())
     }
 
     pub fn struc<U: Into<GStructType<S>>>(struct_ty: U) -> Self {
@@ -836,26 +946,6 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
 }
 
 impl ConcreteType {
-    fn to_slug(&self) -> String {
-        match self {
-            GType::FieldElement => String::from("f"),
-            GType::Int => unreachable!(),
-            GType::Boolean => String::from("b"),
-            GType::Uint(bitwidth) => format!("u{}", bitwidth),
-            GType::Array(array_type) => format!("{}[{}]", array_type.ty.to_slug(), array_type.size),
-            GType::Struct(struct_type) => format!(
-                "{{{}}}",
-                struct_type
-                    .iter()
-                    .map(|member| format!("{}:{}", member.id, member.ty))
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
-        }
-    }
-}
-
-impl ConcreteType {
     // the number of field elements the type maps to
     pub fn get_primitive_count(&self) -> usize {
         match self {
@@ -865,6 +955,11 @@ impl ConcreteType {
             GType::Array(array_type) => {
                 array_type.size as usize * array_type.ty.get_primitive_count()
             }
+            GType::Tuple(tuple_type) => tuple_type
+                .elements
+                .iter()
+                .map(|e| e.get_primitive_count())
+                .sum(),
             GType::Int => unreachable!(),
             GType::Struct(struct_type) => struct_type
                 .iter()
@@ -983,17 +1078,6 @@ impl<'ast, S> GFunctionKey<'ast, S> {
     }
 }
 
-impl<'ast> ConcreteFunctionKey<'ast> {
-    pub fn to_slug(&self) -> String {
-        format!(
-            "{}/{}_{}",
-            self.module.display(),
-            self.id,
-            self.signature.to_slug()
-        )
-    }
-}
-
 use std::collections::btree_map::Entry;
 
 // check an optional generic value against the corresponding declaration constant
@@ -1052,6 +1136,14 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
                     .zip(s1.generics.iter())
                     .all(|(g0, g1)| check_generic(g0.as_ref().unwrap(), g1.as_ref(), constants))
         }
+        (DeclarationType::Tuple(s0), GType::Tuple(s1)) => {
+            s0.elements.len() == s1.elements.len()
+                && s0
+                    .elements
+                    .iter()
+                    .zip(s1.elements.iter())
+                    .all(|(t0, t1)| check_type(t0, t1, constants))
+        }
         _ => false,
     }
 }
@@ -1084,6 +1176,15 @@ pub fn specialize_declaration_type<
             let size = t0.size.map(generics)?;
 
             GType::Array(GArrayType { size, ty })
+        }
+        DeclarationType::Tuple(t0) => {
+            let elements = t0
+                .elements
+                .into_iter()
+                .map(|t| specialize_declaration_type(t, generics))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            GType::Tuple(GTupleType { elements })
         }
         DeclarationType::FieldElement => GType::FieldElement,
         DeclarationType::Boolean => GType::Boolean,
@@ -1391,49 +1492,6 @@ pub mod signature {
         }
     }
 
-    impl ConcreteSignature {
-        /// Returns a slug for a signature, with the following encoding:
-        /// i{inputs}o{outputs} where {inputs} and {outputs} each encode a list of types.
-        /// A list of types is encoded by compressing sequences of the same type like so:
-        ///
-        /// [field, field, field] -> 3f
-        /// [field] -> f
-        /// [field, bool, field] -> fbf
-        /// [field, field, bool, field] -> 2fbf
-        ///
-        pub fn to_slug(&self) -> String {
-            let to_slug = |types: &[ConcreteType]| {
-                let mut res = vec![];
-                for t in types {
-                    let len = res.len();
-                    if len == 0 {
-                        res.push((1, t))
-                    } else if res[len - 1].1 == t {
-                        res[len - 1].0 += 1;
-                    } else {
-                        res.push((1, t))
-                    }
-                }
-                res.into_iter()
-                    .map(|(n, t): (usize, &ConcreteType)| {
-                        let mut r = String::new();
-
-                        if n > 1 {
-                            r.push_str(&format!("{}", n));
-                        }
-                        r.push_str(&t.to_slug());
-                        r
-                    })
-                    .fold(String::new(), |mut acc, e| {
-                        acc.push_str(&e);
-                        acc
-                    })
-            };
-
-            format!("i{}o{}", to_slug(&self.inputs), to_slug(&self.outputs))
-        }
-    }
-
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -1489,56 +1547,6 @@ pub mod signature {
                 Some(std::cmp::Ordering::Equal)
             );
             assert_eq!(generic1.cmp(&generic2), std::cmp::Ordering::Equal);
-        }
-
-        #[test]
-        fn slug_0() {
-            let s = ConcreteSignature::new().inputs(vec![]).outputs(vec![]);
-
-            assert_eq!(s.to_slug(), String::from("io"));
-        }
-
-        #[test]
-        fn slug_1() {
-            let s = ConcreteSignature::new()
-                .inputs(vec![ConcreteType::FieldElement, ConcreteType::Boolean])
-                .outputs(vec![
-                    ConcreteType::FieldElement,
-                    ConcreteType::FieldElement,
-                    ConcreteType::Boolean,
-                    ConcreteType::FieldElement,
-                ]);
-
-            assert_eq!(s.to_slug(), String::from("ifbo2fbf"));
-        }
-
-        #[test]
-        fn slug_2() {
-            let s = ConcreteSignature::new()
-                .inputs(vec![
-                    ConcreteType::FieldElement,
-                    ConcreteType::FieldElement,
-                    ConcreteType::FieldElement,
-                ])
-                .outputs(vec![
-                    ConcreteType::FieldElement,
-                    ConcreteType::Boolean,
-                    ConcreteType::FieldElement,
-                ]);
-
-            assert_eq!(s.to_slug(), String::from("i3fofbf"));
-        }
-
-        #[test]
-        fn array_slug() {
-            let s = ConcreteSignature::new()
-                .inputs(vec![
-                    ConcreteType::array((ConcreteType::FieldElement, 42u32)),
-                    ConcreteType::array((ConcreteType::FieldElement, 21u32)),
-                ])
-                .outputs(vec![]);
-
-            assert_eq!(s.to_slug(), String::from("if[42]f[21]o"));
         }
     }
 }

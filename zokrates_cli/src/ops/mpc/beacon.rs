@@ -88,8 +88,8 @@ fn cli_mpc_beacon<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBack
     // Create an RNG based on the outcome of the random beacon
     let mut rng = {
         use byteorder::{BigEndian, ReadBytesExt};
-        use rand::chacha::ChaChaRng;
-        use rand::SeedableRng;
+        use rand_0_4::chacha::ChaChaRng;
+        use rand_0_4::SeedableRng;
         use sha2::{Digest, Sha256};
 
         // The hash used for the beacon

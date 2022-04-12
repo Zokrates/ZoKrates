@@ -132,7 +132,7 @@ mod internal {
 
         let program = artifacts.prog();
         let mut buffer = Cursor::new(vec![]);
-        program.serialize(&mut buffer);
+        let _ = program.serialize(&mut buffer);
 
         Ok(CompilationResult {
             abi,
@@ -232,7 +232,7 @@ mod internal {
         proof: JsValue,
     ) -> Result<JsValue, JsValue> {
         let vk: S::VerificationKey = vk.into_serde().unwrap();
-        let proof: Proof<S::ProofPoints> = proof.into_serde().unwrap();
+        let proof: Proof<T, S> = proof.into_serde().unwrap();
 
         let result = B::verify(vk, proof);
         Ok(JsValue::from_serde(&result).unwrap())

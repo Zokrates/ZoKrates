@@ -46,6 +46,7 @@ pub enum Value<T> {
     Boolean(bool),
     Array(Vec<Value<T>>),
     Struct(Vec<(String, Value<T>)>),
+    Tuple(Vec<Value<T>>),
 }
 
 #[derive(PartialEq, Debug)]
@@ -76,6 +77,22 @@ impl<T: Field> fmt::Display for Value<T> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Value::Tuple(elements) => {
+                write!(f, "(")?;
+                match elements.len() {
+                    1 => write!(f, "{},", elements[0]),
+                    _ => write!(
+                        f,
+                        "{}",
+                        elements
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                }?;
+                write!(f, ")")
+            }
         }
     }
 }
@@ -100,6 +117,7 @@ impl<T: Field> Encode<T> for Value<T> {
             Value::U64(v) => vec![T::from(v)],
             Value::Boolean(b) => vec![T::from(b)],
             Value::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
+            Value::Tuple(t) => t.into_iter().flat_map(|v| v.encode()).collect(),
             Value::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
         }
     }
@@ -170,6 +188,18 @@ impl<T: Field> Decode<T> for Value<T> {
                     })
                     .collect(),
             ),
+            ConcreteType::Tuple(tuple_type) => Value::Tuple(
+                tuple_type
+                    .elements
+                    .into_iter()
+                    .scan(0, |state, ty| {
+                        let new_state = *state + ty.get_primitive_count();
+                        let res = Value::decode(raw[*state..new_state].to_vec(), ty);
+                        *state = new_state;
+                        Some(res)
+                    })
+                    .collect(),
+            ),
         }
     }
 }
@@ -191,6 +221,9 @@ impl<T: Field> Value<T> {
             Value::Boolean(b) => serde_json::Value::Bool(b),
             Value::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into_serde_json()).collect())
+            }
+            Value::Tuple(t) => {
+                serde_json::Value::Array(t.into_iter().map(|e| e.into_serde_json()).collect())
             }
             Value::Struct(s) => serde_json::Value::Object(
                 s.into_iter()
@@ -256,6 +289,22 @@ fn parse_value<T: Field>(
                     .map(|v| parse_value(v, *array_type.ty.clone()))
                     .collect::<Result<_, _>>()
                     .map(Value::Array)
+            }
+        }
+        (ConcreteType::Tuple(tuple_type), serde_json::Value::Array(a)) => {
+            let size = tuple_type.elements.len();
+            if a.len() != size {
+                Err(Error::Type(format!(
+                    "Expected tuple of size {}, found array of size {}",
+                    size,
+                    a.len()
+                )))
+            } else {
+                a.into_iter()
+                    .zip(tuple_type.elements.iter())
+                    .map(|(v, ty)| parse_value(v, ty.clone()))
+                    .collect::<Result<_, _>>()
+                    .map(Value::Tuple)
             }
         }
         (ConcreteType::Struct(struct_type), serde_json::Value::Object(mut o)) => {

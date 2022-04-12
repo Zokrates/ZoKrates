@@ -13,6 +13,7 @@ pub enum SourceIdentifier<'ast> {
     Basic(CoreIdentifier<'ast>),
     Select(Box<SourceIdentifier<'ast>>, u32),
     Member(Box<SourceIdentifier<'ast>>, MemberId),
+    Element(Box<SourceIdentifier<'ast>>, u32),
 }
 
 impl<'ast> fmt::Display for SourceIdentifier<'ast> {
@@ -21,6 +22,7 @@ impl<'ast> fmt::Display for SourceIdentifier<'ast> {
             SourceIdentifier::Basic(i) => write!(f, "{}", i),
             SourceIdentifier::Select(box i, index) => write!(f, "{}~{}", i, index),
             SourceIdentifier::Member(box i, m) => write!(f, "{}.{}", i, m),
+            SourceIdentifier::Element(box i, index) => write!(f, "{}.{}", i, index),
         }
     }
 }

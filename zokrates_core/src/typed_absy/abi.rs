@@ -34,9 +34,9 @@ mod tests {
         ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType, UBitwidth,
     };
     use crate::typed_absy::{
-        parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteType,
-        TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedModule,
-        TypedProgram,
+        parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteTupleType,
+        ConcreteType, TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
+        TypedModule, TypedProgram,
     };
     use std::collections::BTreeMap;
     use zokrates_field::Bn128Field;
@@ -478,6 +478,62 @@ mod tests {
   "outputs": [
     {
       "type": "field"
+    }
+  ]
+}"#
+        );
+
+        let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
+        assert_eq!(de_abi, abi);
+    }
+
+    #[test]
+    fn serialize_tuple() {
+        let abi: Abi = Abi {
+            inputs: vec![AbiInput {
+                name: String::from("a"),
+                public: false,
+                ty: ConcreteType::Tuple(ConcreteTupleType::new(vec![
+                    ConcreteType::FieldElement,
+                    ConcreteType::Boolean,
+                ])),
+            }],
+            outputs: vec![ConcreteType::Tuple(ConcreteTupleType::new(vec![
+                ConcreteType::FieldElement,
+            ]))],
+        };
+
+        let json = serde_json::to_string_pretty(&abi).unwrap();
+        assert_eq!(
+            &json,
+            r#"{
+  "inputs": [
+    {
+      "name": "a",
+      "public": false,
+      "type": "tuple",
+      "components": {
+        "elements": [
+          {
+            "type": "field"
+          },
+          {
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "type": "tuple",
+      "components": {
+        "elements": [
+          {
+            "type": "field"
+          }
+        ]
+      }
     }
   ]
 }"#

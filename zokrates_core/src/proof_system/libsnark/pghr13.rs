@@ -46,7 +46,7 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
         program: ProgIterator<Bn128Field, I>,
         witness: Witness<Bn128Field>,
         proving_key: Vec<u8>,
-    ) -> Proof<<PGHR13 as Scheme<Bn128Field>>::ProofPoints> {
+    ) -> Proof<Bn128Field, PGHR13> {
         let program = program.collect();
 
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
@@ -104,7 +104,7 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
 
     fn verify(
         vk: <PGHR13 as Scheme<Bn128Field>>::VerificationKey,
-        proof: Proof<<PGHR13 as Scheme<Bn128Field>>::ProofPoints>,
+        proof: Proof<Bn128Field, PGHR13>,
     ) -> bool {
         let vk_buffer = vec![];
         let mut vk_writer = BufWriter::new(vk_buffer);
