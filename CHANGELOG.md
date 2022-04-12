@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.12] - 2022-04-11
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.12 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Handle unconstrained variables gracefully (#1120, @schaeff)
+- Show the constraint count after successful compilation (again!) (#1119, @schaeff)
+- Add support for EVM verification of the Marlin proof system (#1103, @nirvantyagi)
+- Output structured data for Marlin artifacts (#1035, @schaeff)
+- Add sha256 with padding for arbitrary input size to stdlib (#1114, @dark64)
+- Add support for tuples (#1081, @schaeff)
+- Fix encoding issue causing invalid values on u64 inputs in js environment (#1098, @dark64)
+- Use optimized range check in assertions (#1080, @dark64)
+
 ## [0.7.11] - 2022-01-21
 
 ### Release
