@@ -143,8 +143,6 @@ jobs:
     executor: << parameters.os >>
     steps:
       - checkout
-      - setup-sccache
-      - restore-sccache-cache
       - when:
          condition: << parameters.add-target >>
          steps:
@@ -153,7 +151,6 @@ jobs:
           name: Build
           no_output_timeout: "1h"
           command: RUSTFLAGS="--remap-path-prefix=$PWD=" << parameters.build-with >> build --target << parameters.target >> --release
-      - save-sccache-cache
       - tar_artifacts:
           target: << parameters.target >>
   publish_artifacts:
