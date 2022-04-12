@@ -69,7 +69,7 @@ jobs:
           name: Test on firefox
           command: |
             cd zokrates_core
-            wasm-pack test --firefox --headless -- --no-default-features --features "wasm bellman"
+            wasm-pack test --firefox --headless -- --no-default-features --features "wasm ark"
       - save-sccache-cache
   integration_test:
     docker:
@@ -107,18 +107,13 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - restore_cache:
-          keys:
-            - zjs-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ checksum "package-lock.json" }}
+      - setup-sccache
+      - restore-sccache-cache
       - run:
           name: Build
           no_output_timeout: "30m"
           command: npm run build:dev
-      - save_cache:
-          paths:
-            - target
-            - node_modules
-          key: zjs-cache-{{ .Environment.CACHE_VERSION }}-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ checksum "package-lock.json" }}
+      - save-sccache-cache
   zokrates_js_test:
     docker:
       - image: zokrates/env:latest
