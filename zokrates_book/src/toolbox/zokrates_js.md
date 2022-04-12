@@ -153,7 +153,7 @@ Parameters:
 Returns: `SetupKeypair`
 
 ##### universalSetup(size)
-Performs the universal phase of a trusted setup. Only available for `marlin` scheme.
+Performs the universal phase of a trusted setup. Only available for the `marlin` scheme.
 
 Parameters:
 * `size` - Size of the trusted setup passed as an exponent. For example, `8` for `2**8`.
