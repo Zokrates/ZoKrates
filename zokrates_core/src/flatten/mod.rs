@@ -1958,12 +1958,21 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             // constant
 
             let from = std::cmp::max(from, to);
-            match self.bits_cache.entry(e.field.clone().unwrap()) {
+            let res = match self.bits_cache.entry(e.field.clone().unwrap()) {
                 Entry::Occupied(entry) => {
                     let res: Vec<_> = entry.get().clone();
-                    // if we already know a decomposition, it has to be of the size of the target bitwidth
-                    assert_eq!(res.len(), to);
-                    res
+                    // if we already know a decomposition, its number of elements has to be smaller or equal to `to`
+                    assert!(res.len() <= to);
+
+                    // we then pad it with zeroes on the left (big endian) to return `to` bits
+                    if res.len() == to {
+                        res
+                    } else {
+                        (0..to - res.len())
+                            .map(|_| FlatExpression::Number(T::zero()))
+                            .chain(res)
+                            .collect()
+                    }
                 }
                 Entry::Vacant(_) => {
                     let bits = (0..from).map(|_| self.use_sym()).collect::<Vec<_>>();
@@ -2006,7 +2015,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                     bits
                 }
-            }
+            };
+
+            assert_eq!(res.len(), to);
+
+            res
         })
     }
 
