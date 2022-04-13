@@ -1,8 +1,9 @@
-use crate::constants::{BLS12_381, BN128, MPC_DEFAULT_PATH};
+use crate::cli_constants::MPC_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use zokrates_common::constants::{BLS12_381, BN128};
 use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::{MpcBackend, MpcScheme, G16};
 use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};

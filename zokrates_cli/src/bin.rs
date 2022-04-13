@@ -9,8 +9,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod constants;
-mod helpers;
+mod cli_constants;
 mod ops;
 
 use clap::{App, AppSettings, Arg};

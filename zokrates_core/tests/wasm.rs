@@ -9,7 +9,7 @@ use zokrates_core::ir::{Interpreter, Prog, Statement};
 use zokrates_core::proof_system::{Backend, NonUniversalBackend};
 use zokrates_field::Bn128Field;
 
-use zokrates_core::proof_system::bellman::Bellman;
+use zokrates_core::proof_system::ark::Ark;
 use zokrates_core::proof_system::groth16::G16;
 
 #[wasm_bindgen_test]
@@ -28,7 +28,6 @@ fn generate_proof() {
         .execute(program.clone(), &[Bn128Field::from(42)])
         .unwrap();
 
-    let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
-    let _proof =
-        <Bellman as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
+    let keypair = <Ark as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());
+    let _proof = <Ark as Backend<Bn128Field, G16>>::generate_proof(program, witness, keypair.pk);
 }

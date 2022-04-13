@@ -185,6 +185,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-groth16"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38f8fff7468e947130b5caf9bdd27de8b913cf30e15104b4f0cd301726b3d897"
+dependencies = [
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-relations",
+ "ark-serialize",
+ "ark-std",
+]
+
+[[package]]
+name = "ark-marlin"
+version = "0.3.0"
+source = "git+https://github.com/arkworks-rs/marlin?rev=63cfd82#63cfd82b10161fdf8da86b3401204c7370501a98"
+dependencies = [
+ "ark-ff",
+ "ark-poly",
+ "ark-poly-commit",
+ "ark-relations",
+ "ark-serialize",
+ "ark-std",
+ "derivative",
+ "digest 0.9.0",
+]
+
+[[package]]
 name = "ark-nonnative-field"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -213,6 +243,22 @@ dependencies = [
  "ark-std",
  "derivative",
  "hashbrown 0.11.2",
+]
+
+[[package]]
+name = "ark-poly-commit"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a71ddfa72bad1446cab7bbecb6018dbbdc9abcbc3a0065483ae5186ad2a64dcd"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "derivative",
+ "digest 0.9.0",
+ "tracing",
 ]
 
 [[package]]
@@ -404,10 +450,20 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0940dc441f31689269e10ac70eb1002a3a1d3ad1390e030043662eb7fe4688b"
 dependencies = [
- "block-padding",
+ "block-padding 0.1.5",
  "byte-tools",
  "byteorder",
  "generic-array 0.12.4",
+]
+
+[[package]]
+name = "block-buffer"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
+dependencies = [
+ "block-padding 0.2.1",
+ "generic-array 0.14.4",
 ]
 
 [[package]]
@@ -427,6 +483,12 @@ checksum = "fa79dedbb091f449f1f39e53edf88d5dbe95f895dae6135a8d7b881fb5af73f5"
 dependencies = [
  "byte-tools",
 ]
+
+[[package]]
+name = "block-padding"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "bstr"
@@ -681,7 +743,7 @@ dependencies = [
  "regex 1.5.5",
  "serde",
  "serde_json",
- "sha3",
+ "sha3 0.10.1",
  "thiserror",
  "uint",
 ]
@@ -740,17 +802,6 @@ name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
-
-[[package]]
-name = "ff_ce"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83c0a6a2c53b0bd6d8cae976816dc8a171e0554c03f304e3dac110473e0219fd"
-dependencies = [
- "byteorder",
- "hex",
- "rand 0.4.6",
-]
 
 [[package]]
 name = "ff_ce"
@@ -1223,7 +1274,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfc00d65b1d29e0a067a967fcea83d8db261c149f76a557ba73f0304f01cdfde"
 dependencies = [
  "byteorder",
- "ff_ce 0.10.3",
+ "ff_ce",
  "rand 0.4.6",
 ]
 
@@ -1678,6 +1729,18 @@ dependencies = [
 
 [[package]]
 name = "sha3"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f81199417d4e5de3f04b1e871023acea7389672c4135918f05aa9cbf2f2fa809"
+dependencies = [
+ "block-buffer 0.9.0",
+ "digest 0.9.0",
+ "keccak",
+ "opaque-debug 0.3.0",
+]
+
+[[package]]
+name = "sha3"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "881bf8156c87b6301fc5ca6b27f11eeb2761224c7081e69b409d5a1951a70c86"
@@ -2038,18 +2101,29 @@ version = "0.1.0"
 name = "zokrates_core"
 version = "0.6.11"
 dependencies = [
+ "ark-bls12-377",
+ "ark-bw6-761",
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff",
+ "ark-gm17",
+ "ark-groth16",
+ "ark-marlin",
+ "ark-poly",
+ "ark-poly-commit",
+ "ark-relations",
+ "ark-serialize",
  "bellman_ce",
  "cfg-if 0.1.10",
  "csv",
+ "digest 0.9.0",
  "ethabi",
- "ff_ce 0.9.0",
  "getrandom",
  "hex",
  "lazy_static",
  "log",
  "num",
  "num-bigint 0.2.6",
- "pairing_ce",
  "phase2",
  "primitive-types",
  "rand 0.4.6",
@@ -2059,6 +2133,7 @@ dependencies = [
  "serde",
  "serde_cbor",
  "serde_json",
+ "sha3 0.9.1",
  "typed-arena",
  "zokrates_common",
  "zokrates_embed",

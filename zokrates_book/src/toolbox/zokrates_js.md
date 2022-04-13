@@ -18,7 +18,7 @@ import { initialize } from 'zokrates-js';
 
 ##### Node
 ```js
-const { initialize } = require('zokrates-js/node');
+import { initialize } from 'zokrates-js/node'; // or require('zokrates-js/node')
 ```
 
 ## Example
@@ -39,7 +39,10 @@ initialize().then((zokratesProvider) => {
     const proof = zokratesProvider.generateProof(artifacts.program, witness, keypair.pk);
 
     // export solidity verifier
-    const verifier = zokratesProvider.exportSolidityVerifier(keypair.vk, "v1");
+    const verifier = zokratesProvider.exportSolidityVerifier(keypair.vk);
+    
+    // or verify off-chain
+    const isVerified = zokratesProvider.verify(keypair.vk, proof);
 });
 ```
 
@@ -49,12 +52,28 @@ initialize().then((zokratesProvider) => {
 Returns an initialized `ZoKratesProvider` as a promise.
 
 ```js
-initialize().then(zokratesProvider => { 
+initialize().then((zokratesProvider) => { 
     // call api functions here
 });
 ```
 
 Returns: `Promise<ZoKratesProvider>`
+
+##### withOptions(options)
+Returns a `ZoKratesProvider` configured with given options.
+
+```js
+initialize().then((defaultProvider) => { 
+    let zokratesProvider = defaultProvider.withOptions({ curve: "bls12_381", scheme: "g16" });
+    // ...
+});
+```
+
+Options:
+* `curve` - Elliptic curve (`bn128` | `bls12_381` | `bls12_377` | `bw6_761`)
+* `scheme` - Proving scheme (`g16` | `gm17` | `marlin`)
+
+Returns: `ZoKratesProvider`
 
 ##### compile(source[, options])
 Compiles source code into ZoKrates internal representation of arithmetic circuits.
@@ -133,14 +152,22 @@ Parameters:
 
 Returns: `SetupKeypair`
 
-##### exportSolidityVerifier(verificationKey, abi)
-Generates a Solidity contract which contains the generated verification key and a public function to verify proofs of computation of the compiled program.
+##### universalSetup(size)
+Performs the universal phase of a trusted setup. Only available for the `marlin` scheme.
 
 Parameters:
-* `verificationKey` - Verification key from the setup keypair
-* `abi` - Abi version (`"v1"` | `"v2"`)
+* `size` - Size of the trusted setup passed as an exponent. For example, `8` for `2**8`.
 
-Returns: `string`
+Returns: `Uint8Array`
+
+##### setupWithSrs(srs, program)
+Generates a trusted setup with universal public parameters for the compiled program. Only available for `marlin` scheme.
+
+Parameters:
+* `srs` - Universal public parameters from the universal setup phase
+* `program` - Compiled program
+
+Returns: `SetupKeypair`
 
 ##### generateProof(program, witness, provingKey)
 Generates a proof for a computation of the compiled program.
@@ -160,3 +187,11 @@ Parameters:
 * `proof` - Generated proof
 
 Returns: `boolean`
+
+##### exportSolidityVerifier(verificationKey)
+Generates a Solidity contract which contains the generated verification key and a public function to verify proofs of computation of the compiled program.
+
+Parameters:
+* `verificationKey` - Verification key from the setup keypair
+
+Returns: `string`

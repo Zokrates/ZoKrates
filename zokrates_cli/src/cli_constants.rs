@@ -1,3 +1,5 @@
+use zokrates_common::constants::*;
+
 pub const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
 pub const ABI_SPEC_DEFAULT_PATH: &str = "abi.json";
 pub const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
@@ -9,10 +11,6 @@ pub const UNIVERSAL_SETUP_DEFAULT_PATH: &str = "universal_setup.dat";
 pub const UNIVERSAL_SETUP_DEFAULT_SIZE: &str = "10";
 pub const SMTLIB2_DEFAULT_PATH: &str = "out.smt2";
 pub const MPC_DEFAULT_PATH: &str = "mpc.params";
-
-pub const BELLMAN: &str = "bellman";
-pub const LIBSNARK: &str = "libsnark";
-pub const ARK: &str = "ark";
 
 lazy_static! {
     pub static ref DEFAULT_STDLIB_PATH: String = dirs::home_dir()
@@ -48,16 +46,12 @@ pub const BACKENDS: &[&str] = if cfg!(feature = "libsnark") {
     &[]
 };
 
-pub const BN128: &str = "bn128";
-pub const BLS12_381: &str = "bls12_381";
-pub const BLS12_377: &str = "bls12_377";
-pub const BW6_761: &str = "bw6_761";
 pub const CURVES: &[&str] = &[BN128, BLS12_381, BLS12_377, BW6_761];
 
-pub const G16: &str = "g16";
-pub const PGHR13: &str = "pghr13";
-pub const GM17: &str = "gm17";
-pub const MARLIN: &str = "marlin";
+pub const SCHEMES: &[&str] = if cfg!(feature = "libsnark") {
+    &[G16, GM17, PGHR13, MARLIN]
+} else {
+    &[G16, GM17, MARLIN]
+};
 
-pub const SCHEMES: &[&str] = &[G16, PGHR13, GM17, MARLIN];
 pub const UNIVERSAL_SCHEMES: &[&str] = &[MARLIN];

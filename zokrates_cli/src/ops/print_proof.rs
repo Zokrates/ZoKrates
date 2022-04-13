@@ -1,9 +1,10 @@
-use crate::constants::{self, JSON_PROOF_PATH};
-use crate::helpers::{CurveParameter, SchemeParameter};
+use crate::cli_constants::{self, JSON_PROOF_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryInto;
 use std::fs::File;
 use std::path::Path;
+use zokrates_common::constants as common_constants;
+use zokrates_common::helpers::{CurveParameter, SchemeParameter};
 use zokrates_core::proof_system::{
     Marlin, Proof, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17, PGHR13,
 };
@@ -41,8 +42,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::SCHEMES)
-                .default_value(constants::G16),
+                .possible_values(cli_constants::SCHEMES)
+                .default_value(common_constants::G16),
         )
         .arg(
             Arg::with_name("curve")
@@ -51,8 +52,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Curve to be used in the verification")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::CURVES)
-                .default_value(constants::BN128),
+                .possible_values(cli_constants::CURVES)
+                .default_value(common_constants::BN128),
         )
 }
 

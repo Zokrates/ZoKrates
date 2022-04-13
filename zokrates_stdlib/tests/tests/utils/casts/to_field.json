@@ -1,6 +1,7 @@
 {
     "entry_point": "./tests/tests/utils/casts/to_field.zok",
     "curves": ["Bn128"],
+    "abi": false,
     "tests": [
         {
             "input": {

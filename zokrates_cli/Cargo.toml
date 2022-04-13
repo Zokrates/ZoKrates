@@ -7,9 +7,9 @@ edition = "2018"
 
 [features]
 default = ["bellman", "ark"]
-libsnark = ["zokrates_core/libsnark"]
-bellman = ["zokrates_core/bellman"]
-ark = ["zokrates_core/ark"]
+libsnark = ["zokrates_core/libsnark", "zokrates_common/libsnark"]
+bellman = ["zokrates_core/bellman", "zokrates_common/bellman"]
+ark = ["zokrates_core/ark", "zokrates_common/ark"]
 
 [dependencies]
 log = "0.4"
@@ -23,6 +23,7 @@ zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
 zokrates_core = { version = "0.6", path = "../zokrates_core", default-features = false }
 typed-arena = "1.4.1"
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
+zokrates_common = { version = "0.1", path = "../zokrates_common" }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde = { version = "1.0", features = ["derive"] }
 dirs = "3.0.1"

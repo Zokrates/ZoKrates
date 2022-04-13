@@ -1,6 +1,7 @@
 {
 	"entry_point": "./tests/tests/structs/identity.zok",
 	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+	"abi": false,
 	"tests": [
 		{
 			"input": {
