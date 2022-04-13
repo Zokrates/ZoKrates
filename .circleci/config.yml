@@ -112,7 +112,7 @@ jobs:
       - run:
           name: Build
           no_output_timeout: "30m"
-          command: npm run build:dev
+          command: npm run build:dev && npm pack --dry-run
       - save-sccache-cache
   zokrates_js_test:
     docker:
