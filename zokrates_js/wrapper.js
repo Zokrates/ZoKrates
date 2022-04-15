@@ -80,6 +80,11 @@ module.exports = (dep) => {
     exportSolidityVerifier: (vk, options) => {
       return zokrates.export_solidity_verifier(vk, options);
     },
+    utils: {
+      formatProof: (proof, options) => {
+        return zokrates.format_proof(proof, options);
+      }
+    }
   };
 
   const withOptions = (options) => {
@@ -102,6 +107,9 @@ module.exports = (dep) => {
       verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
       exportSolidityVerifier: (vk) =>
         defaultProvider.exportSolidityVerifier(vk, options),
+      utils: {
+        formatProof: (proof) => defaultProvider.utils.formatProof(proof, options),
+      }
     };
   };
 

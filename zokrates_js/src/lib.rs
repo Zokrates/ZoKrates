@@ -18,7 +18,7 @@ use zokrates_core::proof_system::ark::Ark;
 use zokrates_core::proof_system::groth16::G16;
 use zokrates_core::proof_system::{
     Backend, Marlin, NonUniversalBackend, NonUniversalScheme, Proof, Scheme,
-    SolidityCompatibleScheme, UniversalBackend, UniversalScheme, GM17,
+    SolidityCompatibleField, SolidityCompatibleScheme, UniversalBackend, UniversalScheme, GM17,
 };
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
@@ -237,6 +237,34 @@ mod internal {
         let result = B::verify(vk, proof);
         Ok(JsValue::from_serde(&result).unwrap())
     }
+
+    pub fn format_proof<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T>>(
+        proof: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        use serde_json::json;
+
+        let proof: Proof<T, S> = proof
+            .into_serde()
+            .map_err(|err| JsValue::from_str(&format!("{}", err)))?;
+
+        let res = S::Proof::from(proof.proof);
+
+        let proof_object = serde_json::to_value(&res).unwrap();
+        let proof_vec = proof_object
+            .as_object()
+            .unwrap()
+            .iter()
+            .map(|(_, value)| value)
+            .collect::<Vec<_>>();
+
+        let result = if !proof.inputs.is_empty() {
+            json!([proof_vec, proof.inputs])
+        } else {
+            json!([proof_vec])
+        };
+
+        Ok(JsValue::from_serde(&result).unwrap())
+    }
 }
 
 #[wasm_bindgen]
@@ -307,6 +335,11 @@ pub fn export_solidity_verifier(vk: JsValue, options: JsValue) -> Result<JsValue
         >>::export_solidity_verifier(
             vk.into_serde().unwrap()
         )),
+        (CurveParameter::Bn128, SchemeParameter::MARLIN) => Ok(
+            <Marlin as SolidityCompatibleScheme<Bn128Field>>::export_solidity_verifier(
+                vk.into_serde().unwrap(),
+            ),
+        ),
         _ => Err(JsValue::from_str("Not supported")),
     }?;
 
@@ -490,6 +523,37 @@ pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, 
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, Marlin, Ark>(vk, proof),
         },
         _ => Err(JsValue::from_str("Unsupported scheme")),
+    }
+}
+
+#[wasm_bindgen]
+pub fn format_proof(proof: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+    let options: serde_json::Value = options.into_serde().unwrap();
+    let curve = CurveParameter::try_from(
+        options["curve"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `curve`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+
+    let scheme = SchemeParameter::try_from(
+        options["scheme"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `scheme`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+
+    match (curve, scheme) {
+        (CurveParameter::Bn128, SchemeParameter::G16) => {
+            internal::format_proof::<Bn128Field, G16>(proof)
+        }
+        (CurveParameter::Bn128, SchemeParameter::GM17) => {
+            internal::format_proof::<Bn128Field, GM17>(proof)
+        }
+        (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            internal::format_proof::<Bn128Field, Marlin>(proof)
+        }
+        _ => Err(JsValue::from_str("Unsupported options")),
     }
 }
 
