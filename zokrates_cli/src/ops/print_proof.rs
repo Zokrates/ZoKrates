@@ -115,8 +115,10 @@ fn cli_print_proof<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T>>(
                     .collect::<Vec<_>>()
                     .join(", ")
             );
-            print!(",");
-            print!("{}", inputs);
+            if !proof.inputs.is_empty() {
+                print!(",");
+                print!("{}", inputs);
+            }
             println!();
         }
         _ => unreachable!(),
