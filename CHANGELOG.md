@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.13] - 2022-04-18
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.13 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Add proof formatting utility to zokrates-js (#1131, @dark64)
+- Fix panic in some range checks over unsigned integers (#1129, @schaeff)
+- Support selection of scheme and curve in `zokrates-js` (#1057, @dark64)
+
 ## [0.7.12] - 2022-04-11
 
 ### Release

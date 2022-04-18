@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_core_test"
-version = "0.2.6"
+version = "0.2.7"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
