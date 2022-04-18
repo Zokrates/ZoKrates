@@ -2823,7 +2823,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_abi"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "serde",
  "serde_derive",
@@ -2834,7 +2834,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.7.12"
+version = "0.7.13"
 dependencies = [
  "assert_cli",
  "blake2 0.8.1",
@@ -2860,6 +2860,7 @@ dependencies = [
  "tempdir",
  "typed-arena",
  "zokrates_abi",
+ "zokrates_common",
  "zokrates_core",
  "zokrates_field",
  "zokrates_fs_resolver",
@@ -2872,7 +2873,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.11"
+version = "0.6.12"
 dependencies = [
  "ark-bls12-377",
  "ark-bn254",
@@ -2924,7 +2925,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core_test"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "zokrates_test",
  "zokrates_test_derive",
@@ -3017,7 +3018,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "fs_extra",
  "zokrates_test",
@@ -3026,7 +3027,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_test"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "serde",
  "serde_derive",

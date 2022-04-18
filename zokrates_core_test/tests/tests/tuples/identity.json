@@ -4,25 +4,26 @@
 	"tests": [
 		{
 			"input": {
-				"values": ["42", "0"]
+				"values": [["42", false]]
 			},
 			"output": {
 				"Ok": {
-					"values": ["42", "0"]
+					"values": [["42", false]]
 				}
 			}
 		},
 		{
 			"input": {
-				"values": ["42", "1"]
+				"values": [["42", true]]
 			},
 			"output": {
 				"Ok": {
-					"values": ["42", "1"]
+					"values": [["42", true]]
 				}
 			}
 		},
 		{
+			"abi": false,
 			"input": {
 				"values": ["42", "3"]
 			},

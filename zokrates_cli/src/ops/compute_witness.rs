@@ -1,4 +1,4 @@
-use crate::constants::{ABI_SPEC_DEFAULT_PATH, FLATTENED_CODE_DEFAULT_PATH, WITNESS_DEFAULT_PATH};
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use serde_json::from_reader;
 use std::fs::File;
@@ -21,7 +21,7 @@ pub fn subcommand() -> App<'static, 'static> {
             .value_name("FILE")
             .takes_value(true)
             .required(false)
-            .default_value(FLATTENED_CODE_DEFAULT_PATH)
+            .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH)
         ).arg(Arg::with_name("abi-spec")
         .short("s")
         .long("abi-spec")
@@ -29,7 +29,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(ABI_SPEC_DEFAULT_PATH)
+        .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH)
     ).arg(Arg::with_name("output")
         .short("o")
         .long("output")
@@ -37,7 +37,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(WITNESS_DEFAULT_PATH)
+        .default_value(cli_constants::WITNESS_DEFAULT_PATH)
     ).arg(Arg::with_name("arguments")
         .short("a")
         .long("arguments")

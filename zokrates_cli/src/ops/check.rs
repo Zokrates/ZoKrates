@@ -1,10 +1,11 @@
-use crate::constants;
-use crate::helpers::CurveParameter;
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
+use zokrates_common::constants::BN128;
+use zokrates_common::helpers::CurveParameter;
 use zokrates_core::compile::{check, CompileConfig, CompileError};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
@@ -29,7 +30,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .env("ZOKRATES_STDLIB")
-                .default_value(constants::DEFAULT_STDLIB_PATH.as_str()),
+                .default_value(cli_constants::DEFAULT_STDLIB_PATH.as_str()),
         )
         .arg(
             Arg::with_name("curve")
@@ -38,8 +39,8 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Curve to be used in the compilation")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::CURVES)
-                .default_value(constants::BN128),
+                .possible_values(cli_constants::CURVES)
+                .default_value(BN128),
         )
         .arg(Arg::with_name("isolate-branches")
             .long("isolate-branches")

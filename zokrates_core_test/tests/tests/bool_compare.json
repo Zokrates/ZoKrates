@@ -5,14 +5,14 @@
         {
             "input": {
                 "values": [
-                    "1",
-                    "1"
+                    true,
+                    true
                 ]
             },
             "output": {
                 "Ok": {
                     "values": [
-                        "1"
+                        true
                     ]
                 }
             }
@@ -20,14 +20,14 @@
         {
             "input": {
                 "values": [
-                    "1",
-                    "0"
+                    true,
+                    false
                 ]
             },
             "output": {
                 "Ok": {
                     "values": [
-                        "0"
+                        false
                     ]
                 }
             }
@@ -35,14 +35,14 @@
         {
             "input": {
                 "values": [
-                    "0",
-                    "0"
+                    false,
+                    false
                 ]
             },
             "output": {
                 "Ok": {
                     "values": [
-                        "1"
+                        true
                     ]
                 }
             }

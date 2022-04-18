@@ -32,7 +32,6 @@
 //     "curves": ["Bw6_761"],
 //     "tests": [
 //         {
-//             "abi": true,
 //             "input": {
 //                 "values": [
 //                       $(cat proof.json && echo ", " && cat verification.key)

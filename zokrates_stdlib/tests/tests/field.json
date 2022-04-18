@@ -2,6 +2,7 @@
     "entry_point": "./tests/tests/field.zok",
     "max_constraint_count": 3,
     "curves": ["Bn128"],
+    "abi": false,
     "tests": [
         {
             "input": {
