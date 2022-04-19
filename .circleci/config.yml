@@ -169,7 +169,7 @@ jobs:
       - run:
           name: "Publish artifacts on GitHub"
           command: |
-            go install github.com/github-release/github-release
+            go install github.com/github-release/github-release@latest
             github-release release \
                 -s ${GH_TOKEN} \
                 -u ${CIRCLE_PROJECT_USERNAME} \
