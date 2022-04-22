@@ -1,0 +1,15 @@
+import "hashes/keccak/keccak" as keccak
+
+// # testing padding with last 4 bytes of rlp header from ETH block #1 (532bytes)
+// Python code:
+// >>> from Crypto.Hash import keccak
+
+// >>> digest = keccak.new(digest_bits=256)
+// >>> digest.update(bytes.fromhex('9fef1ec4'))
+// >>> digest.hexdigest()
+// '274a259b1b2099ad819d5078bc4b2ac8b002f553e5b5a113d4a53cc6ba509d64'
+
+def main():
+    u64[4] h = keccak::<_, 256>([11524463798626811904], 0x0000000100000000)[..4]
+    assert(h == [2831116663861057965, 9339709681721617096, 12682969241313714451, 15322720131425017188])
+    return

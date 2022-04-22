@@ -93,6 +93,9 @@ def main<N, W>(u64[N] input, u64 pad) -> u64[25]:
         q = if pt == 0 then keccakf(q) else q fi
     endfor
 
+    // if pad then start after last byte
+    pt = if pad != 0x0000000000000001 then pt - 1 else pt fi
+
     // finalize
     q[pt] = q[pt] ^ pad
     q[rate - 1] = q[rate - 1] ^ 0x8000000000000000
