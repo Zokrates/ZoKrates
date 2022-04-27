@@ -1,8 +1,10 @@
 use byteorder::{LittleEndian, WriteBytesExt};
+use std::collections::HashSet;
 use std::io::Result;
 use std::{io::Write, ops::Add};
+use zokrates_core::flat_absy::FlatVariable;
 use zokrates_core::ir::{LinComb, Prog, Statement};
-use zokrates_field::{Bn128Field, Field};
+use zokrates_field::Field;
 
 pub struct Header {
     pub field_size: u32,
@@ -28,11 +30,35 @@ fn write_header<W: Write>(writer: &mut W, header: Header) -> Result<()> {
     Ok(())
 }
 
-pub fn write_r1cs<W: Write>(writer: &mut W, p: Prog<Bn128Field>) -> Result<()> {
+pub fn write_r1cs<T: Field, W: Write>(writer: &mut W, p: Prog<T>) -> Result<()> {
+    let modulo_byte_count = T::max_value().to_biguint().add(1u32).to_bytes_le().len() as u32;
+
+    let n_wires = p
+        .statements
+        .iter()
+        .fold(
+            HashSet::default(),
+            |mut acc: HashSet<FlatVariable>, s| match s {
+                Statement::Constraint(q, l, _) => {
+                    acc.extend(
+                        q.left
+                            .0
+                            .iter()
+                            .chain(q.right.0.iter())
+                            .chain(l.0.iter())
+                            .filter_map(|(v, _)| if v.id > 0 { Some(v) } else { None }),
+                    );
+                    acc
+                }
+                _ => acc,
+            },
+        )
+        .len();
+
     let header = Header {
-        field_size: 32,
-        prime_size: Bn128Field::max_value().to_biguint().add(1u32).to_bytes_le(),
-        n_wires: 0, // TODO: count private variables
+        field_size: modulo_byte_count,
+        prime_size: T::max_value().to_biguint().add(1u32).to_bytes_le(),
+        n_wires: n_wires as u32,
         n_pub_out: p.return_count as u32,
         n_pub_in: p.arguments.iter().filter(|a| !a.private).count() as u32,
         n_prv_in: p.arguments.iter().filter(|a| a.private).count() as u32,
@@ -51,14 +77,15 @@ pub fn write_r1cs<W: Write>(writer: &mut W, p: Prog<Bn128Field>) -> Result<()> {
 
     // section type: constraints
     // type
-    writer.write_u32::<LittleEndian>(2u32)?;
+    writer.write_u32::<LittleEndian>(2)?;
     // size: 4 per constraint + (32 + 4) per summand
     let size = p
         .statements
         .iter()
         .map(|s| match s {
             Statement::Constraint(q, l, _) => {
-                ((q.left.0.len() + q.right.0.len() + l.0.len()) * (32 + 4) + 4) as u64
+                ((q.left.0.len() + q.right.0.len() + l.0.len()) * (modulo_byte_count as usize + 4)
+                    + 4) as u64
             }
             _ => 0,
         })
@@ -87,14 +114,14 @@ pub fn write_r1cs<W: Write>(writer: &mut W, p: Prog<Bn128Field>) -> Result<()> {
     Ok(())
 }
 
-fn write_constraints<W: Write>(writer: &mut W, p: &Prog<Bn128Field>, shift: u32) -> Result<()> {
+fn write_constraints<T: Field, W: Write>(writer: &mut W, p: &Prog<T>, shift: u32) -> Result<()> {
     for s in &p.statements {
         write_statement(writer, s, shift)?;
     }
     Ok(())
 }
 
-fn write_statement<W: Write>(writer: &mut W, s: &Statement<Bn128Field>, shift: u32) -> Result<()> {
+fn write_statement<T: Field, W: Write>(writer: &mut W, s: &Statement<T>, shift: u32) -> Result<()> {
     match s {
         Statement::Constraint(quad, lin, _) => {
             let left = &quad.left;
@@ -108,7 +135,7 @@ fn write_statement<W: Write>(writer: &mut W, s: &Statement<Bn128Field>, shift: u
     Ok(())
 }
 
-fn write_lincomb<W: Write>(writer: &mut W, l: &LinComb<Bn128Field>, shift: u32) -> Result<()> {
+fn write_lincomb<T: Field, W: Write>(writer: &mut W, l: &LinComb<T>, shift: u32) -> Result<()> {
     writer.write_u32::<LittleEndian>(l.0.len() as u32)?;
     for (var, coeff) in &l.0 {
         let shift = shift as isize;
@@ -132,7 +159,7 @@ fn write_lincomb<W: Write>(writer: &mut W, l: &LinComb<Bn128Field>, shift: u32) 
 }
 
 // for now we do not write any signal map
-fn write_table<W>(_: &mut W, _: &Prog<Bn128Field>) -> Result<()> {
+fn write_table<T: Field, W: Write>(_: &mut W, _: &Prog<T>) -> Result<()> {
     Ok(())
 }
 
@@ -144,6 +171,7 @@ mod tests {
         flat_absy::FlatVariable,
         ir::{LinComb, Statement},
     };
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn empty() {

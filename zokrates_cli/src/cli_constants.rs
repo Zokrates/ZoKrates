@@ -1,6 +1,7 @@
 use zokrates_common::constants::*;
 
 pub const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
+pub const R1CS_DEFAULT_PATH: &str = "out.r1cs";
 pub const ABI_SPEC_DEFAULT_PATH: &str = "abi.json";
 pub const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
 pub const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";

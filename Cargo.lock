@@ -2888,6 +2888,7 @@ dependencies = [
  "tempdir",
  "typed-arena",
  "zokrates_abi",
+ "zokrates_circom",
  "zokrates_common",
  "zokrates_core",
  "zokrates_field",
