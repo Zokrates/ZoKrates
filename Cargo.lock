@@ -882,6 +882,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e25ea47919b1560c4e3b7fe0aaab9becf5b84a10325ddf7db0f0ba5e1026499"
+
+[[package]]
 name = "difference"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1807,6 +1813,18 @@ dependencies = [
  "ansi_term 0.11.0",
  "ctor",
  "difference 2.0.0",
+ "output_vt100",
+]
+
+[[package]]
+name = "pretty_assertions"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c89f989ac94207d048d92db058e4f6ec7342b0971fc58d1271ca148b799b3563"
+dependencies = [
+ "ansi_term 0.12.1",
+ "ctor",
+ "diff",
  "output_vt100",
 ]
 
@@ -2833,6 +2851,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "zokrates_circom"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "pretty_assertions 1.2.1",
+ "zokrates_core",
+ "zokrates_field",
+]
+
+[[package]]
 name = "zokrates_cli"
 version = "0.7.13"
 dependencies = [
@@ -2904,7 +2932,7 @@ dependencies = [
  "num-bigint 0.2.6",
  "pairing_ce",
  "phase2",
- "pretty_assertions",
+ "pretty_assertions 0.6.1",
  "primitive-types",
  "rand 0.4.6",
  "rand 0.8.5",
