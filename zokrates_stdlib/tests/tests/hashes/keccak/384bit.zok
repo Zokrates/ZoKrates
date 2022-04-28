@@ -1,17 +1,45 @@
-import "hashes/keccak/384bit" as keccak384
-
-// Python code:
-// >>> from Crypto.Hash import keccak
-
-// >>> digest = keccak.new(digest_bits=384)
-// >>> digest.update(b'\x00\x00\x00\x00\x00\x00\x00\x2A' * 20)
-// >>> digest.hexdigest()
-// 'a944b9b859c1e69d66b52d4cf1f678b24ed8a9ccb0a32bbe882af8a3a1acbd3b68eed9c628307e5d3789f1a64a50e8e7'
+from "hashes/keccak/384bit" import keccak384
 
 def main():
-    u64[6] h = keccak384([42; 20])
-    assert(h == [
-        0xA944B9B859C1E69D, 0x66B52D4CF1F678B2, 0x4ED8A9CCB0A32BBE,
-        0x882AF8A3A1ACBD3B, 0x68EED9C628307E5D, 0x3789F1A64A50E8E7
+    // Python:
+    // >>> from Crypto.Hash import keccak
+    // >>> digest = keccak.new(digest_bits=384)
+    // >>> digest.update(b'\x2a')
+    // >>> digest.hexdigest()
+    // '53403c11270822eebdccc9aca81e0582996de74333909598a4e4c409967fb9da14a1506264996c855eb5d9a42fd21a08'
+
+    u64[6] h1 = keccak384::<1>([0x2a])
+    assert(h1 == [
+        0x53403c11270822ee, 0xbdccc9aca81e0582, 0x996de74333909598,
+        0xa4e4c409967fb9da, 0x14a1506264996c85, 0x5eb5d9a42fd21a08
+    ])
+
+    // Python:
+    // >>> from Crypto.Hash import keccak
+    // >>> digest = keccak.new(digest_bits=384)
+    // >>> digest.update(b'\x2a' * 8)
+    // >>> digest.hexdigest()
+    // 'ec7216058c28201daeb6fd1599b81fdbd40e229b31bea3b6b3190f21db81b01baf3d000e40801ab59551133efbac6cce'
+
+    u64[6] h2 = keccak384::<8>([0x2a; 8])
+    assert(h2 == [
+        0xec7216058c28201d, 0xaeb6fd1599b81fdb, 0xd40e229b31bea3b6,
+        0xb3190f21db81b01b, 0xaf3d000e40801ab5, 0x9551133efbac6cce
+    ])
+
+    // Python:
+    // >>> from Crypto.Hash import keccak
+    // >>> input = "hello world".encode()
+    // >>> input.hex()
+    // '68656c6c6f20776f726c64'
+    // >>> digest = keccak.new(digest_bits=384)
+    // >>> digest.update(input)
+    // >>> digest.hexdigest()
+    // '65fc99339a2a40e99d3c40d695b22f278853ca0f925cde4254bcae5e22ece47e6441f91b6568425adc9d95b0072eb49f'
+
+    u64[6] h3 = keccak384::<11>([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64])
+    assert(h3 == [
+        0x65fc99339a2a40e9, 0x9d3c40d695b22f27, 0x8853ca0f925cde42,
+        0x54bcae5e22ece47e, 0x6441f91b6568425a, 0xdc9d95b0072eb49f
     ])
     return

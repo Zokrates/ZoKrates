@@ -1,17 +1,46 @@
-import "hashes/sha3/384bit" as sha3_384
-
-// Python code:
-// >>> from Crypto.Hash import SHA3_384
-
-// >>> digest = SHA3_384.new()
-// >>> digest.update(b'\x00\x00\x00\x00\x00\x00\x00\x2A' * 20)
-// >>> digest.hexdigest()
-// 'fbb5abd69915e316836d438f0e833a3ebd0f2d8a11e17e248c96c77210b183aab0874eaaef37609d2c4a9a37a6e9740f'
+from "hashes/sha3/384bit" import sha3_384
 
 def main():
-    u64[6] h = sha3_384::<20>([42; 20])
-    assert(h == [
-        0xFBB5ABD69915E316, 0x836D438F0E833A3E, 0xBD0F2D8A11E17E24,
-        0x8C96C77210B183AA, 0xB0874EAAEF37609D, 0x2C4A9A37A6E9740F
+    // Python:
+    // >>> from Crypto.Hash import SHA3_384
+    // >>> digest = SHA3_384.new()
+    // >>> digest.update(b'\x2a')
+    // >>> digest.hexdigest()
+    // '386f0e977e65e7609217714a7cd450e145efbc645ad7c7c78d6c9f12b52cb4df22729b2330b7f5267bac9a5750d9130e'
+
+    u64[6] h1 = sha3_384::<1>([0x2a])
+    assert(h1 == [
+        0x386f0e977e65e760, 0x9217714a7cd450e1, 0x45efbc645ad7c7c7,
+        0x8d6c9f12b52cb4df, 0x22729b2330b7f526, 0x7bac9a5750d9130e
     ])
+
+    // Python:
+    // >>> from Crypto.Hash import SHA3_384
+    // >>> digest = SHA3_384.new()
+    // >>> digest.update(b'\x2a' * 8)
+    // >>> digest.hexdigest()
+    // 'b5e5109aa62d1633ca3b4c8fcf90b71192b7ebbca1159a65546be6bea5a53f748c513f97556e86d3516b3f9384ff4380'
+
+    u64[6] h2 = sha3_384::<8>([0x2a; 8])
+    assert(h2 == [
+        0xb5e5109aa62d1633, 0xca3b4c8fcf90b711, 0x92b7ebbca1159a65,
+        0x546be6bea5a53f74, 0x8c513f97556e86d3, 0x516b3f9384ff4380
+    ])
+
+    // Python:
+    // >>> from Crypto.Hash import SHA3_384
+    // >>> input = "hello world".encode()
+    // >>> input.hex()
+    // '68656c6c6f20776f726c64'
+    // >>> digest = SHA3_384.new()
+    // >>> digest.update(input)
+    // >>> digest.hexdigest()
+    // '83bff28dde1b1bf5810071c6643c08e5b05bdb836effd70b403ea8ea0a634dc4997eb1053aa3593f590f9c63630dd90b'
+
+    u64[6] h3 = sha3_384::<11>([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64])
+    assert(h3 == [
+        0x83bff28dde1b1bf5, 0x810071c6643c08e5, 0xb05bdb836effd70b,
+        0x403ea8ea0a634dc4, 0x997eb1053aa3593f, 0x590f9c63630dd90b
+    ])
+
     return
