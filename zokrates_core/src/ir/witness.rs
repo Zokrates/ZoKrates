@@ -5,7 +5,7 @@ use std::io;
 use std::io::{Read, Write};
 use zokrates_field::Field;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Witness<T>(pub BTreeMap<FlatVariable, T>);
 
 impl<T: Field> Witness<T> {

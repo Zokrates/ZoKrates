@@ -54,7 +54,7 @@ pub fn subcommand() -> App<'static, 'static> {
     .value_name("FILE")
     .takes_value(true)
     .required(false)
-    .default_value(cli_constants::R1CS_DEFAULT_PATH)
+    .default_value(cli_constants::CIRCOM_R1CS_DEFAULT_PATH)
 ).arg(Arg::with_name("curve")
         .short("c")
         .long("curve")

@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read};
 use std::path::Path;
 use zokrates_abi::Encode;
+use zokrates_circom::write_witness;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::typed_absy::abi::Abi;
@@ -38,6 +39,13 @@ pub fn subcommand() -> App<'static, 'static> {
         .takes_value(true)
         .required(false)
         .default_value(cli_constants::WITNESS_DEFAULT_PATH)
+    ).arg(Arg::with_name("witness")
+        .long("witness")
+        .help("Path of the witness file")
+        .value_name("FILE")
+        .takes_value(true)
+        .required(false)
+        .default_value(cli_constants::CIRCOM_WITNESS_DEFAULT_PATH)
     ).arg(Arg::with_name("arguments")
         .short("a")
         .long("arguments")
@@ -180,6 +188,16 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
 
     witness
         .write(writer)
+        .map_err(|why| format!("Could not save witness: {:?}", why))?;
+
+    // write witness to file
+    let wtns_path = Path::new(sub_matches.value_of("witness").unwrap());
+    let wtns_file = File::create(&wtns_path)
+        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+
+    let mut writer = BufWriter::new(wtns_file);
+
+    write_witness(&mut writer, witness)
         .map_err(|why| format!("Could not save witness: {:?}", why))?;
 
     println!("Witness file written to '{}'", output_path.display());
