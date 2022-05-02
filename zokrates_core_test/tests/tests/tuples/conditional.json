@@ -1,0 +1,26 @@
+{
+    "entry_point": "./tests/tests/tuples/conditional.zok",
+    "curves": ["Bn128"],
+    "tests": [
+        {
+            "input": {
+                "values": [true]
+            },
+            "output": {
+                "Ok": {
+                    "values": [["1", "2"]]
+                }
+            }
+        },
+        {
+            "input": {
+                "values": [false]
+            },
+            "output": {
+                "Ok": {
+                    "values": [["2", "1"]]
+                }
+            }
+        }
+    ]
+}
