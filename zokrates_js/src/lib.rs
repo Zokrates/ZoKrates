@@ -99,12 +99,19 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
 mod internal {
     use super::*;
 
+    #[wasm_bindgen(module = "/node/index.js")]
+    extern "C" {
+        fn foo();
+    }
+
     pub fn compile<T: Field>(
         source: JsValue,
         location: JsValue,
         resolve_callback: &js_sys::Function,
         config: JsValue,
     ) -> Result<CompilationResult, JsValue> {
+        foo();
+
         let resolver = JsResolver::new(resolve_callback);
         let config: CompileConfig = config.into_serde().unwrap_or_default();
 
