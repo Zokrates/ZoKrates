@@ -9,4 +9,8 @@ const initialize = async () => {
     });
 }
 
-module.exports = { initialize, metadata };
+function foo() {
+    return;
+}
+
+module.exports = { initialize, metadata, foo };
