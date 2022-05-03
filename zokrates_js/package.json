@@ -48,5 +48,6 @@
     "text-encoding": "^0.7.0",
     "toml": "^3.0.0",
     "wasm-pack": "^0.10.2"
-  }
+  },
+  "dependencies": {}
 }
