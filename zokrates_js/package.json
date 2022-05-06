@@ -1,7 +1,8 @@
 {
   "name": "zokrates-js",
-  "main": "index.js",
   "version": "1.0.43",
+  "module": "index.js",
+  "main": "node/index.js",
   "description": "JavaScript bindings for ZoKrates",
   "contributors": [
     "Darko Macesic <darem966@gmail.com>",
@@ -23,6 +24,10 @@
     "metadata.js"
   ],
   "types": "index.d.ts",
+  "exports": {
+    "import": "./index.js",
+    "require": "./node/index.js"
+  },
   "scripts": {
     "wasm-pack": "wasm-pack build --out-name index",
     "setup": "npm install && gulp setup",
