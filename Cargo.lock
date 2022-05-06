@@ -3003,6 +3003,7 @@ dependencies = [
 name = "zokrates_circom"
 version = "0.1.0"
 dependencies = [
+ "bellman_ce",
  "byteorder",
  "pretty_assertions 1.2.1",
  "zkutil",

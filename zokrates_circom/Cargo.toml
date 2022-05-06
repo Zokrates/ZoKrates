@@ -13,3 +13,4 @@ byteorder = "1.4.3"
 [dev-dependencies]
 pretty_assertions = "1.2.1"
 zkutil = "0.5.0"
+bellman_ce = { version = "^0.3" }

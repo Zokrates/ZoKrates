@@ -166,6 +166,8 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
 
     let interpreter = ir::Interpreter::default();
 
+    let public_inputs = ir_prog.public_inputs();
+
     let witness = interpreter
         .execute(ir_prog, &arguments.encode())
         .map_err(|e| format!("Execution failed: {}", e))?;
@@ -197,7 +199,7 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
 
     let mut writer = BufWriter::new(wtns_file);
 
-    write_witness(&mut writer, witness)
+    write_witness(&mut writer, witness, public_inputs)
         .map_err(|why| format!("Could not save witness: {:?}", why))?;
 
     println!("Witness file written to '{}'", output_path.display());
