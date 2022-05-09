@@ -97,7 +97,7 @@ jobs:
           docker_layer_caching: true
       - run:
           name: Release
-          no_output_timeout: "30m"
+          no_output_timeout: "1h"
           command: ./scripts/release.sh
   zokrates_js_build:
     docker:
@@ -169,7 +169,7 @@ jobs:
       - run:
           name: "Publish artifacts on GitHub"
           command: |
-            go get github.com/github-release/github-release
+            go install github.com/github-release/github-release@latest
             github-release release \
                 -s ${GH_TOKEN} \
                 -u ${CIRCLE_PROJECT_USERNAME} \
