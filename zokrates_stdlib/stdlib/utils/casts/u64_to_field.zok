@@ -5,7 +5,7 @@ def main(u64 i) -> field {
     field res = 0;
     for u32 j in 0..64 {
         u32 exponent = 64 - j - 1;
-        res = res + bits[j] ? 2 ** exponent : 0;
+        res = res + (bits[j] ? 2 ** exponent : 0);
     }
     return res;
 }

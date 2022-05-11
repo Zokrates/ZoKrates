@@ -1131,50 +1131,50 @@ mod tests {
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
                         source: AnyString {
                             value: String::from("foo"),
-                            span: Span::new(source, 8, 11).unwrap()
+                            span: Span::new(source, 17, 20).unwrap()
                         },
                         alias: None,
-                        span: Span::new(source, 0, 29).unwrap()
+                        span: Span::new(source, 9, 21).unwrap()
                     })),
                     SymbolDeclaration::Function(FunctionDefinition {
                         generics: vec![],
                         id: IdentifierExpression {
                             value: String::from("main"),
-                            span: Span::new(source, 33, 37).unwrap()
+                            span: Span::new(source, 36, 40).unwrap()
                         },
                         parameters: vec![],
                         returns: vec![Type::Basic(BasicType::Field(FieldType {
-                            span: Span::new(source, 44, 49).unwrap()
+                            span: Span::new(source, 47, 52).unwrap()
                         }))],
                         statements: vec![Statement::Return(ReturnStatement {
                             expressions: vec![Expression::add(
                                 Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         value: DecimalNumber {
-                                            span: Span::new(source, 59, 60).unwrap()
+                                            span: Span::new(source, 75, 76).unwrap()
                                         },
                                         suffix: None,
-                                        span: Span::new(source, 59, 60).unwrap()
+                                        span: Span::new(source, 75, 76).unwrap()
                                     }
                                 )),
                                 Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         value: DecimalNumber {
-                                            span: Span::new(source, 63, 64).unwrap()
+                                            span: Span::new(source, 79, 80).unwrap()
                                         },
                                         suffix: None,
-                                        span: Span::new(source, 63, 64).unwrap()
+                                        span: Span::new(source, 79, 80).unwrap()
                                     }
                                 )),
-                                Span::new(source, 59, 64).unwrap()
+                                Span::new(source, 75, 80).unwrap()
                             )],
-                            span: Span::new(source, 52, 64).unwrap(),
+                            span: Span::new(source, 68, 80).unwrap(),
                         })],
-                        span: Span::new(source, 29, source.len()).unwrap(),
+                        span: Span::new(source, 32, 91).unwrap(),
                     })
                 ],
                 eoi: EOI {},
-                span: Span::new(source, 0, 65).unwrap()
+                span: Span::new(source, 0, 92).unwrap()
             })
         );
     }
@@ -1196,20 +1196,20 @@ mod tests {
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
                         source: AnyString {
                             value: String::from("foo"),
-                            span: Span::new(source, 8, 11).unwrap()
+                            span: Span::new(source, 17, 20).unwrap()
                         },
                         alias: None,
-                        span: Span::new(source, 0, 29).unwrap()
+                        span: Span::new(source, 9, 21).unwrap()
                     })),
                     SymbolDeclaration::Function(FunctionDefinition {
                         generics: vec![],
                         id: IdentifierExpression {
                             value: String::from("main"),
-                            span: Span::new(source, 33, 37).unwrap()
+                            span: Span::new(source, 36, 40).unwrap()
                         },
                         parameters: vec![],
                         returns: vec![Type::Basic(BasicType::Field(FieldType {
-                            span: Span::new(source, 44, 49).unwrap()
+                            span: Span::new(source, 47, 52).unwrap()
                         }))],
                         statements: vec![Statement::Return(ReturnStatement {
                             expressions: vec![Expression::add(
@@ -1217,9 +1217,9 @@ mod tests {
                                     DecimalLiteralExpression {
                                         suffix: None,
                                         value: DecimalNumber {
-                                            span: Span::new(source, 59, 60).unwrap()
+                                            span: Span::new(source, 75, 76).unwrap()
                                         },
-                                        span: Span::new(source, 59, 60).unwrap()
+                                        span: Span::new(source, 75, 76).unwrap()
                                     }
                                 )),
                                 Expression::mul(
@@ -1227,9 +1227,9 @@ mod tests {
                                         DecimalLiteralExpression {
                                             suffix: None,
                                             value: DecimalNumber {
-                                                span: Span::new(source, 63, 64).unwrap()
+                                                span: Span::new(source, 79, 80).unwrap()
                                             },
-                                            span: Span::new(source, 63, 64).unwrap()
+                                            span: Span::new(source, 79, 80).unwrap()
                                         }
                                     )),
                                     Expression::pow(
@@ -1237,33 +1237,33 @@ mod tests {
                                             DecimalLiteralExpression {
                                                 suffix: None,
                                                 value: DecimalNumber {
-                                                    span: Span::new(source, 67, 68).unwrap()
+                                                    span: Span::new(source, 83, 84).unwrap()
                                                 },
-                                                span: Span::new(source, 67, 68).unwrap()
+                                                span: Span::new(source, 83, 84).unwrap()
                                             }
                                         )),
                                         Expression::Literal(LiteralExpression::DecimalLiteral(
                                             DecimalLiteralExpression {
                                                 suffix: None,
                                                 value: DecimalNumber {
-                                                    span: Span::new(source, 72, 73).unwrap()
+                                                    span: Span::new(source, 88, 89).unwrap()
                                                 },
-                                                span: Span::new(source, 72, 73).unwrap()
+                                                span: Span::new(source, 88, 89).unwrap()
                                             }
                                         )),
-                                        Span::new(source, 67, 73).unwrap()
+                                        Span::new(source, 83, 89).unwrap()
                                     ),
-                                    Span::new(source, 63, 73).unwrap()
+                                    Span::new(source, 79, 89).unwrap()
                                 ),
-                                Span::new(source, 59, 73).unwrap()
+                                Span::new(source, 75, 89).unwrap()
                             )],
-                            span: Span::new(source, 52, 73).unwrap(),
+                            span: Span::new(source, 68, 89).unwrap(),
                         })],
-                        span: Span::new(source, 29, 74).unwrap(),
+                        span: Span::new(source, 32, 100).unwrap(),
                     })
                 ],
                 eoi: EOI {},
-                span: Span::new(source, 0, 74).unwrap()
+                span: Span::new(source, 0, 101).unwrap()
             })
         );
     }
@@ -1285,20 +1285,20 @@ mod tests {
                     SymbolDeclaration::Import(ImportDirective::Main(MainImportDirective {
                         source: AnyString {
                             value: String::from("foo"),
-                            span: Span::new(source, 8, 11).unwrap()
+                            span: Span::new(source, 17, 20).unwrap()
                         },
                         alias: None,
-                        span: Span::new(source, 0, 29).unwrap()
+                        span: Span::new(source, 9, 21).unwrap()
                     })),
                     SymbolDeclaration::Function(FunctionDefinition {
                         generics: vec![],
                         id: IdentifierExpression {
                             value: String::from("main"),
-                            span: Span::new(source, 33, 37).unwrap()
+                            span: Span::new(source, 36, 40).unwrap()
                         },
                         parameters: vec![],
                         returns: vec![Type::Basic(BasicType::Field(FieldType {
-                            span: Span::new(source, 44, 49).unwrap()
+                            span: Span::new(source, 47, 52).unwrap()
                         }))],
                         statements: vec![Statement::Return(ReturnStatement {
                             expressions: vec![Expression::ternary(
@@ -1306,38 +1306,38 @@ mod tests {
                                     DecimalLiteralExpression {
                                         suffix: None,
                                         value: DecimalNumber {
-                                            span: Span::new(source, 62, 63).unwrap()
+                                            span: Span::new(source, 75, 76).unwrap()
                                         },
-                                        span: Span::new(source, 62, 63).unwrap()
+                                        span: Span::new(source, 75, 76).unwrap()
                                     }
                                 ))),
                                 Box::new(Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         suffix: None,
                                         value: DecimalNumber {
-                                            span: Span::new(source, 69, 70).unwrap()
+                                            span: Span::new(source, 79, 80).unwrap()
                                         },
-                                        span: Span::new(source, 69, 70).unwrap()
+                                        span: Span::new(source, 79, 80).unwrap()
                                     }
                                 ))),
                                 Box::new(Expression::Literal(LiteralExpression::DecimalLiteral(
                                     DecimalLiteralExpression {
                                         suffix: None,
                                         value: DecimalNumber {
-                                            span: Span::new(source, 76, 77).unwrap()
+                                            span: Span::new(source, 83, 84).unwrap()
                                         },
-                                        span: Span::new(source, 76, 77).unwrap()
+                                        span: Span::new(source, 83, 84).unwrap()
                                     }
                                 ))),
-                                Span::new(source, 59, 80).unwrap()
+                                Span::new(source, 75, 84).unwrap()
                             )],
-                            span: Span::new(source, 52, 80).unwrap(),
+                            span: Span::new(source, 68, 84).unwrap(),
                         })],
-                        span: Span::new(source, 29, 81).unwrap(),
+                        span: Span::new(source, 32, 95).unwrap(),
                     })
                 ],
                 eoi: EOI {},
-                span: Span::new(source, 0, 81).unwrap()
+                span: Span::new(source, 0, 96).unwrap()
             })
         );
     }
@@ -1365,17 +1365,17 @@ mod tests {
                             DecimalLiteralExpression {
                                 suffix: None,
                                 value: DecimalNumber {
-                                    span: Span::new(source, 31, 32).unwrap()
+                                    span: Span::new(source, 32, 33).unwrap()
                                 },
-                                span: Span::new(source, 31, 32).unwrap()
+                                span: Span::new(source, 32, 33).unwrap()
                             }
                         ))],
-                        span: Span::new(source, 23, 33).unwrap(),
+                        span: Span::new(source, 24, 34).unwrap(),
                     })],
-                    span: Span::new(source, 0, 34).unwrap(),
+                    span: Span::new(source, 0, 37).unwrap(),
                 })],
                 eoi: EOI {},
-                span: Span::new(source, 0, 34).unwrap()
+                span: Span::new(source, 0, 38).unwrap()
             })
         );
     }
@@ -1402,27 +1402,27 @@ mod tests {
                         lhs: vec![
                             TypedIdentifierOrAssignee::TypedIdentifier(TypedIdentifier {
                                 ty: Type::Basic(BasicType::Field(FieldType {
-                                    span: Span::new(source, 23, 28).unwrap()
+                                    span: Span::new(source, 24, 29).unwrap()
                                 })),
                                 identifier: IdentifierExpression {
                                     value: String::from("a"),
-                                    span: Span::new(source, 29, 30).unwrap(),
+                                    span: Span::new(source, 30, 31).unwrap(),
                                 },
-                                span: Span::new(source, 23, 30).unwrap()
+                                span: Span::new(source, 24, 31).unwrap()
                             }),
                             TypedIdentifierOrAssignee::Assignee(Assignee {
                                 id: IdentifierExpression {
                                     value: String::from("b"),
-                                    span: Span::new(source, 32, 33).unwrap(),
+                                    span: Span::new(source, 33, 34).unwrap(),
                                 },
                                 accesses: vec![],
-                                span: Span::new(source, 32, 34).unwrap()
+                                span: Span::new(source, 33, 35).unwrap()
                             }),
                         ],
                         expression: Expression::Postfix(PostfixExpression {
                             base: Box::new(Expression::Identifier(IdentifierExpression {
                                 value: String::from("foo"),
-                                span: Span::new(source, 36, 39).unwrap()
+                                span: Span::new(source, 37, 40).unwrap()
                             })),
                             accesses: vec![Access::Call(CallAccess {
                                 explicit_generics: None,
@@ -1432,9 +1432,9 @@ mod tests {
                                             DecimalLiteralExpression {
                                                 suffix: None,
                                                 value: DecimalNumber {
-                                                    span: Span::new(source, 40, 41).unwrap()
+                                                    span: Span::new(source, 41, 42).unwrap()
                                                 },
-                                                span: Span::new(source, 40, 41).unwrap()
+                                                span: Span::new(source, 41, 42).unwrap()
                                             }
                                         )),
                                         Expression::add(
@@ -1442,35 +1442,35 @@ mod tests {
                                                 DecimalLiteralExpression {
                                                     suffix: None,
                                                     value: DecimalNumber {
-                                                        span: Span::new(source, 43, 44).unwrap()
+                                                        span: Span::new(source, 44, 45).unwrap()
                                                     },
-                                                    span: Span::new(source, 43, 44).unwrap()
+                                                    span: Span::new(source, 44, 45).unwrap()
                                                 }
                                             )),
                                             Expression::Literal(LiteralExpression::DecimalLiteral(
                                                 DecimalLiteralExpression {
                                                     suffix: None,
                                                     value: DecimalNumber {
-                                                        span: Span::new(source, 47, 48).unwrap()
+                                                        span: Span::new(source, 48, 49).unwrap()
                                                     },
-                                                    span: Span::new(source, 47, 48).unwrap()
+                                                    span: Span::new(source, 48, 49).unwrap()
                                                 }
                                             )),
-                                            Span::new(source, 43, 48).unwrap()
+                                            Span::new(source, 44, 49).unwrap()
                                         ),
                                     ],
-                                    span: Span::new(source, 40, 48).unwrap()
+                                    span: Span::new(source, 41, 49).unwrap()
                                 },
-                                span: Span::new(source, 39, 49).unwrap()
+                                span: Span::new(source, 40, 50).unwrap()
                             })],
-                            span: Span::new(source, 36, 49).unwrap(),
+                            span: Span::new(source, 37, 50).unwrap(),
                         }),
-                        span: Span::new(source, 23, 49).unwrap()
+                        span: Span::new(source, 24, 50).unwrap()
                     })],
-                    span: Span::new(source, 0, 50).unwrap(),
+                    span: Span::new(source, 0, 53).unwrap(),
                 })],
                 eoi: EOI {},
-                span: Span::new(source, 0, 50).unwrap()
+                span: Span::new(source, 0, 54).unwrap()
             })
         );
     }

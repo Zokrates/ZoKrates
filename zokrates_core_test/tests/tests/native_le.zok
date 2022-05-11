@@ -10,7 +10,7 @@ def le<N>(bool[N] a_bits, bool[N] c_bits) -> bool {
     size_unknown = true;
 
     for u32 i in 0..N {
-        verified_conditions = verified_conditions + c_bits[i] || (!size_unknown || !a_bits[i]) ? 1 : 0;
+        verified_conditions = verified_conditions + (c_bits[i] || (!size_unknown || !a_bits[i]) ? 1 : 0);
         size_unknown = c_bits[i] ? size_unknown && a_bits[i] : size_unknown; // this is actually not required in the last round
     }
 

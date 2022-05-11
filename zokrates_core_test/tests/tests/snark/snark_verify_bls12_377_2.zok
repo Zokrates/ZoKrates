@@ -1,4 +1,4 @@
-from "EMBED" import snark_verify_bls12_377
+from "EMBED" import snark_verify_bls12_377;
 
 // Verifies a proof with 2 public inputs (1 input + 1 output)
 // Circuit used in this test:

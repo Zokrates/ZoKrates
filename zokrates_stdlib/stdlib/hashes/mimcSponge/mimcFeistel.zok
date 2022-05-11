@@ -236,7 +236,7 @@ def main(field xL_in, field xR_in, field k) -> field[2] {
     for u32 i in 0..R {
         u32 j = i == 0 ? 0 : i - 1;
 
-        c = IV[i]
+        c = IV[i];
         t = i == 0 ? k + xL_in : k + xL[j] + c;
 
         t2[i] = t * t;

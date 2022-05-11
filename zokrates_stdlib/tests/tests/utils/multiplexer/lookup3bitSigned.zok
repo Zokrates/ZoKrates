@@ -6,6 +6,7 @@ def first() -> bool {
     
     assert(0 == lookup(sel, t));
     return true;
+}
 
 def firstNeg() -> bool {
     bool[3] sel = [false, false, true];
@@ -32,7 +33,7 @@ def secondNeg() -> bool {
     return true;
 }
 
-def thrid() -> bool {
+def third() -> bool {
     bool[3] sel = [false, true, false];
     field[4] t  = [0, 1, 2, 3];
     
@@ -40,7 +41,7 @@ def thrid() -> bool {
     return true;
 }
 
-def thridNeg() -> bool {
+def thirdNeg() -> bool {
     bool[3] sel = [false, true, true];
     field[4] t  = [0, 1, 2, 3];
     
@@ -71,8 +72,8 @@ def main() {
     assert(firstNeg());
     assert(second());
     assert(secondNeg());
-    assert(thrid());
-    assert(thridNeg());
+    assert(third());
+    assert(thirdNeg());
     assert(fourth());
     assert(fourthNeg());
     return;

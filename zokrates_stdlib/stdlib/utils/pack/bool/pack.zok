@@ -2,7 +2,7 @@ def main<N>(bool[N] bits) -> field {
     field out = 0;
     for u32 j in 0..N {
         u32 i = N - (j + 1);
-        out = out + bits[i] ? (2 ** j) : 0;
+        out = out + (bits[i] ? 2 ** j : 0);
     }
     return out;
 }

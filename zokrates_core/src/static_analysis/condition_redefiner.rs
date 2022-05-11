@@ -88,9 +88,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::{
-        Block, BooleanExpression, Conditional, ConditionalKind, FieldElementExpression, Type,
-    };
+    use crate::typed_absy::{Block, BooleanExpression, Conditional, FieldElementExpression, Type};
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -104,7 +102,6 @@ mod tests {
                 BooleanExpression::Value(true),
                 FieldElementExpression::Number(Bn128Field::from(1)),
                 FieldElementExpression::Number(Bn128Field::from(2)),
-                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -125,7 +122,6 @@ mod tests {
                 BooleanExpression::Identifier("c".into()),
                 FieldElementExpression::Number(Bn128Field::from(1)),
                 FieldElementExpression::Number(Bn128Field::from(2)),
-                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -153,7 +149,6 @@ mod tests {
                 condition.clone(),
                 FieldElementExpression::Number(Bn128Field::from(1)),
                 FieldElementExpression::Number(Bn128Field::from(2)),
-                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -173,7 +168,6 @@ mod tests {
                     BooleanExpression::Identifier(CoreIdentifier::Condition(0).into()),
                     FieldElementExpression::Number(Bn128Field::from(1)),
                     FieldElementExpression::Number(Bn128Field::from(2)),
-                    ConditionalKind::IfElse,
                 )
                 .into(),
             ),
@@ -210,10 +204,8 @@ mod tests {
                     condition_1.clone(),
                     FieldElementExpression::Number(Bn128Field::from(1)),
                     FieldElementExpression::Number(Bn128Field::from(2)),
-                    ConditionalKind::IfElse,
                 ),
                 FieldElementExpression::Number(Bn128Field::from(3)),
-                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -239,10 +231,8 @@ mod tests {
                         BooleanExpression::Identifier(CoreIdentifier::Condition(1).into()),
                         FieldElementExpression::Number(Bn128Field::from(1)),
                         FieldElementExpression::Number(Bn128Field::from(2)),
-                        ConditionalKind::IfElse,
                     ),
                     FieldElementExpression::Number(Bn128Field::from(3)),
-                    ConditionalKind::IfElse,
                 )
                 .into(),
             ),
@@ -306,7 +296,6 @@ mod tests {
                         condition_1.clone(),
                         FieldElementExpression::Number(Bn128Field::from(2)),
                         FieldElementExpression::Number(Bn128Field::from(3)),
-                        ConditionalKind::IfElse,
                     ),
                 ),
                 FieldElementExpression::block(
@@ -318,10 +307,8 @@ mod tests {
                         condition_2.clone(),
                         FieldElementExpression::Number(Bn128Field::from(2)),
                         FieldElementExpression::Number(Bn128Field::from(3)),
-                        ConditionalKind::IfElse,
                     ),
                 ),
-                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -358,7 +345,6 @@ mod tests {
                             condition_id_1,
                             FieldElementExpression::Number(Bn128Field::from(2)),
                             FieldElementExpression::Number(Bn128Field::from(3)),
-                            ConditionalKind::IfElse,
                         ),
                     ),
                     FieldElementExpression::block(
@@ -380,10 +366,8 @@ mod tests {
                             condition_id_2,
                             FieldElementExpression::Number(Bn128Field::from(2)),
                             FieldElementExpression::Number(Bn128Field::from(3)),
-                            ConditionalKind::IfElse,
                         ),
                     ),
-                    ConditionalKind::IfElse,
                 )
                 .into(),
             ),

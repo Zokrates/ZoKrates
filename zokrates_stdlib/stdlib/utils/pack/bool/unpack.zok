@@ -1,4 +1,4 @@
-import "./unpack_unchecked.zok"
+import "./unpack_unchecked.zok";
 from "field" import FIELD_SIZE_IN_BITS;
 from "EMBED" import bit_array_le;
 

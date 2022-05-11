@@ -4,6 +4,6 @@ import "./lookup2bit" as lookup;
 // using two constraints. Maps the bits `b` to a list of constants `c`
 def main(bool[3] b, field[4] c) -> field {
     field alpha = lookup([b[0], b[1]], c);
-    field out = alpha - 2 * b[2] ? alpha : 0;
+    field out = alpha - 2 * (b[2] ? alpha : 0);
     return out;
 }
