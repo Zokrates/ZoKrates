@@ -1,4 +1,4 @@
-use crate::constants::{FLATTENED_CODE_DEFAULT_PATH, MPC_DEFAULT_PATH};
+use crate::cli_constants::{FLATTENED_CODE_DEFAULT_PATH, MPC_DEFAULT_PATH};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};

@@ -1,4 +1,4 @@
-use crate::constants::FLATTENED_CODE_DEFAULT_PATH;
+use crate::cli_constants::FLATTENED_CODE_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
@@ -52,9 +52,6 @@ fn cli_inspect<T: Field, I: Iterator<Item = ir::Statement<T>>>(
 
     let curve = format!("{:<17} {}", "curve:", T::name());
     let constraint_count = format!("{:<17} {}", "constraint_count:", ir_prog.constraint_count());
-
-    println!("{}", curve);
-    println!("{}", constraint_count);
 
     if sub_matches.is_present("ztf") {
         let output_path =

@@ -3,11 +3,11 @@
 	"tests": [
 		{
 			"input": {
-				"values": ["1", "2", "0", "1", "2", "3", "4"]
+				"values": [true, "2", {"a": [false, true], "b": "2"}, ["3", "4"]]
 			},
 			"output": {
 				"Ok": {
-					"values": ["1", "1", "3", "4"]
+					"values": [{"a": [true, true], "b": "3"}, "4"]
 				}
 			}
 		}

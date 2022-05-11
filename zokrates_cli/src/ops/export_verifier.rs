@@ -1,10 +1,11 @@
-use crate::constants;
-use crate::helpers::{CurveParameter, SchemeParameter};
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
+use zokrates_common::constants;
+use zokrates_common::helpers::{CurveParameter, SchemeParameter};
 use zokrates_core::proof_system::*;
 use zokrates_field::Bn128Field;
 
@@ -19,7 +20,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::VERIFICATION_KEY_DEFAULT_PATH),
+                .default_value(cli_constants::VERIFICATION_KEY_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("output")
@@ -29,7 +30,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .default_value(constants::VERIFICATION_CONTRACT_DEFAULT_PATH),
+                .default_value(cli_constants::VERIFICATION_CONTRACT_DEFAULT_PATH),
         )
         .arg(
             Arg::with_name("curve")
@@ -38,7 +39,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .help("Curve to be used to export the verifier")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::CURVES)
+                .possible_values(cli_constants::CURVES)
                 .default_value(constants::BN128),
         )
         .arg(
@@ -49,7 +50,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .value_name("FILE")
                 .takes_value(true)
                 .required(false)
-                .possible_values(constants::SCHEMES)
+                .possible_values(cli_constants::SCHEMES)
                 .default_value(constants::G16),
         )
 }
@@ -68,8 +69,12 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         (CurveParameter::Bn128, SchemeParameter::GM17) => {
             cli_export_verifier::<Bn128Field, GM17>(sub_matches)
         }
+        #[cfg(feature = "libsnark")]
         (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
             cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
+        }
+        (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            cli_export_verifier::<Bn128Field, Marlin>(sub_matches)
         }
         _ => Err(format!("Could not export verifier with given parameters (curve: {}, scheme: {}): not supported", curve, scheme))
     }

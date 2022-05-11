@@ -1,8 +1,9 @@
-use crate::constants::{BLS12_381, BN128, MPC_DEFAULT_PATH};
+use crate::cli_constants::MPC_DEFAULT_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use zokrates_common::constants::{BLS12_381, BN128};
 use zokrates_core::proof_system::bellman::Bellman;
 use zokrates_core::proof_system::{MpcBackend, MpcScheme, G16};
 use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
@@ -87,8 +88,8 @@ fn cli_mpc_beacon<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: MpcBack
     // Create an RNG based on the outcome of the random beacon
     let mut rng = {
         use byteorder::{BigEndian, ReadBytesExt};
-        use rand::chacha::ChaChaRng;
-        use rand::SeedableRng;
+        use rand_0_4::chacha::ChaChaRng;
+        use rand_0_4::SeedableRng;
         use sha2::{Digest, Sha256};
 
         // The hash used for the beacon

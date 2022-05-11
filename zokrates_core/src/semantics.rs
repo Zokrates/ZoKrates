@@ -2491,6 +2491,9 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             (TypedExpression::Struct(consequence), TypedExpression::Struct(alternative)) => {
                                 Ok(StructExpression::conditional(condition, consequence, alternative).into())
                             },
+                            (TypedExpression::Tuple(consequence), TypedExpression::Tuple(alternative)) => {
+                                Ok(TupleExpression::conditional(condition, consequence, alternative, kind).into())
+                            },
                             (TypedExpression::Uint(consequence), TypedExpression::Uint(alternative)) => {
                                 Ok(UExpression::conditional(condition, consequence, alternative).into())
                             },

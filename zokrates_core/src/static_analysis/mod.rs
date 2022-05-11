@@ -15,6 +15,7 @@ mod propagation;
 mod reducer;
 mod struct_concretizer;
 mod uint_optimizer;
+mod unconstrained_vars;
 mod variable_write_remover;
 mod zir_propagation;
 
@@ -34,6 +35,7 @@ use crate::static_analysis::zir_propagation::ZirPropagator;
 use crate::typed_absy::{abi::Abi, TypedProgram};
 use crate::zir::ZirProgram;
 use std::fmt;
+pub use unconstrained_vars::UnconstrainedVariableDetector;
 use zokrates_field::Field;
 
 #[derive(Debug)]

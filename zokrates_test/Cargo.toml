@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_test"
-version = "0.1.9"
+version = "0.1.10"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
@@ -11,7 +11,7 @@ zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver" }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
 serde = "1.0"
 serde_derive = "1.0"
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 typed-arena = "1.4.1"
 
 [lib]

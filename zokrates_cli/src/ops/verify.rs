@@ -1,10 +1,11 @@
-use crate::constants;
-use crate::helpers::*;
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use zokrates_common::constants;
+use zokrates_common::helpers::*;
 #[cfg(feature = "ark")]
 use zokrates_core::proof_system::ark::Ark;
 #[cfg(feature = "bellman")]
@@ -25,7 +26,7 @@ pub fn subcommand() -> App<'static, 'static> {
             .value_name("FILE")
             .takes_value(true)
             .required(false)
-            .default_value(constants::JSON_PROOF_PATH)
+            .default_value(cli_constants::JSON_PROOF_PATH)
         ).arg(Arg::with_name("verification-key-path")
         .short("v")
         .long("verification-key-path")
@@ -33,14 +34,14 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(constants::VERIFICATION_KEY_DEFAULT_PATH)
+        .default_value(cli_constants::VERIFICATION_KEY_DEFAULT_PATH)
     ).arg(Arg::with_name("backend")
         .short("b")
         .long("backend")
         .help("Backend to use")
         .takes_value(true)
         .required(false)
-        .possible_values(constants::BACKENDS)
+        .possible_values(cli_constants::BACKENDS)
         .default_value(constants::BELLMAN)
     ).arg(Arg::with_name("proving-scheme")
         .short("s")
@@ -56,7 +57,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .help("Curve to be used in the verification")
         .takes_value(true)
         .required(false)
-        .possible_values(constants::CURVES)
+        .possible_values(cli_constants::CURVES)
         .default_value(constants::BN128)
     )
 }

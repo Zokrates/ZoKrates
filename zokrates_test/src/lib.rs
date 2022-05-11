@@ -2,7 +2,7 @@
 extern crate serde_derive;
 
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use zokrates_core::ir;
@@ -27,6 +27,7 @@ struct Tests {
     pub curves: Option<Vec<Curve>>,
     pub max_constraint_count: Option<usize>,
     pub config: Option<CompileConfig>,
+    pub abi: Option<bool>,
     pub tests: Vec<Test>,
 }
 
@@ -44,10 +45,7 @@ struct Test {
 
 type TestResult = Result<Output, ir::Error>;
 
-#[derive(PartialEq, Debug)]
-struct ComparableResult<T>(Result<Vec<T>, ir::Error>);
-
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 struct Output {
     values: Vec<Val>,
 }
@@ -56,10 +54,7 @@ type Val = serde_json::Value;
 
 fn try_parse_raw_val<T: Field>(s: serde_json::Value) -> Result<T, ()> {
     match s {
-        serde_json::Value::String(s) => {
-            let radix = if s.starts_with("0x") { 16 } else { 10 };
-            T::try_from_str(s.trim_start_matches("0x"), radix).map_err(|_| ())
-        }
+        serde_json::Value::String(s) => T::try_from_dec_str(&s).map_err(|_| ()),
         _ => Err(()),
     }
 }
@@ -72,36 +67,10 @@ fn try_parse_abi_val<T: Field>(
     zokrates_abi::parse_strict_json(s, types).map(|v| v.encode())
 }
 
-impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
-    fn from(r: ir::ExecutionResult<T>) -> ComparableResult<T> {
-        ComparableResult(r.map(|v| v.return_values()))
-    }
-}
-
-impl<T: Field> From<TestResult> for ComparableResult<T> {
-    fn from(r: TestResult) -> ComparableResult<T> {
-        ComparableResult(r.map(|v| {
-            v.values
-                .into_iter()
-                .map(|v| try_parse_raw_val(v).unwrap())
-                .collect()
-        }))
-    }
-}
-
-fn compare<T: Field>(result: ir::ExecutionResult<T>, expected: TestResult) -> Result<(), String> {
-    // extract outputs from result
-    let result = ComparableResult::from(result);
-    // deserialize expected result
-    let expected = ComparableResult::from(expected);
-
+fn compare(result: Result<Output, ir::Error>, expected: TestResult) -> Result<(), String> {
     if result != expected {
-        return Err(format!(
-            "Expected {:?} but found {:?}",
-            expected.0, result.0
-        ));
+        return Err(format!("Expected {:?} but found {:?}", expected, result));
     }
-
     Ok(())
 }
 
@@ -151,8 +120,14 @@ fn compile_and_run<T: Field>(t: Tests) {
 
     let arena = typed_arena::Arena::new();
 
-    let artifacts =
-        compile::<T, _>(code, entry_point.clone(), Some(&resolver), config, &arena).unwrap();
+    let artifacts = compile::<T, _>(
+        code.clone(),
+        entry_point.clone(),
+        Some(&resolver),
+        config,
+        &arena,
+    )
+    .unwrap();
 
     let (bin, abi) = artifacts.into_inner();
     // here we do want the program in memory because we want to run many tests on it
@@ -172,9 +147,10 @@ fn compile_and_run<T: Field>(t: Tests) {
     };
 
     let interpreter = zokrates_core::ir::Interpreter::default();
+    let with_abi = t.abi.unwrap_or(true);
 
     for test in t.tests.into_iter() {
-        let with_abi = test.abi.unwrap_or(false);
+        let with_abi = test.abi.unwrap_or(with_abi);
 
         let input = if with_abi {
             try_parse_abi_val(test.input.values, abi.signature().inputs).unwrap()
@@ -190,13 +166,33 @@ fn compile_and_run<T: Field>(t: Tests) {
 
         let output = interpreter.execute(bin.clone(), &input);
 
+        use zokrates_abi::Decode;
+        let output: Result<Output, ir::Error> = output.map(|witness| Output {
+            values: zokrates_abi::Values::decode(
+                witness.return_values(),
+                if with_abi {
+                    abi.signature().outputs
+                } else {
+                    abi.signature()
+                        .outputs
+                        .iter()
+                        .flat_map(|t| {
+                            (0..t.get_primitive_count())
+                                .map(|_| zokrates_core::typed_absy::ConcreteType::FieldElement)
+                        })
+                        .collect()
+                },
+            )
+            .0
+            .into_iter()
+            .map(|v| v.into_serde_json())
+            .collect(),
+        });
+
         if let Err(e) = compare(output, test.output) {
-            let mut code = File::open(&entry_point).unwrap();
-            let mut s = String::new();
-            code.read_to_string(&mut s).unwrap();
             let context = format!(
                 "\n{}\nCalled on curve {} with input ({})\n",
-                s,
+                code,
                 T::name(),
                 input
                     .iter()

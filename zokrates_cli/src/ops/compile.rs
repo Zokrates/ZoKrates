@@ -1,5 +1,4 @@
-use crate::constants;
-use crate::helpers::CurveParameter;
+use crate::cli_constants;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use serde_json::to_writer_pretty;
 use std::convert::TryFrom;
@@ -7,6 +6,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
+use zokrates_common::constants::BN128;
+use zokrates_common::helpers::CurveParameter;
 use zokrates_core::compile::{compile, CompileConfig, CompileError};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
@@ -28,7 +29,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .takes_value(true)
         .required(false)
         .env("ZOKRATES_STDLIB")
-        .default_value(constants::DEFAULT_STDLIB_PATH.as_str())
+        .default_value(cli_constants::DEFAULT_STDLIB_PATH.as_str())
     ).arg(Arg::with_name("abi-spec")
         .short("s")
         .long("abi-spec")
@@ -36,7 +37,7 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(constants::ABI_SPEC_DEFAULT_PATH)
+        .default_value(cli_constants::ABI_SPEC_DEFAULT_PATH)
     ).arg(Arg::with_name("output")
         .short("o")
         .long("output")
@@ -44,15 +45,15 @@ pub fn subcommand() -> App<'static, 'static> {
         .value_name("FILE")
         .takes_value(true)
         .required(false)
-        .default_value(constants::FLATTENED_CODE_DEFAULT_PATH)
+        .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH)
     ).arg(Arg::with_name("curve")
         .short("c")
         .long("curve")
         .help("Curve to be used in the compilation")
         .takes_value(true)
         .required(false)
-        .possible_values(constants::CURVES)
-        .default_value(constants::BN128)
+        .possible_values(cli_constants::CURVES)
+        .default_value(BN128)
     ).arg(Arg::with_name("isolate-branches")
         .long("isolate-branches")
         .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")
@@ -134,16 +135,27 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut writer = BufWriter::new(bin_output_file);
 
-    program_flattened.serialize(&mut writer);
+    match program_flattened.serialize(&mut writer) {
+        Ok(constraint_count) => {
+            // serialize ABI spec and write to JSON file
+            log::debug!("Serialize ABI");
+            let abi_spec_file = File::create(&abi_spec_path)
+                .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
 
-    // serialize ABI spec and write to JSON file
-    log::debug!("Serialize ABI");
-    let abi_spec_file = File::create(&abi_spec_path)
-        .map_err(|why| format!("Could not create {}: {}", abi_spec_path.display(), why))?;
+            let mut writer = BufWriter::new(abi_spec_file);
+            to_writer_pretty(&mut writer, &abi)
+                .map_err(|_| "Unable to write data to file.".to_string())?;
 
-    let mut writer = BufWriter::new(abi_spec_file);
-    to_writer_pretty(&mut writer, &abi).map_err(|_| "Unable to write data to file.".to_string())?;
+            println!("Compiled code written to '{}'", bin_output_path.display());
 
-    println!("Compiled code written to '{}'", bin_output_path.display());
-    Ok(())
+            println!("Number of constraints: {}", constraint_count);
+
+            Ok(())
+        }
+        Err(e) => {
+            // something wrong happened, clean up
+            std::fs::remove_file(bin_output_path).unwrap();
+            Err(e.to_string())
+        }
+    }
 }

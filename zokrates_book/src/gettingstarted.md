@@ -31,7 +31,7 @@ You can build ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with
 ```bash
 git clone https://github.com/ZoKrates/ZoKrates
 cd ZoKrates
-cargo +nightly build --release
+cargo +nightly build -p zokrates_cli --release
 cd target/release
 ```
 

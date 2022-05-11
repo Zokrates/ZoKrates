@@ -2,7 +2,7 @@
   "name": "zokrates-js",
   "main": "index.js",
   "author": "Darko Macesic <darem966@gmail.com>",
-  "version": "1.0.39",
+  "version": "1.0.42",
   "keywords": [
     "zokrates",
     "wasm-bindgen",
@@ -33,16 +33,16 @@
     "build:node:dev": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --dev && npm run clean-node-pkg",
     "clean-pkg": "rimraf pkg/README.md",
     "clean-node-pkg": "rimraf node/pkg/README.md",
-    "pretest": "npm run setup && npm run build:node",
+    "pretest": "npm run setup && npm run build:node:dev",
     "test": "npm run run-tests",
-    "run-tests": "mocha --require esm --recursive tests"
+    "run-tests": "mocha --timeout 30000 --require esm --recursive tests"
   },
   "devDependencies": {
     "dree": "^2.6.1",
     "esm": "^3.2.25",
     "gulp": "^4.0.2",
     "gulp-cli": "^2.3.0",
-    "mocha": "^7.2.0",
+    "mocha": "^9.2.0",
     "rimraf": "^3.0.2",
     "serve": "^11.3.2",
     "text-encoding": "^0.7.0",

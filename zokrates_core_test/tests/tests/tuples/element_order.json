@@ -3,7 +3,6 @@
     "curves": ["Bn128"],
     "tests": [
         {
-            "abi": true,
             "input": {
                 "values": [["3", true]]
             },

@@ -3,19 +3,19 @@
 	"tests": [
 		{
             "input": {
-                "values": [
+                "values": [[
                     "1",
                     "2",
                     "3"
-                ]
+                ]]
             },
             "output": {
                 "Ok": {
-                    "values": [
+                    "values": [[
                         "1",
                         "2",
                         "3"
-                    ]
+                    ]]
                 }
             }
         }
