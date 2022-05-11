@@ -8,20 +8,16 @@ cfg_if::cfg_if! {
     }
 }
 
-mod embed;
 mod flatten;
 pub mod imports;
 mod macros;
 mod optimizer;
-mod parser;
 mod semantics;
-mod solvers;
 mod static_analysis;
-mod zir;
+use zokrates_ast::zir;
 
-pub mod absy;
+pub use zokrates_ast::untyped as absy;
 pub mod compile;
-pub mod flat_absy;
-pub mod ir;
+pub use zokrates_ast::flat as flat_absy;
 pub mod proof_system;
-pub mod typed_absy;
+pub use zokrates_ast::typed as typed_absy;

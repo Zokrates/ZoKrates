@@ -15,8 +15,6 @@ use std::fmt;
 use std::path::PathBuf;
 use zokrates_field::Field;
 
-use crate::parser::Position;
-
 use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
 use crate::typed_absy::types::{

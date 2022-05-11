@@ -1,5 +1,3 @@
-#[cfg(feature = "ark")]
-pub mod ark;
 #[cfg(feature = "bellman")]
 pub mod bellman;
 #[cfg(feature = "libsnark")]
@@ -13,7 +11,7 @@ mod solidity;
 pub use self::scheme::*;
 pub use self::solidity::*;
 
-use crate::ir;
+use zokrates_ast::ir;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};

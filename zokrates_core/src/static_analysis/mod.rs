@@ -89,81 +89,82 @@ impl fmt::Display for Error {
     }
 }
 
-impl<'ast, T: Field> TypedProgram<'ast, T> {
-    pub fn analyse(self, config: &CompileConfig) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
-        // inline user-defined constants
-        log::debug!("Static analyser: Inline constants");
-        let r = ConstantResolver::inline(self);
+pub fn analyse<'ast, T: Field>(
+    p: TypedProgram<'ast, T>,
+    config: &CompileConfig,
+) -> Result<(ZirProgram<'ast, T>, Abi), Error> {
+    // inline user-defined constants
+    log::debug!("Static analyser: Inline constants");
+    let r = ConstantResolver::inline(p);
+    log::trace!("\n{}", r);
+
+    // isolate branches
+    let r = if config.isolate_branches {
+        log::debug!("Static analyser: Isolate branches");
+        let r = Isolator::isolate(r);
         log::trace!("\n{}", r);
+        r
+    } else {
+        log::debug!("Static analyser: Branch isolation skipped");
+        r
+    };
 
-        // isolate branches
-        let r = if config.isolate_branches {
-            log::debug!("Static analyser: Isolate branches");
-            let r = Isolator::isolate(r);
-            log::trace!("\n{}", r);
-            r
-        } else {
-            log::debug!("Static analyser: Branch isolation skipped");
-            r
-        };
+    // reduce the program to a single function
+    log::debug!("Static analyser: Reduce program");
+    let r = reduce_program(r).map_err(Error::from)?;
+    log::trace!("\n{}", r);
 
-        // reduce the program to a single function
-        log::debug!("Static analyser: Reduce program");
-        let r = reduce_program(r).map_err(Error::from)?;
-        log::trace!("\n{}", r);
+    log::debug!("Static analyser: Propagate");
+    let r = Propagator::propagate(r)?;
+    log::trace!("\n{}", r);
 
-        log::debug!("Static analyser: Propagate");
-        let r = Propagator::propagate(r)?;
-        log::trace!("\n{}", r);
+    log::debug!("Static analyser: Concretize structs");
+    let r = StructConcretizer::concretize(r);
+    log::trace!("\n{}", r);
 
-        log::debug!("Static analyser: Concretize structs");
-        let r = StructConcretizer::concretize(r);
-        log::trace!("\n{}", r);
+    // generate abi
+    log::debug!("Static analyser: Generate abi");
+    let abi = r.abi();
 
-        // generate abi
-        log::debug!("Static analyser: Generate abi");
-        let abi = r.abi();
+    // propagate
+    log::debug!("Static analyser: Propagate");
+    let r = Propagator::propagate(r).map_err(Error::from)?;
+    log::trace!("\n{}", r);
 
-        // propagate
-        log::debug!("Static analyser: Propagate");
-        let r = Propagator::propagate(r).map_err(Error::from)?;
-        log::trace!("\n{}", r);
+    // remove assignment to variable index
+    log::debug!("Static analyser: Remove variable index");
+    let r = VariableWriteRemover::apply(r);
+    log::trace!("\n{}", r);
 
-        // remove assignment to variable index
-        log::debug!("Static analyser: Remove variable index");
-        let r = VariableWriteRemover::apply(r);
-        log::trace!("\n{}", r);
+    // detect non constant shifts and constant lt bounds
+    log::debug!("Static analyser: Detect non constant arguments");
+    let r = ConstantArgumentChecker::check(r).map_err(Error::from)?;
+    log::trace!("\n{}", r);
 
-        // detect non constant shifts and constant lt bounds
-        log::debug!("Static analyser: Detect non constant arguments");
-        let r = ConstantArgumentChecker::check(r).map_err(Error::from)?;
-        log::trace!("\n{}", r);
+    // detect out of bounds reads and writes
+    log::debug!("Static analyser: Detect out of bound accesses");
+    let r = OutOfBoundsChecker::check(r).map_err(Error::from)?;
+    log::trace!("\n{}", r);
 
-        // detect out of bounds reads and writes
-        log::debug!("Static analyser: Detect out of bound accesses");
-        let r = OutOfBoundsChecker::check(r).map_err(Error::from)?;
-        log::trace!("\n{}", r);
+    // redefine conditions
+    log::debug!("Static analyser: Redefine conditions");
+    let r = ConditionRedefiner::redefine(r);
+    log::trace!("\n{}", r);
 
-        // redefine conditions
-        log::debug!("Static analyser: Redefine conditions");
-        let r = ConditionRedefiner::redefine(r);
-        log::trace!("\n{}", r);
+    // convert to zir, removing complex types
+    log::debug!("Static analyser: Convert to zir");
+    let zir = Flattener::flatten(r);
+    log::trace!("\n{}", zir);
 
-        // convert to zir, removing complex types
-        log::debug!("Static analyser: Convert to zir");
-        let zir = Flattener::flatten(r);
-        log::trace!("\n{}", zir);
+    // apply propagation in zir
+    log::debug!("Static analyser: Apply propagation in zir");
+    let zir = ZirPropagator::propagate(zir).map_err(Error::from)?;
+    log::trace!("\n{}", zir);
 
-        // apply propagation in zir
-        log::debug!("Static analyser: Apply propagation in zir");
-        let zir = ZirPropagator::propagate(zir).map_err(Error::from)?;
-        log::trace!("\n{}", zir);
+    // optimize uint expressions
+    log::debug!("Static analyser: Optimize uints");
+    let zir = UintOptimizer::optimize(zir);
+    log::trace!("\n{}", zir);
 
-        // optimize uint expressions
-        log::debug!("Static analyser: Optimize uints");
-        let zir = UintOptimizer::optimize(zir);
-        log::trace!("\n{}", zir);
-
-        Ok((zir, abi))
-    }
+    Ok((zir, abi))
 }

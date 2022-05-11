@@ -1,4 +1,3 @@
-use crate::embed::FlatEmbed;
 use crate::typed_absy::TypedProgram;
 use crate::typed_absy::{
     result_folder::ResultFolder,
@@ -6,6 +5,7 @@ use crate::typed_absy::{
     Constant, TypedExpressionListInner, Types, UBitwidth, UExpressionInner,
 };
 use std::fmt;
+use zokrates_ast::common::FlatEmbed;
 use zokrates_field::Field;
 
 pub struct ConstantArgumentChecker;

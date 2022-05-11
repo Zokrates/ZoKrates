@@ -24,10 +24,10 @@
 //		endfor
 //		return b_3 // we leave versions b_1 and b_2 to make b accessible and modifiable inside the for-loop
 
-use crate::typed_absy::folder::*;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::types::Type;
 use crate::typed_absy::*;
+use zokrates_ast::typed::folder::*;
 
 use zokrates_field::Field;
 

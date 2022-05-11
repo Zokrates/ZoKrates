@@ -707,10 +707,8 @@ mod tests {
     use crate::zir::RuntimeError;
     use zokrates_field::Bn128Field;
 
-    impl RuntimeError {
-        pub fn mock() -> Self {
-            RuntimeError::SourceAssertion(String::default())
-        }
+    pub fn mock() -> RuntimeError {
+        RuntimeError::SourceAssertion(String::default())
     }
 
     #[test]
@@ -727,7 +725,7 @@ mod tests {
                     box FieldElementExpression::Number(Bn128Field::from(1)),
                 ),
             ),
-            RuntimeError::mock(),
+            mock(),
         )];
 
         let mut propagator = ZirPropagator::default();
@@ -747,7 +745,7 @@ mod tests {
                     box FieldElementExpression::Identifier("x".into()),
                     box FieldElementExpression::Identifier("y".into()),
                 ),
-                RuntimeError::mock()
+                mock()
             )]
         );
     }

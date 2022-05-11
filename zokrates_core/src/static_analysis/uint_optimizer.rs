@@ -1,8 +1,8 @@
-use crate::embed::FlatEmbed;
 use crate::zir::folder::*;
 use crate::zir::*;
 use std::collections::HashMap;
 use std::ops::{BitAnd, Shl, Shr};
+use zokrates_ast::common::FlatEmbed;
 use zokrates_field::Field;
 
 #[derive(Default)]

@@ -6,26 +6,36 @@
 
 use crate::flat_absy::*;
 use std::collections::HashMap;
+use zokrates_ast::flat::folder::*;
 use zokrates_field::Field;
 
-pub trait Propagate<T: Field> {
-    fn propagate(self) -> Self;
+struct Propagator<T> {
+    constants: HashMap<Variable, T>,
 }
 
-pub trait PropagateWithContext<T: Field> {
-    fn propagate(self, constants: &mut HashMap<FlatVariable, T>) -> Self;
-}
+impl<T: Field> Folder<T> for Propagator<T> {
+    fn fold_statement(&mut self, s: FlatStatement<T>) -> Vec<FlatStatement<T>> {
+        match s {
+            FlatStatement::Definition(var, expr) => match self.fold_expression(expr) {
+                FlatExpression::Number(n) => {
+                    self.constants.insert(var, n);
+                    vec![]
+                }
+                e => vec![FlatStatement::Definition(var, e)],
+            },
+            s => fold_statement(self, s),
+        }
+    }
 
-impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
-    fn propagate(self, constants: &mut HashMap<FlatVariable, T>) -> FlatExpression<T> {
-        match self {
+    fn fold_expression(&mut self, e: FlatExpression<T>) -> FlatExpression<T> {
+        match e {
             FlatExpression::Number(n) => FlatExpression::Number(n),
-            FlatExpression::Identifier(id) => match constants.get(&id) {
+            FlatExpression::Identifier(id) => match self.constants.get(&id) {
                 Some(c) => FlatExpression::Number(c.clone()),
                 None => FlatExpression::Identifier(id),
             },
             FlatExpression::Add(box e1, box e2) => {
-                match (e1.propagate(constants), e2.propagate(constants)) {
+                match (self.fold_expression(e1), self.fold_expression(e2)) {
                     (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
                         FlatExpression::Number(n1 + n2)
                     }
@@ -33,7 +43,7 @@ impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
                 }
             }
             FlatExpression::Sub(box e1, box e2) => {
-                match (e1.propagate(constants), e2.propagate(constants)) {
+                match (self.fold_expression(e1), self.fold_expression(e2)) {
                     (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
                         FlatExpression::Number(n1 - n2)
                     }
@@ -41,55 +51,13 @@ impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
                 }
             }
             FlatExpression::Mult(box e1, box e2) => {
-                match (e1.propagate(constants), e2.propagate(constants)) {
+                match (self.fold_expression(e1), self.fold_expression(e2)) {
                     (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
                         FlatExpression::Number(n1 * n2)
                     }
                     (e1, e2) => FlatExpression::Mult(box e1, box e2),
                 }
             }
-        }
-    }
-}
-
-impl<T: Field> FlatStatement<T> {
-    fn propagate(self, constants: &mut HashMap<FlatVariable, T>) -> Option<FlatStatement<T>> {
-        match self {
-            FlatStatement::Definition(var, expr) => match expr.propagate(constants) {
-                FlatExpression::Number(n) => {
-                    constants.insert(var, n);
-                    None
-                }
-                e => Some(FlatStatement::Definition(var, e)),
-            },
-            FlatStatement::Condition(e1, e2, message) => Some(FlatStatement::Condition(
-                e1.propagate(constants),
-                e2.propagate(constants),
-                message,
-            )),
-            FlatStatement::Directive(d) => Some(FlatStatement::Directive(FlatDirective {
-                inputs: d
-                    .inputs
-                    .into_iter()
-                    .map(|i| i.propagate(constants))
-                    .collect(),
-                ..d
-            })),
-        }
-    }
-}
-
-impl<T: Field> Propagate<T> for FlatFunction<T> {
-    fn propagate(self) -> FlatFunction<T> {
-        let mut constants = HashMap::new();
-
-        FlatFunction {
-            statements: self
-                .statements
-                .into_iter()
-                .filter_map(|s| s.propagate(&mut constants))
-                .collect(),
-            ..self
         }
     }
 }

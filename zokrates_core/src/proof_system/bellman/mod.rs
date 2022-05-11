@@ -1,18 +1,20 @@
 pub mod groth16;
 
-use crate::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
     Parameters,
 };
 use bellman::pairing::ff::ScalarEngine;
-use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
+use bellman::{
+    Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable as BellmanVariable,
+};
 use std::collections::BTreeMap;
+use zokrates_ast::common::Variable;
+use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
-use crate::flat_absy::FlatVariable;
 use rand_0_4::ChaChaRng;
 
 pub use self::parse::*;
@@ -44,7 +46,7 @@ impl<T: Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
 fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::BellmanEngine>>(
     l: CanonicalLinComb<T>,
     cs: &mut CS,
-    symbols: &mut BTreeMap<FlatVariable, Variable>,
+    symbols: &mut BTreeMap<Variable, BellmanVariable>,
     witness: &mut Witness<T>,
 ) -> LinearCombination<T::BellmanEngine> {
     l.0.into_iter()
@@ -81,18 +83,17 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
+impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
     pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
-        witness: Option<Witness<T>>,
     ) -> Result<(), SynthesisError> {
         // mapping from IR variables
         let mut symbols = BTreeMap::new();
 
-        let mut witness = witness.unwrap_or_else(Witness::empty);
+        let mut witness = self.witness.unwrap_or_else(Witness::empty);
 
-        assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
+        assert!(symbols.insert(Variable::one(), CS::one()).is_none());
 
         symbols.extend(self.arguments.iter().enumerate().map(|(index, p)| {
             let wire = match p.private {
@@ -246,14 +247,14 @@ mod parse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::Interpreter;
-    use crate::ir::LinComb;
+    use zokrates_ast::ir::LinComb;
     use zokrates_field::Bn128Field;
+    use zokrates_interpreter::Interpreter;
 
     mod prove {
         use super::*;
-        use crate::flat_absy::FlatParameter;
-        use crate::ir::Prog;
+        use crate::flat_absy::Parameter;
+        use zokrates_ast::ir::Prog;
 
         #[test]
         fn empty() {
@@ -271,12 +272,9 @@ mod tests {
         #[test]
         fn identity() {
             let program: Prog<Bn128Field> = Prog {
-                arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+                arguments: vec![Parameter::private(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(
-                    FlatVariable::new(0),
-                    FlatVariable::public(0),
-                )],
+                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
             };
 
             let interpreter = Interpreter::default();
@@ -294,12 +292,9 @@ mod tests {
         #[test]
         fn public_identity() {
             let program: Prog<Bn128Field> = Prog {
-                arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+                arguments: vec![Parameter::public(Variable::new(0))],
                 return_count: 1,
-                statements: vec![Statement::constraint(
-                    FlatVariable::new(0),
-                    FlatVariable::public(0),
-                )],
+                statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
             };
 
             let interpreter = Interpreter::default();
@@ -319,10 +314,7 @@ mod tests {
             let program: Prog<Bn128Field> = Prog {
                 arguments: vec![],
                 return_count: 1,
-                statements: vec![Statement::constraint(
-                    FlatVariable::one(),
-                    FlatVariable::public(0),
-                )],
+                statements: vec![Statement::constraint(Variable::one(), Variable::public(0))],
             };
 
             let interpreter = Interpreter::default();
@@ -340,18 +332,18 @@ mod tests {
             // private variables can be unordered
             let program: Prog<Bn128Field> = Prog {
                 arguments: vec![
-                    FlatParameter::private(FlatVariable::new(42)),
-                    FlatParameter::public(FlatVariable::new(51)),
+                    Parameter::private(Variable::new(42)),
+                    Parameter::public(Variable::new(51)),
                 ],
                 return_count: 2,
                 statements: vec![
                     Statement::constraint(
-                        LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
-                        FlatVariable::public(0),
+                        LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
+                        Variable::public(0),
                     ),
                     Statement::constraint(
-                        LinComb::from(FlatVariable::one()) + LinComb::from(FlatVariable::new(42)),
-                        FlatVariable::public(1),
+                        LinComb::from(Variable::one()) + LinComb::from(Variable::new(42)),
+                        Variable::public(1),
                     ),
                 ],
             };
@@ -370,11 +362,11 @@ mod tests {
         #[test]
         fn one() {
             let program: Prog<Bn128Field> = Prog {
-                arguments: vec![FlatParameter::public(FlatVariable::new(42))],
+                arguments: vec![Parameter::public(Variable::new(42))],
                 return_count: 1,
                 statements: vec![Statement::constraint(
-                    LinComb::from(FlatVariable::new(42)) + LinComb::one(),
-                    FlatVariable::public(0),
+                    LinComb::from(Variable::new(42)) + LinComb::one(),
+                    Variable::public(0),
                 )],
             };
 
@@ -394,13 +386,13 @@ mod tests {
         fn with_directives() {
             let program: Prog<Bn128Field> = Prog {
                 arguments: vec![
-                    FlatParameter::private(FlatVariable::new(42)),
-                    FlatParameter::public(FlatVariable::new(51)),
+                    Parameter::private(Variable::new(42)),
+                    Parameter::public(Variable::new(51)),
                 ],
                 return_count: 1,
                 statements: vec![Statement::constraint(
-                    LinComb::from(FlatVariable::new(42)) + LinComb::from(FlatVariable::new(51)),
-                    FlatVariable::public(0),
+                    LinComb::from(Variable::new(42)) + LinComb::from(Variable::new(51)),
+                    Variable::public(0),
                 )],
             };
 

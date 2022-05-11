@@ -26,13 +26,14 @@ reduce = "0.1.1"
 # serialization and deserialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-serde_cbor = "0.11.2"
 hex = "0.4.2"
 regex = "0.2"
 zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
 zokrates_pest_ast = { version = "0.2.0", path = "../zokrates_pest_ast" }
 zokrates_common = { path = "../zokrates_common" }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast" }
 getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
 rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_8 = { version = "0.8", package = "rand" }

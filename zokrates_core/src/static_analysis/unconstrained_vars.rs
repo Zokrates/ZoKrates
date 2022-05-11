@@ -1,15 +1,15 @@
-use crate::flat_absy::FlatParameter;
-use crate::flat_absy::FlatVariable;
-use crate::ir::folder::Folder;
-use crate::ir::Directive;
-use crate::ir::ProgIterator;
-use crate::ir::Statement;
 use std::collections::HashSet;
+use zokrates_ast::ir::folder::Folder;
+use zokrates_ast::ir::Directive;
+use zokrates_ast::ir::Parameter;
+use zokrates_ast::ir::ProgIterator;
+use zokrates_ast::ir::Statement;
+use zokrates_ast::ir::Variable;
 use zokrates_field::Field;
 
 #[derive(Debug)]
 pub struct UnconstrainedVariableDetector {
-    pub(self) variables: HashSet<FlatVariable>,
+    pub(self) variables: HashSet<Variable>,
 }
 
 impl UnconstrainedVariableDetector {
@@ -33,10 +33,10 @@ impl UnconstrainedVariableDetector {
 }
 
 impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
-    fn fold_argument(&mut self, p: FlatParameter) -> FlatParameter {
+    fn fold_argument(&mut self, p: Parameter) -> Parameter {
         p
     }
-    fn fold_variable(&mut self, v: FlatVariable) -> FlatVariable {
+    fn fold_variable(&mut self, v: Variable) -> Variable {
         self.variables.remove(&v);
         v
     }

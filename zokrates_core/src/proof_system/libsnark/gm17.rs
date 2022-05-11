@@ -1,4 +1,3 @@
-use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::gm17::{ProofPoints, VerificationKey, GM17};
 use crate::proof_system::libsnark::ffi::{c_free, Buffer, ProofResult, SetupResult};
 use crate::proof_system::libsnark::{
@@ -7,6 +6,7 @@ use crate::proof_system::libsnark::{
 use crate::proof_system::Scheme;
 use crate::proof_system::{Backend, G1Affine, G2Affine, NonUniversalBackend, Proof, SetupKeypair};
 use std::io::{BufReader, BufWriter, Write};
+use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_field::{Bn128Field, Field};
 
 extern "C" {
@@ -197,7 +197,7 @@ impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
 mod tests {
     use super::*;
     use crate::flat_absy::{FlatParameter, FlatVariable};
-    use crate::ir::{Interpreter, Prog, Statement};
+    use zokrates_ast::ir::{Interpreter, Prog, Statement};
     use zokrates_field::Bn128Field;
 
     #[test]

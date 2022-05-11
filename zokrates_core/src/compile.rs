@@ -6,7 +6,6 @@
 use crate::absy::{Module, OwnedModuleId, Program};
 use crate::flatten::FlattenerIterator;
 use crate::imports::{self, Importer};
-use crate::ir;
 use crate::macros;
 use crate::semantics::{self, Checker};
 use crate::static_analysis;
@@ -19,6 +18,7 @@ use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
+use zokrates_ast::ir;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
@@ -204,7 +204,8 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
 
     // convert to ir
     log::debug!("Convert to IR");
-    let ir_prog = ir::from_flat::from_flat(program_flattened);
+    //let ir_prog = ir::from_flat::from_flat(program_flattened);
+    let ir_prog = unimplemented!();
 
     // optimize
     log::debug!("Optimise IR");

@@ -7,8 +7,6 @@
 use crate::absy::*;
 use crate::compile::parse_module;
 use crate::compile::{CompileErrorInner, CompileErrors};
-use crate::embed::FlatEmbed;
-use crate::parser::Position;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
@@ -16,6 +14,7 @@ use std::path::{Path, PathBuf};
 
 use crate::absy::types::UnresolvedType;
 use typed_arena::Arena;
+use zokrates_ast::common::FlatEmbed;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 

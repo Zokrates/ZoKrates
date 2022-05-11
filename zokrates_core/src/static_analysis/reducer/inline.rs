@@ -25,7 +25,6 @@
 // - The body of the function is in SSA form
 // - The return value(s) are assigned to internal variables
 
-use crate::embed::FlatEmbed;
 use crate::static_analysis::reducer::Output;
 use crate::static_analysis::reducer::ShallowTransformer;
 use crate::static_analysis::reducer::Versions;
@@ -38,6 +37,7 @@ use crate::typed_absy::{
     Signature, TypedExpression, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedProgram,
     TypedStatement, Types, UExpression, UExpressionInner, Variable,
 };
+use zokrates_ast::common::FlatEmbed;
 use zokrates_field::Field;
 
 pub enum InlineError<'ast, T> {

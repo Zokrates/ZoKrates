@@ -3,9 +3,9 @@ pub mod gm17;
 pub mod pghr13;
 
 use crate::flat_absy::FlatVariable;
-use crate::ir::{self, Statement};
 use std::cmp::max;
 use std::collections::HashMap;
+use zokrates_ast::ir::{self, Statement};
 use zokrates_field::Field;
 
 pub struct Libsnark;

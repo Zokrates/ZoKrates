@@ -8,7 +8,6 @@ use crate::proof_system::{Backend, MpcBackend, NonUniversalBackend, Proof, Setup
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
 
-use crate::ir::{ProgIterator, Statement, Witness};
 use crate::proof_system::bellman::Bellman;
 use crate::proof_system::bellman::Computation;
 use crate::proof_system::bellman::{parse_g1, parse_g2};
@@ -17,6 +16,7 @@ use crate::proof_system::Scheme;
 use phase2::MPCParameters;
 use rand_0_4::Rng;
 use std::io::{Read, Write};
+use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
@@ -197,20 +197,18 @@ pub mod serialization {
 #[cfg(test)]
 mod tests {
     use zokrates_field::Bn128Field;
+    use zokrates_interpreter::Interpreter;
 
     use super::*;
-    use crate::flat_absy::{FlatParameter, FlatVariable};
-    use crate::ir::{Interpreter, Prog, Statement};
+    use crate::flat_absy::{Parameter, Variable};
+    use zokrates_ast::ir::{Prog, Statement};
 
     #[test]
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
-            arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+            arguments: vec![Parameter::public(Variable::new(0))],
             return_count: 1,
-            statements: vec![Statement::constraint(
-                FlatVariable::new(0),
-                FlatVariable::public(0),
-            )],
+            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
         let keypair = <Bellman as NonUniversalBackend<Bn128Field, G16>>::setup(program.clone());

@@ -2,9 +2,9 @@
 // This does *not* reduce constants to their literal value
 // This step cannot fail as the imports were checked during semantics
 
-use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
+use zokrates_ast::typed::folder::*;
 use zokrates_field::Field;
 
 // a map of the canonical constants in this program. with all imported constants reduced to their canonical value
