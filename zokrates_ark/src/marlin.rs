@@ -23,13 +23,13 @@ use std::marker::PhantomData;
 
 use zokrates_field::{ArkFieldExtensions, Field};
 
-use crate::proof_system::ark::Ark;
-use crate::proof_system::ark::Computation;
-use crate::proof_system::ark::{parse_fr, parse_g1, parse_g2, serialization};
-use crate::proof_system::marlin::{self, KZGVerifierKey, ProofPoints, VerificationKey};
-use crate::proof_system::Scheme;
-use crate::proof_system::{Backend, Proof, SetupKeypair, UniversalBackend};
+use crate::Ark;
+use crate::Computation;
+use crate::{parse_fr, parse_g1, parse_g2, serialization};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
+use zokrates_proof_systems::marlin::{self, KZGVerifierKey, ProofPoints, VerificationKey};
+use zokrates_proof_systems::Scheme;
+use zokrates_proof_systems::{Backend, Proof, SetupKeypair, UniversalBackend};
 
 const MINIMUM_CONSTRAINT_COUNT: usize = 2;
 
@@ -386,27 +386,28 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
 
 #[cfg(test)]
 mod tests {
-    use crate::flat_absy::{FlatParameter, FlatVariable};
-    use zokrates_ast::ir::{Interpreter, Prog, QuadComb, Statement};
+    use zokrates_ast::flat::{Parameter, Variable};
+    use zokrates_ast::ir::{Prog, QuadComb, Statement};
+    use zokrates_interpreter::Interpreter;
 
     use super::*;
-    use crate::proof_system::scheme::Marlin;
     use zokrates_field::{Bls12_377Field, Bw6_761Field};
+    use zokrates_proof_systems::Marlin;
 
     #[test]
     fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
-            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+            arguments: vec![Parameter::private(Variable::new(0))],
             return_count: 1,
             statements: vec![
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        FlatVariable::new(0).into(),
-                        FlatVariable::new(0).into(),
+                        Variable::new(0).into(),
+                        Variable::new(0).into(),
                     ),
-                    FlatVariable::new(1),
+                    Variable::new(1),
                 ),
-                Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
+                Statement::constraint(Variable::new(1), Variable::public(0)),
             ],
         };
 
@@ -429,17 +430,17 @@ mod tests {
     #[test]
     fn verify_bw6_761_field() {
         let program: Prog<Bw6_761Field> = Prog {
-            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+            arguments: vec![Parameter::private(Variable::new(0))],
             return_count: 1,
             statements: vec![
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        FlatVariable::new(0).into(),
-                        FlatVariable::new(0).into(),
+                        Variable::new(0).into(),
+                        Variable::new(0).into(),
                     ),
-                    FlatVariable::new(1),
+                    Variable::new(1),
                 ),
-                Statement::constraint(FlatVariable::new(1), FlatVariable::public(0)),
+                Statement::constraint(Variable::new(1), Variable::public(0)),
             ],
         };
 

@@ -7,13 +7,13 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use crate::typed_absy::result_folder::*;
-use crate::typed_absy::types::Type;
-use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::typed::result_folder::*;
+use zokrates_ast::typed::types::Type;
+use zokrates_ast::typed::*;
 use zokrates_field::Field;
 
 pub type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;

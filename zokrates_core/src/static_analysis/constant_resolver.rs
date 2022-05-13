@@ -2,9 +2,9 @@
 // This does *not* reduce constants to their literal value
 // This step cannot fail as the imports were checked during semantics
 
-use crate::typed_absy::*;
 use std::collections::HashMap;
 use zokrates_ast::typed::folder::*;
+use zokrates_ast::typed::*;
 use zokrates_field::Field;
 
 // a map of the canonical constants in this program. with all imported constants reduced to their canonical value
@@ -109,8 +109,8 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantResolver<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::DeclarationSignature;
-    use crate::typed_absy::{
+    use zokrates_ast::typed::types::DeclarationSignature;
+    use zokrates_ast::typed::{
         DeclarationArrayType, DeclarationFunctionKey, DeclarationType, FieldElementExpression,
         GType, Identifier, TypedConstant, TypedExpression, TypedFunction, TypedFunctionSymbol,
         TypedStatement,

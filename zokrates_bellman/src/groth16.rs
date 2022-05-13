@@ -4,19 +4,19 @@ use bellman::groth16::{
 };
 use pairing::{ff::to_hex, CurveAffine, Engine};
 
-use crate::proof_system::{Backend, MpcBackend, NonUniversalBackend, Proof, SetupKeypair};
 use zokrates_field::BellmanFieldExtensions;
 use zokrates_field::Field;
+use zokrates_proof_systems::{Backend, MpcBackend, NonUniversalBackend, Proof, SetupKeypair};
 
-use crate::proof_system::bellman::Bellman;
-use crate::proof_system::bellman::Computation;
-use crate::proof_system::bellman::{parse_g1, parse_g2};
-use crate::proof_system::groth16::{ProofPoints, VerificationKey, G16};
-use crate::proof_system::Scheme;
+use crate::Bellman;
+use crate::Computation;
+use crate::{parse_g1, parse_g2};
 use phase2::MPCParameters;
 use rand_0_4::Rng;
 use std::io::{Read, Write};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
+use zokrates_proof_systems::groth16::{ProofPoints, VerificationKey, G16};
+use zokrates_proof_systems::Scheme;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/toolbox/proving_schemes.html#g16-malleability for implications.";
 
@@ -157,8 +157,8 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
 
 pub mod serialization {
     use super::*;
-    use crate::proof_system::{G1Affine, G2Affine};
     use pairing::from_hex;
+    use zokrates_proof_systems::{G1Affine, G2Affine};
 
     pub fn parameters_to_verification_key<T: Field + BellmanFieldExtensions>(
         parameters: &Parameters<T::BellmanEngine>,
@@ -188,9 +188,14 @@ pub mod serialization {
     pub fn to_g2<T: BellmanFieldExtensions>(
         g2: G2Affine,
     ) -> <T::BellmanEngine as Engine>::G2Affine {
-        let x = T::new_fq2(&(g2.0).0, &(g2.0).1);
-        let y = T::new_fq2(&(g2.1).0, &(g2.1).1);
-        <T::BellmanEngine as Engine>::G2Affine::from_xy_unchecked(x, y)
+        match g2 {
+            G2Affine::Fq2(g2) => {
+                let x = T::new_fq2(&(g2.0).0, &(g2.0).1);
+                let y = T::new_fq2(&(g2.1).0, &(g2.1).1);
+                <T::BellmanEngine as Engine>::G2Affine::from_xy_unchecked(x, y)
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -200,7 +205,7 @@ mod tests {
     use zokrates_interpreter::Interpreter;
 
     use super::*;
-    use crate::flat_absy::{Parameter, Variable};
+    use zokrates_ast::common::{Parameter, Variable};
     use zokrates_ast::ir::{Prog, Statement};
 
     #[test]

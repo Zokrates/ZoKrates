@@ -6,12 +6,10 @@ use std::io;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
 use zokrates_core::compile::CompileConfig;
-use zokrates_core::{
-    compile::{compile, CompilationArtifacts},
-    ir::Interpreter,
-};
+use zokrates_core::compile::{compile, CompilationArtifacts};
 use zokrates_field::Bn128Field;
 use zokrates_fs_resolver::FileSystemResolver;
+use zokrates_interpreter::Interpreter;
 
 #[test]
 fn lt_field() {

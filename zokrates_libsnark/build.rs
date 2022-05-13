@@ -1,10 +1,4 @@
-#[cfg(feature = "libsnark")]
-extern crate cc;
-#[cfg(feature = "libsnark")]
-extern crate cmake;
-
 fn main() {
-    #[cfg(feature = "libsnark")]
     {
         use std::env;
         use std::path::PathBuf;

@@ -54,11 +54,6 @@ impl<'ast, S: Clone> GVariable<'ast, S> {
         Self::with_id_and_type(id, GType::uint(bitwidth))
     }
 
-    #[cfg(test)]
-    pub fn field_array<I: Into<Identifier<'ast>>>(id: I, size: S) -> Self {
-        Self::array(id, GType::FieldElement, size)
-    }
-
     pub fn array<I: Into<Identifier<'ast>>, U: Into<S>>(id: I, ty: GType<S>, size: U) -> Self {
         Self::with_id_and_type(id, GType::array((ty, size.into())))
     }

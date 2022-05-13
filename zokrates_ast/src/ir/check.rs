@@ -1,10 +1,10 @@
+use crate::ir::folder::Folder;
+use crate::ir::Directive;
+use crate::ir::Parameter;
+use crate::ir::ProgIterator;
+use crate::ir::Statement;
+use crate::ir::Variable;
 use std::collections::HashSet;
-use zokrates_ast::ir::folder::Folder;
-use zokrates_ast::ir::Directive;
-use zokrates_ast::ir::Parameter;
-use zokrates_ast::ir::ProgIterator;
-use zokrates_ast::ir::Statement;
-use zokrates_ast::ir::Variable;
 use zokrates_field::Field;
 
 #[derive(Debug)]

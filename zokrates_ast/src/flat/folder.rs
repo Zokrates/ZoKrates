@@ -50,22 +50,37 @@ pub fn fold_statement<T: Field, F: Folder<T>>(
     f: &mut F,
     s: FlatStatement<T>,
 ) -> Vec<FlatStatement<T>> {
-    // match s {
-    //     Statement::Constraint(quad, lin, message) => vec![Statement::Constraint(
-    //         f.fold_quadratic_combination(quad),
-    //         f.fold_linear_combination(lin),
-    //         message,
-    //     )],
-    //     Statement::Directive(dir) => vec![Statement::Directive(f.fold_directive(dir))],
-    // }
-    unimplemented!()
+    match s {
+        FlatStatement::Condition(left, right, error) => vec![FlatStatement::Condition(
+            f.fold_expression(left),
+            f.fold_expression(right),
+            error,
+        )],
+        FlatStatement::Definition(v, e) => vec![FlatStatement::Definition(
+            f.fold_variable(v),
+            f.fold_expression(e),
+        )],
+        FlatStatement::Directive(d) => vec![FlatStatement::Directive(f.fold_directive(d))],
+    }
 }
 
 pub fn fold_expression<T: Field, F: Folder<T>>(
     f: &mut F,
     e: FlatExpression<T>,
 ) -> FlatExpression<T> {
-    unimplemented!()
+    match e {
+        FlatExpression::Number(n) => FlatExpression::Number(n),
+        FlatExpression::Identifier(id) => FlatExpression::Identifier(f.fold_variable(id)),
+        FlatExpression::Add(box left, box right) => {
+            FlatExpression::Add(box f.fold_expression(left), box f.fold_expression(right))
+        }
+        FlatExpression::Sub(box left, box right) => {
+            FlatExpression::Sub(box f.fold_expression(left), box f.fold_expression(right))
+        }
+        FlatExpression::Mult(box left, box right) => {
+            FlatExpression::Mult(box f.fold_expression(left), box f.fold_expression(right))
+        }
+    }
 }
 
 pub fn fold_directive<T: Field, F: Folder<T>>(f: &mut F, ds: FlatDirective<T>) -> FlatDirective<T> {

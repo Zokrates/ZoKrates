@@ -12,13 +12,6 @@ use zokrates_ast::zir::{ShouldReduce, UMetadata, ZirExpressionList};
 use zokrates_interpreter::Interpreter;
 
 use crate::compile::CompileConfig;
-use crate::flat_absy::*;
-use crate::zir::types::{Type, UBitwidth};
-use crate::zir::{
-    BooleanExpression, FieldElementExpression, Identifier, IfElse, Parameter as ZirParameter,
-    UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression, ZirFunction,
-    ZirStatement,
-};
 use std::collections::{
     hash_map::{Entry, HashMap},
     VecDeque,
@@ -27,7 +20,14 @@ use std::convert::TryFrom;
 use zokrates_ast::common::embed::*;
 use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::common::{RuntimeError, Variable};
+use zokrates_ast::flat::*;
 use zokrates_ast::ir::Solver;
+use zokrates_ast::zir::types::{Type, UBitwidth};
+use zokrates_ast::zir::{
+    BooleanExpression, FieldElementExpression, Identifier, IfElse, Parameter as ZirParameter,
+    UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression, ZirFunction,
+    ZirStatement,
+};
 use zokrates_field::Field;
 
 type FlatStatements<T> = VecDeque<FlatStatement<T>>;
@@ -36,10 +36,10 @@ type FlatStatements<T> = VecDeque<FlatStatement<T>>;
 ///
 /// # Arguments
 /// * `funct` - `ZirFunction` that will be flattened
-pub fn from_function_and_config<'ast, T: Field>(
-    funct: ZirFunction<'ast, T>,
+pub fn from_function_and_config<T: Field>(
+    funct: ZirFunction<T>,
     config: CompileConfig,
-) -> FlattenerIterator<'ast, T> {
+) -> FlattenerIterator<T> {
     let mut flattener = Flattener::new(config);
     let mut statements_flattened = FlatStatements::new();
     // push parameters
@@ -207,15 +207,6 @@ impl<T: Field> FlatUExpression<T> {
         }
     }
 }
-
-// impl From<crate::zir::RuntimeError> for RuntimeError {
-//     fn from(error: crate::zir::RuntimeError) -> Self {
-//         match error {
-//             crate::zir::RuntimeError::SourceAssertion(s) => RuntimeError::SourceAssertion(s),
-//             crate::zir::RuntimeError::SelectRangeCheck => RuntimeError::SelectRangeCheck,
-//         }
-//     }
-// }
 
 impl<'ast, T: Field> Flattener<'ast, T> {
     /// Returns a `Flattener` with fresh `layout`.
@@ -2710,13 +2701,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::zir;
-    use crate::zir::types::Signature;
-    use crate::zir::types::Type;
+    use zokrates_ast::zir;
+    use zokrates_ast::zir::types::Signature;
+    use zokrates_ast::zir::types::Type;
     use zokrates_field::Bn128Field;
 
     fn flatten_function<T: Field>(f: ZirFunction<T>) -> FlatProg<T> {
-        FlattenerIterator::from_function_and_config(f, CompileConfig::default()).collect()
+        from_function_and_config(f, CompileConfig::default()).collect()
     }
 
     #[test]
@@ -2734,11 +2725,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::boolean("x".into()),
+                    zir::Variable::boolean("x".into()),
                     BooleanExpression::Value(true).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::boolean("y".into()),
+                    zir::Variable::boolean("y".into()),
                     BooleanExpression::Value(true).into(),
                 ),
                 ZirStatement::Assertion(
@@ -2798,11 +2789,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::field_element("x"),
+                    zir::Variable::field_element("x"),
                     FieldElementExpression::Number(Bn128Field::from(1)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("y"),
+                    zir::Variable::field_element("y"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
                 ),
                 ZirStatement::Assertion(
@@ -2872,7 +2863,7 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::uint("x".into(), 32),
+                    zir::Variable::uint("x".into(), 32),
                     ZirExpression::Uint(
                         UExpressionInner::Value(42)
                             .annotate(32)
@@ -2936,11 +2927,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::field_element("x"),
+                    zir::Variable::field_element("x"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("y"),
+                    zir::Variable::field_element("y"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
                 ),
                 ZirStatement::Assertion(
@@ -3004,15 +2995,15 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::field_element("x"),
+                    zir::Variable::field_element("x"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("y"),
+                    zir::Variable::field_element("y"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("z"),
+                    zir::Variable::field_element("z"),
                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
                 ),
                 ZirStatement::Assertion(
@@ -3083,15 +3074,15 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::field_element("x"),
+                    zir::Variable::field_element("x"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("y"),
+                    zir::Variable::field_element("y"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("z"),
+                    zir::Variable::field_element("z"),
                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
                 ),
                 ZirStatement::Assertion(
@@ -3164,19 +3155,19 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::field_element("x"),
+                    zir::Variable::field_element("x"),
                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("y"),
+                    zir::Variable::field_element("y"),
                     FieldElementExpression::Number(Bn128Field::from(4)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("z"),
+                    zir::Variable::field_element("z"),
                     FieldElementExpression::Number(Bn128Field::from(8)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("t"),
+                    zir::Variable::field_element("t"),
                     FieldElementExpression::Number(Bn128Field::from(2)).into(),
                 ),
                 ZirStatement::Assertion(
@@ -3257,11 +3248,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::field_element("a"),
+                    zir::Variable::field_element("a"),
                     FieldElementExpression::Number(Bn128Field::from(7)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("b"),
+                    zir::Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box 0u32.into(),
@@ -3316,11 +3307,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::field_element("a"),
+                    zir::Variable::field_element("a"),
                     FieldElementExpression::Number(Bn128Field::from(7)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("b"),
+                    zir::Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box 1u32.into(),
@@ -3395,11 +3386,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    Variable::field_element("a"),
+                    zir::Variable::field_element("a"),
                     FieldElementExpression::Number(Bn128Field::from(7)).into(),
                 ),
                 ZirStatement::Definition(
-                    Variable::field_element("b"),
+                    zir::Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box 13u32.into(),
@@ -3542,12 +3533,12 @@ mod tests {
         let mut statements_flattened = FlatStatements::new();
 
         let definition = ZirStatement::Definition(
-            Variable::field_element("b"),
+            zir::Variable::field_element("b"),
             FieldElementExpression::Number(Bn128Field::from(42)).into(),
         );
 
         let statement = ZirStatement::Definition(
-            Variable::field_element("a"),
+            zir::Variable::field_element("a"),
             FieldElementExpression::Div(
                 box FieldElementExpression::Div(
                     box FieldElementExpression::Number(Bn128Field::from(5)),

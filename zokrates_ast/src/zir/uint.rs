@@ -4,12 +4,14 @@ use crate::zir::BooleanExpression;
 use zokrates_field::Field;
 
 impl<'ast, T: Field> UExpression<'ast, T> {
+    #[allow(clippy::should_implement_trait)]
     pub fn add(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Add(box self, box other).annotate(bitwidth)
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn sub(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
@@ -27,12 +29,14 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::Mult(box self, box other).annotate(bitwidth)
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn div(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Div(box self, box other).annotate(bitwidth)
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn rem(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
@@ -45,6 +49,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::Xor(box self, box other).annotate(bitwidth)
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn not(self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         UExpressionInner::Not(box self).annotate(bitwidth)

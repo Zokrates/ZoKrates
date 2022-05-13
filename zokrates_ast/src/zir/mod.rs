@@ -100,6 +100,12 @@ impl fmt::Display for RuntimeError {
     }
 }
 
+impl RuntimeError {
+    pub fn mock() -> Self {
+        RuntimeError::SourceAssertion(String::default())
+    }
+}
+
 /// A statement in a `ZirFunction`
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum ZirStatement<'ast, T> {

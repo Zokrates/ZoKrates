@@ -8,7 +8,6 @@ pub struct GParameter<'ast, S> {
     pub private: bool,
 }
 
-#[cfg(test)]
 impl<'ast, S> From<GVariable<'ast, S>> for GParameter<'ast, S> {
     fn from(v: GVariable<'ast, S>) -> Self {
         GParameter {

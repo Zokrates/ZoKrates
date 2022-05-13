@@ -15,7 +15,7 @@ impl<T: Field> Encode<T> for Inputs<T> {
 }
 
 use std::fmt;
-use zokrates_core::typed_absy::types::{ConcreteType, UBitwidth};
+use zokrates_ast::typed::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
 
@@ -380,9 +380,7 @@ pub fn parse_strict_json<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_core::typed_absy::types::{
-        ConcreteStructMember, ConcreteStructType, ConcreteType,
-    };
+    use zokrates_ast::typed::types::{ConcreteStructMember, ConcreteStructType, ConcreteType};
     use zokrates_field::Bn128Field;
 
     #[test]

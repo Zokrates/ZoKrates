@@ -1,0 +1,15 @@
+[package]
+name = "zokrates_libsnark"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems" }
+
+[dev-dependencies]
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
+
+[build-dependencies]
+cc = { version = "1.0", features = ["parallel"] }
+cmake = { version = "=0.1.45" }

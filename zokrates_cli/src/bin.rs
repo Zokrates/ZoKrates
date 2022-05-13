@@ -122,7 +122,6 @@ mod tests {
     use std::string::String;
     use typed_arena::Arena;
     use zokrates_core::compile::{compile, CompilationArtifacts, CompileConfig};
-    use zokrates_core::ir;
     use zokrates_field::Bn128Field;
     use zokrates_fs_resolver::FileSystemResolver;
 
@@ -217,7 +216,7 @@ mod tests {
             )
             .unwrap();
 
-            let interpreter = ir::Interpreter::default();
+            let interpreter = zokrates_interpreter::Interpreter::default();
 
             let _ = interpreter
                 .execute(artifacts.prog(), &[Bn128Field::from(0)])
@@ -257,7 +256,7 @@ mod tests {
             )
             .unwrap();
 
-            let interpreter = ir::Interpreter::default();
+            let interpreter = zokrates_interpreter::Interpreter::default();
 
             let res = interpreter.execute(artifacts.prog(), &[Bn128Field::from(0)]);
 

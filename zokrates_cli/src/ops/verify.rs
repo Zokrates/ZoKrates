@@ -4,17 +4,17 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+#[cfg(feature = "ark")]
+use zokrates_ark::Ark;
+#[cfg(feature = "bellman")]
+use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
-#[cfg(feature = "ark")]
-use zokrates_core::proof_system::ark::Ark;
-#[cfg(feature = "bellman")]
-use zokrates_core::proof_system::bellman::Bellman;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::Libsnark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-use zokrates_core::proof_system::*;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+#[cfg(feature = "libsnark")]
+use zokrates_libsnark::Libsnark;
+#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("verify")

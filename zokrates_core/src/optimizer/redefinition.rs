@@ -36,8 +36,8 @@
 //     - `q == k * v if v isn't in i`: insert `v` into `i` and return `c_0`
 //     - otherwise return `c_0`
 
-use crate::flat_absy::Variable;
 use std::collections::{HashMap, HashSet};
+use zokrates_ast::flat::Variable;
 use zokrates_ast::ir::folder::Folder;
 use zokrates_ast::ir::LinComb;
 use zokrates_ast::ir::*;
@@ -198,7 +198,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flat_absy::Parameter;
+    use zokrates_ast::flat::Parameter;
     use zokrates_field::Bn128Field;
 
     #[test]

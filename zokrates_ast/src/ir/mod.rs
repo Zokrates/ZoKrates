@@ -4,9 +4,10 @@ use std::fmt;
 use std::hash::Hash;
 use zokrates_field::Field;
 
+mod check;
 mod expression;
 pub mod folder;
-//pub mod from_flat;
+pub mod from_flat;
 mod serialize;
 pub mod smtlib2;
 pub mod visitor;

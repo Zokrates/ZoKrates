@@ -1,8 +1,6 @@
-use crate::proof_system::scheme::{Scheme, UniversalScheme};
-use crate::proof_system::solidity::{
-    solidity_pairing_lib, SolidityCompatibleField, SolidityCompatibleScheme,
-};
-use crate::proof_system::{Fr, G1Affine, G2Affine, NotBw6_761Field};
+use crate::scheme::{Scheme, UniversalScheme};
+use crate::solidity::{solidity_pairing_lib, SolidityCompatibleField, SolidityCompatibleScheme};
+use crate::{Fr, G1Affine, G2Affine};
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
@@ -86,7 +84,7 @@ impl<T: Field> Scheme<T> for Marlin {
 
 impl<T: Field> UniversalScheme<T> for Marlin {}
 
-impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for Marlin {
+impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
     type Proof = SolidityProof<Fr, G1Affine>;
 
     fn export_solidity_verifier(vk: <Marlin as Scheme<T>>::VerificationKey) -> String {

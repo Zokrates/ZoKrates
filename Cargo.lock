@@ -1067,17 +1067,6 @@ dependencies = [
 
 [[package]]
 name = "ff_ce"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83c0a6a2c53b0bd6d8cae976816dc8a171e0554c03f304e3dac110473e0219fd"
-dependencies = [
- "byteorder",
- "hex 0.4.3",
- "rand 0.4.6",
-]
-
-[[package]]
-name = "ff_ce"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4592897f75fd1bd178e5ec12d9d7df3d1943464feda2cbce1e708a484e82c8f6"
@@ -1671,7 +1660,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfc00d65b1d29e0a067a967fcea83d8db261c149f76a557ba73f0304f01cdfde"
 dependencies = [
  "byteorder",
- "ff_ce 0.10.3",
+ "ff_ce",
  "rand 0.4.6",
 ]
 
@@ -2827,7 +2816,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "zokrates_core",
+ "zokrates_ast",
  "zokrates_field",
 ]
 
@@ -2835,22 +2824,60 @@ dependencies = [
 name = "zokrates_ark"
 version = "0.1.0"
 dependencies = [
+ "ark-bls12-377",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff",
+ "ark-gm17",
+ "ark-groth16",
+ "ark-marlin",
+ "ark-poly",
+ "ark-poly-commit",
+ "ark-relations",
+ "ark-serialize",
+ "digest 0.9.0",
+ "hex 0.4.3",
+ "rand 0.8.5",
+ "sha3 0.9.1",
  "zokrates_ast",
  "zokrates_field",
+ "zokrates_interpreter",
+ "zokrates_proof_systems",
 ]
 
 [[package]]
 name = "zokrates_ast"
 version = "0.1.0"
 dependencies = [
+ "ark-bls12-377",
  "cfg-if 0.1.10",
  "csv",
  "num-bigint 0.2.6",
+ "pairing_ce",
  "serde",
  "serde_cbor",
  "serde_json",
+ "zokrates_embed",
  "zokrates_field",
  "zokrates_pest_ast",
+]
+
+[[package]]
+name = "zokrates_bellman"
+version = "0.1.0"
+dependencies = [
+ "bellman_ce",
+ "getrandom",
+ "hex 0.4.3",
+ "pairing_ce",
+ "phase2",
+ "rand 0.4.6",
+ "zokrates_ast",
+ "zokrates_field",
+ "zokrates_interpreter",
+ "zokrates_proof_systems",
 ]
 
 [[package]]
@@ -2881,10 +2908,16 @@ dependencies = [
  "tempdir",
  "typed-arena",
  "zokrates_abi",
+ "zokrates_ark",
+ "zokrates_ast",
+ "zokrates_bellman",
  "zokrates_common",
  "zokrates_core",
  "zokrates_field",
  "zokrates_fs_resolver",
+ "zokrates_interpreter",
+ "zokrates_libsnark",
+ "zokrates_proof_systems",
  "zokrates_solidity_test",
 ]
 
@@ -2896,46 +2929,17 @@ version = "0.1.0"
 name = "zokrates_core"
 version = "0.6.12"
 dependencies = [
- "ark-bls12-377",
- "ark-bn254",
- "ark-bw6-761",
- "ark-crypto-primitives",
- "ark-ec",
- "ark-ff",
- "ark-gm17",
- "ark-groth16",
- "ark-marlin",
- "ark-poly",
- "ark-poly-commit",
- "ark-relations",
- "ark-serialize",
- "bellman_ce",
- "cc",
  "cfg-if 0.1.10",
- "cmake",
  "csv",
- "digest 0.9.0",
- "ethabi",
- "ff_ce 0.9.0",
- "getrandom",
- "hex 0.4.3",
  "lazy_static",
  "log",
  "num 0.1.42",
  "num-bigint 0.2.6",
- "pairing_ce",
- "phase2",
  "pretty_assertions",
- "primitive-types",
- "rand 0.4.6",
- "rand 0.8.5",
  "reduce",
- "regex 0.2.11",
  "serde",
  "serde_json",
- "sha3 0.9.1",
  "typed-arena",
- "wasm-bindgen-test",
  "zokrates_ast",
  "zokrates_common",
  "zokrates_embed",
@@ -3007,10 +3011,23 @@ dependencies = [
 name = "zokrates_interpreter"
 version = "0.1.0"
 dependencies = [
+ "ark-bls12-377",
  "num 0.1.42",
  "num-bigint 0.2.6",
+ "pairing_ce",
+ "serde",
  "zokrates_ast",
+ "zokrates_embed",
  "zokrates_field",
+]
+
+[[package]]
+name = "zokrates_libsnark"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "cmake",
+ "zokrates_proof_systems",
 ]
 
 [[package]]
@@ -3032,6 +3049,21 @@ dependencies = [
  "pest",
  "pest-ast",
  "zokrates_parser",
+]
+
+[[package]]
+name = "zokrates_proof_systems"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "ethabi",
+ "hex 0.4.3",
+ "primitive-types",
+ "rand 0.4.6",
+ "regex 0.2.11",
+ "serde",
+ "zokrates_ast",
+ "zokrates_field",
 ]
 
 [[package]]
@@ -3065,10 +3097,16 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "typed-arena",
+ "wasm-bindgen-test",
  "zokrates_abi",
+ "zokrates_ark",
+ "zokrates_ast",
+ "zokrates_common",
  "zokrates_core",
  "zokrates_field",
  "zokrates_fs_resolver",
+ "zokrates_interpreter",
+ "zokrates_proof_systems",
 ]
 
 [[package]]

@@ -5,15 +5,15 @@
 // for structs, `Foo<N> { field[N] a }` is propagated to `Foo<42> { field[N] a }`. The missing step is replacing `N` by `42`
 // *inside* the canonical type, so that it can be concretized in the same way arrays are.
 
-use crate::typed_absy::{
+use std::marker::PhantomData;
+use zokrates_ast::typed::folder::*;
+use zokrates_ast::typed::{
     types::{
         ConcreteGenericsAssignment, DeclarationArrayType, DeclarationConstant,
         DeclarationStructMember, GGenericsAssignment,
     },
     DeclarationStructType, GenericIdentifier, TypedProgram,
 };
-use std::marker::PhantomData;
-use zokrates_ast::typed::folder::*;
 use zokrates_field::Field;
 
 pub struct StructConcretizer<'ast, T> {

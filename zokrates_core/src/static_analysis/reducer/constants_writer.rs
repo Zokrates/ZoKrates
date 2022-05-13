@@ -3,12 +3,12 @@
 use crate::static_analysis::reducer::{
     constants_reader::ConstantsReader, reduce_function, ConstantDefinitions, Error,
 };
-use crate::typed_absy::{
+use std::collections::{BTreeMap, HashSet};
+use zokrates_ast::typed::{
     result_folder::*, types::ConcreteGenericsAssignment, OwnedTypedModuleId, TypedConstant,
     TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId, TypedProgram,
     TypedSymbolDeclaration, UExpression,
 };
-use std::collections::{BTreeMap, HashSet};
 use zokrates_field::Field;
 
 pub struct ConstantsWriter<'ast, T> {
@@ -105,11 +105,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
 
                 // if constants were used in the rhs, they are now defined in the map
                 // replace them in the expression
-                use crate::typed_absy::folder::Folder;
+                use zokrates_ast::typed::folder::Folder;
 
                 let c = ConstantsReader::with_constants(&self.constants).fold_constant(c);
 
-                use crate::typed_absy::{DeclarationSignature, TypedFunction, TypedStatement};
+                use zokrates_ast::typed::{DeclarationSignature, TypedFunction, TypedStatement};
 
                 // wrap this expression in a function
                 let wrapper = TypedFunction {
@@ -130,13 +130,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                     assert_eq!(expressions.len(), 1);
                     let constant_expression = expressions.pop().unwrap();
 
-                    use crate::typed_absy::Constant;
+                    use zokrates_ast::typed::Constant;
                     if !constant_expression.is_constant() {
                         return Err(Error::ConstantReduction(id.id.to_string(), id.module));
                     };
 
-                    use crate::typed_absy::Typed;
-                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(
+                    use zokrates_ast::typed::Typed;
+                    if zokrates_ast::typed::types::try_from_g_type::<_, UExpression<'ast, T>>(
                         c.ty.clone(),
                     )
                     .unwrap()

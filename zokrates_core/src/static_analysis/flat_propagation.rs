@@ -4,11 +4,12 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use crate::flat_absy::*;
 use std::collections::HashMap;
 use zokrates_ast::flat::folder::*;
+use zokrates_ast::flat::*;
 use zokrates_field::Field;
 
+#[derive(Default)]
 struct Propagator<T> {
     constants: HashMap<Variable, T>,
 }
@@ -77,39 +78,45 @@ mod tests {
 
             #[test]
             fn add() {
+                let mut propagator = Propagator::default();
+
                 let e = FlatExpression::Add(
                     box FlatExpression::Number(Bn128Field::from(2)),
                     box FlatExpression::Number(Bn128Field::from(3)),
                 );
 
                 assert_eq!(
-                    e.propagate(&mut HashMap::new()),
+                    propagator.fold_expression(e),
                     FlatExpression::Number(Bn128Field::from(5))
                 );
             }
 
             #[test]
             fn sub() {
+                let mut propagator = Propagator::default();
+
                 let e = FlatExpression::Sub(
                     box FlatExpression::Number(Bn128Field::from(3)),
                     box FlatExpression::Number(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
-                    e.propagate(&mut HashMap::new()),
+                    propagator.fold_expression(e),
                     FlatExpression::Number(Bn128Field::from(1))
                 );
             }
 
             #[test]
             fn mult() {
+                let mut propagator = Propagator::default();
+
                 let e = FlatExpression::Mult(
                     box FlatExpression::Number(Bn128Field::from(3)),
                     box FlatExpression::Number(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
-                    e.propagate(&mut HashMap::new()),
+                    propagator.fold_expression(e),
                     FlatExpression::Number(Bn128Field::from(6))
                 );
             }

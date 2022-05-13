@@ -4,10 +4,10 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use crate::typed_absy::types::{MemberId, Type};
-use crate::typed_absy::*;
 use std::collections::HashSet;
 use zokrates_ast::typed::folder::*;
+use zokrates_ast::typed::types::{MemberId, Type};
+use zokrates_ast::typed::*;
 use zokrates_field::Field;
 
 pub struct VariableWriteRemover;

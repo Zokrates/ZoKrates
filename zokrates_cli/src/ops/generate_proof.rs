@@ -4,19 +4,18 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
+#[cfg(feature = "ark")]
+use zokrates_ark::Ark;
+use zokrates_ast::ir::{self, ProgEnum};
+#[cfg(feature = "bellman")]
+use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
-use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
-#[cfg(feature = "ark")]
-use zokrates_core::proof_system::ark::Ark;
-#[cfg(feature = "bellman")]
-use zokrates_core::proof_system::bellman::Bellman;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::Libsnark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-use zokrates_core::proof_system::*;
 use zokrates_field::Field;
+#[cfg(feature = "libsnark")]
+use zokrates_libsnark::Libsnark;
+#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("generate-proof")

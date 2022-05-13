@@ -7,9 +7,9 @@ edition = "2018"
 
 [features]
 default = ["bellman", "ark"]
-libsnark = ["zokrates_core/libsnark", "zokrates_common/libsnark"]
-bellman = ["zokrates_core/bellman", "zokrates_common/bellman"]
-ark = ["zokrates_core/ark", "zokrates_common/ark"]
+libsnark = ["zokrates_libsnark"]
+bellman = ["zokrates_bellman", "zokrates_core/bellman"]
+ark = ["zokrates_ark", "zokrates_core/ark"]
 
 [dependencies]
 log = "0.4"
@@ -21,6 +21,8 @@ regex = "0.2"
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
 zokrates_core = { version = "0.6", path = "../zokrates_core", default-features = false }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", default-features = false }
 typed-arena = "1.4.1"
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 zokrates_common = { version = "0.1", path = "../zokrates_common" }
@@ -34,6 +36,12 @@ rand_0_8 = { version = "0.8", package = "rand" }
 hex = "0.3.1"
 blake2 = "0.8.1"
 sha2 = "0.10.0"
+
+# Backends
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
+zokrates_libsnark = { version = "0.1", path = "../zokrates_libsnark", default-features = false, optional = true }
+zokrates_ark = { version = "0.1", path = "../zokrates_ark", default-features = false, optional = true }
+zokrates_bellman = { version = "0.1", path = "../zokrates_bellman", default-features = false, optional = true }
 
 [dev-dependencies]
 glob = "0.2.11"

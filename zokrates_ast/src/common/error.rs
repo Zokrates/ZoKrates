@@ -32,6 +32,15 @@ pub enum RuntimeError {
     SelectRangeCheck,
 }
 
+impl From<crate::zir::RuntimeError> for RuntimeError {
+    fn from(error: crate::zir::RuntimeError) -> Self {
+        match error {
+            crate::zir::RuntimeError::SourceAssertion(s) => RuntimeError::SourceAssertion(s),
+            crate::zir::RuntimeError::SelectRangeCheck => RuntimeError::SelectRangeCheck,
+        }
+    }
+}
+
 impl RuntimeError {
     pub fn is_malicious(&self) -> bool {
         use RuntimeError::*;

@@ -83,8 +83,10 @@ fn bellman_combination<T: BellmanFieldExtensions, CS: ConstraintSystem<T::Bellma
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
+impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
+    Circuit<T::BellmanEngine> for Computation<T, I>
+{
+    fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
     ) -> Result<(), SynthesisError> {
@@ -95,7 +97,7 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Co
 
         assert!(symbols.insert(Variable::one(), CS::one()).is_none());
 
-        symbols.extend(self.arguments.iter().enumerate().map(|(index, p)| {
+        symbols.extend(self.program.arguments.iter().enumerate().map(|(index, p)| {
             let wire = match p.private {
                 true => cs.alloc(
                     || format!("PRIVATE_INPUT_{}", index),
@@ -122,7 +124,7 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Co
             (p.id, wire)
         }));
 
-        for statement in self.statements {
+        for statement in self.program.statements {
             if let Statement::Constraint(quad, lin, _) = statement {
                 let a = &bellman_combination(
                     quad.left.into_canonical(),
@@ -193,21 +195,10 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Co
     }
 }
 
-impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>>
-    Circuit<T::BellmanEngine> for Computation<T, I>
-{
-    fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
-        self,
-        cs: &mut CS,
-    ) -> Result<(), SynthesisError> {
-        self.program.synthesize(cs, self.witness)
-    }
-}
-
 mod parse {
     use super::*;
-    use crate::proof_system::{G1Affine, G2Affine};
-    use pairing_ce::CurveAffine;
+    use pairing::CurveAffine;
+    use zokrates_proof_systems::{G1Affine, G2Affine, G2AffineFq2};
 
     fn to_hex(bytes: &[u8]) -> String {
         let mut hex = hex::encode(bytes);
@@ -240,7 +231,7 @@ mod parse {
         let y1 = to_hex(iter.next().unwrap());
         let y0 = to_hex(iter.next().unwrap());
 
-        G2Affine((x0, x1), (y0, y1))
+        G2Affine::Fq2(G2AffineFq2((x0, x1), (y0, y1)))
     }
 }
 
@@ -253,7 +244,7 @@ mod tests {
 
     mod prove {
         use super::*;
-        use crate::flat_absy::Parameter;
+        use zokrates_ast::flat::Parameter;
         use zokrates_ast::ir::Prog;
 
         #[test]

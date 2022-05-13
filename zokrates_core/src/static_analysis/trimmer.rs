@@ -1,5 +1,5 @@
-use crate::typed_absy::TypedModule;
-use crate::typed_absy::{TypedFunctionSymbol, TypedProgram};
+use zokrates_ast::typed::TypedModule;
+use zokrates_ast::typed::{TypedFunctionSymbol, TypedProgram};
 use zokrates_field::Field;
 
 pub struct Trimmer;

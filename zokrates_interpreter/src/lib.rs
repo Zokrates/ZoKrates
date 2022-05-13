@@ -1,4 +1,4 @@
-use num::traits::ops::checked::CheckedDiv;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use zokrates_ast::ir::{
     LinComb, ProgIterator, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
@@ -207,7 +207,7 @@ impl Interpreter {
                 generate_sha256_round_witness::<Bn256>(&i, &h)
                     .into_iter()
                     .map(|x| {
-                        use bellman_ce::pairing::ff::{PrimeField, PrimeFieldRepr};
+                        use pairing_ce::ff::{PrimeField, PrimeFieldRepr};
                         let mut res: Vec<u8> = vec![];
                         x.into_repr().write_le(&mut res).unwrap();
                         T::from_byte_vector(res)
@@ -237,7 +237,7 @@ impl Interpreter {
 #[derive(Debug)]
 pub struct EvaluationError;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub enum Error {
     UnsatisfiedConstraint { error: Option<RuntimeError> },
     Solver,

@@ -4,23 +4,21 @@ extern crate wasm_bindgen_test;
 extern crate zokrates_core;
 extern crate zokrates_field;
 use wasm_bindgen_test::*;
-use zokrates_core::flat_absy::{FlatParameter, FlatVariable};
-use zokrates_core::ir::{Interpreter, Prog, Statement};
-use zokrates_core::proof_system::{Backend, NonUniversalBackend};
+use zokrates_ast::flat::{Parameter, Variable};
+use zokrates_ast::ir::{Prog, Statement};
 use zokrates_field::Bn128Field;
+use zokrates_interpreter::Interpreter;
+use zokrates_proof_systems::{Backend, NonUniversalBackend};
 
-use zokrates_core::proof_system::ark::Ark;
-use zokrates_core::proof_system::groth16::G16;
+use zokrates_ark::Ark;
+use zokrates_proof_systems::groth16::G16;
 
 #[wasm_bindgen_test]
 fn generate_proof() {
     let program: Prog<Bn128Field> = Prog {
-        arguments: vec![FlatParameter::public(FlatVariable::new(0))],
+        arguments: vec![Parameter::public(Variable::new(0))],
         return_count: 1,
-        statements: vec![Statement::constraint(
-            FlatVariable::new(0),
-            FlatVariable::new(0),
-        )],
+        statements: vec![Statement::constraint(Variable::new(0), Variable::new(0))],
     };
 
     let interpreter = Interpreter::default();

@@ -1,4 +1,4 @@
-use crate::proof_system::Scheme;
+use crate::Scheme;
 use serde::{de::DeserializeOwned, Serialize};
 use zokrates_field::{Bn128Field, Field};
 

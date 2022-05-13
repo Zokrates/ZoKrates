@@ -6,8 +6,8 @@ use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
 use zokrates_common::constants;
 use zokrates_common::helpers::{CurveParameter, SchemeParameter};
-use zokrates_core::proof_system::*;
 use zokrates_field::Bn128Field;
+use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("export-verifier")

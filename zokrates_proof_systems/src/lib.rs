@@ -1,8 +1,3 @@
-#[cfg(feature = "bellman")]
-pub mod bellman;
-#[cfg(feature = "libsnark")]
-pub mod libsnark;
-
 pub mod to_token;
 
 mod scheme;
@@ -15,20 +10,11 @@ use zokrates_ast::ir;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Field};
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "bellman")] {
-        use rand_0_4::Rng;
-        use std::io::{Read, Write};
-        use zokrates_field::BellmanFieldExtensions;
-    }
-}
+use rand_0_4::Rng;
+use std::io::{Read, Write};
 
-pub trait NotBw6_761Field {}
-impl NotBw6_761Field for Bls12_377Field {}
-impl NotBw6_761Field for Bls12_381Field {}
-impl NotBw6_761Field for Bn128Field {}
+use zokrates_field::Field;
 
 #[derive(Serialize)]
 pub struct SetupKeypair<V> {
@@ -50,7 +36,7 @@ pub struct Proof<T: Field, S: Scheme<T>> {
 
 #[allow(dead_code)]
 impl<T: Field, S: Scheme<T>> Proof<T, S> {
-    fn new(proof: S::ProofPoints, inputs: Vec<String>) -> Self {
+    pub fn new(proof: S::ProofPoints, inputs: Vec<String>) -> Self {
         Proof { proof, inputs }
     }
 }
@@ -62,13 +48,29 @@ pub type Fq2 = (String, String);
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct G1Affine(pub Fq, pub Fq);
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum G2Affine {
+    Fq2(G2AffineFq2),
+    Fq(G2AffineFq),
+}
+
+impl ToString for G2Affine {
+    fn to_string(&self) -> String {
+        match self {
+            G2Affine::Fq(e) => e.to_string(),
+            G2Affine::Fq2(e) => e.to_string(),
+        }
+    }
+}
+
 // When G2 is defined on Fq2 field
 #[derive(Serialize, Deserialize, Clone)]
-pub struct G2Affine(Fq2, Fq2);
+pub struct G2AffineFq2(pub Fq2, pub Fq2);
 
 // When G2 is defined on a Fq field (BW6_761 curve)
 #[derive(Serialize, Deserialize, Clone)]
-pub struct G2AffineFq(Fq, Fq);
+pub struct G2AffineFq(pub Fq, pub Fq);
 
 impl ToString for G1Affine {
     fn to_string(&self) -> String {
@@ -81,7 +83,7 @@ impl ToString for G2AffineFq {
         format!("{}, {}", self.0, self.1)
     }
 }
-impl ToString for G2Affine {
+impl ToString for G2AffineFq2 {
     fn to_string(&self) -> String {
         format!(
             "[{}, {}], [{}, {}]",
@@ -117,8 +119,7 @@ pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
     ) -> Result<SetupKeypair<S::VerificationKey>, String>;
 }
 
-#[cfg(feature = "bellman")]
-pub trait MpcBackend<T: Field + BellmanFieldExtensions, S: Scheme<T>> {
+pub trait MpcBackend<T: Field, S: Scheme<T>> {
     fn initialize<R: Read, W: Write, I: IntoIterator<Item = ir::Statement<T>>>(
         program: ir::ProgIterator<T, I>,
         phase1_radix: &mut R,

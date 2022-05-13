@@ -85,12 +85,6 @@ pub struct TypedProgram<'ast, T> {
     pub main: OwnedTypedModuleId,
 }
 
-impl<'ast, T> TypedProgram<'ast, T> {
-    pub fn main_function(&self) -> TypedFunction<'ast, T> {
-        unimplemented!()
-    }
-}
-
 impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn abi(&self) -> Abi {
         let main = &self.modules[&self.main]

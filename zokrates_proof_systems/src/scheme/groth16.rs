@@ -1,8 +1,6 @@
-use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::solidity_pairing_lib;
-use crate::proof_system::{
-    G1Affine, G2Affine, MpcScheme, SolidityCompatibleField, SolidityCompatibleScheme,
-};
+use crate::scheme::{NonUniversalScheme, Scheme};
+use crate::solidity::solidity_pairing_lib;
+use crate::{G1Affine, G2Affine, MpcScheme, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;

@@ -1,12 +1,9 @@
-use crate::proof_system::scheme::{NonUniversalScheme, Scheme};
-use crate::proof_system::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
-use crate::proof_system::{
-    G1Affine, G2Affine, G2AffineFq, NotBw6_761Field, SolidityCompatibleField,
-    SolidityCompatibleScheme,
-};
+use crate::scheme::{NonUniversalScheme, Scheme};
+use crate::solidity::{solidity_pairing_lib, SOLIDITY_G2_ADDITION_LIB};
+use crate::{G1Affine, G2Affine, SolidityCompatibleField, SolidityCompatibleScheme};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use zokrates_field::{Bw6_761Field, Field};
+use zokrates_field::Field;
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct GM17;
@@ -28,21 +25,14 @@ pub struct VerificationKey<G1, G2> {
     pub query: Vec<G1>,
 }
 
-impl<T: Field + NotBw6_761Field> NonUniversalScheme<T> for GM17 {}
+impl<T: Field> NonUniversalScheme<T> for GM17 {}
 
-impl NonUniversalScheme<Bw6_761Field> for GM17 {}
-
-impl<T: Field + NotBw6_761Field> Scheme<T> for GM17 {
+impl<T: Field> Scheme<T> for GM17 {
     type VerificationKey = VerificationKey<G1Affine, G2Affine>;
     type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 }
 
-impl Scheme<Bw6_761Field> for GM17 {
-    type VerificationKey = VerificationKey<G1Affine, G2AffineFq>;
-    type ProofPoints = ProofPoints<G1Affine, G2AffineFq>;
-}
-
-impl<T: SolidityCompatibleField + NotBw6_761Field> SolidityCompatibleScheme<T> for GM17 {
+impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for GM17 {
     type Proof = Self::ProofPoints;
 
     fn export_solidity_verifier(vk: <GM17 as Scheme<T>>::VerificationKey) -> String {

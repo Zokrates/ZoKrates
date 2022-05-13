@@ -17,14 +17,14 @@ mod inline;
 mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
-use crate::typed_absy::result_folder::*;
-use crate::typed_absy::types::ConcreteGenericsAssignment;
-use crate::typed_absy::types::GGenericsAssignment;
-use crate::typed_absy::CanonicalConstantIdentifier;
-use crate::typed_absy::Folder;
 use std::collections::HashMap;
+use zokrates_ast::typed::result_folder::*;
+use zokrates_ast::typed::types::ConcreteGenericsAssignment;
+use zokrates_ast::typed::types::GGenericsAssignment;
+use zokrates_ast::typed::CanonicalConstantIdentifier;
+use zokrates_ast::typed::Folder;
 
-use crate::typed_absy::{
+use zokrates_ast::typed::{
     ArrayExpressionInner, ArrayType, BlockExpression, CoreIdentifier, Expr, FunctionCall,
     FunctionCallExpression, FunctionCallOrExpression, Id, Identifier, OwnedTypedModuleId,
     TypedExpression, TypedExpressionList, TypedExpressionListInner, TypedFunction,
@@ -640,9 +640,9 @@ fn compute_hash<T: Field>(f: &TypedFunction<T>) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::DeclarationConstant;
-    use crate::typed_absy::types::DeclarationSignature;
-    use crate::typed_absy::{
+    use zokrates_ast::typed::types::DeclarationConstant;
+    use zokrates_ast::typed::types::DeclarationSignature;
+    use zokrates_ast::typed::{
         ArrayExpression, ArrayExpressionInner, DeclarationFunctionKey, DeclarationType,
         DeclarationVariable, FieldElementExpression, GenericIdentifier, Identifier,
         OwnedTypedModuleId, Select, Type, TypedExpression, TypedExpressionList,
