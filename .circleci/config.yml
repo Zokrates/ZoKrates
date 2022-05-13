@@ -68,8 +68,8 @@ jobs:
       - run:
           name: Test on firefox
           command: |
-            cd zokrates_core
-            wasm-pack test --firefox --headless -- --no-default-features --features "wasm ark"
+            cd zokrates_test
+            wasm-pack test --firefox --headless
       - save-sccache-cache
   integration_test:
     docker:

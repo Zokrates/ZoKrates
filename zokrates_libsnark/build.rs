@@ -6,8 +6,8 @@ fn main() {
         use std::process::Command;
 
         // fetch libsnark source
-        const LIBSNARK_URL: &'static str = "https://github.com/scipr-lab/libsnark.git";
-        const LIBSNARK_COMMIT: &'static str = "f7c87b88744ecfd008126d415494d9b34c4c1b20";
+        const LIBSNARK_URL: &str = "https://github.com/scipr-lab/libsnark.git";
+        const LIBSNARK_COMMIT: &str = "f7c87b88744ecfd008126d415494d9b34c4c1b20";
 
         let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
         let libsnark_source_path = &out_path.join("libsnark");

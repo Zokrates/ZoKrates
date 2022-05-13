@@ -20,7 +20,7 @@ extern "C" {
 }
 
 impl Buffer {
-    pub fn from_vec(v: &Vec<u8>) -> Buffer {
+    pub fn from_vec(v: &[u8]) -> Buffer {
         let data = v.as_ptr();
         let len = v.len();
 
