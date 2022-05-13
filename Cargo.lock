@@ -3027,6 +3027,10 @@ version = "0.1.0"
 dependencies = [
  "cc",
  "cmake",
+ "hex 0.4.3",
+ "zokrates_ast",
+ "zokrates_field",
+ "zokrates_interpreter",
  "zokrates_proof_systems",
 ]
 

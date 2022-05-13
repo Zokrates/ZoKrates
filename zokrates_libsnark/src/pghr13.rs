@@ -1,16 +1,16 @@
-use crate::proof_system::libsnark::ffi::{c_free, Buffer, ProofResult, SetupResult};
-use crate::proof_system::libsnark::{
-    prepare_generate_proof, prepare_public_inputs, prepare_setup, Libsnark,
+use crate::ffi::{c_free, Buffer, ProofResult, SetupResult};
+use crate::{prepare_generate_proof, prepare_public_inputs, prepare_setup, Libsnark};
+use zokrates_proof_systems::{
+    Backend, G1Affine, G2Affine, NonUniversalBackend, Proof, SetupKeypair,
 };
-use crate::proof_system::{Backend, G1Affine, G2Affine, NonUniversalBackend, Proof, SetupKeypair};
 
-use crate::proof_system::libsnark::serialization::{read_g1, read_g2, write_g1, write_g2};
-use crate::proof_system::pghr13::{ProofPoints, VerificationKey, PGHR13};
-use crate::proof_system::Scheme;
+use crate::serialization::{read_g1, read_g2, write_g1, write_g2};
 use std::io::{BufReader, BufWriter, Write};
 use zokrates_ast::ir::{ProgIterator, Statement, Witness};
 use zokrates_field::Bn128Field;
 use zokrates_field::Field;
+use zokrates_proof_systems::pghr13::{ProofPoints, VerificationKey, PGHR13};
+use zokrates_proof_systems::Scheme;
 
 extern "C" {
     fn pghr13_bn128_setup(
@@ -222,23 +222,22 @@ impl NonUniversalBackend<Bn128Field, PGHR13> for Libsnark {
     }
 }
 
-#[cfg(feature = "libsnark")]
 #[cfg(test)]
+#[cfg(not(target_os = "macos"))]
+
 mod tests {
     use super::*;
-    use crate::flat_absy::{FlatParameter, FlatVariable};
-    use zokrates_ast::ir::{Interpreter, Prog, Statement};
+    use zokrates_ast::flat::{Parameter, Variable};
+    use zokrates_ast::ir::{Prog, Statement};
     use zokrates_field::Bn128Field;
+    use zokrates_interpreter::Interpreter;
 
     #[test]
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
-            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+            arguments: vec![Parameter::private(Variable::new(0))],
             return_count: 1,
-            statements: vec![Statement::constraint(
-                FlatVariable::new(0),
-                FlatVariable::public(0),
-            )],
+            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
         let keypair = <Libsnark as NonUniversalBackend<Bn128Field, PGHR13>>::setup(program.clone());

@@ -16,7 +16,8 @@ members = [
     "zokrates_interpreter",
     "zokrates_embed",
     "zokrates_bellman",
+    "zokrates_libsnark",
     "zokrates_proof_systems",
 ]
 
-exclude = ["zokrates_js", "zokrates_libsnark"]
+exclude = ["zokrates_js"]

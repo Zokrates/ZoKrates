@@ -1,4 +1,5 @@
 fn main() {
+    #[cfg(not(target_os = "macos"))]
     {
         use std::env;
         use std::path::PathBuf;

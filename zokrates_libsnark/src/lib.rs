@@ -2,9 +2,9 @@ mod ffi;
 pub mod gm17;
 pub mod pghr13;
 
-use crate::flat_absy::FlatVariable;
 use std::cmp::max;
 use std::collections::HashMap;
+use zokrates_ast::common::Variable;
 use zokrates_ast::ir::{self, Statement};
 use zokrates_field::Field;
 
@@ -197,10 +197,7 @@ pub fn prepare_generate_proof<T: Field>(
 ///
 /// * `variables` - A mutual map that maps all existing variables to their index.
 /// * `var` - Variable to be searched for.
-pub fn provide_variable_idx(
-    variables: &mut HashMap<FlatVariable, usize>,
-    var: &FlatVariable,
-) -> usize {
+pub fn provide_variable_idx(variables: &mut HashMap<Variable, usize>, var: &Variable) -> usize {
     let index = variables.len();
     *variables.entry(*var).or_insert(index)
 }
@@ -215,14 +212,14 @@ pub fn provide_variable_idx(
 pub fn r1cs_program<T: Field>(
     prog: ir::Prog<T>,
 ) -> (
-    Vec<FlatVariable>,
+    Vec<Variable>,
     usize,
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
 ) {
-    let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
-    provide_variable_idx(&mut variables, &FlatVariable::one());
+    let mut variables: HashMap<Variable, usize> = HashMap::new();
+    provide_variable_idx(&mut variables, &Variable::one());
 
     for x in prog.arguments.iter().filter(|p| !p.private) {
         provide_variable_idx(&mut variables, &x.id);
@@ -233,7 +230,7 @@ pub fn r1cs_program<T: Field>(
     let main_return_count = prog.returns().len();
 
     for i in 0..main_return_count {
-        provide_variable_idx(&mut variables, &FlatVariable::public(i));
+        provide_variable_idx(&mut variables, &Variable::public(i));
     }
 
     // position where private part of witness starts
@@ -287,18 +284,18 @@ pub fn r1cs_program<T: Field>(
     }
 
     // Convert map back into list ordered by index
-    let mut variables_list = vec![FlatVariable::new(0); variables.len()];
+    let mut variables_list = vec![Variable::new(0); variables.len()];
     for (k, v) in variables.drain() {
-        assert_eq!(variables_list[v], FlatVariable::new(0));
+        assert_eq!(variables_list[v], Variable::new(0));
         variables_list[v] = k;
     }
     (variables_list, private_inputs_offset, a, b, c)
 }
 
 pub mod serialization {
-    use crate::proof_system::{G1Affine, G2Affine};
     use std::io::Read;
     use std::io::Write;
+    use zokrates_proof_systems::{G1Affine, G2Affine, G2AffineFq2};
 
     #[inline]
     fn decode_hex(value: &String) -> Vec<u8> {
@@ -324,7 +321,7 @@ pub mod serialization {
         let mut buffer = [0; 128];
         reader.read_exact(&mut buffer).map_err(|_| ())?;
 
-        Ok(G2Affine(
+        Ok(G2Affine::Fq2(G2AffineFq2(
             (
                 encode_hex(&buffer[0..32].to_vec()),
                 encode_hex(&buffer[32..64].to_vec()),
@@ -333,7 +330,7 @@ pub mod serialization {
                 encode_hex(&buffer[64..96].to_vec()),
                 encode_hex(&buffer[96..128].to_vec()),
             ),
-        ))
+        )))
     }
 
     pub fn write_g1<W: Write>(writer: &mut W, g1: &G1Affine) {
@@ -342,9 +339,14 @@ pub mod serialization {
     }
 
     pub fn write_g2<W: Write>(writer: &mut W, g2: &G2Affine) {
-        writer.write(decode_hex(&(g2.0).0).as_ref()).unwrap();
-        writer.write(decode_hex(&(g2.0).1).as_ref()).unwrap();
-        writer.write(decode_hex(&(g2.1).0).as_ref()).unwrap();
-        writer.write(decode_hex(&(g2.1).1).as_ref()).unwrap();
+        match g2 {
+            G2Affine::Fq2(g2) => {
+                writer.write(decode_hex(&(g2.0).0).as_ref()).unwrap();
+                writer.write(decode_hex(&(g2.0).1).as_ref()).unwrap();
+                writer.write(decode_hex(&(g2.1).0).as_ref()).unwrap();
+                writer.write(decode_hex(&(g2.1).1).as_ref()).unwrap();
+            }
+            _ => unreachable!(),
+        }
     }
 }
