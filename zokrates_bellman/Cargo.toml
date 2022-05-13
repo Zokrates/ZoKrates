@@ -20,7 +20,7 @@ getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
 hex = "0.4.2"
 
 [dev-dependencies]
-zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", features = ["bellman"] }
 
 
 

@@ -5,8 +5,8 @@ edition = "2021"
 
 [features]
 default = ["bellman", "ark"]
-bellman = ["zokrates_field/bellman", "pairing_ce"]
-ark = ["ark-bls12-377"]
+bellman = ["zokrates_field/bellman", "pairing_ce", "zokrates_embed/bellman"]
+ark = ["ark-bls12-377", "zokrates_embed/ark"]
 
 [dependencies]
 zokrates_pest_ast = { version = "0.2.0", path = "../zokrates_pest_ast" }
@@ -17,7 +17,7 @@ csv = "1"
 serde_cbor = "0.11.2"
 num-bigint = { version = "0.2", default-features = false }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
+zokrates_embed = { version = "0.1.0", path = "../zokrates_embed", default-features = false }
 pairing_ce = { version = "^0.21", optional = true }
 ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
 

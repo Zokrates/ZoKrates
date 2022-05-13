@@ -29,6 +29,6 @@ rand_0_8 = { version = "0.8", package = "rand" }
 hex = "0.4.2"
 
 [dev-dependencies]
-zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", features = ["ark"] }
 
 

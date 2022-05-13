@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-zokrates_ast = { version = "0.1", path = "../zokrates_ast" }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
 hex = "0.4.2"
