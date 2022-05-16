@@ -3090,6 +3090,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
  "ethabi",
+ "getrandom",
  "hex 0.4.3",
  "primitive-types",
  "rand 0.4.6",

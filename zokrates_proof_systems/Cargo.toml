@@ -13,3 +13,4 @@ cfg-if = "0.1"
 ethabi = "17.0.0"
 primitive-types = { version = "0.11", features = ["rlp"] }
 rand_0_4 = { version = "0.4", package = "rand" }
+getrandom = { version = "0.2", features = ["js"] }
