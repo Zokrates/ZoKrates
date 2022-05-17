@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
-            arguments: vec![FlatParameter::private(Variable::new(0))],
+            arguments: vec![Parameter::private(Variable::new(0))],
             return_count: 1,
             statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
