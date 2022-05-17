@@ -54,7 +54,7 @@ jobs:
       - checkout
       - run:
           name: Check cpp format (clang-format)
-          command: run-clang-format.py -r $(pwd)/zokrates_core/lib
+          command: run-clang-format.py -r $(pwd)/zokrates_libsnark/lib
   wasm_test:
     docker:
       - image: zokrates/env:latest
