@@ -4,25 +4,27 @@
 // Saving the indices is not required for function calls, as they cannot modify their environment
 
 // Example:
-// def main(field a) -> field:
-//		u32 n = 42
-//		a = a + 1
-//      field b = foo(a)
-// 		for u32 i in 0..n:
-//			<body>
-//		endfor
-//		return b
+// def main(field a) -> field {
+// 	   u32 n = 42;
+// 	   a = a + 1;
+// 	   field b = foo(a);
+// 	   for u32 i in 0..n {
+// 	       <body>
+// 	   }
+// 	   return b;
+// }
 
 // Should be turned into
-// def main(field a_0) -> field:
-//		u32 n_0 = 42
-//		a_1 = a_0 + 1
-//      field b_0 = foo(a_1) // we keep the function call as is
-//		# versions: {n: 0, a: 1, b: 0}
-// 		for u32 i_0 in 0..n_0:
-//			<body> // we keep the loop body as is
-//		endfor
-//		return b_3 // we leave versions b_1 and b_2 to make b accessible and modifiable inside the for-loop
+// def main(field a_0) -> field {
+// 	   u32 n_0 = 42;
+// 	   a_1 = a_0 + 1;
+// 	   field b_0 = foo(a_1); // we keep the function call as is
+// 	   # versions: {n: 0, a: 1, b: 0}
+// 	   for u32 i_0 in 0..n_0 {
+// 	       <body> // we keep the loop body as is
+// 	   }
+// 	   return b_3; // we leave versions b_1 and b_2 to make b accessible and modifiable inside the for-loop
+// }
 
 use crate::typed_absy::folder::*;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
@@ -578,38 +580,39 @@ mod tests {
         use crate::typed_absy::types::GGenericsAssignment;
         #[test]
         fn treat_loop() {
-            // def main<K>(field a) -> field:
-            //      u32 n = 42
-            //      n = n
-            //      a = a
-            //      for u32 i in n..n*n:
-            //          a = a
-            //      endfor
-            //      a = a
-            //      for u32 i in n..n*n:
-            //          a = a
-            //      endfor
-            //      a = a
-            //      return a
+            // def main<K>(field a) -> field {
+            //     u32 n = 42;
+            //     n = n;
+            //     a = a;
+            //     for u32 i in n..n*n {
+            //         a = a;
+            //     }
+            //     a = a;
+            //     for u32 i in n..n*n {
+            //         a = a;
+            //     }
+            //     a = a;
+            //     return a;
+            // }
 
             // When called with K := 1, expected:
-            // def main(field a_0) -> field:
-            //      u32 K = 1
-            //      u32 n_0 = 42
-            //      n_1 = n_0
-            //      a_1 = a_0
-            //      # versions: {n: 1, a: 1, K: 0}
-            //      for u32 i_0 in n_1..n_1*n_1:
-            //          a_0 = a_0
-            //      endfor
-            //      a_3 = a_2
-            //      # versions: {n: 2, a: 3, K: 1}
-            //      for u32 i_0 in n_2..n_2*n_2:
-            //          a_0 = a_0
-            //      endfor
-            //      a_5 = a_4
-            //      return a_5
-            //      # versions: {n: 3, a: 5, K: 2}
+            // def main(field a_0) -> field {
+            //     u32 K = 1;
+            //     u32 n_0 = 42;
+            //     n_1 = n_0;
+            //     a_1 = a_0;
+            //     # versions: {n: 1, a: 1, K: 0}
+            //     for u32 i_0 in n_1..n_1*n_1 {
+            //         a_0 = a_0;
+            //     }
+            //     a_3 = a_2;
+            //     # versions: {n: 2, a: 3, K: 1}
+            //     for u32 i_0 in n_2..n_2*n_2 {
+            //         a_0 = a_0;
+            //     }
+            //     a_5 = a_4;
+            //     return a_5;
+            // } # versions: {n: 3, a: 5, K: 2}
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],
@@ -777,26 +780,27 @@ mod tests {
         // test that function calls are left in
         #[test]
         fn treat_calls() {
-            // def main<K>(field a) -> field:
-            //      u32 n = 42
-            //      n = n
-            //      a = a
-            //      a = foo::<n>(a)
-            //      n = n
-            //      a = a * foo::<n>(a)
-            //      return a
+            // def main<K>(field a) -> field {
+            //     u32 n = 42;
+            //     n = n;
+            //     a = a;
+            //     a = foo::<n>(a);
+            //     n = n;
+            //     a = a * foo::<n>(a);
+            //     return a;
+            // }
 
             // When called with K := 1, expected:
-            // def main(field a_0) -> field:
-            //      K = 1
-            //      u32 n_0 = 42
-            //      n_1 = n_0
-            //      a_1 = a_0
-            //      a_2 = foo::<n_1>(a_1)
-            //      n_2 = n_1
-            //      a_3 = a_2 * foo::<n_2>(a_2)
-            //      return a_3
-            //      # versions: {n: 2, a: 3}
+            // def main(field a_0) -> field {
+            //     K = 1;
+            //     u32 n_0 = 42;
+            //     n_1 = n_0;
+            //     a_1 = a_0;
+            //     a_2 = foo::<n_1>(a_1);
+            //     n_2 = n_1;
+            //     a_3 = a_2 * foo::<n_2>(a_2);
+            //     return a_3;
+            // } # versions: {n: 2, a: 3}
 
             let f: TypedFunction<Bn128Field> = TypedFunction {
                 arguments: vec![DeclarationVariable::field_element("a").into()],

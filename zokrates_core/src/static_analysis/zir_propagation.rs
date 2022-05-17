@@ -237,7 +237,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     )),
                 }
             }
-            FieldElementExpression::IfElse(box condition, box consequence, box alternative) => {
+            FieldElementExpression::Conditional(
+                box condition,
+                box consequence,
+                box alternative,
+            ) => {
                 let condition = self.fold_boolean_expression(condition)?;
                 let consequence = self.fold_field_expression(consequence)?;
                 let alternative = self.fold_field_expression(alternative)?;
@@ -246,11 +250,13 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (_, consequence, alternative) if consequence == alternative => Ok(consequence),
                     (BooleanExpression::Value(true), consequence, _) => Ok(consequence),
                     (BooleanExpression::Value(false), _, alternative) => Ok(alternative),
-                    (condition, consequence, alternative) => Ok(FieldElementExpression::IfElse(
-                        box condition,
-                        box consequence,
-                        box alternative,
-                    )),
+                    (condition, consequence, alternative) => {
+                        Ok(FieldElementExpression::Conditional(
+                            box condition,
+                            box consequence,
+                            box alternative,
+                        ))
+                    }
                 }
             }
         }
@@ -469,7 +475,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                 BooleanExpression::Value(v) => Ok(BooleanExpression::Value(!v)),
                 e => Ok(BooleanExpression::Not(box e)),
             },
-            BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
+            BooleanExpression::Conditional(box condition, box consequence, box alternative) => {
                 let condition = self.fold_boolean_expression(condition)?;
                 let consequence = self.fold_boolean_expression(consequence)?;
                 let alternative = self.fold_boolean_expression(alternative)?;
@@ -478,7 +484,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (_, consequence, alternative) if consequence == alternative => Ok(consequence),
                     (BooleanExpression::Value(true), consequence, _) => Ok(consequence),
                     (BooleanExpression::Value(false), _, alternative) => Ok(alternative),
-                    (condition, consequence, alternative) => Ok(BooleanExpression::IfElse(
+                    (condition, consequence, alternative) => Ok(BooleanExpression::Conditional(
                         box condition,
                         box consequence,
                         box alternative,
@@ -681,7 +687,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     e => Ok(UExpressionInner::Not(box e.annotate(bitwidth))),
                 }
             }
-            UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
+            UExpressionInner::Conditional(box condition, box consequence, box alternative) => {
                 let condition = self.fold_boolean_expression(condition)?;
                 let consequence = self.fold_uint_expression(consequence)?.into_inner();
                 let alternative = self.fold_uint_expression(alternative)?.into_inner();
@@ -690,7 +696,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (_, consequence, alternative) if consequence == alternative => Ok(consequence),
                     (BooleanExpression::Value(true), consequence, _) => Ok(consequence),
                     (BooleanExpression::Value(false), _, alternative) => Ok(alternative),
-                    (condition, consequence, alternative) => Ok(UExpressionInner::IfElse(
+                    (condition, consequence, alternative) => Ok(UExpressionInner::Conditional(
                         box condition,
                         box consequence.annotate(bitwidth),
                         box alternative.annotate(bitwidth),
@@ -923,7 +929,7 @@ mod tests {
             let mut propagator = ZirPropagator::default();
 
             assert_eq!(
-                propagator.fold_field_expression(FieldElementExpression::IfElse(
+                propagator.fold_field_expression(FieldElementExpression::Conditional(
                     box BooleanExpression::Value(true),
                     box FieldElementExpression::Number(Bn128Field::from(1)),
                     box FieldElementExpression::Number(Bn128Field::from(2)),
@@ -932,7 +938,7 @@ mod tests {
             );
 
             assert_eq!(
-                propagator.fold_field_expression(FieldElementExpression::IfElse(
+                propagator.fold_field_expression(FieldElementExpression::Conditional(
                     box BooleanExpression::Value(false),
                     box FieldElementExpression::Number(Bn128Field::from(1)),
                     box FieldElementExpression::Number(Bn128Field::from(2)),
@@ -941,7 +947,7 @@ mod tests {
             );
 
             assert_eq!(
-                propagator.fold_field_expression(FieldElementExpression::IfElse(
+                propagator.fold_field_expression(FieldElementExpression::Conditional(
                     box BooleanExpression::Identifier("a".into()),
                     box FieldElementExpression::Number(Bn128Field::from(2)),
                     box FieldElementExpression::Number(Bn128Field::from(2)),
@@ -1327,7 +1333,7 @@ mod tests {
             let mut propagator = ZirPropagator::<Bn128Field>::default();
 
             assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::IfElse(
+                propagator.fold_boolean_expression(BooleanExpression::Conditional(
                     box BooleanExpression::Value(true),
                     box BooleanExpression::Value(true),
                     box BooleanExpression::Value(false)
@@ -1336,7 +1342,7 @@ mod tests {
             );
 
             assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::IfElse(
+                propagator.fold_boolean_expression(BooleanExpression::Conditional(
                     box BooleanExpression::Value(false),
                     box BooleanExpression::Value(true),
                     box BooleanExpression::Value(false)
@@ -1345,7 +1351,7 @@ mod tests {
             );
 
             assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::IfElse(
+                propagator.fold_boolean_expression(BooleanExpression::Conditional(
                     box BooleanExpression::Identifier("a".into()),
                     box BooleanExpression::Value(true),
                     box BooleanExpression::Value(true)
@@ -1752,7 +1758,7 @@ mod tests {
             assert_eq!(
                 propagator.fold_uint_expression_inner(
                     UBitwidth::B32,
-                    UExpressionInner::IfElse(
+                    UExpressionInner::Conditional(
                         box BooleanExpression::Value(true),
                         box UExpressionInner::Value(1).annotate(UBitwidth::B32),
                         box UExpressionInner::Value(2).annotate(UBitwidth::B32),
@@ -1764,7 +1770,7 @@ mod tests {
             assert_eq!(
                 propagator.fold_uint_expression_inner(
                     UBitwidth::B32,
-                    UExpressionInner::IfElse(
+                    UExpressionInner::Conditional(
                         box BooleanExpression::Value(false),
                         box UExpressionInner::Value(1).annotate(UBitwidth::B32),
                         box UExpressionInner::Value(2).annotate(UBitwidth::B32),
@@ -1776,7 +1782,7 @@ mod tests {
             assert_eq!(
                 propagator.fold_uint_expression_inner(
                     UBitwidth::B32,
-                    UExpressionInner::IfElse(
+                    UExpressionInner::Conditional(
                         box BooleanExpression::Identifier("a".into()),
                         box UExpressionInner::Value(2).annotate(UBitwidth::B32),
                         box UExpressionInner::Value(2).annotate(UBitwidth::B32),

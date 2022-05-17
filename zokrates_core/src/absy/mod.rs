@@ -343,7 +343,7 @@ impl<'ast> fmt::Display for Function<'ast> {
 
         write!(
             f,
-            "({}):\n{}",
+            "({}) {{\n{}\n}}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -402,22 +402,22 @@ pub type StatementNode<'ast> = Node<Statement<'ast>>;
 impl<'ast> fmt::Display for Statement<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Return(ref expr) => write!(f, "return {}", expr),
-            Statement::Declaration(ref var) => write!(f, "{}", var),
-            Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            Statement::Return(ref expr) => write!(f, "return {};", expr),
+            Statement::Declaration(ref var) => write!(f, "{};", var),
+            Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             Statement::Assertion(ref e, ref message) => {
                 write!(f, "assert({}", e)?;
                 match message {
-                    Some(m) => write!(f, ", \"{}\")", m),
-                    None => write!(f, ")"),
+                    Some(m) => write!(f, ", \"{}\");", m),
+                    None => write!(f, ");"),
                 }
             }
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} {{", var, start, stop)?;
                 for l in list {
                     writeln!(f, "\t\t{}", l)?;
                 }
-                write!(f, "\tendfor")
+                write!(f, "\t}}")
             }
             Statement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
@@ -426,7 +426,7 @@ impl<'ast> fmt::Display for Statement<'ast> {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, " = {}", rhs)
+                write!(f, " = {};", rhs)
             }
         }
     }

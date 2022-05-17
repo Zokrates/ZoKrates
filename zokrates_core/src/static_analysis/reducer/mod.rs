@@ -658,25 +658,28 @@ mod tests {
 
     #[test]
     fn no_generics() {
-        // def foo(field a) -> field:
-        //      return a
-        // def main(field a) -> field:
-        //      u32 n = 42
-        //      n = n
-        //      a = a
-        //      a = foo(a)
-        //      n = n
-        //      return a
+        // def foo(field a) -> field {
+        //     return a;
+        // }
+        // def main(field a) -> field {
+        //     u32 n = 42;
+        //     n = n;
+        //     a = a;
+        //     a = foo(a);
+        //     n = n;
+        //     return a;
+        // }
 
         // expected:
-        // def main(field a_0) -> field:
-        //      a_1 = a_0
-        //      # PUSH CALL to foo
-        //          a_3 := a_1 // input binding
-        //          #RETURN_AT_INDEX_0_0 := a_3
-        //      # POP CALL
-        //      a_2 = #RETURN_AT_INDEX_0_0
-        //      return a_2
+        // def main(field a_0) -> field {
+        //     a_1 = a_0;
+        //     # PUSH CALL to foo
+        //         a_3 := a_1; // input binding
+        //         #RETURN_AT_INDEX_0_0 := a_3;
+        //     # POP CALL
+        //     a_2 = #RETURN_AT_INDEX_0_0;
+        //     return a_2;
+        // }
 
         let foo: TypedFunction<Bn128Field> = TypedFunction {
             arguments: vec![DeclarationVariable::field_element("a").into()],
@@ -831,25 +834,28 @@ mod tests {
 
     #[test]
     fn with_generics() {
-        // def foo<K>(field[K] a) -> field[K]:
-        //      return a
-        // def main(field a) -> field:
-        //      u32 n = 42
-        //      n = n
-        //      field[1] b = [a]
-        //      b = foo(b)
-        //      n = n
-        //      return a + b[0]
+        // def foo<K>(field[K] a) -> field[K] {
+        //     return a;
+        // }
+        // def main(field a) -> field {
+        //     u32 n = 42;
+        //     n = n;
+        //     field[1] b = [a];
+        //     b = foo(b);
+        //     n = n;
+        //     return a + b[0];
+        // }
 
         // expected:
-        // def main(field a_0) -> field:
-        //      field[1] b_0 = [42]
-        //      # PUSH CALL to foo::<1>
-        //          a_0 = b_0
-        //          #RETURN_AT_INDEX_0_0 := a_0
-        //      # POP CALL
-        //      b_1 = #RETURN_AT_INDEX_0_0
-        //      return a_2 + b_1[0]
+        // def main(field a_0) -> field {
+        //     field[1] b_0 = [42];
+        //     # PUSH CALL to foo::<1>
+        //         a_0 = b_0;
+        //         #RETURN_AT_INDEX_0_0 := a_0;
+        //     # POP CALL
+        //     b_1 = #RETURN_AT_INDEX_0_0;
+        //     return a_2 + b_1[0];
+        // }
 
         let foo_signature = DeclarationSignature::new()
             .generics(vec![Some(
@@ -1047,25 +1053,28 @@ mod tests {
 
     #[test]
     fn with_generics_and_propagation() {
-        // def foo<K>(field[K] a) -> field[K]:
-        //      return a
-        // def main(field a) -> field:
-        //      u32 n = 2
-        //      n = n
-        //      field[n - 1] b = [a]
-        //      b = foo(b)
-        //      n = n
-        //      return a + b[0]
+        // def foo<K>(field[K] a) -> field[K] {
+        //     return a;
+        // }
+        // def main(field a) -> field {
+        //     u32 n = 2;
+        //     n = n;
+        //     field[n - 1] b = [a];
+        //     b = foo(b);
+        //     n = n;
+        //     return a + b[0];
+        // }
 
         // expected:
-        // def main(field a_0) -> field:
-        //      field[1] b_0 = [42]
-        //      # PUSH CALL to foo::<1>
-        //          a_0 = b_0
-        //          #RETURN_AT_INDEX_0_0 := a_0
-        //      # POP CALL
-        //      b_1 = #RETURN_AT_INDEX_0_0
-        //      return a_2 + b_1[0]
+        // def main(field a_0) -> field {
+        //     field[1] b_0 = [42];
+        //     # PUSH CALL to foo::<1>
+        //         a_0 = b_0;
+        //         #RETURN_AT_INDEX_0_0 := a_0;
+        //     # POP CALL
+        //     b_1 = #RETURN_AT_INDEX_0_0;
+        //     return a_2 + b_1[0];
+        // }
 
         let foo_signature = DeclarationSignature::new()
             .generics(vec![Some(
@@ -1275,24 +1284,28 @@ mod tests {
         // we use a global ssa counter, hence reusing variable names in called functions
         // leads to counter increase
 
-        // def bar<K>(field[K] a) -> field[K]:
-        //      return a
+        // def bar<K>(field[K] a) -> field[K] {
+        //     return a;
+        // }
 
-        // def foo<K>(field[K] a) -> field[K]:
-        //      field[K] ret = bar([...a, 0])[0..K]
-        //      return ret
+        // def foo<K>(field[K] a) -> field[K] {
+        //     field[K] ret = bar([...a, 0])[0..K];
+        //     return ret;
+        // }
 
-        // def main():
-        //      field[1] b = foo([1])
-        //      return
+        // def main() {
+        //     field[1] b = foo([1]);
+        //     return;
+        // }
 
         // expected:
-        // def main():
-        //      # PUSH CALL to foo::<1>
-        //          # PUSH CALL to bar::<2>
-        //          # POP CALL
-        //      # POP CALL
-        //      return
+        // def main() {
+        //     # PUSH CALL to foo::<1>
+        //         # PUSH CALL to bar::<2>
+        //         # POP CALL
+        //     # POP CALL
+        //     return;
+        // }
 
         let foo_signature = DeclarationSignature::new()
             .inputs(vec![DeclarationType::array((
@@ -1493,11 +1506,13 @@ mod tests {
 
     #[test]
     fn incompatible() {
-        // def foo<K>(field[K] a) -> field[K]:
-        //      return a
-        // def main():
-        //      field[1] b = foo([])
-        //      return
+        // def foo<K>(field[K] a) -> field[K] {
+        //     return a;
+        // }
+        // def main() {
+        //     field[1] b = foo([]);
+        //     return;
+        // }
 
         // expected:
         // Error: Incompatible

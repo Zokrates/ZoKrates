@@ -47,7 +47,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({}) -> ({}):\n{}",
+            "({}) -> ({}) {{\n{}\n}}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -125,13 +125,13 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, "")
+                write!(f, ";")
             }
-            ZirStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            ZirStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             ZirStatement::IfElse(ref condition, ref consequence, ref alternative) => {
                 write!(
                     f,
-                    "if {} then {{{}}} else {{{}}} fi",
+                    "if {} {{{}}} else {{{}}}",
                     condition,
                     consequence
                         .iter()
@@ -148,8 +148,8 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
             ZirStatement::Assertion(ref e, ref error) => {
                 write!(f, "assert({}", e)?;
                 match error {
-                    RuntimeError::SourceAssertion(message) => write!(f, ", \"{}\")", message),
-                    error => write!(f, ") // {}", error),
+                    RuntimeError::SourceAssertion(message) => write!(f, ", \"{}\");", message),
+                    error => write!(f, "); // {}", error),
                 }
             }
             ZirStatement::MultipleDefinition(ref ids, ref rhs) => {
@@ -159,7 +159,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, " = {}", rhs)
+                write!(f, " = {};", rhs)
             }
         }
     }
@@ -278,7 +278,7 @@ pub enum FieldElementExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
     ),
-    IfElse(
+    Conditional(
         Box<BooleanExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -329,7 +329,7 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Not(Box<BooleanExpression<'ast, T>>),
-    IfElse(
+    Conditional(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
@@ -418,12 +418,8 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
-            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => {
-                write!(
-                    f,
-                    "if {} then {} else {} fi",
-                    condition, consequent, alternative
-                )
+            FieldElementExpression::Conditional(ref condition, ref consequent, ref alternative) => {
+                write!(f, "({} ? {} : {})", condition, consequent, alternative)
             }
         }
     }
@@ -454,11 +450,9 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
-            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
+            UExpressionInner::Conditional(ref condition, ref consequent, ref alternative) => {
+                write!(f, "({} ? {} : {})", condition, consequent, alternative)
+            }
         }
     }
 }
@@ -491,11 +485,9 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
-            BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition, consequent, alternative
-            ),
+            BooleanExpression::Conditional(ref condition, ref consequent, ref alternative) => {
+                write!(f, "{} ? {} : {}", condition, consequent, alternative)
+            }
         }
     }
 }
@@ -547,39 +539,43 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpressionList<'ast, T> {
 
 // Common behaviour accross expressions
 
-pub trait IfElse<'ast, T> {
-    fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
-        -> Self;
+pub trait Conditional<'ast, T> {
+    fn conditional(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self;
 }
 
-impl<'ast, T> IfElse<'ast, T> for FieldElementExpression<'ast, T> {
-    fn if_else(
+impl<'ast, T> Conditional<'ast, T> for FieldElementExpression<'ast, T> {
+    fn conditional(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
     ) -> Self {
-        FieldElementExpression::IfElse(box condition, box consequence, box alternative)
+        FieldElementExpression::Conditional(box condition, box consequence, box alternative)
     }
 }
 
-impl<'ast, T> IfElse<'ast, T> for BooleanExpression<'ast, T> {
-    fn if_else(
+impl<'ast, T> Conditional<'ast, T> for BooleanExpression<'ast, T> {
+    fn conditional(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
     ) -> Self {
-        BooleanExpression::IfElse(box condition, box consequence, box alternative)
+        BooleanExpression::Conditional(box condition, box consequence, box alternative)
     }
 }
 
-impl<'ast, T> IfElse<'ast, T> for UExpression<'ast, T> {
-    fn if_else(
+impl<'ast, T> Conditional<'ast, T> for UExpression<'ast, T> {
+    fn conditional(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
     ) -> Self {
         let bitwidth = consequence.bitwidth;
 
-        UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(bitwidth)
+        UExpressionInner::Conditional(box condition, box consequence, box alternative)
+            .annotate(bitwidth)
     }
 }

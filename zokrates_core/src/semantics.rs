@@ -3846,11 +3846,12 @@ mod tests {
         #[test]
         fn imported_function() {
             // foo.zok
-            // def main():
-            // 		return
+            // def main() {
+            //   return;
+            // }
 
             // bar.zok
-            // from "./foo.zok" import main
+            // from "./foo.zok" import main;
 
             // after semantic check, `bar` should import a checked function
 
@@ -3902,10 +3903,12 @@ mod tests {
 
         #[test]
         fn duplicate_function_declaration() {
-            // def foo():
-            //   return
-            // def foo():
-            //   return
+            // def foo() {
+            //   return;
+            // }
+            // def foo() {
+            //   return;
+            // }
             //
             // should fail
 
@@ -3939,10 +3942,12 @@ mod tests {
 
         #[test]
         fn duplicate_function_declaration_generic() {
-            // def foo<P>(private field[P] a):
-            //   return
-            // def foo(private field[3] a):
-            //   return
+            // def foo<P>(private field[P] a) {
+            //   return;
+            // }
+            // def foo(private field[3] a) {
+            //   return;
+            // }
             //
             // should succeed as P could be different from 3
 
@@ -4013,10 +4018,12 @@ mod tests {
 
             #[test]
             fn unused_generic() {
-                // def foo<P>():
-                //   return
-                // def main():
-                //   return
+                // def foo<P>() {
+                //   return;
+                // }
+                // def main() {
+                //   return;
+                // }
                 //
                 // should succeed
 
@@ -4048,10 +4055,12 @@ mod tests {
 
             #[test]
             fn undeclared_generic() {
-                // def foo(field[P] a):
-                //   return
-                // def main():
-                //   return
+                // def foo(field[P] a) {
+                //   return;
+                // }
+                // def main() {
+                //   return;
+                // }
                 //
                 // should fail
 
@@ -4106,10 +4115,12 @@ mod tests {
 
         #[test]
         fn overloaded_function_declaration() {
-            // def foo():
-            //   return
-            // def foo(a):
-            //   return
+            // def foo() {
+            //   return;
+            // }
+            // def foo(a) {
+            //   return;
+            // }
             //
             // should succeed as overloading is allowed
 
@@ -4158,7 +4169,7 @@ mod tests {
         #[test]
         fn duplicate_type_declaration() {
             // struct Foo {}
-            // struct Foo { foo: field }
+            // struct Foo { foo: field; }
             //
             // should fail
 
@@ -4193,8 +4204,9 @@ mod tests {
         #[test]
         fn type_function_conflict() {
             // struct foo {}
-            // def foo():
-            //   return
+            // def foo() {
+            //   return;
+            // }
             //
             // should fail
 
@@ -4237,10 +4249,10 @@ mod tests {
             // import first
 
             // // bar.code
-            // def main(): return
+            // def main() { return; }
             //
             // // main.code
-            // import main from "bar" as foo
+            // import main from "bar" as foo;
             // struct foo {}
             //
             // should fail
@@ -4285,11 +4297,11 @@ mod tests {
             // type declaration first
 
             // // bar.code
-            // def main(): return
+            // def main() { return; }
             //
             // // main.code
             // struct foo {}
-            // import main from "bar" as foo
+            // import main from "bar" as foo;
             //
             // should fail
 
@@ -4417,7 +4429,7 @@ mod tests {
 
     #[test]
     fn undefined_variable_in_statement() {
-        // a = b
+        // a = b;
         // b undefined
         let statement: StatementNode = Statement::Definition(
             Assignee::Identifier("a").mock(),
@@ -4439,7 +4451,7 @@ mod tests {
 
     #[test]
     fn defined_variable_in_statement() {
-        // a = b
+        // a = b;
         // b defined
         let statement: StatementNode = Statement::Definition(
             Assignee::Identifier("a").mock(),
@@ -4475,11 +4487,14 @@ mod tests {
 
     #[test]
     fn declared_in_other_function() {
-        // def foo():
-        //   field a = 1
-        //   return
-        // def bar():
-        //   return a
+        // def foo() {
+        //   field a = 1;
+        //   return;
+        // }
+        // def bar() {
+        //   return a;
+        // }
+        //
         // should fail
         let foo_args = vec![];
         let foo_statements = vec![
@@ -4557,14 +4572,17 @@ mod tests {
 
     #[test]
     fn declared_in_two_scopes() {
-        // def foo():
-        //   a = 1
-        //   return
-        // def bar():
-        //   a = 2
-        //   return
-        // def main():
-        //   return 1
+        // def foo() {
+        //   field a = 1;
+        //   return;
+        // }
+        // def bar() {
+        //   field a = 2;
+        //   return;
+        // }
+        // def main() {
+        //   return 1;
+        // }
         // should pass
         let foo_args = vec![];
         let foo_statements = vec![
@@ -4665,10 +4683,10 @@ mod tests {
 
     #[test]
     fn for_index_after_end() {
-        // def foo():
-        //   for field i in 0..10 do
-        //   endfor
-        //   return i
+        // def foo() {
+        //   for u32 i in 0..10 { }
+        //   return i;
+        // }
         // should fail
         let foo_statements: Vec<StatementNode> = vec![
             Statement::For(
@@ -4710,11 +4728,12 @@ mod tests {
 
     #[test]
     fn for_index_in_for() {
-        // def foo():
-        //   for field i in 0..10 do
-        //     a = i
-        //   endfor
-        //   return
+        // def foo() {
+        //   for u32 i in 0..10 {
+        //     a = i;
+        //   }
+        //   return;
+        // }
         // should pass
 
         let for_statements = vec![
@@ -4791,10 +4810,13 @@ mod tests {
 
     #[test]
     fn arity_mismatch() {
-        // def foo():
-        //   return 1, 2
-        // def bar():
-        //   field a = foo()
+        // def foo() {
+        //   return 1, 2;
+        // }
+        // def bar() {
+        //   field a = foo();
+        //   return;
+        // }
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
@@ -4851,11 +4873,13 @@ mod tests {
 
     #[test]
     fn multi_return_outside_multidef() {
-        // def foo() -> (field, field):
-        //   return 1, 2
-        // def bar():
-        //   2 == foo()
-        //   return
+        // def foo() -> (field, field) {
+        //   return 1, 2;
+        // }
+        // def bar() {
+        //   assert(2 == foo());
+        //   return;
+        // }
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Assertion(
@@ -4915,9 +4939,10 @@ mod tests {
 
     #[test]
     fn function_undefined_in_multidef() {
-        // def bar():
-        //   field a = foo()
-        //   return
+        // def bar() {
+        //   field a = foo();
+        //   return;
+        // }
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Declaration(
@@ -4964,11 +4989,13 @@ mod tests {
 
     #[test]
     fn undefined_variable_in_multireturn_call() {
-        // def foo(x):
-        // 	return 1, 2
-        // def main():
-        // 	a, b = foo(x)
-        // 	return 1
+        // def foo(field x) {
+        //   return 1, 2;
+        // }
+        // def main() -> field {
+        //   a, b = foo(x);
+        //   return 1;
+        // }
         // should fail
 
         let foo_statements: Vec<StatementNode> = vec![Statement::Return(
@@ -5071,11 +5098,13 @@ mod tests {
 
     #[test]
     fn undeclared_variables() {
-        // def foo() -> (field, field):
-        //  return 1, 2
-        // def main():
-        //  a, b = foo()
-        //  return 1
+        // def foo() -> (field, field) {
+        //   return 1, 2;
+        // }
+        // def main() {
+        //   a, b = foo();
+        //   return;
+        // }
         // should fail
 
         let foo_statements: Vec<StatementNode> = vec![Statement::Return(
@@ -5167,12 +5196,14 @@ mod tests {
 
     #[test]
     fn assign_to_select() {
-        // def foo() -> field:
-        //  return 1
-        // def main():
-        //  field[1] a = [0]
-        //  a[0] = foo()
-        //  return
+        // def foo() -> field {
+        //   return 1;
+        // }
+        // def main() {
+        //   field[1] a = [0];
+        //   a[0] = foo();
+        //   return;
+        // }
         // should succeed
 
         let foo_statements: Vec<StatementNode> = vec![Statement::Return(
@@ -5265,9 +5296,10 @@ mod tests {
 
     #[test]
     fn function_undefined() {
-        // def bar():
-        //   1 == foo()
-        //   return
+        // def bar() {
+        //   assert(1 == foo());
+        //   return;
+        // }
         // should fail
 
         let bar_statements: Vec<StatementNode> = vec![
@@ -5318,8 +5350,9 @@ mod tests {
 
     #[test]
     fn return_undefined() {
-        // def bar():
-        //   return a, b
+        // def bar() {
+        //   return a, b;
+        // }
         // should fail
         let bar_statements: Vec<StatementNode> = vec![Statement::Return(
             ExpressionList {
@@ -5357,11 +5390,13 @@ mod tests {
 
     #[test]
     fn multi_def() {
-        // def foo():
-        //   return 1, 2
-        // def bar():
-        //   field a, field b = foo()
-        //   return a + b
+        // def foo() -> (field, field) {
+        //   return 1, 2;
+        // }
+        // def bar() {
+        //   field a, field b = foo();
+        //   return a + b;
+        // }
         //
         // should pass
         let bar_statements: Vec<StatementNode> = vec![
@@ -5463,9 +5498,10 @@ mod tests {
 
     #[test]
     fn duplicate_argument_name() {
-        // def main(field a, bool a):
-        //     return
-
+        // def main(field a, bool a) {
+        //   return;
+        // }
+        //
         // should fail
 
         let mut f = function0();
@@ -5499,10 +5535,12 @@ mod tests {
 
     #[test]
     fn duplicate_main_function() {
-        // def main(a):
-        //   return 1
-        // def main():
-        //   return 1
+        // def main(a) -> field {
+        //   return 1;
+        // }
+        // def main() -> field {
+        //   return 1;
+        // }
         //
         // should fail
         let main1_statements: Vec<StatementNode> = vec![Statement::Return(
@@ -5584,8 +5622,8 @@ mod tests {
 
     #[test]
     fn shadowing_with_same_type() {
-        //   field a
-        //	 field a
+        // field a;
+        // field a;
         //
         // should fail
 
@@ -5618,8 +5656,8 @@ mod tests {
 
     #[test]
     fn shadowing_with_different_type() {
-        //   field a
-        //	 bool a
+        // field a;
+        // bool a;
         //
         // should fail
 
@@ -5792,8 +5830,8 @@ mod tests {
             fn recursive() {
                 // a struct wrapping another struct should be allowed to be defined
 
-                // struct Foo = { foo: field }
-                // struct Bar = { foo: Foo }
+                // struct Foo = { foo: field; }
+                // struct Bar = { foo: Foo; }
 
                 let module: Module = Module {
                     symbols: vec![
@@ -5869,7 +5907,7 @@ mod tests {
             fn recursive_undefined() {
                 // a struct wrapping an undefined struct should be rejected
 
-                // struct Bar = { foo: Foo }
+                // struct Bar = { foo: Foo; }
 
                 let module: Module = Module {
                     symbols: vec![SymbolDeclaration {
@@ -5902,7 +5940,7 @@ mod tests {
             fn self_referential() {
                 // a struct wrapping itself should be rejected
 
-                // struct Foo = { foo: Foo }
+                // struct Foo = { foo: Foo; }
 
                 let module: Module = Module {
                     symbols: vec![SymbolDeclaration {
@@ -5935,8 +5973,8 @@ mod tests {
             fn cyclic() {
                 // A wrapping B wrapping A should be rejected
 
-                // struct Foo = { bar: Bar }
-                // struct Bar = { foo: Foo }
+                // struct Foo = { bar: Bar; }
+                // struct Bar = { foo: Foo; }
 
                 let module: Module = Module {
                     symbols: vec![
@@ -5990,7 +6028,7 @@ mod tests {
             #[test]
             fn ty() {
                 // a defined type can be checked
-                // Foo { foo: field }
+                // Foo { foo: field; }
                 // Foo
 
                 // an undefined type cannot be checked
@@ -6041,7 +6079,7 @@ mod tests {
             fn valid() {
                 // accessing a member on a struct should succeed and return the right type
 
-                // struct Foo = { foo: field }
+                // struct Foo = { foo: field; }
                 // Foo { foo: 42 }.foo
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
@@ -6088,7 +6126,7 @@ mod tests {
             fn invalid() {
                 // accessing an undefined member on a struct should fail
 
-                // struct Foo = { foo: field }
+                // struct Foo = { foo: field; }
                 // Foo { foo: 42 }.bar
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
@@ -6160,8 +6198,8 @@ mod tests {
             fn valid() {
                 // a A value can be defined with members ordered as in the declaration of A
 
-                // struct Foo = { foo: field, bar: bool }
-                // Foo foo = Foo { foo: 42, bar: true }
+                // struct Foo { foo: field; bar: bool; }
+                // Foo foo = Foo { foo: 42, bar: true };
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
                     generics: vec![],
@@ -6213,8 +6251,8 @@ mod tests {
             fn shuffled() {
                 // a A value can be defined with shuffled members compared to the declaration of A
 
-                // struct Foo = { foo: field, bar: bool }
-                // Foo foo = Foo { bar: true, foo: 42 }
+                // struct Foo { foo: field; bar: bool; }
+                // Foo foo = Foo { bar: true, foo: 42 };
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
                     generics: vec![],
@@ -6266,8 +6304,8 @@ mod tests {
             fn subset() {
                 // a A value cannot be defined with A as id if members are a subset of the declaration
 
-                // struct Foo = { foo: field, bar: bool }
-                // Foo foo = Foo { foo: 42 }
+                // struct Foo { foo: field; bar: bool; }
+                // Foo foo = Foo { foo: 42 };
 
                 let (mut checker, state) = create_module_with_foo(StructDefinition {
                     generics: vec![],
@@ -6307,7 +6345,7 @@ mod tests {
                 // a A value cannot be defined with A as id if members are different ids than the declaration
                 // a A value cannot be defined with A as id if members are different types than the declaration
 
-                // struct Foo = { foo: field, bar: bool }
+                // struct Foo { foo: field; bar: bool; }
                 // Foo { foo: 42, baz: bool } // error
                 // Foo { foo: 42, baz: 42 } // error
 
@@ -6375,14 +6413,17 @@ mod tests {
 
         #[test]
         fn two_candidates() {
-            // def foo(field a) -> field:
-            //     return 0
+            // def foo(field a) -> field {
+            //   return 0;
+            // }
 
-            // def foo(u32 a) -> field:
-            //     return 0
+            // def foo(u32 a) -> field {
+            //   return 0;
+            // }
 
-            // def main() -> field:
-            //     return foo(0)
+            // def main() -> field {
+            //   return foo(0);
+            // }
 
             // should fail
 
@@ -6486,7 +6527,7 @@ mod tests {
 
         #[test]
         fn identifier() {
-            // a = 42
+            // a = 42;
             let a = Assignee::Identifier("a").mock();
 
             let mut checker: Checker<Bn128Field> = Checker::default();

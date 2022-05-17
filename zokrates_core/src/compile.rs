@@ -374,13 +374,13 @@ mod test {
             //
             // // foo.zok
             // from bar import Bar as BarFoo;
-            // struct Foo { BarFoo b }
+            // struct Foo { BarFoo b; }
             //
             // // bar.zok
-            // struct Bar { field a }
+            // struct Bar { field a; }
 
             // Expected resolved type for FooMain:
-            // Foo { Bar b }
+            // Foo { Bar b; }
 
             let main = r#"
 from "foo" import Foo as FooMain;
