@@ -58,6 +58,7 @@ jobs:
   wasm_test:
     docker:
       - image: zokrates/env:latest
+    resource_class: large
     steps:
       - checkout
       - run:
