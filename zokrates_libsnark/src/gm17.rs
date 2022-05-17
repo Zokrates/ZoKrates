@@ -195,8 +195,8 @@ impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
     }
 }
 
-#[cfg(feature = "libsnark")]
 #[cfg(test)]
+#[cfg(not(target_os = "macos"))]
 mod tests {
     use super::*;
     use crate::flat_absy::{FlatParameter, FlatVariable};
