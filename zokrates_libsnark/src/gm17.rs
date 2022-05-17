@@ -199,19 +199,17 @@ impl NonUniversalBackend<Bn128Field, GM17> for Libsnark {
 #[cfg(not(target_os = "macos"))]
 mod tests {
     use super::*;
-    use crate::flat_absy::{FlatParameter, FlatVariable};
-    use zokrates_ast::ir::{Interpreter, Prog, Statement};
+    use zokrates_ast::flat::{Parameter, Variable};
+    use zokrates_ast::ir::{Prog, Statement};
     use zokrates_field::Bn128Field;
+    use zokrates_interpreter::Interpreter;
 
     #[test]
     fn verify() {
         let program: Prog<Bn128Field> = Prog {
-            arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+            arguments: vec![FlatParameter::private(Variable::new(0))],
             return_count: 1,
-            statements: vec![Statement::constraint(
-                FlatVariable::new(0),
-                FlatVariable::public(0),
-            )],
+            statements: vec![Statement::constraint(Variable::new(0), Variable::public(0))],
         };
 
         let keypair = <Libsnark as NonUniversalBackend<Bn128Field, GM17>>::setup(program.clone());
