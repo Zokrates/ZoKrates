@@ -1,7 +1,7 @@
 use crate::constants::*;
 use std::convert::TryFrom;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum CurveParameter {
     Bn128,
     Bls12_381,
@@ -9,7 +9,7 @@ pub enum CurveParameter {
     Bw6_761,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BackendParameter {
     #[cfg(feature = "bellman")]
     Bellman,
@@ -20,7 +20,7 @@ pub enum BackendParameter {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SchemeParameter {
     G16,
     GM17,

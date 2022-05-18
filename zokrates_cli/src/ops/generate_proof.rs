@@ -188,7 +188,8 @@ fn cli_generate_proof<
     let proof = B::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
 
-    let proof = serde_json::to_string_pretty(&proof).unwrap();
+    let proof =
+        serde_json::to_string_pretty(&TaggedProof::<T, S>::new(proof.proof, proof.inputs)).unwrap();
     proof_file
         .write(proof.as_bytes())
         .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;

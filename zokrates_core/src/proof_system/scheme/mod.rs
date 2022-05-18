@@ -13,6 +13,8 @@ pub use self::marlin::Marlin;
 pub use self::pghr13::PGHR13;
 
 pub trait Scheme<T: Field> {
+    const NAME: &'static str;
+
     type VerificationKey: Serialize + DeserializeOwned;
     type ProofPoints: Serialize + DeserializeOwned;
 }

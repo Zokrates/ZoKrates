@@ -33,11 +33,15 @@ impl<T: Field + NotBw6_761Field> NonUniversalScheme<T> for GM17 {}
 impl NonUniversalScheme<Bw6_761Field> for GM17 {}
 
 impl<T: Field + NotBw6_761Field> Scheme<T> for GM17 {
+    const NAME: &'static str = "gm17";
+
     type VerificationKey = VerificationKey<G1Affine, G2Affine>;
     type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 }
 
 impl Scheme<Bw6_761Field> for GM17 {
+    const NAME: &'static str = "gm17";
+
     type VerificationKey = VerificationKey<G1Affine, G2AffineFq>;
     type ProofPoints = ProofPoints<G1Affine, G2AffineFq>;
 }

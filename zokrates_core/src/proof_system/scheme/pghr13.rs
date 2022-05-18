@@ -33,6 +33,8 @@ pub struct VerificationKey<G1, G2> {
 }
 
 impl<T: Field> Scheme<T> for PGHR13 {
+    const NAME: &'static str = "pghr13";
+
     type VerificationKey = VerificationKey<G1Affine, G2Affine>;
     type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 }

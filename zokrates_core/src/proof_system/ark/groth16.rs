@@ -89,7 +89,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, G16> for Ark {
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, G16> for Ark {
     fn setup<I: IntoIterator<Item = Statement<T>>>(
         program: ProgIterator<T, I>,
-    ) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
+    ) -> SetupKeypair<T, G16> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::without_witness(program);
@@ -183,7 +183,7 @@ impl Backend<Bw6_761Field, G16> for Ark {
 impl NonUniversalBackend<Bw6_761Field, G16> for Ark {
     fn setup<I: IntoIterator<Item = Statement<Bw6_761Field>>>(
         program: ProgIterator<Bw6_761Field, I>,
-    ) -> SetupKeypair<<G16 as Scheme<Bw6_761Field>>::VerificationKey> {
+    ) -> SetupKeypair<Bw6_761Field, G16> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::without_witness(program);
