@@ -73,24 +73,24 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // extract curve and scheme parameters from both
     let proof_curve = proof
         .get("curve")
-        .ok_or("Field `curve` not found in proof".to_string())?
+        .ok_or_else(|| "Field `curve` not found in proof".to_string())?
         .as_str()
-        .ok_or("`curve` should be a string".to_string())?;
+        .ok_or_else(|| "`curve` should be a string".to_string())?;
     let proof_scheme = proof
         .get("scheme")
-        .ok_or("Field `scheme` not found in proof".to_string())?
+        .ok_or_else(|| "Field `scheme` not found in proof".to_string())?
         .as_str()
-        .ok_or("`scheme` should be a string".to_string())?;
+        .ok_or_else(|| "`scheme` should be a string".to_string())?;
     let vk_curve = vk
         .get("curve")
-        .ok_or("Field `curve` not found in verification key".to_string())?
+        .ok_or_else(|| "Field `curve` not found in verification key".to_string())?
         .as_str()
-        .ok_or("`curve` should be a string".to_string())?;
+        .ok_or_else(|| "`curve` should be a string".to_string())?;
     let vk_scheme = vk
         .get("scheme")
-        .ok_or("Field `scheme` not found in verification key".to_string())?
+        .ok_or_else(|| "Field `scheme` not found in verification key".to_string())?
         .as_str()
-        .ok_or("`scheme` should be a string".to_string())?;
+        .ok_or_else(|| "`scheme` should be a string".to_string())?;
 
     if proof_curve != vk_curve {
         return Err(format!(

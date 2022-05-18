@@ -236,11 +236,8 @@ mod tests {
             .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof = <Ark as Backend<Bls12_377Field, G16>>::generate_proof(
-            program.into(),
-            witness,
-            keypair.pk,
-        );
+        let proof =
+            <Ark as Backend<Bls12_377Field, G16>>::generate_proof(program, witness, keypair.pk);
         let ans = <Ark as Backend<Bls12_377Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);

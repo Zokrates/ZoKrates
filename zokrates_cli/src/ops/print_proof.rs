@@ -49,14 +49,14 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     // extract curve and scheme parameters from both
     let curve = proof
         .get("curve")
-        .ok_or("Field `curve` not found in proof".to_string())?
+        .ok_or_else(|| "Field `curve` not found in proof".to_string())?
         .as_str()
-        .ok_or("`curve` should be a string".to_string())?;
+        .ok_or_else(|| "`curve` should be a string".to_string())?;
     let scheme = proof
         .get("scheme")
-        .ok_or("Field `scheme` not found in proof".to_string())?
+        .ok_or_else(|| "Field `scheme` not found in proof".to_string())?
         .as_str()
-        .ok_or("`scheme` should be a string".to_string())?;
+        .ok_or_else(|| "`scheme` should be a string".to_string())?;
 
     let parameters: (CurveParameter, SchemeParameter) =
         (curve.try_into().unwrap(), scheme.try_into().unwrap());
