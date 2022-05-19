@@ -15,8 +15,6 @@ pub enum BackendParameter {
     Bellman,
     #[cfg(feature = "ark")]
     Ark,
-    #[cfg(feature = "libsnark")]
-    Libsnark,
 }
 
 #[allow(clippy::upper_case_acronyms)]
@@ -51,8 +49,6 @@ impl TryFrom<&str> for BackendParameter {
             BELLMAN => Ok(BackendParameter::Bellman),
             #[cfg(feature = "ark")]
             ARK => Ok(BackendParameter::Ark),
-            #[cfg(feature = "libsnark")]
-            LIBSNARK => Ok(BackendParameter::Libsnark),
             _ => Err(format!("Unknown backend {}", s)),
         }
     }
@@ -116,10 +112,6 @@ impl TryFrom<(&str, &str, &str)> for Parameters {
             (BackendParameter::Ark, CurveParameter::Bls12_377, SchemeParameter::MARLIN) => Ok(()),
             #[cfg(feature = "ark")]
             (BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => Ok(()),
-            #[cfg(feature = "libsnark")]
-            (BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => Ok(()),
-            #[cfg(feature = "libsnark")]
-            (BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => Ok(()),
             _ => Err(format!(
                 "Unsupported combination of parameters (backend: {}, curve: {}, proving scheme: {})",
                 s.0, s.1, s.2

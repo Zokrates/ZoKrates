@@ -12,9 +12,7 @@ use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::Field;
-#[cfg(feature = "libsnark")]
-use zokrates_libsnark::Libsnark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+#[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -162,24 +160,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
                 ProgEnum::Bw6_761Program(p) => {
                     cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
                 }
-            }
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-            match prog {
-                ProgEnum::Bn128Program(p) => {
-                    cli_setup_non_universal::<_, _, GM17, Libsnark>(p, sub_matches)
-                }
-                _ => unreachable!(),
-            }
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
-            match prog {
-                ProgEnum::Bn128Program(p) => {
-                    cli_setup_non_universal::<_, _, PGHR13, Libsnark>(p, sub_matches)
-                }
-                _ => unreachable!(),
             }
         }
         _ => unreachable!(),

@@ -49,14 +49,14 @@ fn cli() -> Result<(), String> {
             universal_setup::subcommand(),
             #[cfg(feature = "bellman")]
             mpc::subcommand(),
-            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+            #[cfg(any(feature = "bellman", feature = "ark"))]
             setup::subcommand(),
             export_verifier::subcommand(),
-            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+            #[cfg(any(feature = "bellman", feature = "ark"))]
             generate_proof::subcommand(),
             generate_smtlib2::subcommand(),
             print_proof::subcommand(),
-            #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+            #[cfg(any(feature = "bellman", feature = "ark"))]
             verify::subcommand()])
         .get_matches();
 
@@ -69,14 +69,14 @@ fn cli() -> Result<(), String> {
         ("universal-setup", Some(sub_matches)) => universal_setup::exec(sub_matches),
         #[cfg(feature = "bellman")]
         ("mpc", Some(sub_matches)) => mpc::exec(sub_matches),
-        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+        #[cfg(any(feature = "bellman", feature = "ark"))]
         ("setup", Some(sub_matches)) => setup::exec(sub_matches),
         ("export-verifier", Some(sub_matches)) => export_verifier::exec(sub_matches),
-        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+        #[cfg(any(feature = "bellman", feature = "ark"))]
         ("generate-proof", Some(sub_matches)) => generate_proof::exec(sub_matches),
         ("generate-smtlib2", Some(sub_matches)) => generate_smtlib2::exec(sub_matches),
         ("print-proof", Some(sub_matches)) => print_proof::exec(sub_matches),
-        #[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+        #[cfg(any(feature = "bellman", feature = "ark"))]
         ("verify", Some(sub_matches)) => verify::exec(sub_matches),
         _ => unreachable!(),
     }

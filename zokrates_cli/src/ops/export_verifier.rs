@@ -69,10 +69,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         (CurveParameter::Bn128, SchemeParameter::GM17) => {
             cli_export_verifier::<Bn128Field, GM17>(sub_matches)
         }
-        #[cfg(feature = "libsnark")]
-        (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
-            cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
-        }
         (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
             cli_export_verifier::<Bn128Field, Marlin>(sub_matches)
         }

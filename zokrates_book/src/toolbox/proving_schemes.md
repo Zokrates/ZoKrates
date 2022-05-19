@@ -48,7 +48,6 @@ ZoKrates supports multiple backends. The options are the following:
 | Backend | CLI flag | Proving schemes   | Curves                                   |
 | ---- | -------- |-------------------|------------------------------------------|
 | Bellman | `--backend bellman` | G16               | ALTBN_128, BLS12_381                     |
-| Libsnark | `--backend libsnark` | GM17, PGHR13      | ALTBN_128                                |
 | Ark | `--backend ark` | G16, GM17, MARLIN | ALTBN_128, BLS12_381, BLS12_377, BW6_761 |
 
 Default: `bellman`
@@ -58,12 +57,6 @@ When not using the default, the CLI flag has to be provided for the following co
 - `setup`
 - `generate-proof`
 - `verify`
-
-To include libsnark in the build, compile ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the `libsnark` feature:
-```bash
-cargo +nightly -Z package-features build --release --package zokrates_cli --features="libsnark"
-```
- Note, that this is only tested for Linux. If you are on another OS, consider using our Docker container, which includes a libsnark installation.
 
 ## G16 malleability
 

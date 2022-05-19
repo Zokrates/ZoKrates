@@ -233,14 +233,6 @@ mod integration {
             );
         }
 
-        #[cfg(feature = "libsnark")]
-        let backends = map! {
-            "bellman" => vec!["g16"],
-            "libsnark" => vec!["pghr13"],
-            "ark" => vec!["g16", "gm17", "marlin"]
-        };
-
-        #[cfg(not(feature = "libsnark"))]
         let backends = map! {
             "bellman" => vec!["g16"],
             "ark" => vec!["g16", "gm17", "marlin"]
