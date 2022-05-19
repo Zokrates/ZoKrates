@@ -42,6 +42,16 @@ pub fn subcommand() -> App<'static, 'static> {
                 .default_value(cli_constants::PROVING_KEY_DEFAULT_PATH),
         )
         .arg(
+            Arg::with_name("verification-key-path")
+                .short("v")
+                .long("verification-key-path")
+                .help("Path of the generated verification key file")
+                .value_name("FILE")
+                .takes_value(true)
+                .required(false)
+                .default_value(cli_constants::VERIFICATION_KEY_DEFAULT_PATH),
+        )
+        .arg(
             Arg::with_name("proof-path")
                 .short("j")
                 .long("proof-path")
@@ -71,17 +81,6 @@ pub fn subcommand() -> App<'static, 'static> {
                 .possible_values(cli_constants::BACKENDS)
                 .default_value(constants::BELLMAN),
         )
-        .arg(
-            Arg::with_name("proving-scheme")
-                .short("s")
-                .long("proving-scheme")
-                .help("Proving scheme to use to generate the proof")
-                .value_name("FILE")
-                .takes_value(true)
-                .required(false)
-                .possible_values(cli_constants::SCHEMES)
-                .default_value(constants::G16),
-        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -92,11 +91,41 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut reader = BufReader::new(program_file);
     let prog = ProgEnum::deserialize(&mut reader)?;
 
-    let parameters = Parameters::try_from((
-        sub_matches.value_of("backend").unwrap(),
-        prog.curve(),
-        sub_matches.value_of("proving-scheme").unwrap(),
-    ))?;
+    let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
+    let vk_file = File::open(&vk_path)
+        .map_err(|why| format!("Could not open {}: {}", vk_path.display(), why))?;
+
+    // deserialize vk to JSON
+    let vk_reader = BufReader::new(vk_file);
+    let vk: serde_json::Value = serde_json::from_reader(vk_reader)
+        .map_err(|why| format!("Could not deserialize verification key: {}", why))?;
+
+    // extract curve and scheme parameters
+    let vk_curve = vk
+        .get("curve")
+        .ok_or_else(|| "Field `curve` not found in verification key".to_string())?
+        .as_str()
+        .ok_or_else(|| "`curve` should be a string".to_string())?;
+    let vk_scheme = vk
+        .get("scheme")
+        .ok_or_else(|| "Field `scheme` not found in verification key".to_string())?
+        .as_str()
+        .ok_or_else(|| "`scheme` should be a string".to_string())?;
+
+    let vk_curve_parameter = CurveParameter::try_from(vk_curve)?;
+    let vk_scheme_parameter = SchemeParameter::try_from(vk_scheme)?;
+
+    let backend_parameter = BackendParameter::try_from(sub_matches.value_of("backend").unwrap())?;
+    let curve_parameter = CurveParameter::try_from(prog.curve())?;
+
+    if vk_curve_parameter != curve_parameter {
+        return Err(format!(
+            "Verification key curve `{}` does not match program curve `{}`",
+            vk_curve_parameter, curve_parameter
+        ));
+    }
+
+    let parameters = Parameters(backend_parameter, vk_curve_parameter, vk_scheme_parameter);
 
     match parameters {
         #[cfg(feature = "bellman")]

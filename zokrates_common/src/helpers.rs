@@ -9,6 +9,19 @@ pub enum CurveParameter {
     Bw6_761,
 }
 
+impl std::fmt::Display for CurveParameter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use CurveParameter::*;
+
+        match self {
+            Bn128 => write!(f, "bn128"),
+            Bls12_381 => write!(f, "bls12_381"),
+            Bls12_377 => write!(f, "bls12_377"),
+            Bw6_761 => write!(f, "bw6_761"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum BackendParameter {
     #[cfg(feature = "bellman")]
@@ -19,6 +32,21 @@ pub enum BackendParameter {
     Libsnark,
 }
 
+impl std::fmt::Display for BackendParameter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use BackendParameter::*;
+
+        match self {
+            #[cfg(feature = "bellman")]
+            Bellman => write!(f, "bellman"),
+            #[cfg(feature = "ark")]
+            Ark => write!(f, "ark"),
+            #[cfg(feature = "libsnark")]
+            Libsnark => write!(f, "libsnark"),
+        }
+    }
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, PartialEq)]
 pub enum SchemeParameter {
@@ -26,6 +54,19 @@ pub enum SchemeParameter {
     GM17,
     PGHR13,
     MARLIN,
+}
+
+impl std::fmt::Display for SchemeParameter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use SchemeParameter::*;
+
+        match self {
+            G16 => write!(f, "g16"),
+            GM17 => write!(f, "gm17"),
+            PGHR13 => write!(f, "pghr13"),
+            MARLIN => write!(f, "marlin"),
+        }
+    }
 }
 
 impl TryFrom<&str> for CurveParameter {

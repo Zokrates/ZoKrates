@@ -1,1 +1,1 @@
-Add curve and scheme to the verification key and proof, detect these parameters on `verify` and `print-proof`
+Add curve and scheme to the verification key and proof, detect these parameters on `generate-proof`, `verify`, `print-proof`, and `export-verifier`

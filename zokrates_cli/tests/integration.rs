@@ -282,10 +282,10 @@ mod integration {
                             witness_path.to_str().unwrap(),
                             "-p",
                             proving_key_path.to_str().unwrap(),
+                            "-v",
+                            verification_key_path.to_str().unwrap(),
                             "--backend",
                             backend,
-                            "--proving-scheme",
-                            scheme,
                             "-j",
                             proof_path.to_str().unwrap(),
                         ])
@@ -296,10 +296,10 @@ mod integration {
                     assert_cli::Assert::main_binary()
                         .with_args(&[
                             "verify",
+                            "--proof-path",
+                            proof_path.to_str().unwrap(),
                             "--backend",
                             backend,
-                            "--proving-scheme",
-                            proof_path.to_str().unwrap(),
                             "-v",
                             verification_key_path.to_str().unwrap(),
                         ])
@@ -314,8 +314,6 @@ mod integration {
                             verification_key_path.to_str().unwrap(),
                             "-o",
                             verification_contract_path.to_str().unwrap(),
-                            "--proving-scheme",
-                            scheme,
                         ])
                         .succeeds()
                         .unwrap();
