@@ -527,15 +527,15 @@ pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
     .map_err(|e| JsValue::from_str(&e))?;
 
     if proof_curve != vk_curve {
-        return Err(JsValue::from_str(&format!(
-            "Proof and verification should have the same curve"
-        )));
+        return Err(JsValue::from_str(
+            "Proof and verification should have the same curve",
+        ));
     }
 
     if proof_scheme != vk_scheme {
-        return Err(JsValue::from_str(&format!(
-            "Proof and verification should have the same scheme"
-        )));
+        return Err(JsValue::from_str(
+            "Proof and verification should have the same scheme",
+        ));
     }
 
     let scheme = vk_scheme;
