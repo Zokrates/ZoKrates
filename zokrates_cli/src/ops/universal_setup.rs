@@ -9,7 +9,7 @@ use zokrates_ark::Ark;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+#[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {

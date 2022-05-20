@@ -7,7 +7,6 @@ edition = "2018"
 
 [features]
 default = ["bellman", "ark"]
-libsnark = ["zokrates_libsnark", "zokrates_common/libsnark"]
 bellman = ["zokrates_bellman", "zokrates_core/bellman", "zokrates_common/bellman"]
 ark = ["zokrates_ark", "zokrates_core/ark", "zokrates_common/ark"]
 
@@ -39,7 +38,6 @@ sha2 = "0.10.0"
 
 # Backends
 zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
-zokrates_libsnark = { version = "0.1", path = "../zokrates_libsnark", default-features = false, optional = true }
 zokrates_ark = { version = "0.1", path = "../zokrates_ark", default-features = false, optional = true }
 zokrates_bellman = { version = "0.1", path = "../zokrates_bellman", default-features = false, optional = true }
 

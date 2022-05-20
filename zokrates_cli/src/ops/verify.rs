@@ -11,9 +11,7 @@ use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
-#[cfg(feature = "libsnark")]
-use zokrates_libsnark::Libsnark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
+#[cfg(any(feature = "bellman", feature = "ark"))]
 use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -125,14 +123,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
             cli_verify::<Bw6_761Field, Marlin, Ark>(sub_matches)
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-            cli_verify::<Bn128Field, GM17, Libsnark>(sub_matches)
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
-            cli_verify::<Bn128Field, PGHR13, Libsnark>(sub_matches)
         }
         _ => unreachable!(),
     }
