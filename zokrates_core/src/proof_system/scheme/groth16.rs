@@ -7,6 +7,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
+#[derive(Serialize)]
 pub struct G16;
 
 #[derive(Serialize, Deserialize, Clone)]

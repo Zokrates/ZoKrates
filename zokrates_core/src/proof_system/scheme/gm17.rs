@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use zokrates_field::{Bw6_761Field, Field};
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Serialize)]
 pub struct GM17;
 
 #[derive(Serialize, Deserialize, Clone)]

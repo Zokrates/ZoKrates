@@ -13,7 +13,7 @@ mod tagged;
 
 pub use self::scheme::*;
 pub use self::solidity::*;
-pub use tagged::{TaggedProof, TaggedVerificationKey};
+pub use tagged::{TaggedKeypair, TaggedProof, TaggedVerificationKey};
 
 use crate::ir;
 

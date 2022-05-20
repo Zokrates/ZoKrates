@@ -74,15 +74,15 @@ module.exports = (dep) => {
     generateProof: (program, witness, provingKey, options) => {
       return zokrates.generate_proof(program, witness, provingKey, options);
     },
-    verify: (vk, proof, options) => {
-      return zokrates.verify(vk, proof, options);
+    verify: (vk, proof) => {
+      return zokrates.verify(vk, proof);
     },
-    exportSolidityVerifier: (vk, options) => {
-      return zokrates.export_solidity_verifier(vk, options);
+    exportSolidityVerifier: (vk) => {
+      return zokrates.export_solidity_verifier(vk);
     },
     utils: {
-      formatProof: (proof, options) => {
-        return zokrates.format_proof(proof, options);
+      formatProof: (proof) => {
+        return zokrates.format_proof(proof);
       }
     }
   };
@@ -104,11 +104,11 @@ module.exports = (dep) => {
         defaultProvider.setupWithSrs(srs, program, options),
       generateProof: (program, witness, provingKey) =>
         defaultProvider.generateProof(program, witness, provingKey, options),
-      verify: (vk, proof) => defaultProvider.verify(vk, proof, options),
+      verify: (vk, proof) => defaultProvider.verify(vk, proof),
       exportSolidityVerifier: (vk) =>
-        defaultProvider.exportSolidityVerifier(vk, options),
+        defaultProvider.exportSolidityVerifier(vk),
       utils: {
-        formatProof: (proof) => defaultProvider.utils.formatProof(proof, options),
+        formatProof: (proof) => defaultProvider.utils.formatProof(proof),
       }
     };
   };

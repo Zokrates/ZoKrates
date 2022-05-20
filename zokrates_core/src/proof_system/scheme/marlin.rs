@@ -6,6 +6,7 @@ use crate::proof_system::{Fr, G1Affine, G2Affine, NotBw6_761Field};
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
+#[derive(Serialize)]
 pub struct Marlin;
 
 #[derive(Serialize, Deserialize)]

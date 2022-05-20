@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Serialize)]
 pub struct PGHR13;
 
 #[derive(Serialize, Deserialize, Clone)]
