@@ -18,7 +18,8 @@ use zokrates_core::proof_system::ark::Ark;
 use zokrates_core::proof_system::groth16::G16;
 use zokrates_core::proof_system::{
     Backend, Marlin, NonUniversalBackend, NonUniversalScheme, Proof, Scheme,
-    SolidityCompatibleField, SolidityCompatibleScheme, UniversalBackend, UniversalScheme, GM17, TaggedProof, TaggedKeypair,
+    SolidityCompatibleField, SolidityCompatibleScheme, TaggedKeypair, TaggedProof,
+    UniversalBackend, UniversalScheme, GM17,
 };
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
@@ -188,7 +189,11 @@ mod internal {
         Ok(JsValue::from_serde(&result).unwrap())
     }
 
-    pub fn setup_non_universal<T: Field, S: NonUniversalScheme<T> + Serialize, B: NonUniversalBackend<T, S>>(
+    pub fn setup_non_universal<
+        T: Field,
+        S: NonUniversalScheme<T> + Serialize,
+        B: NonUniversalBackend<T, S>,
+    >(
         program: ir::Prog<T>,
     ) -> JsValue {
         let keypair = B::setup(program);
@@ -232,8 +237,10 @@ mod internal {
         vk: serde_json::Value,
         proof: serde_json::Value,
     ) -> Result<JsValue, JsValue> {
-        let vk: S::VerificationKey = serde_json::from_value(vk).map_err(|e| JsValue::from_str(&e.to_string()))?;
-        let proof: Proof<T, S> = serde_json::from_value(proof).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let vk: S::VerificationKey =
+            serde_json::from_value(vk).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let proof: Proof<T, S> =
+            serde_json::from_value(proof).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let result = B::verify(vk, proof);
         Ok(JsValue::from_serde(&result).unwrap())
@@ -244,8 +251,8 @@ mod internal {
     ) -> Result<JsValue, JsValue> {
         use serde_json::json;
 
-        let proof: Proof<T, S> = serde_json::from_value(proof)
-            .map_err(|err| JsValue::from_str(&format!("{}", err)))?;
+        let proof: Proof<T, S> =
+            serde_json::from_value(proof).map_err(|err| JsValue::from_str(&format!("{}", err)))?;
 
         let res = S::Proof::from(proof.proof);
 
@@ -269,12 +276,10 @@ mod internal {
     pub fn export_solidity_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T>>(
         vk: serde_json::Value,
     ) -> Result<JsValue, JsValue> {
-        let vk: S::VerificationKey = serde_json::from_value(vk)
-            .map_err(|err| JsValue::from_str(&format!("{}", err)))?;
+        let vk: S::VerificationKey =
+            serde_json::from_value(vk).map_err(|err| JsValue::from_str(&format!("{}", err)))?;
 
-        Ok(JsValue::from_str(&S::export_solidity_verifier(
-            vk
-        )))
+        Ok(JsValue::from_str(&S::export_solidity_verifier(vk)))
     }
 }
 
@@ -320,7 +325,9 @@ pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<Js
 
 #[wasm_bindgen]
 pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
-    let vk: serde_json::Value = vk.into_serde().map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let vk: serde_json::Value = vk
+        .into_serde()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
     let curve = CurveParameter::try_from(
         vk["curve"]
             .as_str()
@@ -328,17 +335,22 @@ pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let scheme = SchemeParameter::try_from(
-        vk["scheme"]
-            .as_str()
-            .ok_or_else(|| JsValue::from_str("Invalid verification key: missing field `scheme`"))?,
-    )
-    .map_err(|e| JsValue::from_str(&e))?;
+    let scheme =
+        SchemeParameter::try_from(vk["scheme"].as_str().ok_or_else(|| {
+            JsValue::from_str("Invalid verification key: missing field `scheme`")
+        })?)
+        .map_err(|e| JsValue::from_str(&e))?;
 
     match (curve, scheme) {
-        (CurveParameter::Bn128, SchemeParameter::G16) => internal::export_solidity_verifier::<Bn128Field, G16>(vk),
-        (CurveParameter::Bn128, SchemeParameter::GM17) => internal::export_solidity_verifier::<Bn128Field, GM17>(vk),
-        (CurveParameter::Bn128, SchemeParameter::MARLIN) => internal::export_solidity_verifier::<Bn128Field, Marlin>(vk),
+        (CurveParameter::Bn128, SchemeParameter::G16) => {
+            internal::export_solidity_verifier::<Bn128Field, G16>(vk)
+        }
+        (CurveParameter::Bn128, SchemeParameter::GM17) => {
+            internal::export_solidity_verifier::<Bn128Field, GM17>(vk)
+        }
+        (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
+            internal::export_solidity_verifier::<Bn128Field, Marlin>(vk)
+        }
         _ => Err(JsValue::from_str("Not supported")),
     }
 }
@@ -494,12 +506,11 @@ pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
     )
     .map_err(|e| JsValue::from_str(&e))?;
 
-    let vk_scheme = SchemeParameter::try_from(
-        vk["scheme"]
-            .as_str()
-            .ok_or_else(|| JsValue::from_str("Invalid verification key: missing field `scheme`"))?,
-    )
-    .map_err(|e| JsValue::from_str(&e))?;
+    let vk_scheme =
+        SchemeParameter::try_from(vk["scheme"].as_str().ok_or_else(|| {
+            JsValue::from_str("Invalid verification key: missing field `scheme`")
+        })?)
+        .map_err(|e| JsValue::from_str(&e))?;
 
     let proof_curve = CurveParameter::try_from(
         proof["curve"]
@@ -516,11 +527,15 @@ pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
     .map_err(|e| JsValue::from_str(&e))?;
 
     if proof_curve != vk_curve {
-        return Err(JsValue::from_str(&format!("Proof and verification should have the same curve")));
+        return Err(JsValue::from_str(&format!(
+            "Proof and verification should have the same curve"
+        )));
     }
 
     if proof_scheme != vk_scheme {
-        return Err(JsValue::from_str(&format!("Proof and verification should have the same scheme")));
+        return Err(JsValue::from_str(&format!(
+            "Proof and verification should have the same scheme"
+        )));
     }
 
     let scheme = vk_scheme;
