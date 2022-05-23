@@ -2084,7 +2084,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_abi"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "serde",
  "serde_derive",
@@ -2099,7 +2099,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.11"
+version = "0.6.12"
 dependencies = [
  "ark-bls12-377",
  "ark-bw6-761",
@@ -2184,7 +2184,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.0.41"
+version = "1.0.43"
 dependencies = [
  "console_error_panic_hook",
  "indexmap",

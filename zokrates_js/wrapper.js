@@ -56,11 +56,7 @@ module.exports = (dep) => {
     computeWitness: (input, args) => {
       const { program, abi } =
         input instanceof Uint8Array ? { program: input, abi: null } : input;
-      return zokrates.compute_witness(
-        program,
-        abi,
-        JSON.stringify(args)
-      );
+      return zokrates.compute_witness(program, abi, JSON.stringify(args));
     },
     setup: (program, options) => {
       return zokrates.setup(program, options);
@@ -83,8 +79,8 @@ module.exports = (dep) => {
     utils: {
       formatProof: (proof, options) => {
         return zokrates.format_proof(proof, options);
-      }
-    }
+      },
+    },
   };
 
   const withOptions = (options) => {
@@ -108,8 +104,9 @@ module.exports = (dep) => {
       exportSolidityVerifier: (vk) =>
         defaultProvider.exportSolidityVerifier(vk, options),
       utils: {
-        formatProof: (proof) => defaultProvider.utils.formatProof(proof, options),
-      }
+        formatProof: (proof) =>
+          defaultProvider.utils.formatProof(proof, options),
+      },
     };
   };
 
