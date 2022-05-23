@@ -4,5 +4,5 @@ target
 pkg
 wasm-pack.log
 stdlib
-stdlib.json
-metadata.json
+stdlib.js
+metadata.js

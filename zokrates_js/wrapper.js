@@ -56,11 +56,7 @@ module.exports = (dep) => {
     computeWitness: (input, args) => {
       const { program, abi } =
         input instanceof Uint8Array ? { program: input, abi: null } : input;
-      return zokrates.compute_witness(
-        program,
-        abi,
-        JSON.stringify(args)
-      );
+      return zokrates.compute_witness(program, abi, JSON.stringify(args));
     },
     setup: (program, options) => {
       return zokrates.setup(program, options);
