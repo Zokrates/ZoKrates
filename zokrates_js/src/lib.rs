@@ -528,13 +528,13 @@ pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
 
     if proof_curve != vk_curve {
         return Err(JsValue::from_str(
-            "Proof and verification should have the same curve",
+            "Proof and verification key should have the same curve",
         ));
     }
 
     if proof_scheme != vk_scheme {
         return Err(JsValue::from_str(
-            "Proof and verification should have the same scheme",
+            "Proof and verification key should have the same scheme",
         ));
     }
 

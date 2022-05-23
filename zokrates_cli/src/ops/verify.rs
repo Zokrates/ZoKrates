@@ -94,24 +94,24 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
     if proof_curve != vk_curve {
         return Err(format!(
-            "Expected the curve of the proof and the verification to be equal, found {} != {}",
+            "Expected the curve of the proof and the verification key to be equal, found {} != {}",
             proof_curve, vk_curve
         ));
     }
 
-    if proof_curve != vk_curve {
+    if proof_scheme != vk_scheme {
         return Err(format!(
-            "Expected the scheme of the proof and the verification to be equal, found {} != {}",
+            "Expected the scheme of the proof and the verification key to be equal, found {} != {}",
             proof_scheme, vk_scheme
         ));
     }
 
+    let scheme = vk_scheme;
+    let curve = vk_curve;
+
     // determine parameters based on that
-    let parameters = Parameters::try_from((
-        sub_matches.value_of("backend").unwrap(),
-        proof_curve,
-        proof_scheme,
-    ))?;
+    let parameters =
+        Parameters::try_from((sub_matches.value_of("backend").unwrap(), curve, scheme))?;
 
     match parameters {
         #[cfg(feature = "bellman")]

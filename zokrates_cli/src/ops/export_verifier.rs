@@ -82,7 +82,7 @@ fn cli_export_verifier<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T
 ) -> Result<(), String> {
     println!("Exporting verifier...");
 
-    let vk = serde_json::from_value(vk).map_err(|why| format!("{:?}", why))?;
+    let vk = serde_json::from_value(vk).map_err(|why| format!("{}", why))?;
 
     let verifier = S::export_solidity_verifier(vk);
 
