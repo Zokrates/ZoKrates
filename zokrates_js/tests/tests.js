@@ -1,17 +1,26 @@
 const assert = require("assert");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const dree = require("dree");
+const snarkjs = require("snarkjs");
+const binfileutils = require("@iden3/binfileutils");
 const { initialize } = require("../node/index.js");
 
 describe("tests", function () {
   let zokratesProvider;
+  let tmpFolder;
+  const Logger = require('logplease');
+  const setupLogger = Logger.create('setup');
+  const proveLogger = Logger.create('prove');
 
   // initialize once before running tests
-  before((done) => {
+  before(() => {
     initialize().then((defaultProvider) => {
       zokratesProvider = defaultProvider;
-      done();
+      return fs.promises.mkdtemp( path.join(os.tmpdir(), '' )).then((folder) => {
+        tmpFolder = folder;
+      });
     });
   });
 
@@ -24,6 +33,17 @@ describe("tests", function () {
          assert.ok(artifacts !== undefined);
        });
      });
+
+     it("should compile with snarkjs output", () => {
+      assert.doesNotThrow(() => {
+        const artifacts = zokratesProvider.compile(
+          "def main() -> field: return 42",
+          { snarkjs: true }
+        );
+        assert.ok(artifacts !== undefined);
+        assert.ok(artifacts.snarkjsProgram !== undefined);
+      });
+    });
 
      it("should throw on invalid code", () => {
        assert.throws(() => zokratesProvider.compile(":-)"));
@@ -69,12 +89,24 @@ describe("tests", function () {
        assert.doesNotThrow(() => {
          const code = "def main(private field a) -> field: return a * a";
          const artifacts = zokratesProvider.compile(code);
-
          const result = zokratesProvider.computeWitness(artifacts, ["2"]);
          const output = JSON.parse(result.output);
          assert.deepEqual(output, ["4"]);
        });
      });
+
+     it("should compute with valid inputs with snarkjs output", () => {
+      assert.doesNotThrow(() => {
+        const code = "def main(private field a) -> field: return a * a";
+        const artifacts = zokratesProvider.compile(code);
+
+        const result = zokratesProvider.computeWitness(artifacts, ["2"], {snarkjs: true});
+
+        const output = JSON.parse(result.output);
+        assert.deepEqual(output, ["4"]);
+        assert.ok(result.snarkjs_witness !== undefined);
+      });
+    });
 
      it("should throw on invalid input count", () => {
        assert.throws(() => {
@@ -100,22 +132,21 @@ describe("tests", function () {
      let keypair;
      let proof;
 
-     before((done) => {
+     before(() => {
        provider = zokratesProvider.withOptions(options);
-       done();
      });
 
      it("compile", () => {
        assert.doesNotThrow(() => {
          const code =
            "def main(private field a, field b) -> bool: return a * a == b";
-         artifacts = provider.compile(code);
+         artifacts = provider.compile(code, { snarkjs: true });
        });
      });
 
      it("compute witness", () => {
        assert.doesNotThrow(() => {
-         computationResult = provider.computeWitness(artifacts, ["2", "4"]);
+         computationResult = provider.computeWitness(artifacts, ["2", "4"], { snarkjs: true });
        });
      });
 
@@ -129,6 +160,18 @@ describe("tests", function () {
          }
        });
      });
+
+     if (options.scheme === "g16" && options.curve == "bn128") {
+      it("snarkjs setup", () => {
+          // write program to fs
+          let r1csPath = tmpFolder + "/prog.r1cs";
+          let zkeyPath = tmpFolder + "/key.zkey";
+          return fs.promises.writeFile(r1csPath, artifacts.snarkjsProgram).then(() => {
+            return snarkjs.zKey.newZKey(r1csPath, "./powersOfTau5_0000.ptau", zkeyPath, setupLogger).then(() => {
+            });
+          })
+      })
+    }
 
      if (options.curve === "bn128" && ["g16", "gm17"].includes(options.scheme)) {
        it("export verifier", () => {
@@ -150,6 +193,18 @@ describe("tests", function () {
          assert.equal(proof.inputs.length, 2);
        });
      });
+
+     if (options.scheme === "g16" && options.curve == "bn128") {
+      it("generate snarkjs proof", () => {
+          // write witness to fs
+          let witnessPath = tmpFolder + "/witness.wtns";
+          let zkeyPath = tmpFolder + "/key.zkey";
+          return fs.promises.writeFile(witnessPath, [computationResult.snarkjs_witness]).then(() => {
+            return snarkjs.groth16.prove(zkeyPath, witnessPath, proveLogger).then((res) => {
+            })
+          })
+      });
+    }
 
      it("verify", () => {
        assert.doesNotThrow(() => {
@@ -236,6 +291,8 @@ describe("tests", function () {
     const options = {
       extensions: ["json"],
     };
+
+    var finished = false;
 
     dree.scan(testsPath, options, function (file) {
       const test = require(file.path);

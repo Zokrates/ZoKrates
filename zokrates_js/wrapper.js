@@ -35,32 +35,40 @@ module.exports = (dep) => {
 
   const defaultProvider = {
     compile: (source, compileOptions = {}) => {
+
       const {
         curve = "bn128",
         location = "main.zok",
         resolveCallback = () => null,
-        config = {},
+        snarkjs = false,
       } = compileOptions;
+
       const callback = (currentLocation, importLocation) => {
         return (
           resolveFromStdlib(currentLocation, importLocation) ||
           resolveCallback(currentLocation, importLocation)
         );
       };
-      const ptr = zokrates.compile(source, location, callback, config, curve);
+      const ptr = zokrates.compile(source, location, callback, {snarkjs: snarkjs}, curve);
+
       return {
         program: ptr.program(),
         abi: ptr.abi(),
-      };
+        snarkjsProgram: ptr.snarkjs_program()
+      }
     },
-    computeWitness: (input, args) => {
+    computeWitness: (input, args, computeOptions = {}) => {
       const { program, abi } =
         input instanceof Uint8Array ? { program: input, abi: null } : input;
+
+      const { snarkjs = false } = computeOptions;
+
       return zokrates.compute_witness(
         program,
         abi,
-        JSON.stringify(args)
-      );
+        JSON.stringify(args),
+        {snarkjs: snarkjs},
+      )
     },
     setup: (program, options) => {
       return zokrates.setup(program, options);
@@ -90,13 +98,13 @@ module.exports = (dep) => {
   const withOptions = (options) => {
     return {
       withOptions,
-      compile: (source, compileOptions = {}) =>
+      compile: (source, compileOptions = {}) => 
         defaultProvider.compile(source, {
           ...compileOptions,
           curve: options.curve,
         }),
-      computeWitness: (artifacts, args) =>
-        defaultProvider.computeWitness(artifacts, args),
+      computeWitness: (artifacts, args, computeOptions = {}) =>
+        defaultProvider.computeWitness(artifacts, args, computeOptions),
       setup: (program) => defaultProvider.setup(program, options),
       universalSetup: (size) =>
         defaultProvider.universalSetup(options.curve, size),

@@ -2094,6 +2094,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "zokrates_circom"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "zokrates_core",
+ "zokrates_field",
+]
+
+[[package]]
 name = "zokrates_common"
 version = "0.1.0"
 
@@ -2194,6 +2203,7 @@ dependencies = [
  "typed-arena",
  "wasm-bindgen",
  "zokrates_abi",
+ "zokrates_circom",
  "zokrates_common",
  "zokrates_core",
  "zokrates_field",

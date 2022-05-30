@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use typed_arena::Arena;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
+use zokrates_circom::{write_r1cs, write_witness};
 use zokrates_common::helpers::{CurveParameter, SchemeParameter};
 use zokrates_common::Resolver;
 use zokrates_core::compile::{
@@ -28,6 +29,7 @@ use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, F
 pub struct CompilationResult {
     program: Vec<u8>,
     abi: Abi,
+    snarkjs_program: Option<Vec<u8>>,
 }
 
 #[wasm_bindgen]
@@ -40,6 +42,25 @@ impl CompilationResult {
     pub fn abi(&self) -> JsValue {
         JsValue::from_serde(&self.abi).unwrap()
     }
+
+    pub fn snarkjs_program(&self) -> Option<js_sys::Uint8Array> {
+        self.snarkjs_program.as_ref().map(|p| {
+            let arr = js_sys::Uint8Array::new_with_length(p.len() as u32);
+            arr.copy_from(&p);
+            arr
+        })
+    }
+}
+
+#[wasm_bindgen]
+impl ComputationResult {
+    pub fn snarkjs_witness(&self) -> Option<js_sys::Uint8Array> {
+        self.snarkjs_witness.as_ref().map(|w| {
+            let arr = js_sys::Uint8Array::new_with_length(w.len() as u32);
+            arr.copy_from(&w);
+            arr
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -49,9 +70,11 @@ pub struct ResolverResult {
 }
 
 #[derive(Serialize, Deserialize)]
+#[wasm_bindgen]
 pub struct ComputationResult {
     witness: String,
     output: String,
+    snarkjs_witness: Option<Vec<u8>>,
 }
 
 pub struct JsResolver<'a> {
@@ -106,7 +129,12 @@ mod internal {
         config: JsValue,
     ) -> Result<CompilationResult, JsValue> {
         let resolver = JsResolver::new(resolve_callback);
-        let config: CompileConfig = config.into_serde().unwrap_or_default();
+        let config: serde_json::Value = config.into_serde().unwrap();
+        let with_snarkjs_program = config
+            .get("snarkjs")
+            .map(|v| *v == serde_json::Value::Bool(true))
+            .unwrap_or(false);
+        let config: CompileConfig = serde_json::from_value(config).unwrap_or_default();
 
         let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
 
@@ -130,13 +158,19 @@ mod internal {
 
         let abi = artifacts.abi().clone();
 
-        let program = artifacts.prog();
+        let program = artifacts.prog().collect();
+        let snarkjs_program = with_snarkjs_program.then(|| {
+            let mut buffer = Cursor::new(vec![]);
+            write_r1cs(&mut buffer, program.clone()).unwrap();
+            buffer.into_inner()
+        });
         let mut buffer = Cursor::new(vec![]);
         let _ = program.serialize(&mut buffer);
 
         Ok(CompilationResult {
             abi,
             program: buffer.into_inner(),
+            snarkjs_program,
         })
     }
 
@@ -144,8 +178,15 @@ mod internal {
         program: ir::Prog<T>,
         abi: JsValue,
         args: JsValue,
+        config: JsValue,
     ) -> Result<JsValue, JsValue> {
         let input = args.as_string().unwrap();
+
+        let config: serde_json::Value = config.into_serde().unwrap();
+        let with_snarkjs_witness = config
+            .get("snarkjs")
+            .map(|v| *v == serde_json::Value::Bool(true))
+            .unwrap_or(false);
 
         let (inputs, signature) = if abi.is_object() {
             let abi: Abi = abi.into_serde().map_err(|err| {
@@ -172,6 +213,8 @@ mod internal {
 
         let interpreter = ir::Interpreter::default();
 
+        let public_inputs = program.public_inputs();
+
         let witness = interpreter
             .execute(program, &inputs.encode())
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
@@ -180,9 +223,16 @@ mod internal {
             zokrates_abi::Values::decode(witness.return_values(), signature.outputs)
                 .into_serde_json();
 
+        let snarkjs_witness = with_snarkjs_witness.then(|| {
+            let mut buffer = Cursor::new(vec![]);
+            write_witness(&mut buffer, witness.clone(), public_inputs).unwrap();
+            buffer.into_inner()
+        });
+
         let result = ComputationResult {
             witness: format!("{}", witness),
             output: to_string_pretty(&return_values).unwrap(),
+            snarkjs_witness,
         };
 
         Ok(JsValue::from_serde(&result).unwrap())
@@ -295,15 +345,20 @@ pub fn compile(
 }
 
 #[wasm_bindgen]
-pub fn compute_witness(program: &[u8], abi: JsValue, args: JsValue) -> Result<JsValue, JsValue> {
+pub fn compute_witness(
+    program: &[u8],
+    abi: JsValue,
+    args: JsValue,
+    config: JsValue,
+) -> Result<JsValue, JsValue> {
     let prog = ir::ProgEnum::deserialize(program)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
     match prog {
-        ProgEnum::Bn128Program(p) => internal::compute::<_>(p, abi, args),
-        ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args),
-        ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args),
-        ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args),
+        ProgEnum::Bn128Program(p) => internal::compute::<_>(p, abi, args, config),
+        ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args, config),
+        ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args, config),
+        ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args, config),
     }
 }
 
