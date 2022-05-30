@@ -2834,7 +2834,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.7.13"
+version = "0.7.14"
 dependencies = [
  "assert_cli",
  "blake2 0.8.1",
@@ -2869,11 +2869,11 @@ dependencies = [
 
 [[package]]
 name = "zokrates_common"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "zokrates_core"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "ark-bls12-377",
  "ark-bn254",
@@ -3018,7 +3018,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "fs_extra",
  "zokrates_test",
