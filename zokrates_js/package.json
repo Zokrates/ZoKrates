@@ -1,11 +1,16 @@
 {
   "name": "zokrates-js",
-  "main": "index.js",
-  "author": "Darko Macesic <darem966@gmail.com>",
-  "version": "1.0.42",
+  "version": "1.0.44",
+  "module": "index.js",
+  "main": "node/index.js",
+  "description": "JavaScript bindings for ZoKrates",
+  "contributors": [
+    "Darko Macesic <darem966@gmail.com>",
+    "Thibaut Schaeffer <thibaut@schaeff.fr>"
+  ],
   "keywords": [
     "zokrates",
-    "wasm-bindgen",
+    "snarks",
     "zksnarks"
   ],
   "license": "GPLv3",
@@ -15,11 +20,14 @@
     "index.js",
     "index.d.ts",
     "wrapper.js",
-    "stdlib.json",
-    "metadata.json",
-    "README.md"
+    "stdlib.js",
+    "metadata.js"
   ],
   "types": "index.d.ts",
+  "exports": {
+    "import": "./index.js",
+    "require": "./node/index.js"
+  },
   "scripts": {
     "wasm-pack": "wasm-pack build --out-name index",
     "setup": "npm install && gulp setup",
@@ -31,8 +39,8 @@
     "build:bundler:dev": "rimraf pkg && npm run wasm-pack -- --target bundler --dev && npm run clean-pkg",
     "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --release && npm run clean-node-pkg",
     "build:node:dev": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --dev && npm run clean-node-pkg",
-    "clean-pkg": "rimraf pkg/README.md",
-    "clean-node-pkg": "rimraf node/pkg/README.md",
+    "clean-pkg": "rimraf pkg/README.md pkg/.gitignore",
+    "clean-node-pkg": "rimraf node/pkg/README.md node/pkg/.gitignore",
     "pretest": "npm run setup && npm run build:node:dev",
     "test": "npm run run-tests",
     "run-tests": "mocha --timeout 30000 --require esm --recursive tests"

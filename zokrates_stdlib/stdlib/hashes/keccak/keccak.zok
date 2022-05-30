@@ -1,6 +1,9 @@
 // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf
 // based on keccak-f[1600] permutation
 
+import "utils/casts/u64_from_bits"
+import "utils/casts/u8_to_bits"
+
 const u32[24] RHO = [
     1,  3,  6,  10, 15, 21, 28, 36, 45, 55, 2,  14,
     27, 41, 56, 8,  25, 43, 62, 18, 39, 61, 20, 44
@@ -76,7 +79,7 @@ def keccakf(u64[25] st) -> u64[25]:
     endfor
     return st
 
-def main<N, W>(u64[N] input, u64 pad) -> u64[25]:
+def keccak<N, W>(u64[N] input, u64 pad) -> u64[25]:
     u64[25] q = [0; 25]
     u32 rate = (200 - (W / 4)) / 8
     u32 pt = 0
@@ -93,6 +96,8 @@ def main<N, W>(u64[N] input, u64 pad) -> u64[25]:
         q = if pt == 0 then keccakf(q) else q fi
     endfor
 
+    pt = if (pad & 0x00000000000000ff) != 0 then pt else pt - 1 fi
+
     // finalize
     q[pt] = q[pt] ^ pad
     q[rate - 1] = q[rate - 1] ^ 0x8000000000000000
@@ -104,3 +109,31 @@ def main<N, W>(u64[N] input, u64 pad) -> u64[25]:
     endfor
 
     return q
+
+def u8_array_to_u64(u8[8] input) -> u64:
+    bool[64] bits = [
+        ...u8_to_bits(input[0]),
+        ...u8_to_bits(input[1]),
+        ...u8_to_bits(input[2]),
+        ...u8_to_bits(input[3]),
+        ...u8_to_bits(input[4]),
+        ...u8_to_bits(input[5]),
+        ...u8_to_bits(input[6]),
+        ...u8_to_bits(input[7])
+    ]
+    return u64_from_bits(bits)
+
+def main<N, W>(u8[N] input, u64 pad) -> u64[25]:
+    u32 L = N / 8
+    u32 R = if L * 8 == N then 0 else 1 fi
+    u32 len = L + R
+
+    u8[len * 8] padded = [...input, ...[0; len * 8 - N]]
+    u64[len] input_u64 = [0; len]
+
+    for u32 i in 0..len do
+        u32 j = i * 8
+        input_u64[i] = u8_array_to_u64(padded[j..j+8])
+    endfor
+
+    return keccak::<_, W>(input_u64, pad << ((N % 8) * 8))

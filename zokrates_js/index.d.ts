@@ -78,7 +78,7 @@ declare module "zokrates-js" {
     exportSolidityVerifier(verificationKey: VerificationKey): string;
     utils: {
       formatProof(proof: Proof): any[];
-    }
+    };
   }
 
   export interface Metadata {
