@@ -19,7 +19,7 @@ use rand_0_8::{rngs::StdRng, SeedableRng};
 impl<T: Field + ArkFieldExtensions + NotBw6_761Field> NonUniversalBackend<T, GM17> for Ark {
     fn setup<I: IntoIterator<Item = Statement<T>>>(
         program: ProgIterator<T, I>,
-    ) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
+    ) -> SetupKeypair<T, GM17> {
         let computation = Computation::without_witness(program);
 
         let rng = &mut StdRng::from_entropy();
@@ -112,7 +112,7 @@ impl<T: Field + ArkFieldExtensions + NotBw6_761Field> Backend<T, GM17> for Ark {
 impl NonUniversalBackend<Bw6_761Field, GM17> for Ark {
     fn setup<I: IntoIterator<Item = Statement<Bw6_761Field>>>(
         program: ProgIterator<Bw6_761Field, I>,
-    ) -> SetupKeypair<<GM17 as Scheme<Bw6_761Field>>::VerificationKey> {
+    ) -> SetupKeypair<Bw6_761Field, GM17> {
         let computation = Computation::without_witness(program);
 
         let rng = &mut StdRng::from_entropy();

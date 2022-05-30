@@ -86,7 +86,7 @@ impl<T: Field + BellmanFieldExtensions> Backend<T, G16> for Bellman {
 impl<T: Field + BellmanFieldExtensions> NonUniversalBackend<T, G16> for Bellman {
     fn setup<I: IntoIterator<Item = Statement<T>>>(
         program: ProgIterator<T, I>,
-    ) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
+    ) -> SetupKeypair<T, G16> {
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
@@ -140,9 +140,7 @@ impl<T: Field + BellmanFieldExtensions> MpcBackend<T, G16> for Bellman {
         Ok(hashes)
     }
 
-    fn export_keypair<R: Read>(
-        params: &mut R,
-    ) -> Result<SetupKeypair<<G16 as Scheme<T>>::VerificationKey>, String> {
+    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<T, G16>, String> {
         let params =
             MPCParameters::<T::BellmanEngine>::read(params, true).map_err(|e| e.to_string())?;
 

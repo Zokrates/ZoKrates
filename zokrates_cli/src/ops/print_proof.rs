@@ -1,9 +1,9 @@
-use crate::cli_constants::{self, JSON_PROOF_PATH};
+use crate::cli_constants::JSON_PROOF_PATH;
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::convert::TryInto;
 use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
-use zokrates_common::constants as common_constants;
 use zokrates_common::helpers::{CurveParameter, SchemeParameter};
 use zokrates_core::proof_system::{
     Marlin, Proof, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17, PGHR13,
@@ -34,48 +34,45 @@ pub fn subcommand() -> App<'static, 'static> {
                 .required(true)
                 .default_value("remix"),
         )
-        .arg(
-            Arg::with_name("proving-scheme")
-                .short("s")
-                .long("proving-scheme")
-                .help("Proving scheme the proof was created with")
-                .value_name("FILE")
-                .takes_value(true)
-                .required(false)
-                .possible_values(cli_constants::SCHEMES)
-                .default_value(common_constants::G16),
-        )
-        .arg(
-            Arg::with_name("curve")
-                .short("c")
-                .long("curve")
-                .help("Curve to be used in the verification")
-                .takes_value(true)
-                .required(false)
-                .possible_values(cli_constants::CURVES)
-                .default_value(common_constants::BN128),
-        )
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
-    let curve = sub_matches.value_of("curve").unwrap();
-    let scheme = sub_matches.value_of("proving-scheme").unwrap();
+    let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
+    let proof_file = File::open(&proof_path)
+        .map_err(|why| format!("Could not open {}: {}", proof_path.display(), why))?;
+
+    // deserialize proof to JSON
+    let proof_reader = BufReader::new(proof_file);
+    let proof: serde_json::Value = serde_json::from_reader(proof_reader)
+        .map_err(|why| format!("Could not deserialize proof: {}", why))?;
+
+    // extract curve and scheme parameters from both
+    let curve = proof
+        .get("curve")
+        .ok_or_else(|| "Field `curve` not found in proof".to_string())?
+        .as_str()
+        .ok_or_else(|| "`curve` should be a string".to_string())?;
+    let scheme = proof
+        .get("scheme")
+        .ok_or_else(|| "Field `scheme` not found in proof".to_string())?
+        .as_str()
+        .ok_or_else(|| "`scheme` should be a string".to_string())?;
 
     let parameters: (CurveParameter, SchemeParameter) =
         (curve.try_into().unwrap(), scheme.try_into().unwrap());
 
     match parameters {
         (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
-            cli_print_proof::<Bn128Field, PGHR13>(sub_matches)
+            cli_print_proof::<Bn128Field, PGHR13>(sub_matches, proof)
         }
         (CurveParameter::Bn128, SchemeParameter::G16) => {
-            cli_print_proof::<Bn128Field, G16>(sub_matches)
+            cli_print_proof::<Bn128Field, G16>(sub_matches, proof)
         }
         (CurveParameter::Bn128, SchemeParameter::GM17) => {
-            cli_print_proof::<Bn128Field, GM17>(sub_matches)
+            cli_print_proof::<Bn128Field, GM17>(sub_matches, proof)
         }
         (CurveParameter::Bn128, SchemeParameter::MARLIN) => {
-            cli_print_proof::<Bn128Field, Marlin>(sub_matches)
+            cli_print_proof::<Bn128Field, Marlin>(sub_matches, proof)
         }
         _ => Err(format!("Could not print proof with given parameters (curve: {}, scheme: {}): only bn128 is supported", curve, scheme))
     }
@@ -83,14 +80,11 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_print_proof<T: SolidityCompatibleField, S: SolidityCompatibleScheme<T>>(
     sub_matches: &ArgMatches,
+    proof: serde_json::Value,
 ) -> Result<(), String> {
     let format = sub_matches.value_of("format").unwrap();
-    let path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
-    let file =
-        File::open(&path).map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
-
-    let proof: Proof<T, S> = serde_json::from_reader(file).map_err(|why| format!("{:?}", why))?;
+    let proof: Proof<T, S> = serde_json::from_value(proof).map_err(|why| format!("{:?}", why))?;
 
     let inputs = serde_json::to_value(&proof.inputs).unwrap();
 

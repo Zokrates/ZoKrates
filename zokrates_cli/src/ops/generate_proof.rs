@@ -92,11 +92,13 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
     let mut reader = BufReader::new(program_file);
     let prog = ProgEnum::deserialize(&mut reader)?;
 
-    let parameters = Parameters::try_from((
-        sub_matches.value_of("backend").unwrap(),
-        prog.curve(),
-        sub_matches.value_of("proving-scheme").unwrap(),
-    ))?;
+    let curve_parameter = CurveParameter::try_from(prog.curve())?;
+
+    let backend_parameter = BackendParameter::try_from(sub_matches.value_of("backend").unwrap())?;
+    let scheme_parameter =
+        SchemeParameter::try_from(sub_matches.value_of("proving-scheme").unwrap())?;
+
+    let parameters = Parameters(backend_parameter, curve_parameter, scheme_parameter);
 
     match parameters {
         #[cfg(feature = "bellman")]
@@ -188,7 +190,8 @@ fn cli_generate_proof<
     let proof = B::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
 
-    let proof = serde_json::to_string_pretty(&proof).unwrap();
+    let proof =
+        serde_json::to_string_pretty(&TaggedProof::<T, S>::new(proof.proof, proof.inputs)).unwrap();
     proof_file
         .write(proof.as_bytes())
         .map_err(|why| format!("Could not write to {}: {}", proof_path.display(), why))?;
