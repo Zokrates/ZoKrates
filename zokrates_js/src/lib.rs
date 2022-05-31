@@ -47,7 +47,7 @@ impl CompilationResult {
     pub fn snarkjs_program(&self) -> Option<js_sys::Uint8Array> {
         self.snarkjs_program.as_ref().map(|p| {
             let arr = js_sys::Uint8Array::new_with_length(p.len() as u32);
-            arr.copy_from(&p);
+            arr.copy_from(p);
             arr
         })
     }
@@ -58,7 +58,7 @@ impl ComputationResult {
     pub fn snarkjs_witness(&self) -> Option<js_sys::Uint8Array> {
         self.snarkjs_witness.as_ref().map(|w| {
             let arr = js_sys::Uint8Array::new_with_length(w.len() as u32);
-            arr.copy_from(&w);
+            arr.copy_from(w);
             arr
         })
     }
