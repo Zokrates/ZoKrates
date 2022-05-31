@@ -4,6 +4,7 @@ use crate::{Fr, G1Affine, G2Affine};
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
+#[derive(Serialize)]
 pub struct Marlin;
 
 #[derive(Serialize, Deserialize)]
@@ -78,6 +79,8 @@ pub struct VerificationKey<Fr, G1, G2> {
 }
 
 impl<T: Field> Scheme<T> for Marlin {
+    const NAME: &'static str = "marlin";
+
     type VerificationKey = VerificationKey<Fr, G1Affine, G2Affine>;
     type ProofPoints = ProofPoints<Fr, G1Affine>;
 }

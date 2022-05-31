@@ -137,7 +137,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
     fn setup<I: IntoIterator<Item = Statement<T>>>(
         srs: Vec<u8>,
         program: ProgIterator<T, I>,
-    ) -> Result<SetupKeypair<<marlin::Marlin as Scheme<T>>::VerificationKey>, String> {
+    ) -> Result<SetupKeypair<T, marlin::Marlin>, String> {
         let program = program.collect();
 
         if program.constraint_count() < MINIMUM_CONSTRAINT_COUNT {

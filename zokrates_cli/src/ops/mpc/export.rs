@@ -6,7 +6,7 @@ use std::path::Path;
 use zokrates_bellman::Bellman;
 use zokrates_common::constants::{BLS12_381, BN128};
 use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
-use zokrates_proof_systems::{MpcBackend, MpcScheme, G16};
+use zokrates_proof_systems::{MpcBackend, MpcScheme, TaggedVerificationKey, G16};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("export")
@@ -83,7 +83,7 @@ pub fn cli_mpc_export<T: Field + BellmanFieldExtensions, S: MpcScheme<T>, B: Mpc
         .map_err(|why| format!("Could not create `{}`: {}", vk_path.display(), why))?;
     vk_file
         .write_all(
-            serde_json::to_string_pretty(&keypair.vk)
+            serde_json::to_string_pretty(&TaggedVerificationKey::<T, S>::new(keypair.vk))
                 .unwrap()
                 .as_bytes(),
         )

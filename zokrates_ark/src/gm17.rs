@@ -18,7 +18,7 @@ use zokrates_proof_systems::{Backend, NonUniversalBackend, Proof, SetupKeypair};
 impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, GM17> for Ark {
     fn setup<I: IntoIterator<Item = Statement<T>>>(
         program: ProgIterator<T, I>,
-    ) -> SetupKeypair<<GM17 as Scheme<T>>::VerificationKey> {
+    ) -> SetupKeypair<T, GM17> {
         let computation = Computation::without_witness(program);
 
         let rng = &mut StdRng::from_entropy();

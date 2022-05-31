@@ -2,13 +2,14 @@ pub mod to_token;
 
 mod scheme;
 mod solidity;
+mod tagged;
 
 pub use self::scheme::*;
 pub use self::solidity::*;
+pub use tagged::{TaggedKeypair, TaggedProof, TaggedVerificationKey};
 
 use zokrates_ast::ir;
 
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use rand_0_4::Rng;
@@ -17,13 +18,13 @@ use std::io::{Read, Write};
 use zokrates_field::Field;
 
 #[derive(Serialize)]
-pub struct SetupKeypair<V> {
-    pub vk: V,
+pub struct SetupKeypair<T: Field, S: Scheme<T>> {
+    pub vk: S::VerificationKey,
     pub pk: Vec<u8>,
 }
 
-impl<V: Serialize + DeserializeOwned> SetupKeypair<V> {
-    pub fn new(vk: V, pk: Vec<u8>) -> SetupKeypair<V> {
+impl<T: Field, S: Scheme<T>> SetupKeypair<T, S> {
+    pub fn new(vk: S::VerificationKey, pk: Vec<u8>) -> SetupKeypair<T, S> {
         SetupKeypair { vk, pk }
     }
 }
@@ -34,7 +35,6 @@ pub struct Proof<T: Field, S: Scheme<T>> {
     pub inputs: Vec<Fr>,
 }
 
-#[allow(dead_code)]
 impl<T: Field, S: Scheme<T>> Proof<T, S> {
     pub fn new(proof: S::ProofPoints, inputs: Vec<String>) -> Self {
         Proof { proof, inputs }
@@ -107,7 +107,7 @@ pub trait Backend<T: Field, S: Scheme<T>> {
 pub trait NonUniversalBackend<T: Field, S: NonUniversalScheme<T>>: Backend<T, S> {
     fn setup<I: IntoIterator<Item = ir::Statement<T>>>(
         program: ir::ProgIterator<T, I>,
-    ) -> SetupKeypair<S::VerificationKey>;
+    ) -> SetupKeypair<T, S>;
 }
 
 pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
@@ -116,7 +116,7 @@ pub trait UniversalBackend<T: Field, S: UniversalScheme<T>>: Backend<T, S> {
     fn setup<I: IntoIterator<Item = ir::Statement<T>>>(
         srs: Vec<u8>,
         program: ir::ProgIterator<T, I>,
-    ) -> Result<SetupKeypair<S::VerificationKey>, String>;
+    ) -> Result<SetupKeypair<T, S>, String>;
 }
 
 pub trait MpcBackend<T: Field, S: Scheme<T>> {
@@ -138,5 +138,5 @@ pub trait MpcBackend<T: Field, S: Scheme<T>> {
         phase1_radix: &mut R,
     ) -> Result<Vec<[u8; 64]>, String>;
 
-    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<S::VerificationKey>, String>;
+    fn export_keypair<R: Read>(params: &mut R) -> Result<SetupKeypair<T, S>, String>;
 }

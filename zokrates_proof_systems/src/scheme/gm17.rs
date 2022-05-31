@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Serialize)]
 pub struct GM17;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -28,6 +29,8 @@ pub struct VerificationKey<G1, G2> {
 impl<T: Field> NonUniversalScheme<T> for GM17 {}
 
 impl<T: Field> Scheme<T> for GM17 {
+    const NAME: &'static str = "gm17";
+
     type VerificationKey = VerificationKey<G1Affine, G2Affine>;
     type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 }

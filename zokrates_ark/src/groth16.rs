@@ -88,7 +88,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
 impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {
     fn setup<I: IntoIterator<Item = Statement<T>>>(
         program: ProgIterator<T, I>,
-    ) -> SetupKeypair<<G16 as Scheme<T>>::VerificationKey> {
+    ) -> SetupKeypair<T, G16> {
         println!("{}", G16_WARNING);
 
         let computation = Computation::without_witness(program);
@@ -135,11 +135,8 @@ mod tests {
             .execute(program.clone(), &[Bls12_377Field::from(42)])
             .unwrap();
 
-        let proof = <Ark as Backend<Bls12_377Field, G16>>::generate_proof(
-            program.into(),
-            witness,
-            keypair.pk,
-        );
+        let proof =
+            <Ark as Backend<Bls12_377Field, G16>>::generate_proof(program, witness, keypair.pk);
         let ans = <Ark as Backend<Bls12_377Field, G16>>::verify(keypair.vk, proof);
 
         assert!(ans);

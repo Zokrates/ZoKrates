@@ -1,17 +1,45 @@
-import "hashes/keccak/512bit" as keccak512
-
-// Python code:
-// >>> from Crypto.Hash import keccak
-
-// >>> digest = keccak.new(digest_bits=512)
-// >>> digest.update(b'\x00\x00\x00\x00\x00\x00\x00\x2A' * 20)
-// >>> digest.hexdigest()
-// '5451affca80019c7ac9a7ff647ca073b56e19d55857031df14e00bb1d36ed18a05bdac99bcc0417240dea0cf3fddd19144b8d1e9618fd3f6c8f1a79f7e489eb8'
+from "hashes/keccak/512bit" import keccak512
 
 def main():
-    u64[8] h = keccak512::<20>([42; 20])
-    assert(h == [
-        0x5451AFFCA80019C7, 0xAC9A7FF647CA073B, 0x56E19D55857031DF, 0x14E00BB1D36ED18A,
-        0x05BDAC99BCC04172, 0x40DEA0CF3FDDD191, 0x44B8D1E9618FD3F6, 0xC8F1A79F7E489EB8
+    // Python:
+    // >>> from Crypto.Hash import keccak
+    // >>> digest = keccak.new(digest_bits=512)
+    // >>> digest.update(b'\x2a')
+    // >>> digest.hexdigest()
+    // 'a470459552991801eca017c8bfeedb376469c9b642a2cca455a3271c5751ad3be53d9f4ddce99613515e954bd3d80d218a2f43f953141ec6bdcaf7ba4a4bad67'
+
+    u64[8] h1 = keccak512::<1>([0x2a])
+    assert(h1 == [
+        0xa470459552991801, 0xeca017c8bfeedb37, 0x6469c9b642a2cca4, 0x55a3271c5751ad3b,
+        0xe53d9f4ddce99613, 0x515e954bd3d80d21, 0x8a2f43f953141ec6, 0xbdcaf7ba4a4bad67
+    ])
+
+    // Python:
+    // >>> from Crypto.Hash import keccak
+    // >>> digest = keccak.new(digest_bits=512)
+    // >>> digest.update(b'\x2a' * 8)
+    // >>> digest.hexdigest()
+    // '91e7b4ca7569fb43a180354878bcd807578e207c0dec866d7bc7569d86996a86bce7bd05ab32138797693e76882475a819352919cd81585110e5dfb1c8710337'
+
+    u64[8] h2 = keccak512::<8>([0x2a; 8])
+    assert(h2 == [
+        0x91e7b4ca7569fb43, 0xa180354878bcd807, 0x578e207c0dec866d, 0x7bc7569d86996a86,
+        0xbce7bd05ab321387, 0x97693e76882475a8, 0x19352919cd815851, 0x10e5dfb1c8710337
+    ])
+
+    // Python:
+    // >>> from Crypto.Hash import keccak
+    // >>> input = "hello world".encode()
+    // >>> input.hex()
+    // '68656c6c6f20776f726c64'
+    // >>> digest = keccak.new(digest_bits=512)
+    // >>> digest.update(input)
+    // >>> digest.hexdigest()
+    // '3ee2b40047b8060f68c67242175660f4174d0af5c01d47168ec20ed619b0b7c42181f40aa1046f39e2ef9efc6910782a998e0013d172458957957fac9405b67d'
+
+    u64[8] h3 = keccak512::<11>([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64])
+    assert(h3 == [
+        0x3ee2b40047b8060f, 0x68c67242175660f4, 0x174d0af5c01d4716, 0x8ec20ed619b0b7c4,
+        0x2181f40aa1046f39, 0xe2ef9efc6910782a, 0x998e0013d1724589, 0x57957fac9405b67d
     ])
     return
