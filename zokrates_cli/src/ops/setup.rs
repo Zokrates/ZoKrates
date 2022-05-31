@@ -210,7 +210,7 @@ fn cli_setup_non_universal<
         .map_err(|why| format!("Could not create {}: {}", vk_path.display(), why))?;
     vk_file
         .write_all(
-            serde_json::to_string_pretty(&keypair.vk)
+            serde_json::to_string_pretty(&TaggedVerificationKey::<T, S>::new(keypair.vk))
                 .unwrap()
                 .as_bytes(),
         )
@@ -255,7 +255,7 @@ fn cli_setup_universal<
         .map_err(|why| format!("Could not create {}: {}", vk_path.display(), why))?;
     vk_file
         .write_all(
-            serde_json::to_string_pretty(&keypair.vk)
+            serde_json::to_string_pretty(&TaggedVerificationKey::<T, S>::new(keypair.vk))
                 .unwrap()
                 .as_bytes(),
         )
