@@ -2470,7 +2470,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 {
                     return Err(ErrorInner {
                         pos: Some(pos),
-                        message: format!("statements in the if-else block are not yet supported"),
+                        message: "statements in the if-else block are not yet supported"
+                            .to_string(),
                     });
                 }
 
