@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_js"
-version = "1.0.42"
+version = "1.0.43"
 authors = ["Darko Macesic"]
 edition = "2018"
 
@@ -19,5 +19,4 @@ zokrates_field = { path = "../zokrates_field" }
 zokrates_abi = { path = "../zokrates_abi" }
 zokrates_circom = { path = "../zokrates_circom" }
 console_error_panic_hook = "0.1.6"
-
 indexmap = "~1.6.2" # see https://github.com/rustwasm/wasm-bindgen/issues/2770#issuecomment-1041102532

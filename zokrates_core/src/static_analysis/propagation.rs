@@ -1711,8 +1711,7 @@ mod tests {
                             )
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
-                        )
-                        .into()]
+                        )]
                         .into(),
                     )
                     .annotate(Type::FieldElement, 1u32),
@@ -1736,8 +1735,7 @@ mod tests {
                             )
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
-                        )
-                        .into()]
+                        )]
                         .into(),
                     )
                     .annotate(Type::FieldElement, 1u32),

@@ -265,7 +265,7 @@ main() {
 
     url="$url/releases"
 
-    tag=$(curl -s "$url/latest" | cut -d'"' -f2 | rev | cut -d'/' -f1 | rev)
+    tag=$(curl -Ls -w %{url_effective} -o /dev/null "$url/latest" | cut -d'"' -f2 | rev | cut -d'/' -f1 | rev)
     say_err "Tag: latest ($tag)"
 
     # detect host architecture
@@ -296,7 +296,7 @@ main() {
         rm -rf $dest/*
         cp -r $td/* $dest
       else
-        read -p "ZoKrates is already installed, overwrite (y/n)? " answer
+        read -p "ZoKrates is already installed, overwrite (y/n)? " answer < /dev/tty
         case ${answer} in
             y|Y )
                 rm -rf $dest/*

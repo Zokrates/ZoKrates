@@ -599,7 +599,7 @@ pub fn unpack_to_bitwidth<T: Field>(
     // sum check: o253 + o252 * 2 + ... + o{253 - (bit_width - 1)} * 2**(bit_width - 1)
     let lhs_sum = flat_expression_from_bits(
         (0..bit_width)
-            .map(|i| FlatExpression::Identifier(FlatVariable::new(bit_width - i)))
+            .map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1)))
             .collect(),
     );
 

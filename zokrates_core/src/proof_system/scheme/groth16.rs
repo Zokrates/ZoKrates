@@ -7,6 +7,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zokrates_field::Field;
 
+#[derive(Serialize)]
 pub struct G16;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -26,6 +27,8 @@ pub struct VerificationKey<G1, G2> {
 }
 
 impl<T: Field> Scheme<T> for G16 {
+    const NAME: &'static str = "g16";
+
     type VerificationKey = VerificationKey<G1Affine, G2Affine>;
     type ProofPoints = ProofPoints<G1Affine, G2Affine>;
 }
