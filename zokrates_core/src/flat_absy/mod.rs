@@ -7,9 +7,14 @@
 
 pub mod flat_parameter;
 pub mod flat_variable;
+pub mod utils;
 
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
+pub use utils::{
+    flat_expression_from_bits, flat_expression_from_expression_summands,
+    flat_expression_from_variable_summands,
+};
 
 use serde::{Deserialize, Serialize};
 

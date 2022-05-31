@@ -24,7 +24,7 @@ pub struct Witness<T> {
 
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct Constraint<T> {
-    pub a: Vec<(usize, T)>,
-    pub b: Vec<(usize, T)>,
-    pub c: Vec<(usize, T)>,
+    pub a: Vec<(T, usize)>,
+    pub b: Vec<(T, usize)>,
+    pub c: Vec<(T, usize)>,
 }
