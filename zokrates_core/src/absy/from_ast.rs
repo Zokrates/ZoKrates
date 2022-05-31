@@ -1,6 +1,6 @@
 use crate::absy;
 
-use crate::absy::SymbolDefinition;
+use crate::absy::{ConditionalExpression, SymbolDefinition};
 use num_bigint::BigUint;
 use std::path::Path;
 use zokrates_pest_ast as pest;
@@ -405,6 +405,7 @@ impl<'ast> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast> {
         match expression {
             pest::Expression::Binary(e) => absy::ExpressionNode::from(e),
             pest::Expression::Ternary(e) => absy::ExpressionNode::from(e),
+            pest::Expression::IfElse(e) => absy::ExpressionNode::from(e),
             pest::Expression::Literal(e) => absy::ExpressionNode::from(e),
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
             pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
@@ -506,14 +507,40 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     }
 }
 
+impl<'ast> From<pest::IfElseExpression<'ast>> for absy::ExpressionNode<'ast> {
+    fn from(expression: pest::IfElseExpression<'ast>) -> absy::ExpressionNode<'ast> {
+        use crate::absy::NodeValue;
+        absy::Expression::Conditional(box ConditionalExpression {
+            condition: box absy::ExpressionNode::from(*expression.condition),
+            consequence_statements: expression
+                .consequence_statements
+                .into_iter()
+                .flat_map(statements_from_statement)
+                .collect(),
+            consequence: box absy::ExpressionNode::from(*expression.consequence),
+            alternative_statements: expression
+                .alternative_statements
+                .into_iter()
+                .flat_map(statements_from_statement)
+                .collect(),
+            alternative: box absy::ExpressionNode::from(*expression.alternative),
+            kind: absy::ConditionalKind::IfElse,
+        })
+        .span(expression.span)
+    }
+}
+
 impl<'ast> From<pest::TernaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::TernaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
         use crate::absy::NodeValue;
-        absy::Expression::Conditional(
-            box absy::ExpressionNode::from(*expression.condition),
-            box absy::ExpressionNode::from(*expression.consequence),
-            box absy::ExpressionNode::from(*expression.alternative),
-        )
+        absy::Expression::Conditional(box ConditionalExpression {
+            condition: box absy::ExpressionNode::from(*expression.condition),
+            consequence_statements: vec![],
+            consequence: box absy::ExpressionNode::from(*expression.consequence),
+            alternative_statements: vec![],
+            alternative: box absy::ExpressionNode::from(*expression.alternative),
+            kind: absy::ConditionalKind::Ternary,
+        })
         .span(expression.span)
     }
 }

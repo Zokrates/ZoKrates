@@ -13,7 +13,7 @@ pub use ast::{
     BinaryOperator, CallAccess, ConstantDefinition, ConstantGenericValue, DecimalLiteralExpression,
     DecimalNumber, DecimalSuffix, DefinitionStatement, ExplicitGenerics, Expression, FieldType,
     File, FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
-    IdentifierExpression, IdentifierOrDecimal, ImportDirective, ImportSymbol,
+    IdentifierExpression, IdentifierOrDecimal, IfElseExpression, ImportDirective, ImportSymbol,
     InlineArrayExpression, InlineStructExpression, InlineStructMember, InlineTupleExpression,
     IterationStatement, LiteralExpression, Parameter, PostfixExpression, Range, RangeOrExpression,
     ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
@@ -437,6 +437,7 @@ mod ast {
     #[derive(Debug, PartialEq, Clone)]
     pub enum Expression<'ast> {
         Ternary(TernaryExpression<'ast>),
+        IfElse(IfElseExpression<'ast>),
         Binary(BinaryExpression<'ast>),
         Unary(UnaryExpression<'ast>),
         Postfix(PostfixExpression<'ast>),
@@ -453,6 +454,7 @@ mod ast {
     pub enum Term<'ast> {
         Expression(Expression<'ast>),
         InlineStruct(InlineStructExpression<'ast>),
+        IfElse(IfElseExpression<'ast>),
         Primary(PrimaryExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
         InlineTuple(InlineTupleExpression<'ast>),
@@ -569,6 +571,7 @@ mod ast {
         fn from(t: Term<'ast>) -> Self {
             match t {
                 Term::Expression(e) => e,
+                Term::IfElse(e) => Expression::IfElse(e),
                 Term::Primary(e) => e.into(),
                 Term::InlineArray(e) => Expression::InlineArray(e),
                 Term::InlineTuple(e) => Expression::InlineTuple(e),
@@ -811,7 +814,35 @@ mod ast {
         pub span: Span<'ast>,
     }
 
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::if_else_expression))]
+    pub struct IfElseExpression<'ast> {
+        pub condition: Box<Expression<'ast>>,
+        pub consequence_statements: Vec<Statement<'ast>>,
+        pub consequence: Box<Expression<'ast>>,
+        pub alternative_statements: Vec<Statement<'ast>>,
+        pub alternative: Box<Expression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
     impl<'ast> Expression<'ast> {
+        pub fn if_else(
+            condition: Box<Expression<'ast>>,
+            consequence: Box<Expression<'ast>>,
+            alternative: Box<Expression<'ast>>,
+            span: Span<'ast>,
+        ) -> Self {
+            Expression::IfElse(IfElseExpression {
+                condition,
+                consequence_statements: vec![],
+                consequence,
+                alternative_statements: vec![],
+                alternative,
+                span,
+            })
+        }
+
         pub fn ternary(
             condition: Box<Expression<'ast>>,
             consequence: Box<Expression<'ast>>,
@@ -846,6 +877,7 @@ mod ast {
                 Expression::Identifier(i) => &i.span,
                 Expression::Literal(c) => c.span(),
                 Expression::Ternary(t) => &t.span,
+                Expression::IfElse(ie) => &ie.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
                 Expression::InlineStruct(s) => &s.span,

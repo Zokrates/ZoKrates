@@ -419,7 +419,11 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
             FieldElementExpression::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(f, "({} ? {} : {})", condition, consequent, alternative)
+                write!(
+                    f,
+                    "if {} {{ {} }} else {{ {} }}",
+                    condition, consequent, alternative
+                )
             }
         }
     }
@@ -451,7 +455,11 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
             UExpressionInner::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(f, "({} ? {} : {})", condition, consequent, alternative)
+                write!(
+                    f,
+                    "if {} {{ {} }} else {{ {} }}",
+                    condition, consequent, alternative
+                )
             }
         }
     }
@@ -486,7 +494,11 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(f, "{} ? {} : {}", condition, consequent, alternative)
+                write!(
+                    f,
+                    "if {} {{ {} }} else {{ {} }}",
+                    condition, consequent, alternative
+                )
             }
         }
     }

@@ -20,7 +20,13 @@ Generic paramaters, if any, must be compile-time constants. They are inferred by
 
 ### Conditional expressions
 
-A conditional expression allows you to branch your code depending on a boolean condition. This can be written using a ternary operator:
+A conditional expression allows you to branch your code depending on a boolean condition.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/conditional.zok}}
+```
+
+The conditional expression can also be written using a ternary operator:
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/conditional_ternary.zok}}

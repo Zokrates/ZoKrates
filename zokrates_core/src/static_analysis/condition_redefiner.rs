@@ -81,6 +81,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
             condition,
             consequence,
             alternative,
+            e.kind,
         ))
     }
 }
@@ -88,12 +89,14 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::{Block, BooleanExpression, Conditional, FieldElementExpression, Type};
+    use crate::typed_absy::{
+        Block, BooleanExpression, Conditional, ConditionalKind, FieldElementExpression, Type,
+    };
     use zokrates_field::Bn128Field;
 
     #[test]
     fn no_redefine_if_constant() {
-        // field foo = true ? 1 : 2;
+        // field foo = if true { 1 } else { 2 };
         // should be left unchanged
 
         let s = TypedStatement::Definition(
@@ -102,6 +105,7 @@ mod tests {
                 BooleanExpression::Value(true),
                 FieldElementExpression::Number(Bn128Field::from(1)),
                 FieldElementExpression::Number(Bn128Field::from(2)),
+                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -113,7 +117,7 @@ mod tests {
 
     #[test]
     fn no_redefine_if_identifier() {
-        // field foo = c ? 1 : 2;
+        // field foo = if c { 1 } else { 2 };
         // should be left unchanged
 
         let s = TypedStatement::Definition(
@@ -122,6 +126,7 @@ mod tests {
                 BooleanExpression::Identifier("c".into()),
                 FieldElementExpression::Number(Bn128Field::from(1)),
                 FieldElementExpression::Number(Bn128Field::from(2)),
+                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -133,10 +138,10 @@ mod tests {
 
     #[test]
     fn redefine_if_expression() {
-        // field foo = c && d ? 1 : 2;
+        // field foo = if c && d { 1 } else { 2 };
         // should become
         // bool #CONDITION_0 = c && d;
-        // field foo = #CONDITION_0 ? 1 : 2;
+        // field foo = if #CONDITION_0 { 1 } else { 2 };
 
         let condition = BooleanExpression::And(
             box BooleanExpression::Identifier("c".into()),
@@ -149,6 +154,7 @@ mod tests {
                 condition.clone(),
                 FieldElementExpression::Number(Bn128Field::from(1)),
                 FieldElementExpression::Number(Bn128Field::from(2)),
+                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -168,6 +174,7 @@ mod tests {
                     BooleanExpression::Identifier(CoreIdentifier::Condition(0).into()),
                     FieldElementExpression::Number(Bn128Field::from(1)),
                     FieldElementExpression::Number(Bn128Field::from(2)),
+                    ConditionalKind::IfElse,
                 )
                 .into(),
             ),
@@ -178,13 +185,22 @@ mod tests {
 
     #[test]
     fn redefine_rec() {
-        // field foo = c && d ? (e && f ? 1 : 2) : 3;
+        // field foo = if c && d {
+        //     if e && f { 1 } else { 2 }
+        // } else {
+        //     3
+        // };
+        //
         //
         // should become
         //
         // bool #CONDITION_0 = c && d;
         // bool #CONDITION_1 = e && f;
-        // field foo = #CONDITION_0 ? (#CONDITION_1 ? 1 : 2) : 3;
+        // field foo = if #CONDITION_0 {
+        //     if #CONDITION_1 { 1 } else { 2 }
+        // } else {
+        //     3
+        // };
 
         let condition_0 = BooleanExpression::And(
             box BooleanExpression::Identifier("c".into()),
@@ -204,8 +220,10 @@ mod tests {
                     condition_1.clone(),
                     FieldElementExpression::Number(Bn128Field::from(1)),
                     FieldElementExpression::Number(Bn128Field::from(2)),
+                    ConditionalKind::IfElse,
                 ),
                 FieldElementExpression::Number(Bn128Field::from(3)),
+                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -231,8 +249,10 @@ mod tests {
                         BooleanExpression::Identifier(CoreIdentifier::Condition(1).into()),
                         FieldElementExpression::Number(Bn128Field::from(1)),
                         FieldElementExpression::Number(Bn128Field::from(2)),
+                        ConditionalKind::IfElse,
                     ),
                     FieldElementExpression::Number(Bn128Field::from(3)),
+                    ConditionalKind::IfElse,
                 )
                 .into(),
             ),
@@ -243,25 +263,25 @@ mod tests {
 
     #[test]
     fn redefine_block() {
-        // field foo = c && d ? {
+        // field foo = if c && d {
         //     field a = 1;
-        //     e && f ? 2 : 3
-        // } : {
+        //     if e && f { 2 } else { 3 }
+        // } else {
         //     field b = 2;
-        //     e && f ? 2 : 3
+        //     if e && f { 2 } else { 3 }
         // };
         //
         // should become
         //
         // bool #CONDITION_0 = c && d;
-        // field foo = #CONDITION_0 ? {
+        // field foo = if #CONDITION_0 ? {
         //     field a = 1;
         //     bool #CONDITION_1 = e && f;
-        //     #CONDITION_1 ? 2 : 3
-        // } : {
+        //     if #CONDITION_1 { 2 } : { 3 }
+        // } else {
         //     field b = 2;
         //     bool #CONDITION_2 = e && f;
-        //     #CONDITION_2 ? 2 : 3
+        //     if #CONDITION_2 { 2 } : { 3 }
         // };
 
         let condition_0 = BooleanExpression::And(
@@ -296,6 +316,7 @@ mod tests {
                         condition_1.clone(),
                         FieldElementExpression::Number(Bn128Field::from(2)),
                         FieldElementExpression::Number(Bn128Field::from(3)),
+                        ConditionalKind::IfElse,
                     ),
                 ),
                 FieldElementExpression::block(
@@ -307,8 +328,10 @@ mod tests {
                         condition_2.clone(),
                         FieldElementExpression::Number(Bn128Field::from(2)),
                         FieldElementExpression::Number(Bn128Field::from(3)),
+                        ConditionalKind::IfElse,
                     ),
                 ),
+                ConditionalKind::IfElse,
             )
             .into(),
         );
@@ -345,6 +368,7 @@ mod tests {
                             condition_id_1,
                             FieldElementExpression::Number(Bn128Field::from(2)),
                             FieldElementExpression::Number(Bn128Field::from(3)),
+                            ConditionalKind::IfElse,
                         ),
                     ),
                     FieldElementExpression::block(
@@ -366,8 +390,10 @@ mod tests {
                             condition_id_2,
                             FieldElementExpression::Number(Bn128Field::from(2)),
                             FieldElementExpression::Number(Bn128Field::from(3)),
+                            ConditionalKind::IfElse,
                         ),
                     ),
+                    ConditionalKind::IfElse,
                 )
                 .into(),
             ),
