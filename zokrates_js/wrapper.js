@@ -36,12 +36,15 @@ module.exports = (dep) => {
   const defaultProvider = {
     compile: (source, compileOptions = {}) => {
 
-      const {
+      var {
         curve = "bn128",
         location = "main.zok",
         resolveCallback = () => null,
+        config = {},
         snarkjs = false,
       } = compileOptions;
+
+      config = {snarkjs, ...config};
 
       const callback = (currentLocation, importLocation) => {
         return (
@@ -49,7 +52,7 @@ module.exports = (dep) => {
           resolveCallback(currentLocation, importLocation)
         );
       };
-      const ptr = zokrates.compile(source, location, callback, {snarkjs: snarkjs}, curve);
+      const ptr = zokrates.compile(source, location, callback, config, curve);
 
       return {
         program: ptr.program(),

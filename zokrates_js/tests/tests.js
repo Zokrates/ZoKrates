@@ -292,8 +292,6 @@ describe("tests", function () {
       extensions: ["json"],
     };
 
-    var finished = false;
-
     dree.scan(testsPath, options, function (file) {
       const test = require(file.path);
       const testName = file.path.substring(testsPath.length + 1);
