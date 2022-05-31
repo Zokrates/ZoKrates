@@ -5,8 +5,8 @@ def foo(field[3] a) -> field {
 
 def main() -> (field, field) {
     field[3] a = [0, 0, 0];
-	field res = foo(a);
-	assert(a[1] == 0);
-	return res, a[1];
+    field res = foo(a);
+    assert(a[1] == 0);
+    return res, a[1];
 }
 

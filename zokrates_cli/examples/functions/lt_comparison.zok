@@ -7,8 +7,8 @@ def cutoff() -> field {
 }
 
 def getThing(u32 index) -> field {
-	field[6] a = [13, 23, 43, 53, 73, 83];
-	return a[index];
+    field[6] a = [13, 23, 43, 53, 73, 83];
+    return a[index];
 }
 
 def cubeThing(field thing) -> field {

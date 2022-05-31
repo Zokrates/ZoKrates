@@ -1,5 +1,5 @@
 def foo() {}
 
 def main() {
-	return;
+    return;
 }

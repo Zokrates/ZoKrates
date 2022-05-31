@@ -1,6 +1,6 @@
 def myFct<N, N2>(u64[N] ignored) -> u64[N2] {
-	assert(2*N == N2);
-	return [0; N2];
+    assert(2*N == N2);
+    return [0; N2];
 }
 
 const u32 N = 3;

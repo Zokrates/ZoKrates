@@ -1,10 +1,10 @@
 struct Point {
-	field x;
-	field y;
+    field x;
+    field y;
 }
 
 def main() -> (Point) {
-	Point p = Point { x: 1, y: 0 };
-	return p;
+    Point p = Point { x: 1, y: 0 };
+    return p;
 }
 

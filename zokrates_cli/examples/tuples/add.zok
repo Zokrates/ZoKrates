@@ -4,6 +4,6 @@ def main((field, field) p, (field, field) q) -> ((field, field)) {
 
     field dpxpyqxqy = d * p.0 * p.1 * q.0 * q.1;
 
-	return ((p.0 * q.1 + q.0 * p.1) / (1 + dpxpyqxqy), (q.0 * q.1 - a * p.0 * p.1) / (1 - dpxpyqxqy));
+    return ((p.0 * q.1 + q.0 * p.1) / (1 + dpxpyqxqy), (q.0 * q.1 - a * p.0 * p.1) / (1 - dpxpyqxqy));
 }
 

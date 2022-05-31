@@ -3,8 +3,8 @@ struct SomeStruct<N> {
 }
 
 def myFct<N, N2, N3>(SomeStruct<N> ignored) -> u32[N2] {
-	assert(2*N == N2);
-	return [N3; N2];
+    assert(2*N == N2);
+    return [N3; N2];
 }
 
 const u32 N = 3;

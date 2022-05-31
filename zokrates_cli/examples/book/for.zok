@@ -1,8 +1,8 @@
 def main() -> u32 {
     u32 res = 0;
     for u32 i in 0..4 {
-    	for u32 j in i..5 {
-        	res = res + i;
+        for u32 j in i..5 {
+            res = res + i;
         }
     }
     return res;

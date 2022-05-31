@@ -1,4 +1,4 @@
 def main() -> field {
-	u32 a = 2;
-	return 2**(a * 2 + 2);
+    u32 a = 2;
+    return 2**(a * 2 + 2);
 }

@@ -1,8 +1,8 @@
 def main() -> u32 {
-	u32 a = 0;
-	for u32 i in 0..5 {
-		a = a + i;
-	}
-	// return i <- not allowed
-	return a;
+    u32 a = 0;
+    for u32 i in 0..5 {
+        a = a + i;
+    }
+    // return i <- not allowed
+    return a;
 }
