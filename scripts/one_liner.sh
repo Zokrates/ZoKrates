@@ -296,7 +296,7 @@ main() {
         rm -rf $dest/*
         cp -r $td/* $dest
       else
-        read -p "ZoKrates is already installed, overwrite (y/n)? " answer
+        read -p "ZoKrates is already installed, overwrite (y/n)? " answer < /dev/tty
         case ${answer} in
             y|Y )
                 rm -rf $dest/*
