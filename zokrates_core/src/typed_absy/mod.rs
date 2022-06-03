@@ -1051,11 +1051,27 @@ impl<'ast, T, E> ConditionalExpression<'ast, T, E> {
 impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpression<'ast, T, E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
-            ConditionalKind::IfElse => write!(
-                f,
-                "if {} {{ {} }} else {{ {} }}",
-                self.condition, self.consequence, self.alternative
-            ),
+            ConditionalKind::IfElse => {
+                let consequence = self.consequence.to_string();
+                let alternative = self.alternative.to_string();
+                let is_block = consequence.starts_with("{") && alternative.starts_with("{");
+
+                write!(
+                    f,
+                    "if {} {} else {}",
+                    self.condition,
+                    if is_block {
+                        consequence
+                    } else {
+                        format!("{{ {} }}", consequence)
+                    },
+                    if is_block {
+                        alternative
+                    } else {
+                        format!("{{ {} }}", alternative)
+                    },
+                )
+            }
             ConditionalKind::Ternary => write!(
                 f,
                 "{} ? {} : {}",
