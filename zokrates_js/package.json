@@ -43,7 +43,7 @@
     "clean-node-pkg": "rimraf node/pkg/README.md node/pkg/.gitignore",
     "pretest": "npm run setup && npm run build:node:dev",
     "test": "npm run run-tests",
-    "run-tests": "mocha --timeout 100000 --require esm --recursive tests"
+    "run-tests": "mocha --timeout 100000 --require esm --recursive tests --exit"
   },
   "devDependencies": {
     "dree": "^2.6.1",
@@ -53,12 +53,10 @@
     "mocha": "^9.2.0",
     "rimraf": "^3.0.2",
     "serve": "^11.3.2",
+    "snarkjs": "^0.4.19",
     "text-encoding": "^0.7.0",
     "toml": "^3.0.0",
-    "wasm-pack": "^0.10.2",
-    "snarkjs": "^0.4.19",
-    "@iden3/binfileutils": "^0.0.10",
-    "logplease": "^1.2.15"
+    "wasm-pack": "^0.10.2"
   },
   "dependencies": {}
 }
