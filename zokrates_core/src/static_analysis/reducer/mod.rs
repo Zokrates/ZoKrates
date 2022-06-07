@@ -20,6 +20,7 @@ use self::inline::{inline_call, InlineError};
 use crate::typed_absy::result_folder::*;
 use crate::typed_absy::types::ConcreteGenericsAssignment;
 use crate::typed_absy::types::GGenericsAssignment;
+use crate::typed_absy::BlockOrExpression;
 use crate::typed_absy::CanonicalConstantIdentifier;
 use crate::typed_absy::Folder;
 use std::collections::HashMap;
@@ -294,27 +295,31 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
         }
     }
 
-    fn fold_block_expression<E: ResultFold<'ast, T>>(
+    fn fold_block_expression<E: Expr<'ast, T> + ResultFold<'ast, T>>(
         &mut self,
-        b: BlockExpression<'ast, T, E>,
-    ) -> Result<BlockExpression<'ast, T, E>, Self::Error> {
+        _: &E::Ty,
+        block: BlockExpression<'ast, T, E>,
+    ) -> Result<BlockOrExpression<'ast, T, E>, Self::Error> {
         // backup the statements and continue with a fresh state
         let statement_buffer = std::mem::take(&mut self.statement_buffer);
 
-        let block = fold_block_expression(self, b)?;
+        let statements = block
+            .statements
+            .into_iter()
+            .map(|s| self.fold_statement(s))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten();
+        let value = box block.value.fold(self)?;
 
         // put the original statements back and extract the statements created by visiting the block
         let extra_statements = std::mem::replace(&mut self.statement_buffer, statement_buffer);
 
         // return the visited block, augmented with the statements created while visiting it
-        Ok(BlockExpression {
-            statements: block
-                .statements
-                .into_iter()
-                .chain(extra_statements)
-                .collect(),
-            ..block
-        })
+        Ok(BlockOrExpression::Block(BlockExpression {
+            statements: statements.chain(extra_statements).collect(),
+            value,
+        }))
     }
 
     fn fold_canonical_constant_identifier(

@@ -31,4 +31,16 @@ impl<'ast, T: Field> Folder<'ast, T> for Isolator {
             e.kind,
         ))
     }
+
+    fn fold_block_expression<E: Expr<'ast, T> + Fold<'ast, T>>(
+        &mut self,
+        _: &E::Ty,
+        block: BlockExpression<'ast, T, E>,
+    ) -> BlockOrExpression<'ast, T, E> {
+        assert!(block.statements.is_empty());
+
+        let expression = block.value.fold(self);
+
+        BlockOrExpression::Expression(expression.into_inner())
+    }
 }

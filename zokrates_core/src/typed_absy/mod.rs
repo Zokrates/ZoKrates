@@ -1052,24 +1052,10 @@ impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpress
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
             ConditionalKind::IfElse => {
-                let consequence = self.consequence.to_string();
-                let alternative = self.alternative.to_string();
-                let is_block = consequence.starts_with("{") && alternative.starts_with("{");
-
                 write!(
                     f,
                     "if {} {} else {}",
-                    self.condition,
-                    if is_block {
-                        consequence
-                    } else {
-                        format!("{{ {} }}", consequence)
-                    },
-                    if is_block {
-                        alternative
-                    } else {
-                        format!("{{ {} }}", alternative)
-                    },
+                    self.condition, self.consequence, self.alternative,
                 )
             }
             ConditionalKind::Ternary => write!(
@@ -2020,6 +2006,11 @@ pub enum ElementOrExpression<'ast, T, E: Expr<'ast, T>> {
 
 pub enum ConditionalOrExpression<'ast, T, E: Expr<'ast, T>> {
     Conditional(ConditionalExpression<'ast, T, E>),
+    Expression(E::Inner),
+}
+
+pub enum BlockOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Block(BlockExpression<'ast, T, E>),
     Expression(E::Inner),
 }
 

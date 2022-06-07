@@ -1,7 +1,7 @@
 use crate::typed_absy::{
-    folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
-    ConditionalOrExpression, CoreIdentifier, Expr, Identifier, TypedProgram, TypedStatement,
-    Variable,
+    folder::*, BlockExpression, BlockOrExpression, BooleanExpression, Conditional,
+    ConditionalExpression, ConditionalOrExpression, CoreIdentifier, Expr, Identifier, TypedProgram,
+    TypedStatement, Variable,
 };
 use zokrates_field::Field;
 
@@ -25,33 +25,41 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
         buffer.into_iter().chain(s).collect()
     }
 
-    fn fold_block_expression<E: Fold<'ast, T>>(
+    fn fold_block_expression<E: Expr<'ast, T> + Fold<'ast, T>>(
         &mut self,
-        b: BlockExpression<'ast, T, E>,
-    ) -> BlockExpression<'ast, T, E> {
+        _: &E::Ty,
+        block: BlockExpression<'ast, T, E>,
+    ) -> BlockOrExpression<'ast, T, E> {
         // start with a fresh state, but keep the global counter
         let mut redefiner = ConditionRedefiner {
             index: self.index,
             buffer: vec![],
         };
 
-        let b = fold_block_expression(&mut redefiner, b);
+        // the clippy warning seems wrong here: if we do not collect, then the side effects from the block statements on `redefiner` happen
+        // after the ones from the block value
+        #[allow(clippy::needless_collect)]
+        let statements: Vec<_> = block
+            .statements
+            .into_iter()
+            .flat_map(|s| redefiner.fold_statement(s))
+            .collect();
+        let value = box block.value.fold(&mut redefiner);
 
         // we add the buffer statements *after* the block statements because they refer to the return value,
         // the buffered statements for the block statements are already included in the result
         let b = BlockExpression {
-            statements: b
-                .statements
+            statements: statements
                 .into_iter()
                 .chain(std::mem::take(&mut redefiner.buffer))
                 .collect(),
-            ..b
+            value,
         };
 
         // continue from the latest index
         self.index = redefiner.index;
 
-        b
+        BlockOrExpression::Block(b)
     }
 
     fn fold_conditional_expression<E: Expr<'ast, T> + Conditional<'ast, T> + Fold<'ast, T>>(
