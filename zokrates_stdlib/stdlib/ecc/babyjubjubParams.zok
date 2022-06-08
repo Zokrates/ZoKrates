@@ -4,14 +4,14 @@
 // Note: parameters will be updated soon to be more compatible with zCash's implementation
 
 struct BabyJubJubParams {
-	field JUBJUB_C
-	field JUBJUB_A
-	field JUBJUB_D
-	field MONT_A
-	field MONT_B
-	field[2] INFINITY
-	field Gu
-	field Gv
+	field JUBJUB_C;
+	field JUBJUB_A;
+	field JUBJUB_D;
+	field MONT_A;
+	field MONT_B;
+	field[2] INFINITY;
+	field Gu;
+	field Gv;
 }
 
 const BabyJubJubParams BABYJUBJUB_PARAMS = BabyJubJubParams {
@@ -30,7 +30,8 @@ const BabyJubJubParams BABYJUBJUB_PARAMS = BabyJubJubParams {
     // Generator
     Gu: 16540640123574156134436876038791482806971768689494387082833631921987005038935,
     Gv: 20819045374670962167435360035096875258406992893633759881276124905556507972311
-}
+};
 
-def main() -> BabyJubJubParams:
-    return BABYJUBJUB_PARAMS
+def main() -> BabyJubJubParams {
+    return BABYJUBJUB_PARAMS;
+}

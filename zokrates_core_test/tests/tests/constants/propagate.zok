@@ -1,5 +1,6 @@
-const u32 TWO = 2
-const u32 FOUR = TWO * TWO
+const u32 TWO = 2;
+const u32 FOUR = TWO * TWO;
 
-def main() -> field[FOUR]:
-    return [42; FOUR]
+def main() -> field[FOUR] {
+    return [42; FOUR];
+}

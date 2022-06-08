@@ -270,12 +270,12 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedConstantSymbolDeclaration<'ast
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.symbol {
             TypedConstantSymbol::Here(ref tc) => {
-                write!(f, "const {} {} = {}", tc.ty, self.id, tc.expression)
+                write!(f, "const {} {} = {};", tc.ty, self.id, tc.expression)
             }
             TypedConstantSymbol::There(ref imported_id) => {
                 write!(
                     f,
-                    "from \"{}\" import {} as {}",
+                    "from \"{}\" import {} as {};",
                     imported_id.module.display(),
                     imported_id.id,
                     self.id
@@ -291,7 +291,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunctionSymbolDeclaration<'ast
             TypedFunctionSymbol::Here(ref function) => write!(f, "def {}{}", self.key.id, function),
             TypedFunctionSymbol::There(ref fun_key) => write!(
                 f,
-                "from \"{}\" import {} as {} // with signature {}",
+                "from \"{}\" import {} as {}; // with signature {}",
                 fun_key.module.display(),
                 fun_key.id,
                 self.key.id,
@@ -300,7 +300,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunctionSymbolDeclaration<'ast
             TypedFunctionSymbol::Flat(ref flat_fun) => {
                 write!(
                     f,
-                    "def {}{}:\n\t// hidden",
+                    "def {}{} {{\n\t// hidden\n}}",
                     self.key.id,
                     flat_fun.typed_signature::<T>()
                 )
@@ -358,7 +358,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
 
         write!(
             f,
-            "{}:",
+            "{} {{",
             match self.signature.outputs.len() {
                 0 => "".into(),
                 1 => format!(" -> {}", self.signature.outputs[0]),
@@ -390,6 +390,8 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
                 tab += 1;
             };
         }
+
+        writeln!(f, "}}")?;
 
         Ok(())
     }
@@ -648,12 +650,12 @@ impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
         match self {
             TypedStatement::For(variable, from, to, statements) => {
                 write!(f, "{}", "\t".repeat(depth))?;
-                writeln!(f, "for {} in {}..{} do", variable, from, to)?;
+                writeln!(f, "for {} in {}..{} {{", variable, from, to)?;
                 for s in statements {
                     s.fmt_indented(f, depth + 1)?;
                     writeln!(f)?;
                 }
-                write!(f, "{}endfor", "\t".repeat(depth))
+                write!(f, "{}}}", "\t".repeat(depth))
             }
             s => write!(f, "{}{}", "\t".repeat(depth), s),
         }
@@ -671,26 +673,26 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, "")
+                write!(f, ";")
             }
-            TypedStatement::Declaration(ref var) => write!(f, "{}", var),
-            TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            TypedStatement::Declaration(ref var) => write!(f, "{};", var),
+            TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             TypedStatement::Assertion(ref e, ref error) => {
                 write!(f, "assert({}", e)?;
                 match error {
                     RuntimeError::SourceAssertion(metadata) => match &metadata.message {
-                        Some(m) => write!(f, ", \"{}\")", m),
-                        None => write!(f, ")"),
+                        Some(m) => write!(f, ", \"{}\");", m),
+                        None => write!(f, ");"),
                     },
-                    error => write!(f, ") // {}", error),
+                    error => write!(f, "); // {}", error),
                 }
             }
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} {{", var, start, stop)?;
                 for l in list {
                     writeln!(f, "\t\t{}", l)?;
                 }
-                write!(f, "\tendfor")
+                write!(f, "\t}}")
             }
             TypedStatement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
@@ -699,7 +701,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, " = {}", rhs)
+                write!(f, " = {};", rhs)
             }
             TypedStatement::PushCallLog(ref key, ref generics) => write!(
                 f,
@@ -1043,11 +1045,27 @@ impl<'ast, T, E> ConditionalExpression<'ast, T, E> {
 impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpression<'ast, T, E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
-            ConditionalKind::IfElse => write!(
-                f,
-                "if {} then {} else {} fi",
-                self.condition, self.consequence, self.alternative
-            ),
+            ConditionalKind::IfElse => {
+                let consequence = self.consequence.to_string();
+                let alternative = self.alternative.to_string();
+                let is_block = consequence.starts_with("{") && alternative.starts_with("{");
+
+                write!(
+                    f,
+                    "if {} {} else {}",
+                    self.condition,
+                    if is_block {
+                        consequence
+                    } else {
+                        format!("{{ {} }}", consequence)
+                    },
+                    if is_block {
+                        alternative
+                    } else {
+                        format!("{{ {} }}", alternative)
+                    },
+                )
+            }
             ConditionalKind::Ternary => write!(
                 f,
                 "{} ? {} : {}",

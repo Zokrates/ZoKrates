@@ -1,10 +1,11 @@
-from "EMBED" import snark_verify_bls12_377
+from "EMBED" import snark_verify_bls12_377;
 
 // Verifies a proof with 2 public inputs (1 input + 1 output)
 // Circuit used in this test:
 //
-// def main(field a) -> field:
-//     return a * a
+// def main(field a) -> field {
+//     return a * a;
+// }
 //
 // Save the circuit as "circuit.zok" and run the following commands (in order):
 // $ zokrates compile -i ./circuit.zok -c bls12_377
@@ -30,6 +31,7 @@ from "EMBED" import snark_verify_bls12_377
 // Save this script as "flatten.js" and run the following command:
 // $ node flatten.js proof.json verification.key
 
-def main(private field[8] proof, private field[2] inputs, private field[22] vk) -> bool:
-    bool result = snark_verify_bls12_377(inputs, proof, vk)
-    return result
+def main(private field[8] proof, private field[2] inputs, private field[22] vk) -> bool {
+    bool result = snark_verify_bls12_377(inputs, proof, vk);
+    return result;
+}

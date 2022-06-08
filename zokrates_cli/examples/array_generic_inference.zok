@@ -1,11 +1,12 @@
-def myFct<N, N2>(u64[N] ignored) -> u64[N2]:
-	assert(2*N == N2)
-	return [0; N2]
+def myFct<N, N2>(u64[N] ignored) -> u64[N2] {
+    assert(2*N == N2);
+    return [0; N2];
+}
 
-const u32 N = 3
+const u32 N = 3;
+const u32 N2 = 2 * N;
 
-const u32 N2 = 2*N
-
-def main(u64[N] arg) -> bool:
-    u64[N2] someVariable = myFct(arg)
-    return true
+def main(u64[N] arg) -> bool {
+    u64[N2] someVariable = myFct(arg);
+    return true;
+}

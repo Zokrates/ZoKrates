@@ -1,21 +1,22 @@
-def main():
-  assert(9 == 1 + 2 * 2 ** 2)                                      // Checks precedence of arithmetic operators (expecting transitive behaviour)
-  assert(9 == 2 ** 2 * 2 + 1)
-  assert(7 == 2 ** 2 * 2 - 1)
-  assert(3 == 2 ** 2 / 2 + 1)
+def main() {
+    assert(9 == 1 + 2 * 2 ** 2);  // checks precedence of arithmetic operators (expecting transitive behaviour)
+    assert(9 == 2 ** 2 * 2 + 1);
+    assert(7 == 2 ** 2 * 2 - 1);
+    assert(3 == 2 ** 2 / 2 + 1);
 
-  field a = if 3f == 2f ** 2 / 2 + 1 && true then 1 else 0 fi        // combines arithmetic with boolean operators
-  field b = if 3f == 3f && 4f < 5f then 1 else 0 fi                    // checks precedence of boolean operators
-  field c = if 4f < 5f && 3f == 3f then 1 else 0 fi
-  field d = if 4f > 5f && 2f >= 1f || 1f == 1f then 1 else 0 fi
-  field e = if 2f >= 1f && 4f > 5f || 1f == 1f then 1 else 0 fi
-  field f = if 1f < 2f && false || 4f < 5f && 2f >= 1f then 1 else 0 fi
+    field a = 3f == 2f ** 2 / 2 + 1 && true ? 1 : 0;       // combines arithmetic with boolean operators
+    field b = 3f == 3f && 4f < 5f ? 1 : 0;                 // checks precedence of boolean operators
+    field c = 4f < 5f && 3f == 3f ? 1 : 0;
+    field d = 4f > 5f && 2f >= 1f || 1f == 1f ? 1 : 0;
+    field e = 2f >= 1f && 4f > 5f || 1f == 1f ? 1 : 0;
+    field f = 1f < 2f && false || 4f < 5f && 2f >= 1f ? 1 : 0;
 
-  assert(0x00 ^ 0x00 == 0x00)
+    assert(0x00 ^ 0x00 == 0x00);
 
-  assert(0 - 2 ** 2 == -4)
-  assert(-2**2 == -4)
+    assert(0 - 2 ** 2 == -4);
+    assert(-2**2 == -4);
 
-  //check if all statements have evalutated to true
-  assert(a * b * c * d * e * f == 1)
-  return
+    //check if all statements have evaluated to true
+    assert(a * b * c * d * e * f == 1);
+    return;
+}

@@ -1,4 +1,6 @@
-from "./origin.zok" import foo
-def main():
-    assert(foo([1, 1]))
-    return
+from "./origin.zok" import foo;
+
+def main() {
+    assert(foo([1, 1]));
+    return;
+}

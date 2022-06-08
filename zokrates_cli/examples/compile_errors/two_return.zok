@@ -1,3 +1,4 @@
-def main():
-	return
-	return
+def main() {
+    return;
+    return;
+}

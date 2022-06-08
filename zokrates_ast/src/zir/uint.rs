@@ -190,7 +190,7 @@ pub enum UExpressionInner<'ast, T> {
     LeftShift(Box<UExpression<'ast, T>>, u32),
     RightShift(Box<UExpression<'ast, T>>, u32),
     Not(Box<UExpression<'ast, T>>),
-    IfElse(
+    Conditional(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,

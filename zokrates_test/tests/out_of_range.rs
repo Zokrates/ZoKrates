@@ -14,10 +14,11 @@ use zokrates_interpreter::Interpreter;
 #[test]
 fn lt_field() {
     let source = r#"
-		def main(private field a, private field b):
-	        field x = if a < b then 3333 else 4444 fi
-	        assert(x == 3333)
-			return
+		def main(private field a, private field b) {
+	        field x = a < b ? 3333 : 4444;
+	        assert(x == 3333);
+			return;
+        }
 	"#
     .to_string();
 
@@ -49,10 +50,11 @@ fn lt_field() {
 #[test]
 fn lt_uint() {
     let source = r#"
-		def main(private u32 a, private u32 b):
-	        field x = if a < b then 3333 else 4444 fi
-	        assert(x == 3333)
-			return
+		def main(private u32 a, private u32 b) {
+	        field x = a < b ? 3333 : 4444;
+	        assert(x == 3333);
+			return;
+        }
 	"#
     .to_string();
 
@@ -84,12 +86,13 @@ fn lt_uint() {
 #[test]
 fn unpack256() {
     let source = r#"
-        import "utils/pack/bool/unpack256"
+        import "utils/pack/bool/unpack256";
 
-		def main(private field a):
-	        bool[256] bits = unpack256(a)
-			assert(bits[255])
-            return
+		def main(private field a) {
+	        bool[256] bits = unpack256(a);
+			assert(bits[255]);
+            return;
+        }
 	"#
     .to_string();
 
@@ -127,12 +130,13 @@ fn unpack256() {
 #[test]
 fn unpack256_unchecked() {
     let source = r#"
-        import "utils/pack/bool/nonStrictUnpack256"
+        import "utils/pack/bool/nonStrictUnpack256";
 
-		def main(private field a):
-	        bool[256] bits = nonStrictUnpack256(a)
-			assert(bits[255])
-            return
+		def main(private field a) {
+	        bool[256] bits = nonStrictUnpack256(a);
+			assert(bits[255]);
+            return;
+        }
 	"#
     .to_string();
 

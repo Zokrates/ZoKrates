@@ -389,7 +389,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::right_shift(force_reduce(e), by).with_max(max)
             }
-            IfElse(box condition, box consequence, box alternative) => {
+            Conditional(box condition, box consequence, box alternative) => {
                 let condition = self.fold_boolean_expression(condition);
                 let consequence = self.fold_uint_expression(consequence);
                 let alternative = self.fold_uint_expression(alternative);
@@ -399,7 +399,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 let max = std::cmp::max(consequence_max.to_biguint(), alternative_max.to_biguint());
 
-                UExpression::if_else(
+                UExpression::conditional(
                     condition,
                     force_no_reduce(consequence),
                     force_no_reduce(alternative),
@@ -789,7 +789,7 @@ mod tests {
 
         assert_eq!(
             UintOptimizer::new()
-                .fold_uint_expression(UExpression::if_else(
+                .fold_uint_expression(UExpression::conditional(
                     BooleanExpression::Value(true),
                     consequence,
                     alternative

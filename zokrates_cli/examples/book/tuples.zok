@@ -1,4 +1,6 @@
-def main() -> bool:
-	(field[2], bool) v = ([1, 2], true)
-	v.0 = [42, 43]
-	return v.1
+def main() -> bool {
+    (field[2], bool) v = ([1, 2], true);
+    v.0 = [42, 43];
+    return v.1;
+}
+

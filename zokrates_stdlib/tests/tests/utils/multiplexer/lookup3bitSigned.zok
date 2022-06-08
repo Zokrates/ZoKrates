@@ -1,81 +1,80 @@
-import "utils/multiplexer/lookup3bitSigned" as lookup
+import "utils/multiplexer/lookup3bitSigned" as lookup;
 
-def first() -> bool:
-	bool[3] sel = [false,false,false]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	assert(0 == lookup(sel, t))
-	
-	return true
+def first() -> bool {
+    bool[3] sel = [false, false, false];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(0 == lookup(sel, t));
+    return true;
+}
 
-def firstNeg() -> bool:
-	bool[3] sel = [false,false,true]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	assert(0 == lookup(sel, t))
-	
-	return true
+def firstNeg() -> bool {
+    bool[3] sel = [false, false, true];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(0 == lookup(sel, t));
+    return true;
+}
 
-def second() -> bool:
-	bool[3] sel = [true,false,false]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	assert(1 == lookup(sel, t))
-	
-	return true
+def second() -> bool {
+    bool[3] sel = [true, false, false];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(1 == lookup(sel, t));
+    return true;
+}
 
-def secondNeg() -> bool:
-	bool[3] sel = [true,false,true]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	field out = 0 - 1
-	assert(out == lookup(sel, t))
-	
-	return true
+def secondNeg() -> bool {
+    bool[3] sel = [true, false, true];
+    field[4] t  = [0, 1, 2, 3];
+    
+    field out = 0 - 1;
+    assert(out == lookup(sel, t));
+    return true;
+}
 
-def thrid() -> bool:
-	bool[3] sel = [false,true,false]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	assert(2 == lookup(sel, t))
-	
-	return true
+def third() -> bool {
+    bool[3] sel = [false, true, false];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(2 == lookup(sel, t));
+    return true;
+}
 
-def thridNeg() -> bool:
-	bool[3] sel = [false,true,true]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	field out = 0 - 2
-	assert(out == lookup(sel, t))
-	
-	return true
+def thirdNeg() -> bool {
+    bool[3] sel = [false, true, true];
+    field[4] t  = [0, 1, 2, 3];
+    
+    field out = 0 - 2;
+    assert(out == lookup(sel, t));
+    return true;
+}
 
-def fourth() -> bool:
-	bool[3] sel = [true,true,false]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	assert(3 == lookup(sel, t))
-	
-	return true
+def fourth() -> bool {
+    bool[3] sel = [true, true, false];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(3 == lookup(sel, t));
+    return true;
+}
 
-def fourthNeg() -> bool:
-	bool[3] sel = [true,true,true]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	field out = 0 - 3
-	assert(out == lookup(sel, t))
-	
-	return true
-	
-def main():
-
-	assert(first())
-	assert(firstNeg())
-	assert(second())
-	assert(secondNeg())
-	assert(thrid())
-	assert(thridNeg())
-	assert(fourth())
-	assert(fourthNeg())
-	
-	return
+def fourthNeg() -> bool {
+    bool[3] sel = [true, true, true];
+    field[4] t  = [0, 1, 2, 3];
+    
+    field out = 0 - 3;
+    assert(out == lookup(sel, t));
+    return true;
+}
+    
+def main() {
+    assert(first());
+    assert(firstNeg());
+    assert(second());
+    assert(secondNeg());
+    assert(third());
+    assert(thirdNeg());
+    assert(fourth());
+    assert(fourthNeg());
+    return;
+}

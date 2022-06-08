@@ -12,14 +12,13 @@
 // entropy_bits = bitstring.BitArray(bytes=entropy).bin
 // digest_bits = bitstring.BitArray(bytes=digest.compress()).bin
 
-import "hashes/pedersen/512bit" as pedersen
+import "hashes/pedersen/512bit" as pedersen;
 
-def main():
-	
-	u32[16] e = [0x17d2e6d9, 0x5c74e97c, 0x4bf60cc0, 0xc6a6b417, 0xbafc54e9, 0x205c8080, 0x261f4244, 0x9634d6df, 0x8e7f5e06, 0x6a296ecf, 0x1dc1838c, 0x791c8f5a, 0xee9eca33, 0x2100f189, 0xc96b0288, 0xc6b1501f]
+def main() {
+    u32[16] e = [0x17d2e6d9, 0x5c74e97c, 0x4bf60cc0, 0xc6a6b417, 0xbafc54e9, 0x205c8080, 0x261f4244, 0x9634d6df, 0x8e7f5e06, 0x6a296ecf, 0x1dc1838c, 0x791c8f5a, 0xee9eca33, 0x2100f189, 0xc96b0288, 0xc6b1501f];
 
-	u32[8] d = pedersen(e)
-
-	assert(d == [0x06dfaca0, 0xd82c07ae, 0x33787b2f, 0x66531802, 0x9f789f16, 0x89218926, 0x29f14d70, 0x2a28280b])
-	
-	return
+    u32[8] d = pedersen(e);
+    assert(d == [0x06dfaca0, 0xd82c07ae, 0x33787b2f, 0x66531802, 0x9f789f16, 0x89218926, 0x29f14d70, 0x2a28280b]);
+    
+    return;
+}

@@ -1,17 +1,17 @@
 struct Foo {
-	u8[2] values
+    u8[2] values;
 }
 
 struct Bar {
-	Foo foo
-	u8 bar
+    Foo foo;
+    u8 bar;
 }
 
-def main():
-	Bar s = Bar {
-		foo: Foo { values: [1] }, // notice the size mismatch here
-		bar: 0,
-	}
-    u8 b = s.bar
-
-	return
+def main() {
+    Bar s = Bar {
+        foo: Foo { values: [1] }, // notice the size mismatch here
+        bar: 0,
+    };
+    u8 b = s.bar;
+    return;
+}

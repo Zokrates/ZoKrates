@@ -1,7 +1,0 @@
-// example using if-then-else-fi with ==
-// x = 1 -> 1 + 1 + 1 = 3
-// x = 2 -> 2 + 5 + 125 = 132
-def main(field x) -> field:
-  field y = if x + 2 == 3 then 1 else 5 fi
-  field z = if y == x then x**3 else y**3 fi
-  return x + y + z

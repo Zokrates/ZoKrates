@@ -1,5 +1,6 @@
 use crate::untyped;
 
+use crate::untyped::{ConditionalExpression, SymbolDefinition};
 use num_bigint::BigUint;
 use std::path::Path;
 use zokrates_pest_ast as pest;
@@ -107,9 +108,9 @@ impl<'ast> From<pest::StructField<'ast>> for untyped::StructDefinitionFieldNode<
 
         let span = field.span;
 
-        let id = field.id.span.as_str();
+        let id = field.id.identifier.span.as_str();
 
-        let ty = untyped::UnresolvedTypeNode::from(field.ty);
+        let ty = untyped::UnresolvedTypeNode::from(field.id.ty);
 
         untyped::StructDefinitionField { id, ty }.span(span)
     }
@@ -120,10 +121,10 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for untyped::SymbolDeclarationNo
         use crate::untyped::NodeValue;
 
         let span = definition.span;
-        let id = definition.id.span.as_str();
+        let id = definition.id.identifier.span.as_str();
 
         let ty = untyped::ConstantDefinition {
-            ty: definition.ty.into(),
+            ty: definition.id.ty.into(),
             expression: definition.expression.into(),
         }
         .span(span.clone());
@@ -155,7 +156,7 @@ impl<'ast> From<pest::TypeDefinition<'ast>> for untyped::SymbolDeclarationNode<'
 
         untyped::SymbolDeclaration {
             id,
-            symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Type(ty)),
+            symbol: untyped::Symbol::Here(SymbolDefinition::Type(ty)),
         }
         .span(span)
     }
@@ -391,15 +392,15 @@ impl<'ast> From<pest::IterationStatement<'ast>> for untyped::StatementNode<'ast>
         use crate::untyped::NodeValue;
         let from = untyped::ExpressionNode::from(statement.from);
         let to = untyped::ExpressionNode::from(statement.to);
-        let index = statement.index.span.as_str();
-        let ty = untyped::UnresolvedTypeNode::from(statement.ty);
+        let index = statement.id.identifier.span.as_str();
+        let ty = untyped::UnresolvedTypeNode::from(statement.id.ty);
         let statements: Vec<untyped::StatementNode<'ast>> = statement
             .statements
             .into_iter()
             .flat_map(statements_from_statement)
             .collect();
 
-        let var = untyped::Variable::new(index, ty).span(statement.index.span);
+        let var = untyped::Variable::new(index, ty).span(statement.id.identifier.span);
 
         untyped::Statement::For(var, from, to, statements).span(statement.span)
     }
@@ -515,12 +516,22 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for untyped::ExpressionNode<'ast> 
 impl<'ast> From<pest::IfElseExpression<'ast>> for untyped::ExpressionNode<'ast> {
     fn from(expression: pest::IfElseExpression<'ast>) -> untyped::ExpressionNode<'ast> {
         use crate::untyped::NodeValue;
-        untyped::Expression::Conditional(
-            box untyped::ExpressionNode::from(*expression.condition),
-            box untyped::ExpressionNode::from(*expression.consequence),
-            box untyped::ExpressionNode::from(*expression.alternative),
-            untyped::ConditionalKind::IfElse,
-        )
+        untyped::Expression::Conditional(box ConditionalExpression {
+            condition: box untyped::ExpressionNode::from(*expression.condition),
+            consequence_statements: expression
+                .consequence_statements
+                .into_iter()
+                .flat_map(statements_from_statement)
+                .collect(),
+            consequence: box untyped::ExpressionNode::from(*expression.consequence),
+            alternative_statements: expression
+                .alternative_statements
+                .into_iter()
+                .flat_map(statements_from_statement)
+                .collect(),
+            alternative: box untyped::ExpressionNode::from(*expression.alternative),
+            kind: untyped::ConditionalKind::IfElse,
+        })
         .span(expression.span)
     }
 }
@@ -528,12 +539,14 @@ impl<'ast> From<pest::IfElseExpression<'ast>> for untyped::ExpressionNode<'ast> 
 impl<'ast> From<pest::TernaryExpression<'ast>> for untyped::ExpressionNode<'ast> {
     fn from(expression: pest::TernaryExpression<'ast>) -> untyped::ExpressionNode<'ast> {
         use crate::untyped::NodeValue;
-        untyped::Expression::Conditional(
-            box untyped::ExpressionNode::from(*expression.condition),
-            box untyped::ExpressionNode::from(*expression.consequence),
-            box untyped::ExpressionNode::from(*expression.alternative),
-            untyped::ConditionalKind::Ternary,
-        )
+        untyped::Expression::Conditional(box ConditionalExpression {
+            condition: box untyped::ExpressionNode::from(*expression.condition),
+            consequence_statements: vec![],
+            consequence: box untyped::ExpressionNode::from(*expression.consequence),
+            alternative_statements: vec![],
+            alternative: box untyped::ExpressionNode::from(*expression.alternative),
+            kind: untyped::ConditionalKind::Ternary,
+        })
         .span(expression.span)
     }
 }
@@ -930,7 +943,7 @@ mod tests {
 
     #[test]
     fn return_forty_two() {
-        let source = "def main() -> field: return 42";
+        let source = "def main() -> field { return 42; }";
         let ast = pest::generate_ast(source).unwrap();
         let expected: untyped::Module = untyped::Module {
             symbols: vec![untyped::SymbolDeclaration {
@@ -961,7 +974,7 @@ mod tests {
 
     #[test]
     fn return_true() {
-        let source = "def main() -> bool: return true";
+        let source = "def main() -> bool { return true; }";
         let ast = pest::generate_ast(source).unwrap();
         let expected: untyped::Module =
             untyped::Module {
@@ -993,7 +1006,7 @@ mod tests {
 
     #[test]
     fn arguments() {
-        let source = "def main(private field a, bool b) -> field: return 42";
+        let source = "def main(private field a, bool b) -> field { return 42; }";
         let ast = pest::generate_ast(source).unwrap();
 
         let expected: untyped::Module = untyped::Module {
@@ -1047,7 +1060,7 @@ mod tests {
     mod types {
         use super::*;
 
-        /// Helper method to generate the ast for `def main(private {ty} a): return` which we use to check ty
+        /// Helper method to generate the ast for `def main(private {ty} a) { return; }` which we use to check ty
         fn wrap(ty: UnresolvedType<'static>) -> untyped::Module<'static> {
             untyped::Module {
                 symbols: vec![untyped::SymbolDeclaration {
@@ -1111,7 +1124,7 @@ mod tests {
             ];
 
             for (ty, expected) in vectors {
-                let source = format!("def main(private {} a): return", ty);
+                let source = format!("def main(private {} a) {{ return; }}", ty);
                 let expected = wrap(expected);
                 let ast = pest::generate_ast(&source).unwrap();
                 assert_eq!(untyped::Module::from(ast), expected);
@@ -1211,7 +1224,7 @@ mod tests {
             ];
 
             for (source, expected) in vectors {
-                let source = format!("def main(): return {}", source);
+                let source = format!("def main() {{ return {}; }}", source);
                 let expected = wrap(expected);
                 let ast = pest::generate_ast(&source).unwrap();
                 assert_eq!(untyped::Module::from(ast), expected);
@@ -1221,7 +1234,7 @@ mod tests {
         #[test]
         fn call_array_element() {
             // a call after an array access should be accepted
-            let source = "def main(): return a[2](3)";
+            let source = "def main() { return a[2](3); }";
             let ast = pest::generate_ast(source).unwrap();
             assert_eq!(
                 untyped::Module::from(ast),
@@ -1242,7 +1255,7 @@ mod tests {
         #[test]
         fn call_call_result() {
             // a call after a call should be accepted
-            let source = "def main(): return a(2)(3)";
+            let source = "def main() { return a(2)(3); }";
 
             let ast = pest::generate_ast(source).unwrap();
             assert_eq!(

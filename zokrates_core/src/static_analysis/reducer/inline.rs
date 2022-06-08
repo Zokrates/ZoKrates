@@ -2,10 +2,11 @@
 
 // Given:
 // ```
-// def foo<n>(field a) -> field:
-//		a = a
-//		n = n
-//		return a
+// def foo<n>(field a) -> field {
+//     a = a;
+//     n = n;
+//     return a;
+// }
 // ```
 //
 // The call site

@@ -1,6 +1,7 @@
-from "EMBED" import bit_array_le
+from "EMBED" import bit_array_le;
 
-const bool CONST = bit_array_le([true], [true])
+const bool CONST = bit_array_le([true], [true]);
 
-def main() -> bool:
-    return CONST
+def main() -> bool {
+    return CONST;
+}

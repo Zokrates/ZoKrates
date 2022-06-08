@@ -140,15 +140,21 @@ impl<T> Prog<T> {
 
 impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let returns = (0..self.return_count)
+            .map(Variable::public)
+            .map(|e| format!("{}", e))
+            .collect::<Vec<_>>()
+            .join(", ");
+
         writeln!(
             f,
-            "def main({}) -> ({}):",
+            "def main({}) -> ({}) {{",
             self.arguments
                 .iter()
                 .map(|v| format!("{}", v))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.return_count,
+            returns,
         )?;
         for s in &self.statements {
             writeln!(f, "\t{}", s)?;
@@ -161,7 +167,10 @@ impl<T: Field> fmt::Display for Prog<T> {
                 .map(|e| format!("{}", e))
                 .collect::<Vec<_>>()
                 .join(", ")
-        )
+        )?;
+
+        writeln!(f, "\treturn {}", returns)?;
+        writeln!(f, "}}")
     }
 }
 

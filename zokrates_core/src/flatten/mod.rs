@@ -24,7 +24,7 @@ use zokrates_ast::flat::*;
 use zokrates_ast::ir::Solver;
 use zokrates_ast::zir::types::{Type, UBitwidth};
 use zokrates_ast::zir::{
-    BooleanExpression, FieldElementExpression, Identifier, IfElse, Parameter as ZirParameter,
+    BooleanExpression, Conditional, FieldElementExpression, Identifier, Parameter as ZirParameter,
     UExpression, UExpressionInner, Variable as ZirVariable, ZirExpression, ZirFunction,
     ZirStatement,
 };
@@ -117,7 +117,9 @@ impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
 
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
-trait Flatten<'ast, T: Field>: TryFrom<ZirExpression<'ast, T>, Error = ()> + IfElse<'ast, T> {
+trait Flatten<'ast, T: Field>:
+    TryFrom<ZirExpression<'ast, T>, Error = ()> + Conditional<'ast, T>
+{
     type Output: FlattenOutput<T>;
 
     fn flatten(
@@ -1034,7 +1036,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 true => T::from(1),
                 false => T::from(0),
             }),
-            BooleanExpression::IfElse(box condition, box consequence, box alternative) => self
+            BooleanExpression::Conditional(box condition, box consequence, box alternative) => self
                 .flatten_if_else_expression(
                     statements_flattened,
                     condition,
@@ -1617,7 +1619,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatUExpression::with_field(r)
             }
-            UExpressionInner::IfElse(box condition, box consequence, box alternative) => self
+            UExpressionInner::Conditional(box condition, box consequence, box alternative) => self
                 .flatten_if_else_expression(
                     statements_flattened,
                     condition,
@@ -2278,7 +2280,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     _ => panic!("Expected number as pow exponent"),
                 }
             }
-            FieldElementExpression::IfElse(box condition, box consequence, box alternative) => self
+            FieldElementExpression::Conditional(
+                box condition,
+                box consequence,
+                box alternative,
+            ) => self
                 .flatten_if_else_expression(
                     statements_flattened,
                     condition,
@@ -2712,15 +2718,18 @@ mod tests {
 
     #[test]
     fn assertion_bool_eq() {
-        // def main():
-        //     bool x = true
-        //     bool y = true
-        //     assert(x == y)
+        // def main() {
+        //     bool x = true;
+        //     bool y = true;
+        //     assert(x == y);
+        //     return;
+        // }
 
-        // def main():
-        //     _0 = 1
-        //     _1 = 1
-        //     _1 == (_0 * 1)
+        // def main() {
+        //     _0 = 1;
+        //     _1 = 1;
+        //     _1 == (_0 * 1);
+        // }
         let function = ZirFunction::<Bn128Field> {
             arguments: vec![],
             statements: vec![
@@ -2776,15 +2785,18 @@ mod tests {
 
     #[test]
     fn assertion_field_eq() {
-        // def main():
-        //     field x = 1
-        //     field y = 2
-        //     assert(x + 1 == y)
+        // def main() {
+        //     field x = 1;
+        //     field y = 2;
+        //     assert(x + 1 == y);
+        //     return;
+        // }
 
-        // def main():
-        //     _0 = 42
-        //     _1 = 42
-        //     _1 == ((_0 + 1) * 1)
+        // def main() {
+        //     _0 = 42;
+        //     _1 = 42;
+        //     _1 == ((_0 + 1) * 1);
+        // }
         let function = ZirFunction {
             arguments: vec![],
             statements: vec![
@@ -2847,14 +2859,16 @@ mod tests {
 
     #[test]
     fn assertion_uint_eq() {
-        // def main():
-        //     u32 x = 42
-        //     assert(x == 42)
-        //     return
+        // def main() {
+        //     u32 x = 42;
+        //     assert(x == 42);
+        //     return;
+        // }
 
-        // def main():
-        //     _0 = 42
-        //     42 == (_0 * 1)
+        // def main() {
+        //     _0 = 42;
+        //     42 == (_0 * 1);
+        // }
         let metadata = UMetadata {
             max: 0xffffffff_u32.into(),
             should_reduce: ShouldReduce::True,
@@ -2913,16 +2927,18 @@ mod tests {
 
     #[test]
     fn assertion_ident_eq_ident() {
-        // def main():
-        //     field x = 2
-        //     field y = 2
-        //     assert(x == y)
-        //     return
+        // def main() {
+        //     field x = 2;
+        //     field y = 2;
+        //     assert(x == y);
+        //     return;
+        // }
 
-        // def main():
-        //     _0 = 2
-        //     _1 = 2
-        //     _1 == (_0 * 1)
+        // def main() {
+        //     _0 = 2;
+        //     _1 = 2;
+        //     _1 == (_0 * 1);
+        // }
         let function = ZirFunction {
             arguments: vec![],
             statements: vec![
@@ -2979,18 +2995,20 @@ mod tests {
 
     #[test]
     fn assertion_mult_eq_ident() {
-        // def main():
-        //     field x = 2
-        //     field y = 2
-        //     field z = 4
-        //     assert(x * y == z)
-        //     return
+        // def main() {
+        //     field x = 2;
+        //     field y = 2;
+        //     field z = 4;
+        //     assert(x * y == z);
+        //     return;
+        // }
 
-        // def main():
-        //     _0 = 2
-        //     _1 = 2
-        //     _2 = 4
-        //     _2 == (_0 * _1)
+        // def main() {
+        //     _0 = 2;
+        //     _1 = 2;
+        //     _2 = 4;
+        //     _2 == (_0 * _1);
+        // }
         let function = ZirFunction {
             arguments: vec![],
             statements: vec![
@@ -3058,18 +3076,20 @@ mod tests {
 
     #[test]
     fn assertion_ident_eq_mult() {
-        // def main():
-        //     field x = 2
-        //     field y = 2
-        //     field z = 4
-        //     assert(z == x * y)
-        //     return
+        // def main() {
+        //     field x = 2;
+        //     field y = 2;
+        //     field z = 4;
+        //     assert(z == x * y);
+        //     return;
+        // }
 
-        // def main():
-        //     _0 = 2
-        //     _1 = 2
-        //     _2 = 4
-        //     _2 == (_0 * _1)
+        // def main() {
+        //     _0 = 2;
+        //     _1 = 2;
+        //     _2 = 4;
+        //     _2 == (_0 * _1);
+        // }
         let function = ZirFunction {
             arguments: vec![],
             statements: vec![
@@ -3137,20 +3157,23 @@ mod tests {
 
     #[test]
     fn assertion_mult_eq_mult() {
-        // def main():
-        //     field x = 4
-        //     field y = 4
-        //     field z = 8
-        //     field t = 2
-        //     assert(x * y == z * t)
+        // def main() {
+        //     field x = 4;
+        //     field y = 4;
+        //     field z = 8;
+        //     field t = 2;
+        //     assert(x * y == z * t);
+        //     return;
+        // }
 
-        // def main():
-        //     _0 = 4
-        //     _1 = 4
-        //     _2 = 8
-        //     _3 = 2
-        //     _4 = (_2 * _3)
-        //     _4 == (_0 * _1)
+        // def main() {
+        //     _0 = 4;
+        //     _1 = 4;
+        //     _2 = 8;
+        //     _3 = 2;
+        //     _4 = (_2 * _3);
+        //     _4 == (_0 * _1);
+        // }
         let function = ZirFunction {
             arguments: vec![],
             statements: vec![
@@ -3235,15 +3258,17 @@ mod tests {
 
     #[test]
     fn powers_zero() {
-        // def main():
-        //     field a = 7
-        //     field b = a**0
-        //     return b
+        // def main() {
+        //     field a = 7;
+        //     field b = a**0;
+        //     return b;
+        // }
 
-        // def main():
-        //     _0 = 7
-        //     _1 = 1         // power flattening returns 1, definition introduces _7
-        //     return _1
+        // def main() {
+        //     _0 = 7;
+        //     _1 = 1;        // power flattening returns 1, definition introduces _7
+        //     return _1;
+        // }
         let function = ZirFunction {
             arguments: vec![],
             statements: vec![
@@ -3293,16 +3318,18 @@ mod tests {
 
     #[test]
     fn power_one() {
-        // def main():
-        //     field a = 7
-        //     field b = a**1
-        //     return b
+        // def main() {
+        //     field a = 7;
+        //     field b = a**1;
+        //     return b;
+        // }
 
-        // def main():
-        //     _0 = 7
-        //     _1 = 1 * _0     // x**1
-        //     _2 = _1         // power flattening returns _1, definition introduces _2
-        //     return _2
+        // def main() {
+        //     _0 = 7;
+        //     _1 = 1 * _0;     // x**1
+        //     _2 = _1;         // power flattening returns _1, definition introduces _2
+        //     return _2;
+        // }
         let function = ZirFunction {
             arguments: vec![],
             statements: vec![
@@ -3355,10 +3382,11 @@ mod tests {
 
     #[test]
     fn power_13() {
-        // def main():
-        //     field a = 7
-        //     field b = a**13
-        //     return b
+        // def main() {
+        //     field a = 7;
+        //     field b = a**13;
+        //     return b;
+        // }
 
         // we apply double and add
         // 13 == 0b1101
@@ -3371,16 +3399,17 @@ mod tests {
         // a_3 = a * a_1    // a * a**4 == a**5
         // a_4 = a_3 * a_2  // a**5 * a**8 == a**13
 
-        // def main():
-        //     _0 = 7
-        //     _1 = (_0 * _0)  // a**2
-        //     _2 = (_1 * _1)  // a**4
-        //     _3 = (_2 * _2)  // a**8
+        // def main() {
+        //     _0 = 7;
+        //     _1 = (_0 * _0);  // a**2
+        //     _2 = (_1 * _1);  // a**4
+        //     _3 = (_2 * _2);  // a**8
         //
-        //     _4 = 1 * _0     // a
-        //     _5 = _4 * _2    // a**5
-        //     _6 = _5 * _3    // a**13
-        //     return _6
+        //     _4 = 1 * _0;     // a
+        //     _5 = _4 * _2;    // a**5
+        //     _6 = _5 * _3;    // a**13
+        //     return _6;
+        // }
 
         let function = ZirFunction {
             arguments: vec![],
@@ -3470,7 +3499,7 @@ mod tests {
     #[test]
     fn if_else() {
         let config = CompileConfig::default();
-        let expression = FieldElementExpression::IfElse(
+        let expression = FieldElementExpression::Conditional(
             box BooleanExpression::FieldEq(
                 box FieldElementExpression::Number(Bn128Field::from(32)),
                 box FieldElementExpression::Number(Bn128Field::from(4)),
@@ -3507,7 +3536,7 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(config);
 
-        let expression = FieldElementExpression::IfElse(
+        let expression = FieldElementExpression::Conditional(
             box BooleanExpression::And(
                 box BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(Bn128Field::from(4)),

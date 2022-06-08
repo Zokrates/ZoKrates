@@ -1,106 +1,57 @@
-import "utils/casts/u32_to_bits" as to_bits
-import "utils/casts/u32_from_bits" as from_bits
+import "utils/casts/u32_to_bits" as to_bits;
+import "utils/casts/u32_from_bits" as from_bits;
 
-def right_rotate_2(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[30..], ...b[..30]])
-	return res
+def right_rotate<N>(u32 e) -> u32 {
+    bool[32] b = to_bits(e);
+    u32 res = from_bits([...b[32-N..], ...b[..32-N]]);
+    return res;
+}
 
-def right_rotate_4(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[28..], ...b[..28]])
-	return res
+def main(u32 e, u32 f, u32[4] terms) {
+    // rotate
+    u32 rotated = right_rotate::<4>(e);
+    assert(rotated == 0x81234567);
 
-def right_rotate_6(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[26..], ...b[..26]])
-	return res
+    // and
+    assert((e & f) == 0x00204460);
 
-def right_rotate_7(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[25..], ...b[..25]])
-	return res
+    // xor
+    assert((e ^ f) == 0x1317131f);
 
-def right_rotate_11(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[21..], ...b[..21]])
-	return res
+    // shift
+    assert(e >> 0x0000000c == 0x00012345);
+    assert(e << 0x0000000c == 0x45678000);
 
-def right_rotate_13(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[19..], ...b[..19]])
-	return res
+    // not
+    assert(!e == 0xedcba987);
 
-def right_rotate_17(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[15..], ...b[..15]])
-	return res
+    // add
+    assert(terms[0] + terms[1] + terms[2] + terms[3] == 0xddddddda);
 
-def right_rotate_18(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[14..], ...b[..14]])
-	return res
+    // to_bits
+    bool[32] bits1 = to_bits(e);
+    bool[32] expected1 = [false, false, false, true, false, false, true, false, false, false, true, true, false, true,  false, false, false, true, false, true, false, true, true, false, false, true, true,  true, true, false, false, false];
+    assert(bits1 == expected1);
+    assert(e == from_bits(expected1));
 
-def right_rotate_19(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[13..], ...b[..13]])
-	return res
+    bool[32] bits2 = to_bits(f);
+    bool[32] expected2 = [false, false, false, false, false, false, false, true, false, false, true, false, false, false, true, true, false, true, false, false, false, true,  false, true, false, true, true, false, false, true, true, true];
+    assert(bits2 == expected2);
+    assert(f == from_bits(expected2));
 
-def right_rotate_22(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[10..], ...b[..10]])
-	return res
+    // S0
+    u32 e2 = right_rotate::<2>(e);
+    u32 e13 = right_rotate::<13>(e);
+    u32 e22 = right_rotate::<22>(e);
+    u32 S0 = e2 ^ e13 ^ e22;
+    assert(S0 == 0x66146474);
 
-def right_rotate_25(u32 e) -> u32:
-	bool[32] b = to_bits(e)
-	u32 res = from_bits([...b[7..], ...b[..7]])
-	return res
+    // S1
+    u32 e6 = right_rotate::<6>(e);
+    u32 e11 = right_rotate::<11>(e);
+    u32 e25 = right_rotate::<25>(e);
+    u32 S1 = e6 ^ e11 ^ e25;
+    assert(S1 == 0x3561abda);
 
-def main(u32 e, u32 f, u32[4] terms):
-
-	// rotate
-	u32 rotated = right_rotate_4(e)
-	assert(rotated == 0x81234567)
-
-	// and
-	assert((e & f) == 0x00204460)
-
-	// xor
-	assert((e ^ f) == 0x1317131f)
-
-	// shift
-	assert(e >> 0x0000000c == 0x00012345)
-	assert(e << 0x0000000c == 0x45678000)
-
-	// not
-	assert(!e == 0xedcba987)
-
-	// add
-	assert(terms[0] + terms[1] + terms[2] + terms[3] == 0xddddddda)
-
-	// to_bits
-	bool[32] bits1 = to_bits(e)
-	bool[32] expected1 = [false, false, false, true, false, false, true, false, false, false, true, true, false, true,  false, false, false, true, false, true, false, true, true, false, false, true, true,  true, true, false, false, false]
-	assert(bits1 == expected1)
-	assert(e == from_bits(expected1))
-
-	bool[32] bits2 = to_bits(f)
-	bool[32] expected2 = [false, false, false, false, false, false, false, true, false, false, true, false, false, false, true, true, false, true, false, false, false, true,  false, true, false, true, true, false, false, true, true, true]
-	assert(bits2 == expected2)
-	assert(f == from_bits(expected2))
-
-	// S0
-	u32 e2 = right_rotate_2(e)
-	u32 e13 = right_rotate_13(e)
-	u32 e22 = right_rotate_22(e)
-	u32 S0 = e2 ^ e13 ^ e22
-	assert(S0 == 0x66146474)
-
-	// S1
-	u32 e6 = right_rotate_6(e)
-	u32 e11 = right_rotate_11(e)
-	u32 e25 = right_rotate_25(e)
-	u32 S1 = e6 ^ e11 ^ e25
-	assert(S1 == 0x3561abda)
-
-	return
+    return;
+}

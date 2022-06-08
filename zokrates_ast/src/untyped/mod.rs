@@ -345,7 +345,7 @@ impl<'ast> fmt::Display for Function<'ast> {
 
         write!(
             f,
-            "({}):\n{}",
+            "({}) {{\n{}\n}}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -404,22 +404,22 @@ pub type StatementNode<'ast> = Node<Statement<'ast>>;
 impl<'ast> fmt::Display for Statement<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Return(ref expr) => write!(f, "return {}", expr),
-            Statement::Declaration(ref var) => write!(f, "{}", var),
-            Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            Statement::Return(ref expr) => write!(f, "return {};", expr),
+            Statement::Declaration(ref var) => write!(f, "{};", var),
+            Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             Statement::Assertion(ref e, ref message) => {
                 write!(f, "assert({}", e)?;
                 match message {
-                    Some(m) => write!(f, ", \"{}\")", m),
-                    None => write!(f, ")"),
+                    Some(m) => write!(f, ", \"{}\");", m),
+                    None => write!(f, ");"),
                 }
             }
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} {{", var, start, stop)?;
                 for l in list {
                     writeln!(f, "\t\t{}", l)?;
                 }
-                write!(f, "\tendfor")
+                write!(f, "\t}}")
             }
             Statement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
@@ -428,7 +428,7 @@ impl<'ast> fmt::Display for Statement<'ast> {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, " = {}", rhs)
+                write!(f, " = {};", rhs)
             }
         }
     }
@@ -518,6 +518,43 @@ pub enum ConditionalKind {
     Ternary,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConditionalExpression<'ast> {
+    pub condition: Box<ExpressionNode<'ast>>,
+    pub consequence_statements: Vec<StatementNode<'ast>>,
+    pub consequence: Box<ExpressionNode<'ast>>,
+    pub alternative_statements: Vec<StatementNode<'ast>>,
+    pub alternative: Box<ExpressionNode<'ast>>,
+    pub kind: ConditionalKind,
+}
+
+impl<'ast> fmt::Display for ConditionalExpression<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            ConditionalKind::IfElse => {
+                writeln!(f, "if {} {{", self.condition)?;
+                for cs in self.consequence_statements.iter() {
+                    writeln!(f, "\t{}", cs)?;
+                }
+                writeln!(f, "\t{}", self.consequence)?;
+                write!(f, "}} else {{")?;
+                for als in self.alternative_statements.iter() {
+                    writeln!(f, "\t{}", als)?;
+                }
+                writeln!(f, "\t{}", self.alternative)?;
+                write!(f, "}}")
+            }
+            ConditionalKind::Ternary => {
+                write!(
+                    f,
+                    "{} ? {} : {}",
+                    self.condition, self.consequence, self.alternative
+                )
+            }
+        }
+    }
+}
+
 /// An expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'ast> {
@@ -537,12 +574,7 @@ pub enum Expression<'ast> {
     Pow(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Neg(Box<ExpressionNode<'ast>>),
     Pos(Box<ExpressionNode<'ast>>),
-    Conditional(
-        Box<ExpressionNode<'ast>>,
-        Box<ExpressionNode<'ast>>,
-        Box<ExpressionNode<'ast>>,
-        ConditionalKind,
-    ),
+    Conditional(Box<ConditionalExpression<'ast>>),
     FunctionCall(
         Box<ExpressionNode<'ast>>,
         Option<Vec<Option<ExpressionNode<'ast>>>>,
@@ -591,18 +623,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::Neg(ref e) => write!(f, "(-{})", e),
             Expression::Pos(ref e) => write!(f, "(+{})", e),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
-            Expression::Conditional(ref condition, ref consequent, ref alternative, ref kind) => {
-                match kind {
-                    ConditionalKind::IfElse => write!(
-                        f,
-                        "if {} then {} else {} fi",
-                        condition, consequent, alternative
-                    ),
-                    ConditionalKind::Ternary => {
-                        write!(f, "{} ? {} : {}", condition, consequent, alternative)
-                    }
-                }
-            }
+            Expression::Conditional(ref c) => write!(f, "{}", c),
             Expression::FunctionCall(ref i, ref g, ref p) => {
                 if let Some(g) = g {
                     write!(
