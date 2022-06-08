@@ -50,6 +50,7 @@ struct_field = { ty ~ identifier }
 vis_private = {"private"}
 vis_public = {"public"}
 vis = { vis_private | vis_public }
+_mut = {"mut"}
 
 // Statements
 statement = { (return_statement // does not require subsequent newline
@@ -116,7 +117,8 @@ array_initializer_expression = { "[" ~ expression ~ ";" ~ expression ~ "]" }
 
 // End Expressions
 
-typed_identifier = { ty ~ identifier }
+
+typed_identifier = { ty ~ _mut? ~ identifier }
 assignee = { identifier ~ assignee_access* }
 assignee_access = { array_access | dot_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -179,5 +181,5 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 // the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly
 // accepted
 keyword = @{"assert"|"as"|"bool"|"const"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
-            "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
+            "in"|"mut"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
             }

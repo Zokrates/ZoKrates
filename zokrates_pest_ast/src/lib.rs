@@ -706,9 +706,14 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::_mut))]
+    pub struct Mutable {}
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::typed_identifier))]
     pub struct TypedIdentifier<'ast> {
         pub ty: Type<'ast>,
+        pub _mut: Option<Mutable>,
         pub identifier: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -1423,6 +1428,7 @@ mod tests {
                                 ty: Type::Basic(BasicType::Field(FieldType {
                                     span: Span::new(source, 23, 28).unwrap()
                                 })),
+                                _mut: None,
                                 identifier: IdentifierExpression {
                                     value: String::from("a"),
                                     span: Span::new(source, 29, 30).unwrap(),
