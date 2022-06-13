@@ -3,7 +3,7 @@ def add(field a, field b) -> field:
   return v + a
 
 def main(field a, field b,field c, field d) -> field:
-  field g = a + b
+  field mut g = a + b
   field x = add(a,b)
   field y = add(c,d)
   g = add(x, g)

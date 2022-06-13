@@ -30,15 +30,15 @@ def rotl64(u64 x, u32 n) -> u64:
     return ((x << n) | (x >> (64 - n)))
 
 // change endianness
-def swap_u64(u64 val) -> u64:
+def swap_u64(u64 mut val) -> u64:
     val = ((val << 8) & 0xFF00FF00FF00FF00) | ((val >> 8) & 0x00FF00FF00FF00FF)
     val = ((val << 16) & 0xFFFF0000FFFF0000) | ((val >> 16) & 0x0000FFFF0000FFFF)
     return (val << 32) | (val >> 32)
 
 // compression function
-def keccakf(u64[25] st) -> u64[25]:
-    u64[5] bc = [0; 5]
-    u64 t = 0
+def keccakf(u64[25] mut st) -> u64[25]:
+    u64[5] mut bc = [0; 5]
+    u64 mut t = 0
 
     for u32 r in 0..24 do
         // theta
@@ -79,10 +79,10 @@ def keccakf(u64[25] st) -> u64[25]:
     endfor
     return st
 
-def keccak<N, W>(u64[N] input, u64 pad) -> u64[25]:
-    u64[25] q = [0; 25]
+def keccak<N, W>(u64[N] mut input, u64 pad) -> u64[25]:
+    u64[25] mut q = [0; 25]
     u32 rate = (200 - (W / 4)) / 8
-    u32 pt = 0
+    u32 mut pt = 0
 
     // change endianness of inputs from big endian to little endian
     for u32 i in 0..N do
@@ -129,7 +129,7 @@ def main<N, W>(u8[N] input, u64 pad) -> u64[25]:
     u32 len = L + R
 
     u8[len * 8] padded = [...input, ...[0; len * 8 - N]]
-    u64[len] input_u64 = [0; len]
+    u64[len] mut input_u64 = [0; len]
 
     for u32 i in 0..len do
         u32 j = i * 8

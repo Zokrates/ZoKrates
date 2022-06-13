@@ -12,7 +12,7 @@ def main(field[2] pt)  -> bool[256]:
 	field y = pt[1]
 
 	bool[256] xBits = unpack256(x)
-	bool[256] yBits = unpack256(y)
+	bool[256] mut yBits = unpack256(y)
 
 	bool sign = xBits[255]
 	yBits[0] = sign

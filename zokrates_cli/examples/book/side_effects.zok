@@ -1,4 +1,4 @@
-def incr(field a) -> field:
+def incr(field mut a) -> field:
     a = a + 1
     return a
 

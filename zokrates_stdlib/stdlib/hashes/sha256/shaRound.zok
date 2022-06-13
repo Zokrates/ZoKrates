@@ -42,29 +42,29 @@ def temp2(u32 a, u32 b, u32 c) -> u32:
 // A function that computes one round of the SHA256 compression function given an input and the current value of the hash
 // this is used by other components however many times needed
 def main(u32[16] input, u32[8] current) -> u32[8]:
-    u32 h0 = current[0]
-    u32 h1 = current[1]
-    u32 h2 = current[2]
-    u32 h3 = current[3]
-    u32 h4 = current[4]
-    u32 h5 = current[5]
-    u32 h6 = current[6]
-    u32 h7 = current[7]
+    u32 mut h0 = current[0]
+    u32 mut h1 = current[1]
+    u32 mut h2 = current[2]
+    u32 mut h3 = current[3]
+    u32 mut h4 = current[4]
+    u32 mut h5 = current[5]
+    u32 mut h6 = current[6]
+    u32 mut h7 = current[7]
 
-    u32[64] w = [...input, ...[0u32; 48]]
+    u32[64] mut w = [...input, ...[0u32; 48]]
 
     for u32 i in 16..64 do
         w[i] = extend(w, i)
     endfor
 
-    u32 a = h0
-    u32 b = h1
-    u32 c = h2
-    u32 d = h3
-    u32 e = h4
-    u32 f = h5
-    u32 g = h6
-    u32 h = h7
+    u32 mut a = h0
+    u32 mut b = h1
+    u32 mut c = h2
+    u32 mut d = h3
+    u32 mut e = h4
+    u32 mut f = h5
+    u32 mut g = h6
+    u32 mut h = h7
 
     for u32 i in 0..64 do
         u32 t1 = temp1(e, f, g, h, K[i], w[i])

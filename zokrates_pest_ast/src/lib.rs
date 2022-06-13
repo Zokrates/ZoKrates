@@ -337,6 +337,7 @@ mod ast {
     pub struct Parameter<'ast> {
         pub visibility: Option<Visibility>,
         pub ty: Type<'ast>,
+        pub mutable: Option<Mutable>,
         pub id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -397,8 +398,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::iteration_statement))]
     pub struct IterationStatement<'ast> {
-        pub ty: Type<'ast>,
-        pub index: IdentifierExpression<'ast>,
+        pub index: TypedIdentifier<'ast>,
         pub from: Expression<'ast>,
         pub to: Expression<'ast>,
         pub statements: Vec<Statement<'ast>>,
@@ -713,7 +713,7 @@ mod ast {
     #[pest_ast(rule(Rule::typed_identifier))]
     pub struct TypedIdentifier<'ast> {
         pub ty: Type<'ast>,
-        pub _mut: Option<Mutable>,
+        pub mutable: Option<Mutable>,
         pub identifier: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -1428,7 +1428,7 @@ mod tests {
                                 ty: Type::Basic(BasicType::Field(FieldType {
                                     span: Span::new(source, 23, 28).unwrap()
                                 })),
-                                _mut: None,
+                                mutable: None,
                                 identifier: IdentifierExpression {
                                     value: String::from("a"),
                                     span: Span::new(source, 29, 30).unwrap(),

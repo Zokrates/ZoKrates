@@ -170,6 +170,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         Ok(Variable {
             id: self.fold_name(v.id)?,
             _type: self.fold_type(v._type)?,
+            is_mutable: v.is_mutable,
         })
     }
 
@@ -180,6 +181,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         Ok(DeclarationVariable {
             id: self.fold_name(v.id)?,
             _type: self.fold_declaration_type(v._type)?,
+            is_mutable: v.is_mutable,
         })
     }
 
@@ -532,7 +534,6 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
         TypedStatement::Definition(a, e) => {
             TypedStatement::Definition(f.fold_assignee(a)?, f.fold_expression(e)?)
         }
-        TypedStatement::Declaration(v) => TypedStatement::Declaration(f.fold_variable(v)?),
         TypedStatement::Assertion(e, error) => {
             TypedStatement::Assertion(f.fold_boolean_expression(e)?, error)
         }

@@ -175,7 +175,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .arguments
         .into_iter()
         .zip(inferred_signature.inputs.clone())
-        .map(|(p, t)| ConcreteVariable::with_id_and_type(p.id.id, t))
+        .map(|(p, t)| ConcreteVariable::new(p.id.id, t, false))
         .zip(arguments.clone())
         .map(|(v, a)| TypedStatement::Definition(TypedAssignee::Identifier(v.into()), a))
         .collect();
@@ -197,7 +197,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .iter()
         .enumerate()
         .map(|(i, t)| {
-            ConcreteVariable::with_id_and_type(
+            ConcreteVariable::new(
                 Identifier::from(CoreIdentifier::Call(i)).version(
                     *versions
                         .entry(CoreIdentifier::Call(i).clone())
@@ -205,6 +205,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
                         .or_insert(0),
                 ),
                 t.clone(),
+                false,
             )
         })
         .collect();

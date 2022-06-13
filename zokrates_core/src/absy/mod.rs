@@ -380,13 +380,40 @@ impl<'ast> fmt::Display for Assignee<'ast> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum VariableOrAssignee<'ast> {
+    Variable(VariableNode<'ast>),
+    Assignee(AssigneeNode<'ast>),
+}
+
+impl<'ast> From<AssigneeNode<'ast>> for VariableOrAssignee<'ast> {
+    fn from(a: AssigneeNode<'ast>) -> Self {
+        VariableOrAssignee::Assignee(a)
+    }
+}
+
+impl<'ast> From<VariableNode<'ast>> for VariableOrAssignee<'ast> {
+    fn from(v: VariableNode<'ast>) -> Self {
+        VariableOrAssignee::Variable(v)
+    }
+}
+
+impl<'ast> fmt::Display for VariableOrAssignee<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            VariableOrAssignee::Variable(v) => write!(f, "{}", v),
+            VariableOrAssignee::Assignee(a) => write!(f, "{}", a),
+        }
+    }
+}
+
 /// A statement in a `Function`
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'ast> {
     Return(ExpressionListNode<'ast>),
-    Declaration(VariableNode<'ast>),
-    Definition(AssigneeNode<'ast>, ExpressionNode<'ast>),
+    Definition(VariableNode<'ast>, ExpressionNode<'ast>),
+    Assignment(AssigneeNode<'ast>, ExpressionNode<'ast>),
     Assertion(ExpressionNode<'ast>, Option<String>),
     For(
         VariableNode<'ast>,
@@ -394,7 +421,7 @@ pub enum Statement<'ast> {
         ExpressionNode<'ast>,
         Vec<StatementNode<'ast>>,
     ),
-    MultipleDefinition(Vec<AssigneeNode<'ast>>, ExpressionNode<'ast>),
+    MultipleDefinition(Vec<VariableOrAssignee<'ast>>, ExpressionNode<'ast>),
 }
 
 pub type StatementNode<'ast> = Node<Statement<'ast>>;
@@ -403,8 +430,10 @@ impl<'ast> fmt::Display for Statement<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
-            Statement::Declaration(ref var) => write!(f, "{}", var),
-            Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            Statement::Definition(ref var, ref rhs) => {
+                write!(f, "{} = {}", var, rhs)
+            }
+            Statement::Assignment(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Assertion(ref e, ref message) => {
                 write!(f, "assert({}", e)?;
                 match message {

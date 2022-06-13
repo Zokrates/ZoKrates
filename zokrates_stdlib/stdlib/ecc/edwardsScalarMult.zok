@@ -12,8 +12,8 @@ def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> field[2]:
 
     field[2] infinity = context.INFINITY
 
-    field[2] doubledP = pt
-    field[2] accumulatedP = infinity
+    field[2] mut doubledP = pt
+    field[2] mut accumulatedP = infinity
 
     for u32 i in 0..256 do
         u32 j = 255 - i

@@ -12,6 +12,6 @@ def cubeThing(field thing) -> field:
     return thing**3
 
 def main(u32 index) -> bool:
-    field thing = getThing(index)
+    field mut thing = getThing(index)
     thing = cubeThing(thing)
     return lt(cutoff(), thing)

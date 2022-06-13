@@ -1,5 +1,5 @@
 def main() -> field:
-    field[3] a = [1, 2, 3] // initialize a field array with field values
+    field[3] mut a = [1, 2, 3] // initialize a field array with field values
     a[2] = 4               // set a member to a value
     field[4] b = [42; 4]   // initialize an array of 4 values all equal to 42
     field[4] c = [...a, 4] // initialize an array copying values from `a`, followed by 4

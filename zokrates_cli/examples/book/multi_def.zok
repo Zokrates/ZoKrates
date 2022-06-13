@@ -3,7 +3,7 @@ def foo() -> (field, field):
 
 def main():
 	// a is declared here
-	field a = 1
+	field mut a = 1
 	// b is declared here
 	a, field b = foo()
 	return

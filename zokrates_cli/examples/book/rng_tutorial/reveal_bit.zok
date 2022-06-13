@@ -9,7 +9,7 @@ import "utils/casts/u32_to_bits" as u32_to_bits
 
 def main(private u32[16] preimage, u32 bitNum) -> (u32[8], bool):
   // Convert the preimage to bits
-  bool[512] preimageBits = [false; 512]
+  bool[512] mut preimageBits = [false; 512]
   for u32 i in 0..16 do
     bool[32] val = u32_to_bits(preimage[i])
     for u32 bit in 0..32 do

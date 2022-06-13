@@ -1,4 +1,4 @@
-def foo(field[3] a) -> field:
+def foo(field[3] mut a) -> field:
 	a[1] = 2
 	return a[1]
 

@@ -1,6 +1,6 @@
 def main<N>(bool[N] bits) -> field:
 
-	field out = 0
+	field mut out = 0
 
 	for u32 j in 0..N do
 		u32 i = N - (j + 1)

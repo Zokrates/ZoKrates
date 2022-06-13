@@ -21,7 +21,7 @@ constant_generics_declaration = _{ "<" ~ constant_generics_list ~ ">" }
 constant_generics_list = _{ identifier ~ ("," ~ identifier)* }
 
 parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
-parameter = {vis? ~ ty ~ identifier}
+parameter = {vis? ~ ty ~ _mut? ~ identifier}
 
 // basic types
 ty_field = {"field"}
@@ -60,7 +60,7 @@ statement = { (return_statement // does not require subsequent newline
                 ) ~ NEWLINE
             ) ~ NEWLINE* }
 
-iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
+iteration_statement = { "for" ~ typed_identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
 definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
 expression_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")"}

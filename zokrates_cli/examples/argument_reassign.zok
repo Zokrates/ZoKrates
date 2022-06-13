@@ -1,4 +1,4 @@
-def sub(field a) -> field:
+def sub(field mut a) -> field:
   a = a + 3
   return a
 

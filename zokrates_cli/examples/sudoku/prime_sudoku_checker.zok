@@ -25,7 +25,7 @@ def checkNoDuplicates(field a, field b, field c, field d) -> bool:
 
 // returns true if and only if `x` is one of the `4` primes
 def validateInput(field x) -> bool:
-  field res = 1
+  field mut res = 1
 
   for u32 i in 0..4 do
     res = res * (x - PRIMES[i])
@@ -38,7 +38,7 @@ def main(field a21, field b11, field b22, field c11, field c22, field d21, priva
 
   Grid<4> a = [[a11, a12, b11, b12], [a21, a22, b21, b22], [c11, c12, d11, d12], [c21, c22, d21, d22]]
 
-  bool res = true
+  bool mut res = true
 
   // go through the whole grid and check that all elements are valid
   for u32 i in 0..4 do
