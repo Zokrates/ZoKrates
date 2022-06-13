@@ -34,5 +34,5 @@ zokrates mpc export -i final.params
 
 # use the keys to generate proofs and verify
 zokrates compute-witness -i circuit -a 123456789 987654321 --verbose
-zokrates generate-proof -i circuit
-zokrates verify
+zokrates generate-proof -i circuit -b bellman
+zokrates verify -b bellman
