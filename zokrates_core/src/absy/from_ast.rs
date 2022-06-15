@@ -201,11 +201,7 @@ impl<'ast> From<pest::FunctionDefinition<'ast>> for absy::SymbolDeclarationNode<
                 .into_iter()
                 .map(absy::ParameterNode::from)
                 .collect(),
-            statements: function
-                .statements
-                .into_iter()
-                .flat_map(statements_from_statement)
-                .collect(),
+            statements: function.statements.into_iter().map(|s| s.into()).collect(),
             signature,
         }
         .span(span.clone());
@@ -266,77 +262,81 @@ impl<'ast> From<pest::TypedIdentifier<'ast>> for absy::VariableNode<'ast> {
     }
 }
 
-fn statements_from_statement(statement: pest::Statement) -> Vec<absy::StatementNode> {
-    match statement {
-        pest::Statement::Definition(s) => vec![statement_from_definition(s)],
-        pest::Statement::Iteration(s) => vec![absy::StatementNode::from(s)],
-        pest::Statement::Assertion(s) => vec![absy::StatementNode::from(s)],
-        pest::Statement::Return(s) => vec![absy::StatementNode::from(s)],
+impl<'ast> From<pest::Statement<'ast>> for absy::StatementNode<'ast> {
+    fn from(statement: pest::Statement<'ast>) -> Self {
+        match statement {
+            pest::Statement::Definition(s) => absy::StatementNode::from(s),
+            pest::Statement::Iteration(s) => absy::StatementNode::from(s),
+            pest::Statement::Assertion(s) => absy::StatementNode::from(s),
+            pest::Statement::Return(s) => absy::StatementNode::from(s),
+        }
     }
 }
 
-fn statement_from_definition(definition: pest::DefinitionStatement) -> absy::StatementNode {
-    use crate::absy::NodeValue;
+impl<'ast> From<pest::DefinitionStatement<'ast>> for absy::StatementNode<'ast> {
+    fn from(definition: pest::DefinitionStatement<'ast>) -> Self {
+        use crate::absy::NodeValue;
 
-    let lhs = definition.lhs;
+        let lhs = definition.lhs;
 
-    match lhs.len() {
-        1 => {
-            // Definition or assignment
-            let a = lhs[0].clone();
+        match lhs.len() {
+            1 => {
+                // Definition or assignment
+                let a = lhs[0].clone();
 
-            let e: absy::ExpressionNode = absy::ExpressionNode::from(definition.expression);
+                let e: absy::ExpressionNode = absy::ExpressionNode::from(definition.expression);
 
-            match a {
-                pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => match e.value {
-                    absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
-                        vec![absy::Variable::new(
-                            i.identifier.span.as_str(),
-                            absy::UnresolvedTypeNode::from(i.ty),
-                            i.mutable.is_some(),
-                        )
-                        .span(i.span.clone())
-                        .into()],
-                        e,
-                    ),
-                    _ => absy::Statement::Definition(
-                        absy::Variable::new(
-                            i.identifier.span.as_str(),
-                            absy::UnresolvedTypeNode::from(i.ty),
-                            i.mutable.is_some(),
-                        )
-                        .span(i.span.clone()),
-                        e,
-                    ),
-                },
-                pest::TypedIdentifierOrAssignee::Assignee(a) => match e.value {
-                    absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
-                        vec![VariableOrAssignee::Assignee(absy::AssigneeNode::from(a))],
-                        e,
-                    ),
-                    _ => absy::Statement::Assignment(absy::AssigneeNode::from(a), e),
-                },
+                match a {
+                    pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => match e.value {
+                        absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
+                            vec![absy::Variable::new(
+                                i.identifier.span.as_str(),
+                                absy::UnresolvedTypeNode::from(i.ty),
+                                i.mutable.is_some(),
+                            )
+                            .span(i.span.clone())
+                            .into()],
+                            e,
+                        ),
+                        _ => absy::Statement::Definition(
+                            absy::Variable::new(
+                                i.identifier.span.as_str(),
+                                absy::UnresolvedTypeNode::from(i.ty),
+                                i.mutable.is_some(),
+                            )
+                            .span(i.span.clone()),
+                            e,
+                        ),
+                    },
+                    pest::TypedIdentifierOrAssignee::Assignee(a) => match e.value {
+                        absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
+                            vec![VariableOrAssignee::Assignee(absy::AssigneeNode::from(a))],
+                            e,
+                        ),
+                        _ => absy::Statement::Assignment(absy::AssigneeNode::from(a), e),
+                    },
+                }
+                .span(definition.span.clone())
             }
-            .span(definition.span.clone())
-        }
-        _ => {
-            let lhs = lhs
-                .into_iter()
-                .map(|i| match i {
-                    pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
-                        absy::VariableOrAssignee::Variable(absy::VariableNode::from(i))
-                    }
-                    pest::TypedIdentifierOrAssignee::Assignee(a) => {
-                        absy::VariableOrAssignee::Assignee(absy::AssigneeNode::from(a))
-                    }
-                })
-                .collect();
+            _ => {
+                let lhs = lhs
+                    .into_iter()
+                    .map(|i| match i {
+                        pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
+                            absy::VariableOrAssignee::Variable(absy::VariableNode::from(i))
+                        }
+                        pest::TypedIdentifierOrAssignee::Assignee(a) => {
+                            absy::VariableOrAssignee::Assignee(absy::AssigneeNode::from(a))
+                        }
+                    })
+                    .collect();
 
-            absy::Statement::MultipleDefinition(
-                lhs,
-                absy::ExpressionNode::from(definition.expression),
-            )
-            .span(definition.span)
+                absy::Statement::MultipleDefinition(
+                    lhs,
+                    absy::ExpressionNode::from(definition.expression),
+                )
+                .span(definition.span)
+            }
         }
     }
 }
@@ -377,11 +377,8 @@ impl<'ast> From<pest::IterationStatement<'ast>> for absy::StatementNode<'ast> {
         let index = absy::VariableNode::from(statement.index);
         let from = absy::ExpressionNode::from(statement.from);
         let to = absy::ExpressionNode::from(statement.to);
-        let statements: Vec<absy::StatementNode<'ast>> = statement
-            .statements
-            .into_iter()
-            .flat_map(statements_from_statement)
-            .collect();
+        let statements: Vec<absy::StatementNode<'ast>> =
+            statement.statements.into_iter().map(|s| s.into()).collect();
 
         absy::Statement::For(index, from, to, statements).span(statement.span)
     }
@@ -1260,7 +1257,7 @@ mod tests {
             span: span.clone(),
         };
 
-        let statement = statement_from_definition(definition);
+        let statement = absy::StatementNode::from(definition);
 
         match statement.value {
             absy::Statement::Assignment(..) => {}
@@ -1299,7 +1296,7 @@ mod tests {
             span: span.clone(),
         };
 
-        let statement = statement_from_definition(definition);
+        let statement = absy::StatementNode::from(definition);
 
         match statement.value {
             absy::Statement::MultipleDefinition(..) => {}
@@ -1352,9 +1349,9 @@ mod tests {
             span: span.clone(),
         };
 
-        let statements = statement_from_definition(definition);
+        let statement = absy::StatementNode::from(definition);
 
-        match statements.value {
+        match statement.value {
             absy::Statement::MultipleDefinition(..) => {}
             s => {
                 panic!("should be a Definition, found {}", s);

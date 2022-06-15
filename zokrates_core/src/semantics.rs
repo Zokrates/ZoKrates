@@ -5617,77 +5617,77 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn shadowing_with_same_type() {
-    //     //   field a
-    //     //	 field a
-    //     //
-    //     // should fail
+    #[test]
+    fn shadowing_with_same_type() {
+        //   field a = 2
+        //	 field a = 2
+        //
+        // should fail
 
-    //     let mut checker: Checker<Bn128Field> = Checker::default();
-    //     let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
-    //         Statement::Definition(
-    //             absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-    //             false,
-    //         )
-    //         .mock(),
-    //         &*MODULE_ID,
-    //         &TypeMap::new(),
-    //     );
-    //     let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
-    //         .check_statement(
-    //             Statement::Definition(
-    //                 absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-    //                 false,
-    //             )
-    //             .mock(),
-    //             &*MODULE_ID,
-    //             &TypeMap::new(),
-    //         );
-    //     assert_eq!(
-    //         s2_checked,
-    //         Err(vec![ErrorInner {
-    //             pos: Some((Position::mock(), Position::mock())),
-    //             message: "Duplicate declaration for variable named a".into()
-    //         }])
-    //     );
-    // }
+        let mut checker: Checker<Bn128Field> = Checker::default();
+        let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
+            Statement::Definition(
+                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                absy::Expression::IntConstant(2usize.into()).mock(),
+            )
+            .mock(),
+            &*MODULE_ID,
+            &TypeMap::new(),
+        );
+        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
+            .check_statement(
+                Statement::Definition(
+                    absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                    absy::Expression::IntConstant(2usize.into()).mock(),
+                )
+                .mock(),
+                &*MODULE_ID,
+                &TypeMap::new(),
+            );
+        assert_eq!(
+            s2_checked,
+            Err(vec![ErrorInner {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Duplicate declaration for variable named a".into()
+            }])
+        );
+    }
 
-    // #[test]
-    // fn shadowing_with_different_type() {
-    //     //   field a
-    //     //	 bool a
-    //     //
-    //     // should fail
+    #[test]
+    fn shadowing_with_different_type() {
+        //   field a = 2
+        //	 bool a = true
+        //
+        // should fail
 
-    //     let mut checker: Checker<Bn128Field> = Checker::default();
-    //     let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
-    //         Statement::Definition(
-    //             absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-    //             false,
-    //         )
-    //         .mock(),
-    //         &*MODULE_ID,
-    //         &TypeMap::new(),
-    //     );
-    //     let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
-    //         .check_statement(
-    //             Statement::Definition(
-    //                 absy::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
-    //                 false,
-    //             )
-    //             .mock(),
-    //             &*MODULE_ID,
-    //             &TypeMap::new(),
-    //         );
-    //     assert_eq!(
-    //         s2_checked,
-    //         Err(vec![ErrorInner {
-    //             pos: Some((Position::mock(), Position::mock())),
-    //             message: "Duplicate declaration for variable named a".into()
-    //         }])
-    //     );
-    // }
+        let mut checker: Checker<Bn128Field> = Checker::default();
+        let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
+            Statement::Definition(
+                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                absy::Expression::IntConstant(2usize.into()).mock(),
+            )
+            .mock(),
+            &*MODULE_ID,
+            &TypeMap::new(),
+        );
+        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
+            .check_statement(
+                Statement::Definition(
+                    absy::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
+                    absy::Expression::BooleanConstant(true).mock(),
+                )
+                .mock(),
+                &*MODULE_ID,
+                &TypeMap::new(),
+            );
+        assert_eq!(
+            s2_checked,
+            Err(vec![ErrorInner {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Duplicate declaration for variable named a".into()
+            }])
+        );
+    }
 
     mod structs {
         use super::*;
