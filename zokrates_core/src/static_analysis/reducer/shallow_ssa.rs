@@ -200,7 +200,7 @@ mod tests {
         #[test]
         fn detect_non_constant_bound() {
             let loops: Vec<TypedStatement<Bn128Field>> = vec![TypedStatement::For(
-                Variable::uint("i", UBitwidth::B32),
+                Variable::new("i", Type::Uint(UBitwidth::B32), false),
                 UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
                 2u32.into(),
                 vec![],
@@ -464,7 +464,7 @@ mod tests {
             let array_of_array_ty = Type::array((Type::array((Type::FieldElement, 2u32)), 2u32));
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone())),
+                TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone(), true)),
                 ArrayExpressionInner::Value(
                     vec![
                         ArrayExpressionInner::Value(
@@ -498,6 +498,7 @@ mod tests {
                     TypedAssignee::Identifier(Variable::new(
                         Identifier::from("a").version(0),
                         array_of_array_ty.clone(),
+                        true,
                     )),
                     ArrayExpressionInner::Value(
                         vec![
@@ -529,7 +530,11 @@ mod tests {
 
             let s: TypedStatement<Bn128Field> = TypedStatement::Definition(
                 TypedAssignee::Select(
-                    box TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone())),
+                    box TypedAssignee::Identifier(Variable::new(
+                        "a",
+                        array_of_array_ty.clone(),
+                        true,
+                    )),
                     box UExpression::from(1u32),
                 ),
                 ArrayExpressionInner::Value(

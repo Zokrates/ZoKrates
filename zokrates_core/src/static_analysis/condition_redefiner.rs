@@ -1,7 +1,7 @@
 use crate::typed_absy::{
     folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
-    ConditionalOrExpression, CoreIdentifier, DeclarationType, Expr, Identifier, Type, TypedProgram,
-    TypedStatement, Variable,
+    ConditionalOrExpression, CoreIdentifier, Expr, Identifier, Type, TypedProgram, TypedStatement,
+    Variable,
 };
 use zokrates_field::Field;
 
@@ -66,7 +66,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
             condition => {
                 let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
                 self.buffer.push(TypedStatement::Definition(
-                    Variable::new(condition_id.clone(), Type::Boolean, false).into(),
+                    Variable::immutable(condition_id.clone(), Type::Boolean).into(),
                     condition.into(),
                 ));
                 self.index += 1;
@@ -164,7 +164,7 @@ mod tests {
         let expected = vec![
             // define condition
             TypedStatement::Definition(
-                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition.into(),
             ),
             // rewrite statement
@@ -224,11 +224,11 @@ mod tests {
         let expected = vec![
             // define conditions
             TypedStatement::Definition(
-                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             TypedStatement::Definition(
-                Variable::new(CoreIdentifier::Condition(1), Type::Boolean).into(),
+                Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean).into(),
                 condition_1.into(),
             ),
             // rewrite statement
@@ -332,7 +332,7 @@ mod tests {
         let expected = vec![
             // define conditions
             TypedStatement::Definition(
-                Variable::new(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             // rewrite statement
@@ -347,7 +347,8 @@ mod tests {
                                 FieldElementExpression::Number(Bn128Field::from(1)).into(),
                             ),
                             TypedStatement::Definition(
-                                Variable::new(CoreIdentifier::Condition(1), Type::Boolean).into(),
+                                Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean)
+                                    .into(),
                                 condition_1.into(),
                             ),
                         ],
@@ -365,7 +366,8 @@ mod tests {
                                 FieldElementExpression::Number(Bn128Field::from(2)).into(),
                             ),
                             TypedStatement::Definition(
-                                Variable::new(CoreIdentifier::Condition(2), Type::Boolean).into(),
+                                Variable::immutable(CoreIdentifier::Condition(2), Type::Boolean)
+                                    .into(),
                                 condition_2.into(),
                             ),
                         ],

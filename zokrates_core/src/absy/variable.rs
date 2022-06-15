@@ -26,6 +26,14 @@ impl<'ast> Variable<'ast> {
         }
     }
 
+    pub fn immutable<S: Into<&'ast str>>(id: S, t: UnresolvedTypeNode<'ast>) -> Self {
+        Self::new(id, t, false)
+    }
+
+    pub fn mutable<S: Into<&'ast str>>(id: S, t: UnresolvedTypeNode<'ast>) -> Self {
+        Self::new(id, t, true)
+    }
+
     pub fn get_type(&self) -> &UnresolvedType<'ast> {
         &self._type.value
     }

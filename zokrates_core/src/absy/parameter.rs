@@ -8,16 +8,16 @@ pub struct Parameter<'ast> {
 }
 
 impl<'ast> Parameter<'ast> {
-    pub fn new(v: VariableNode<'ast>) -> Self {
-        Parameter {
-            id: v,
-            is_private: true,
-        }
+    pub fn new(v: VariableNode<'ast>, is_private: bool) -> Self {
+        Parameter { id: v, is_private }
     }
 
-    pub fn is_private(mut self, is_private: bool) -> Self {
-        self.is_private = is_private;
-        self
+    pub fn private(v: VariableNode<'ast>) -> Self {
+        Self::new(v, true)
+    }
+
+    pub fn public(v: VariableNode<'ast>) -> Self {
+        Self::new(v, false)
     }
 }
 

@@ -5,7 +5,7 @@ use crate::typed_absy::UExpression;
 use crate::typed_absy::{TryFrom, TryInto};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Hash, Eq, PartialOrd, Ord, Debug)]
 pub struct GVariable<'ast, S> {
     pub id: Identifier<'ast>,
     pub _type: GType<S>,
@@ -55,30 +55,33 @@ pub fn try_from_g_variable<T: TryInto<U>, U>(
 }
 
 impl<'ast, S: Clone> GVariable<'ast, S> {
-    // pub fn field_element<I: Into<Identifier<'ast>>>(id: I) -> Self {
-    //     Self::new(id, GType::FieldElement)
-    // }
+    pub fn field_element<I: Into<Identifier<'ast>>>(id: I) -> Self {
+        Self::immutable(id, GType::FieldElement)
+    }
 
-    // pub fn boolean<I: Into<Identifier<'ast>>>(id: I) -> Self {
-    //     Self::new(id, GType::Boolean)
-    // }
+    pub fn boolean<I: Into<Identifier<'ast>>>(id: I) -> Self {
+        Self::immutable(id, GType::Boolean)
+    }
 
-    // pub fn uint<I: Into<Identifier<'ast>>, W: Into<UBitwidth>>(id: I, bitwidth: W) -> Self {
-    //     Self::new(id, GType::uint(bitwidth))
-    // }
+    pub fn uint<I: Into<Identifier<'ast>>, W: Into<UBitwidth>>(id: I, bitwidth: W) -> Self {
+        Self::immutable(id, GType::uint(bitwidth))
+    }
 
-    // #[cfg(test)]
-    // pub fn field_array<I: Into<Identifier<'ast>>>(id: I, size: S) -> Self {
-    //     Self::array(id, GType::FieldElement, size)
-    // }
+    pub fn array<I: Into<Identifier<'ast>>, U: Into<S>>(id: I, ty: GType<S>, size: U) -> Self {
+        Self::immutable(id, GType::array((ty, size.into())))
+    }
 
-    // pub fn array<I: Into<Identifier<'ast>>, U: Into<S>>(id: I, ty: GType<S>, size: U) -> Self {
-    //     Self::new(id, GType::array((ty, size.into())))
-    // }
+    pub fn struc<I: Into<Identifier<'ast>>>(id: I, ty: GStructType<S>) -> Self {
+        Self::immutable(id, GType::Struct(ty))
+    }
 
-    // pub fn struc<I: Into<Identifier<'ast>>>(id: I, ty: GStructType<S>) -> Self {
-    //     Self::new(id, GType::Struct(ty))
-    // }
+    pub fn immutable<I: Into<Identifier<'ast>>>(id: I, _type: GType<S>) -> Self {
+        Self::new(id, _type, false)
+    }
+
+    pub fn mutable<I: Into<Identifier<'ast>>>(id: I, _type: GType<S>) -> Self {
+        Self::new(id, _type, true)
+    }
 
     pub fn new<I: Into<Identifier<'ast>>>(id: I, _type: GType<S>, is_mutable: bool) -> Self {
         GVariable {
@@ -96,11 +99,5 @@ impl<'ast, S: Clone> GVariable<'ast, S> {
 impl<'ast, S: fmt::Display> fmt::Display for GVariable<'ast, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
-    }
-}
-
-impl<'ast, S: fmt::Debug> fmt::Debug for GVariable<'ast, S> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }
 }

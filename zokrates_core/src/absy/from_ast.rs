@@ -249,9 +249,7 @@ impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
         )
         .span(param.id.span);
 
-        absy::Parameter::new(variable)
-            .is_private(is_private)
-            .span(param.span)
+        absy::Parameter::new(variable, is_private).span(param.span)
     }
 }
 
@@ -970,7 +968,7 @@ mod tests {
 
     #[test]
     fn arguments() {
-        let source = "def main(private field a, bool b) -> field: return 42";
+        let source = "def main(private field a, bool mut b) -> field: return 42";
         let ast = pest::generate_ast(source).unwrap();
 
         let expected: absy::Module = absy::Module {
@@ -980,19 +978,12 @@ mod tests {
                     absy::Function {
                         arguments: vec![
                             absy::Parameter::private(
-                                absy::Variable::new(
-                                    &source[23..24],
-                                    UnresolvedType::FieldElement.mock(),
-                                )
-                                .into(),
+                                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock())
+                                    .into(),
                             )
                             .into(),
                             absy::Parameter::public(
-                                absy::Variable::new(
-                                    &source[31..32],
-                                    UnresolvedType::Boolean.mock(),
-                                )
-                                .into(),
+                                absy::Variable::mutable("b", UnresolvedType::Boolean.mock()).into(),
                             )
                             .into(),
                         ],
@@ -1032,7 +1023,7 @@ mod tests {
                     symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![absy::Parameter::private(
-                                absy::Variable::new("a", ty.clone().mock()).into(),
+                                absy::Variable::new("a", ty.clone().mock(), false).into(),
                             )
                             .into()],
                             statements: vec![absy::Statement::Return(
