@@ -1,8 +1,8 @@
 def main(field[4] values) -> (field, field, field):
-    field res0 = 1
-    field res1 = 0
+    field mut res0 = 1
+    field mut res1 = 0
 
-    u32 counter = 0
+    u32 mut counter = 0
 
     for u32 i in 0..4 do
         for u32 j in i..4 do
@@ -15,9 +15,9 @@ def main(field[4] values) -> (field, field, field):
         res1 = res1 + 1
     endfor
 
-    field res2 = 0
-    u32 i = 0
-    for u32 i in i..5 do
+    field mut res2 = 0
+    u32 mut i = 0
+    for u32 mut i in i..5 do
         i = 5
         for u32 i in 0..i do
             res2 = res2 + 1
