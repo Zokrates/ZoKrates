@@ -8,6 +8,8 @@ Function calls help make programs clear and modular.
 
 Arguments are passed by value.
 
+Function parameters can be declared as mutable to allow for mutation within the function's body. However, mutable function arguments are still passed by value, so the original value can never be mutated.
+
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/side_effects.zok}}
 ```

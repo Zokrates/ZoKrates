@@ -1,4 +1,5 @@
 def incr(field mut a) -> field:
+    // `a` was declared as mutable in the function parameters, so we can mutate it
     a = a + 1
     return a
 
