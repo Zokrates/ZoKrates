@@ -159,6 +159,7 @@ pub enum FlatStatement<T> {
     Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(FlatVariable, FlatExpression<T>),
     Directive(FlatDirective<T>),
+    Log(String),
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
@@ -169,6 +170,7 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
                 write!(f, "{} == {} // {}", lhs, rhs, message)
             }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
+            FlatStatement::Log(ref l) => write!(f, "log!({})", l),
         }
     }
 }
@@ -206,6 +208,7 @@ impl<T: Field> FlatStatement<T> {
                     ..d
                 })
             }
+            FlatStatement::Log(l) => FlatStatement::Log(l),
         }
     }
 }

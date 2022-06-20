@@ -159,7 +159,7 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     let interpreter = ir::Interpreter::default();
 
     let witness = interpreter
-        .execute(ir_prog, &arguments.encode())
+        .execute(ir_prog, &arguments.encode(), &mut std::io::stdout())
         .map_err(|e| format!("Execution failed: {}", e))?;
 
     use zokrates_abi::Decode;

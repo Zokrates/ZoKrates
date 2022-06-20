@@ -1234,6 +1234,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     inputs: new_inputs,
                 })
             }
+            FlatStatement::Log(l) => FlatStatement::Log(l),
         });
 
         statements_flattened.extend(statements);
@@ -2571,6 +2572,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         }
                     }
                 }
+            }
+            ZirStatement::Log(l) => {
+                statements_flattened.push_back(FlatStatement::Log(l));
             }
         }
     }

@@ -61,6 +61,7 @@ pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
             }
         }
         Statement::Directive(dir) => f.visit_directive(dir),
+        Statement::Log(_) => {}
     }
 }
 

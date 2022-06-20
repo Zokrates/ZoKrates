@@ -164,7 +164,7 @@ fn compile_and_run<T: Field>(t: Tests) {
                 .unwrap()
         };
 
-        let output = interpreter.execute(bin.clone(), &input);
+        let output = interpreter.execute(bin.clone(), &input, &mut std::io::sink());
 
         use zokrates_abi::Decode;
         let output: Result<Output, ir::Error> = output.map(|witness| Output {

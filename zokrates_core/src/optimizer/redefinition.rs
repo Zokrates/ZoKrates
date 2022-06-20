@@ -168,6 +168,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     }
                 }
             }
+            Statement::Log(l) => vec![Statement::Log(l)],
         }
     }
 

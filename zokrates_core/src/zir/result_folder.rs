@@ -147,6 +147,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 .collect::<Result<_, _>>()?,
             f.fold_expression_list(elist)?,
         ),
+        ZirStatement::Log(l) => ZirStatement::Log(l),
     };
     Ok(vec![res])
 }

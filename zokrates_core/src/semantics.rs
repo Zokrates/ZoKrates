@@ -2024,6 +2024,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }.map_err(|e| vec![e])
             }
+            Statement::Log(l) => Ok(TypedStatement::Log(l)),
         }
     }
 

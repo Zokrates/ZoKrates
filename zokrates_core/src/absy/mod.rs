@@ -395,6 +395,7 @@ pub enum Statement<'ast> {
         Vec<StatementNode<'ast>>,
     ),
     MultipleDefinition(Vec<AssigneeNode<'ast>>, ExpressionNode<'ast>),
+    Log(String),
 }
 
 pub type StatementNode<'ast> = Node<Statement<'ast>>;
@@ -428,6 +429,7 @@ impl<'ast> fmt::Display for Statement<'ast> {
                 }
                 write!(f, " = {}", rhs)
             }
+            Statement::Log(ref l) => write!(f, "log!({})", l),
         }
     }
 }

@@ -641,6 +641,7 @@ pub enum TypedStatement<'ast, T> {
         Vec<TypedStatement<'ast, T>>,
     ),
     MultipleDefinition(Vec<TypedAssignee<'ast, T>>, TypedExpressionList<'ast, T>),
+    Log(String),
     // Aux
     PushCallLog(
         DeclarationFunctionKey<'ast, T>,
@@ -707,6 +708,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 }
                 write!(f, " = {}", rhs)
             }
+            TypedStatement::Log(ref l) => write!(f, "log!({})", l),
             TypedStatement::PushCallLog(ref key, ref generics) => write!(
                 f,
                 "// PUSH CALL TO {}/{}::<{}>",

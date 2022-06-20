@@ -112,6 +112,7 @@ pub enum ZirStatement<'ast, T> {
     ),
     Assertion(BooleanExpression<'ast, T>, RuntimeError),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
+    Log(String),
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
@@ -161,6 +162,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                 }
                 write!(f, " = {}", rhs)
             }
+            ZirStatement::Log(ref l) => write!(f, "log!({})", l),
         }
     }
 }

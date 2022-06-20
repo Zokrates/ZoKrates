@@ -53,12 +53,15 @@ vis = { vis_private | vis_public }
 
 // Statements
 statement = { (return_statement // does not require subsequent newline
-              | (iteration_statement
+              | (log_statement
+                | iteration_statement
                 | definition_statement
                 | expression_statement
                 ) ~ NEWLINE
             ) ~ NEWLINE* }
 
+log_statement = { "log!(\"" ~ log_statement_content ~ "\")"}
+log_statement_content = { ASCII_ALPHANUMERIC* }
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
 definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`

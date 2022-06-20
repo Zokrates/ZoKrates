@@ -25,10 +25,11 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn execute<T: Field, I: IntoIterator<Item = Statement<T>>>(
+    pub fn execute<W: std::io::Write, T: Field, I: IntoIterator<Item = Statement<T>>>(
         &self,
         program: ProgIterator<T, I>,
         inputs: &[T],
+        log_stream: &mut W,
     ) -> ExecutionResult<T> {
         self.check_inputs(&program, inputs)?;
         let mut witness = BTreeMap::new();
@@ -74,6 +75,9 @@ impl Interpreter {
                     for (i, o) in d.outputs.iter().enumerate() {
                         witness.insert(*o, res[i].clone());
                     }
+                }
+                Statement::Log(l) => {
+                    writeln!(log_stream, "{}", l).map_err(|_| Error::LogStream)?;
                 }
             }
         }
@@ -273,6 +277,7 @@ pub enum Error {
     UnsatisfiedConstraint { error: Option<RuntimeError> },
     Solver,
     WrongInputCount { expected: usize, received: usize },
+    LogStream,
 }
 
 impl fmt::Display for Error {
@@ -305,6 +310,7 @@ impl fmt::Display for Error {
                 received,
                 if received == 1 { "" } else { "s" }
             ),
+            Error::LogStream => write!(f, "Error writing a log to the log stream"),
         }
     }
 }

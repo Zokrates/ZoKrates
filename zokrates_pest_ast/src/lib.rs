@@ -15,10 +15,11 @@ pub use ast::{
     File, FromExpression, FunctionDefinition, HexLiteralExpression, HexNumberExpression,
     IdentifierExpression, IdentifierOrDecimal, IfElseExpression, ImportDirective, ImportSymbol,
     InlineArrayExpression, InlineStructExpression, InlineStructMember, InlineTupleExpression,
-    IterationStatement, LiteralExpression, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
-    SymbolDeclaration, TernaryExpression, ToExpression, Type, TypeDefinition, TypedIdentifier,
-    TypedIdentifierOrAssignee, UnaryExpression, UnaryOperator, Underscore, Visibility,
+    IterationStatement, LiteralExpression, LogStatement, Parameter, PostfixExpression, Range,
+    RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
+    StructDefinition, StructField, SymbolDeclaration, TernaryExpression, ToExpression, Type,
+    TypeDefinition, TypedIdentifier, TypedIdentifierOrAssignee, UnaryExpression, UnaryOperator,
+    Underscore, Visibility,
 };
 
 mod ast {
@@ -365,6 +366,24 @@ mod ast {
         Definition(DefinitionStatement<'ast>),
         Assertion(AssertionStatement<'ast>),
         Iteration(IterationStatement<'ast>),
+        Log(LogStatement<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::log_statement))]
+    pub struct LogStatement<'ast> {
+        pub content: LogStatementContent<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::log_statement_content))]
+    pub struct LogStatementContent<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub inner: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]

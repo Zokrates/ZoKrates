@@ -256,6 +256,7 @@ fn statements_from_statement(statement: pest::Statement) -> Vec<absy::StatementN
         pest::Statement::Iteration(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Assertion(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Return(s) => vec![absy::StatementNode::from(s)],
+        pest::Statement::Log(l) => vec![absy::StatementNode::from(l)],
     }
 }
 
@@ -348,6 +349,14 @@ fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy
 
             declarations.chain(std::iter::once(multi_def)).collect()
         }
+    }
+}
+
+impl<'ast> From<pest::LogStatement<'ast>> for absy::StatementNode<'ast> {
+    fn from(statement: pest::LogStatement<'ast>) -> absy::StatementNode<'ast> {
+        use crate::absy::NodeValue;
+
+        absy::Statement::Log(statement.content.inner).span(statement.span)
     }
 }
 

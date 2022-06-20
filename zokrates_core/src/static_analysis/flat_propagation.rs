@@ -75,6 +75,7 @@ impl<T: Field> FlatStatement<T> {
                     .collect(),
                 ..d
             })),
+            FlatStatement::Log(l) => Some(FlatStatement::Log(l)),
         }
     }
 }
