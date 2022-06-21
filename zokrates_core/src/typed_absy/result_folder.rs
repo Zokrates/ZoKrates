@@ -322,6 +322,7 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         match t {
             Array(array_type) => Ok(Array(self.fold_declaration_array_type(array_type)?)),
             Struct(struct_type) => Ok(Struct(self.fold_declaration_struct_type(struct_type)?)),
+            Tuple(tuple_type) => Ok(Tuple(self.fold_declaration_tuple_type(tuple_type)?)),
             t => Ok(t),
         }
     }
