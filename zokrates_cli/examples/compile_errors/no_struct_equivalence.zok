@@ -1,6 +1,6 @@
 struct Foo {}
 struct Bar {}
 
-def main() -> (Foo) {
+def main() -> Foo {
     return Bar {};
 }

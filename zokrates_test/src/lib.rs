@@ -165,21 +165,17 @@ fn compile_and_run<T: Field>(t: Tests) {
         };
 
         let output = interpreter.execute(bin.clone(), &input);
+        let signature = abi.signature();
 
         use zokrates_abi::Decode;
         let output: Result<Output, ir::Error> = output.map(|witness| Output {
             values: zokrates_abi::Values::decode(
                 witness.return_values(),
                 if with_abi {
-                    abi.signature().outputs
+                    vec![*signature.output]
                 } else {
-                    abi.signature()
-                        .outputs
-                        .iter()
-                        .flat_map(|t| {
-                            (0..t.get_primitive_count())
-                                .map(|_| zokrates_core::typed_absy::ConcreteType::FieldElement)
-                        })
+                    (0..signature.output.get_primitive_count())
+                        .map(|_| zokrates_core::typed_absy::ConcreteType::FieldElement)
                         .collect()
                 },
             )

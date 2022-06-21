@@ -183,15 +183,12 @@ impl<'ast> From<pest::FunctionDefinition<'ast>> for absy::SymbolDeclarationNode<
                     .into_iter()
                     .map(|p| absy::UnresolvedTypeNode::from(p.ty))
                     .collect(),
-            )
-            .outputs(
-                function
-                    .returns
-                    .clone()
-                    .into_iter()
-                    .map(absy::UnresolvedTypeNode::from)
-                    .collect(),
             );
+
+        let signature = match function.return_type {
+            Some(ret_ty) => signature.output(absy::UnresolvedTypeNode::from(ret_ty)),
+            None => signature,
+        };
 
         let id = function.id.span.as_str();
 
@@ -261,92 +258,28 @@ fn statements_from_statement(statement: pest::Statement) -> Vec<absy::StatementN
 
 fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy::StatementNode> {
     use crate::absy::NodeValue;
-
     let lhs = definition.lhs;
+    let e: absy::ExpressionNode = absy::ExpressionNode::from(definition.expression);
 
-    match lhs.len() {
-        1 => {
-            // Definition or assignment
-            let a = lhs[0].clone();
-
-            let e: absy::ExpressionNode = absy::ExpressionNode::from(definition.expression);
-
-            match a {
-                pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
-                    let declaration = absy::Statement::Declaration(
-                        absy::Variable::new(
-                            i.identifier.span.as_str(),
-                            absy::UnresolvedTypeNode::from(i.ty),
-                        )
-                        .span(i.identifier.span.clone()),
-                    )
-                    .span(definition.span.clone());
-
-                    let s = match e.value {
-                        absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
-                            vec![absy::AssigneeNode::from(i.identifier.clone())],
-                            e,
-                        ),
-                        _ => absy::Statement::Definition(
-                            absy::AssigneeNode::from(i.identifier.clone()),
-                            e,
-                        ),
-                    };
-
-                    vec![declaration, s.span(definition.span)]
-                }
-                pest::TypedIdentifierOrAssignee::Assignee(a) => {
-                    let s = match e.value {
-                        absy::Expression::FunctionCall(..) => absy::Statement::MultipleDefinition(
-                            vec![absy::AssigneeNode::from(a)],
-                            e,
-                        ),
-                        _ => absy::Statement::Definition(absy::AssigneeNode::from(a), e),
-                    };
-
-                    vec![s.span(definition.span)]
-                }
-            }
-        }
-        _ => {
-            // Multidefinition
-            let declarations = lhs.clone().into_iter().filter_map(|i| match i {
-                pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
-                    let ty = i.ty;
-                    let id = i.identifier;
-
-                    Some(
-                        absy::Statement::Declaration(
-                            absy::Variable::new(
-                                id.span.as_str(),
-                                absy::UnresolvedTypeNode::from(ty),
-                            )
-                            .span(id.span),
-                        )
-                        .span(i.span),
-                    )
-                }
-                _ => None,
-            });
-
-            let lhs = lhs
-                .into_iter()
-                .map(|i| match i {
-                    pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
-                        absy::Assignee::Identifier(i.identifier.span.as_str())
-                            .span(i.identifier.span)
-                    }
-                    pest::TypedIdentifierOrAssignee::Assignee(a) => absy::AssigneeNode::from(a),
-                })
-                .collect();
-
-            let multi_def = absy::Statement::MultipleDefinition(
-                lhs,
-                absy::ExpressionNode::from(definition.expression),
+    match lhs {
+        pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
+            let declaration = absy::Statement::Declaration(
+                absy::Variable::new(
+                    i.identifier.span.as_str(),
+                    absy::UnresolvedTypeNode::from(i.ty),
+                )
+                .span(i.identifier.span.clone()),
             )
-            .span(definition.span);
+            .span(definition.span.clone());
 
-            declarations.chain(std::iter::once(multi_def)).collect()
+            let definition =
+                absy::Statement::Definition(absy::AssigneeNode::from(i.identifier.clone()), e)
+                    .span(definition.span);
+
+            vec![declaration, definition]
+        }
+        pest::TypedIdentifierOrAssignee::Assignee(a) => {
+            vec![absy::Statement::Definition(absy::AssigneeNode::from(a), e).span(definition.span)]
         }
     }
 }
@@ -355,17 +288,8 @@ impl<'ast> From<pest::ReturnStatement<'ast>> for absy::StatementNode<'ast> {
     fn from(statement: pest::ReturnStatement<'ast>) -> absy::StatementNode<'ast> {
         use crate::absy::NodeValue;
 
-        absy::Statement::Return(
-            absy::ExpressionList {
-                expressions: statement
-                    .expressions
-                    .into_iter()
-                    .map(absy::ExpressionNode::from)
-                    .collect(),
-            }
-            .span(statement.span.clone()),
-        )
-        .span(statement.span)
+        absy::Statement::Return(statement.expression.map(absy::ExpressionNode::from))
+            .span(statement.span)
     }
 }
 
@@ -914,18 +838,13 @@ mod tests {
                 symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![],
-                        statements: vec![absy::Statement::Return(
-                            absy::ExpressionList {
-                                expressions: vec![
-                                    absy::Expression::IntConstant(42usize.into()).into()
-                                ],
-                            }
-                            .into(),
-                        )
+                        statements: vec![absy::Statement::Return(Some(
+                            absy::Expression::IntConstant(42usize.into()).into(),
+                        ))
                         .into()],
                         signature: UnresolvedSignature::new()
                             .inputs(vec![])
-                            .outputs(vec![UnresolvedType::FieldElement.mock()]),
+                            .output(UnresolvedType::FieldElement.mock()),
                     }
                     .into(),
                 )),
@@ -945,16 +864,13 @@ mod tests {
                 symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                     absy::Function {
                         arguments: vec![],
-                        statements: vec![absy::Statement::Return(
-                            absy::ExpressionList {
-                                expressions: vec![absy::Expression::BooleanConstant(true).into()],
-                            }
-                            .into(),
-                        )
+                        statements: vec![absy::Statement::Return(Some(
+                            absy::Expression::BooleanConstant(true).into(),
+                        ))
                         .into()],
                         signature: UnresolvedSignature::new()
                             .inputs(vec![])
-                            .outputs(vec![UnresolvedType::Boolean.mock()]),
+                            .output(UnresolvedType::Boolean.mock()),
                     }
                     .into(),
                 )),
@@ -992,21 +908,16 @@ mod tests {
                             )
                             .into(),
                         ],
-                        statements: vec![absy::Statement::Return(
-                            absy::ExpressionList {
-                                expressions: vec![
-                                    absy::Expression::IntConstant(42usize.into()).into()
-                                ],
-                            }
-                            .into(),
-                        )
+                        statements: vec![absy::Statement::Return(Some(
+                            absy::Expression::IntConstant(42usize.into()).into(),
+                        ))
                         .into()],
                         signature: UnresolvedSignature::new()
                             .inputs(vec![
                                 UnresolvedType::FieldElement.mock(),
                                 UnresolvedType::Boolean.mock(),
                             ])
-                            .outputs(vec![UnresolvedType::FieldElement.mock()]),
+                            .output(UnresolvedType::FieldElement.mock()),
                     }
                     .into(),
                 )),
@@ -1031,13 +942,7 @@ mod tests {
                                 absy::Variable::new("a", ty.clone().mock()).into(),
                             )
                             .into()],
-                            statements: vec![absy::Statement::Return(
-                                absy::ExpressionList {
-                                    expressions: vec![],
-                                }
-                                .into(),
-                            )
-                            .into()],
+                            statements: vec![absy::Statement::Return(None).into()],
                             signature: UnresolvedSignature::new().inputs(vec![ty.mock()]),
                         }
                         .into(),
@@ -1101,13 +1006,9 @@ mod tests {
                     symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![],
-                            statements: vec![absy::Statement::Return(
-                                absy::ExpressionList {
-                                    expressions: vec![expression.into()],
-                                }
-                                .into(),
-                            )
-                            .into()],
+                            statements: vec![
+                                absy::Statement::Return(Some(expression.into())).into()
+                            ],
                             signature: UnresolvedSignature::new(),
                         }
                         .into(),
@@ -1239,20 +1140,19 @@ mod tests {
 
         let span = Span::new("", 0, 0).unwrap();
 
-        // For different definitions, we generate declarations
-        // Case 1: `id = expr` where `expr` is not a function call
-        // This is a simple assignment, doesn't implicitely declare a variable
-        // A `Definition` is generated and no `Declaration`s
+        // Case 1: `id = expr`
+        // This is a simple assignment to an already existing variable
+        // A definition is generated
 
         let definition = pest::DefinitionStatement {
-            lhs: vec![pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
+            lhs: pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
                 id: pest::IdentifierExpression {
                     value: String::from("a"),
                     span: span.clone(),
                 },
                 accesses: vec![],
                 span: span.clone(),
-            })],
+            }),
             expression: pest::Expression::Literal(pest::LiteralExpression::DecimalLiteral(
                 pest::DecimalLiteralExpression {
                     value: pest::DecimalNumber {
@@ -1275,71 +1175,20 @@ mod tests {
             }
         };
 
-        // Case 2: `id = expr` where `expr` is a function call
-        // A MultiDef is generated
+        // Case 2: `type id = expr`
+        // A declaration and a definition is generated
 
         let definition = pest::DefinitionStatement {
-            lhs: vec![pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
-                id: pest::IdentifierExpression {
+            lhs: pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
+                ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
+                    span: span.clone(),
+                })),
+                identifier: pest::IdentifierExpression {
                     value: String::from("a"),
                     span: span.clone(),
                 },
-                accesses: vec![],
-                span: span.clone(),
-            })],
-            expression: pest::Expression::Postfix(pest::PostfixExpression {
-                base: box pest::Expression::Identifier(pest::IdentifierExpression {
-                    value: String::from("foo"),
-                    span: span.clone(),
-                }),
-                accesses: vec![pest::Access::Call(pest::CallAccess {
-                    explicit_generics: None,
-                    arguments: pest::Arguments {
-                        expressions: vec![],
-                        span: span.clone(),
-                    },
-                    span: span.clone(),
-                })],
                 span: span.clone(),
             }),
-            span: span.clone(),
-        };
-
-        let statements: Vec<absy::StatementNode> = statements_from_definition(definition);
-
-        assert_eq!(statements.len(), 1);
-        match &statements[0].value {
-            absy::Statement::MultipleDefinition(..) => {}
-            s => {
-                panic!("should be a Definition, found {}", s);
-            }
-        };
-        // Case 3: `ids = expr` where `expr` is a function call
-        // This implicitely declares all variables which are type annotated
-
-        // `field a, b = foo()`
-
-        let definition = pest::DefinitionStatement {
-            lhs: vec![
-                pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
-                    ty: pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
-                        span: span.clone(),
-                    })),
-                    identifier: pest::IdentifierExpression {
-                        value: String::from("a"),
-                        span: span.clone(),
-                    },
-                    span: span.clone(),
-                }),
-                pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
-                    id: pest::IdentifierExpression {
-                        value: String::from("b"),
-                        span: span.clone(),
-                    },
-                    accesses: vec![],
-                    span: span.clone(),
-                }),
-            ],
             expression: pest::Expression::Postfix(pest::PostfixExpression {
                 base: box pest::Expression::Identifier(pest::IdentifierExpression {
                     value: String::from("foo"),
@@ -1361,10 +1210,10 @@ mod tests {
         let statements: Vec<absy::StatementNode> = statements_from_definition(definition);
 
         assert_eq!(statements.len(), 2);
-        match &statements[1].value {
-            absy::Statement::MultipleDefinition(..) => {}
-            s => {
-                panic!("should be a Definition, found {}", s);
+        match (&statements[0].value, &statements[1].value) {
+            (absy::Statement::Declaration(..), absy::Statement::Definition(..)) => {}
+            _ => {
+                panic!("should be a (Declaration, Definition)");
             }
         };
     }

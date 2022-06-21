@@ -86,7 +86,7 @@ impl<'ast, T: Clone> IntegerInference for ArrayType<'ast, T> {
         Ok(DeclarationArrayType::new(
             self.ty
                 .get_common_pattern(*other.ty)
-                .map_err(|(t, u)| (ArrayType::new(t, s0), ArrayType::new(u, s1)))?,
+                .map_err(|(t, u)| (ArrayType::new(t, *s0), ArrayType::new(u, *s1)))?,
             DeclarationConstant::Generic(GenericIdentifier::with_name("DUMMY")), // sizes are not checked at this stage, therefore we insert a dummy generic variable which will be equal to all possible sizes
         ))
     }
@@ -657,28 +657,28 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
 
                 let inner_ty = res.0[0].get_type().0;
 
-                Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, array_ty.size))
+                Ok(ArrayExpressionInner::Value(res).annotate(inner_ty, *array_ty.size))
             }
             ArrayExpressionInner::Repeat(box e, box count) => {
                 match &*target_array_ty.ty {
                     GType::Int => Ok(ArrayExpressionInner::Repeat(box e, box count)
-                        .annotate(Type::Int, array_ty.size)),
+                        .annotate(Type::Int, *array_ty.size)),
                     // try to align the repeated element to the target type
                     t => TypedExpression::align_to_type(e, t)
                         .map(|e| {
                             let ty = e.get_type().clone();
 
                             ArrayExpressionInner::Repeat(box e, box count)
-                                .annotate(ty, array_ty.size)
+                                .annotate(ty, *array_ty.size)
                         })
                         .map_err(|(e, _)| e),
                 }
             }
             a => {
                 if *target_array_ty.ty == *array_ty.ty {
-                    Ok(a.annotate(*array_ty.ty, array_ty.size))
+                    Ok(a.annotate(*array_ty.ty, *array_ty.size))
                 } else {
-                    Err(a.annotate(*array_ty.ty, array_ty.size).into())
+                    Err(a.annotate(*array_ty.ty, *array_ty.size).into())
                 }
             }
         }

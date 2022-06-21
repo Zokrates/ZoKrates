@@ -7,5 +7,5 @@ def main(field a) -> (field, field) {
     field r = foo(a);
     result[1] = r;
     assert(result[1] == r);
-    return result[1], r;
+    return (result[1], r);
 }

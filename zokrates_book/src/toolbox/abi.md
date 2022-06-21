@@ -59,11 +59,9 @@ In this example, the ABI specification is:
          "type":"field"
       }
    ],
-   "outputs":[
-      {
-         "type":"field"
-      }
-   ]
+   "output": {
+     "type":"field"
+   }
 }
 ```
 

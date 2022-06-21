@@ -277,7 +277,7 @@ fn parse_value<T: Field>(
             .map_err(|_| Error::Type(format!("Could not parse `{}` to u64 type", s))),
         (ConcreteType::Boolean, serde_json::Value::Bool(b)) => Ok(Value::Boolean(b)),
         (ConcreteType::Array(array_type), serde_json::Value::Array(a)) => {
-            let size = array_type.size;
+            let size = *array_type.size;
             if a.len() != size as usize {
                 Err(Error::Type(format!(
                     "Expected array of size {}, found array of size {}",

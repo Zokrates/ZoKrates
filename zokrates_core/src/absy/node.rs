@@ -85,7 +85,6 @@ use crate::absy::types::UnresolvedType;
 use crate::absy::*;
 
 impl<'ast> NodeValue for Expression<'ast> {}
-impl<'ast> NodeValue for ExpressionList<'ast> {}
 impl<'ast> NodeValue for Assignee<'ast> {}
 impl<'ast> NodeValue for Statement<'ast> {}
 impl<'ast> NodeValue for SymbolDeclaration<'ast> {}

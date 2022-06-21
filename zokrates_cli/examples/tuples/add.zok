@@ -1,4 +1,4 @@
-def main((field, field) p, (field, field) q) -> ((field, field)) {
+def main((field, field) p, (field, field) q) -> (field, field) {
     field a = 42;
     field d = 21;
 

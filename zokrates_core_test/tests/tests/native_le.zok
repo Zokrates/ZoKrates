@@ -41,5 +41,5 @@ def main(field a, u32 b) -> (bool, bool) {
     field c = 42;
     u32 d = 42;
 
-    return le::<FIELD_SIZE_IN_BITS>(a, c), le(b, d);
+    return (le::<FIELD_SIZE_IN_BITS>(a, c), le(b, d));
 }

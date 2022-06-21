@@ -1,4 +1,4 @@
-def main(bool flag) -> ((field, field)) {
+def main(bool flag) -> (field, field) {
     (field, field) a = flag ? (1f, 2f) : (2f, 1f);
     return a;
 }

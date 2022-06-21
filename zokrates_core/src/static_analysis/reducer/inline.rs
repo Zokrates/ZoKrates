@@ -30,15 +30,15 @@ use crate::embed::FlatEmbed;
 use crate::static_analysis::reducer::Output;
 use crate::static_analysis::reducer::ShallowTransformer;
 use crate::static_analysis::reducer::Versions;
-use crate::typed_absy::types::{ConcreteGenericsAssignment, IntoTypes};
-use crate::typed_absy::CoreIdentifier;
+use crate::typed_absy::types::{ConcreteGenericsAssignment, IntoType};
 use crate::typed_absy::Identifier;
 use crate::typed_absy::TypedAssignee;
 use crate::typed_absy::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Expr,
     Signature, TypedExpression, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedProgram,
-    TypedStatement, Types, UExpression, UExpressionInner, Variable,
+    TypedStatement, UExpression, UExpressionInner, Variable,
 };
+use crate::typed_absy::{CoreIdentifier, Type};
 use zokrates_field::Field;
 
 pub enum InlineError<'ast, T> {
@@ -47,13 +47,13 @@ pub enum InlineError<'ast, T> {
         FlatEmbed,
         Vec<u32>,
         Vec<TypedExpression<'ast, T>>,
-        Types<'ast, T>,
+        Type<'ast, T>,
     ),
     NonConstant(
         DeclarationFunctionKey<'ast, T>,
         Vec<Option<UExpression<'ast, T>>>,
         Vec<TypedExpression<'ast, T>>,
-        Types<'ast, T>,
+        Type<'ast, T>,
     ),
 }
 
@@ -76,7 +76,7 @@ fn get_canonical_function<'ast, T: Field>(
 }
 
 type InlineResult<'ast, T> = Result<
-    Output<(Vec<TypedStatement<'ast, T>>, Vec<TypedExpression<'ast, T>>), Vec<Versions<'ast>>>,
+    Output<(Vec<TypedStatement<'ast, T>>, TypedExpression<'ast, T>), Vec<Versions<'ast>>>,
     InlineError<'ast, T>,
 >;
 
@@ -91,8 +91,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     use std::convert::TryFrom;
 
     use crate::typed_absy::Typed;
-
-    let output_types = output.clone().into_types();
+    let output_type = output.clone().into_type();
 
     // we try to get concrete values for explicit generics
     let generics_values: Vec<Option<u32>> = generics
@@ -111,7 +110,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
                 k.clone(),
                 generics.clone(),
                 arguments.clone(),
-                output_types.clone(),
+                output_type.clone(),
             )
         })?;
 
@@ -120,7 +119,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     let inferred_signature = Signature::new()
         .generics(generics.clone())
         .inputs(arguments.iter().map(|a| a.get_type()).collect())
-        .outputs(output_types.clone().inner);
+        .output(output_type.clone());
 
     // we try to get concrete values for the whole signature. if this fails we should propagate again
     let inferred_signature = match ConcreteSignature::try_from(inferred_signature) {
@@ -130,7 +129,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
                 k,
                 generics,
                 arguments,
-                output_types,
+                output_type,
             ));
         }
     };
@@ -158,7 +157,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
             e,
             e.generics::<T>(&assignment),
             arguments.clone(),
-            output_types,
+            output_type,
         )),
         _ => unreachable!(),
     }?;
@@ -188,51 +187,39 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 
     assert_eq!(returns.len(), 1);
 
-    let returns = match returns.pop().unwrap() {
+    let return_expression = match returns.pop().unwrap() {
         TypedStatement::Return(e) => e,
         _ => unreachable!(),
     };
 
-    let res: Vec<ConcreteVariable<'ast>> = inferred_signature
-        .outputs
-        .iter()
-        .enumerate()
-        .map(|(i, t)| {
-            ConcreteVariable::with_id_and_type(
-                Identifier::from(CoreIdentifier::Call(i)).version(
-                    *versions
-                        .entry(CoreIdentifier::Call(i).clone())
-                        .and_modify(|e| *e += 1) // if it was already declared, we increment
-                        .or_insert(0),
-                ),
-                t.clone(),
-            )
-        })
-        .collect();
+    let v: ConcreteVariable<'ast> = ConcreteVariable::with_id_and_type(
+        Identifier::from(CoreIdentifier::Call(0)).version(
+            *versions
+                .entry(CoreIdentifier::Call(0).clone())
+                .and_modify(|e| *e += 1) // if it was already declared, we increment
+                .or_insert(0),
+        ),
+        *inferred_signature.output.clone(),
+    );
 
-    let expressions: Vec<TypedExpression<_>> = res
-        .iter()
-        .map(|v| TypedExpression::from(Variable::from(v.clone())))
-        .collect();
+    // let expressions: Vec<TypedExpression<_>> =
+    //     vec![TypedExpression::from(Variable::from(v.clone()))];
 
-    assert_eq!(res.len(), returns.len());
+    let expression = TypedExpression::from(Variable::from(v.clone()));
 
-    let output_bindings: Vec<TypedStatement<'ast, T>> = res
-        .into_iter()
-        .zip(returns)
-        .map(|(v, a)| TypedStatement::Definition(TypedAssignee::Identifier(v.into()), a))
-        .collect();
+    let output_binding =
+        TypedStatement::Definition(TypedAssignee::Identifier(v.into()), return_expression);
 
     let pop_log = TypedStatement::PopCallLog;
 
     let statements: Vec<_> = std::iter::once(call_log)
         .chain(input_bindings)
         .chain(statements)
-        .chain(output_bindings)
+        .chain(std::iter::once(output_binding))
         .chain(std::iter::once(pop_log))
         .collect();
 
     Ok(incomplete_data
-        .map(|d| Output::Incomplete((statements.clone(), expressions.clone()), d))
-        .unwrap_or_else(|| Output::Complete((statements, expressions))))
+        .map(|d| Output::Incomplete((statements.clone(), expression.clone()), d))
+        .unwrap_or_else(|| Output::Complete((statements, expression))))
 }

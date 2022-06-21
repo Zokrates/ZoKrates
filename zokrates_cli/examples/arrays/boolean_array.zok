@@ -1,4 +1,4 @@
-def main(bool[3] a) -> (field[3]) {
+def main(bool[3] a) -> field[3] {
     bool[3] c = [true, true || false, true];
 	a[1] = true || a[2];
 	a[2] = a[0];
