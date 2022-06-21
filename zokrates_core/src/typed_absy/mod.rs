@@ -995,29 +995,51 @@ impl<'ast, T: fmt::Display, E> fmt::Display for ElementExpression<'ast, T, E> {
 }
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+pub enum ConditionalKind {
+    IfElse,
+    Ternary,
+}
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct ConditionalExpression<'ast, T, E> {
     pub condition: Box<BooleanExpression<'ast, T>>,
     pub consequence: Box<E>,
     pub alternative: Box<E>,
+    pub kind: ConditionalKind,
 }
 
 impl<'ast, T, E> ConditionalExpression<'ast, T, E> {
-    pub fn new(condition: BooleanExpression<'ast, T>, consequence: E, alternative: E) -> Self {
+    pub fn new(
+        condition: BooleanExpression<'ast, T>,
+        consequence: E,
+        alternative: E,
+        kind: ConditionalKind,
+    ) -> Self {
         ConditionalExpression {
             condition: box condition,
             consequence: box consequence,
             alternative: box alternative,
+            kind,
         }
     }
 }
 
 impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpression<'ast, T, E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} ? {} : {}",
-            self.condition, self.consequence, self.alternative
-        )
+        match self.kind {
+            ConditionalKind::IfElse => {
+                write!(
+                    f,
+                    "if {} {} else {}",
+                    self.condition, self.consequence, self.alternative
+                )
+            }
+            ConditionalKind::Ternary => write!(
+                f,
+                "{} ? {} : {}",
+                self.condition, self.consequence, self.alternative
+            ),
+        }
     }
 }
 
@@ -1906,6 +1928,7 @@ pub trait Conditional<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
+        kind: ConditionalKind,
     ) -> Self;
 }
 
@@ -1914,11 +1937,13 @@ impl<'ast, T> Conditional<'ast, T> for FieldElementExpression<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
+        kind: ConditionalKind,
     ) -> Self {
         FieldElementExpression::Conditional(ConditionalExpression::new(
             condition,
             consequence,
             alternative,
+            kind,
         ))
     }
 }
@@ -1928,11 +1953,13 @@ impl<'ast, T> Conditional<'ast, T> for IntExpression<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
+        kind: ConditionalKind,
     ) -> Self {
         IntExpression::Conditional(ConditionalExpression::new(
             condition,
             consequence,
             alternative,
+            kind,
         ))
     }
 }
@@ -1942,11 +1969,13 @@ impl<'ast, T> Conditional<'ast, T> for BooleanExpression<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
+        kind: ConditionalKind,
     ) -> Self {
         BooleanExpression::Conditional(ConditionalExpression::new(
             condition,
             consequence,
             alternative,
+            kind,
         ))
     }
 }
@@ -1956,6 +1985,7 @@ impl<'ast, T> Conditional<'ast, T> for UExpression<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
+        kind: ConditionalKind,
     ) -> Self {
         let bitwidth = consequence.bitwidth;
 
@@ -1963,6 +1993,7 @@ impl<'ast, T> Conditional<'ast, T> for UExpression<'ast, T> {
             condition,
             consequence,
             alternative,
+            kind,
         ))
         .annotate(bitwidth)
     }
@@ -1973,6 +2004,7 @@ impl<'ast, T: Clone> Conditional<'ast, T> for ArrayExpression<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
+        kind: ConditionalKind,
     ) -> Self {
         let ty = consequence.inner_type().clone();
         let size = consequence.size();
@@ -1980,6 +2012,7 @@ impl<'ast, T: Clone> Conditional<'ast, T> for ArrayExpression<'ast, T> {
             condition,
             consequence,
             alternative,
+            kind,
         ))
         .annotate(ty, size)
     }
@@ -1990,12 +2023,14 @@ impl<'ast, T: Clone> Conditional<'ast, T> for StructExpression<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
+        kind: ConditionalKind,
     ) -> Self {
         let ty = consequence.ty().clone();
         StructExpressionInner::Conditional(ConditionalExpression::new(
             condition,
             consequence,
             alternative,
+            kind,
         ))
         .annotate(ty)
     }
@@ -2006,12 +2041,14 @@ impl<'ast, T: Clone> Conditional<'ast, T> for TupleExpression<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
+        kind: ConditionalKind,
     ) -> Self {
         let ty = consequence.ty().clone();
         TupleExpressionInner::Conditional(ConditionalExpression::new(
             condition,
             consequence,
             alternative,
+            kind,
         ))
         .annotate(ty)
     }

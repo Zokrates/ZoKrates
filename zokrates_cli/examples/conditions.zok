@@ -1,13 +1,13 @@
 struct Foo {
-	field a;
+    field a;
 }
 
 struct Bar {
-	Foo[1] foo;
+    Foo[1] foo;
 }
 
 def isEqual(field a, field b) -> bool {
-	return a == b;
+    return a == b;
 }
 
 def main(field a) -> field {

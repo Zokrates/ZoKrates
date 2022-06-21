@@ -11,8 +11,8 @@ def select(bool condition, u32[8] left, u32[8] right) -> (u32[8], u32[8]) {
 // directionSelector => true if current digest is on the rhs of the hash
 
 def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector, private u32[DEPTH][8] path) -> bool {
-	// Start from the leaf
-	u32[8] digest = leaf;
+    // Start from the leaf
+    u32[8] digest = leaf;
 
 	// Loop up the tree
 	for u32 i in 0..DEPTH {
@@ -20,7 +20,7 @@ def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector
 		digest = hash(s.0, s.1);
 	}
 
-	return digest == root;
+    return digest == root;
 }
 
 

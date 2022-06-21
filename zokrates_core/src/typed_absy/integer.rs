@@ -452,6 +452,7 @@ impl<'ast, T: Field> FieldElementExpression<'ast, T> {
                 *c.condition,
                 Self::try_from_int(*c.consequence)?,
                 Self::try_from_int(*c.alternative)?,
+                c.kind,
             ))),
             IntExpression::Select(select) => {
                 let array = *select.array;
@@ -571,6 +572,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
                 *c.condition,
                 Self::try_from_int(*c.consequence, bitwidth)?,
                 Self::try_from_int(*c.alternative, bitwidth)?,
+                c.kind,
             )),
             Select(select) => {
                 let array = *select.array;
@@ -789,6 +791,7 @@ impl<'ast, T> From<BigUint> for IntExpression<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::typed_absy::ConditionalKind;
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -810,7 +813,7 @@ mod tests {
             n.clone() * n.clone(),
             IntExpression::pow(n.clone(), n.clone()),
             n.clone() / n.clone(),
-            IntExpression::conditional(c.clone(), n.clone(), n.clone()),
+            IntExpression::conditional(c.clone(), n.clone(), n.clone(), ConditionalKind::IfElse),
             IntExpression::select(n_a.clone(), i.clone()),
         ];
 
@@ -821,7 +824,12 @@ mod tests {
             t.clone() * t.clone(),
             FieldElementExpression::pow(t.clone(), i.clone()),
             t.clone() / t.clone(),
-            FieldElementExpression::conditional(c.clone(), t.clone(), t.clone()),
+            FieldElementExpression::conditional(
+                c.clone(),
+                t.clone(),
+                t.clone(),
+                ConditionalKind::IfElse,
+            ),
             FieldElementExpression::select(t_a.clone(), i.clone()),
         ];
 
@@ -876,7 +884,7 @@ mod tests {
             IntExpression::left_shift(n.clone(), i.clone()),
             IntExpression::right_shift(n.clone(), i.clone()),
             !n.clone(),
-            IntExpression::conditional(c.clone(), n.clone(), n.clone()),
+            IntExpression::conditional(c.clone(), n.clone(), n.clone(), ConditionalKind::IfElse),
             IntExpression::select(n_a.clone(), i.clone()),
         ];
 
@@ -893,7 +901,7 @@ mod tests {
             UExpression::left_shift(t.clone(), i.clone()),
             UExpression::right_shift(t.clone(), i.clone()),
             !t.clone(),
-            UExpression::conditional(c.clone(), t.clone(), t.clone()),
+            UExpression::conditional(c.clone(), t.clone(), t.clone(), ConditionalKind::IfElse),
             UExpression::select(t_a.clone(), i.clone()),
         ];
 

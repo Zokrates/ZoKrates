@@ -13,7 +13,7 @@ def bubblesort<N>(u32[N] a) -> u32[N] {
             a[j + 1] = swapped.1;
         }
     }
-	return a;
+    return a;
 }
 
 def main(u32[10] a) -> u32[10] {

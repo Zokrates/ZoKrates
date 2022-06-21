@@ -1,1 +1,1 @@
-Use curly braces to enclose blocks
+Introduce curly bracket based syntax, use a semicolon to separate statements, change the syntax of `if-else` expression

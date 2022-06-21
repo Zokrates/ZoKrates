@@ -209,7 +209,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     ConditionalOrExpression::Expression(consequence.into_inner())
                 }
                 (condition, consequence, alternative) => ConditionalOrExpression::Conditional(
-                    ConditionalExpression::new(condition, consequence, alternative),
+                    ConditionalExpression::new(condition, consequence, alternative, e.kind),
                 ),
             },
         )
@@ -1370,6 +1370,7 @@ mod tests {
                     BooleanExpression::Value(true),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                     FieldElementExpression::Number(Bn128Field::from(3)),
+                    ConditionalKind::IfElse,
                 );
 
                 assert_eq!(
@@ -1384,6 +1385,7 @@ mod tests {
                     BooleanExpression::Value(false),
                     FieldElementExpression::Number(Bn128Field::from(2)),
                     FieldElementExpression::Number(Bn128Field::from(3)),
+                    ConditionalKind::IfElse,
                 );
 
                 assert_eq!(
@@ -1595,8 +1597,7 @@ mod tests {
                             )
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
-                        )
-                        .into()]
+                        )]
                         .into(),
                     )
                     .annotate(Type::FieldElement, 1u32),
@@ -1620,8 +1621,7 @@ mod tests {
                             )
                             .annotate(Type::FieldElement, 1u32)
                             .into(),
-                        )
-                        .into()]
+                        )]
                         .into(),
                     )
                     .annotate(Type::FieldElement, 1u32),

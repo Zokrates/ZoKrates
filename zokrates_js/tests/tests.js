@@ -30,7 +30,7 @@ describe("tests", function () {
      });
 
      it("should resolve stdlib module", () => {
-       const stdlib = require("../stdlib.json");
+       const stdlib = require("../stdlib.js");
        assert.doesNotThrow(() => {
          const code = `import "${
            Object.keys(stdlib)[0]

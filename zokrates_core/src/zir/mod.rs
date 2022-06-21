@@ -45,9 +45,9 @@ pub struct ZirFunction<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "({}) -> ({}) {{\n{}\n}}",
+            "({}) -> ({}) {{",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -58,13 +58,15 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
-                .join(", "),
-            self.statements
-                .iter()
-                .map(|x| format!("\t{}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
+                .join(", ")
+        )?;
+
+        for s in &self.statements {
+            s.fmt_indented(f, 1)?;
+            writeln!(f)?;
+        }
+
+        writeln!(f, "}}")
     }
 }
 
@@ -116,7 +118,14 @@ pub enum ZirStatement<'ast, T> {
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        self.fmt_indented(f, 0)
+    }
+}
+
+impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
+    fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+        write!(f, "{}", "\t".repeat(depth))?;
+        match self {
             ZirStatement::Return(ref exprs) => {
                 write!(f, "return ")?;
                 for (i, expr) in exprs.iter().enumerate() {
@@ -127,23 +136,21 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                 }
                 write!(f, ";")
             }
-            ZirStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
+            ZirStatement::Definition(ref lhs, ref rhs) => {
+                write!(f, "{} = {};", lhs, rhs)
+            }
             ZirStatement::IfElse(ref condition, ref consequence, ref alternative) => {
-                write!(
-                    f,
-                    "if {} {{{}}} else {{{}}}",
-                    condition,
-                    consequence
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                    alternative
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                )
+                writeln!(f, "if {} {{", condition)?;
+                for s in consequence {
+                    s.fmt_indented(f, depth + 1)?;
+                    writeln!(f)?;
+                }
+                writeln!(f, "{}}} else {{", "\t".repeat(depth))?;
+                for s in alternative {
+                    s.fmt_indented(f, depth + 1)?;
+                    writeln!(f)?;
+                }
+                write!(f, "{}}};", "\t".repeat(depth))
             }
             ZirStatement::Assertion(ref e, ref error) => {
                 write!(f, "assert({}", e)?;
@@ -419,7 +426,11 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
             FieldElementExpression::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(f, "({} ? {} : {})", condition, consequent, alternative)
+                write!(
+                    f,
+                    "if {} {{ {} }} else {{ {} }}",
+                    condition, consequent, alternative
+                )
             }
         }
     }
@@ -451,7 +462,11 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
             UExpressionInner::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(f, "({} ? {} : {})", condition, consequent, alternative)
+                write!(
+                    f,
+                    "if {} {{ {} }} else {{ {} }}",
+                    condition, consequent, alternative
+                )
             }
         }
     }
@@ -486,7 +501,11 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(f, "{} ? {} : {}", condition, consequent, alternative)
+                write!(
+                    f,
+                    "if {} {{ {} }} else {{ {} }}",
+                    condition, consequent, alternative
+                )
             }
         }
     }

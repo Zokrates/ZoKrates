@@ -1,8 +1,8 @@
 def main() -> field {
-	field a = 1;
-	field b = a;
-	field c = b;
-	field d = c;
-	field e = d;
-	return e;
+    field a = 1;
+    field b = a;
+    field c = b;
+    field d = c;
+    field e = d;
+    return e;
 }

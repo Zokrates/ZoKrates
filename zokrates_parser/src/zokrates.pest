@@ -72,7 +72,7 @@ expression = { unaried_term ~ (op_binary ~ unaried_term)* }
 unaried_term = { op_unary? ~ powered_term }
 powered_term = { postfixed_term ~ (op_pow ~ exponent_expression)? }
 postfixed_term = { term ~ access* }
-term = { ("(" ~ expression ~ ")") | inline_tuple_expression | inline_struct_expression | primary_expression | inline_array_expression | array_initializer_expression }
+term = { ("(" ~ expression ~ ")") | inline_tuple_expression | inline_struct_expression | if_else_expression | primary_expression | inline_array_expression | array_initializer_expression }
 spread = { "..." ~ expression }
 range = { from_expression? ~ ".." ~ to_expression? }
 from_expression = { expression }
@@ -82,6 +82,9 @@ inline_tuple_expression = { "(" ~ (inline_tuple_multiple_expression_inner | inli
 inline_tuple_empty_expression_inner = _{ "" }
 inline_tuple_single_expression_inner = _{ expression ~ "," }
 inline_tuple_multiple_expression_inner = _{ expression ~ ("," ~ expression)+ ~ ","? }
+
+block_expression = _{ "{" ~ NEWLINE* ~ statement* ~ expression ~ NEWLINE* ~ "}" }
+if_else_expression = { "if" ~ expression ~ block_expression ~ "else" ~ block_expression }
 
 access = { array_access | call_access | dot_access }
 array_access = { "[" ~ range_or_expression ~ "]" }

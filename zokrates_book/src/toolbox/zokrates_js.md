@@ -10,7 +10,7 @@ npm install zokrates-js
 
 ##### Bundlers
 **Note:** As this library uses a model where the wasm module itself is natively an ES module, you will need a bundler of some form. 
-Currently the only known bundler known to be fully compatible with `zokrates-js` is [Webpack](https://webpack.js.org/). 
+Currently the only known bundler known to be fully compatible with `zokrates-js` is [Webpack](https://webpack.js.org/) (`experiments.asyncWebAssembly` must be enabled). 
 The choice of this default was done to reflect the trends of the JS ecosystem.
 ```js
 import { initialize } from 'zokrates-js';
@@ -18,7 +18,7 @@ import { initialize } from 'zokrates-js';
 
 ##### Node
 ```js
-import { initialize } from 'zokrates-js/node'; // or require('zokrates-js/node')
+const { initialize } = require('zokrates-js')
 ```
 
 ## Example

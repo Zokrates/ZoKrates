@@ -506,6 +506,49 @@ impl<'ast> fmt::Display for Range<'ast> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConditionalKind {
+    IfElse,
+    Ternary,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConditionalExpression<'ast> {
+    pub condition: Box<ExpressionNode<'ast>>,
+    pub consequence_statements: Vec<StatementNode<'ast>>,
+    pub consequence: Box<ExpressionNode<'ast>>,
+    pub alternative_statements: Vec<StatementNode<'ast>>,
+    pub alternative: Box<ExpressionNode<'ast>>,
+    pub kind: ConditionalKind,
+}
+
+impl<'ast> fmt::Display for ConditionalExpression<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            ConditionalKind::IfElse => {
+                writeln!(f, "if {} {{", self.condition)?;
+                for cs in self.consequence_statements.iter() {
+                    writeln!(f, "\t{}", cs)?;
+                }
+                writeln!(f, "\t{}", self.consequence)?;
+                write!(f, "}} else {{")?;
+                for als in self.alternative_statements.iter() {
+                    writeln!(f, "\t{}", als)?;
+                }
+                writeln!(f, "\t{}", self.alternative)?;
+                write!(f, "}}")
+            }
+            ConditionalKind::Ternary => {
+                write!(
+                    f,
+                    "{} ? {} : {}",
+                    self.condition, self.consequence, self.alternative
+                )
+            }
+        }
+    }
+}
+
 /// An expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'ast> {
@@ -525,11 +568,7 @@ pub enum Expression<'ast> {
     Pow(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Neg(Box<ExpressionNode<'ast>>),
     Pos(Box<ExpressionNode<'ast>>),
-    Conditional(
-        Box<ExpressionNode<'ast>>,
-        Box<ExpressionNode<'ast>>,
-        Box<ExpressionNode<'ast>>,
-    ),
+    Conditional(Box<ConditionalExpression<'ast>>),
     FunctionCall(
         Box<ExpressionNode<'ast>>,
         Option<Vec<Option<ExpressionNode<'ast>>>>,
@@ -578,9 +617,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::Neg(ref e) => write!(f, "(-{})", e),
             Expression::Pos(ref e) => write!(f, "(+{})", e),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
-            Expression::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(f, "{} ? {} : {}", condition, consequent, alternative)
-            }
+            Expression::Conditional(ref c) => write!(f, "{}", c),
             Expression::FunctionCall(ref i, ref g, ref p) => {
                 if let Some(g) = g {
                     write!(

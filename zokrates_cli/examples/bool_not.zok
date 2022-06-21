@@ -1,4 +1,4 @@
 def main(field a) -> field {
-	field x = !(!(a < 5) && !(a > 1) || a < 4) ? 3 : 4;
-	return x;
+    field x = !(!(a < 5) && !(a > 1) || a < 4) ? 3 : 4;
+    return x;
 }
