@@ -96,7 +96,7 @@ impl Interpreter {
                     for ((t, e), part) in expressions.into_iter().zip(parts) {
                         let values: Vec<_> = e
                             .iter()
-                            .map(|e| evaluate_lin(&witness, &e).unwrap())
+                            .map(|e| evaluate_lin(&witness, e).unwrap())
                             .collect();
 
                         write!(log_stream, "{}", Value::decode(values, t).into_serde_json())

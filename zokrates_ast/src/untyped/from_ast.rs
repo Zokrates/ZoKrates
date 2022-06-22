@@ -267,10 +267,10 @@ impl<'ast> From<pest::LogStatement<'ast>> for untyped::StatementNode<'ast> {
         let expressions = statement
             .expressions
             .into_iter()
-            .map(|e| untyped::ExpressionNode::from(e))
+            .map(untyped::ExpressionNode::from)
             .collect();
 
-        untyped::Statement::Log(&statement.content.span.as_str(), expressions).span(statement.span)
+        untyped::Statement::Log(statement.content.span.as_str(), expressions).span(statement.span)
     }
 }
 

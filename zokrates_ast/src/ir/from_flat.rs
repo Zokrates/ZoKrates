@@ -76,7 +76,7 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                 l,
                 expressions
                     .into_iter()
-                    .map(|(t, e)| (t, e.into_iter().map(|e| LinComb::from(e)).collect()))
+                    .map(|(t, e)| (t, e.into_iter().map(LinComb::from).collect()))
                     .collect(),
             ),
         }

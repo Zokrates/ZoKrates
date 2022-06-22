@@ -5,7 +5,7 @@ use zokrates_field::Field;
 pub struct LogIgnorer;
 
 impl LogIgnorer {
-    pub fn ignore<'ast, T: Field>(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+    pub fn ignore<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
         Self::default().fold_program(p)
     }
 }

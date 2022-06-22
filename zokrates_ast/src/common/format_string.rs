@@ -17,6 +17,10 @@ impl<'a> FormatString {
     pub fn len(&self) -> usize {
         self.parts.len() - 1
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.parts.len() == 1
+    }
 }
 
 impl<'a> From<&str> for FormatString {
