@@ -1,4 +1,6 @@
+#[cfg(feature = "ark")]
 pub mod ark;
+#[cfg(feature = "bellman")]
 pub mod bellman;
 
 #[derive(Debug, Clone)]

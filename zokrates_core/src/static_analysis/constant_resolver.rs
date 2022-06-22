@@ -2,9 +2,9 @@
 // This does *not* reduce constants to their literal value
 // This step cannot fail as the imports were checked during semantics
 
-use crate::typed_absy::folder::*;
-use crate::typed_absy::*;
 use std::collections::HashMap;
+use zokrates_ast::typed::folder::*;
+use zokrates_ast::typed::*;
 use zokrates_field::Field;
 
 // a map of the canonical constants in this program. with all imported constants reduced to their canonical value
@@ -109,8 +109,8 @@ impl<'ast, T: Field> Folder<'ast, T> for ConstantResolver<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::DeclarationSignature;
-    use crate::typed_absy::{
+    use zokrates_ast::typed::types::DeclarationSignature;
+    use zokrates_ast::typed::{
         DeclarationArrayType, DeclarationFunctionKey, DeclarationType, FieldElementExpression,
         GType, Identifier, TypedConstant, TypedExpression, TypedFunction, TypedFunctionSymbol,
         TypedStatement,
@@ -121,10 +121,11 @@ mod tests {
     fn inline_const_field() {
         // in the absence of imports, a module is left unchanged
 
-        // const field a = 1
+        // const field a = 1;
         //
-        // def main() -> field:
-        //      return a
+        // def main() -> field {
+        //     return a;
+        // }
 
         let const_id = "a";
         let main: TypedFunction<Bn128Field> = TypedFunction {
@@ -180,10 +181,11 @@ mod tests {
     fn no_op_const_boolean() {
         // in the absence of imports, a module is left unchanged
 
-        // const bool a = true
+        // const bool a = true;
         //
-        // def main() -> bool:
-        //      return main.zok/a
+        // def main() -> bool {
+        //     return main.zok/a;
+        // }
 
         let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
@@ -238,10 +240,11 @@ mod tests {
     fn no_op_const_uint() {
         // in the absence of imports, a module is left unchanged
 
-        // const u32 a = 0x00000001
+        // const u32 a = 0x00000001;
         //
-        // def main() -> u32:
-        //      return a
+        // def main() -> u32 {
+        //     return a;
+        // }
 
         let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
@@ -299,10 +302,11 @@ mod tests {
     fn no_op_const_field_array() {
         // in the absence of imports, a module is left unchanged
 
-        // const field[2] a = [2, 2]
+        // const field[2] a = [2, 2];
         //
-        // def main() -> field:
-        //      return a[0] + a[1]
+        // def main() -> field {
+        //     return a[0] + a[1];
+        // }
 
         let const_id = CanonicalConstantIdentifier::new("a", "main".into());
         let main: TypedFunction<Bn128Field> = TypedFunction {
@@ -380,11 +384,12 @@ mod tests {
 
     #[test]
     fn no_op_nested_const_field() {
-        // const field a = 1
-        // const field b = a + 1
+        // const field a = 1;
+        // const field b = a + 1;
         //
-        // def main() -> field:
-        //      return b
+        // def main() -> field {
+        //     return b;
+        // }
 
         let const_a_id = CanonicalConstantIdentifier::new("a", "main".into());
         let const_b_id = CanonicalConstantIdentifier::new("a", "main".into());
@@ -456,37 +461,41 @@ mod tests {
         // ---------------------
         // module `foo`
         // --------------------
-        // const field FOO = 42
-        // const field BAR = FOO
+        // const field FOO = 42;
+        // const field BAR = FOO;
         //
-        // def main():
-        //     return
+        // def main() {
+        //     return;
+        // }
         //
         // ---------------------
         // module `main`
         // ---------------------
-        // from "foo" import BAR
+        // from "foo" import BAR;
         //
-        // def main() -> field:
-        //     return FOO
+        // def main() -> field {
+        //     return FOO;
+        // }
 
         // Should be resolved to
 
         // ---------------------
         // module `foo`
         // --------------------
-        // const field BAR = ./foo.zok/FOO
+        // const field BAR = ./foo.zok/FOO;
         //
-        // def main():
-        //     return
+        // def main() {
+        //     return;
+        // }
         //
         // ---------------------
         // module `main`
         // ---------------------
-        // const field FOO = 42
+        // const field FOO = 42;
         //
-        // def main() -> field:
-        //     return FOO
+        // def main() -> field {
+        //     return FOO;
+        // }
 
         let foo_const_id = CanonicalConstantIdentifier::new("FOO", "foo".into());
         let bar_const_id = CanonicalConstantIdentifier::new("BAR", "foo".into());
@@ -620,42 +629,46 @@ mod tests {
         // ---------------------
         // module `foo`
         // --------------------
-        // const field FOO = 2
-        // const field[FOO] BAR = [1; FOO]
+        // const field FOO = 2;
+        // const field[FOO] BAR = [1; FOO];
         //
-        // def main():
-        //     return
+        // def main() {
+        //     return;
+        // }
         //
         // ---------------------
         // module `main`
         // ---------------------
-        // from "foo" import FOO
-        // from "foo" import BAR
-        // const field[FOO] BAZ = BAR
+        // from "foo" import FOO;
+        // from "foo" import BAR;
+        // const field[FOO] BAZ = BAR;
         //
-        // def main() -> field:
-        //     return FOO
+        // def main() -> field {
+        //     return FOO;
+        // }
 
         // Should be resolved to
 
         // ---------------------
         // module `foo`
         // --------------------
-        // const field FOO = 2
-        // const field[FOO] BAR = [1; FOO]
+        // const field FOO = 2;
+        // const field[FOO] BAR = [1; FOO];
         //
-        // def main():
-        //     return
+        // def main() {
+        //     return;
+        // }
         //
         // ---------------------
         // module `main`
         // ---------------------
-        // const FOO = 2
-        // const BAR = [1; ./foo.zok/FOO]
-        // const field[FOO] BAZ = BAR
+        // const FOO = 2;
+        // const BAR = [1; ./foo.zok/FOO];
+        // const field[FOO] BAZ = BAR;
         //
-        // def main() -> field:
-        //     return FOO
+        // def main() -> field {
+        //     return FOO;
+        // }
 
         let foo_const_id = CanonicalConstantIdentifier::new("FOO", "foo".into());
         let bar_const_id = CanonicalConstantIdentifier::new("BAR", "foo".into());

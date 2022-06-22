@@ -1,10 +1,11 @@
-from "./baz" import Baz
-from "./baz" import main as my_function
-import "./baz"
+from "./baz" import Baz;
+from "./baz" import main as my_function;
+import "./baz";
 
-const field FOO = 144
+const field FOO = 144;
 
-def main() -> field:
-    Baz b = Baz {}
-    assert(baz() == my_function())
-    return FOO
+def main() -> field {
+    Baz b = Baz {};
+    assert(baz() == my_function());
+    return FOO;
+}

@@ -1,5 +1,6 @@
-from "EMBED" import bit_array_le
+from "EMBED" import bit_array_le;
 
 // Calling the `bit_array_le` embed on a non-constant second argument should fail at compile-time
-def main(bool[1] a, bool[1] b) -> bool:
-    return bit_array_le(a, b)
+def main(bool[1] a, bool[1] b) -> bool {
+    return bit_array_le(a, b);
+}

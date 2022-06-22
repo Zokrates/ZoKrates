@@ -1,9 +1,11 @@
-const field F = 10
-const u32 A = 10
-const u32 B = A
+const field F = 10;
+const u32 A = 10;
+const u32 B = A;
 
-def foo<N>(field X) -> field[N]:
-    return [X; N]
+def foo<N>(field X) -> field[N] {
+    return [X; N];
+}
 
-def main():
-    return
+def main() {
+    return;
+}

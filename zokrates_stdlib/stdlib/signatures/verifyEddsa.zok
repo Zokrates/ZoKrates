@@ -1,12 +1,12 @@
-import "hashes/sha256/1024bitPadded" as sha256
-import "ecc/edwardsScalarMult" as scalarMult
-import "ecc/edwardsAdd" as add
-import "utils/pack/bool/nonStrictUnpack256" as unpack256bool
-import "utils/pack/u32/nonStrictUnpack256" as unpack256u
-import "ecc/edwardsOnCurve" as onCurve
-import "ecc/edwardsOrderCheck" as orderCheck
-from "ecc/babyjubjubParams" import BabyJubJubParams
-import "utils/casts/u32_8_to_bool_256"
+import "hashes/sha256/1024bitPadded" as sha256;
+import "ecc/edwardsScalarMult" as scalarMult;
+import "ecc/edwardsAdd" as add;
+import "utils/pack/bool/nonStrictUnpack256" as unpack256bool;
+import "utils/pack/u32/nonStrictUnpack256" as unpack256u;
+import "ecc/edwardsOnCurve" as onCurve;
+import "ecc/edwardsOrderCheck" as orderCheck;
+from "ecc/babyjubjubParams" import BabyJubJubParams;
+import "utils/casts/u32_8_to_bool_256";
 
 /// Verifies an EdDSA Signature.
 ///
@@ -29,24 +29,23 @@ import "utils/casts/u32_8_to_bool_256"
 ///
 /// Returns:
 ///     Return true for S being a valid EdDSA Signature, false otherwise.
-def main(private field[2] R, private field S, field[2] A, u32[8] M0, u32[8] M1, BabyJubJubParams context) -> bool:
-
-    field[2] G = [context.Gu, context.Gv]
+def main(private field[2] R, private field S, field[2] A, u32[8] M0, u32[8] M1, BabyJubJubParams context) -> bool {
+    field[2] G = [context.Gu, context.Gv];
 
     // Check if R is on curve and if it is not in a small subgroup. A is public input and can be checked offline
-    assert(onCurve(R, context)) // throws if R is not on curve
-    assert(orderCheck(R, context))
+    assert(onCurve(R, context)); // throws if R is not on curve
+    assert(orderCheck(R, context));
 
-    u32[8] Rx = unpack256u(R[0])
-    u32[8] Ax = unpack256u(A[0])
-    bool[256] hRAM = u32_8_to_bool_256(sha256(Rx, Ax, M0, M1))
+    u32[8] Rx = unpack256u(R[0]);
+    u32[8] Ax = unpack256u(A[0]);
+    bool[256] hRAM = u32_8_to_bool_256(sha256(Rx, Ax, M0, M1));
 
-    bool[256] sBits = unpack256bool(S)
-    field[2] lhs = scalarMult(sBits, G, context)
+    bool[256] sBits = unpack256bool(S);
+    field[2] lhs = scalarMult(sBits, G, context);
 
-    field[2] AhRAM = scalarMult(hRAM, A, context)
-    field[2] rhs = add(R, AhRAM, context)
+    field[2] AhRAM = scalarMult(hRAM, A, context);
+    field[2] rhs = add(R, AhRAM, context);
 
-    bool out = rhs[0] == lhs[0] && rhs[1] == lhs[1]
-
-    return out
+    bool out = rhs[0] == lhs[0] && rhs[1] == lhs[1];
+    return out;
+}

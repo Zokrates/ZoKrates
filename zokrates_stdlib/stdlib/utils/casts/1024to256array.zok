@@ -1,2 +1,3 @@
-def main(bool[1024] input) -> (bool[256], bool[256], bool[256], bool[256]):
-  return input[0..256], input[256..512], input[512..768], input[768..1024]
+def main(bool[1024] input) -> (bool[256], bool[256], bool[256], bool[256]) {
+    return input[0..256], input[256..512], input[512..768], input[768..1024];
+}

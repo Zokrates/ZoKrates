@@ -1,4 +1,4 @@
-use crate::flat_absy::*;
+use zokrates_ast::flat::*;
 use zokrates_field::Field;
 
 pub fn flat_expression_from_bits<T: Field>(v: Vec<FlatExpression<T>>) -> FlatExpression<T> {

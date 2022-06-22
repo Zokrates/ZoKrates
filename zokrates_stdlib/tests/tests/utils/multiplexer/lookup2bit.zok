@@ -1,42 +1,41 @@
-import "utils/multiplexer/lookup2bit" as lookup
+import "utils/multiplexer/lookup2bit" as lookup;
 
-def first() -> bool:
-	bool[2] sel = [false, false]
-	field[4] t  = [0, 1, 2, 3]
-	
-	assert(0 == lookup(sel, t))
-	
-	return true
-	
-def second() -> bool:
-	bool[2] sel = [true, false]
-	field[4] t  = [0, 1, 2, 3]
-	
-	assert(1 == lookup(sel, t))
-	
-	return true
-	
-def third() -> bool:
-	bool[2] sel = [false, true]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	assert(2 == lookup(sel, t))
-	
-	return true
+def first() -> bool {
+    bool[2] sel = [false, false];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(0 == lookup(sel, t));
+    return true;
+}
+    
+def second() -> bool {
+    bool[2] sel = [true, false];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(1 == lookup(sel, t));
+    return true;
+}
+    
+def third() -> bool {
+    bool[2] sel = [false, true];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(2 == lookup(sel, t));
+    return true;
+}
 
-def fourth() -> bool:
-	bool[2] sel = [true, true]
-	field[4] t  = [0, 1, 2 , 3]
-	
-	assert(3 == lookup(sel, t))
-	
-	return true
-	
-def main():
-
-	assert(first())
-	assert(second())
-	assert(third())
-	assert(fourth())
-	
-	return
+def fourth() -> bool {
+    bool[2] sel = [true, true];
+    field[4] t  = [0, 1, 2, 3];
+    
+    assert(3 == lookup(sel, t));
+    return true;
+}
+    
+def main() {
+    assert(first());
+    assert(second());
+    assert(third());
+    assert(fourth());
+    return;
+}

@@ -1,13 +1,15 @@
-def right_rotate<N>(u32 x) -> u32:
-    return (x >> N) | (x << (32 - N))
+def right_rotate<N>(u32 x) -> u32 {
+    return (x >> N) | (x << (32 - N));
+}
 
 // input constraining is 99 constraints, the rest is 265 -> total 364
-def main(u32 a, u32 b, u32 c) -> u32:
-	// maj := (a and b) xor (a and c) xor (b and c)
-    u32 maj = (a & b) ^ (a & c) ^ (b & c) // 165 constraints
+def main(u32 a, u32 b, u32 c) -> u32 {
+    // maj := (a and b) xor (a and c) xor (b and c)
+    u32 maj = (a & b) ^ (a & c) ^ (b & c); // 165 constraints
 
-	// S0 := (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
-	u32 S0 = right_rotate::<2>(a) ^ right_rotate::<13>(a) ^ right_rotate::<22>(a) // 66 constraints
+    // S0 := (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
+    u32 S0 = right_rotate::<2>(a) ^ right_rotate::<13>(a) ^ right_rotate::<22>(a); // 66 constraints
 
     // temp2 := S0 + maj
-    return S0 + maj // 34 constraints
+    return S0 + maj; // 34 constraints
+}

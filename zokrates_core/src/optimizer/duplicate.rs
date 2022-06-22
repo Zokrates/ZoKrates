@@ -1,9 +1,9 @@
 //! Module containing the `DuplicateOptimizer` to remove duplicate constraints
 
-use crate::ir::folder::*;
-use crate::ir::*;
 use crate::optimizer::canonicalizer::Canonicalizer;
 use std::collections::{hash_map::DefaultHasher, HashSet};
+use zokrates_ast::ir::folder::*;
+use zokrates_ast::ir::*;
 use zokrates_field::Field;
 
 type Hash = u64;
@@ -53,7 +53,7 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flat_absy::FlatVariable;
+    use zokrates_ast::flat::Variable;
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -62,15 +62,15 @@ mod tests {
             statements: vec![
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::summand(3, FlatVariable::new(3)),
-                        LinComb::summand(3, FlatVariable::new(3)),
+                        LinComb::summand(3, Variable::new(3)),
+                        LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::one(),
                 ),
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::summand(3, FlatVariable::new(42)),
-                        LinComb::summand(3, FlatVariable::new(3)),
+                        LinComb::summand(3, Variable::new(42)),
+                        LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
                 ),
@@ -91,8 +91,8 @@ mod tests {
     fn remove_duplicates() {
         let constraint = Statement::constraint(
             QuadComb::from_linear_combinations(
-                LinComb::summand(3, FlatVariable::new(3)),
-                LinComb::summand(3, FlatVariable::new(3)),
+                LinComb::summand(3, Variable::new(3)),
+                LinComb::summand(3, Variable::new(3)),
             ),
             LinComb::one(),
         );
@@ -103,8 +103,8 @@ mod tests {
                 constraint.clone(),
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::summand(3, FlatVariable::new(42)),
-                        LinComb::summand(3, FlatVariable::new(3)),
+                        LinComb::summand(3, Variable::new(42)),
+                        LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
                 ),
@@ -120,8 +120,8 @@ mod tests {
                 constraint,
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::summand(3, FlatVariable::new(42)),
-                        LinComb::summand(3, FlatVariable::new(3)),
+                        LinComb::summand(3, Variable::new(42)),
+                        LinComb::summand(3, Variable::new(3)),
                     ),
                     LinComb::zero(),
                 ),

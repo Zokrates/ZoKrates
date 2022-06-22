@@ -1,8 +1,8 @@
-import "./512bit" as sha256
+import "./512bit" as sha256;
 
 // A function that takes a u32[8] array as input, pads it,
 // and returns the sha256 output as a u32[8]
-def main(u32[8] a) -> u32[8]:
+def main(u32[8] a) -> u32[8] {
 
     // Hash is computed on 256 bits of input
     // padding fits in the remaining 256 bits of the first block
@@ -16,6 +16,7 @@ def main(u32[8] a) -> u32[8]:
         0x00000000,
         0x00000000,
         0x00000100
-    ]
+    ];
 
-    return sha256(a, dummyblock1)
+    return sha256(a, dummyblock1);
+}

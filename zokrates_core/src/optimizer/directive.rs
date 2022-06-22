@@ -9,22 +9,20 @@
 // c := b
 // ```
 
-use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::folder::*;
-use crate::ir::*;
-use crate::solvers::Solver;
 use std::collections::hash_map::{Entry, HashMap};
+use zokrates_ast::ir::folder::*;
+use zokrates_ast::ir::*;
 use zokrates_field::Field;
 
 #[derive(Debug, Default)]
 pub struct DirectiveOptimizer<T> {
-    calls: HashMap<(Solver, Vec<QuadComb<T>>), Vec<FlatVariable>>,
+    calls: HashMap<(Solver, Vec<QuadComb<T>>), Vec<Variable>>,
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<FlatVariable, FlatVariable>,
+    substitution: HashMap<Variable, Variable>,
 }
 
 impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
-    fn fold_variable(&mut self, v: FlatVariable) -> FlatVariable {
+    fn fold_variable(&mut self, v: Variable) -> Variable {
         *self.substitution.get(&v).unwrap_or(&v)
     }
 

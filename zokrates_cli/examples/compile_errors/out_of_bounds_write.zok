@@ -1,7 +1,9 @@
-def foo(field[1] a) -> field[1]:
-    return a
+def foo(field[1] a) -> field[1] {
+    return a;
+}
 
-def main(field a):
-    field[1] h = foo([a])
-    h[1] = 1
-    return
+def main(field a) {
+    field[1] h = foo([a]);
+    h[1] = 1;
+    return;
+}

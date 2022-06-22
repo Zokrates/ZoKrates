@@ -1,2 +1,3 @@
-def main(u64 x) -> u64:
-    return x >> 1
+def main(u64 x) -> u64 {
+    return x >> 1;
+}

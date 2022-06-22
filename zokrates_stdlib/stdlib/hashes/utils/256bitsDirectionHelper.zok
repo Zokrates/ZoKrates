@@ -1,3 +1,4 @@
 // Concatenate two u32[8] arrays in an order defined by a boolean selector
-def main(bool selector, u32[8] lhs, u32[8] rhs) -> u32[16]:
-	return if selector then [...rhs, ...lhs] else [...lhs, ...rhs] fi
+def main(bool selector, u32[8] lhs, u32[8] rhs) -> u32[16] {
+    return selector ? [...rhs, ...lhs] : [...lhs, ...rhs];
+}

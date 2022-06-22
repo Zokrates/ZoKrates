@@ -1,4 +1,4 @@
-use crate::typed_absy::{folder::*, TypedProgram, TypedStatement};
+use zokrates_ast::typed::{folder::*, TypedProgram, TypedStatement};
 use zokrates_field::Field;
 
 #[derive(Default)]

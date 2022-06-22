@@ -1,4 +1,5 @@
-const field ONE = 1
+const field ONE = 1;
 
-def main() -> field:
-    return ONE
+def main() -> field {
+    return ONE;
+}

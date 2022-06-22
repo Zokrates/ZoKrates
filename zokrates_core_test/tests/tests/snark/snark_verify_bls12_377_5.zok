@@ -1,14 +1,15 @@
-from "EMBED" import snark_verify_bls12_377
+from "EMBED" import snark_verify_bls12_377;
 
 // Verifies a proof with 5 public inputs (4 inputs + 1 output)
 // Circuit used in this test:
 //
-// def main(field[4] a) -> field:
-//     field out = 0
-//     for u32 i in 0..4 do
-//         out = out + a[i]
-//     endfor
-//     return out
+// def main(field[4] a) -> field {
+//     field out = 0;
+//     for u32 i in 0..4 {
+//         out = out + a[i];
+//     }
+//     return out;
+// }
 //
 // Save the circuit as "circuit.zok" and run the following commands (in order):
 // $ zokrates compile -i ./circuit.zok -c bls12_377
@@ -34,6 +35,7 @@ from "EMBED" import snark_verify_bls12_377
 // Save this script as "flatten.js" and run the following command:
 // $ node flatten.js proof.json verification.key
 
-def main(private field[8] proof, private field[5] inputs, private field[28] vk) -> bool:
-    bool result = snark_verify_bls12_377(inputs, proof, vk)
-    return result
+def main(private field[8] proof, private field[5] inputs, private field[28] vk) -> bool {
+    bool result = snark_verify_bls12_377(inputs, proof, vk);
+    return result;
+}

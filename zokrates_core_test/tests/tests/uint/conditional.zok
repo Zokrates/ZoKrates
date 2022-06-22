@@ -1,0 +1,3 @@
+def main(bool condition, u8 consequence, u8 alternative) -> u8 {
+    return condition ? consequence : alternative;
+}

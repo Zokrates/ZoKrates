@@ -5,9 +5,9 @@
 //
 // This makes the assumption that ~one has value 1, as should be guaranteed by the verifier
 
-use crate::ir::folder::fold_statement;
-use crate::ir::folder::Folder;
-use crate::ir::*;
+use zokrates_ast::ir::folder::fold_statement;
+use zokrates_ast::ir::folder::Folder;
+use zokrates_ast::ir::*;
 use zokrates_field::Field;
 
 #[derive(Default)]

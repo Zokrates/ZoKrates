@@ -1,5 +1,4 @@
-def main(bool a, bool b) -> field:
-    field x = a ? 1 : b ? 2 : 3 // (a ? 1 : (b ? 2 : 3))
-    field y = if a then 1 else if b then 2 else 3 fi fi
-    assert(x == y)
-    return x
+def main(bool a, bool b) -> field {
+    field x = a ? 1 : b ? 2 : 3; // (a ? 1 : (b ? 2 : 3))
+    return x;
+}

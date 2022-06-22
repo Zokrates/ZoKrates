@@ -1,41 +1,33 @@
-import "utils/pack/u32/nonStrictUnpack256" as unpack256
+import "utils/pack/u32/nonStrictUnpack256" as unpack256;
 
-def testFive() -> bool:
+def testFive() -> bool {
+    u32[8] b = unpack256(5);
+    assert(b == [0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000005]);
+    return true;
+}
 
-	u32[8] b = unpack256(5)
+def testZero() -> bool {
+    u32[8] b = unpack256(0);
+    assert(b == [0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000]);
+    return true;
+}
 
-	assert(b == [0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000005])
+def testLarge() -> bool {
+    u32[8] b = unpack256(14474011154664524427946373126085988481658748083205070504932198000989141204991);
+    assert(b == [0x1fffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff]);
+    return true;
+}
 
-	return true
+def testMax() -> bool {
+    u32[8] b = unpack256(21888242871839275222246405745257275088548364400416034343698204186575808495616);
+    assert(b == [0x30644e72, 0xe131a029, 0xb85045b6, 0x8181585d, 0x2833e848, 0x79b97091, 0x43e1f593, 0xf0000000]);
+    return true;
+}
 
-def testZero() -> bool:
-
-	u32[8] b = unpack256(0)
-
-	assert(b == [0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000])
-
-	return true
-
-def testLarge() -> bool:
-
-	u32[8] b = unpack256(14474011154664524427946373126085988481658748083205070504932198000989141204991)
-
-	assert(b == [0x1fffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff])
-
-	return true
-
-def testMax() -> bool:
-
-	u32[8] b = unpack256(21888242871839275222246405745257275088548364400416034343698204186575808495616)
-
-	assert(b == [0x30644e72, 0xe131a029, 0xb85045b6, 0x8181585d, 0x2833e848, 0x79b97091, 0x43e1f593, 0xf0000000])
-
-	return true
-
- def main():
-
-	assert(testFive())
-	assert(testMax())
-	assert(testZero())
-	assert(testLarge())
-	return
+ def main() {
+    assert(testFive());
+    assert(testMax());
+    assert(testZero());
+    assert(testLarge());
+    return;
+}

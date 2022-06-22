@@ -1,2 +1,0 @@
-def main(field[2] a, field[2] b, field condition) -> field[2]:
-	return if condition == 1 then a else b fi

@@ -4,13 +4,13 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+#[cfg(feature = "ark")]
+use zokrates_ark::Ark;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
-#[cfg(feature = "ark")]
-use zokrates_core::proof_system::ark::Ark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-use zokrates_core::proof_system::*;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+#[cfg(any(feature = "bellman", feature = "ark"))]
+use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("universal-setup")

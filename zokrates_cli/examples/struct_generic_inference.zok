@@ -1,15 +1,17 @@
 struct SomeStruct<N> {
-    u64[N] f
+    u64[N] f;
 }
 
-def myFct<N, N2, N3>(SomeStruct<N> ignored) -> u32[N2]:
-	assert(2*N == N2)
-	return [N3; N2]
+def myFct<N, N2, N3>(SomeStruct<N> ignored) -> u32[N2] {
+    assert(2*N == N2);
+    return [N3; N2];
+}
 
-const u32 N = 3
+const u32 N = 3;
 
-const u32 N2 = 2*N
+const u32 N2 = 2*N;
 
-def main(SomeStruct<N> arg) -> u32:
-    u32[N2] someVariable = myFct::<_, _, 42>(arg)
-    return someVariable[0]
+def main(SomeStruct<N> arg) -> u32 {
+    u32[N2] someVariable = myFct::<_, _, 42>(arg);
+    return someVariable[0];
+}

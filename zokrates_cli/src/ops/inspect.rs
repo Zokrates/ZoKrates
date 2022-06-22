@@ -3,8 +3,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
-use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
+use zokrates_ast::ir::{self, ProgEnum};
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {

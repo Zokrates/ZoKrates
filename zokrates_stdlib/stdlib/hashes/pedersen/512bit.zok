@@ -1,9 +1,9 @@
-import "./512bitBool.zok" as pedersen
-import "utils/casts/u32_to_bits" as to_bits
-import "utils/casts/u32_from_bits" as from_bits
+import "./512bitBool.zok" as pedersen;
+import "utils/casts/u32_to_bits" as to_bits;
+import "utils/casts/u32_from_bits" as from_bits;
 
-def main(u32[16] inputs) -> u32[8]:
-	bool[512] e = [\
+def main(u32[16] inputs) -> u32[8] {
+	bool[512] e = [
 		...to_bits(inputs[0]),
 		...to_bits(inputs[1]),
 		...to_bits(inputs[2]),
@@ -20,10 +20,10 @@ def main(u32[16] inputs) -> u32[8]:
 		...to_bits(inputs[13]),
 		...to_bits(inputs[14]),
 		...to_bits(inputs[15])
-	]
+	];
 
-	bool[256] aC = pedersen(e)
-	return [\
+	bool[256] aC = pedersen(e);
+	return [
 		from_bits(aC[0..32]),
 		from_bits(aC[32..64]),
 		from_bits(aC[64..96]),
@@ -32,4 +32,5 @@ def main(u32[16] inputs) -> u32[8]:
 		from_bits(aC[160..192]),
 		from_bits(aC[192..224]),
 		from_bits(aC[224..256])
-	]
+	];
+}

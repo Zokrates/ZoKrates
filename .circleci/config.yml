@@ -47,17 +47,10 @@ jobs:
           no_output_timeout: 1h
           command: WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
       - save-sccache-cache
-  cpp_format:
-    docker:
-      - image: zokrates/env:latest
-    steps:
-      - checkout
-      - run:
-          name: Check cpp format (clang-format)
-          command: run-clang-format.py -r $(pwd)/zokrates_core/lib
   wasm_test:
     docker:
       - image: zokrates/env:latest
+    resource_class: large
     steps:
       - checkout
       - run:
@@ -68,8 +61,8 @@ jobs:
       - run:
           name: Test on firefox
           command: |
-            cd zokrates_core
-            wasm-pack test --firefox --headless -- --no-default-features --features "wasm ark"
+            cd zokrates_test
+            wasm-pack test --firefox --headless
       - save-sccache-cache
   integration_test:
     docker:
@@ -255,7 +248,6 @@ workflows:
     jobs:
       - build
       - test
-      - cpp_format
       - wasm_test
       - integration_test
       - zokrates_js_build
@@ -314,7 +306,6 @@ workflows:
           requires:
             - build
             - test
-            - cpp_format
             - wasm_test
             - integration_test
             - zokrates_js_build
