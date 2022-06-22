@@ -7,7 +7,7 @@
 			},
 			"output": {
 				"Ok": {
-					"values": ["3"]
+					"value": "3"
 				}
 			}
 		}

@@ -7,57 +7,41 @@
 	"tests": [
         {
             "input": {
-                "values": [
-                    [true, true, true]
-                ]
+                "values": [[true, true, true]]
             },
             "output": {
 				"Ok": {
-                    "values": [
-                        [true, true, true]
-                    ]
+                    "value": [true, true, true]
                 }
             }
         },
         {
             "input": {
-                "values": [
-                    [false, false, false]
-                ]
+                "values": [[false, false, false]]
             },
             "output": {
 				"Ok": {
-                    "values": [
-                        [false, false, false]
-                    ]
+                    "value": [false, false, false]
                 }
             }
         },
         {
             "input": {
-                "values": [
-                    [false, true, false]
-                ]
+                "values": [[false, true, false]]
             },
             "output": {
 				"Ok": {
-                    "values": [
-                        [false, true, false]
-                    ]
+                    "value": [false, true, false]
                 }
             }
         },
         {
             "input": {
-                "values": [
-                    [true, false, true]
-                ]
+                "values": [[true, false, true]]
             },
             "output": {
 				"Ok": {
-                    "values": [
-                        [true, false, true]
-                    ]
+                    "value": [true, false, true]
                 }
             }
         }
