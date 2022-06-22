@@ -1,6 +1,7 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::{FlatVariable, RuntimeError};
 use crate::solvers::Solver;
+use crate::typed_absy::ConcreteType;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::hash::Hash;
@@ -26,7 +27,7 @@ pub use self::witness::Witness;
 pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>, Option<RuntimeError>),
     Directive(Directive<T>),
-    Log(String),
+    Log(String, Vec<(ConcreteType, Vec<LinComb<T>>)>),
 }
 
 impl<T: Field> Statement<T> {
@@ -71,7 +72,22 @@ impl<T: Field> fmt::Display for Statement<T> {
         match *self {
             Statement::Constraint(ref quad, ref lin, _) => write!(f, "{} == {}", quad, lin),
             Statement::Directive(ref s) => write!(f, "{}", s),
-            Statement::Log(ref s) => write!(f, "{}", s),
+            Statement::Log(ref s, ref expressions) => write!(
+                f,
+                "log!(\"{}\", {})",
+                s,
+                expressions
+                    .iter()
+                    .map(|(_, l)| format!(
+                        "[{}]",
+                        l.iter()
+                            .map(|l| l.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }

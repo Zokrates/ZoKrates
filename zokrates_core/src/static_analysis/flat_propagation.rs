@@ -75,7 +75,13 @@ impl<T: Field> FlatStatement<T> {
                     .collect(),
                 ..d
             })),
-            FlatStatement::Log(l) => Some(FlatStatement::Log(l)),
+            FlatStatement::Log(l, expressions) => Some(FlatStatement::Log(
+                l,
+                expressions
+                    .into_iter()
+                    .map(|(t, e)| (t, e.into_iter().map(|e| e.propagate(constants)).collect()))
+                    .collect(),
+            )),
         }
     }
 }

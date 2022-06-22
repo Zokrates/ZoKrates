@@ -373,6 +373,7 @@ mod ast {
     #[pest_ast(rule(Rule::log_statement))]
     pub struct LogStatement<'ast> {
         pub content: LogStatementContent<'ast>,
+        pub expressions: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

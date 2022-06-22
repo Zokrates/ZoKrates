@@ -10,6 +10,7 @@ mod constant_argument_checker;
 mod constant_resolver;
 mod flat_propagation;
 mod flatten_complex_types;
+mod log_ignorer;
 mod out_of_bounds;
 mod propagation;
 mod reducer;
@@ -23,6 +24,7 @@ use self::branch_isolator::Isolator;
 use self::condition_redefiner::ConditionRedefiner;
 use self::constant_argument_checker::ConstantArgumentChecker;
 use self::flatten_complex_types::Flattener;
+use self::log_ignorer::LogIgnorer;
 use self::out_of_bounds::OutOfBoundsChecker;
 use self::propagation::Propagator;
 use self::reducer::reduce_program;
@@ -104,6 +106,17 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
             r
         } else {
             log::debug!("Static analyser: Branch isolation skipped");
+            r
+        };
+
+        // include logs
+        let r = if config.debug {
+            log::debug!("Static analyser: Include logs");
+            r
+        } else {
+            log::debug!("Static analyser: Ignore logs");
+            let r = LogIgnorer::ignore(r);
+            log::trace!("\n{}", r);
             r
         };
 

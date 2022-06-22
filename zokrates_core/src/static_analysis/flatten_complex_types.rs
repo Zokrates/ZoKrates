@@ -1,5 +1,5 @@
 use crate::typed_absy::types::UBitwidth;
-use crate::typed_absy::{self, Expr};
+use crate::typed_absy::{self, Expr, Typed};
 use crate::zir;
 use std::marker::PhantomData;
 use zokrates_field::Field;
@@ -474,7 +474,17 @@ fn fold_statement<'ast, T: Field>(
                 f.fold_expression_list(statements_buffer, elist),
             )]
         }
-        typed_absy::TypedStatement::Log(l) => vec![zir::ZirStatement::Log(l)],
+        typed_absy::TypedStatement::Log(l, e) => vec![zir::ZirStatement::Log(
+            l,
+            e.into_iter()
+                .map(|e| {
+                    (
+                        e.get_type().try_into().unwrap(),
+                        f.fold_expression(statements_buffer, e),
+                    )
+                })
+                .collect(),
+        )],
         typed_absy::TypedStatement::PushCallLog(..) => vec![],
         typed_absy::TypedStatement::PopCallLog => vec![],
     };

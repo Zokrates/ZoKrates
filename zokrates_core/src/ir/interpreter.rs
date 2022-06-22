@@ -76,8 +76,24 @@ impl Interpreter {
                         witness.insert(*o, res[i].clone());
                     }
                 }
-                Statement::Log(l) => {
-                    writeln!(log_stream, "{}", l).map_err(|_| Error::LogStream)?;
+                Statement::Log(l, expressions) => {
+                    write!(log_stream, "{}", l).map_err(|_| Error::LogStream)?;
+                    write!(log_stream, " - ").map_err(|_| Error::LogStream)?;
+
+                    let len = expressions.len();
+
+                    for (index, (t, e)) in expressions.into_iter().enumerate() {
+                        let values: Vec<_> =
+                            e.iter().map(|e| e.evaluate(&witness).unwrap()).collect();
+
+                        write!(log_stream, "{:?}", values).map_err(|_| Error::LogStream)?;
+
+                        if index < len - 1 {
+                            write!(log_stream, ", ").map_err(|_| Error::LogStream)?;
+                        }
+                    }
+
+                    writeln!(log_stream).map_err(|_| Error::LogStream)?;
                 }
             }
         }

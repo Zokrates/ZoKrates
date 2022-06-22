@@ -86,7 +86,7 @@ impl<T: Field> SMTLib2 for Statement<T> {
                 write!(f, " |~prime|))")
             }
             Statement::Directive(ref s) => s.to_smtlib2(f),
-            Statement::Log(_) => write!(f, ""),
+            Statement::Log(..) => write!(f, ""),
         }
     }
 }

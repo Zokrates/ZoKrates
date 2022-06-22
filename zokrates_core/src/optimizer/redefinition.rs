@@ -36,10 +36,10 @@
 //     - `q == k * v if v isn't in i`: insert `v` into `i` and return `c_0`
 //     - otherwise return `c_0`
 
-use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::Folder;
 use crate::ir::LinComb;
 use crate::ir::*;
+use crate::{flat_absy::flat_variable::FlatVariable, ir::folder::fold_statement};
 use std::collections::{HashMap, HashSet};
 use zokrates_field::Field;
 
@@ -168,7 +168,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     }
                 }
             }
-            Statement::Log(l) => vec![Statement::Log(l)],
+            s => fold_statement(self, s),
         }
     }
 

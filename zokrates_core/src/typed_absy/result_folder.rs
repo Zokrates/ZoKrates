@@ -555,6 +555,12 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 .collect::<Result<_, _>>()?,
             f.fold_expression_list(elist)?,
         ),
+        TypedStatement::Log(s, e) => TypedStatement::Log(
+            s,
+            e.into_iter()
+                .map(|e| f.fold_expression(e))
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
         s => s,
     };
     Ok(vec![res])

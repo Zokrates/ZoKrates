@@ -356,7 +356,13 @@ impl<'ast> From<pest::LogStatement<'ast>> for absy::StatementNode<'ast> {
     fn from(statement: pest::LogStatement<'ast>) -> absy::StatementNode<'ast> {
         use crate::absy::NodeValue;
 
-        absy::Statement::Log(statement.content.inner).span(statement.span)
+        let expressions = statement
+            .expressions
+            .into_iter()
+            .map(|e| absy::ExpressionNode::from(e))
+            .collect();
+
+        absy::Statement::Log(statement.content.inner, expressions).span(statement.span)
     }
 }
 

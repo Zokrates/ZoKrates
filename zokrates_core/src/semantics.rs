@@ -2024,7 +2024,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     }),
                 }.map_err(|e| vec![e])
             }
-            Statement::Log(l) => Ok(TypedStatement::Log(l)),
+            Statement::Log(l, expressions) => {
+                let expressions = expressions
+                    .into_iter()
+                    .map(|e| self.check_expression(e, module_id, types))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| vec![e])?;
+
+                Ok(TypedStatement::Log(l, expressions))
+            }
         }
     }
 

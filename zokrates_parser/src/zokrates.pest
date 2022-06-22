@@ -60,8 +60,8 @@ statement = { (return_statement // does not require subsequent newline
                 ) ~ NEWLINE
             ) ~ NEWLINE* }
 
-log_statement = { "log!(\"" ~ log_statement_content ~ "\")"}
-log_statement_content = { ASCII_ALPHANUMERIC* }
+log_statement = { "log!(\"" ~ log_statement_content ~ "\"" ~ "," ~ expression_list ~ ")"}
+log_statement_content = { (ASCII_ALPHANUMERIC | "{" | "}")* }
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
 definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`

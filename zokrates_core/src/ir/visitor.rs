@@ -61,7 +61,13 @@ pub fn visit_statement<T: Field, F: Visitor<T>>(f: &mut F, s: &Statement<T>) {
             }
         }
         Statement::Directive(dir) => f.visit_directive(dir),
-        Statement::Log(_) => {}
+        Statement::Log(_, expressions) => {
+            for (_, e) in expressions {
+                for e in e {
+                    f.visit_linear_combination(e);
+                }
+            }
+        }
     }
 }
 

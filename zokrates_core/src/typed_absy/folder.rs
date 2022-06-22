@@ -540,6 +540,9 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
             assignees.into_iter().map(|a| f.fold_assignee(a)).collect(),
             f.fold_expression_list(elist),
         ),
+        TypedStatement::Log(s, e) => {
+            TypedStatement::Log(s, e.into_iter().map(|e| f.fold_expression(e)).collect())
+        }
         s => s,
     };
     vec![res]

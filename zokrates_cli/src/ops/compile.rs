@@ -58,7 +58,11 @@ pub fn subcommand() -> App<'static, 'static> {
         .long("isolate-branches")
         .help("Isolate the execution of branches: a panic in a branch only makes the program panic if this branch is being logically executed")
         .required(false)
-    )
+    ).arg(Arg::with_name("debug")
+        .long("debug")
+        .help("Include logs")
+        .required(false)
+)
 }
 
 pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
@@ -106,8 +110,9 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )),
     }?;
 
-    let config =
-        CompileConfig::default().isolate_branches(sub_matches.is_present("isolate-branches"));
+    let config = CompileConfig::default()
+        .isolate_branches(sub_matches.is_present("isolate-branches"))
+        .debug(sub_matches.is_present("debug"));
 
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
 
