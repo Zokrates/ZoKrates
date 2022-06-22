@@ -22,7 +22,7 @@ use zokrates_core::proof_system::{
     UniversalBackend, UniversalScheme, GM17,
 };
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
+use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType, GTupleType};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
 #[wasm_bindgen]
@@ -162,7 +162,9 @@ mod internal {
         } else {
             let signature = ConcreteSignature::new()
                 .inputs(vec![ConcreteType::FieldElement; program.arguments.len()])
-                .outputs(vec![ConcreteType::FieldElement; program.return_count]);
+                .output(ConcreteType::Tuple(GTupleType::new(
+                    vec![ConcreteType::FieldElement; program.return_count],
+                )));
 
             let inputs = parse_strict(&input, signature.inputs.clone())
                 .map(Inputs::Abi)
@@ -178,7 +180,7 @@ mod internal {
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
         let return_values: serde_json::Value =
-            zokrates_abi::Values::decode(witness.return_values(), signature.outputs)
+            zokrates_abi::Value::decode(witness.return_values(), *signature.output)
                 .into_serde_json();
 
         let result = ComputationResult {
