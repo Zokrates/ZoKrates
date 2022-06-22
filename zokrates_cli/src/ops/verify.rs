@@ -45,7 +45,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .possible_values(cli_constants::BACKENDS)
-                .default_value(constants::BELLMAN),
+                .default_value(constants::ARK),
         )
 }
 

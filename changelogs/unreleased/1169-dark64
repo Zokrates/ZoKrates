@@ -1,0 +1,1 @@
+Fix constant inlining for tuples
