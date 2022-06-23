@@ -1,7 +1,9 @@
-def yes() -> bool:
-    return true
+def yes() -> bool {
+    return true;
+}
 
-const bool TRUE = yes()
+const bool TRUE = yes();
 
-def main():
-    return
+def main() {
+    return;
+}

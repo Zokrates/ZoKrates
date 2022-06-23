@@ -1,15 +1,16 @@
 struct B {
-    field a
+    field a;
 }
 
 struct A {
-    B a
+    B a;
 }
 
-def main():
+def main() {
     A a = A {
         a: B {
             a: false
         }
-    }
-    return
+    };
+    return;
+}

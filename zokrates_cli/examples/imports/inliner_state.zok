@@ -1,12 +1,14 @@
-from "./inliner_state_aux" import main as test
+from "./inliner_state_aux" import main as test;
 
 // we check that the constant inliner does not get corrupted
 // notice that the constant generic has the same name as the constant `K` 
 // defined in the `test1.zok` module
-def tmp<K>(): 
-    u32 junk = test() + K
-    return
+def tmp<K>() {
+    u32 junk = test() + K;
+    return;
+}
 
 // dummy main
-def main():
-    return
+def main() {
+    return;
+}

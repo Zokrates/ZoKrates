@@ -1,7 +1,8 @@
-import "./unpack" as unpack
+import "./unpack" as unpack;
 
 // Unpack a field element as 256 big-endian bits
 // If the input is larger than `2**256 - 1`, the output is truncated.
-def main(field i) -> bool[256]:
-	bool[256] res = unpack::<256>(i)
-	return res
+def main(field i) -> bool[256] {
+    bool[256] res = unpack::<256>(i);
+    return res;
+}

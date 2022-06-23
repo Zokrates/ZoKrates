@@ -1,6 +1,6 @@
 use crate::absy;
 
-use crate::absy::SymbolDefinition;
+use crate::absy::{ConditionalExpression, SymbolDefinition};
 use num_bigint::BigUint;
 use std::path::Path;
 use zokrates_pest_ast as pest;
@@ -108,9 +108,9 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'as
 
         let span = field.span;
 
-        let id = field.id.span.as_str();
+        let id = field.id.identifier.span.as_str();
 
-        let ty = absy::UnresolvedTypeNode::from(field.ty);
+        let ty = absy::UnresolvedTypeNode::from(field.id.ty);
 
         absy::StructDefinitionField { id, ty }.span(span)
     }
@@ -121,10 +121,10 @@ impl<'ast> From<pest::ConstantDefinition<'ast>> for absy::SymbolDeclarationNode<
         use crate::absy::NodeValue;
 
         let span = definition.span;
-        let id = definition.id.span.as_str();
+        let id = definition.id.identifier.span.as_str();
 
         let ty = absy::ConstantDefinition {
-            ty: definition.ty.into(),
+            ty: definition.id.ty.into(),
             expression: definition.expression.into(),
         }
         .span(span.clone());
@@ -386,15 +386,15 @@ impl<'ast> From<pest::IterationStatement<'ast>> for absy::StatementNode<'ast> {
         use crate::absy::NodeValue;
         let from = absy::ExpressionNode::from(statement.from);
         let to = absy::ExpressionNode::from(statement.to);
-        let index = statement.index.span.as_str();
-        let ty = absy::UnresolvedTypeNode::from(statement.ty);
+        let index = statement.id.identifier.span.as_str();
+        let ty = absy::UnresolvedTypeNode::from(statement.id.ty);
         let statements: Vec<absy::StatementNode<'ast>> = statement
             .statements
             .into_iter()
             .flat_map(statements_from_statement)
             .collect();
 
-        let var = absy::Variable::new(index, ty).span(statement.index.span);
+        let var = absy::Variable::new(index, ty).span(statement.id.identifier.span);
 
         absy::Statement::For(var, from, to, statements).span(statement.span)
     }
@@ -510,12 +510,22 @@ impl<'ast> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode<'ast> {
 impl<'ast> From<pest::IfElseExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::IfElseExpression<'ast>) -> absy::ExpressionNode<'ast> {
         use crate::absy::NodeValue;
-        absy::Expression::Conditional(
-            box absy::ExpressionNode::from(*expression.condition),
-            box absy::ExpressionNode::from(*expression.consequence),
-            box absy::ExpressionNode::from(*expression.alternative),
-            absy::ConditionalKind::IfElse,
-        )
+        absy::Expression::Conditional(box ConditionalExpression {
+            condition: box absy::ExpressionNode::from(*expression.condition),
+            consequence_statements: expression
+                .consequence_statements
+                .into_iter()
+                .flat_map(statements_from_statement)
+                .collect(),
+            consequence: box absy::ExpressionNode::from(*expression.consequence),
+            alternative_statements: expression
+                .alternative_statements
+                .into_iter()
+                .flat_map(statements_from_statement)
+                .collect(),
+            alternative: box absy::ExpressionNode::from(*expression.alternative),
+            kind: absy::ConditionalKind::IfElse,
+        })
         .span(expression.span)
     }
 }
@@ -523,12 +533,14 @@ impl<'ast> From<pest::IfElseExpression<'ast>> for absy::ExpressionNode<'ast> {
 impl<'ast> From<pest::TernaryExpression<'ast>> for absy::ExpressionNode<'ast> {
     fn from(expression: pest::TernaryExpression<'ast>) -> absy::ExpressionNode<'ast> {
         use crate::absy::NodeValue;
-        absy::Expression::Conditional(
-            box absy::ExpressionNode::from(*expression.condition),
-            box absy::ExpressionNode::from(*expression.consequence),
-            box absy::ExpressionNode::from(*expression.alternative),
-            absy::ConditionalKind::Ternary,
-        )
+        absy::Expression::Conditional(box ConditionalExpression {
+            condition: box absy::ExpressionNode::from(*expression.condition),
+            consequence_statements: vec![],
+            consequence: box absy::ExpressionNode::from(*expression.consequence),
+            alternative_statements: vec![],
+            alternative: box absy::ExpressionNode::from(*expression.alternative),
+            kind: absy::ConditionalKind::Ternary,
+        })
         .span(expression.span)
     }
 }
@@ -921,7 +933,7 @@ mod tests {
 
     #[test]
     fn return_forty_two() {
-        let source = "def main() -> field: return 42";
+        let source = "def main() -> field { return 42; }";
         let ast = pest::generate_ast(source).unwrap();
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
@@ -952,7 +964,7 @@ mod tests {
 
     #[test]
     fn return_true() {
-        let source = "def main() -> bool: return true";
+        let source = "def main() -> bool { return true; }";
         let ast = pest::generate_ast(source).unwrap();
         let expected: absy::Module = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
@@ -981,7 +993,7 @@ mod tests {
 
     #[test]
     fn arguments() {
-        let source = "def main(private field a, bool b) -> field: return 42";
+        let source = "def main(private field a, bool b) -> field { return 42; }";
         let ast = pest::generate_ast(source).unwrap();
 
         let expected: absy::Module = absy::Module {
@@ -1035,7 +1047,7 @@ mod tests {
     mod types {
         use super::*;
 
-        /// Helper method to generate the ast for `def main(private {ty} a): return` which we use to check ty
+        /// Helper method to generate the ast for `def main(private {ty} a) { return; }` which we use to check ty
         fn wrap(ty: UnresolvedType<'static>) -> absy::Module<'static> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
@@ -1099,7 +1111,7 @@ mod tests {
             ];
 
             for (ty, expected) in vectors {
-                let source = format!("def main(private {} a): return", ty);
+                let source = format!("def main(private {} a) {{ return; }}", ty);
                 let expected = wrap(expected);
                 let ast = pest::generate_ast(&source).unwrap();
                 assert_eq!(absy::Module::from(ast), expected);
@@ -1199,7 +1211,7 @@ mod tests {
             ];
 
             for (source, expected) in vectors {
-                let source = format!("def main(): return {}", source);
+                let source = format!("def main() {{ return {}; }}", source);
                 let expected = wrap(expected);
                 let ast = pest::generate_ast(&source).unwrap();
                 assert_eq!(absy::Module::from(ast), expected);
@@ -1209,7 +1221,7 @@ mod tests {
         #[test]
         fn call_array_element() {
             // a call after an array access should be accepted
-            let source = "def main(): return a[2](3)";
+            let source = "def main() { return a[2](3); }";
             let ast = pest::generate_ast(source).unwrap();
             assert_eq!(
                 absy::Module::from(ast),
@@ -1230,7 +1242,7 @@ mod tests {
         #[test]
         fn call_call_result() {
             // a call after a call should be accepted
-            let source = "def main(): return a(2)(3)";
+            let source = "def main() { return a(2)(3); }";
 
             let ast = pest::generate_ast(source).unwrap();
             assert_eq!(

@@ -1,6 +1,8 @@
-def foo() -> field:
-	return 42
+def foo() -> field {
+    return 42;
+}
 
-def main():
-	field a = foo()
-	return
+def main() {
+    field a = foo();
+    return;
+}

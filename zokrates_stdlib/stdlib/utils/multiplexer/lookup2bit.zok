@@ -1,8 +1,7 @@
 // Two-bit window lookup table using one constraint
 // Maps the bits `b` to a list of field elements `c`
-def main(bool[2] b, field[4] c) -> field:
-
-	field alpha = c[1] - c[0] + if b[1] then (c[3] - c[2] - c[1] + c[0]) else 0 fi
-	field out = if b[0] then alpha else 0 fi + c[0] - (if b[1] then (0 - c[2] + c[0]) else 0 fi)
-
-	return out
+def main(bool[2] b, field[4] c) -> field {
+    field alpha = c[1] - c[0] + (b[1] ? (c[3] - c[2] - c[1] + c[0]) : 0);
+    field out = (b[0] ? alpha : 0) + c[0] - (b[1] ? (0 - c[2] + c[0]) : 0);
+    return out;
+}

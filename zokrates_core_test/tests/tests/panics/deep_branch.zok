@@ -1,34 +1,16 @@
-def check<N>(bool[N] conditions, bool[N] expected) -> bool[3]:
-    assert(conditions == expected)
-    return conditions
+def check<N>(bool[N] conditions, bool[N] expected) -> bool[3] {
+    assert(conditions == expected);
+    return conditions;
+}
 
-def main(bool[3] conditions) -> bool[3]:
-    return if conditions[0] then\
-        if conditions[1] then\
-            if conditions[2] then\
-                check(conditions, [true, true, true])\
-            else\
-                check(conditions, [true, true, false])\
-            fi\
-        else\
-            if conditions[2] then\
-                check(conditions, [true, false, true])\
-            else\
-                check(conditions, [true, false, false])\
-            fi\
-        fi\
-    else\
-        if conditions[1] then\
-            if conditions[2] then\
-                check(conditions, [false, true, true])\
-            else\
-                check(conditions, [false, true, false])\
-            fi\
-        else\
-            if conditions[2] then\
-                check(conditions, [false, false, true])\
-            else\
-                check(conditions, [false, false, false])\
-            fi\
-        fi\
-    fi
+def main(bool[3] conditions) -> bool[3] {
+    return conditions[0] ? \
+        conditions[1] ? \
+        conditions[2] ? check(conditions, [true, true, true]) : check(conditions, [true, true, false]) : \
+        conditions[2] ? check(conditions, [true, false, true]) : \
+        check(conditions, [true, false, false]) : \
+        conditions[1] ? \
+        conditions[2] ? check(conditions, [false, true, true]) : check(conditions, [false, true, false]) : \
+        conditions[2] ? check(conditions, [false, false, true]) : \
+        check(conditions, [false, false, false]);
+}

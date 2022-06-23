@@ -1,5 +1,6 @@
-import "./bool_array_to_u32_array" as bool_to_u32
+import "./bool_array_to_u32_array" as bool_to_u32;
 
-def main(bool[256] bits) -> u32[8]:
-	u32[8] res = bool_to_u32(bits)
-	return res
+def main(bool[256] bits) -> u32[8] {
+    u32[8] res = bool_to_u32(bits);
+    return res;
+}

@@ -3,8 +3,9 @@
 //
 // 1. Create a program
 // ```zokrates
-// def main(field a, field b) -> field:
-//     return a + b
+// def main(field a, field b) -> field {
+//     return a + b;
+// }
 // ```
 //
 // 2. Compile it to bls12_377 
@@ -50,7 +51,8 @@
 //
 // `gm17.json` can then be used as a test for this code file
 
-from "snark/gm17" import main as verify, Proof, VerificationKey
+from "snark/gm17" import main as verify, Proof, VerificationKey;
 
-def main(Proof<3> proof, VerificationKey<4> vk) -> bool:
-    return verify(proof, vk)
+def main(Proof<3> proof, VerificationKey<4> vk) -> bool {
+    return verify(proof, vk);
+}

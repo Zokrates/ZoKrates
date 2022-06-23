@@ -1,33 +1,26 @@
-import "utils/pack/u32/unpack128" as unpack128
+import "utils/pack/u32/unpack128" as unpack128;
 
-def testFive() -> bool:
+def testFive() -> bool {
+    u32[4] b = unpack128(5);
+    assert(b == [0x00000000, 0x00000000, 0x00000000, 0x00000005]);
+    return true;
+}
 
-	u32[4] b = unpack128(5)
+def testZero() -> bool {
+    u32[4] b = unpack128(0);
+    assert(b == [0x00000000, 0x00000000, 0x00000000, 0x00000000]);
+    return true;
+}
 
-	assert(b == [0x00000000, 0x00000000, 0x00000000, 0x00000005])
+def testMax() -> bool {
+    u32[4] b = unpack128(2**128 - 1);
+    assert(b == [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff]);
+    return true;
+}
 
-	return true
-
-def testZero() -> bool:
-
-	u32[4] b = unpack128(0)
-
-	assert(b == [0x00000000, 0x00000000, 0x00000000, 0x00000000])
-
-	return true
-
-def testMax() -> bool:
-
-	u32[4] b = unpack128(2**128 - 1)
-
-	assert(b == [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff])
-
-	return true
-
- def main():
-
-	assert(testFive())
-	assert(testMax())
-	assert(testZero())
-
-	return
+ def main() {
+    assert(testFive());
+    assert(testMax());
+    assert(testZero());
+    return;
+}

@@ -1,9 +1,10 @@
 struct Foo {
-    field b
-    bool a
+    field b;
+    bool a;
 }
 
 // this tests the abi, checking that the fields of a `Foo` instance get encoded in the right order
 // if the the encoder reverses `a` and `b`, the boolean check ends up being done on the field value, which would fail
-def main(Foo f):
-    return
+def main(Foo f) {
+    return;
+}

@@ -1,5 +1,6 @@
-from "EMBED" import unpack
+from "EMBED" import unpack;
 
-def main(field x):
-    bool[1] bits = unpack(x)
-    return
+def main(field x) {
+    bool[1] bits = unpack(x);
+    return;
+}

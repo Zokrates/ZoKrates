@@ -1,6 +1,8 @@
 // this code needs flattening
-def main(field a) -> field:
-  field b = a + 5 + a * a
-  field c = b + a + a * b * b
-  field d = a * b + c * c
-  return b + c + d
+def main(field a) -> field {
+  field b = a + 5 + a * a;
+  field c = b + a + a * b * b;
+  field d = a * b + c * c;
+  return b + c + d;
+}
+

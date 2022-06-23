@@ -838,20 +838,20 @@ fn fold_conditional_expression<'ast, T: Field, E: Flatten<'ast, T>>(
         ));
     }
 
-    use crate::zir::IfElse;
+    use crate::zir::Conditional;
 
     consequence
         .into_iter()
         .zip(alternative.into_iter())
         .map(|(c, a)| match (c, a) {
             (zir::ZirExpression::FieldElement(c), zir::ZirExpression::FieldElement(a)) => {
-                zir::FieldElementExpression::if_else(condition.clone(), c, a).into()
+                zir::FieldElementExpression::conditional(condition.clone(), c, a).into()
             }
             (zir::ZirExpression::Boolean(c), zir::ZirExpression::Boolean(a)) => {
-                zir::BooleanExpression::if_else(condition.clone(), c, a).into()
+                zir::BooleanExpression::conditional(condition.clone(), c, a).into()
             }
             (zir::ZirExpression::Uint(c), zir::ZirExpression::Uint(a)) => {
-                zir::UExpression::if_else(condition.clone(), c, a).into()
+                zir::UExpression::conditional(condition.clone(), c, a).into()
             }
             _ => unreachable!(),
         })

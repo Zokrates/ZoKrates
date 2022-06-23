@@ -1,3 +1,4 @@
-def main(field x):
-	field y = 1 / x
-	return
+def main(field x) {
+    field y = 1 / x;
+    return;
+}

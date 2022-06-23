@@ -1,4 +1,4 @@
-import "hashes/blake2/blake2s"
+import "hashes/blake2/blake2s";
 
 // Python code:
 // >>> from hashlib import blake2s
@@ -8,10 +8,11 @@ import "hashes/blake2/blake2s"
 // >>> digest.hexdigest()
 // '879043503b04cab2f3c0d7a4bb01c1db74c238c49887da84e8a619893092b6e2'
 
-def main():
-    u32[8] h = blake2s([[0x12345678; 16]; 3]) // 3 * 16 * 32 = 1536 bit input
+def main() {
+    u32[8] h = blake2s([[0x12345678; 16]; 3]); // 3 * 16 * 32 = 1536 bit input
     assert(h == [
         0x87904350, 0x3B04CAB2, 0xF3C0D7A4, 0xBB01C1DB,
         0x74C238C4, 0x9887DA84, 0xE8A61989, 0x3092B6E2
-    ])
-    return
+    ]);
+    return;
+}

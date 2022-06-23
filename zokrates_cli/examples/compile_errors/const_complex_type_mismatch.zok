@@ -1,7 +1,8 @@
-const u32 ONE = 1
-const u32 TWO = 2
-const field[ONE] ONE_FIELD = [1; TWO] // actually set the value to an array of 2 elements
+const u32 ONE = 1;
+const u32 TWO = 2;
+const field[ONE] ONE_FIELD = [1; TWO]; // actually set the value to an array of 2 elements
 
-def main(field[TWO] TWO_FIELDS):
-    assert(TWO_FIELDS == ONE_FIELD) // use the value as is
-    return
+def main(field[TWO] TWO_FIELDS) {
+    assert(TWO_FIELDS == ONE_FIELD); // use the value as is
+    return;
+}

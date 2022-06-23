@@ -1,2 +1,3 @@
-def main(u32 index, field[5] array) -> field:
-	return array[index]
+def main(u32 index, field[5] array) -> field {
+    return array[index];
+}

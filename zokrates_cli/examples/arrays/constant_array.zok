@@ -1,3 +1,4 @@
-def main() -> field:
-	field[4] a = [1, 2, 42, 55]
-	return a[2]
+def main() -> field {
+    field[4] a = [1, 2, 42, 55];
+    return a[2];
+}

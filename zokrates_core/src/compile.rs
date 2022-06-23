@@ -316,10 +316,11 @@ mod test {
     #[test]
     fn no_resolver_with_imports() {
         let source = r#"
-			import "./path/to/file" as foo
-			def main() -> field:
-			   return foo()
-		"#
+            import "./path/to/file" as foo;
+            def main() -> field {
+                return foo();
+            }
+        "#
         .to_string();
         let arena = Arena::new();
         let res: Result<CompilationArtifacts<Bn128Field, _>, CompileErrors> = compile(
@@ -341,9 +342,10 @@ mod test {
     #[test]
     fn no_resolver_without_imports() {
         let source = r#"
-			def main() -> field:
-			   return 1
-		"#
+            def main() -> field {
+                return 1;
+            }
+        "#
         .to_string();
 
         let arena = Arena::new();
@@ -368,22 +370,23 @@ mod test {
             // when importing types and renaming them, we use the canonical struct names in the ABI
 
             // // main.zok
-            // from foo import Foo as FooMain
+            // from foo import Foo as FooMain;
             //
             // // foo.zok
-            // from bar import Bar as BarFoo
-            // struct Foo { BarFoo b }
+            // from bar import Bar as BarFoo;
+            // struct Foo { BarFoo b; }
             //
             // // bar.zok
-            // struct Bar { field a }
+            // struct Bar { field a; }
 
             // Expected resolved type for FooMain:
-            // Foo { Bar b }
+            // Foo { Bar b; }
 
             let main = r#"
-from "foo" import Foo as FooMain
-def main(FooMain f):
-    return
+from "foo" import Foo as FooMain;
+def main(FooMain f) {
+    return;
+}
 "#;
 
             struct CustomResolver;
@@ -398,9 +401,10 @@ def main(FooMain f):
                     if loc == "main" {
                         Ok((
                             r#"
-from "foo" import Foo as FooMain
-def main(FooMain f):
-    return
+from "foo" import Foo as FooMain;
+def main(FooMain f) {
+    return;
+}
 "#
                             .into(),
                             "main".into(),
@@ -408,9 +412,9 @@ def main(FooMain f):
                     } else if loc == "foo" {
                         Ok((
                             r#"
-from "bar" import Bar as BarFoo
+from "bar" import Bar as BarFoo;
 struct Foo {
-    BarFoo b
+    BarFoo b;
 }
 "#
                             .into(),
@@ -419,7 +423,7 @@ struct Foo {
                     } else if loc == "bar" {
                         Ok((
                             r#"
-struct Bar { field a }
+struct Bar { field a; }
 "#
                             .into(),
                             "bar".into(),

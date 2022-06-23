@@ -1,14 +1,17 @@
 // this should compile but requires looking at the generic parameter values, and they are not known at semantic check time.
 // It is enough of an edge case to not be worth fixing
 
-def foo<N, P>(field[N] a) -> field[P]:
-    return [1; P]
+def foo<N, P>(field[N] a) -> field[P] {
+    return [1; P];
+}
 
-def foo<N, P>(field[P] a) -> field[N]:
-    return [1; N]
+def foo<N, P>(field[P] a) -> field[N] {
+    return [1; N];
+}
 
-def main() -> field[2]:
-    u32 X = 1
-    u32 Y = 2
-    field[2] a = foo::<X, Y>([1])
-    return a
+def main() -> field[2] {
+    u32 X = 1;
+    u32 Y = 2;
+    field[2] a = foo::<X, Y>([1]);
+    return a;
+}
