@@ -4,7 +4,7 @@ import "hashes/utils/256bitsDirectionHelper" as multiplex;
 const u32 DEPTH = 3;
 
 def select(bool condition, u32[8] left, u32[8] right) -> (u32[8], u32[8]) {
-    return condition ? right : left, condition ? left : right;
+	return (condition ? right : left, condition ? left : right);
 }
 
 // Merke-Tree inclusion proof for tree depth 4 using sha256
@@ -14,11 +14,11 @@ def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector
     // Start from the leaf
     u32[8] digest = leaf;
 
-    // Loop up the tree
-    for u32 i in 0..DEPTH {
-        u32[8] left, u32[8] right = select(directionSelector[i], digest, path[i]);
-        digest = hash(left, right);
-    }
+	// Loop up the tree
+	for u32 i in 0..DEPTH {
+		(u32[8], u32[8]) s = select(directionSelector[i], digest, path[i]);
+		digest = hash(s.0, s.1);
+	}
 
     return digest == root;
 }

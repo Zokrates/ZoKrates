@@ -3,6 +3,6 @@ struct A {
     bool b;
 }
 
-def main(A a) -> (A) {
+def main(A a) -> A {
     return a;
 }

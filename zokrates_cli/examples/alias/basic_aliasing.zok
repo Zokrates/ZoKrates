@@ -11,5 +11,5 @@ def fill<R, C>(field v) -> matrix<R, C> {
 def main(uint32 a, uint32 b) -> (UInt32Array<2>, matrix<2, 4>) {
     UInt32Array<2> res = [a, b];
     matrix<2, 4> m = fill(1);
-    return res, m;
+    return (res, m);
 }

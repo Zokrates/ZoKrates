@@ -15,5 +15,5 @@ def main(private u32[16] preimage, u32 bitNum) -> (u32[8], bool) {
             preimageBits[i*32 + bit] = val[bit];
         }
     }
-    return sha256(preimage[0..8], preimage[8..16]), preimageBits[bitNum];
+    return (sha256(preimage[0..8], preimage[8..16]), preimageBits[bitNum]);
 }

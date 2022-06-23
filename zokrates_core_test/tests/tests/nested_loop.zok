@@ -24,5 +24,5 @@ def main(field[4] values) -> (field, field, field) {
         }
     }
 
-    return res0, res1, res2;
+    return (res0, res1, res2);
 }

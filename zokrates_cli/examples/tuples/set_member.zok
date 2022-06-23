@@ -8,12 +8,12 @@ struct Foo {
     bool b;
 }
 
-def main() -> (((field[2], bool), bool)) {
-    ((field[2], bool), bool)[2] f = [
-        (([0, 0], false), true),
-        (([0, 0], false), true)
-    ];
-    f[0].0.0 = [42, 43];
-    return f[0];
+def main() -> ((field[2], bool), bool) {
+	((field[2], bool), bool)[2] f = [
+		(([0, 0], false), true),
+		(([0, 0], false), true)
+	];
+	f[0].0.0 = [42, 43];
+	return f[0];
 }
 

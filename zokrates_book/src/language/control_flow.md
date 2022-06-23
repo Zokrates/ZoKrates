@@ -12,7 +12,7 @@ Arguments are passed by value.
 {{#include ../../../zokrates_cli/examples/book/side_effects.zok}}
 ```
 
-Generic paramaters, if any, must be compile-time constants. They are inferred by the compiler if that is possible, but can also be provided explicitly.
+Generic parameters, if any, must be compile-time constants. They are inferred by the compiler if that is possible, but can also be provided explicitly.
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/generic_call.zok}}
