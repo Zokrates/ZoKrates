@@ -33,26 +33,6 @@ impl<'a, 'ast, T: Field> ConstantsReader<'a, 'ast, T> {
 }
 
 impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
-    fn fold_declaration_constant(
-        &mut self,
-        c: DeclarationConstant<'ast, T>,
-    ) -> DeclarationConstant<'ast, T> {
-        match c {
-            DeclarationConstant::Constant(c) => {
-                let c = self.fold_canonical_constant_identifier(c);
-
-                match self.constants.get(&c).cloned() {
-                    Some(e) => match UExpression::try_from(e).unwrap().into_inner() {
-                        UExpressionInner::Value(v) => DeclarationConstant::Concrete(v as u32),
-                        _ => unreachable!(),
-                    },
-                    None => DeclarationConstant::Constant(c),
-                }
-            }
-            c => fold_declaration_constant(self, c),
-        }
-    }
-
     fn fold_field_expression(
         &mut self,
         e: FieldElementExpression<'ast, T>,
@@ -187,6 +167,26 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                 }
             }
             e => fold_struct_expression_inner(self, ty, e),
+        }
+    }
+
+    fn fold_declaration_constant(
+        &mut self,
+        c: DeclarationConstant<'ast, T>,
+    ) -> DeclarationConstant<'ast, T> {
+        match c {
+            DeclarationConstant::Constant(c) => {
+                let c = self.fold_canonical_constant_identifier(c);
+
+                match self.constants.get(&c).cloned() {
+                    Some(e) => match UExpression::try_from(e).unwrap().into_inner() {
+                        UExpressionInner::Value(v) => DeclarationConstant::Concrete(v as u32),
+                        _ => unreachable!(),
+                    },
+                    None => DeclarationConstant::Constant(c),
+                }
+            }
+            c => fold_declaration_constant(self, c),
         }
     }
 }

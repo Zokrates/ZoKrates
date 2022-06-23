@@ -1706,20 +1706,22 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = stat.pos();
 
         match stat.value {
-            Statement::Return(None) => Ok(TypedStatement::Return(
-                TupleExpressionInner::Value(vec![])
-                    .annotate(TupleType::new(vec![]))
-                    .into(),
-            )),
-            Statement::Return(Some(e)) => {
+            Statement::Return(e) => {
                 let mut errors = vec![];
 
                 // we clone the return type because there might be other return statements
                 let return_type = self.return_type.clone().unwrap();
 
-                let e_checked = self
-                    .check_expression(e, module_id, types)
-                    .map_err(|e| vec![e])?;
+                let e_checked = e
+                    .map(|e| {
+                        self.check_expression(e, module_id, types)
+                            .map_err(|e| vec![e])
+                    })
+                    .unwrap_or_else(|| {
+                        Ok(TupleExpressionInner::Value(vec![])
+                            .annotate(TupleType::new(vec![]))
+                            .into())
+                    })?;
 
                 let res = match TypedExpression::align_to_type(e_checked.clone(), &return_type)
                     .map_err(|e| {
@@ -3689,7 +3691,7 @@ mod tests {
         }
     }
 
-    /// Helper function to create: def function0() { return; }
+    /// Helper function to create: () { return; }
     fn function0() -> FunctionNode<'static> {
         let statements = vec![Statement::Return(None).mock()];
 
@@ -3705,7 +3707,7 @@ mod tests {
         .mock()
     }
 
-    /// Helper function to create def function1(private field a) { return; }
+    /// Helper function to create: (private field a) { return; }
     fn function1() -> FunctionNode<'static> {
         let statements = vec![Statement::Return(None).mock()];
 
