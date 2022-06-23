@@ -206,8 +206,6 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     let (typed_ast, abi): (zokrates_ast::zir::ZirProgram<'_, T>, _) =
         check_with_arena(source, location, resolver, &config, arena)?;
 
-    println!("{}", typed_ast);
-
     // flatten input program
     log::debug!("Flatten");
     let program_flattened = from_function_and_config(typed_ast.main, config);
