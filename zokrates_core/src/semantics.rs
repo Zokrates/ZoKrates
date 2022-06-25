@@ -2110,7 +2110,6 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
         let arguments_types: Vec<_> = arguments_checked.iter().map(|a| a.get_type()).collect();
 
-        // we use type inference to determine the type of the return, so we don't specify it
         let query = FunctionQuery::new(
             fun_id,
             &generics_checked,
