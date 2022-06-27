@@ -4317,9 +4317,14 @@ mod tests {
 
     #[test]
     fn undefined_variable_in_statement() {
+        // field a;
         // a = b;
         // b undefined
-        let statement: StatementNode = Statement::Definition(
+        let declaration =  Statement::Declaration(
+            absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+        ).mock();
+
+        let definition: StatementNode = Statement::Definition(
             Assignee::Identifier("a").mock(),
             Expression::Identifier("b").mock(),
         )
@@ -4327,9 +4332,10 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = Checker::default();
         checker.enter_scope();
+        checker.check_statement(declaration, &*MODULE_ID, &TypeMap::new()).unwrap();
 
         assert_eq!(
-            checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
+            checker.check_statement(definition, &*MODULE_ID, &TypeMap::new()),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"b\" is undefined".into()
