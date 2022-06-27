@@ -4320,9 +4320,10 @@ mod tests {
         // field a;
         // a = b;
         // b undefined
-        let declaration =  Statement::Declaration(
+        let declaration = Statement::Declaration(
             absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
-        ).mock();
+        )
+        .mock();
 
         let definition: StatementNode = Statement::Definition(
             Assignee::Identifier("a").mock(),
@@ -4332,7 +4333,9 @@ mod tests {
 
         let mut checker: Checker<Bn128Field> = Checker::default();
         checker.enter_scope();
-        checker.check_statement(declaration, &*MODULE_ID, &TypeMap::new()).unwrap();
+        checker
+            .check_statement(declaration, &*MODULE_ID, &TypeMap::new())
+            .unwrap();
 
         assert_eq!(
             checker.check_statement(definition, &*MODULE_ID, &TypeMap::new()),
