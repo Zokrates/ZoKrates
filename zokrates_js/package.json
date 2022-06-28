@@ -43,7 +43,7 @@
     "clean-node-pkg": "rimraf node/pkg/README.md node/pkg/.gitignore",
     "pretest": "npm run setup && npm run build:node:dev",
     "test": "npm run run-tests",
-    "run-tests": "mocha --timeout 100000 --require esm --recursive tests --exit"
+    "run-tests": "mocha --timeout 100000 --require esm --recursive tests"
   },
   "devDependencies": {
     "dree": "^2.6.1",

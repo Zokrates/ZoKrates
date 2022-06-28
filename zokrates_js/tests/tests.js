@@ -20,6 +20,10 @@ describe("tests", () => {
     });
   });
 
+  after(() => {
+    globalThis.curve_bn128.terminate();
+  })
+
     describe("compilation", () => {
       it("should compile", () => {
         assert.doesNotThrow(() => {
