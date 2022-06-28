@@ -5131,8 +5131,8 @@ mod tests {
 
     #[test]
     fn shadowing_with_same_type() {
-        //   field a = 2;
-        //	 field a = 2;
+        // field a = 2;
+        // field a = 2;
         //
         // should fail
 
@@ -5167,8 +5167,8 @@ mod tests {
 
     #[test]
     fn shadowing_with_different_type() {
-        //   field a = 2;
-        //	 bool a = true;
+        // field a = 2;
+        // bool a = true;
         //
         // should fail
 
