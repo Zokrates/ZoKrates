@@ -83,7 +83,7 @@ impl<'ast, T: Field> Folder<'ast, T> for StructConcretizer<'ast, T> {
         let size = ty.size.map_concrete(&self.generics).unwrap();
 
         DeclarationArrayType {
-            size: DeclarationConstant::Concrete(size),
+            size: box DeclarationConstant::Concrete(size),
             ty: box self.fold_declaration_type(*ty.ty),
         }
     }

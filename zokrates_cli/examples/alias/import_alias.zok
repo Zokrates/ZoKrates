@@ -12,5 +12,5 @@ def buzz<N>() -> Buzz<N> {
 
 def main(matrix_2x4 m) -> (Buzz<2>, matrix_2x4) {
     Buzz<2> b = buzz::<2>();
-    return b, m;
+    return (b, m);
 }

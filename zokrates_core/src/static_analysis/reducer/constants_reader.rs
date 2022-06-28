@@ -4,8 +4,8 @@ use crate::static_analysis::reducer::ConstantDefinitions;
 use zokrates_ast::typed::{
     folder::*, ArrayExpression, ArrayExpressionInner, ArrayType, BooleanExpression, CoreIdentifier,
     DeclarationConstant, Expr, FieldElementExpression, Identifier, StructExpression,
-    StructExpressionInner, StructType, TypedProgram, TypedSymbolDeclaration, UBitwidth,
-    UExpression, UExpressionInner,
+    StructExpressionInner, StructType, TupleExpression, TupleExpressionInner, TupleType,
+    TypedProgram, TypedSymbolDeclaration, UBitwidth, UExpression, UExpressionInner,
 };
 use zokrates_field::Field;
 
@@ -121,6 +121,29 @@ impl<'a, 'ast, T: Field> Folder<'ast, T> for ConstantsReader<'a, 'ast, T> {
                 }
             }
             e => fold_array_expression_inner(self, ty, e),
+        }
+    }
+
+    fn fold_tuple_expression_inner(
+        &mut self,
+        ty: &TupleType<'ast, T>,
+        e: TupleExpressionInner<'ast, T>,
+    ) -> TupleExpressionInner<'ast, T> {
+        match e {
+            TupleExpressionInner::Identifier(Identifier {
+                id: CoreIdentifier::Constant(c),
+                version,
+            }) => {
+                assert_eq!(version, 0);
+                match self.constants.get(&c).cloned() {
+                    Some(v) => TupleExpression::try_from(v).unwrap().into_inner(),
+                    None => TupleExpressionInner::Identifier(Identifier {
+                        id: CoreIdentifier::Constant(c),
+                        version,
+                    }),
+                }
+            }
+            e => fold_tuple_expression_inner(self, ty, e),
         }
     }
 

@@ -8,7 +8,7 @@
       },
       "output": {
         "Ok": {
-          "values": [false]
+          "value": false
         }
       }
     },
@@ -18,7 +18,7 @@
       },
       "output": {
         "Ok": {
-          "values": [true]
+          "value": true
         }
       }
     }

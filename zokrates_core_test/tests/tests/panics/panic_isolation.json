@@ -7,12 +7,7 @@
     "tests": [
         {
             "input": {
-                "values": [
-                    true,
-                    ["42",
-                    "42"],
-                    "0"
-                ]
+                "values": [true, ["42", "42"], "0"]
             },
             "output": {
                 "Err": {
@@ -28,41 +23,21 @@
         },
         {
             "input": {
-                "values": [
-                    true,
-                    ["1",
-                    "1"],
-                    "1"
-                ]
+                "values": [true, ["1", "1"], "1"]
             },
             "output": {
                 "Ok": {
-                    "values": [
-                        true,
-                        ["1",
-                        "1"],
-                        "1"
-                    ]
+                    "value": [true, ["1", "1"], "1"]
                 }
             }
         },
         {
             "input": {
-                "values": [
-                    false,
-                    ["2",
-                    "2"],
-                    "0"
-                ]
+                "values": [false, ["2", "2"], "0"]
             },
             "output": {
                 "Ok": {
-                    "values": [
-                        false,
-                        ["2",
-                        "2"],
-                        "0"
-                    ]
+                    "value": [false, ["2", "2"], "0"]
                 }
             }
         }

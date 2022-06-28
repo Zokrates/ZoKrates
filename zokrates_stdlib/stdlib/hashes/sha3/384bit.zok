@@ -4,6 +4,6 @@ def sha3_384<N>(u8[N] input) -> u64[6] {
     return keccak_u8::<_, 384>(input, 0x0000000000000006)[..6];
 }
 
-def main<N>(u64[N] input) -> (u64[6]) {
+def main<N>(u64[N] input) -> u64[6] {
     return keccak::<_, 384>(input, 0x0000000000000006)[..6];
 }

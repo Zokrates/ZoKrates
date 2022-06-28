@@ -5,8 +5,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+use zokrates_ast::typed::types::GTupleType;
+use zokrates_ast::typed::ConcreteSignature;
 use zokrates_ast::typed::ConcreteType;
 use zokrates_core::compile::{compile, CompileConfig};
+
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -44,7 +47,7 @@ type TestResult = Result<Output, zokrates_interpreter::Error>;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 struct Output {
-    values: Vec<Val>,
+    value: Val,
 }
 
 type Val = serde_json::Value;
@@ -152,8 +155,18 @@ fn compile_and_run<T: Field>(t: Tests) {
     for test in t.tests.into_iter() {
         let with_abi = test.abi.unwrap_or(with_abi);
 
+        let signature = if with_abi {
+            abi.signature()
+        } else {
+            ConcreteSignature::new()
+                .inputs(vec![ConcreteType::FieldElement; bin.arguments.len()])
+                .output(ConcreteType::Tuple(GTupleType::new(
+                    vec![ConcreteType::FieldElement; bin.return_count],
+                )))
+        };
+
         let input = if with_abi {
-            try_parse_abi_val(test.input.values, abi.signature().inputs).unwrap()
+            try_parse_abi_val(test.input.values, signature.inputs.clone()).unwrap()
         } else {
             test.input
                 .values
@@ -167,26 +180,10 @@ fn compile_and_run<T: Field>(t: Tests) {
         let output = interpreter.execute(bin.clone(), &input);
 
         use zokrates_abi::Decode;
+
         let output: Result<Output, zokrates_interpreter::Error> = output.map(|witness| Output {
-            values: zokrates_abi::Values::decode(
-                witness.return_values(),
-                if with_abi {
-                    abi.signature().outputs
-                } else {
-                    abi.signature()
-                        .outputs
-                        .iter()
-                        .flat_map(|t| {
-                            (0..t.get_primitive_count())
-                                .map(|_| zokrates_ast::typed::ConcreteType::FieldElement)
-                        })
-                        .collect()
-                },
-            )
-            .0
-            .into_iter()
-            .map(|v| v.into_serde_json())
-            .collect(),
+            value: zokrates_abi::Value::decode(witness.return_values(), *signature.output.clone())
+                .into_serde_json(),
         });
 
         if let Err(e) = compare(output, test.output) {

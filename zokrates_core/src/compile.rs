@@ -469,7 +469,7 @@ struct Bar { field a; }
                             }]
                         ))
                     }],
-                    outputs: vec![]
+                    output: ConcreteType::Tuple(GTupleType::new(vec![]))
                 }
             );
         }

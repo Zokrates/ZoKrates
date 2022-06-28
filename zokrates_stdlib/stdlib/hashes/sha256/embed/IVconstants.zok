@@ -1,6 +1,6 @@
 // SHA-256 is specified in FIPS 180-3 and initial values are listed in section 5.3.3
 // https://csrc.nist.gov/csrc/media/publications/fips/180/3/archive/2008-10-31/documents/fips180-3_final.pdf
-def main() -> (bool[256]) {
+def main() -> bool[256] {
     bool[32] h0 = [false, true, true, false, true, false, true, false, false, false, false, false, true, false, false, true, true, true, true, false, false, true, true, false, false, true, true, false, false, true, true, true];
     bool[32] h1 = [true, false, true, true, true, false, true, true, false, true, true, false, false, true, true, true, true, false, true, false, true, true, true, false, true, false, false, false, false, true, false, true];
     bool[32] h2 = [false, false, true, true, true, true, false, false, false, true, true, false, true, true, true, false, true, true, true, true, false, false, true, true, false, true, true, true, false, false, true, false];

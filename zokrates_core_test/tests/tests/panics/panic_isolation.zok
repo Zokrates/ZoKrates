@@ -32,7 +32,7 @@ def main(bool condition, field[2] a, field x) -> (bool, field[2], field) {
     // first branch asserts that `condition` is true, second branch asserts that `condition` is false. This should never throw.
     // first branch asserts that all elements in `a` are 1, 2 in the second branch. This should throw only if `a` is neither ones or zeroes
     // first branch asserts that `x` is zero and returns it, second branch asserts that `x` isn't 0 and returns its inverse (which internally generates a failing assert if x is 0). This should never throw
-    return condition ? yes(condition) : no(condition), \
+    return (condition ? yes(condition) : no(condition), \
         condition ? ones(a) : twos(a), \
-        x == 0 ? zero(x) : inverse(x);
+        x == 0 ? zero(x) : inverse(x));
 }

@@ -72,7 +72,7 @@ describe("tests", function () {
 
          const result = zokratesProvider.computeWitness(artifacts, ["2"]);
          const output = JSON.parse(result.output);
-         assert.deepEqual(output, ["4"]);
+         assert.deepEqual(output, "4");
        });
      });
 
@@ -218,8 +218,8 @@ describe("tests", function () {
               input,
               t.input.values
             );
-            const values = JSON.parse(result.output);
-            assert.deepEqual({ Ok: { values } }, t.output);
+            const value = JSON.parse(result.output);
+            assert.deepEqual({ Ok: { value } }, t.output);
           } catch (err) {
             assert.ok(t.output["Err"], err); // we expected an error in this test
           }

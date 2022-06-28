@@ -18,5 +18,5 @@ def mutate(field[1] f) -> field[1] {
 }
 
 def main(field[1] f, Foo g, field h) -> (field[1], field[1], Foo, Foo, field, field) {
-    return mutate(f), f, mutate(g), g, mutate(h), h;
+    return (mutate(f), f, mutate(g), g, mutate(h), h);
 }

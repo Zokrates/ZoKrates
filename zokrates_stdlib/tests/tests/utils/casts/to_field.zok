@@ -16,5 +16,5 @@ def main(u64[4] a, u32[4] b, u16[4] c, u8[4] d) -> (field[4], field[4], field[4]
         h[i] = u8_to_field(d[i]);
     }
 
-    return e, f, g, h;
+    return (e, f, g, h);
 }

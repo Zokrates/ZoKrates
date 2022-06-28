@@ -14,7 +14,7 @@ pub type AbiOutput = ConcreteType;
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Abi {
     pub inputs: Vec<AbiInput>,
-    pub outputs: Vec<AbiOutput>,
+    pub output: AbiOutput,
 }
 
 impl Abi {
@@ -22,7 +22,7 @@ impl Abi {
         ConcreteSignature {
             generics: vec![],
             inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
-            outputs: self.outputs.clone(),
+            output: box self.output.clone(),
         }
     }
 }
@@ -31,7 +31,8 @@ impl Abi {
 mod tests {
     use super::*;
     use crate::typed::types::{
-        ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType, UBitwidth,
+        ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType,
+        GTupleType, UBitwidth,
     };
     use crate::typed::{
         parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteTupleType,
@@ -59,7 +60,7 @@ mod tests {
                 statements: vec![],
                 signature: ConcreteSignature::new()
                     .inputs(vec![ConcreteType::FieldElement, ConcreteType::Boolean])
-                    .outputs(vec![ConcreteType::FieldElement])
+                    .output(ConcreteType::FieldElement)
                     .into(),
             }),
         )
@@ -87,7 +88,7 @@ mod tests {
                     ty: ConcreteType::Boolean,
                 },
             ],
-            outputs: vec![ConcreteType::FieldElement],
+            output: ConcreteType::FieldElement,
         };
 
         assert_eq!(expected_abi, abi);
@@ -97,11 +98,14 @@ mod tests {
     fn serialize_empty() {
         let abi: Abi = Abi {
             inputs: vec![],
-            outputs: vec![],
+            output: ConcreteType::Tuple(GTupleType::new(vec![])),
         };
 
         let json = serde_json::to_string(&abi).unwrap();
-        assert_eq!(&json, r#"{"inputs":[],"outputs":[]}"#);
+        assert_eq!(
+            &json,
+            r#"{"inputs":[],"output":{"type":"tuple","components":{"elements":[]}}}"#
+        );
         let de_abi: Abi = serde_json::from_str(json.as_ref()).unwrap();
         assert_eq!(de_abi, abi);
     }
@@ -113,7 +117,7 @@ mod tests {
 
         let abi: Abi = Abi {
             inputs: vec![],
-            outputs: vec![ConcreteType::Int],
+            output: ConcreteType::Int,
         };
 
         let _ = serde_json::to_string_pretty(&abi).unwrap();
@@ -134,7 +138,7 @@ mod tests {
                     ty: ConcreteType::FieldElement,
                 },
             ],
-            outputs: vec![ConcreteType::FieldElement],
+            output: ConcreteType::FieldElement,
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -153,11 +157,9 @@ mod tests {
       "type": "field"
     }
   ],
-  "outputs": [
-    {
-      "type": "field"
-    }
-  ]
+  "output": {
+    "type": "field"
+  }
 }"#
         );
 
@@ -185,7 +187,7 @@ mod tests {
                     ty: ConcreteType::Uint(UBitwidth::B32),
                 },
             ],
-            outputs: vec![],
+            output: ConcreteType::Tuple(GTupleType::new(vec![])),
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -209,7 +211,12 @@ mod tests {
       "type": "u32"
     }
   ],
-  "outputs": []
+  "output": {
+    "type": "tuple",
+    "components": {
+      "elements": []
+    }
+  }
 }"#
         );
 
@@ -236,7 +243,7 @@ mod tests {
                     )],
                 )),
             }],
-            outputs: vec![ConcreteType::Struct(ConcreteStructType::new(
+            output: ConcreteType::Struct(ConcreteStructType::new(
                 "".into(),
                 "Foo".into(),
                 vec![],
@@ -244,7 +251,7 @@ mod tests {
                     ConcreteStructMember::new(String::from("a"), ConcreteType::FieldElement),
                     ConcreteStructMember::new(String::from("b"), ConcreteType::Boolean),
                 ],
-            ))],
+            )),
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -274,25 +281,23 @@ mod tests {
       }
     }
   ],
-  "outputs": [
-    {
-      "type": "struct",
-      "components": {
-        "name": "Foo",
-        "generics": [],
-        "members": [
-          {
-            "name": "a",
-            "type": "field"
-          },
-          {
-            "name": "b",
-            "type": "bool"
-          }
-        ]
-      }
+  "output": {
+    "type": "struct",
+    "components": {
+      "name": "Foo",
+      "generics": [],
+      "members": [
+        {
+          "name": "a",
+          "type": "field"
+        },
+        {
+          "name": "b",
+          "type": "bool"
+        }
+      ]
     }
-  ]
+  }
 }"#
         );
 
@@ -330,7 +335,7 @@ mod tests {
                     )],
                 )),
             }],
-            outputs: vec![],
+            output: ConcreteType::Tuple(GTupleType::new(vec![])),
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -368,7 +373,12 @@ mod tests {
       }
     }
   ],
-  "outputs": []
+  "output": {
+    "type": "tuple",
+    "components": {
+      "elements": []
+    }
+  }
 }"#
         );
 
@@ -398,7 +408,7 @@ mod tests {
                     2u32,
                 )),
             }],
-            outputs: vec![ConcreteType::Boolean],
+            output: ConcreteType::Boolean,
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -430,11 +440,9 @@ mod tests {
       }
     }
   ],
-  "outputs": [
-    {
-      "type": "bool"
-    }
-  ]
+  "output": {
+    "type": "bool"
+  }
 }"#
         );
 
@@ -453,7 +461,7 @@ mod tests {
                     2u32,
                 )),
             }],
-            outputs: vec![ConcreteType::FieldElement],
+            output: ConcreteType::FieldElement,
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -475,11 +483,9 @@ mod tests {
       }
     }
   ],
-  "outputs": [
-    {
-      "type": "field"
-    }
-  ]
+  "output": {
+    "type": "field"
+  }
 }"#
         );
 
@@ -498,9 +504,7 @@ mod tests {
                     ConcreteType::Boolean,
                 ])),
             }],
-            outputs: vec![ConcreteType::Tuple(ConcreteTupleType::new(vec![
-                ConcreteType::FieldElement,
-            ]))],
+            output: ConcreteType::Tuple(ConcreteTupleType::new(vec![ConcreteType::FieldElement])),
         };
 
         let json = serde_json::to_string_pretty(&abi).unwrap();
@@ -524,18 +528,16 @@ mod tests {
       }
     }
   ],
-  "outputs": [
-    {
-      "type": "tuple",
-      "components": {
-        "elements": [
-          {
-            "type": "field"
-          }
-        ]
-      }
+  "output": {
+    "type": "tuple",
+    "components": {
+      "elements": [
+        {
+          "type": "field"
+        }
+      ]
     }
-  ]
+  }
 }"#
         );
 

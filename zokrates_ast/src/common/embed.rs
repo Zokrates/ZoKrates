@@ -62,66 +62,76 @@ impl FlatEmbed {
                     )
                     .into(),
                 ])
-                .outputs(vec![UnresolvedType::Boolean.into()]),
+                .output(UnresolvedType::Boolean.into()),
             FlatEmbed::Unpack => UnresolvedSignature::new()
                 .generics(vec!["N".into()])
                 .inputs(vec![UnresolvedType::FieldElement.into()])
-                .outputs(vec![UnresolvedType::array(
-                    UnresolvedType::Boolean.into(),
-                    Expression::Identifier("N").into(),
-                )
-                .into()]),
+                .output(
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::Identifier("N").into(),
+                    )
+                    .into(),
+                ),
             FlatEmbed::U8ToBits => UnresolvedSignature::new()
                 .inputs(vec![UnresolvedType::Uint(8).into()])
-                .outputs(vec![UnresolvedType::array(
-                    UnresolvedType::Boolean.into(),
-                    Expression::U32Constant(8).into(),
-                )
-                .into()]),
+                .output(
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::U32Constant(8).into(),
+                    )
+                    .into(),
+                ),
             FlatEmbed::U16ToBits => UnresolvedSignature::new()
                 .inputs(vec![UnresolvedType::Uint(16).into()])
-                .outputs(vec![UnresolvedType::array(
-                    UnresolvedType::Boolean.into(),
-                    Expression::U32Constant(16).into(),
-                )
-                .into()]),
+                .output(
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::U32Constant(16).into(),
+                    )
+                    .into(),
+                ),
             FlatEmbed::U32ToBits => UnresolvedSignature::new()
                 .inputs(vec![UnresolvedType::Uint(32).into()])
-                .outputs(vec![UnresolvedType::array(
-                    UnresolvedType::Boolean.into(),
-                    Expression::U32Constant(32).into(),
-                )
-                .into()]),
+                .output(
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::U32Constant(32).into(),
+                    )
+                    .into(),
+                ),
             FlatEmbed::U64ToBits => UnresolvedSignature::new()
                 .inputs(vec![UnresolvedType::Uint(64).into()])
-                .outputs(vec![UnresolvedType::array(
-                    UnresolvedType::Boolean.into(),
-                    Expression::U32Constant(64).into(),
-                )
-                .into()]),
+                .output(
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::U32Constant(64).into(),
+                    )
+                    .into(),
+                ),
             FlatEmbed::U8FromBits => UnresolvedSignature::new()
-                .outputs(vec![UnresolvedType::Uint(8).into()])
+                .output(UnresolvedType::Uint(8).into())
                 .inputs(vec![UnresolvedType::array(
                     UnresolvedType::Boolean.into(),
                     Expression::U32Constant(8).into(),
                 )
                 .into()]),
             FlatEmbed::U16FromBits => UnresolvedSignature::new()
-                .outputs(vec![UnresolvedType::Uint(16).into()])
+                .output(UnresolvedType::Uint(16).into())
                 .inputs(vec![UnresolvedType::array(
                     UnresolvedType::Boolean.into(),
                     Expression::U32Constant(16).into(),
                 )
                 .into()]),
             FlatEmbed::U32FromBits => UnresolvedSignature::new()
-                .outputs(vec![UnresolvedType::Uint(32).into()])
+                .output(UnresolvedType::Uint(32).into())
                 .inputs(vec![UnresolvedType::array(
                     UnresolvedType::Boolean.into(),
                     Expression::U32Constant(32).into(),
                 )
                 .into()]),
             FlatEmbed::U64FromBits => UnresolvedSignature::new()
-                .outputs(vec![UnresolvedType::Uint(64).into()])
+                .output(UnresolvedType::Uint(64).into())
                 .inputs(vec![UnresolvedType::array(
                     UnresolvedType::Boolean.into(),
                     Expression::U32Constant(64).into(),
@@ -141,11 +151,13 @@ impl FlatEmbed {
                     )
                     .into(),
                 ])
-                .outputs(vec![UnresolvedType::array(
-                    UnresolvedType::Boolean.into(),
-                    Expression::U32Constant(256).into(),
-                )
-                .into()]),
+                .output(
+                    UnresolvedType::array(
+                        UnresolvedType::Boolean.into(),
+                        Expression::U32Constant(256).into(),
+                    )
+                    .into(),
+                ),
             #[cfg(feature = "ark")]
             FlatEmbed::SnarkVerifyBls12377 => UnresolvedSignature::new()
                 .generics(vec!["N".into(), "V".into()])
@@ -166,7 +178,7 @@ impl FlatEmbed {
                     )
                     .into(), // 18 + (2 * n) // vk
                 ])
-                .outputs(vec![UnresolvedType::Boolean.into()]),
+                .output(UnresolvedType::Boolean.into()),
         }
     }
 
@@ -186,60 +198,48 @@ impl FlatEmbed {
                         GenericIdentifier::with_name("N").with_index(0),
                     )),
                 ])
-                .outputs(vec![DeclarationType::Boolean]),
+                .output(DeclarationType::Boolean),
             FlatEmbed::Unpack => DeclarationSignature::new()
                 .generics(vec![Some(DeclarationConstant::Generic(
                     GenericIdentifier::with_name("N").with_index(0),
                 ))])
                 .inputs(vec![DeclarationType::FieldElement])
-                .outputs(vec![DeclarationType::array((
+                .output(DeclarationType::array((
                     DeclarationType::Boolean,
                     GenericIdentifier::with_name("N").with_index(0),
-                ))]),
+                ))),
             FlatEmbed::U8ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(8)])
-                .outputs(vec![DeclarationType::array((
-                    DeclarationType::Boolean,
-                    8u32,
-                ))]),
+                .output(DeclarationType::array((DeclarationType::Boolean, 8u32))),
             FlatEmbed::U16ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(16)])
-                .outputs(vec![DeclarationType::array((
-                    DeclarationType::Boolean,
-                    16u32,
-                ))]),
+                .output(DeclarationType::array((DeclarationType::Boolean, 16u32))),
             FlatEmbed::U32ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(32)])
-                .outputs(vec![DeclarationType::array((
-                    DeclarationType::Boolean,
-                    32u32,
-                ))]),
+                .output(DeclarationType::array((DeclarationType::Boolean, 32u32))),
             FlatEmbed::U64ToBits => DeclarationSignature::new()
                 .inputs(vec![DeclarationType::uint(64)])
-                .outputs(vec![DeclarationType::array((
-                    DeclarationType::Boolean,
-                    64u32,
-                ))]),
+                .output(DeclarationType::array((DeclarationType::Boolean, 64u32))),
             FlatEmbed::U8FromBits => DeclarationSignature::new()
-                .outputs(vec![DeclarationType::uint(8)])
+                .output(DeclarationType::uint(8))
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
                     8u32,
                 ))]),
             FlatEmbed::U16FromBits => DeclarationSignature::new()
-                .outputs(vec![DeclarationType::uint(16)])
+                .output(DeclarationType::uint(16))
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
                     16u32,
                 ))]),
             FlatEmbed::U32FromBits => DeclarationSignature::new()
-                .outputs(vec![DeclarationType::uint(32)])
+                .output(DeclarationType::uint(32))
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
                     32u32,
                 ))]),
             FlatEmbed::U64FromBits => DeclarationSignature::new()
-                .outputs(vec![DeclarationType::uint(64)])
+                .output(DeclarationType::uint(64))
                 .inputs(vec![DeclarationType::array((
                     DeclarationType::Boolean,
                     64u32,
@@ -250,10 +250,7 @@ impl FlatEmbed {
                     DeclarationType::array((DeclarationType::Boolean, 512u32)),
                     DeclarationType::array((DeclarationType::Boolean, 256u32)),
                 ])
-                .outputs(vec![DeclarationType::array((
-                    DeclarationType::Boolean,
-                    256u32,
-                ))]),
+                .output(DeclarationType::array((DeclarationType::Boolean, 256u32))),
             #[cfg(feature = "ark")]
             FlatEmbed::SnarkVerifyBls12377 => DeclarationSignature::new()
                 .generics(vec![
@@ -275,7 +272,7 @@ impl FlatEmbed {
                         GenericIdentifier::with_name("V").with_index(1),
                     )), // 18 + (2 * n) // vk
                 ])
-                .outputs(vec![DeclarationType::Boolean]),
+                .output(DeclarationType::Boolean),
         }
     }
 

@@ -8,62 +8,37 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
-pub trait IntoTypes<'ast, T> {
-    fn into_types(self) -> Types<'ast, T>;
+pub trait IntoType<'ast, T> {
+    fn into_type(self) -> Type<'ast, T>;
 }
 
-impl<'ast, T> IntoTypes<'ast, T> for Type<'ast, T> {
-    fn into_types(self) -> Types<'ast, T> {
-        Types { inner: vec![self] }
-    }
-}
-
-impl<'ast, T> IntoTypes<'ast, T> for StructType<'ast, T> {
-    fn into_types(self) -> Types<'ast, T> {
-        Types {
-            inner: vec![Type::Struct(self)],
-        }
-    }
-}
-
-impl<'ast, T> IntoTypes<'ast, T> for ArrayType<'ast, T> {
-    fn into_types(self) -> Types<'ast, T> {
-        Types {
-            inner: vec![Type::Array(self)],
-        }
-    }
-}
-
-impl<'ast, T> IntoTypes<'ast, T> for TupleType<'ast, T> {
-    fn into_types(self) -> Types<'ast, T> {
-        Types {
-            inner: vec![Type::Tuple(self)],
-        }
-    }
-}
-
-impl<'ast, T> IntoTypes<'ast, T> for UBitwidth {
-    fn into_types(self) -> Types<'ast, T> {
-        Types {
-            inner: vec![Type::Uint(self)],
-        }
-    }
-}
-
-impl<'ast, T> IntoTypes<'ast, T> for Types<'ast, T> {
-    fn into_types(self) -> Types<'ast, T> {
+impl<'ast, T> IntoType<'ast, T> for Type<'ast, T> {
+    fn into_type(self) -> Type<'ast, T> {
         self
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
-pub struct Types<'ast, T> {
-    pub inner: Vec<Type<'ast, T>>,
+impl<'ast, T> IntoType<'ast, T> for StructType<'ast, T> {
+    fn into_type(self) -> Type<'ast, T> {
+        Type::Struct(self)
+    }
 }
 
-impl<'ast, T> Types<'ast, T> {
-    pub fn new(types: Vec<Type<'ast, T>>) -> Self {
-        Self { inner: types }
+impl<'ast, T> IntoType<'ast, T> for ArrayType<'ast, T> {
+    fn into_type(self) -> Type<'ast, T> {
+        Type::Array(self)
+    }
+}
+
+impl<'ast, T> IntoType<'ast, T> for TupleType<'ast, T> {
+    fn into_type(self) -> Type<'ast, T> {
+        Type::Tuple(self)
+    }
+}
+
+impl<'ast, T> IntoType<'ast, T> for UBitwidth {
+    fn into_type(self) -> Type<'ast, T> {
+        Type::Uint(self)
     }
 }
 
@@ -337,7 +312,7 @@ impl<'ast, T> From<ConcreteStructMember> for StructMember<'ast, T> {
 
 #[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GArrayType<S> {
-    pub size: S,
+    pub size: Box<S>,
     #[serde(flatten)]
     pub ty: Box<GType<S>>,
 }
@@ -348,7 +323,7 @@ pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
 impl<'ast, S, R: PartialEq<S>> PartialEq<GArrayType<S>> for GArrayType<R> {
     fn eq(&self, other: &GArrayType<S>) -> bool {
-        *self.ty == *other.ty && self.size == other.size
+        *self.ty == *other.ty && *self.size == *other.size
     }
 }
 
@@ -382,7 +357,7 @@ fn try_from_g_array_type<T: TryInto<U>, U>(
     t: GArrayType<T>,
 ) -> Result<GArrayType<U>, SpecializationError> {
     Ok(GArrayType {
-        size: t.size.try_into().map_err(|_| SpecializationError)?,
+        size: box (*t.size).try_into().map_err(|_| SpecializationError)?,
         ty: box try_from_g_type(*t.ty)?,
     })
 }
@@ -830,7 +805,7 @@ impl<S, U: Into<S>> From<(GType<S>, U)> for GArrayType<S> {
     fn from(tup: (GType<S>, U)) -> Self {
         GArrayType {
             ty: box tup.0,
-            size: tup.1.into(),
+            size: box tup.1.into(),
         }
     }
 }
@@ -838,8 +813,8 @@ impl<S, U: Into<S>> From<(GType<S>, U)> for GArrayType<S> {
 impl<S> GArrayType<S> {
     pub fn new<U: Into<S>>(ty: GType<S>, size: U) -> Self {
         GArrayType {
-            ty: Box::new(ty),
-            size: size.into(),
+            ty: box ty,
+            size: box size.into(),
         }
     }
 }
@@ -922,7 +897,7 @@ impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
                 (Array(l), Array(r)) => match l.ty.can_be_specialized_to(&r.ty) {
                     true => {
                         // check the size if types match
-                        match (&l.size.as_inner(), &r.size) {
+                        match (&l.size.as_inner(), &*r.size) {
                             // compare the sizes for concrete ones
                             (UExpressionInner::Value(v), DeclarationConstant::Concrete(c)) => {
                                 (*v as u32) == *c
@@ -953,7 +928,7 @@ impl ConcreteType {
             GType::Boolean => 1,
             GType::Uint(_) => 1,
             GType::Array(array_type) => {
-                array_type.size as usize * array_type.ty.get_primitive_count()
+                *array_type.size as usize * array_type.ty.get_primitive_count()
             }
             GType::Tuple(tuple_type) => tuple_type
                 .elements
@@ -1123,7 +1098,7 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
         (DeclarationType::Array(t0), GType::Array(t1)) => {
             // both the inner type and the size must match
             check_type(&t0.ty, &t1.ty, constants)
-                && check_generic(&t0.size, Some(&t1.size), constants)
+                && check_generic(&*t0.size, Some(&*t1.size), constants)
         }
         (DeclarationType::FieldElement, GType::FieldElement)
         | (DeclarationType::Boolean, GType::Boolean) => true,
@@ -1164,7 +1139,7 @@ impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for DeclarationConstant<'a
 pub fn specialize_declaration_type<
     'ast,
     T: Clone,
-    S: Clone + PartialEq + From<u32> + fmt::Debug + From<CanonicalConstantIdentifier<'ast>>,
+    S: Clone + PartialEq + From<u32> + From<CanonicalConstantIdentifier<'ast>>,
 >(
     decl_ty: DeclarationType<'ast, T>,
     generics: &GGenericsAssignment<'ast, S>,
@@ -1172,10 +1147,10 @@ pub fn specialize_declaration_type<
     Ok(match decl_ty {
         DeclarationType::Int => unreachable!(),
         DeclarationType::Array(t0) => {
-            let ty = box specialize_declaration_type(*t0.ty, generics)?;
+            let ty = specialize_declaration_type(*t0.ty, generics)?;
             let size = t0.size.map(generics)?;
 
-            GType::Array(GArrayType { size, ty })
+            GType::Array(GArrayType::new(ty, size))
         }
         DeclarationType::Tuple(t0) => {
             let elements = t0
@@ -1244,12 +1219,22 @@ pub mod signature {
     pub struct GSignature<S> {
         pub generics: Vec<Option<S>>,
         pub inputs: Vec<GType<S>>,
-        pub outputs: Vec<GType<S>>,
+        pub output: Box<GType<S>>,
+    }
+
+    impl<S> Default for GSignature<S> {
+        fn default() -> Self {
+            Self {
+                generics: vec![],
+                inputs: vec![],
+                output: box GType::Tuple(GTupleType::new(vec![])),
+            }
+        }
     }
 
     impl<S: PartialEq> PartialEq for GSignature<S> {
         fn eq(&self, other: &Self) -> bool {
-            self.inputs == other.inputs && self.outputs == other.outputs
+            self.inputs == other.inputs && self.output == other.output
         }
     }
 
@@ -1257,7 +1242,7 @@ pub mod signature {
         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
             self.inputs
                 .partial_cmp(&other.inputs)
-                .map(|c| self.outputs.partial_cmp(&other.outputs).map(|d| c.then(d)))
+                .map(|c| self.output.partial_cmp(&other.output).map(|d| c.then(d)))
                 .unwrap()
         }
     }
@@ -1271,17 +1256,7 @@ pub mod signature {
     impl<S: Hash> Hash for GSignature<S> {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
             self.inputs.hash(state);
-            self.outputs.hash(state);
-        }
-    }
-
-    impl<S> Default for GSignature<S> {
-        fn default() -> Self {
-            GSignature {
-                generics: vec![],
-                inputs: vec![],
-                outputs: vec![],
-            }
+            self.output.hash(state);
         }
     }
 
@@ -1297,13 +1272,13 @@ pub mod signature {
             other
                 .inputs
                 .iter()
-                .chain(other.outputs.iter())
-                .zip(self.inputs.iter().chain(self.outputs.iter()))
+                .chain(std::iter::once(&*other.output))
+                .zip(self.inputs.iter().chain(std::iter::once(&*self.output)))
                 .all(|(decl_ty, ty)| check_type::<T, u32>(decl_ty, ty, &mut constants))
         }
     }
 
-    impl<'ast, T: Clone + PartialEq + fmt::Debug> DeclarationSignature<'ast, T> {
+    impl<'ast, T: Clone + PartialEq> DeclarationSignature<'ast, T> {
         pub fn specialize(
             &self,
             values: Vec<Option<u32>>,
@@ -1312,9 +1287,8 @@ pub mod signature {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = ConcreteGenericsAssignment::default();
 
-            assert_eq!(self.inputs.len(), signature.inputs.len());
-            assert_eq!(self.outputs.len(), signature.outputs.len());
             assert_eq!(self.generics.len(), values.len());
+            assert_eq!(self.inputs.len(), signature.inputs.len());
 
             let decl_generics = self.generics.iter().map(|g| match g.clone().unwrap() {
                 DeclarationConstant::Generic(g) => g,
@@ -1330,8 +1304,13 @@ pub mod signature {
             let condition = self
                 .inputs
                 .iter()
-                .chain(self.outputs.iter())
-                .zip(signature.inputs.iter().chain(signature.outputs.iter()))
+                .chain(std::iter::once(&*self.output))
+                .zip(
+                    signature
+                        .inputs
+                        .iter()
+                        .chain(std::iter::once(&*signature.output)),
+                )
                 .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants));
 
             if constants.0.len() != self.generics.len() {
@@ -1344,11 +1323,11 @@ pub mod signature {
             }
         }
 
-        pub fn get_output_types(
+        pub fn get_output_type(
             &self,
             generics: Vec<Option<UExpression<'ast, T>>>,
             inputs: Vec<Type<'ast, T>>,
-        ) -> Result<Vec<Type<'ast, T>>, GenericIdentifier<'ast>> {
+        ) -> Result<Type<'ast, T>, GenericIdentifier<'ast>> {
             // we keep track of the value of constants in a map, as a given constant can only have one value
             let mut constants = GenericsAssignment::default();
 
@@ -1375,12 +1354,8 @@ pub mod signature {
                 .zip(inputs.iter())
                 .all(|(decl_ty, ty)| check_type(decl_ty, ty, &mut constants));
 
-            // get the outputs from the map
-            self.outputs
-                .clone()
-                .into_iter()
-                .map(|t| specialize_declaration_type(t, &constants))
-                .collect::<Result<_, _>>()
+            // get the specialized output
+            specialize_declaration_type(*self.output.clone(), &constants)
         }
     }
 
@@ -1401,11 +1376,7 @@ pub mod signature {
                 .into_iter()
                 .map(try_from_g_type)
                 .collect::<Result<_, _>>()?,
-            outputs: t
-                .outputs
-                .into_iter()
-                .map(try_from_g_type)
-                .collect::<Result<_, _>>()?,
+            output: box try_from_g_type(*t.output)?,
         })
     }
 
@@ -1453,21 +1424,7 @@ pub mod signature {
                     write!(f, ", ")?;
                 }
             }
-            write!(f, ")")?;
-            match self.outputs.len() {
-                0 => write!(f, ""),
-                1 => write!(f, " -> {}", self.outputs[0]),
-                _ => {
-                    write!(f, " -> (")?;
-                    for (i, t) in self.outputs.iter().enumerate() {
-                        write!(f, "{}", t)?;
-                        if i < self.outputs.len() - 1 {
-                            write!(f, ", ")?;
-                        }
-                    }
-                    write!(f, ")")
-                }
-            }
+            write!(f, ") -> {}", self.output)
         }
     }
 
@@ -1486,8 +1443,8 @@ pub mod signature {
             self
         }
 
-        pub fn outputs(mut self, outputs: Vec<GType<S>>) -> Self {
-            self.outputs = outputs;
+        pub fn output(mut self, output: GType<S>) -> Self {
+            self.output = Box::new(output);
             self
         }
     }
@@ -1501,7 +1458,7 @@ pub mod signature {
         fn signature() {
             let s = ConcreteSignature::new()
                 .inputs(vec![ConcreteType::FieldElement, ConcreteType::Boolean])
-                .outputs(vec![ConcreteType::Boolean]);
+                .output(ConcreteType::Boolean);
 
             assert_eq!(s.to_string(), String::from("(field, bool) -> bool"));
         }
