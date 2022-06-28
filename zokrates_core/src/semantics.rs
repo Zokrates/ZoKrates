@@ -2058,7 +2058,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         function_id: ExpressionNode<'ast>,
         generics: Option<Vec<Option<ExpressionNode<'ast>>>>,
         arguments: Vec<ExpressionNode<'ast>>,
-        assignee_type: Option<Type<'ast, T>>,
+        expected_return_type: Option<Type<'ast, T>>,
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
@@ -2114,7 +2114,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             fun_id,
             &generics_checked,
             &arguments_types,
-            assignee_type.clone(),
+            expected_return_type.clone(),
         );
 
         let functions = self.find_functions(&query);
@@ -2135,7 +2135,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                 let generics_checked = generics_checked.unwrap_or_else(|| vec![None; signature.generics.len()]);
 
-                let output_type = assignee_type.map(Ok).unwrap_or_else(|| signature.get_output_type(
+                let output_type = expected_return_type.map(Ok).unwrap_or_else(|| signature.get_output_type(
                     generics_checked.clone(),
                     arguments_checked.iter().map(|a| a.get_type()).collect()
                 ).map_err(|e| ErrorInner {
