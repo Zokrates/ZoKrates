@@ -7,4 +7,3 @@ def main() -> Point {
     Point p = Point { x: 1, y: 0 };
     return p;
 }
-

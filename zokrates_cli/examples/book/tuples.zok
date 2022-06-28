@@ -3,4 +3,3 @@ def main() -> bool {
     v.0 = [42, 43];
     return v.1;
 }
-
