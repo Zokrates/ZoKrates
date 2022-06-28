@@ -12,12 +12,6 @@ use zokrates_ast::common::Variable;
 use zokrates_ast::ir::{CanonicalLinComb, ProgIterator, Statement, Witness};
 use zokrates_field::{ArkFieldExtensions, Field};
 
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field};
-pub trait NotBw6_761Field {}
-impl NotBw6_761Field for Bls12_377Field {}
-impl NotBw6_761Field for Bls12_381Field {}
-impl NotBw6_761Field for Bn128Field {}
-
 pub use self::parse::*;
 
 pub struct Ark;
@@ -192,48 +186,50 @@ mod parse {
         e.write(&mut bytes).unwrap();
 
         let length = bytes.len() - 1; // [x, y, infinity] - infinity
-        let element_length = length / 4;
 
-        let mut elements = vec![];
-        for i in 0..4 {
-            let start = i * element_length;
-            let end = start + element_length;
-            let mut e = bytes[start..end].to_vec();
-            e.reverse();
-            elements.push(e);
+        // determine if we're dealing with fq or fq2
+        let count = length / T::get_required_bits();
+
+        println!("{}", count);
+
+        if count == 42 {
+            let element_length = length / 4;
+
+            let mut elements = vec![];
+            for i in 0..4 {
+                let start = i * element_length;
+                let end = start + element_length;
+                let mut e = bytes[start..end].to_vec();
+                e.reverse();
+                elements.push(e);
+            }
+
+            G2Affine::Fq2(G2AffineFq2(
+                (
+                    format!("0x{}", hex::encode(&elements[0])),
+                    format!("0x{}", hex::encode(&elements[1])),
+                ),
+                (
+                    format!("0x{}", hex::encode(&elements[2])),
+                    format!("0x{}", hex::encode(&elements[3])),
+                ),
+            ))
+        } else if count == 43 {
+            let element_length = length / 2;
+
+            let mut x = bytes[0..element_length].to_vec();
+            let mut y = bytes[element_length..length].to_vec();
+
+            x.reverse();
+            y.reverse();
+
+            G2Affine::Fq(G2AffineFq(
+                format!("0x{}", hex::encode(&x)),
+                format!("0x{}", hex::encode(&y)),
+            ))
+        } else {
+            unreachable!()
         }
-
-        G2Affine::Fq2(G2AffineFq2(
-            (
-                format!("0x{}", hex::encode(&elements[0])),
-                format!("0x{}", hex::encode(&elements[1])),
-            ),
-            (
-                format!("0x{}", hex::encode(&elements[2])),
-                format!("0x{}", hex::encode(&elements[3])),
-            ),
-        ))
-    }
-
-    pub fn parse_g2_fq<T: ArkFieldExtensions>(
-        e: &<T::ArkEngine as PairingEngine>::G2Affine,
-    ) -> G2Affine {
-        let mut bytes: Vec<u8> = Vec::new();
-        e.write(&mut bytes).unwrap();
-
-        let length = bytes.len() - 1; // [x, y, infinity] - infinity
-        let element_length = length / 2;
-
-        let mut x = bytes[0..element_length].to_vec();
-        let mut y = bytes[element_length..length].to_vec();
-
-        x.reverse();
-        y.reverse();
-
-        G2Affine::Fq(G2AffineFq(
-            format!("0x{}", hex::encode(&x)),
-            format!("0x{}", hex::encode(&y)),
-        ))
     }
 
     pub fn parse_fr<T: ArkFieldExtensions>(e: &<T::ArkEngine as PairingEngine>::Fr) -> Fr {
