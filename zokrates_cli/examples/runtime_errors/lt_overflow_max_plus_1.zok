@@ -1,11 +1,12 @@
-from "field" import FIELD_SIZE_IN_BITS
+from "field" import FIELD_SIZE_IN_BITS;
 
 // we can compare numbers whose difference fits in (pbits - 2) bits
 // It should not work for the maxvalue = 2^(pbits - 2) - 1 augmented by one
 // /!\ should be called with a = 0
 
-def main(field a) -> bool:
-    u32 pbits = FIELD_SIZE_IN_BITS
+def main(field a) -> bool {
+    u32 pbits = FIELD_SIZE_IN_BITS;
     // we added a = 0 to prevent the condition to be evaluated at compile time
-    field maxvalue = a + (2**(pbits - 2) - 1)
-    return a < maxvalue + 1
+    field maxvalue = a + (2**(pbits - 2) - 1);
+    return a < maxvalue + 1;
+}

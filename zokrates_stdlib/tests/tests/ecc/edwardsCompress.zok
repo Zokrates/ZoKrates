@@ -1,20 +1,19 @@
-import "ecc/edwardsCompress" as edwardsCompress
-from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS
+import "ecc/edwardsCompress" as edwardsCompress;
+from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS;
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
-def testCompress() -> bool:
-	field Gu = BABYJUBJUB_PARAMS.Gu
-	field Gv = BABYJUBJUB_PARAMS.Gv
+def testCompress() -> bool {
+    field Gu = BABYJUBJUB_PARAMS.Gu;
+    field Gv = BABYJUBJUB_PARAMS.Gv;
 
-	bool[256] Gcompressed = edwardsCompress([Gu, Gv])
+    bool[256] Gcompressed = edwardsCompress([Gu, Gv]);
 
-	assert(Gcompressed == [true, false, true, false, true, true, true, false, false, false, false, false, false, true, true, true, false, false, true, false, true, false, false, true, false, true, true, true, true, true, true, true, true, false, false, false, true, true, false, true, false, false, true, true, true, true, false, false, false, false, true, true, true, true, false, true, false, true, true, true, true, false, false, false, false, false, false, true, true, false, false, false, true, true, false, true, true, false, true, true, true, true, false, true, true, true, false, true, true, true, true, true, true, true, false, true, false, false, true, false, false, true, false, false, true, true, false, false, false, false, true, true, false, true, false, true, false, true, false, true, true, false, false, false, false, false, true, true, true, true, true, true, true, false, false, true, true, false, true, false, true, false, false, true, true, true, false, true, false, true, false, false, true, true, true, false, true, true, false, true, false, false, false, false, true, true, false, false, true, false, true, true, false, false, false, false, true, true, false, false, false, false, false, true, true, true, false, true, false, false, false, true, false, false, true, true, false, true, false, false, true, false, false, false, true, true, false, true, true, true, false, true, true, false, false, false, true, true, true, true, false, true, true, true, true, true, true, true, true, false, false, true, true, false, false, true, false, false, false, true, false, true, false, true, false, false, true, false, true, true, false, true, false, true, true, true])
+    assert(Gcompressed == [true, false, true, false, true, true, true, false, false, false, false, false, false, true, true, true, false, false, true, false, true, false, false, true, false, true, true, true, true, true, true, true, true, false, false, false, true, true, false, true, false, false, true, true, true, true, false, false, false, false, true, true, true, true, false, true, false, true, true, true, true, false, false, false, false, false, false, true, true, false, false, false, true, true, false, true, true, false, true, true, true, true, false, true, true, true, false, true, true, true, true, true, true, true, false, true, false, false, true, false, false, true, false, false, true, true, false, false, false, false, true, true, false, true, false, true, false, true, false, true, true, false, false, false, false, false, true, true, true, true, true, true, true, false, false, true, true, false, true, false, true, false, false, true, true, true, false, true, false, true, false, false, true, true, true, false, true, true, false, true, false, false, false, false, true, true, false, false, true, false, true, true, false, false, false, false, true, true, false, false, false, false, false, true, true, true, false, true, false, false, false, true, false, false, true, true, false, true, false, false, true, false, false, false, true, true, false, true, true, true, false, true, true, false, false, false, true, true, true, true, false, true, true, true, true, true, true, true, true, false, false, true, true, false, false, true, false, false, false, true, false, true, false, true, false, false, true, false, true, true, false, true, false, true, true, true]);
+    return true;
+}
 
-	return true
-
-def main():
-
-	assert(testCompress())
-
-	return
+def main() {
+    assert(testCompress());
+    return;
+}

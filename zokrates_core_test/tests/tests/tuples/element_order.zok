@@ -1,4 +1,5 @@
 // this tests the abi, checking that the fields of a (field, bool) instance get encoded in the right order
 // if the the encoder reverses `0` and `1`, the boolean check ends up being done on the field value, which would fail
-def main((field, bool) f):
-    return
+def main((field, bool) f) {
+    return;
+}

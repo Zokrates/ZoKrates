@@ -71,8 +71,8 @@ ZoKrates offers a special shorthand syntax to initialize an array with a constan
 
 The following code provides examples for declaration and initialization:
 ```zokrates
-    field[3] a = [1, 2, 3] // initialize a field array with field values
-    bool[13] b = [false; 13] // initialize a bool array with value false
+field[3] a = [1, 2, 3] // initialize a field array with field values
+bool[13] b = [false; 13] // initialize a bool array with value false
 ```
 
 #### Multidimensional Arrays
@@ -132,8 +132,8 @@ A struct definition starts with the `struct` keyword followed by a name. Afterwa
 
 ```zokrates
 struct Point {
-	field x
-	field y
+    field x
+    field y
 }
 ```
 

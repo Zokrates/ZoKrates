@@ -1,13 +1,14 @@
 struct B<P> {
-    field[P] a
+    field[P] a;
 }
 
 struct A<N> {
-    field[N] a
-    B<N> b
+    field[N] a;
+    B<N> b;
 }
 
-def main((field[2], (field[2],)) a) -> bool:
-    u32 SIZE = 1 + 1
-    (field[SIZE], (field[SIZE],)) b = ([1, 2],  ([1, 2],)) 
-    return a == b
+def main((field[2], (field[2],)) a) -> bool {
+    u32 SIZE = 1 + 1;
+    (field[SIZE], (field[SIZE],)) b = ([1, 2],  ([1, 2],)) ;
+    return a == b;
+}

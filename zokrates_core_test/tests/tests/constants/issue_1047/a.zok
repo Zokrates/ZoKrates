@@ -1,4 +1,5 @@
-from "./b" import B
+from "./b" import B;
 
-def main():
-    return
+def main() {
+    return;
+}

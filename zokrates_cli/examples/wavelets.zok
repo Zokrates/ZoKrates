@@ -1,19 +1,20 @@
+def main(field in1, field in2, field in3, field in4, field in5, field in6, field in7, field in8) -> field {
+    // first iteration
+    field a = (in1 + in2) / 2;
+    field b = (in3 + in4) / 2;
+    field c = (in5 + in6) / 2;
+    field d = (in7 + in8) / 2;
+    field e = (in1 - in2) / 2;
+    field f = (in3 - in4) / 2;
+    field g = (in5 - in6) / 2;
+    field h = (in7 - in8) / 2;
+    // second iteration
+    field i = (a + b) / 2;
+    field j = (c + d) / 2;
+    field k = (e - f) / 2;
+    field l = (g - h) / 2;
+    // third iteration
+    field out1 = (i + j) / 2;
+    return (k - l) / 2;
+}
 
-def main(field in1, field in2, field in3, field in4, field in5, field in6, field in7, field in8) -> field:
-  // first iteration
-  field a = (in1 + in2) / 2
-  field b = (in3 + in4) / 2
-  field c = (in5 + in6) / 2
-  field d = (in7 + in8) / 2
-  field e = (in1 - in2) / 2
-  field f = (in3 - in4) / 2
-  field g = (in5 - in6) / 2
-  field h = (in7 - in8) / 2
-  // second iteration
-  field i = (a + b) / 2
-  field j = (c + d) / 2
-  field k = (e - f) / 2
-  field l = (g - h) / 2
-  // third iteration
-  field out1 = (i + j) / 2
-  return (k - l) / 2

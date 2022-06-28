@@ -1,7 +1,10 @@
-def foo<N>(field[N] inputs) -> bool:
-    assert(N <= 5)
-    return true
+def foo<N>(field[N] inputs) -> bool {
+    assert(N <= 5);
+    return true;
+}
 
-def main():
-    bool b = foo([1, 2, 3, 4, 5, 6])
-    return
+def main() {
+    bool b = foo([1, 2, 3, 4, 5, 6]);
+    return;
+}
+

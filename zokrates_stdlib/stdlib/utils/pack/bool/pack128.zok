@@ -1,7 +1,8 @@
 #pragma curve bn128
 
-import "./pack" as pack
+import "./pack" as pack;
 
 // pack 128 big-endian bits into one field element
-def main(bool[128] bits) -> field:
-	return pack(bits)
+def main(bool[128] bits) -> field {
+    return pack(bits);
+}

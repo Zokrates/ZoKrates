@@ -1,0 +1,8 @@
+// simple conditional example
+// x = 2 -> 2 + 1 + 2**3 = 11
+// x = 5 -> 5 + 5 + 5**3 = 135
+def main(field x) -> field {
+    field y = x < 3 ? 1 : 5;
+    field z = y < x ? x**3 : y**3;
+    return x + y + z;
+}

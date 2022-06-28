@@ -24,7 +24,7 @@ const { initialize } = require('zokrates-js')
 ## Example
 ```js
 initialize().then((zokratesProvider) => {
-    const source = "def main(private field a) -> field: return a * a";
+    const source = "def main(private field a) -> field { return a * a; }";
 
     // compilation
     const artifacts = zokratesProvider.compile(source);
@@ -88,7 +88,7 @@ Returns: `CompilationArtifacts`
 
 Compilation:
 ```js
-const artifacts = zokratesProvider.compile("def main() -> (): return");
+const artifacts = zokratesProvider.compile("def main() { return; }");
 ```
 
 Compilation with custom options:
@@ -135,7 +135,7 @@ Returns: `ComputationResult`
 **Example:**
 
 ```js
-const code = 'def main(private field a) -> (field): return a * a';
+const code = 'def main(private field a) -> field { return a * a; }';
 const artifacts = zokratesProvider.compile(code);
 
 const { witness, output } = zokratesProvider.computeWitness(artifacts, ["2"]);

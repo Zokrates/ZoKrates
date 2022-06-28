@@ -1,3 +1,4 @@
-def main(bool flag) -> ((field, field)):
-    (field, field) a = if flag then (1f, 2f) else (2f, 1f) fi
-    return a
+def main(bool flag) -> (field, field) {
+    (field, field) a = flag ? (1f, 2f) : (2f, 1f);
+    return a;
+}

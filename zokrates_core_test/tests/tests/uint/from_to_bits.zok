@@ -1,15 +1,16 @@
-import "utils/casts/u64_to_bits" as to_bits_64
-import "utils/casts/u64_from_bits" as from_bits_64
-import "utils/casts/u32_to_bits" as to_bits_32
-import "utils/casts/u32_from_bits" as from_bits_32
-import "utils/casts/u16_to_bits" as to_bits_16
-import "utils/casts/u16_from_bits" as from_bits_16
-import "utils/casts/u8_to_bits" as to_bits_8
-import "utils/casts/u8_from_bits" as from_bits_8
+import "utils/casts/u64_to_bits" as to_bits_64;
+import "utils/casts/u64_from_bits" as from_bits_64;
+import "utils/casts/u32_to_bits" as to_bits_32;
+import "utils/casts/u32_from_bits" as from_bits_32;
+import "utils/casts/u16_to_bits" as to_bits_16;
+import "utils/casts/u16_from_bits" as from_bits_16;
+import "utils/casts/u8_to_bits" as to_bits_8;
+import "utils/casts/u8_from_bits" as from_bits_8;
 
-def main(u64 d, u32 e, u16 f, u8 g) -> (u64, u32, u16, u8):
-	bool[64] d_bits = to_bits_64(d)
-	bool[32] e_bits = to_bits_32(e)
-	bool[16] f_bits = to_bits_16(f)
-	bool[8] g_bits = to_bits_8(g)
-	return from_bits_64(d_bits), from_bits_32(e_bits), from_bits_16(f_bits), from_bits_8(g_bits)
+def main(u64 d, u32 e, u16 f, u8 g) -> (u64, u32, u16, u8) {
+	bool[64] d_bits = to_bits_64(d);
+	bool[32] e_bits = to_bits_32(e);
+	bool[16] f_bits = to_bits_16(f);
+	bool[8] g_bits = to_bits_8(g);
+	return (from_bits_64(d_bits), from_bits_32(e_bits), from_bits_16(f_bits), from_bits_8(g_bits));
+}

@@ -317,7 +317,7 @@ mod tests {
         fn parse_invalid_identifier_because_keyword() {
             fails_with! {
                 parser: ZoKratesParser,
-                input: "endfor",
+                input: "def",
                 rule: Rule::identifier,
                 positives: vec![Rule::identifier],
                 negatives: vec![],
@@ -327,7 +327,7 @@ mod tests {
 
         #[test]
         fn parse_for_loop() {
-            let input = "for field i in 0..3 do \n c = c + a[i] \n endfor";
+            let input = "for u32 i in 0..3 { c = c + a[i]; }";
 
             let parse = ZoKratesParser::parse(Rule::iteration_statement, input);
             assert!(parse.is_ok());

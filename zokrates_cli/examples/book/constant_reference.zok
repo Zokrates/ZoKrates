@@ -1,5 +1,6 @@
-const field ONE = 1
-const field TWO = ONE + ONE
+const field ONE = 1;
+const field TWO = ONE + ONE;
 
-def main() -> field:
-    return TWO
+def main() -> field {
+    return TWO;
+}

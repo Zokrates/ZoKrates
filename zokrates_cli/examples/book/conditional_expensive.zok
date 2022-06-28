@@ -1,0 +1,15 @@
+def cheap(field x) -> field {
+    return x + 1;
+}
+
+def expensive(field x) -> field {
+    return x**1000;
+}
+
+def main(field x) -> field {
+    return if x == 1 {
+        cheap(x)
+    } else {
+        expensive(x) // both branches executed
+    };
+}

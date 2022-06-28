@@ -8,7 +8,7 @@ use zokrates_abi::Encode;
 use zokrates_core::ir;
 use zokrates_core::ir::ProgEnum;
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
+use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType, GTupleType};
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -103,7 +103,9 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
         }
         false => ConcreteSignature::new()
             .inputs(vec![ConcreteType::FieldElement; ir_prog.arguments.len()])
-            .outputs(vec![ConcreteType::FieldElement; ir_prog.return_count]),
+            .output(ConcreteType::Tuple(GTupleType::new(
+                vec![ConcreteType::FieldElement; ir_prog.return_count],
+            ))),
     };
 
     use zokrates_abi::Inputs;
@@ -165,7 +167,7 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     use zokrates_abi::Decode;
 
     let results_json_value: serde_json::Value =
-        zokrates_abi::Values::decode(witness.return_values(), signature.outputs).into_serde_json();
+        zokrates_abi::Value::decode(witness.return_values(), *signature.output).into_serde_json();
 
     if verbose {
         println!("\nWitness: \n{}\n", results_json_value);

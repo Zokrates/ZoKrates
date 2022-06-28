@@ -1,4 +1,5 @@
-import "hashes/blake2/blake2s_p" as blake2s_p
+import "hashes/blake2/blake2s_p" as blake2s_p;
 
-def main<K>(u32[K][16] input) -> (u32[8]):
-    return blake2s_p(input, [0; 2])
+def main<K>(u32[K][16] input) -> u32[8] {
+    return blake2s_p(input, [0; 2]);
+}

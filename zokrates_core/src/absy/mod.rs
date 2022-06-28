@@ -343,7 +343,7 @@ impl<'ast> fmt::Display for Function<'ast> {
 
         write!(
             f,
-            "({}):\n{}",
+            "({}) {{\n{}\n}}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -380,38 +380,11 @@ impl<'ast> fmt::Display for Assignee<'ast> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum VariableOrAssignee<'ast> {
-    Variable(VariableNode<'ast>),
-    Assignee(AssigneeNode<'ast>),
-}
-
-impl<'ast> From<AssigneeNode<'ast>> for VariableOrAssignee<'ast> {
-    fn from(a: AssigneeNode<'ast>) -> Self {
-        VariableOrAssignee::Assignee(a)
-    }
-}
-
-impl<'ast> From<VariableNode<'ast>> for VariableOrAssignee<'ast> {
-    fn from(v: VariableNode<'ast>) -> Self {
-        VariableOrAssignee::Variable(v)
-    }
-}
-
-impl<'ast> fmt::Display for VariableOrAssignee<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            VariableOrAssignee::Variable(v) => write!(f, "{}", v),
-            VariableOrAssignee::Assignee(a) => write!(f, "{}", a),
-        }
-    }
-}
-
 /// A statement in a `Function`
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'ast> {
-    Return(ExpressionListNode<'ast>),
+    Return(Option<ExpressionNode<'ast>>),
     Definition(VariableNode<'ast>, ExpressionNode<'ast>),
     Assignment(AssigneeNode<'ast>, ExpressionNode<'ast>),
     Assertion(ExpressionNode<'ast>, Option<String>),
@@ -421,7 +394,6 @@ pub enum Statement<'ast> {
         ExpressionNode<'ast>,
         Vec<StatementNode<'ast>>,
     ),
-    MultipleDefinition(Vec<VariableOrAssignee<'ast>>, ExpressionNode<'ast>),
 }
 
 pub type StatementNode<'ast> = Node<Statement<'ast>>;
@@ -429,33 +401,30 @@ pub type StatementNode<'ast> = Node<Statement<'ast>>;
 impl<'ast> fmt::Display for Statement<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Return(ref expr) => write!(f, "return {}", expr),
-            Statement::Definition(ref var, ref rhs) => {
-                write!(f, "{} = {}", var, rhs)
+            Statement::Return(ref expr) => {
+                write!(f, "return")?;
+                match expr {
+                    Some(e) => write!(f, " {};", e),
+                    None => write!(f, ";"),
+                }
             }
-            Statement::Assignment(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            Statement::Definition(ref var, ref rhs) => {
+                write!(f, "{} = {};", var, rhs)
+            }
+            Statement::Assignment(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             Statement::Assertion(ref e, ref message) => {
                 write!(f, "assert({}", e)?;
                 match message {
-                    Some(m) => write!(f, ", \"{}\")", m),
-                    None => write!(f, ")"),
+                    Some(m) => write!(f, ", \"{}\");", m),
+                    None => write!(f, ");"),
                 }
             }
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                writeln!(f, "for {} in {}..{} do", var, start, stop)?;
+                writeln!(f, "for {} in {}..{} {{", var, start, stop)?;
                 for l in list {
                     writeln!(f, "\t\t{}", l)?;
                 }
-                write!(f, "\tendfor")
-            }
-            Statement::MultipleDefinition(ref ids, ref rhs) => {
-                for (i, id) in ids.iter().enumerate() {
-                    write!(f, "{}", id)?;
-                    if i < ids.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, " = {}", rhs)
+                write!(f, "\t}}")
             }
         }
     }
@@ -545,6 +514,43 @@ pub enum ConditionalKind {
     Ternary,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConditionalExpression<'ast> {
+    pub condition: Box<ExpressionNode<'ast>>,
+    pub consequence_statements: Vec<StatementNode<'ast>>,
+    pub consequence: Box<ExpressionNode<'ast>>,
+    pub alternative_statements: Vec<StatementNode<'ast>>,
+    pub alternative: Box<ExpressionNode<'ast>>,
+    pub kind: ConditionalKind,
+}
+
+impl<'ast> fmt::Display for ConditionalExpression<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            ConditionalKind::IfElse => {
+                writeln!(f, "if {} {{", self.condition)?;
+                for cs in self.consequence_statements.iter() {
+                    writeln!(f, "\t{}", cs)?;
+                }
+                writeln!(f, "\t{}", self.consequence)?;
+                write!(f, "}} else {{")?;
+                for als in self.alternative_statements.iter() {
+                    writeln!(f, "\t{}", als)?;
+                }
+                writeln!(f, "\t{}", self.alternative)?;
+                write!(f, "}}")
+            }
+            ConditionalKind::Ternary => {
+                write!(
+                    f,
+                    "{} ? {} : {}",
+                    self.condition, self.consequence, self.alternative
+                )
+            }
+        }
+    }
+}
+
 /// An expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'ast> {
@@ -564,12 +570,7 @@ pub enum Expression<'ast> {
     Pow(Box<ExpressionNode<'ast>>, Box<ExpressionNode<'ast>>),
     Neg(Box<ExpressionNode<'ast>>),
     Pos(Box<ExpressionNode<'ast>>),
-    Conditional(
-        Box<ExpressionNode<'ast>>,
-        Box<ExpressionNode<'ast>>,
-        Box<ExpressionNode<'ast>>,
-        ConditionalKind,
-    ),
+    Conditional(Box<ConditionalExpression<'ast>>),
     FunctionCall(
         Box<ExpressionNode<'ast>>,
         Option<Vec<Option<ExpressionNode<'ast>>>>,
@@ -618,18 +619,7 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::Neg(ref e) => write!(f, "(-{})", e),
             Expression::Pos(ref e) => write!(f, "(+{})", e),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
-            Expression::Conditional(ref condition, ref consequent, ref alternative, ref kind) => {
-                match kind {
-                    ConditionalKind::IfElse => write!(
-                        f,
-                        "if {} then {} else {} fi",
-                        condition, consequent, alternative
-                    ),
-                    ConditionalKind::Ternary => {
-                        write!(f, "{} ? {} : {}", condition, consequent, alternative)
-                    }
-                }
-            }
+            Expression::Conditional(ref c) => write!(f, "{}", c),
             Expression::FunctionCall(ref i, ref g, ref p) => {
                 if let Some(g) = g {
                     write!(
@@ -707,25 +697,5 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::LeftShift(ref lhs, ref rhs) => write!(f, "({} << {})", lhs, rhs),
             Expression::RightShift(ref lhs, ref rhs) => write!(f, "({} >> {})", lhs, rhs),
         }
-    }
-}
-
-/// A list of expressions, used in return statements
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct ExpressionList<'ast> {
-    pub expressions: Vec<ExpressionNode<'ast>>,
-}
-
-pub type ExpressionListNode<'ast> = Node<ExpressionList<'ast>>;
-
-impl<'ast> fmt::Display for ExpressionList<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i, param) in self.expressions.iter().enumerate() {
-            write!(f, "{}", param)?;
-            if i < self.expressions.len() - 1 {
-                write!(f, ", ")?;
-            }
-        }
-        write!(f, "")
     }
 }

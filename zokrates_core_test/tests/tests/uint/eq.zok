@@ -1,3 +1,4 @@
-def main(private u32 a, u32 b) -> field:
-  field result = if a * a == b then 1 else 0 fi
-  return result
+def main(private u32 a, u32 b) -> field {
+    field result = a * a == b ? 1 : 0;
+    return result;
+}

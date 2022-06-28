@@ -19,17 +19,3 @@ The generic parameters can be provided explicitly, especially when they cannot b
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/explicit_generic_parameters.zok}}
 ```
-
-Functions can return multiple values by providing them as a comma-separated list.
-
-```zokrates
-{{#include ../../../zokrates_cli/examples/book/multi_return.zok}}
-```
-
-### Variable declaration
-
-When defining a variable as the return value of a function, types are provided when the variable needs to be declared:
-
-```zokrates
-{{#include ../../../zokrates_cli/examples/book/multi_def.zok}}
-```

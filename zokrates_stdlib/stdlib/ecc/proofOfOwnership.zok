@@ -1,7 +1,7 @@
-import "ecc/edwardsAdd" as add
-import "ecc/edwardsScalarMult" as multiply
-import "utils/pack/bool/nonStrictUnpack256" as unpack256
-from "ecc/babyjubjubParams" import BabyJubJubParams
+import "ecc/edwardsAdd" as add;
+import "ecc/edwardsScalarMult" as multiply;
+import "utils/pack/bool/nonStrictUnpack256" as unpack256;
+from "ecc/babyjubjubParams" import BabyJubJubParams;
 
 /// Verifies match of a given public/private keypair.
 ///
@@ -17,13 +17,12 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 ///
 /// Returns:
 ///     Return true for pk/sk being a valid keypair, false otherwise.
-def main(field[2] pk, field sk, BabyJubJubParams context) -> bool:
+def main(field[2] pk, field sk, BabyJubJubParams context) -> bool {
+    field[2] G = [context.Gu, context.Gv];
 
-    field[2] G = [context.Gu, context.Gv]
+    bool[256] skBits = unpack256(sk);
+    field[2] ptExp = multiply(skBits, G, context);
 
-    bool[256] skBits = unpack256(sk)
-    field[2] ptExp = multiply(skBits, G, context)
-
-    bool out = ptExp[0] == pk[0] && ptExp[1] == pk[1]
-
-    return out
+    bool out = ptExp[0] == pk[0] && ptExp[1] == pk[1];
+    return out;
+}

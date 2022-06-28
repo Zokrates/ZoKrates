@@ -1,17 +1,17 @@
 struct Foo {
-	field[2] values
+    field[2] values;
 }
 
 struct Bar {
-	Foo foo
-	field bar
+    Foo foo;
+    field bar;
 }
 
-def main():
-	Bar s = Bar {
-		foo: Foo { values: [1] },
-		bar: 0,
-	}
-    field b = s.bar
-
-	return
+def main() {
+    Bar s = Bar {
+        foo: Foo { values: [1] },
+        bar: 0,
+    };
+    field b = s.bar;
+    return;
+}

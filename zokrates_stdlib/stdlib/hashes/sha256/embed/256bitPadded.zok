@@ -1,13 +1,14 @@
-import "./512bit" as sha256
+import "./512bit" as sha256;
 
 // A function that takes 1 bool[256] array as input
 // and returns the sha256 full round output as an array of 256 bool.
-def main(bool[256] a) -> (bool[256]):
+def main(bool[256] a) -> bool[256] {
 
     // Hash is computed on 256 bits of input
     // padding fits in the remaining 256 bits of the first block
     // add dummy block (single "true" followed by "false" + total length)
-    bool[256] dummyblock1 = [true, ...[false; 246], true, ...[false; 8]]
+    bool[256] dummyblock1 = [true, ...[false; 246], true, ...[false; 8]];
 
-    bool[256] digest = sha256(a, dummyblock1)
-    return digest
+    bool[256] digest = sha256(a, dummyblock1);
+    return digest;
+}

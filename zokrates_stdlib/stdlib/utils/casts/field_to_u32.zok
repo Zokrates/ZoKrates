@@ -1,7 +1,8 @@
-from "field" import FIELD_SIZE_IN_BITS
-import "utils/pack/bool/unpack"
-import "utils/casts/u32_from_bits"
+from "field" import FIELD_SIZE_IN_BITS;
+import "utils/pack/bool/unpack";
+import "utils/casts/u32_from_bits";
 
-def main(field input) -> u32:
-    bool[FIELD_SIZE_IN_BITS] bits = unpack(input)
-    return u32_from_bits(bits[FIELD_SIZE_IN_BITS-32..])
+def main(field input) -> u32 {
+    bool[FIELD_SIZE_IN_BITS] bits = unpack(input);
+    return u32_from_bits(bits[FIELD_SIZE_IN_BITS-32..]);
+}

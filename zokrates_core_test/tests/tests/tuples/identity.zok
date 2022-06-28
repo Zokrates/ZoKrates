@@ -1,2 +1,3 @@
-def main((field, bool,) a) -> ((field, bool,)):
-    return a
+def main((field, bool) a) -> (field, bool) {
+    return a;
+}

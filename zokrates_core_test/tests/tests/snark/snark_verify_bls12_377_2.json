@@ -41,7 +41,7 @@
       },
       "output": {
         "Ok": {
-          "values": [true]
+          "value": true
         }
       }
     }

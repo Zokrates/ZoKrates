@@ -1,8 +1,11 @@
-def foo<T>(field[T] b) -> field:
-	return 1
+def foo<T>(field[T] b) -> field {
+    return 1;
+}
 
-def bar<T>(field[T] b) -> field:
-	return foo(b)
+def bar<T>(field[T] b) -> field {
+    return foo(b);
+}
 
-def main(field[3] a) -> field:
-	return foo(a) + bar(a)
+def main(field[3] a) -> field {
+    return foo(a) + bar(a);
+}

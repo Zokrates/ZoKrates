@@ -1,35 +1,36 @@
-import "ecc/edwardsAdd" as add
-import "ecc/edwardsNegate" as neg
-from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS
+import "ecc/edwardsAdd" as add;
+import "ecc/edwardsNegate" as neg;
+from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS;
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
-def testDoubleViaAdd() -> bool:
-	field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv]
-	
-	field[2] out = add(G, G, BABYJUBJUB_PARAMS)
+def testDoubleViaAdd() -> bool {
+    field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv];
+    
+    field[2] out = add(G, G, BABYJUBJUB_PARAMS);
 
-	assert(out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830)
-	assert(out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831)
+    assert(out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830);
+    assert(out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831);
 
-	return true
+    return true;
+}
 
-def testIdentities() -> bool:
-	field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv]
-	field[2] inf = BABYJUBJUB_PARAMS.INFINITY
+def testIdentities() -> bool {
+    field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv];
+    field[2] inf = BABYJUBJUB_PARAMS.INFINITY;
 
-	assert(G == add(G, inf, BABYJUBJUB_PARAMS))
-	
-	field[2] nG = neg(G)
-	field[2] nGaddG = add(G, nG, BABYJUBJUB_PARAMS)
+    assert(G == add(G, inf, BABYJUBJUB_PARAMS));
+    
+    field[2] nG = neg(G);
+    field[2] nGaddG = add(G, nG, BABYJUBJUB_PARAMS);
 
-	assert(inf == nGaddG)
+    assert(inf == nGaddG);
 
-	return true
+    return true;
+}
 
-def main():
-
-	assert(testDoubleViaAdd())
-	assert(testIdentities())
-
-	return
+def main() {
+    assert(testDoubleViaAdd());
+    assert(testIdentities());
+    return;
+}
