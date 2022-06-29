@@ -4320,7 +4320,7 @@ mod tests {
         // a = b;
         // b undefined
         let declaration = Statement::Declaration(
-            absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            zokrates_ast::untyped::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
         )
         .mock();
 

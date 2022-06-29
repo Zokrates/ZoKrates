@@ -334,8 +334,6 @@ mod tests {
 
         #[test]
         fn incremental_multiple_definition() {
-            use zokrates_ast::typed::types::Type;
-
             // field a
             // a = 2
             // a = foo(a)
