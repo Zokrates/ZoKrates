@@ -35,7 +35,6 @@ module.exports = (dep) => {
 
   const defaultProvider = {
     compile: (source, compileOptions = {}) => {
-
       var {
         curve = "bn128",
         location = "main.zok",
@@ -44,7 +43,7 @@ module.exports = (dep) => {
         snarkjs = false,
       } = compileOptions;
 
-      config = {snarkjs, ...config};
+      config = { snarkjs, ...config };
 
       const callback = (currentLocation, importLocation) => {
         return (
@@ -53,25 +52,36 @@ module.exports = (dep) => {
         );
       };
       const ptr = zokrates.compile(source, location, callback, config, curve);
-
-      return {
-        program: ptr.program(),
-        abi: ptr.abi(),
-        snarkjsProgram: ptr.snarkjs_program()
-      }
+      return Object.assign(
+        {
+          program: ptr.program(),
+          abi: ptr.abi(),
+        },
+        snarkjs ? { snarkjs: { program: ptr.snarkjs_program() } } : {}
+      );
     },
     computeWitness: (input, args, computeOptions = {}) => {
       const { program, abi } =
         input instanceof Uint8Array ? { program: input, abi: null } : input;
 
       const { snarkjs = false } = computeOptions;
+      const ptr = zokrates.compute_witness(program, abi, JSON.stringify(args), {
+        snarkjs: snarkjs,
+      });
 
-      return zokrates.compute_witness(
-        program,
-        abi,
-        JSON.stringify(args),
-        {snarkjs: snarkjs},
-      )
+      return Object.assign(
+        {
+          witness: ptr.witness(),
+          output: ptr.output(),
+        },
+        snarkjs
+          ? {
+              snarkjs: {
+                witness: ptr.snarkjs_witness(),
+              },
+            }
+          : {}
+      );
     },
     setup: (program, options) => {
       return zokrates.setup(program, options);
@@ -94,14 +104,14 @@ module.exports = (dep) => {
     utils: {
       formatProof: (proof) => {
         return zokrates.format_proof(proof);
-      }
-    }
+      },
+    },
   };
 
   const withOptions = (options) => {
     return {
       withOptions,
-      compile: (source, compileOptions = {}) => 
+      compile: (source, compileOptions = {}) =>
         defaultProvider.compile(source, {
           ...compileOptions,
           curve: options.curve,
@@ -120,7 +130,7 @@ module.exports = (dep) => {
         defaultProvider.exportSolidityVerifier(vk),
       utils: {
         formatProof: (proof) => defaultProvider.utils.formatProof(proof),
-      }
+      },
     };
   };
 
