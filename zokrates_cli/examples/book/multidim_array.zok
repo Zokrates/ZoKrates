@@ -7,4 +7,3 @@ def main() -> field {
     // allowed access [0..2][0..3]
     return a[1][2];
 }
-

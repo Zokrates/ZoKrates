@@ -1,5 +1,5 @@
 def foo() -> field {
-    // return myGlobal <- not allowed
+    // return myGlobal; <- not allowed
     return 42;
 }
 
