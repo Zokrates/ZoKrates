@@ -18,7 +18,7 @@ def main(field[2] pt, BabyJubJubParams context) -> bool {
     // Generic code:
     // bool[256] cofactorExponent = unpack256(cofactor);
     // field[2] ptExp = multiply(cofactorExponent, pt, context);
-    field[2] ptExp = add(pt, pt, context); // 2*pt
+    field[2] mut ptExp = add(pt, pt, context); // 2*pt
     ptExp = add(ptExp, ptExp, context);    // 4*pt
     ptExp = add(ptExp, ptExp, context);    // 8*pt
 

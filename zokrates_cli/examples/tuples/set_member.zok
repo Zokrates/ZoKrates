@@ -9,7 +9,7 @@ struct Foo {
 }
 
 def main() -> ((field[2], bool), bool) {
-	((field[2], bool), bool)[2] f = [
+	((field[2], bool), bool)[2] mut f = [
 		(([0, 0], false), true),
 		(([0, 0], false), true)
 	];

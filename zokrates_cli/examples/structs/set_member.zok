@@ -9,7 +9,7 @@ struct Foo {
 }
 
 def main() -> Foo {
-    Foo[2] f = [
+    Foo[2] mut f = [
         Foo {
             a: Bar {
                 c: [0, 0],

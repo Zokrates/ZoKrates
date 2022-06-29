@@ -11,7 +11,7 @@
 // We use a naive encoding of the values as `[1, 2, 3, 4]` and rely on if-else statements to detect duplicates
 
 def countDuplicates(field e11, field e12, field e21, field e22) -> field {
-    field duplicates = e11 == e12 ? 1 : 0;
+    field mut duplicates = e11 == e12 ? 1 : 0;
     duplicates = duplicates + e11 == e21 ? 1 : 0;
     duplicates = duplicates + e11 == e22 ? 1 : 0;
     duplicates = duplicates + e12 == e21 ? 1 : 0;
@@ -49,7 +49,7 @@ def main(field a21, field b11, field b22, field c11, field c22, field d21, priva
     assert(validateInput(d21));
     assert(validateInput(d22));
 
-    field duplicates = 0; // globally counts duplicate entries in boxes, rows and columns
+    field mut duplicates = 0; // globally counts duplicate entries in boxes, rows and columns
 
     // check box correctness
 

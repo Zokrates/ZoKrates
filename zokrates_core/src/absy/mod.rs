@@ -385,8 +385,8 @@ impl<'ast> fmt::Display for Assignee<'ast> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'ast> {
     Return(Option<ExpressionNode<'ast>>),
-    Declaration(VariableNode<'ast>),
-    Definition(AssigneeNode<'ast>, ExpressionNode<'ast>),
+    Definition(VariableNode<'ast>, ExpressionNode<'ast>),
+    Assignment(AssigneeNode<'ast>, ExpressionNode<'ast>),
     Assertion(ExpressionNode<'ast>, Option<String>),
     For(
         VariableNode<'ast>,
@@ -408,8 +408,10 @@ impl<'ast> fmt::Display for Statement<'ast> {
                     None => write!(f, ";"),
                 }
             }
-            Statement::Declaration(ref var) => write!(f, "{};", var),
-            Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
+            Statement::Definition(ref var, ref rhs) => {
+                write!(f, "{} = {};", var, rhs)
+            }
+            Statement::Assignment(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             Statement::Assertion(ref e, ref message) => {
                 write!(f, "assert({}", e)?;
                 match message {

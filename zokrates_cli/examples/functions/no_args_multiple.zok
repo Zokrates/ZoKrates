@@ -2,7 +2,7 @@ def constant() -> field {
     return 123123;
 }
 
-def add(field a, field b) -> field {
+def add(field mut a, field b) -> field {
     a = constant();
     return a + b;
 }

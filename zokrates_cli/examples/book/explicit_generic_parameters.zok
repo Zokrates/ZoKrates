@@ -1,6 +1,6 @@
 // a function to sum the N first powers of a field element
 def sum_powers<N>(field a) -> field {
-    field res = 0;
+    field mut res = 0;
     for u32 i in 0..N {
         res = res + a ** i;
     }

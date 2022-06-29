@@ -1,5 +1,5 @@
 def main(field[2][2][2] cube) -> field {
-    field res = 0;
+    field mut res = 0;
 
     for u32 i in 0..2 {
         for u32 j in 0..2 {

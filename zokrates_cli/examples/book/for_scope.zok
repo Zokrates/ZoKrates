@@ -1,5 +1,5 @@
 def main() -> u32 {
-    u32 a = 0;
+    u32 mut a = 0;
     for u32 i in 0..5 {
         a = a + i;
     }

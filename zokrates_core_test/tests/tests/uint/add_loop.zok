@@ -1,6 +1,6 @@
 // 32 constraints for input constraining
 def main(u32 a) -> u32 {
-    u32 res = 0x00000000;
+    u32 mut res = 0x00000000;
     for u32 i in 0..10 {
 	    res = res + a;
 	}

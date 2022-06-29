@@ -10,6 +10,13 @@ Variables need to be declared to be used. Declaration and definition are always 
 {{#include ../../../zokrates_cli/examples/book/declaration.zok}}
 ```
 
+### Mutability
+
+Variables are immutable by default. In order to declare a mutable variable, the `mut` keyword is used.
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/mutable.zok}}
+```
+
 ### Shadowing
 
 Shadowing is not allowed.

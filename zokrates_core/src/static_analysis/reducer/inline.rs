@@ -175,7 +175,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .arguments
         .into_iter()
         .zip(inferred_signature.inputs.clone())
-        .map(|(p, t)| ConcreteVariable::with_id_and_type(p.id.id, t))
+        .map(|(p, t)| ConcreteVariable::new(p.id.id, t, false))
         .zip(arguments.clone())
         .map(|(v, a)| TypedStatement::Definition(TypedAssignee::Identifier(v.into()), a))
         .collect();
@@ -192,7 +192,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         _ => unreachable!(),
     };
 
-    let v: ConcreteVariable<'ast> = ConcreteVariable::with_id_and_type(
+    let v: ConcreteVariable<'ast> = ConcreteVariable::new(
         Identifier::from(CoreIdentifier::Call(0)).version(
             *versions
                 .entry(CoreIdentifier::Call(0).clone())
@@ -200,10 +200,8 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
                 .or_insert(0),
         ),
         *inferred_signature.output.clone(),
+        false,
     );
-
-    // let expressions: Vec<TypedExpression<_>> =
-    //     vec![TypedExpression::from(Variable::from(v.clone()))];
 
     let expression = TypedExpression::from(Variable::from(v.clone()));
 

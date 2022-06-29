@@ -658,7 +658,6 @@ impl<'ast, T: fmt::Display> fmt::Display for EmbedCall<'ast, T> {
 pub enum TypedStatement<'ast, T> {
     Return(TypedExpression<'ast, T>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
-    Declaration(Variable<'ast, T>),
     Assertion(BooleanExpression<'ast, T>, RuntimeError),
     For(
         Variable<'ast, T>,
@@ -698,7 +697,6 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::Return(ref e) => {
                 write!(f, "return {};", e)
             }
-            TypedStatement::Declaration(ref var) => write!(f, "{};", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             TypedStatement::Assertion(ref e, ref error) => {
                 write!(f, "assert({}", e)?;

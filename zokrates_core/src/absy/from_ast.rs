@@ -198,11 +198,7 @@ impl<'ast> From<pest::FunctionDefinition<'ast>> for absy::SymbolDeclarationNode<
                 .into_iter()
                 .map(absy::ParameterNode::from)
                 .collect(),
-            statements: function
-                .statements
-                .into_iter()
-                .flat_map(statements_from_statement)
-                .collect(),
+            statements: function.statements.into_iter().map(|s| s.into()).collect(),
             signature,
         }
         .span(span.clone());
@@ -229,7 +225,7 @@ impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
     fn from(param: pest::Parameter<'ast>) -> absy::ParameterNode<'ast> {
         use crate::absy::NodeValue;
 
-        let private = param
+        let is_private = param
             .visibility
             .map(|v| match v {
                 pest::Visibility::Private(_) => true,
@@ -237,50 +233,65 @@ impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
             })
             .unwrap_or(false);
 
+        let is_mutable = param.mutable.is_some();
+
         let variable = absy::Variable::new(
             param.id.span.as_str(),
             absy::UnresolvedTypeNode::from(param.ty),
+            is_mutable,
         )
         .span(param.id.span);
 
-        absy::Parameter::new(variable, private).span(param.span)
+        absy::Parameter::new(variable, is_private).span(param.span)
     }
 }
 
-fn statements_from_statement(statement: pest::Statement) -> Vec<absy::StatementNode> {
-    match statement {
-        pest::Statement::Definition(s) => statements_from_definition(s),
-        pest::Statement::Iteration(s) => vec![absy::StatementNode::from(s)],
-        pest::Statement::Assertion(s) => vec![absy::StatementNode::from(s)],
-        pest::Statement::Return(s) => vec![absy::StatementNode::from(s)],
+impl<'ast> From<pest::TypedIdentifier<'ast>> for absy::VariableNode<'ast> {
+    fn from(i: pest::TypedIdentifier<'ast>) -> Self {
+        use crate::absy::NodeValue;
+
+        absy::Variable::new(
+            i.identifier.span.as_str(),
+            absy::UnresolvedTypeNode::from(i.ty),
+            i.mutable.is_some(),
+        )
+        .span(i.span)
     }
 }
 
-fn statements_from_definition(definition: pest::DefinitionStatement) -> Vec<absy::StatementNode> {
-    use crate::absy::NodeValue;
-    let lhs = definition.lhs;
-    let e: absy::ExpressionNode = absy::ExpressionNode::from(definition.expression);
+impl<'ast> From<pest::Statement<'ast>> for absy::StatementNode<'ast> {
+    fn from(statement: pest::Statement<'ast>) -> Self {
+        match statement {
+            pest::Statement::Definition(s) => absy::StatementNode::from(s),
+            pest::Statement::Iteration(s) => absy::StatementNode::from(s),
+            pest::Statement::Assertion(s) => absy::StatementNode::from(s),
+            pest::Statement::Return(s) => absy::StatementNode::from(s),
+        }
+    }
+}
 
-    match lhs {
-        pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
-            let declaration = absy::Statement::Declaration(
+impl<'ast> From<pest::DefinitionStatement<'ast>> for absy::StatementNode<'ast> {
+    fn from(definition: pest::DefinitionStatement<'ast>) -> Self {
+        use crate::absy::NodeValue;
+
+        let lhs = definition.lhs;
+        let e: absy::ExpressionNode = absy::ExpressionNode::from(definition.expression);
+
+        match lhs {
+            pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => absy::Statement::Definition(
                 absy::Variable::new(
                     i.identifier.span.as_str(),
                     absy::UnresolvedTypeNode::from(i.ty),
+                    i.mutable.is_some(),
                 )
-                .span(i.identifier.span.clone()),
-            )
-            .span(definition.span.clone());
-
-            let definition =
-                absy::Statement::Definition(absy::AssigneeNode::from(i.identifier.clone()), e)
-                    .span(definition.span);
-
-            vec![declaration, definition]
+                .span(i.span.clone()),
+                e,
+            ),
+            pest::TypedIdentifierOrAssignee::Assignee(a) => {
+                absy::Statement::Assignment(absy::AssigneeNode::from(a), e)
+            }
         }
-        pest::TypedIdentifierOrAssignee::Assignee(a) => {
-            vec![absy::Statement::Definition(absy::AssigneeNode::from(a), e).span(definition.span)]
-        }
+        .span(definition.span.clone())
     }
 }
 
@@ -308,19 +319,13 @@ impl<'ast> From<pest::AssertionStatement<'ast>> for absy::StatementNode<'ast> {
 impl<'ast> From<pest::IterationStatement<'ast>> for absy::StatementNode<'ast> {
     fn from(statement: pest::IterationStatement<'ast>) -> absy::StatementNode<'ast> {
         use crate::absy::NodeValue;
+        let index = absy::VariableNode::from(statement.index);
         let from = absy::ExpressionNode::from(statement.from);
         let to = absy::ExpressionNode::from(statement.to);
-        let index = statement.id.identifier.span.as_str();
-        let ty = absy::UnresolvedTypeNode::from(statement.id.ty);
-        let statements: Vec<absy::StatementNode<'ast>> = statement
-            .statements
-            .into_iter()
-            .flat_map(statements_from_statement)
-            .collect();
+        let statements: Vec<absy::StatementNode<'ast>> =
+            statement.statements.into_iter().map(|s| s.into()).collect();
 
-        let var = absy::Variable::new(index, ty).span(statement.id.identifier.span);
-
-        absy::Statement::For(var, from, to, statements).span(statement.span)
+        absy::Statement::For(index, from, to, statements).span(statement.span)
     }
 }
 
@@ -439,13 +444,13 @@ impl<'ast> From<pest::IfElseExpression<'ast>> for absy::ExpressionNode<'ast> {
             consequence_statements: expression
                 .consequence_statements
                 .into_iter()
-                .flat_map(statements_from_statement)
+                .map(absy::StatementNode::from)
                 .collect(),
             consequence: box absy::ExpressionNode::from(*expression.consequence),
             alternative_statements: expression
                 .alternative_statements
                 .into_iter()
-                .flat_map(statements_from_statement)
+                .map(absy::StatementNode::from)
                 .collect(),
             alternative: box absy::ExpressionNode::from(*expression.alternative),
             kind: absy::ConditionalKind::IfElse,
@@ -909,7 +914,7 @@ mod tests {
 
     #[test]
     fn arguments() {
-        let source = "def main(private field a, bool b) -> field { return 42; }";
+        let source = "def main(private field a, bool mut b) -> field { return 42; }";
         let ast = pest::generate_ast(source).unwrap();
 
         let expected: absy::Module = absy::Module {
@@ -919,19 +924,12 @@ mod tests {
                     absy::Function {
                         arguments: vec![
                             absy::Parameter::private(
-                                absy::Variable::new(
-                                    &source[23..24],
-                                    UnresolvedType::FieldElement.mock(),
-                                )
-                                .into(),
+                                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock())
+                                    .into(),
                             )
                             .into(),
                             absy::Parameter::public(
-                                absy::Variable::new(
-                                    &source[31..32],
-                                    UnresolvedType::Boolean.mock(),
-                                )
-                                .into(),
+                                absy::Variable::mutable("b", UnresolvedType::Boolean.mock()).into(),
                             )
                             .into(),
                         ],
@@ -966,7 +964,7 @@ mod tests {
                     symbol: absy::Symbol::Here(absy::SymbolDefinition::Function(
                         absy::Function {
                             arguments: vec![absy::Parameter::private(
-                                absy::Variable::new("a", ty.clone().mock()).into(),
+                                absy::Variable::new("a", ty.clone().mock(), false).into(),
                             )
                             .into()],
                             statements: vec![absy::Statement::Return(None).into()],
@@ -1168,8 +1166,7 @@ mod tests {
         let span = Span::new("", 0, 0).unwrap();
 
         // Case 1: `id = expr`
-        // This is a simple assignment to an already existing variable
-        // A definition is generated
+        // A simple assignment to an already defined variable
 
         let definition = pest::DefinitionStatement {
             lhs: pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
@@ -1192,18 +1189,17 @@ mod tests {
             span: span.clone(),
         };
 
-        let statements: Vec<absy::StatementNode> = statements_from_definition(definition);
+        let statement = absy::StatementNode::from(definition);
 
-        assert_eq!(statements.len(), 1);
-        match &statements[0].value {
-            absy::Statement::Definition(..) => {}
+        match statement.value {
+            absy::Statement::Assignment(..) => {}
             s => {
-                panic!("should be a Definition, found {}", s);
+                panic!("should be an Assignment, found {}", s);
             }
         };
 
         // Case 2: `type id = expr`
-        // A declaration and a definition is generated
+        // A definition statement is generated
 
         let definition = pest::DefinitionStatement {
             lhs: pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
@@ -1214,6 +1210,7 @@ mod tests {
                     value: String::from("a"),
                     span: span.clone(),
                 },
+                mutable: None,
                 span: span.clone(),
             }),
             expression: pest::Expression::Postfix(pest::PostfixExpression {
@@ -1234,13 +1231,12 @@ mod tests {
             span: span.clone(),
         };
 
-        let statements: Vec<absy::StatementNode> = statements_from_definition(definition);
+        let statement = absy::StatementNode::from(definition);
 
-        assert_eq!(statements.len(), 2);
-        match (&statements[0].value, &statements[1].value) {
-            (absy::Statement::Declaration(..), absy::Statement::Definition(..)) => {}
-            _ => {
-                panic!("should be a (Declaration, Definition)");
+        match statement.value {
+            absy::Statement::Definition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
             }
         };
     }

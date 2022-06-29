@@ -34,6 +34,7 @@ mod tests {
         ConcreteArrayType, ConcreteFunctionKey, ConcreteStructMember, ConcreteStructType,
         GTupleType, UBitwidth,
     };
+    use crate::typed_absy::DeclarationType;
     use crate::typed_absy::{
         parameter::DeclarationParameter, variable::DeclarationVariable, ConcreteTupleType,
         ConcreteType, TypedFunction, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
@@ -49,11 +50,11 @@ mod tests {
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
                     DeclarationParameter {
-                        id: DeclarationVariable::field_element("a"),
+                        id: DeclarationVariable::new("a", DeclarationType::FieldElement, true),
                         private: true,
                     },
                     DeclarationParameter {
-                        id: DeclarationVariable::boolean("b"),
+                        id: DeclarationVariable::new("b", DeclarationType::Boolean, false),
                         private: false,
                     },
                 ],

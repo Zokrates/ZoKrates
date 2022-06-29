@@ -335,6 +335,7 @@ mod ast {
     pub struct Parameter<'ast> {
         pub visibility: Option<Visibility>,
         pub ty: Type<'ast>,
+        pub mutable: Option<Mutable>,
         pub id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -395,7 +396,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::iteration_statement))]
     pub struct IterationStatement<'ast> {
-        pub id: TypedIdentifier<'ast>,
+        pub index: TypedIdentifier<'ast>,
         pub from: Expression<'ast>,
         pub to: Expression<'ast>,
         pub statements: Vec<Statement<'ast>>,
@@ -703,9 +704,14 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::_mut))]
+    pub struct Mutable {}
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::typed_identifier))]
     pub struct TypedIdentifier<'ast> {
         pub ty: Type<'ast>,
+        pub mutable: Option<Mutable>,
         pub identifier: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,

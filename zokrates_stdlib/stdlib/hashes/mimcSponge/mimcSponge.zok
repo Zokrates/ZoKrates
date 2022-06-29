@@ -1,8 +1,8 @@
 import "./mimcFeistel" as MiMCFeistel;
 
 def main<nInputs, nOutputs>(field[nInputs] ins, field k) -> field[nOutputs] {
-    field[nInputs + nOutputs - 1][2] S = [[0; 2]; nInputs + nOutputs - 1];
-    field[nOutputs] outs = [0; nOutputs];
+    field[nInputs + nOutputs - 1][2] mut S = [[0; 2]; nInputs + nOutputs - 1];
+    field[nOutputs] mut outs = [0; nOutputs];
 
     for u32 i in 0..nInputs {
         u32 j = i == 0 ? 0 : i - 1;

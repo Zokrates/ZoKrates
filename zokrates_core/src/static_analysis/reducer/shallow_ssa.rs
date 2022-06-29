@@ -106,9 +106,10 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
             .iter()
             .map(|(g, v)| {
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::with_id_and_type(
+                    TypedAssignee::Identifier(Variable::new(
                         g.name(),
                         Type::Uint(UBitwidth::B32),
+                        false,
                     )),
                     UExpression::from(*v as u32).into(),
                 )
@@ -127,7 +128,6 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
 impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
-            TypedStatement::Declaration(_) => vec![],
             TypedStatement::Definition(a, e) => {
                 let e = self.fold_expression(e);
 
@@ -198,7 +198,7 @@ mod tests {
         #[test]
         fn detect_non_constant_bound() {
             let loops: Vec<TypedStatement<Bn128Field>> = vec![TypedStatement::For(
-                Variable::uint("i", UBitwidth::B32),
+                Variable::new("i", Type::Uint(UBitwidth::B32), false),
                 UExpressionInner::Identifier("i".into()).annotate(UBitwidth::B32),
                 2u32.into(),
                 vec![],
@@ -237,9 +237,6 @@ mod tests {
             let mut versions = Versions::new();
 
             let mut u = ShallowTransformer::with_versions(&mut versions);
-            let s: TypedStatement<Bn128Field> =
-                TypedStatement::Declaration(Variable::field_element("a"));
-            assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element("a")),
@@ -291,10 +288,6 @@ mod tests {
 
             let mut u = ShallowTransformer::with_versions(&mut versions);
 
-            let s: TypedStatement<Bn128Field> =
-                TypedStatement::Declaration(Variable::field_element("a"));
-            assert_eq!(u.fold_statement(s), vec![]);
-
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(Bn128Field::from(5)).into(),
@@ -345,10 +338,6 @@ mod tests {
             let mut versions = Versions::new();
 
             let mut u = ShallowTransformer::with_versions(&mut versions);
-
-            let s: TypedStatement<Bn128Field> =
-                TypedStatement::Declaration(Variable::field_element("a"));
-            assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element("a")),
@@ -411,10 +400,6 @@ mod tests {
 
             let mut u = ShallowTransformer::with_versions(&mut versions);
 
-            let s: TypedStatement<Bn128Field> =
-                TypedStatement::Declaration(Variable::array("a", Type::FieldElement, 2u32));
-            assert_eq!(u.fold_statement(s), vec![]);
-
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::array("a", Type::FieldElement, 2u32)),
                 ArrayExpressionInner::Value(
@@ -474,16 +459,8 @@ mod tests {
 
             let array_of_array_ty = Type::array((Type::array((Type::FieldElement, 2u32)), 2u32));
 
-            let s: TypedStatement<Bn128Field> = TypedStatement::Declaration(
-                Variable::with_id_and_type("a", array_of_array_ty.clone()),
-            );
-            assert_eq!(u.fold_statement(s), vec![]);
-
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::with_id_and_type(
-                    "a",
-                    array_of_array_ty.clone(),
-                )),
+                TypedAssignee::Identifier(Variable::new("a", array_of_array_ty.clone(), true)),
                 ArrayExpressionInner::Value(
                     vec![
                         ArrayExpressionInner::Value(
@@ -514,9 +491,10 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::with_id_and_type(
+                    TypedAssignee::Identifier(Variable::new(
                         Identifier::from("a").version(0),
                         array_of_array_ty.clone(),
+                        true,
                     )),
                     ArrayExpressionInner::Value(
                         vec![
@@ -548,9 +526,10 @@ mod tests {
 
             let s: TypedStatement<Bn128Field> = TypedStatement::Definition(
                 TypedAssignee::Select(
-                    box TypedAssignee::Identifier(Variable::with_id_and_type(
+                    box TypedAssignee::Identifier(Variable::new(
                         "a",
                         array_of_array_ty.clone(),
+                        true,
                     )),
                     box UExpression::from(1u32),
                 ),

@@ -225,13 +225,13 @@ const field[R] IV = [
 ];
 
 def main(field xL_in, field xR_in, field k) -> field[2] {
-    field[R] t2 = [0; R];
-    field[R] t4 = [0; R];
-    field[R] xL = [0; R];
-    field[R] xR = [0; R];
+    field[R] mut t2 = [0; R];
+    field[R] mut t4 = [0; R];
+    field[R] mut xL = [0; R];
+    field[R] mut xR = [0; R];
 
-    field t = 0;
-    field c = 0;
+    field mut t = 0;
+    field mut c = 0;
 
     for u32 i in 0..R {
         u32 j = i == 0 ? 0 : i - 1;

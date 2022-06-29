@@ -11,7 +11,7 @@ def pad<L, M>(bool[L] m) -> u32[M][16] {
     u32 r = length % 512;
     u32 k = 512 - r;
     bool[M * 512] result_in_bits = [...m, true, ...[false; k + 32], ...u32_to_bits(L)];
-    u32[M][16] result = [[0; 16]; M];
+    u32[M][16] mut result = [[0; 16]; M];
 
     for u32 i in 0..M {
         for u32 j in 0..16 {
@@ -35,7 +35,7 @@ def sha256Padded<N>(bool[N] input) -> u32[8] {
 // and returns the sha256 output as a u32[8]
 def main<N>(u8[N] input) -> u32[8] {
     u32 L = N * 8;
-    bool[L] input_bits = [false; L];
+    bool[L] mut input_bits = [false; L];
 
     for u32 i in 0..N {
         bool[8] bits = u8_to_bits(input[i]);

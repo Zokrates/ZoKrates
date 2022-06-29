@@ -20,7 +20,7 @@ constant_generics_declaration = _{ "<" ~ constant_generics_list ~ ">" }
 constant_generics_list = _{ identifier ~ ("," ~ identifier)* }
 
 parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
-parameter = { vis? ~ ty ~ identifier }
+parameter = { vis? ~ ty ~ _mut? ~ identifier }
 
 // basic types
 ty_field = {"field"}
@@ -48,6 +48,7 @@ struct_field = { typed_identifier }
 vis_private = {"private"}
 vis_public = {"public"}
 vis = { vis_private | vis_public }
+_mut = {"mut"}
 
 
 // Statements
@@ -113,7 +114,8 @@ array_initializer_expression = { "[" ~ expression ~ semicolon ~ expression ~ "]"
 
 // End Expressions
 
-typed_identifier = { ty ~ identifier }
+
+typed_identifier = { ty ~ _mut? ~ identifier }
 assignee = { identifier ~ assignee_access* }
 assignee_access = { array_access | dot_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -177,5 +179,5 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 // accepted
 keyword = @{
     "assert"|"as"|"bool"|"const"|"def"|"else"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
-    "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
+    "in"|"mut"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
 }
