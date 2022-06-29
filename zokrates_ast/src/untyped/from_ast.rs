@@ -196,11 +196,7 @@ impl<'ast> From<pest::FunctionDefinition<'ast>> for untyped::SymbolDeclarationNo
                 .into_iter()
                 .map(untyped::ParameterNode::from)
                 .collect(),
-            statements: function
-                .statements
-                .into_iter()
-                .flat_map(statements_from_statement)
-                .collect(),
+            statements: function.statements.into_iter().map(|s| s.into()).collect(),
             signature,
         }
         .span(span.clone());
@@ -227,7 +223,7 @@ impl<'ast> From<pest::Parameter<'ast>> for untyped::ParameterNode<'ast> {
     fn from(param: pest::Parameter<'ast>) -> untyped::ParameterNode<'ast> {
         use crate::untyped::NodeValue;
 
-        let private = param
+        let is_private = param
             .visibility
             .map(|v| match v {
                 pest::Visibility::Private(_) => true,
@@ -235,57 +231,65 @@ impl<'ast> From<pest::Parameter<'ast>> for untyped::ParameterNode<'ast> {
             })
             .unwrap_or(false);
 
+        let is_mutable = param.mutable.is_some();
+
         let variable = untyped::Variable::new(
             param.id.span.as_str(),
             untyped::UnresolvedTypeNode::from(param.ty),
+            is_mutable,
         )
         .span(param.id.span);
 
-        untyped::Parameter::new(variable, private).span(param.span)
+        untyped::Parameter::new(variable, is_private).span(param.span)
     }
 }
 
-fn statements_from_statement(statement: pest::Statement) -> Vec<untyped::StatementNode> {
-    match statement {
-        pest::Statement::Definition(s) => statements_from_definition(s),
-        pest::Statement::Iteration(s) => vec![untyped::StatementNode::from(s)],
-        pest::Statement::Assertion(s) => vec![untyped::StatementNode::from(s)],
-        pest::Statement::Return(s) => vec![untyped::StatementNode::from(s)],
+impl<'ast> From<pest::TypedIdentifier<'ast>> for untyped::VariableNode<'ast> {
+    fn from(i: pest::TypedIdentifier<'ast>) -> Self {
+        use crate::untyped::NodeValue;
+
+        untyped::Variable::new(
+            i.identifier.span.as_str(),
+            untyped::UnresolvedTypeNode::from(i.ty),
+            i.mutable.is_some(),
+        )
+        .span(i.span)
     }
 }
 
-fn statements_from_definition(
-    definition: pest::DefinitionStatement,
-) -> Vec<untyped::StatementNode> {
-    use crate::untyped::NodeValue;
-    let lhs = definition.lhs;
-    let e: untyped::ExpressionNode = untyped::ExpressionNode::from(definition.expression);
+impl<'ast> From<pest::Statement<'ast>> for untyped::StatementNode<'ast> {
+    fn from(statement: pest::Statement<'ast>) -> Self {
+        match statement {
+            pest::Statement::Definition(s) => untyped::StatementNode::from(s),
+            pest::Statement::Iteration(s) => untyped::StatementNode::from(s),
+            pest::Statement::Assertion(s) => untyped::StatementNode::from(s),
+            pest::Statement::Return(s) => untyped::StatementNode::from(s),
+        }
+    }
+}
 
-    match lhs {
-        pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => {
-            let declaration = untyped::Statement::Declaration(
+impl<'ast> From<pest::DefinitionStatement<'ast>> for untyped::StatementNode<'ast> {
+    fn from(definition: pest::DefinitionStatement<'ast>) -> Self {
+        use crate::untyped::NodeValue;
+
+        let lhs = definition.lhs;
+        let e: untyped::ExpressionNode = untyped::ExpressionNode::from(definition.expression);
+
+        match lhs {
+            pest::TypedIdentifierOrAssignee::TypedIdentifier(i) => untyped::Statement::Definition(
                 untyped::Variable::new(
                     i.identifier.span.as_str(),
                     untyped::UnresolvedTypeNode::from(i.ty),
+                    i.mutable.is_some(),
                 )
-                .span(i.identifier.span.clone()),
-            )
-            .span(definition.span.clone());
-
-            let definition = untyped::Statement::Definition(
-                untyped::AssigneeNode::from(i.identifier.clone()),
+                .span(i.span.clone()),
                 e,
-            )
-            .span(definition.span);
-
-            vec![declaration, definition]
+            ),
+            pest::TypedIdentifierOrAssignee::Assignee(a) => {
+                untyped::Statement::Assignment(untyped::AssigneeNode::from(a), e)
+            }
         }
-        pest::TypedIdentifierOrAssignee::Assignee(a) => {
-            vec![
-                untyped::Statement::Definition(untyped::AssigneeNode::from(a), e)
-                    .span(definition.span),
-            ]
-        }
+        .span(definition.span.clone())
     }
 }
 
@@ -313,19 +317,13 @@ impl<'ast> From<pest::AssertionStatement<'ast>> for untyped::StatementNode<'ast>
 impl<'ast> From<pest::IterationStatement<'ast>> for untyped::StatementNode<'ast> {
     fn from(statement: pest::IterationStatement<'ast>) -> untyped::StatementNode<'ast> {
         use crate::untyped::NodeValue;
+        let index = untyped::VariableNode::from(statement.index);
         let from = untyped::ExpressionNode::from(statement.from);
         let to = untyped::ExpressionNode::from(statement.to);
-        let index = statement.id.identifier.span.as_str();
-        let ty = untyped::UnresolvedTypeNode::from(statement.id.ty);
-        let statements: Vec<untyped::StatementNode<'ast>> = statement
-            .statements
-            .into_iter()
-            .flat_map(statements_from_statement)
-            .collect();
+        let statements: Vec<untyped::StatementNode<'ast>> =
+            statement.statements.into_iter().map(|s| s.into()).collect();
 
-        let var = untyped::Variable::new(index, ty).span(statement.id.identifier.span);
-
-        untyped::Statement::For(var, from, to, statements).span(statement.span)
+        untyped::Statement::For(index, from, to, statements).span(statement.span)
     }
 }
 
@@ -444,13 +442,13 @@ impl<'ast> From<pest::IfElseExpression<'ast>> for untyped::ExpressionNode<'ast> 
             consequence_statements: expression
                 .consequence_statements
                 .into_iter()
-                .flat_map(statements_from_statement)
+                .map(untyped::StatementNode::from)
                 .collect(),
             consequence: box untyped::ExpressionNode::from(*expression.consequence),
             alternative_statements: expression
                 .alternative_statements
                 .into_iter()
-                .flat_map(statements_from_statement)
+                .map(untyped::StatementNode::from)
                 .collect(),
             alternative: box untyped::ExpressionNode::from(*expression.alternative),
             kind: untyped::ConditionalKind::IfElse,
@@ -918,7 +916,7 @@ mod tests {
 
     #[test]
     fn arguments() {
-        let source = "def main(private field a, bool b) -> field { return 42; }";
+        let source = "def main(private field a, bool mut b) -> field { return 42; }";
         let ast = pest::generate_ast(source).unwrap();
 
         let expected: untyped::Module = untyped::Module {
@@ -928,19 +926,16 @@ mod tests {
                     untyped::Function {
                         arguments: vec![
                             untyped::Parameter::private(
-                                untyped::Variable::new(
-                                    &source[23..24],
+                                untyped::Variable::immutable(
+                                    "a",
                                     UnresolvedType::FieldElement.mock(),
                                 )
                                 .into(),
                             )
                             .into(),
                             untyped::Parameter::public(
-                                untyped::Variable::new(
-                                    &source[31..32],
-                                    UnresolvedType::Boolean.mock(),
-                                )
-                                .into(),
+                                untyped::Variable::mutable("b", UnresolvedType::Boolean.mock())
+                                    .into(),
                             )
                             .into(),
                         ],
@@ -975,7 +970,7 @@ mod tests {
                     symbol: untyped::Symbol::Here(untyped::SymbolDefinition::Function(
                         untyped::Function {
                             arguments: vec![untyped::Parameter::private(
-                                untyped::Variable::new("a", ty.clone().mock()).into(),
+                                untyped::Variable::new("a", ty.clone().mock(), false).into(),
                             )
                             .into()],
                             statements: vec![untyped::Statement::Return(None).into()],
@@ -1177,8 +1172,7 @@ mod tests {
         let span = Span::new("", 0, 0).unwrap();
 
         // Case 1: `id = expr`
-        // This is a simple assignment to an already existing variable
-        // A definition is generated
+        // A simple assignment to an already defined variable
 
         let definition = pest::DefinitionStatement {
             lhs: pest::TypedIdentifierOrAssignee::Assignee(pest::Assignee {
@@ -1201,18 +1195,17 @@ mod tests {
             span: span.clone(),
         };
 
-        let statements: Vec<untyped::StatementNode> = statements_from_definition(definition);
+        let statement = untyped::StatementNode::from(definition);
 
-        assert_eq!(statements.len(), 1);
-        match &statements[0].value {
-            untyped::Statement::Definition(..) => {}
+        match statement.value {
+            untyped::Statement::Assignment(..) => {}
             s => {
-                panic!("should be a Definition, found {}", s);
+                panic!("should be an Assignment, found {}", s);
             }
         };
 
         // Case 2: `type id = expr`
-        // A declaration and a definition is generated
+        // A definition statement is generated
 
         let definition = pest::DefinitionStatement {
             lhs: pest::TypedIdentifierOrAssignee::TypedIdentifier(pest::TypedIdentifier {
@@ -1223,6 +1216,7 @@ mod tests {
                     value: String::from("a"),
                     span: span.clone(),
                 },
+                mutable: None,
                 span: span.clone(),
             }),
             expression: pest::Expression::Postfix(pest::PostfixExpression {
@@ -1243,13 +1237,12 @@ mod tests {
             span: span.clone(),
         };
 
-        let statements: Vec<untyped::StatementNode> = statements_from_definition(definition);
+        let statement = untyped::StatementNode::from(definition);
 
-        assert_eq!(statements.len(), 2);
-        match (&statements[0].value, &statements[1].value) {
-            (untyped::Statement::Declaration(..), untyped::Statement::Definition(..)) => {}
-            _ => {
-                panic!("should be a (Declaration, Definition)");
+        match statement.value {
+            untyped::Statement::Definition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
             }
         };
     }

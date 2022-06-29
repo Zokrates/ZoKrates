@@ -3,7 +3,7 @@ def foo(field a) -> field {
 }
 
 def main(field a) -> (field, field) {
-    field[2] result = [0, 0];
+    field[2] mut result = [0, 0];
     field r = foo(a);
     result[1] = r;
     assert(result[1] == r);

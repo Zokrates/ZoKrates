@@ -99,7 +99,7 @@ const options = {
     resolveCallback: (currentLocation, importLocation) => {
         console.log(currentLocation + ' is importing ' + importLocation);
         return { 
-            source: "def main() -> (): return", 
+            source: "def main() { return; }", 
             location: importLocation 
         };
     }
@@ -141,7 +141,7 @@ const artifacts = zokratesProvider.compile(code);
 const { witness, output } = zokratesProvider.computeWitness(artifacts, ["2"]);
 
 console.log(witness); // Resulting witness which can be used to generate a proof
-console.log(output); // Computation output: ["4"]
+console.log(output); // Computation output: "4"
 ```
 
 ##### setup(program)

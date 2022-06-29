@@ -273,8 +273,8 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                         .and_modify(|e| *e += 1) // if it was already declared, we increment
                         .or_insert(0),
                 );
-                let var = Variable::with_id_and_type(identifier.clone(), output_type);
 
+                let var = Variable::immutable(identifier.clone(), output_type);
                 let v = var.clone().into();
 
                 self.statement_buffer

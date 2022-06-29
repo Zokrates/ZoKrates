@@ -416,9 +416,6 @@ fn fold_statement<'ast, T: Field>(
                 .map(|(a, e)| zir::ZirStatement::Definition(a, e))
                 .collect()
         }
-        typed::TypedStatement::Declaration(..) => {
-            unreachable!()
-        }
         typed::TypedStatement::Assertion(e, error) => {
             let e = f.fold_boolean_expression(statements_buffer, e);
             let error = match error {

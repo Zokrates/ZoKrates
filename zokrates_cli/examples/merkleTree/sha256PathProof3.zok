@@ -12,7 +12,7 @@ def select(bool condition, u32[8] left, u32[8] right) -> (u32[8], u32[8]) {
 
 def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector, private u32[DEPTH][8] path) -> bool {
     // Start from the leaf
-    u32[8] digest = leaf;
+    u32[8] mut digest = leaf;
 
 	// Loop up the tree
 	for u32 i in 0..DEPTH {

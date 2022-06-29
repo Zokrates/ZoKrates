@@ -1,7 +1,7 @@
 def main() -> field {
     field a = 1 + 2 + 3;
     field b = 1 < a ? 3 : a + 3;
-    field c = b + a == 2 ? 1 : b;
+    field mut c = b + a == 2 ? 1 : b;
     for u32 e in 0..2 {
         field g = 4;
         c = c + g;
