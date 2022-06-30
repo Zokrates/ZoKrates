@@ -192,18 +192,16 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
         .write(writer)
         .map_err(|why| format!("Could not save witness: {:?}", why))?;
 
-    println!("Witness file written to '{}'", output_path.display());
-
     // write circom witness to file
-    if let Some(wtns_path) = sub_matches.value_of("circom-witness") {
-        let wtns_file = File::create(&wtns_path)
-            .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+    let wtns_path = Path::new(sub_matches.value_of("circom-witness").unwrap());
+    let wtns_file = File::create(&wtns_path)
+        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
 
-        let mut writer = BufWriter::new(wtns_file);
+    let mut writer = BufWriter::new(wtns_file);
 
-        write_witness(&mut writer, witness, public_inputs)
-            .map_err(|why| format!("Could not save circom witness: {:?}", why))?;
-    }
+    write_witness(&mut writer, witness, public_inputs)
+        .map_err(|why| format!("Could not save circom witness: {:?}", why))?;
 
+    println!("Witness file written to '{}'", output_path.display());
     Ok(())
 }
