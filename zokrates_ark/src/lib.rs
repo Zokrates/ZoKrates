@@ -156,6 +156,7 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
 mod parse {
     use super::*;
     use ark_ff::ToBytes;
+    use zokrates_field::G2Type;
     use zokrates_proof_systems::{Fr, G1Affine, G2Affine, G2AffineFq, G2AffineFq2};
 
     pub fn parse_g1<T: Field + ArkFieldExtensions>(
@@ -187,48 +188,44 @@ mod parse {
 
         let length = bytes.len() - 1; // [x, y, infinity] - infinity
 
-        // determine if we're dealing with fq or fq2
-        let count = length / T::get_required_bits();
+        match T::G2_TYPE {
+            G2Type::Fq2 => {
+                let element_length = length / 4;
 
-        println!("{}", count);
+                let mut elements = vec![];
+                for i in 0..4 {
+                    let start = i * element_length;
+                    let end = start + element_length;
+                    let mut e = bytes[start..end].to_vec();
+                    e.reverse();
+                    elements.push(e);
+                }
 
-        if count == 42 {
-            let element_length = length / 4;
-
-            let mut elements = vec![];
-            for i in 0..4 {
-                let start = i * element_length;
-                let end = start + element_length;
-                let mut e = bytes[start..end].to_vec();
-                e.reverse();
-                elements.push(e);
+                G2Affine::Fq2(G2AffineFq2(
+                    (
+                        format!("0x{}", hex::encode(&elements[0])),
+                        format!("0x{}", hex::encode(&elements[1])),
+                    ),
+                    (
+                        format!("0x{}", hex::encode(&elements[2])),
+                        format!("0x{}", hex::encode(&elements[3])),
+                    ),
+                ))
             }
+            G2Type::Fq => {
+                let element_length = length / 2;
 
-            G2Affine::Fq2(G2AffineFq2(
-                (
-                    format!("0x{}", hex::encode(&elements[0])),
-                    format!("0x{}", hex::encode(&elements[1])),
-                ),
-                (
-                    format!("0x{}", hex::encode(&elements[2])),
-                    format!("0x{}", hex::encode(&elements[3])),
-                ),
-            ))
-        } else if count == 43 {
-            let element_length = length / 2;
+                let mut x = bytes[0..element_length].to_vec();
+                let mut y = bytes[element_length..length].to_vec();
 
-            let mut x = bytes[0..element_length].to_vec();
-            let mut y = bytes[element_length..length].to_vec();
+                x.reverse();
+                y.reverse();
 
-            x.reverse();
-            y.reverse();
-
-            G2Affine::Fq(G2AffineFq(
-                format!("0x{}", hex::encode(&x)),
-                format!("0x{}", hex::encode(&y)),
-            ))
-        } else {
-            unreachable!()
+                G2Affine::Fq(G2AffineFq(
+                    format!("0x{}", hex::encode(&x)),
+                    format!("0x{}", hex::encode(&y)),
+                ))
+            }
         }
     }
 
