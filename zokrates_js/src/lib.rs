@@ -53,8 +53,27 @@ impl CompilationResult {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ResolverResult {
+    source: String,
+    location: String,
+}
+
+#[wasm_bindgen]
+pub struct ComputationResult {
+    witness: String,
+    output: String,
+    snarkjs_witness: Option<Vec<u8>>,
+}
+
 #[wasm_bindgen]
 impl ComputationResult {
+    pub fn witness(&self) -> JsValue {
+        JsValue::from_str(&self.witness)
+    }
+    pub fn output(&self) -> JsValue {
+        JsValue::from_str(&self.output)
+    }
     pub fn snarkjs_witness(&self) -> Option<js_sys::Uint8Array> {
         self.snarkjs_witness.as_ref().map(|w| {
             let arr = js_sys::Uint8Array::new_with_length(w.len() as u32);
@@ -62,20 +81,6 @@ impl ComputationResult {
             arr
         })
     }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ResolverResult {
-    source: String,
-    location: String,
-}
-
-#[derive(Serialize, Deserialize)]
-#[wasm_bindgen]
-pub struct ComputationResult {
-    witness: String,
-    output: String,
-    snarkjs_witness: Option<Vec<u8>>,
 }
 
 pub struct JsResolver<'a> {
@@ -180,7 +185,7 @@ mod internal {
         abi: JsValue,
         args: JsValue,
         config: JsValue,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<ComputationResult, JsValue> {
         let input = args.as_string().unwrap();
 
         let config: serde_json::Value = config.into_serde().unwrap();
@@ -230,13 +235,11 @@ mod internal {
             buffer.into_inner()
         });
 
-        let result = ComputationResult {
+        Ok(ComputationResult {
             witness: format!("{}", witness),
             output: to_string_pretty(&return_values).unwrap(),
             snarkjs_witness,
-        };
-
-        Ok(JsValue::from_serde(&result).unwrap())
+        })
     }
 
     pub fn setup_non_universal<
@@ -366,7 +369,7 @@ pub fn compute_witness(
     abi: JsValue,
     args: JsValue,
     config: JsValue,
-) -> Result<JsValue, JsValue> {
+) -> Result<ComputationResult, JsValue> {
     let prog = ir::ProgEnum::deserialize(program)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();

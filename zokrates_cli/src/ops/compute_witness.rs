@@ -34,14 +34,14 @@ pub fn subcommand() -> App<'static, 'static> {
     ).arg(Arg::with_name("output")
         .short("o")
         .long("output")
-        .help("Path of the output file")
+        .help("Path of the output witness file")
         .value_name("FILE")
         .takes_value(true)
         .required(false)
         .default_value(cli_constants::WITNESS_DEFAULT_PATH)
-    ).arg(Arg::with_name("witness")
-        .long("witness")
-        .help("Path of the witness file")
+    ).arg(Arg::with_name("circom-witness")
+        .long("circom-witness")
+        .help("Path of the output circom witness file")
         .value_name("FILE")
         .takes_value(true)
         .required(false)
@@ -192,16 +192,18 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
         .write(writer)
         .map_err(|why| format!("Could not save witness: {:?}", why))?;
 
-    // write witness to file
-    let wtns_path = Path::new(sub_matches.value_of("witness").unwrap());
-    let wtns_file = File::create(&wtns_path)
-        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
-
-    let mut writer = BufWriter::new(wtns_file);
-
-    write_witness(&mut writer, witness, public_inputs)
-        .map_err(|why| format!("Could not save witness: {:?}", why))?;
-
     println!("Witness file written to '{}'", output_path.display());
+
+    // write circom witness to file
+    if let Some(wtns_path) = sub_matches.value_of("circom-witness") {
+        let wtns_file = File::create(&wtns_path)
+            .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+
+        let mut writer = BufWriter::new(wtns_file);
+
+        write_witness(&mut writer, witness, public_inputs)
+            .map_err(|why| format!("Could not save circom witness: {:?}", why))?;
+    }
+
     Ok(())
 }
