@@ -177,7 +177,7 @@ impl<T: BellmanFieldExtensions + Field, I: IntoIterator<Item = Statement<T>>> Co
 
     pub fn public_inputs_values(&self) -> Vec<<T::BellmanEngine as ScalarEngine>::Fr> {
         self.program
-            .public_inputs(self.witness.as_ref().unwrap())
+            .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
             .map(|v| v.clone().into_bellman())
             .collect()

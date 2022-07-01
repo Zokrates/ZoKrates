@@ -31,6 +31,7 @@ impl Interpreter {
         inputs: &[T],
     ) -> ExecutionResult<T> {
         self.check_inputs(&program, inputs)?;
+
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
 

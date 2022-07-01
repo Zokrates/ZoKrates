@@ -94,7 +94,7 @@ impl Backend<Bn128Field, PGHR13> for Libsnark {
         };
 
         let public_inputs: Vec<String> = program
-            .public_inputs(&witness)
+            .public_inputs_values(&witness)
             .iter()
             .map(|f| format!("0x{:064x}", f.to_biguint()))
             .collect();

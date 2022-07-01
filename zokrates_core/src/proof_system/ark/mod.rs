@@ -144,7 +144,7 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> ProgIt
 impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
     pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
         self.program
-            .public_inputs(self.witness.as_ref().unwrap())
+            .public_inputs_values(self.witness.as_ref().unwrap())
             .iter()
             .map(|v| v.clone().into_ark())
             .collect()

@@ -5,9 +5,6 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-mod utils;
-
-use self::utils::flat_expression_from_bits;
 use crate::ir::Interpreter;
 
 use crate::compile::CompileConfig;

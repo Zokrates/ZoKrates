@@ -17,5 +17,6 @@ zokrates_core = { path = "../zokrates_core", features = ["wasm", "ark"], default
 zokrates_common = { path = "../zokrates_common" }
 zokrates_field = { path = "../zokrates_field" }
 zokrates_abi = { path = "../zokrates_abi" }
+zokrates_circom = { path = "../zokrates_circom" }
 console_error_panic_hook = "0.1.6"
 indexmap = "~1.6.2" # see https://github.com/rustwasm/wasm-bindgen/issues/2770#issuecomment-1041102532
