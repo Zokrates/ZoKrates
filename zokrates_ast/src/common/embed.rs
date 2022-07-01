@@ -690,73 +690,60 @@ mod tests {
         }
     }
 
-    // MOVE TO CORE
-    //     #[cfg(feature = "bellman")]
-    //     #[cfg(test)]
-    //     mod sha256 {
-    //         use super::*;
-    //         use crate::ir::Interpreter;
+    #[cfg(feature = "bellman")]
+    #[cfg(test)]
+    mod sha256 {
+        use super::*;
 
-    //         #[test]
-    //         fn generate_sha256_constraints() {
-    //             let compiled = sha256_round::<Bn128Field>();
+        #[test]
+        fn generate_sha256_constraints() {
+            let compiled = sha256_round::<Bn128Field>();
 
-    //             let compiled = compiled.collect();
+            let compiled = compiled.collect();
 
-    //             // function should have 768 inputs
-    //             assert_eq!(compiled.arguments.len(), 768);
+            // function should have 768 inputs
+            assert_eq!(compiled.arguments.len(), 768);
 
-    //             // function should return 256 values
-    //             assert_eq!(compiled.return_count, 256,);
+            // function should return 256 values
+            assert_eq!(compiled.return_count, 256,);
 
-    //             // directive should take 768 inputs and return n_var outputs
-    //             let directive = compiled
-    //                 .statements
-    //                 .iter()
-    //                 .filter_map(|s| match s {
-    //                     FlatStatement::Directive(d) => Some(d.clone()),
-    //                     _ => None,
-    //                 })
-    //                 .next()
-    //                 .unwrap();
-    //             assert_eq!(directive.inputs.len(), 768);
-    //             assert_eq!(directive.outputs.len(), 26935);
-    //             // function input should be offset by variable_count
-    //             assert_eq!(
-    //                 compiled.arguments[0].id,
-    //                 Variable::new(directive.outputs.len() + 1)
-    //             );
+            // directive should take 768 inputs and return n_var outputs
+            let directive = compiled
+                .statements
+                .iter()
+                .filter_map(|s| match s {
+                    FlatStatement::Directive(d) => Some(d.clone()),
+                    _ => None,
+                })
+                .next()
+                .unwrap();
+            assert_eq!(directive.inputs.len(), 768);
+            assert_eq!(directive.outputs.len(), 26935);
+            // function input should be offset by variable_count
+            assert_eq!(
+                compiled.arguments[0].id,
+                Variable::new(directive.outputs.len() + 1)
+            );
 
-    //             // bellman variable #0: index 0 should equal 1
-    //             assert_eq!(
-    //                 compiled.statements[1],
-    //                 FlatStatement::Condition(
-    //                     Variable::new(0).into(),
-    //                     FlatExpression::Number(Bn128Field::from(1)),
-    //                     RuntimeError::BellmanOneBinding
-    //                 )
-    //             );
+            // bellman variable #0: index 0 should equal 1
+            assert_eq!(
+                compiled.statements[1],
+                FlatStatement::Condition(
+                    Variable::new(0).into(),
+                    FlatExpression::Number(Bn128Field::from(1)),
+                    RuntimeError::BellmanOneBinding
+                )
+            );
 
-    //             // bellman input #0: index 1 should equal zokrates input #0: index v_count
-    //             assert_eq!(
-    //                 compiled.statements[2],
-    //                 FlatStatement::Condition(
-    //                     Variable::new(1).into(),
-    //                     Variable::new(26936).into(),
-    //                     RuntimeError::BellmanInputBinding
-    //                 )
-    //             );
-
-    //             let input: Vec<_> = (0..512)
-    //                 .map(|_| 0)
-    //                 .chain((0..256).map(|_| 1))
-    //                 .map(Bn128Field::from)
-    //                 .collect();
-
-    //             let ir = zokrates_ast::ir::from_flat::from_flat(compiled);
-
-    //             let interpreter = Interpreter::default();
-    //             interpreter.execute(ir, &input).unwrap();
-    //         }
-    //     }
+            // bellman input #0: index 1 should equal zokrates input #0: index v_count
+            assert_eq!(
+                compiled.statements[2],
+                FlatStatement::Condition(
+                    Variable::new(1).into(),
+                    Variable::new(26936).into(),
+                    RuntimeError::BellmanInputBinding
+                )
+            );
+        }
+    }
 }
