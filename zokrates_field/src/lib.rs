@@ -49,6 +49,11 @@ impl fmt::Debug for FieldParseError {
     }
 }
 
+pub enum G2Type {
+    Fq,
+    Fq2,
+}
+
 pub trait Field:
     'static
     + Sync
@@ -89,6 +94,7 @@ pub trait Field:
     + num_traits::CheckedAdd
     + num_traits::CheckedMul
 {
+    const G2_TYPE: G2Type = G2Type::Fq2;
     /// Returns this `Field`'s contents as little-endian byte vector
     fn to_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -127,7 +133,7 @@ pub trait Field:
 #[macro_use]
 mod prime_field {
     macro_rules! prime_field {
-        ($name:expr, $v:ty) => {
+        ($name:expr, $v:ty, $g2_ty:expr) => {
             use crate::{Field, FieldParseError, Pow};
             use ark_ff::{Field as ArkField, PrimeField};
             use num_bigint::BigUint;
@@ -148,6 +154,8 @@ mod prime_field {
             }
 
             impl Field for FieldPrime {
+                const G2_TYPE: G2Type = $g2_ty;
+
                 fn bits(&self) -> u32 {
                     use ark_ff::BigInteger;
                     let bits = self.v.into_repr().to_bits_be();
