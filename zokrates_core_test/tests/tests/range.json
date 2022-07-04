@@ -8,7 +8,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": [[false, true, true, true, false]]
+                    "value": [false, true, true, true, false]
                 }
             }
         },
@@ -18,7 +18,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": [[false, false, true, true, true]]
+                    "value": [false, false, true, true, true]
                 }
             }
         },
@@ -28,7 +28,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": [[false, false, true, true, false]]
+                    "value": [false, false, true, true, false]
                 }
             }
         },
@@ -38,7 +38,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": [[false, false, true, true, false]]
+                    "value": [false, false, true, true, false]
                 }
             }
         },
@@ -48,7 +48,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": [[false, false, false, true, false]]
+                    "value": [false, false, false, true, false]
                 }
             }
         },
@@ -58,7 +58,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": [[false, false, false, true, false]]
+                    "value": [false, false, false, true, false]
                 }
             }
         },
@@ -68,7 +68,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": [[false, false, false, false, false]]
+                    "value": [false, false, false, false, false]
                 }
             }
         }

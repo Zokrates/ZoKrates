@@ -3,7 +3,7 @@ from "EMBED" import u32_to_bits;
 def main<N, P>(u32[N] input) -> bool[P] {
     assert(P == 32 * N);
 
-    bool[P] res = [false; P];
+    bool[P] mut res = [false; P];
 
     for u32 i in 0..N {
         bool[32] bits = u32_to_bits(input[i]);

@@ -2,7 +2,7 @@ import "./1536bit" as sha256;
 
 // Take two bool[256] arrays as input
 // and returns their sha256 full round output as an array of 256 bool.
-def main(bool[256] a, bool[256] b, bool[256] c, bool[256] d) -> (bool[256]) {
+def main(bool[256] a, bool[256] b, bool[256] c, bool[256] d) -> bool[256] {
 
     // Hash is computed on the full 1024bit block size
     // padding does not fit in the first two blocks

@@ -24,7 +24,7 @@ struct VerificationKey<N> {
 
 def flat<N, F>(field[N][2] input) -> field[F] {
     assert(F == N * 2);
-    field[F] out = [0; F];
+    field[F] mut out = [0; F];
     for u32 i in 0..N {
         for u32 j in 0..2 {
             out[(i * 2) + j] = input[i][j];

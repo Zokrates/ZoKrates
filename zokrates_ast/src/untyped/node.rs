@@ -82,7 +82,6 @@ impl<V: NodeValue> From<V> for Node<V> {
 use super::*;
 
 impl<'ast> NodeValue for Expression<'ast> {}
-impl<'ast> NodeValue for ExpressionList<'ast> {}
 impl<'ast> NodeValue for Assignee<'ast> {}
 impl<'ast> NodeValue for Statement<'ast> {}
 impl<'ast> NodeValue for SymbolDeclaration<'ast> {}

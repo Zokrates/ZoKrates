@@ -5,7 +5,7 @@ impl From<typed_absy::types::ConcreteSignature> for zir::types::Signature {
     fn from(s: typed_absy::types::ConcreteSignature) -> zir::types::Signature {
         zir::types::Signature {
             inputs: s.inputs.into_iter().flat_map(from_type).collect(),
-            outputs: s.outputs.into_iter().flat_map(from_type).collect(),
+            outputs: from_type(*s.output),
         }
     }
 }
@@ -20,7 +20,7 @@ fn from_type(t: typed_absy::types::ConcreteType) -> Vec<zir::types::Type> {
         }
         typed_absy::types::ConcreteType::Array(array_type) => {
             let inner = from_type(*array_type.ty);
-            (0..array_type.size).flat_map(|_| inner.clone()).collect()
+            (0..*array_type.size).flat_map(|_| inner.clone()).collect()
         }
         typed_absy::types::ConcreteType::Struct(members) => members
             .into_iter()

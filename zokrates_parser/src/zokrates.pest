@@ -13,15 +13,14 @@ from_import_directive = { "from" ~ quoted_string ~ "import" ~ import_symbol_list
 main_import_directive = { "import" ~ quoted_string ~ ("as" ~ identifier)? }
 import_symbol = { identifier ~ ("as" ~ identifier)? }
 import_symbol_list = _{ import_symbol ~ ("," ~ import_symbol)* }
-function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ return_types ~ block_statement }
+function_definition = {"def" ~ identifier ~ constant_generics_declaration? ~ "(" ~ parameter_list ~ ")" ~ ("->" ~ ty)? ~ block_statement }
 const_definition = {"const" ~ typed_identifier ~ "=" ~ expression }
 type_definition = {"type" ~ identifier ~ constant_generics_declaration? ~ "=" ~ ty }
-return_types = _{ ( "->" ~ ( "(" ~ ty_list ~ ")" | ty ))? }
 constant_generics_declaration = _{ "<" ~ constant_generics_list ~ ">" }
 constant_generics_list = _{ identifier ~ ("," ~ identifier)* }
 
 parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
-parameter = { vis? ~ ty ~ identifier }
+parameter = { vis? ~ ty ~ _mut? ~ identifier }
 
 // basic types
 ty_field = {"field"}
@@ -34,7 +33,6 @@ ty_basic = { ty_field | ty_bool | ty_u8 | ty_u16 | ty_u32 | ty_u64 }
 ty_basic_or_struct_or_tuple = { ty_basic | ty_struct | ty_tuple }
 ty_array = { ty_basic_or_struct_or_tuple ~ ("[" ~ expression ~ "]")+ }
 ty = { ty_array | ty_basic | ty_struct | ty_tuple }
-ty_list = _{(ty ~ ("," ~ ty)*)?}
 // tuples
 ty_tuple = { "(" ~ (ty_tuple_multiple_inner | ty_tuple_single_inner | ty_tuple_empty_inner ) ~ ")" }
 ty_tuple_empty_inner = _{ "" }
@@ -50,6 +48,7 @@ struct_field = { typed_identifier }
 vis_private = {"private"}
 vis_public = {"public"}
 vis = { vis_private | vis_public }
+_mut = {"mut"}
 
 
 // Statements
@@ -64,12 +63,11 @@ log_statement = { "log!(\"" ~ format_string ~ "\"" ~ "," ~ expression_list ~ ")"
 format_string = { (!"\"" ~ ANY)* }
 block_statement = _{ "{" ~ NEWLINE* ~ statement* ~ NEWLINE* ~ "}" }
 iteration_statement = { "for" ~ typed_identifier ~ "in" ~ expression ~ ".." ~ expression ~ block_statement }
-return_statement = { "return" ~ expression_list }
-definition_statement = { typed_identifier_or_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
+return_statement = { "return" ~ expression? }
+definition_statement = { typed_identifier_or_assignee ~ "=" ~ expression }
 assertion_statement = {"assert" ~ "(" ~ expression ~ ("," ~ quoted_string)? ~ ")"}
 
-typed_identifier_or_assignee_list = _{ typed_identifier_or_assignee ~ ("," ~ typed_identifier_or_assignee)* }
-typed_identifier_or_assignee = { typed_identifier | assignee } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
+typed_identifier_or_assignee = { typed_identifier | assignee }
 
 // Expressions
 expression_list = _{(expression ~ ("," ~ expression)*)?}
@@ -119,7 +117,8 @@ array_initializer_expression = { "[" ~ expression ~ semicolon ~ expression ~ "]"
 
 // End Expressions
 
-typed_identifier = { ty ~ identifier }
+
+typed_identifier = { ty ~ _mut? ~ identifier }
 assignee = { identifier ~ assignee_access* }
 assignee_access = { array_access | dot_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -183,5 +182,5 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 // accepted
 keyword = @{
     "assert"|"as"|"bool"|"const"|"def"|"else"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
-    "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
+    "in"|"mut"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
 }

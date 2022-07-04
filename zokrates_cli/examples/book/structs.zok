@@ -8,9 +8,8 @@ struct Foo<P> {
     bool b;
 }
 
-def main() -> (Foo<2>) {
-    Foo<2>[2] f = [Foo { a: Bar { c: [0, 0], d: false }, b: true}, Foo { a: Bar {c: [0, 0], d: false}, b: true }];
+def main() -> Foo<2> {
+    Foo<2>[2] mut f = [Foo { a: Bar { c: [0, 0], d: false }, b: true}, Foo { a: Bar {c: [0, 0], d: false}, b: true }];
     f[0].a.c = [42, 43];
     return f[0];
 }
-

@@ -37,7 +37,7 @@ def swap_u32(u32 val) -> u32 {
 }
 
 
-def mixing_g(u32[16] v, u32 a, u32 b, u32 c, u32 d, u32 x, u32 y) -> (u32[16]) {
+def mixing_g(u32[16] mut v, u32 a, u32 b, u32 c, u32 d, u32 x, u32 y) -> u32[16] {
     v[a] = (v[a] + v[b] + x);
     v[d] = rotr32::<16>(v[d] ^ v[a]);
     v[c] = (v[c] + v[d]);
@@ -49,8 +49,8 @@ def mixing_g(u32[16] v, u32 a, u32 b, u32 c, u32 d, u32 x, u32 y) -> (u32[16]) {
     return v;
 }
 
-def blake2s_compression(u32[8] h, u32[16] m, u32[2] t, bool last) -> (u32[8]) {
-    u32[16] v = [...h, ...IV];
+def blake2s_compression(u32[8] mut h, u32[16] m, u32[2] t, bool last) -> u32[8] {
+    u32[16] mut v = [...h, ...IV];
 
     v[12] = v[12] ^ t[0];
     v[13] = v[13] ^ t[1];
@@ -75,8 +75,8 @@ def blake2s_compression(u32[8] h, u32[16] m, u32[2] t, bool last) -> (u32[8]) {
     return h;
 }
 
-def main<K>(u32[K][16] input, u32[2] p) -> (u32[8]) {
-    u32[8] h = [
+def main<K>(u32[K][16] mut input, u32[2] p) -> u32[8] {
+    u32[8] mut h = [
         IV[0] ^ 0x01010000 ^ 0x00000020,
         IV[1],
         IV[2],
@@ -87,8 +87,8 @@ def main<K>(u32[K][16] input, u32[2] p) -> (u32[8]) {
         IV[7] ^ swap_u32(p[1])
     ];
 
-    u32 t0 = 0;
-    u32 t1 = 0;
+    u32 mut t0 = 0;
+    u32 mut t1 = 0;
 
     // change endianness of inputs from big endian to little endian
     for u32 i in 0..K {

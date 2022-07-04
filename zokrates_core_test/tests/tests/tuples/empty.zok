@@ -1,4 +1,4 @@
-def main(() a) -> (()) {
+def main(() a) -> () {
     () b = ();
     assert(a == b);
     return a;

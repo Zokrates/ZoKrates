@@ -2,7 +2,3 @@ from "EMBED" import FIELD_SIZE_IN_BITS;
 
 const field FIELD_MIN = 0;
 const field FIELD_MAX = -1;
-
-def main() -> (field, field, u32) {
-    return FIELD_MIN, FIELD_MAX, FIELD_SIZE_IN_BITS;
-}

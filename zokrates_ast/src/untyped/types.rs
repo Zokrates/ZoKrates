@@ -85,15 +85,15 @@ mod signature {
     pub struct UnresolvedSignature<'ast> {
         pub generics: Vec<ConstantGenericNode<'ast>>,
         pub inputs: Vec<UnresolvedTypeNode<'ast>>,
-        pub outputs: Vec<UnresolvedTypeNode<'ast>>,
+        pub output: Option<UnresolvedTypeNode<'ast>>,
     }
 
     impl<'ast> fmt::Debug for UnresolvedSignature<'ast> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(
                 f,
-                "Signature(inputs: {:?}, outputs: {:?})",
-                self.inputs, self.outputs
+                "Signature(inputs: {:?}, output: {:?})",
+                self.inputs, self.output
             )
         }
     }
@@ -107,14 +107,10 @@ mod signature {
                     write!(f, ", ")?;
                 }
             }
-            write!(f, ") -> (")?;
-            for (i, t) in self.outputs.iter().enumerate() {
-                write!(f, "{}", t)?;
-                if i < self.outputs.len() - 1 {
-                    write!(f, ", ")?;
-                }
+            match &self.output {
+                Some(ty) => write!(f, ") -> {}", ty),
+                None => write!(f, ")"),
             }
-            write!(f, ")")
         }
     }
 
@@ -133,8 +129,8 @@ mod signature {
             self
         }
 
-        pub fn outputs(mut self, outputs: Vec<UnresolvedTypeNode<'ast>>) -> Self {
-            self.outputs = outputs;
+        pub fn output(mut self, output: UnresolvedTypeNode<'ast>) -> Self {
+            self.output = Some(output);
             self
         }
     }

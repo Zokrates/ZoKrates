@@ -3,7 +3,6 @@ def add(field a,field b) -> field {
 }
 
 def main(field a,field b) -> field {
-    field c = add(a, b);
+    field mut c = add(a, b);
     return c;
 }
-

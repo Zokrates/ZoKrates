@@ -142,6 +142,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         Variable {
             id: self.fold_name(v.id),
             _type: self.fold_type(v._type),
+            is_mutable: v.is_mutable,
         }
     }
 
@@ -152,6 +153,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         DeclarationVariable {
             id: self.fold_name(v.id),
             _type: self.fold_declaration_type(v._type),
+            is_mutable: v.is_mutable,
         }
     }
 
@@ -166,14 +168,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         }
     }
 
-    fn fold_types(&mut self, tys: Types<'ast, T>) -> Types<'ast, T> {
-        fold_types(self, tys)
-    }
-
     fn fold_array_type(&mut self, t: ArrayType<'ast, T>) -> ArrayType<'ast, T> {
         ArrayType {
             ty: box self.fold_type(*t.ty),
-            size: self.fold_uint_expression(t.size),
+            size: box self.fold_uint_expression(*t.size),
         }
     }
 
@@ -219,7 +217,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> DeclarationArrayType<'ast, T> {
         DeclarationArrayType {
             ty: box self.fold_declaration_type(*t.ty),
-            size: self.fold_declaration_constant(t.size),
+            size: box self.fold_declaration_constant(*t.size),
         }
     }
 
@@ -266,6 +264,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_embed_call(&mut self, e: EmbedCall<'ast, T>) -> EmbedCall<'ast, T> {
+        fold_embed_call(self, e)
+    }
+
     fn fold_expression_or_spread(
         &mut self,
         e: TypedExpressionOrSpread<'ast, T>,
@@ -301,15 +303,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_expression(&mut self, e: TypedExpression<'ast, T>) -> TypedExpression<'ast, T> {
-        match e {
-            TypedExpression::FieldElement(e) => self.fold_field_expression(e).into(),
-            TypedExpression::Boolean(e) => self.fold_boolean_expression(e).into(),
-            TypedExpression::Uint(e) => self.fold_uint_expression(e).into(),
-            TypedExpression::Array(e) => self.fold_array_expression(e).into(),
-            TypedExpression::Tuple(e) => self.fold_tuple_expression(e).into(),
-            TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
-            TypedExpression::Int(e) => self.fold_int_expression(e).into(),
-        }
+        fold_expression(self, e)
     }
 
     fn fold_block_expression<E: Fold<'ast, T>>(
@@ -395,21 +389,6 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_tuple_expression(self, e)
     }
 
-    fn fold_expression_list(
-        &mut self,
-        es: TypedExpressionList<'ast, T>,
-    ) -> TypedExpressionList<'ast, T> {
-        fold_expression_list(self, es)
-    }
-
-    fn fold_expression_list_inner(
-        &mut self,
-        tys: Types<'ast, T>,
-        es: TypedExpressionListInner<'ast, T>,
-    ) -> TypedExpressionListInner<'ast, T> {
-        fold_expression_list_inner(self, tys, es)
-    }
-
     fn fold_int_expression(&mut self, e: IntExpression<'ast, T>) -> IntExpression<'ast, T> {
         fold_int_expression(self, e)
     }
@@ -420,12 +399,14 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> FieldElementExpression<'ast, T> {
         fold_field_expression(self, e)
     }
+
     fn fold_boolean_expression(
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         fold_boolean_expression(self, e)
     }
+
     fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
         fold_uint_expression(self, e)
     }
@@ -515,16 +496,10 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     s: TypedStatement<'ast, T>,
 ) -> Vec<TypedStatement<'ast, T>> {
     let res = match s {
-        TypedStatement::Return(expressions) => TypedStatement::Return(
-            expressions
-                .into_iter()
-                .map(|e| f.fold_expression(e))
-                .collect(),
-        ),
+        TypedStatement::Return(e) => TypedStatement::Return(f.fold_expression(e)),
         TypedStatement::Definition(a, e) => {
             TypedStatement::Definition(f.fold_assignee(a), f.fold_expression(e))
         }
-        TypedStatement::Declaration(v) => TypedStatement::Declaration(f.fold_variable(v)),
         TypedStatement::Assertion(e, error) => {
             TypedStatement::Assertion(f.fold_boolean_expression(e), error)
         }
@@ -537,16 +512,47 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
                 .flat_map(|s| f.fold_statement(s))
                 .collect(),
         ),
-        TypedStatement::MultipleDefinition(assignees, elist) => TypedStatement::MultipleDefinition(
-            assignees.into_iter().map(|a| f.fold_assignee(a)).collect(),
-            f.fold_expression_list(elist),
-        ),
         TypedStatement::Log(s, e) => {
             TypedStatement::Log(s, e.into_iter().map(|e| f.fold_expression(e)).collect())
+        }
+        TypedStatement::EmbedCallDefinition(assignee, embed_call) => {
+            TypedStatement::EmbedCallDefinition(
+                f.fold_assignee(assignee),
+                f.fold_embed_call(embed_call),
+            )
         }
         s => s,
     };
     vec![res]
+}
+
+pub fn fold_embed_call<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: EmbedCall<'ast, T>,
+) -> EmbedCall<'ast, T> {
+    EmbedCall {
+        arguments: e
+            .arguments
+            .into_iter()
+            .map(|s| f.fold_expression(s))
+            .collect(),
+        ..e
+    }
+}
+
+pub fn fold_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: TypedExpression<'ast, T>,
+) -> TypedExpression<'ast, T> {
+    match e {
+        TypedExpression::FieldElement(e) => f.fold_field_expression(e).into(),
+        TypedExpression::Boolean(e) => f.fold_boolean_expression(e).into(),
+        TypedExpression::Uint(e) => f.fold_uint_expression(e).into(),
+        TypedExpression::Array(e) => f.fold_array_expression(e).into(),
+        TypedExpression::Tuple(e) => f.fold_tuple_expression(e).into(),
+        TypedExpression::Struct(e) => f.fold_struct_expression(e).into(),
+        TypedExpression::Int(e) => f.fold_int_expression(e).into(),
+    }
 }
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
@@ -1137,11 +1143,7 @@ fn fold_signature<'ast, T: Field, F: Folder<'ast, T>>(
             .into_iter()
             .map(|o| f.fold_declaration_type(o))
             .collect(),
-        outputs: s
-            .outputs
-            .into_iter()
-            .map(|o| f.fold_declaration_type(o))
-            .collect(),
+        output: box f.fold_declaration_type(*s.output),
     }
 }
 
@@ -1167,54 +1169,6 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     ArrayExpression {
         inner: f.fold_array_expression_inner(&ty, e.inner),
         ty: box ty,
-    }
-}
-
-pub fn fold_expression_list<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    es: TypedExpressionList<'ast, T>,
-) -> TypedExpressionList<'ast, T> {
-    let types = f.fold_types(es.types);
-
-    TypedExpressionList {
-        inner: f.fold_expression_list_inner(types.clone(), es.inner),
-        types,
-    }
-}
-
-pub fn fold_types<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    tys: Types<'ast, T>,
-) -> Types<'ast, T> {
-    Types {
-        inner: tys.inner.into_iter().map(|t| f.fold_type(t)).collect(),
-    }
-}
-
-pub fn fold_expression_list_inner<'ast, T: Field, F: Folder<'ast, T>>(
-    f: &mut F,
-    tys: Types<'ast, T>,
-    es: TypedExpressionListInner<'ast, T>,
-) -> TypedExpressionListInner<'ast, T> {
-    match es {
-        TypedExpressionListInner::FunctionCall(function_call) => {
-            match f.fold_function_call_expression(&tys, function_call) {
-                FunctionCallOrExpression::FunctionCall(function_call) => {
-                    TypedExpressionListInner::FunctionCall(function_call)
-                }
-                FunctionCallOrExpression::Expression(u) => u,
-            }
-        }
-        TypedExpressionListInner::EmbedCall(embed, generics, arguments) => {
-            TypedExpressionListInner::EmbedCall(
-                embed,
-                generics,
-                arguments
-                    .into_iter()
-                    .map(|a| f.fold_expression(a))
-                    .collect(),
-            )
-        }
     }
 }
 

@@ -22,10 +22,11 @@ pub use self::types::{
     CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteTupleType,
     ConcreteType, ConstantIdentifier, DeclarationArrayType, DeclarationConstant,
     DeclarationFunctionKey, DeclarationSignature, DeclarationStructType, DeclarationType,
-    GArrayType, GStructType, GType, GenericIdentifier, IntoTypes, Signature, StructType, TupleType,
-    Type, Types, UBitwidth,
+    GArrayType, GStructType, GType, GenericIdentifier, Signature, StructType, TupleType, Type,
+    UBitwidth,
 };
-use crate::typed::types::ConcreteGenericsAssignment;
+
+use crate::typed::types::{ConcreteGenericsAssignment, IntoType};
 use crate::untyped::Position;
 
 pub use self::variable::{ConcreteVariable, DeclarationVariable, GVariable, Variable};
@@ -117,21 +118,13 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
                     .unwrap()
                 })
                 .collect(),
-            outputs: main
-                .signature
-                .outputs
-                .iter()
-                .map(|ty| {
-                    types::ConcreteType::try_from(
-                        crate::typed::types::try_from_g_type::<
-                            DeclarationConstant<'ast, T>,
-                            UExpression<'ast, T>,
-                        >(ty.clone())
-                        .unwrap(),
-                    )
-                    .unwrap()
-                })
-                .collect(),
+            output: types::ConcreteType::try_from(
+                types::try_from_g_type::<DeclarationConstant<'ast, T>, UExpression<'ast, T>>(
+                    *main.signature.output.clone(),
+                )
+                .unwrap(),
+            )
+            .unwrap(),
         }
     }
 }
@@ -356,23 +349,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
                 .join(", "),
         )?;
 
-        write!(
-            f,
-            "{} {{",
-            match self.signature.outputs.len() {
-                0 => "".into(),
-                1 => format!(" -> {}", self.signature.outputs[0]),
-                _ => format!(
-                    " -> ({})",
-                    self.signature
-                        .outputs
-                        .iter()
-                        .map(|x| format!("{}", x))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-            }
-        )?;
+        write!(f, " -> {} {{", self.signature.output)?;
 
         writeln!(f)?;
 
@@ -622,13 +599,59 @@ impl fmt::Display for RuntimeError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+pub struct EmbedCall<'ast, T> {
+    pub embed: FlatEmbed,
+    pub generics: Vec<u32>,
+    pub arguments: Vec<TypedExpression<'ast, T>>,
+}
+
+impl<'ast, T> EmbedCall<'ast, T> {
+    pub fn new(
+        embed: FlatEmbed,
+        generics: Vec<u32>,
+        arguments: Vec<TypedExpression<'ast, T>>,
+    ) -> Self {
+        Self {
+            embed,
+            generics,
+            arguments,
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for EmbedCall<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.embed.id())?;
+        if !self.generics.is_empty() {
+            write!(
+                f,
+                "::<{}>",
+                self.generics
+                    .iter()
+                    .map(|g| g.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?;
+        }
+        write!(f, "(")?;
+        let len = self.arguments.len();
+        for (i, arg) in self.arguments.iter().enumerate() {
+            write!(f, "{}", arg)?;
+            if i < len - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, ")")
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedStatement<'ast, T> {
-    Return(Vec<TypedExpression<'ast, T>>),
+    Return(TypedExpression<'ast, T>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
-    Declaration(Variable<'ast, T>),
     Assertion(BooleanExpression<'ast, T>, RuntimeError),
     For(
         Variable<'ast, T>,
@@ -636,8 +659,8 @@ pub enum TypedStatement<'ast, T> {
         UExpression<'ast, T>,
         Vec<TypedStatement<'ast, T>>,
     ),
-    MultipleDefinition(Vec<TypedAssignee<'ast, T>>, TypedExpressionList<'ast, T>),
     Log(FormatString, Vec<TypedExpression<'ast, T>>),
+    EmbedCallDefinition(TypedAssignee<'ast, T>, EmbedCall<'ast, T>),
     // Aux
     PushCallLog(
         DeclarationFunctionKey<'ast, T>,
@@ -666,17 +689,9 @@ impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
 impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedStatement::Return(ref exprs) => {
-                write!(f, "return ")?;
-                for (i, expr) in exprs.iter().enumerate() {
-                    write!(f, "{}", expr)?;
-                    if i < exprs.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ";")
+            TypedStatement::Return(ref e) => {
+                write!(f, "return {};", e)
             }
-            TypedStatement::Declaration(ref var) => write!(f, "{};", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             TypedStatement::Assertion(ref e, ref error) => {
                 write!(f, "assert({}", e)?;
@@ -695,14 +710,8 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 }
                 write!(f, "\t}}")
             }
-            TypedStatement::MultipleDefinition(ref ids, ref rhs) => {
-                for (i, id) in ids.iter().enumerate() {
-                    write!(f, "{}", id)?;
-                    if i < ids.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, " = {};", rhs)
+            TypedStatement::EmbedCallDefinition(ref lhs, ref rhs) => {
+                write!(f, "{} = {};", lhs, rhs)
             }
             TypedStatement::Log(ref l, ref expressions) => write!(
                 f,
@@ -880,41 +889,6 @@ impl<'ast, T: Clone> Typed<'ast, T> for UExpression<'ast, T> {
 impl<'ast, T: Clone> Typed<'ast, T> for BooleanExpression<'ast, T> {
     fn get_type(&self) -> Type<'ast, T> {
         Type::Boolean
-    }
-}
-
-pub trait MultiTyped<'ast, T> {
-    fn get_types(&self) -> &Vec<Type<'ast, T>>;
-}
-
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
-
-pub struct TypedExpressionList<'ast, T> {
-    pub inner: TypedExpressionListInner<'ast, T>,
-    pub types: Types<'ast, T>,
-}
-
-impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionList<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.inner)
-    }
-}
-
-#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
-pub enum TypedExpressionListInner<'ast, T> {
-    FunctionCall(FunctionCallExpression<'ast, T, TypedExpressionList<'ast, T>>),
-    EmbedCall(FlatEmbed, Vec<u32>, Vec<TypedExpression<'ast, T>>),
-}
-
-impl<'ast, T> MultiTyped<'ast, T> for TypedExpressionList<'ast, T> {
-    fn get_types(&self) -> &Vec<Type<'ast, T>> {
-        &self.types.inner
-    }
-}
-
-impl<'ast, T> TypedExpressionListInner<'ast, T> {
-    pub fn annotate(self, types: Types<'ast, T>) -> TypedExpressionList<'ast, T> {
-        TypedExpressionList { inner: self, types }
     }
 }
 
@@ -1305,7 +1279,7 @@ impl<'ast, T: Field> ArrayValue<'ast, T> {
                             .map(|i| {
                                 Some(U::select(
                                     a.clone()
-                                        .annotate(*array_ty.ty.clone(), array_ty.size.clone()),
+                                        .annotate(*array_ty.ty.clone(), *array_ty.size.clone()),
                                     i as u32,
                                 ))
                             })
@@ -1381,7 +1355,7 @@ impl<'ast, T: Clone> ArrayExpression<'ast, T> {
     }
 
     pub fn size(&self) -> UExpression<'ast, T> {
-        self.ty.size.clone()
+        *self.ty.size.clone()
     }
 }
 
@@ -1568,15 +1542,6 @@ impl<'ast, T> From<TypedExpression<'ast, T>> for TupleExpression<'ast, T> {
     }
 }
 
-// `TypedExpressionList` can technically not be constructed from `TypedExpression`
-// However implementing `From<TypedExpression>` is required for `TypedExpressionList` to be `Expr`, which makes generic treatment of function calls possible
-// This could maybe be avoided by splitting the `Expr` trait into many, but I did not find a way
-impl<'ast, T> From<TypedExpression<'ast, T>> for TypedExpressionList<'ast, T> {
-    fn from(_: TypedExpression<'ast, T>) -> TypedExpressionList<'ast, T> {
-        unreachable!()
-    }
-}
-
 impl<'ast, T> From<TypedConstant<'ast, T>> for FieldElementExpression<'ast, T> {
     fn from(tc: TypedConstant<'ast, T>) -> FieldElementExpression<'ast, T> {
         tc.expression.into()
@@ -1750,38 +1715,6 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for TypedExpressionListInner<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            TypedExpressionListInner::FunctionCall(ref function_call) => {
-                write!(f, "{}", function_call)
-            }
-            TypedExpressionListInner::EmbedCall(ref embed, ref generics, ref p) => {
-                write!(f, "{}", embed.id())?;
-                if !generics.is_empty() {
-                    write!(
-                        f,
-                        "::<{}>",
-                        generics
-                            .iter()
-                            .map(|g| g.to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    )?;
-                }
-                write!(f, "(")?;
-                for (i, param) in p.iter().enumerate() {
-                    write!(f, "{}", param)?;
-                    if i < p.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ")")
-            }
-        }
-    }
-}
-
 // Variable to TypedExpression conversion
 
 impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
@@ -1790,7 +1723,7 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
             Type::FieldElement => FieldElementExpression::Identifier(v.id).into(),
             Type::Boolean => BooleanExpression::Identifier(v.id).into(),
             Type::Array(ty) => ArrayExpressionInner::Identifier(v.id)
-                .annotate(*ty.ty, ty.size)
+                .annotate(*ty.ty, *ty.size)
                 .into(),
             Type::Struct(ty) => StructExpressionInner::Identifier(v.id).annotate(ty).into(),
             Type::Tuple(ty) => TupleExpressionInner::Identifier(v.id).annotate(ty).into(),
@@ -1804,7 +1737,7 @@ impl<'ast, T: Field> From<Variable<'ast, T>> for TypedExpression<'ast, T> {
 
 pub trait Expr<'ast, T>: fmt::Display + From<TypedExpression<'ast, T>> {
     type Inner;
-    type Ty: Clone + IntoTypes<'ast, T>;
+    type Ty: Clone + IntoType<'ast, T>;
 
     fn ty(&self) -> &Self::Ty;
 
@@ -1959,27 +1892,6 @@ impl<'ast, T: Field> Expr<'ast, T> for IntExpression<'ast, T> {
 
     fn as_inner_mut(&mut self) -> &mut Self::Inner {
         self
-    }
-}
-
-impl<'ast, T: Field> Expr<'ast, T> for TypedExpressionList<'ast, T> {
-    type Inner = TypedExpressionListInner<'ast, T>;
-    type Ty = Types<'ast, T>;
-
-    fn ty(&self) -> &Self::Ty {
-        &self.types
-    }
-
-    fn into_inner(self) -> Self::Inner {
-        self.inner
-    }
-
-    fn as_inner(&self) -> &Self::Inner {
-        &self.inner
-    }
-
-    fn as_inner_mut(&mut self) -> &mut Self::Inner {
-        &mut self.inner
     }
 }
 
@@ -2199,7 +2111,8 @@ impl<'ast, T: Clone> Select<'ast, T> for ArrayExpression<'ast, T> {
             _ => unreachable!(),
         };
 
-        ArrayExpressionInner::Select(SelectExpression::new(array, index.into())).annotate(*ty, size)
+        ArrayExpressionInner::Select(SelectExpression::new(array, index.into()))
+            .annotate(*ty, *size)
     }
 }
 
@@ -2265,7 +2178,7 @@ impl<'ast, T: Clone> Member<'ast, T> for ArrayExpression<'ast, T> {
             }) => (*array_ty.ty.clone(), array_ty.size.clone()),
             _ => unreachable!(),
         };
-        ArrayExpressionInner::Member(MemberExpression::new(s, id)).annotate(ty, size)
+        ArrayExpressionInner::Member(MemberExpression::new(s, id)).annotate(ty, *size)
     }
 }
 
@@ -2331,7 +2244,7 @@ impl<'ast, T: Clone> Element<'ast, T> for ArrayExpression<'ast, T> {
             Type::Array(array_ty) => (*array_ty.ty.clone(), array_ty.size.clone()),
             _ => unreachable!(),
         };
-        ArrayExpressionInner::Element(ElementExpression::new(s, id)).annotate(ty, size)
+        ArrayExpressionInner::Element(ElementExpression::new(s, id)).annotate(ty, *size)
     }
 }
 
@@ -2394,15 +2307,6 @@ impl<'ast, T: Field> Id<'ast, T> for StructExpression<'ast, T> {
 impl<'ast, T: Field> Id<'ast, T> for TupleExpression<'ast, T> {
     fn identifier(id: Identifier<'ast>) -> Self::Inner {
         TupleExpressionInner::Identifier(id)
-    }
-}
-
-// `TypedExpressionList` does not have an Identifier variant
-// However implementing `From<TypedExpression>` is required for `TypedExpressionList` to be `Expr`, which makes generic treatment of function calls possible
-// This could maybe be avoided by splitting the `Expr` trait into many, but I did not find a way
-impl<'ast, T: Field> Id<'ast, T> for TypedExpressionList<'ast, T> {
-    fn identifier(_: Identifier<'ast>) -> Self::Inner {
-        unreachable!()
     }
 }
 
@@ -2474,18 +2378,6 @@ impl<'ast, T: Field> FunctionCall<'ast, T> for StructExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> FunctionCall<'ast, T> for TypedExpressionList<'ast, T> {
-    fn function_call(
-        key: DeclarationFunctionKey<'ast, T>,
-        generics: Vec<Option<UExpression<'ast, T>>>,
-        arguments: Vec<TypedExpression<'ast, T>>,
-    ) -> Self::Inner {
-        TypedExpressionListInner::FunctionCall(FunctionCallExpression::new(
-            key, generics, arguments,
-        ))
-    }
-}
-
 pub trait Block<'ast, T> {
     fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self;
 }
@@ -2513,7 +2405,7 @@ impl<'ast, T: Field> Block<'ast, T> for ArrayExpression<'ast, T> {
     fn block(statements: Vec<TypedStatement<'ast, T>>, value: Self) -> Self {
         let array_ty = value.ty().clone();
         ArrayExpressionInner::Block(BlockExpression::new(statements, value))
-            .annotate(*array_ty.ty, array_ty.size)
+            .annotate(*array_ty.ty, *array_ty.size)
     }
 }
 
@@ -2634,7 +2526,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                     .collect::<Vec<_>>()
                     .into(),
             )
-            .annotate(*array_ty.ty, array_ty.size),
+            .annotate(*array_ty.ty, *array_ty.size),
             ArrayExpressionInner::Slice(box a, box from, box to) => {
                 let from = match from.into_inner() {
                     UExpressionInner::Value(from) => from as usize,
@@ -2660,7 +2552,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                         .collect::<Vec<_>>()
                         .into(),
                 )
-                .annotate(*array_ty.ty, array_ty.size)
+                .annotate(*array_ty.ty, *array_ty.size)
             }
             ArrayExpressionInner::Repeat(box e, box count) => {
                 let count = match count.into_inner() {
@@ -2673,7 +2565,7 @@ impl<'ast, T: Field> Constant for ArrayExpression<'ast, T> {
                 ArrayExpressionInner::Value(
                     vec![TypedExpressionOrSpread::Expression(e); count].into(),
                 )
-                .annotate(*array_ty.ty, array_ty.size)
+                .annotate(*array_ty.ty, *array_ty.size)
             }
             _ => unreachable!(),
         }

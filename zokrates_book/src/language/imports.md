@@ -8,7 +8,7 @@ You can separate your code into multiple ZoKrates files using `import` statement
 
 The preferred way to import a symbol is by module and name:
 ```zokrates
-from "./path/to/my/module" import MySymbol
+from "./path/to/my/module" import MySymbol;
 
 // `MySymbol` is now in scope.
 ```
@@ -16,7 +16,7 @@ from "./path/to/my/module" import MySymbol
 To import multiple symbols with a single import statement, separate the symbols names with commas:
 
 ```zokrates
-from "./path/to/my/module" import MySymbol, MyOtherSymbol
+from "./path/to/my/module" import MySymbol, MyOtherSymbol;
 ```
 
 #### Aliasing
@@ -24,7 +24,7 @@ from "./path/to/my/module" import MySymbol, MyOtherSymbol
 The `as` keyword enables renaming symbols:
 
 ```zokrates
-from "./path/to/my/module" import MySymbol as MyAlias
+from "./path/to/my/module" import MySymbol as MyAlias;
 
 // `MySymbol` is now in scope under the alias MyAlias.
 ```
@@ -32,11 +32,11 @@ from "./path/to/my/module" import MySymbol as MyAlias
 
 The legacy way to import a symbol is by only specifying a module:
 ```
-import "./path/to/my/module"
+import "./path/to/my/module";
 ```
 In this case, the name of the symbol is assumed to be `main` and the alias is assumed to be the module's filename so that the above is equivalent to
 ```zokrates
-from "./path/to/my/module" import main as module
+from "./path/to/my/module" import main as module;
 
 // `main` is now in scope under the alias `module`.
 ```
@@ -59,12 +59,12 @@ Constants declared with the `const` keyword are imported by name.
 
 You can import a resource in the same folder directly, like this:
 ```zokrates
-from "./mycode" import foo
+from "./mycode" import foo;
 ```
 
 Imports up the file-system tree are supported:
 ```zokrates
-from "../../../mycode" import foo
+from "../../../mycode" import foo;
 ```
 
 ### Absolute Imports

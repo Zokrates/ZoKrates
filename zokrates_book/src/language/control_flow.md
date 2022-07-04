@@ -8,11 +8,13 @@ Function calls help make programs clear and modular.
 
 Arguments are passed by value.
 
+Function parameters can be declared as mutable to allow for mutation within the function's body. However, mutable function arguments are still passed by value, so the original value can never be mutated.
+
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/side_effects.zok}}
 ```
 
-Generic paramaters, if any, must be compile-time constants. They are inferred by the compiler if that is possible, but can also be provided explicitly.
+Generic parameters, if any, must be compile-time constants. They are inferred by the compiler if that is possible, but can also be provided explicitly.
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/generic_call.zok}}

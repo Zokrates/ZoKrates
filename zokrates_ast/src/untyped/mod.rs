@@ -386,9 +386,9 @@ impl<'ast> fmt::Display for Assignee<'ast> {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'ast> {
-    Return(ExpressionListNode<'ast>),
-    Declaration(VariableNode<'ast>),
-    Definition(AssigneeNode<'ast>, ExpressionNode<'ast>),
+    Return(Option<ExpressionNode<'ast>>),
+    Definition(VariableNode<'ast>, ExpressionNode<'ast>),
+    Assignment(AssigneeNode<'ast>, ExpressionNode<'ast>),
     Assertion(ExpressionNode<'ast>, Option<String>),
     For(
         VariableNode<'ast>,
@@ -396,7 +396,6 @@ pub enum Statement<'ast> {
         ExpressionNode<'ast>,
         Vec<StatementNode<'ast>>,
     ),
-    MultipleDefinition(Vec<AssigneeNode<'ast>>, ExpressionNode<'ast>),
     Log(&'ast str, Vec<ExpressionNode<'ast>>),
 }
 
@@ -405,9 +404,17 @@ pub type StatementNode<'ast> = Node<Statement<'ast>>;
 impl<'ast> fmt::Display for Statement<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Return(ref expr) => write!(f, "return {};", expr),
-            Statement::Declaration(ref var) => write!(f, "{};", var),
-            Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
+            Statement::Return(ref expr) => {
+                write!(f, "return")?;
+                match expr {
+                    Some(e) => write!(f, " {};", e),
+                    None => write!(f, ";"),
+                }
+            }
+            Statement::Definition(ref var, ref rhs) => {
+                write!(f, "{} = {};", var, rhs)
+            }
+            Statement::Assignment(ref lhs, ref rhs) => write!(f, "{} = {};", lhs, rhs),
             Statement::Assertion(ref e, ref message) => {
                 write!(f, "assert({}", e)?;
                 match message {
@@ -421,15 +428,6 @@ impl<'ast> fmt::Display for Statement<'ast> {
                     writeln!(f, "\t\t{}", l)?;
                 }
                 write!(f, "\t}}")
-            }
-            Statement::MultipleDefinition(ref ids, ref rhs) => {
-                for (i, id) in ids.iter().enumerate() {
-                    write!(f, "{}", id)?;
-                    if i < ids.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, " = {};", rhs)
             }
             Statement::Log(ref l, ref expressions) => write!(
                 f,
@@ -712,25 +710,5 @@ impl<'ast> fmt::Display for Expression<'ast> {
             Expression::LeftShift(ref lhs, ref rhs) => write!(f, "({} << {})", lhs, rhs),
             Expression::RightShift(ref lhs, ref rhs) => write!(f, "({} >> {})", lhs, rhs),
         }
-    }
-}
-
-/// A list of expressions, used in return statements
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct ExpressionList<'ast> {
-    pub expressions: Vec<ExpressionNode<'ast>>,
-}
-
-pub type ExpressionListNode<'ast> = Node<ExpressionList<'ast>>;
-
-impl<'ast> fmt::Display for ExpressionList<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i, param) in self.expressions.iter().enumerate() {
-            write!(f, "{}", param)?;
-            if i < self.expressions.len() - 1 {
-                write!(f, ", ")?;
-            }
-        }
-        write!(f, "")
     }
 }

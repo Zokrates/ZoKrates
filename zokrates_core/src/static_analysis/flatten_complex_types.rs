@@ -29,7 +29,7 @@ fn flatten_identifier_rec<'ast>(
             id: zir::Identifier::Source(id),
             _type: zir::Type::uint(bitwidth.to_usize()),
         }],
-        typed::types::ConcreteType::Array(array_type) => (0..array_type.size)
+        typed::types::ConcreteType::Array(array_type) => (0..*array_type.size)
             .flat_map(|i| {
                 flatten_identifier_rec(
                     zir::SourceIdentifier::Select(box id.clone(), i),
@@ -293,26 +293,6 @@ impl<'ast, T: Field> Flattener<T> {
         fold_tuple_expression(self, statements_buffer, e)
     }
 
-    fn fold_expression_list(
-        &mut self,
-        statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
-        es: typed::TypedExpressionList<'ast, T>,
-    ) -> zir::ZirExpressionList<'ast, T> {
-        match es.into_inner() {
-            typed::TypedExpressionListInner::EmbedCall(embed, generics, arguments) => {
-                zir::ZirExpressionList::EmbedCall(
-                    embed,
-                    generics,
-                    arguments
-                        .into_iter()
-                        .flat_map(|a| self.fold_expression(statements_buffer, a))
-                        .collect(),
-                )
-            }
-            _ => unreachable!("should have been inlined"),
-        }
-    }
-
     fn fold_conditional_expression<E: Flatten<'ast, T>>(
         &mut self,
         statements_buffer: &mut Vec<zir::ZirStatement<'ast, T>>,
@@ -419,11 +399,8 @@ fn fold_statement<'ast, T: Field>(
     s: typed::TypedStatement<'ast, T>,
 ) {
     let res = match s {
-        typed::TypedStatement::Return(expressions) => vec![zir::ZirStatement::Return(
-            expressions
-                .into_iter()
-                .flat_map(|e| f.fold_expression(statements_buffer, e))
-                .collect(),
+        typed::TypedStatement::Return(expression) => vec![zir::ZirStatement::Return(
+            f.fold_expression(statements_buffer, expression),
         )],
         typed::TypedStatement::Definition(a, e) => {
             let a = f.fold_assignee(a);
@@ -433,9 +410,6 @@ fn fold_statement<'ast, T: Field>(
                 .zip(e.into_iter())
                 .map(|(a, e)| zir::ZirStatement::Definition(a, e))
                 .collect()
-        }
-        typed::TypedStatement::Declaration(..) => {
-            unreachable!()
         }
         typed::TypedStatement::Assertion(e, error) => {
             let e = f.fold_boolean_expression(statements_buffer, e);
@@ -447,14 +421,18 @@ fn fold_statement<'ast, T: Field>(
             };
             vec![zir::ZirStatement::Assertion(e, error)]
         }
-        typed::TypedStatement::For(..) => unreachable!(),
-        typed::TypedStatement::MultipleDefinition(variables, elist) => {
+        typed::TypedStatement::EmbedCallDefinition(assignee, embed_call) => {
             vec![zir::ZirStatement::MultipleDefinition(
-                variables
-                    .into_iter()
-                    .flat_map(|v| f.fold_assignee(v))
-                    .collect(),
-                f.fold_expression_list(statements_buffer, elist),
+                f.fold_assignee(assignee),
+                zir::ZirExpressionList::EmbedCall(
+                    embed_call.embed,
+                    embed_call.generics,
+                    embed_call
+                        .arguments
+                        .into_iter()
+                        .flat_map(|a| f.fold_expression(statements_buffer, a))
+                        .collect(),
+                ),
             )]
         }
         typed::TypedStatement::Log(l, e) => vec![zir::ZirStatement::Log(
@@ -470,6 +448,7 @@ fn fold_statement<'ast, T: Field>(
         )],
         typed::TypedStatement::PushCallLog(..) => vec![],
         typed::TypedStatement::PopCallLog => vec![],
+        typed::TypedStatement::For(..) => unreachable!(),
     };
 
     statements_buffer.extend(res);
