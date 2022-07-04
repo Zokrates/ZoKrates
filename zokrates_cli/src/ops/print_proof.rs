@@ -5,10 +5,10 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 use zokrates_common::helpers::{CurveParameter, SchemeParameter};
-use zokrates_core::proof_system::{
+use zokrates_field::Bn128Field;
+use zokrates_proof_systems::{
     Marlin, Proof, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17, PGHR13,
 };
-use zokrates_field::Bn128Field;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("print-proof")

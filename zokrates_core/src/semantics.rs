@@ -4,28 +4,26 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2017
 
-use crate::absy::Identifier;
-use crate::absy::*;
-use crate::typed_absy::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
-use crate::typed_absy::*;
-use crate::typed_absy::{DeclarationParameter, DeclarationVariable, Variable};
 use num_bigint::BigUint;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
+use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
+use zokrates_ast::typed::*;
+use zokrates_ast::typed::{DeclarationParameter, DeclarationVariable, Variable};
+use zokrates_ast::untyped::Identifier;
+use zokrates_ast::untyped::*;
 use zokrates_field::Field;
 
-use crate::parser::Position;
+use zokrates_ast::untyped::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
-use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
-
-use crate::typed_absy::types::{
+use std::hash::{Hash, Hasher};
+use zokrates_ast::typed::types::{
     check_type, specialize_declaration_type, ArrayType, DeclarationArrayType, DeclarationConstant,
     DeclarationFunctionKey, DeclarationSignature, DeclarationStructMember, DeclarationStructType,
     DeclarationTupleType, DeclarationType, GenericIdentifier, StructLocation, StructMember,
     TupleType,
 };
-use std::hash::{Hash, Hasher};
 
 #[derive(PartialEq, Debug)]
 pub struct ErrorInner {
@@ -887,7 +885,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                         self.insert_into_scope(Variable::immutable(CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
                                             declaration.id,
                                             module_id.into(),
-                                        )), crate::typed_absy::types::try_from_g_type(ty.clone()).unwrap()));
+                                        )), zokrates_ast::typed::types::try_from_g_type(ty.clone()).unwrap()));
 
                                         state
                                             .constants
@@ -1140,7 +1138,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let ty = specialize_declaration_type(decl_v.clone()._type, &generics).unwrap();
 
-                    match self.insert_into_scope(crate::typed_absy::variable::Variable {
+                    match self.insert_into_scope(zokrates_ast::typed::variable::Variable {
                         id: decl_v.clone().id,
                         _type: ty,
                         is_mutable,
@@ -1619,7 +1617,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
     fn check_variable(
         &mut self,
-        v: crate::absy::VariableNode<'ast>,
+        v: zokrates_ast::untyped::VariableNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<Variable<'ast, T>, Vec<ErrorInner>> {
@@ -1633,7 +1631,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
     fn check_for_loop(
         &mut self,
-        var: crate::absy::VariableNode<'ast>,
+        var: zokrates_ast::untyped::VariableNode<'ast>,
         range: (ExpressionNode<'ast>, ExpressionNode<'ast>),
         statements: Vec<StatementNode<'ast>>,
         pos: (Position, Position),
@@ -1810,10 +1808,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                 generics,
                                 arguments,
                             ) => {
-                                let ty =
-                                    crate::typed_absy::types::try_from_g_type(return_type.clone())
-                                        .map(Some)
-                                        .unwrap();
+                                let ty = zokrates_ast::typed::types::try_from_g_type(
+                                    return_type.clone(),
+                                )
+                                .map(Some)
+                                .unwrap();
 
                                 self.check_function_call_expression(
                                     fun_id_expression,
@@ -2547,11 +2546,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     })?;
 
                 let kind = match conditional.kind {
-                    crate::absy::ConditionalKind::IfElse => {
-                        crate::typed_absy::ConditionalKind::IfElse
+                    zokrates_ast::untyped::ConditionalKind::IfElse => {
+                        zokrates_ast::typed::ConditionalKind::IfElse
                     }
-                    crate::absy::ConditionalKind::Ternary => {
-                        crate::typed_absy::ConditionalKind::Ternary
+                    zokrates_ast::untyped::ConditionalKind::Ternary => {
+                        zokrates_ast::typed::ConditionalKind::Ternary
                     }
                 };
 
@@ -3561,10 +3560,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::absy;
-    use crate::absy::Expression;
-    use crate::typed_absy;
+
     use lazy_static::lazy_static;
+    use zokrates_ast::typed;
+    use zokrates_ast::untyped;
     use zokrates_field::Bn128Field;
 
     lazy_static! {
@@ -3675,8 +3674,8 @@ mod tests {
     fn function1() -> FunctionNode<'static> {
         let statements = vec![Statement::Return(None).mock()];
 
-        let arguments = vec![absy::Parameter {
-            id: absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+        let arguments = vec![untyped::Parameter {
+            id: untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
             is_private: true,
         }
         .mock()];
@@ -3883,8 +3882,8 @@ mod tests {
 
             let mut f0 = function0();
 
-            f0.value.arguments = vec![absy::Parameter::private(
-                absy::Variable::immutable(
+            f0.value.arguments = vec![untyped::Parameter::private(
+                untyped::Variable::immutable(
                     "a",
                     UnresolvedType::array(
                         UnresolvedType::FieldElement.mock(),
@@ -3904,8 +3903,9 @@ mod tests {
                 .mock()]);
 
             let mut f1 = function0();
-            f1.value.arguments = vec![absy::Parameter::private(
-                absy::Variable::immutable(
+
+            f1.value.arguments = vec![untyped::Parameter::private(
+                untyped::Variable::immutable(
                     "a",
                     UnresolvedType::array(
                         UnresolvedType::FieldElement.mock(),
@@ -3996,8 +3996,8 @@ mod tests {
 
                 let mut foo = function0();
 
-                foo.value.arguments = vec![absy::Parameter::private(
-                    absy::Variable::immutable(
+                foo.value.arguments = vec![untyped::Parameter::private(
+                    untyped::Variable::immutable(
                         "a",
                         UnresolvedType::array(
                             UnresolvedType::FieldElement.mock(),
@@ -4363,8 +4363,9 @@ mod tests {
     fn undefined_variable_in_statement() {
         // field a = b;
         // b undefined
+
         let statement: StatementNode = Statement::Definition(
-            absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+            untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
             Expression::Identifier("b").mock(),
         )
         .mock();
@@ -4386,7 +4387,7 @@ mod tests {
         // field a = b;
         // b defined
         let statement: StatementNode = Statement::Definition(
-            absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+            untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
             Expression::Identifier("b").mock(),
         )
         .mock();
@@ -4407,7 +4408,7 @@ mod tests {
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
             Ok(TypedStatement::Definition(
-                TypedAssignee::Identifier(typed_absy::Variable::field_element("a")),
+                TypedAssignee::Identifier(typed::Variable::field_element("a")),
                 FieldElementExpression::Identifier("b".into()).into()
             ))
         );
@@ -4427,7 +4428,7 @@ mod tests {
         let foo_args = vec![];
         let foo_statements = vec![
             Statement::Definition(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
                 Expression::IntConstant(1usize.into()).mock(),
             )
             .mock(),
@@ -4500,7 +4501,7 @@ mod tests {
         let foo_args = vec![];
         let foo_statements = vec![
             Statement::Definition(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
                 Expression::IntConstant(1usize.into()).mock(),
             )
             .mock(),
@@ -4517,7 +4518,7 @@ mod tests {
         let bar_args = vec![];
         let bar_statements = vec![
             Statement::Definition(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
                 Expression::IntConstant(2usize.into()).mock(),
             )
             .mock(),
@@ -4578,7 +4579,7 @@ mod tests {
         // should fail
         let foo_statements: Vec<StatementNode> = vec![
             Statement::For(
-                absy::Variable::immutable("i", UnresolvedType::Uint(32).mock()).mock(),
+                untyped::Variable::immutable("i", UnresolvedType::Uint(32).mock()).mock(),
                 Expression::IntConstant(0usize.into()).mock(),
                 Expression::IntConstant(10usize.into()).mock(),
                 vec![],
@@ -4619,14 +4620,14 @@ mod tests {
         // should pass
 
         let for_statements = vec![Statement::Definition(
-            absy::Variable::immutable("a", UnresolvedType::Uint(32).mock()).mock(),
+            untyped::Variable::immutable("a", UnresolvedType::Uint(32).mock()).mock(),
             Expression::Identifier("i").mock(),
         )
         .mock()];
 
         let foo_statements = vec![
             Statement::For(
-                absy::Variable::immutable("i", UnresolvedType::Uint(32).mock()).mock(),
+                untyped::Variable::immutable("i", UnresolvedType::Uint(32).mock()).mock(),
                 Expression::IntConstant(0usize.into()).mock(),
                 Expression::IntConstant(10usize.into()).mock(),
                 for_statements,
@@ -4636,7 +4637,7 @@ mod tests {
         ];
 
         let for_statements_checked = vec![TypedStatement::Definition(
-            TypedAssignee::Identifier(typed_absy::Variable::uint("a", UBitwidth::B32)),
+            TypedAssignee::Identifier(typed::Variable::uint("a", UBitwidth::B32)),
             UExpressionInner::Identifier("i".into())
                 .annotate(UBitwidth::B32)
                 .into(),
@@ -4644,7 +4645,7 @@ mod tests {
 
         let foo_statements_checked = vec![
             TypedStatement::For(
-                typed_absy::Variable::uint("i", UBitwidth::B32),
+                typed::Variable::uint("i", UBitwidth::B32),
                 0u32.into(),
                 10u32.into(),
                 for_statements_checked,
@@ -4691,7 +4692,7 @@ mod tests {
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Definition(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock())
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock())
                     .mock()
                     .into(),
                 Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
@@ -4742,7 +4743,7 @@ mod tests {
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Definition(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock())
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock())
                     .mock()
                     .into(),
                 Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
@@ -4874,7 +4875,7 @@ mod tests {
 
         let main_statements: Vec<StatementNode> = vec![
             Statement::Definition(
-                absy::Variable::mutable(
+                untyped::Variable::mutable(
                     "a",
                     UnresolvedType::array(
                         UnresolvedType::FieldElement.mock(),
@@ -4883,7 +4884,7 @@ mod tests {
                     .mock(),
                 )
                 .mock(),
-                Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(
+                Expression::InlineArray(vec![untyped::SpreadOrExpression::Expression(
                     Expression::IntConstant(0usize.into()).mock(),
                 )])
                 .mock(),
@@ -4893,7 +4894,7 @@ mod tests {
                 Assignee::Select(
                     box Assignee::Identifier("a").mock(),
                     box RangeOrExpression::Expression(
-                        absy::Expression::IntConstant(0usize.into()).mock(),
+                        untyped::Expression::IntConstant(0usize.into()).mock(),
                     ),
                 )
                 .mock()
@@ -5025,12 +5026,12 @@ mod tests {
 
         let mut f = function0();
         f.value.arguments = vec![
-            absy::Parameter::private(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+            untyped::Parameter::private(
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock(),
-            absy::Parameter::private(
-                absy::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
+            untyped::Parameter::private(
+                untyped::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
             )
             .mock(),
         ];
@@ -5065,8 +5066,8 @@ mod tests {
         let main1_statements: Vec<StatementNode> =
             vec![Statement::Return(Some(Expression::IntConstant(1usize.into()).mock())).mock()];
 
-        let main1_arguments = vec![crate::absy::Parameter {
-            id: absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+        let main1_arguments = vec![zokrates_ast::untyped::Parameter {
+            id: untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
             is_private: false,
         }
         .mock()];
@@ -5139,8 +5140,8 @@ mod tests {
         let mut checker: Checker<Bn128Field> = Checker::default();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Definition(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-                absy::Expression::IntConstant(2usize.into()).mock(),
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                untyped::Expression::IntConstant(2usize.into()).mock(),
             )
             .mock(),
             &*MODULE_ID,
@@ -5149,8 +5150,8 @@ mod tests {
         let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
             .check_statement(
                 Statement::Definition(
-                    absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-                    absy::Expression::IntConstant(2usize.into()).mock(),
+                    untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                    untyped::Expression::IntConstant(2usize.into()).mock(),
                 )
                 .mock(),
                 &*MODULE_ID,
@@ -5175,8 +5176,8 @@ mod tests {
         let mut checker: Checker<Bn128Field> = Checker::default();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Definition(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-                absy::Expression::IntConstant(2usize.into()).mock(),
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                untyped::Expression::IntConstant(2usize.into()).mock(),
             )
             .mock(),
             &*MODULE_ID,
@@ -5185,8 +5186,8 @@ mod tests {
         let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
             .check_statement(
                 Statement::Definition(
-                    absy::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
-                    absy::Expression::BooleanConstant(true).mock(),
+                    untyped::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
+                    untyped::Expression::BooleanConstant(true).mock(),
                 )
                 .mock(),
                 &*MODULE_ID,
@@ -5203,7 +5204,7 @@ mod tests {
 
     mod structs {
         use super::*;
-        use crate::typed_absy::types::StructMember;
+        use zokrates_ast::typed::types::StructMember;
 
         /// solver function to create a module at location "" with a single symbol `Foo { foo: field }`
         fn create_module_with_foo(
@@ -5942,8 +5943,8 @@ mod tests {
 
             let mut foo_field = function0();
 
-            foo_field.value.arguments = vec![absy::Parameter::private(
-                absy::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+            foo_field.value.arguments = vec![untyped::Parameter::private(
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock()];
             foo_field.value.statements =
@@ -5954,8 +5955,8 @@ mod tests {
 
             let mut foo_u32 = function0();
 
-            foo_u32.value.arguments = vec![absy::Parameter::private(
-                absy::Variable::immutable("a", UnresolvedType::Uint(32).mock()).mock(),
+            foo_u32.value.arguments = vec![untyped::Parameter::private(
+                untyped::Variable::immutable("a", UnresolvedType::Uint(32).mock()).mock(),
             )
             .mock()];
             foo_u32.value.statements =
@@ -5979,17 +5980,17 @@ mod tests {
                 UnresolvedSignature::new().output(UnresolvedType::FieldElement.mock());
 
             let m = Module::with_symbols(vec![
-                absy::SymbolDeclaration {
+                untyped::SymbolDeclaration {
                     id: "foo",
                     symbol: Symbol::Here(SymbolDefinition::Function(foo_field)),
                 }
                 .mock(),
-                absy::SymbolDeclaration {
+                untyped::SymbolDeclaration {
                     id: "foo",
                     symbol: Symbol::Here(SymbolDefinition::Function(foo_u32)),
                 }
                 .mock(),
-                absy::SymbolDeclaration {
+                untyped::SymbolDeclaration {
                     id: "main",
                     symbol: Symbol::Here(SymbolDefinition::Function(main)),
                 }
@@ -6028,7 +6029,7 @@ mod tests {
             checker
                 .check_statement(
                     Statement::Definition(
-                        absy::Variable::mutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                        untyped::Variable::mutable("a", UnresolvedType::FieldElement.mock()).mock(),
                         Expression::FieldConstant(42u32.into()).mock(),
                     )
                     .mock(),
@@ -6039,7 +6040,7 @@ mod tests {
 
             assert_eq!(
                 checker.check_assignee(a, &*MODULE_ID, &TypeMap::new()),
-                Ok(TypedAssignee::Identifier(typed_absy::Variable::new(
+                Ok(TypedAssignee::Identifier(typed::Variable::new(
                     "a",
                     Type::FieldElement,
                     true
@@ -6063,7 +6064,7 @@ mod tests {
             checker
                 .check_statement(
                     Statement::Definition(
-                        absy::Variable::mutable(
+                        untyped::Variable::mutable(
                             "a",
                             UnresolvedType::array(
                                 UnresolvedType::FieldElement.mock(),
@@ -6092,7 +6093,7 @@ mod tests {
             assert_eq!(
                 checker.check_assignee(a, &*MODULE_ID, &TypeMap::new()),
                 Ok(TypedAssignee::Select(
-                    box TypedAssignee::Identifier(typed_absy::Variable::new(
+                    box TypedAssignee::Identifier(typed::Variable::new(
                         "a",
                         Type::array((Type::FieldElement, 3u32)),
                         true,
@@ -6124,7 +6125,7 @@ mod tests {
             checker
                 .check_statement(
                     Statement::Definition(
-                        absy::Variable::mutable(
+                        untyped::Variable::mutable(
                             "a",
                             UnresolvedType::array(
                                 UnresolvedType::array(
@@ -6154,7 +6155,7 @@ mod tests {
                 checker.check_assignee(a, &*MODULE_ID, &TypeMap::new()),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Select(
-                        box TypedAssignee::Identifier(typed_absy::Variable::new(
+                        box TypedAssignee::Identifier(typed::Variable::new(
                             "a",
                             Type::array((Type::array((Type::FieldElement, 1u32)), 1u32)),
                             true,

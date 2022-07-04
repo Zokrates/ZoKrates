@@ -1,10 +1,11 @@
-use crate::embed::FlatEmbed;
-use crate::typed_absy::{
+use std::fmt;
+use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::typed::TypedProgram;
+use zokrates_ast::typed::{
     result_folder::ResultFolder,
     result_folder::{fold_statement, fold_uint_expression_inner},
-    Constant, EmbedCall, TypedProgram, TypedStatement, UBitwidth, UExpressionInner,
+    Constant, EmbedCall, TypedStatement, UBitwidth, UExpressionInner,
 };
-use std::fmt;
 use zokrates_field::Field;
 
 pub struct ConstantArgumentChecker;

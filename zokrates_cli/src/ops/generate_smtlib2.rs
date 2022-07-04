@@ -3,9 +3,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
-use zokrates_core::ir;
-use zokrates_core::ir::smtlib2::SMTLib2Display;
-use zokrates_core::ir::ProgEnum;
+use zokrates_ast::ir::{self, smtlib2::SMTLib2Display, ProgEnum};
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {

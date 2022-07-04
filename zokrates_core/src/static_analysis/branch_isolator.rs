@@ -3,8 +3,8 @@
 
 // `if c then a else b fi` becomes `if c then { a } else { b } fi`, and down the line any statements resulting from trating `a` and `b` can be safely kept inside the respective blocks.
 
-use crate::typed_absy::folder::*;
-use crate::typed_absy::*;
+use zokrates_ast::typed::folder::*;
+use zokrates_ast::typed::*;
 use zokrates_field::Field;
 
 pub struct Isolator;

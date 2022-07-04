@@ -1,4 +1,4 @@
-use crate::typed_absy::{
+use zokrates_ast::typed::{
     folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
     ConditionalOrExpression, CoreIdentifier, Expr, Identifier, Type, TypedProgram, TypedStatement,
     Variable,
@@ -89,7 +89,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::{
+    use zokrates_ast::typed::{
         Block, BooleanExpression, Conditional, ConditionalKind, FieldElementExpression, Type,
     };
     use zokrates_field::Bn128Field;

@@ -26,19 +26,20 @@
 // - The body of the function is in SSA form
 // - The return value(s) are assigned to internal variables
 
-use crate::embed::FlatEmbed;
 use crate::static_analysis::reducer::Output;
 use crate::static_analysis::reducer::ShallowTransformer;
 use crate::static_analysis::reducer::Versions;
-use crate::typed_absy::types::{ConcreteGenericsAssignment, IntoType};
-use crate::typed_absy::Identifier;
-use crate::typed_absy::TypedAssignee;
-use crate::typed_absy::{
+
+use zokrates_ast::common::FlatEmbed;
+use zokrates_ast::typed::types::{ConcreteGenericsAssignment, IntoType};
+use zokrates_ast::typed::CoreIdentifier;
+use zokrates_ast::typed::Identifier;
+use zokrates_ast::typed::TypedAssignee;
+use zokrates_ast::typed::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Expr,
-    Signature, TypedExpression, TypedFunctionSymbol, TypedFunctionSymbolDeclaration, TypedProgram,
-    TypedStatement, UExpression, UExpressionInner, Variable,
+    Signature, Type, TypedExpression, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
+    TypedProgram, TypedStatement, UExpression, UExpressionInner, Variable,
 };
-use crate::typed_absy::{CoreIdentifier, Type};
 use zokrates_field::Field;
 
 pub enum InlineError<'ast, T> {
@@ -90,7 +91,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 ) -> InlineResult<'ast, T> {
     use std::convert::TryFrom;
 
-    use crate::typed_absy::Typed;
+    use zokrates_ast::typed::Typed;
     let output_type = output.clone().into_type();
 
     // we try to get concrete values for explicit generics

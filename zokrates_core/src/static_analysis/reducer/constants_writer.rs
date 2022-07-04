@@ -3,12 +3,12 @@
 use crate::static_analysis::reducer::{
     constants_reader::ConstantsReader, reduce_function, ConstantDefinitions, Error,
 };
-use crate::typed_absy::{
+use std::collections::{BTreeMap, HashSet};
+use zokrates_ast::typed::{
     result_folder::*, types::ConcreteGenericsAssignment, Constant, OwnedTypedModuleId, Typed,
     TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId,
     TypedProgram, TypedSymbolDeclaration, UExpression,
 };
-use std::collections::{BTreeMap, HashSet};
 use zokrates_field::Field;
 
 pub struct ConstantsWriter<'ast, T> {
@@ -105,11 +105,11 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
 
                 // if constants were used in the rhs, they are now defined in the map
                 // replace them in the expression
-                use crate::typed_absy::folder::Folder;
+                use zokrates_ast::typed::folder::Folder;
 
                 let c = ConstantsReader::with_constants(&self.constants).fold_constant(c);
 
-                use crate::typed_absy::{DeclarationSignature, TypedFunction, TypedStatement};
+                use zokrates_ast::typed::{DeclarationSignature, TypedFunction, TypedStatement};
 
                 // wrap this expression in a function
                 let wrapper = TypedFunction {
@@ -131,7 +131,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                         return Err(Error::ConstantReduction(id.id.to_string(), id.module));
                     };
 
-                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(
+                    if zokrates_ast::typed::types::try_from_g_type::<_, UExpression<'ast, T>>(
                         c.ty.clone(),
                     )
                     .unwrap()

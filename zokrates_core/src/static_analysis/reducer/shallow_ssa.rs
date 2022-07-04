@@ -26,10 +26,10 @@
 // 	   return b_3; // we leave versions b_1 and b_2 to make b accessible and modifiable inside the for-loop
 // }
 
-use crate::typed_absy::folder::*;
-use crate::typed_absy::types::ConcreteGenericsAssignment;
-use crate::typed_absy::types::Type;
-use crate::typed_absy::*;
+use zokrates_ast::typed::folder::*;
+use zokrates_ast::typed::types::ConcreteGenericsAssignment;
+use zokrates_ast::typed::types::Type;
+use zokrates_ast::typed::*;
 
 use zokrates_field::Field;
 
@@ -190,7 +190,7 @@ impl<'ast, 'a, T: Field> Folder<'ast, T> for ShallowTransformer<'ast, 'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::DeclarationSignature;
+    use zokrates_ast::typed::types::DeclarationSignature;
     use zokrates_field::Bn128Field;
     mod normal {
         use super::*;
@@ -550,7 +550,7 @@ mod tests {
 
     mod for_loop {
         use super::*;
-        use crate::typed_absy::types::GGenericsAssignment;
+        use zokrates_ast::typed::types::GGenericsAssignment;
         #[test]
         fn treat_loop() {
             // def main<K>(field a) -> field {
@@ -746,7 +746,7 @@ mod tests {
 
     mod function_call {
         use super::*;
-        use crate::typed_absy::types::GGenericsAssignment;
+        use zokrates_ast::typed::types::GGenericsAssignment;
         // test that function calls are left in
         #[test]
         fn treat_calls() {

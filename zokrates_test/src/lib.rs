@@ -5,13 +5,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-use zokrates_core::ir;
-use zokrates_core::typed_absy::types::GTupleType;
-use zokrates_core::typed_absy::ConcreteSignature;
-use zokrates_core::{
-    compile::{compile, CompileConfig},
-    typed_absy::ConcreteType,
-};
+use zokrates_ast::typed::types::GTupleType;
+use zokrates_ast::typed::ConcreteSignature;
+use zokrates_ast::typed::ConcreteType;
+use zokrates_core::compile::{compile, CompileConfig};
+
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
@@ -45,7 +43,7 @@ struct Test {
     pub output: TestResult,
 }
 
-type TestResult = Result<Output, ir::Error>;
+type TestResult = Result<Output, zokrates_interpreter::Error>;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 struct Output {
@@ -69,7 +67,10 @@ fn try_parse_abi_val<T: Field>(
     zokrates_abi::parse_strict_json(s, types).map(|v| v.encode())
 }
 
-fn compare(result: Result<Output, ir::Error>, expected: TestResult) -> Result<(), String> {
+fn compare(
+    result: Result<Output, zokrates_interpreter::Error>,
+    expected: TestResult,
+) -> Result<(), String> {
     if result != expected {
         return Err(format!("Expected {:?} but found {:?}", expected, result));
     }
@@ -148,7 +149,7 @@ fn compile_and_run<T: Field>(t: Tests) {
         );
     };
 
-    let interpreter = zokrates_core::ir::Interpreter::default();
+    let interpreter = zokrates_interpreter::Interpreter::default();
     let with_abi = t.abi.unwrap_or(true);
 
     for test in t.tests.into_iter() {
@@ -179,7 +180,8 @@ fn compile_and_run<T: Field>(t: Tests) {
         let output = interpreter.execute(bin.clone(), &input);
 
         use zokrates_abi::Decode;
-        let output: Result<Output, ir::Error> = output.map(|witness| Output {
+
+        let output: Result<Output, zokrates_interpreter::Error> = output.map(|witness| Output {
             value: zokrates_abi::Value::decode(witness.return_values(), *signature.output.clone())
                 .into_serde_json(),
         });

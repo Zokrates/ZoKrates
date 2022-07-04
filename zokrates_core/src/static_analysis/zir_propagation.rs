@@ -1,12 +1,12 @@
-use crate::zir::result_folder::fold_statement;
-use crate::zir::result_folder::ResultFolder;
-use crate::zir::types::UBitwidth;
-use crate::zir::{
+use std::collections::HashMap;
+use std::fmt;
+use zokrates_ast::zir::result_folder::fold_statement;
+use zokrates_ast::zir::result_folder::ResultFolder;
+use zokrates_ast::zir::types::UBitwidth;
+use zokrates_ast::zir::{
     BooleanExpression, FieldElementExpression, Identifier, RuntimeError, UExpression,
     UExpressionInner, ZirExpression, ZirProgram, ZirStatement,
 };
-use std::collections::HashMap;
-use std::fmt;
 use zokrates_field::Field;
 
 type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
@@ -710,14 +710,8 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::zir::RuntimeError;
+    use zokrates_ast::zir::RuntimeError;
     use zokrates_field::Bn128Field;
-
-    impl RuntimeError {
-        pub fn mock() -> Self {
-            RuntimeError::SourceAssertion(String::default())
-        }
-    }
 
     #[test]
     fn propagation() {

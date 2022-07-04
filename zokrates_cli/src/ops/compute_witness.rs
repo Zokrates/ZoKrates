@@ -5,10 +5,11 @@ use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read};
 use std::path::Path;
 use zokrates_abi::Encode;
-use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
-use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType, GTupleType};
+use zokrates_ast::ir::{self, ProgEnum};
+use zokrates_ast::typed::{
+    abi::Abi,
+    types::{ConcreteSignature, ConcreteType, GTupleType},
+};
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -158,7 +159,7 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     }
     .map_err(|e| format!("Could not parse argument: {}", e))?;
 
-    let interpreter = ir::Interpreter::default();
+    let interpreter = zokrates_interpreter::Interpreter::default();
 
     let witness = interpreter
         .execute(ir_prog, &arguments.encode())
