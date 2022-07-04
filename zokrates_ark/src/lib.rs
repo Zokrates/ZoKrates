@@ -72,16 +72,6 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-// impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-//     pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
-//         self.program
-//             .public_inputs(self.witness.as_ref().unwrap())
-//             .iter()
-//             .map(|v| v.clone().into_ark())
-//             .collect()
-//     }
-// }
-
 impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
     ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
     for Computation<T, I>
@@ -162,18 +152,6 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Comput
             .collect()
     }
 }
-
-// impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
-//     ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
-//     for Computation<T, I>
-// {
-//     fn generate_constraints(
-//         self,
-//         cs: ConstraintSystemRef<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
-//     ) -> Result<(), SynthesisError> {
-//         self.program.generate_constraints(cs, self.witness)
-//     }
-// }
 
 mod parse {
     use super::*;
