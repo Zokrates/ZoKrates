@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_core"
-version = "0.6.12"
+version = "0.6.13"
 edition = "2018"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/Zokrates/ZoKrates"
