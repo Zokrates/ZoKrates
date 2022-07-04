@@ -8,7 +8,7 @@ use std::fmt;
 // id < 0 for public outputs
 #[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq, Ord, PartialOrd, Copy)]
 pub struct Variable {
-    id: isize,
+    pub id: isize,
 }
 
 impl Variable {

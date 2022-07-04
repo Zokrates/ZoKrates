@@ -1,4 +1,5 @@
 use crate::common::{Parameter, RuntimeError, Solver, Variable};
+use crate::flat::{flat_expression_from_bits, flat_expression_from_variable_summands};
 use crate::flat::{FlatDirective, FlatExpression, FlatFunctionIterator, FlatStatement};
 use crate::typed::types::{
     ConcreteGenericsAssignment, DeclarationConstant, DeclarationSignature, DeclarationType,
@@ -308,29 +309,6 @@ impl FlatEmbed {
     }
 }
 
-// util to convert a vector of `(variable_id, coefficient)` to a flat_expression
-// we build a binary tree of additions by splitting the vector recursively
-#[cfg(any(feature = "ark", feature = "bellman"))]
-fn flat_expression_from_vec<T: Field>(v: &[(usize, T)]) -> FlatExpression<T> {
-    match v.len() {
-        0 => FlatExpression::Number(T::zero()),
-        1 => {
-            let (key, val) = v[0].clone();
-            FlatExpression::Mult(
-                box FlatExpression::Number(val),
-                box FlatExpression::Identifier(Variable::new(key)),
-            )
-        }
-        n => {
-            let (u, v) = v.split_at(n / 2);
-            FlatExpression::Add(
-                box flat_expression_from_vec::<T>(u),
-                box flat_expression_from_vec::<T>(v),
-            )
-        }
-    }
-}
-
 /// Returns a flat function which computes a sha256 round
 ///
 /// # Remarks
@@ -400,9 +378,9 @@ pub fn sha256_round<T: Field>(
     // insert flattened statements to represent constraints
     let constraint_statements = r1cs.constraints.into_iter().map(|c| {
         let c = from_bellman::<T, Bn256>(c);
-        let rhs_a = flat_expression_from_vec::<T>(c.a.as_slice());
-        let rhs_b = flat_expression_from_vec::<T>(c.b.as_slice());
-        let lhs = flat_expression_from_vec::<T>(c.c.as_slice());
+        let rhs_a = flat_expression_from_variable_summands::<T>(c.a.as_slice());
+        let rhs_b = flat_expression_from_variable_summands::<T>(c.b.as_slice());
+        let lhs = flat_expression_from_variable_summands::<T>(c.c.as_slice());
 
         FlatStatement::Condition(
             lhs,
@@ -508,9 +486,9 @@ pub fn snark_verify_bls12_377<T: Field>(
         .into_iter()
         .map(|c| {
             let c = from_ark::<T, Bls12_377>(c);
-            let rhs_a = flat_expression_from_vec::<T>(c.a.as_slice());
-            let rhs_b = flat_expression_from_vec::<T>(c.b.as_slice());
-            let lhs = flat_expression_from_vec::<T>(c.c.as_slice());
+            let rhs_a = flat_expression_from_variable_summands::<T>(c.a.as_slice());
+            let rhs_b = flat_expression_from_variable_summands::<T>(c.b.as_slice());
+            let lhs = flat_expression_from_variable_summands::<T>(c.c.as_slice());
 
             FlatStatement::Condition(
                 lhs,
@@ -614,17 +592,11 @@ pub fn unpack_to_bitwidth<T: Field>(
         .collect();
 
     // sum check: o253 + o252 * 2 + ... + o{253 - (bit_width - 1)} * 2**(bit_width - 1)
-    let mut lhs_sum = FlatExpression::Number(T::from(0));
-
-    for i in 0..bit_width {
-        lhs_sum = FlatExpression::Add(
-            box lhs_sum,
-            box FlatExpression::Mult(
-                box FlatExpression::Identifier(Variable::new(bit_width - i)),
-                box FlatExpression::Number(T::from(2).pow(i)),
-            ),
-        );
-    }
+    let lhs_sum = flat_expression_from_bits(
+        (0..bit_width)
+            .map(|i| FlatExpression::Identifier(Variable::new(i + 1)))
+            .collect(),
+    );
 
     statements.push(FlatStatement::Condition(
         lhs_sum,
