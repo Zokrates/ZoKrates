@@ -715,7 +715,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Log(ref l, ref expressions) => write!(
                 f,
-                "log!({}, {})",
+                "log({}, {})",
                 l,
                 expressions
                     .iter()

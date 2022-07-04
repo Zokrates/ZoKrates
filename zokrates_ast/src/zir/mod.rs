@@ -181,7 +181,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
             }
             ZirStatement::Log(ref l, ref expressions) => write!(
                 f,
-                "log!(\"{}\"), {})",
+                "log(\"{}\"), {})",
                 l,
                 expressions
                     .iter()

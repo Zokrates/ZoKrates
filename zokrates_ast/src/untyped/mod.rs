@@ -431,7 +431,7 @@ impl<'ast> fmt::Display for Statement<'ast> {
             }
             Statement::Log(ref l, ref expressions) => write!(
                 f,
-                "log!({}, {})",
+                "log({}, {})",
                 l,
                 expressions
                     .iter()

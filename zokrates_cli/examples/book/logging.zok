@@ -4,6 +4,6 @@ struct Foo {
 }
 
 def main(Foo x, field y) {
-    log!("x is {}, y is {}", x, y);
+    log("x is {}, y is {}", x, y);
     return;
 }
