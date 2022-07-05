@@ -20,11 +20,11 @@ impl<T: Field> fmt::Display for SMTLib2Display<'_, T> {
     }
 }
 
-struct FlatVariableCollector {
+struct VariableCollector {
     variables: BTreeSet<Variable>,
 }
 
-impl<T: Field> Visitor<T> for FlatVariableCollector {
+impl<T: Field> Visitor<T> for VariableCollector {
     fn visit_variable(&mut self, v: &Variable) {
         self.variables.insert(*v);
     }
@@ -32,7 +32,7 @@ impl<T: Field> Visitor<T> for FlatVariableCollector {
 
 impl<T: Field> SMTLib2 for Prog<T> {
     fn to_smtlib2(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut collector = FlatVariableCollector {
+        let mut collector = VariableCollector {
             variables: BTreeSet::<Variable>::new(),
         };
         collector.visit_module(self);

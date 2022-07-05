@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
+use zokrates_circom::write_r1cs;
 use zokrates_common::constants::BN128;
 use zokrates_common::helpers::CurveParameter;
 use zokrates_core::compile::{compile, CompileConfig, CompileError};
@@ -46,7 +47,15 @@ pub fn subcommand() -> App<'static, 'static> {
         .takes_value(true)
         .required(false)
         .default_value(cli_constants::FLATTENED_CODE_DEFAULT_PATH)
-    ).arg(Arg::with_name("curve")
+    ).arg(Arg::with_name("r1cs")
+    .short("r1cs")
+    .long("r1cs")
+    .help("Path of the output r1cs file")
+    .value_name("FILE")
+    .takes_value(true)
+    .required(false)
+    .default_value(cli_constants::CIRCOM_R1CS_DEFAULT_PATH)
+).arg(Arg::with_name("curve")
         .short("c")
         .long("curve")
         .help("Curve to be used in the compilation")
@@ -79,6 +88,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
+    let r1cs_output_path = Path::new(sub_matches.value_of("r1cs").unwrap());
     let abi_spec_path = Path::new(sub_matches.value_of("abi-spec").unwrap());
 
     log::debug!("Load entry point file {}", path.display());
@@ -138,9 +148,17 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     let bin_output_file = File::create(&bin_output_path)
         .map_err(|why| format!("Could not create {}: {}", bin_output_path.display(), why))?;
 
-    let mut writer = BufWriter::new(bin_output_file);
+    let r1cs_output_file = File::create(&r1cs_output_path)
+        .map_err(|why| format!("Could not create {}: {}", r1cs_output_path.display(), why))?;
 
-    match program_flattened.serialize(&mut writer) {
+    let mut bin_writer = BufWriter::new(bin_output_file);
+    let mut r1cs_writer = BufWriter::new(r1cs_output_file);
+
+    let program_flattened = program_flattened.collect();
+
+    write_r1cs(&mut r1cs_writer, program_flattened.clone()).unwrap();
+
+    match program_flattened.serialize(&mut bin_writer) {
         Ok(constraint_count) => {
             // serialize ABI spec and write to JSON file
             log::debug!("Serialize ABI");

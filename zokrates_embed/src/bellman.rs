@@ -180,17 +180,17 @@ impl<E: Engine> ConstraintSystem<E> for R1CS<E::Fr> {
         let a = a
             .as_ref()
             .iter()
-            .map(|(variable, coefficient)| (var_to_index(*variable), *coefficient))
+            .map(|(variable, coefficient)| (*coefficient, var_to_index(*variable)))
             .collect();
         let b = b
             .as_ref()
             .iter()
-            .map(|(variable, coefficient)| (var_to_index(*variable), *coefficient))
+            .map(|(variable, coefficient)| (*coefficient, var_to_index(*variable)))
             .collect();
         let c = c
             .as_ref()
             .iter()
-            .map(|(variable, coefficient)| (var_to_index(*variable), *coefficient))
+            .map(|(variable, coefficient)| (*coefficient, var_to_index(*variable)))
             .collect();
 
         self.constraints.push(Constraint { a, b, c });
@@ -257,26 +257,26 @@ pub fn from_bellman<T: zokrates_field::Field, E: Engine>(c: Constraint<E::Fr>) -
     Constraint {
         a: c.a
             .into_iter()
-            .map(|(index, fq)| {
+            .map(|(fq, index)| {
                 let mut res: Vec<u8> = vec![];
                 fq.into_repr().write_le(&mut res).unwrap();
-                (index, T::from_byte_vector(res))
+                (T::from_byte_vector(res), index)
             })
             .collect(),
         b: c.b
             .into_iter()
-            .map(|(index, fq)| {
+            .map(|(fq, index)| {
                 let mut res: Vec<u8> = vec![];
                 fq.into_repr().write_le(&mut res).unwrap();
-                (index, T::from_byte_vector(res))
+                (T::from_byte_vector(res), index)
             })
             .collect(),
         c: c.c
             .into_iter()
-            .map(|(index, fq)| {
+            .map(|(fq, index)| {
                 let mut res: Vec<u8> = vec![];
                 fq.into_repr().write_le(&mut res).unwrap();
-                (index, T::from_byte_vector(res))
+                (T::from_byte_vector(res), index)
             })
             .collect(),
     }

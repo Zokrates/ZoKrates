@@ -18,6 +18,7 @@ members = [
     "zokrates_bellman",
     "zokrates_proof_systems",
     "zokrates_js",
+    "zokrates_circom"
 ]
 
 exclude = []

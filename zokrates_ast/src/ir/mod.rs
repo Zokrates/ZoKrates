@@ -1,6 +1,7 @@
 use crate::common::FormatString;
 use crate::typed::ConcreteType;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::fmt;
 use std::hash::Hash;
 use zokrates_field::Field;
@@ -30,6 +31,8 @@ pub enum Statement<T> {
     Directive(Directive<T>),
     Log(FormatString, Vec<(ConcreteType, Vec<LinComb<T>>)>),
 }
+
+pub type PublicInputs = BTreeSet<Variable>;
 
 impl<T: Field> Statement<T> {
     pub fn definition<U: Into<QuadComb<T>>>(v: Variable, e: U) -> Self {
@@ -126,10 +129,18 @@ impl<T, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
     pub fn public_count(&self) -> usize {
         self.arguments.iter().filter(|a| !a.private).count() + self.return_count
     }
+
+    pub fn public_inputs(&self) -> PublicInputs {
+        self.arguments
+            .iter()
+            .filter(|a| !a.private)
+            .map(|a| a.id)
+            .collect()
+    }
 }
 
 impl<T: Field, I: IntoIterator<Item = Statement<T>>> ProgIterator<T, I> {
-    pub fn public_inputs(&self, witness: &Witness<T>) -> Vec<T> {
+    pub fn public_inputs_values(&self, witness: &Witness<T>) -> Vec<T> {
         self.arguments
             .iter()
             .filter(|p| !p.private)

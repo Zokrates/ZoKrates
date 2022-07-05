@@ -6,11 +6,17 @@
 //! @date 2017
 
 pub mod folder;
+pub mod utils;
 
 use crate::common::FormatString;
 pub use crate::common::Parameter;
 pub use crate::common::RuntimeError;
 pub use crate::common::Variable;
+
+pub use utils::{
+    flat_expression_from_bits, flat_expression_from_expression_summands,
+    flat_expression_from_variable_summands,
+};
 
 use crate::common::Solver;
 use crate::typed::ConcreteType;

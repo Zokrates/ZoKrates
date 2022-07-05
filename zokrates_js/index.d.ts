@@ -19,6 +19,7 @@ declare module "zokrates-js" {
     location?: string;
     resolveCallback?: ResolveCallback;
     config?: CompileConfig;
+    snarkjs?: boolean;
   }
 
   export type Proof = {
@@ -31,9 +32,16 @@ declare module "zokrates-js" {
     location: string;
   }
 
+  export interface ComputeOptions {
+    snarkjs?: boolean;
+  }
+
   export interface ComputationResult {
     witness: string;
     output: string;
+    snarkjs?: {
+      witness: Uint8Array;
+    };
   }
 
   export interface Abi {
@@ -44,6 +52,9 @@ declare module "zokrates-js" {
   export interface CompilationArtifacts {
     program: Uint8Array;
     abi: Abi;
+    snarkjs?: {
+      program: Uint8Array;
+    };
   }
 
   export interface SetupKeypair {
@@ -64,7 +75,8 @@ declare module "zokrates-js" {
     ): CompilationArtifacts;
     computeWitness(
       input: CompilationArtifacts | Uint8Array,
-      args: any[]
+      args: any[],
+      options?: ComputeOptions
     ): ComputationResult;
     setup(program: Uint8Array): SetupKeypair;
     universalSetup(size: number): Uint8Array;

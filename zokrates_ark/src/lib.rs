@@ -72,16 +72,6 @@ fn ark_combination<T: Field + ArkFieldExtensions>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
-    pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
-        self.program
-            .public_inputs(self.witness.as_ref().unwrap())
-            .iter()
-            .map(|v| v.clone().into_ark())
-            .collect()
-    }
-}
-
 impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
     ConstraintSynthesizer<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>
     for Computation<T, I>
@@ -150,6 +140,16 @@ impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>>
             }
             ConstraintSystemRef::None => Err(SynthesisError::MissingCS),
         }
+    }
+}
+
+impl<T: Field + ArkFieldExtensions, I: IntoIterator<Item = Statement<T>>> Computation<T, I> {
+    pub fn public_inputs_values(&self) -> Vec<<T::ArkEngine as PairingEngine>::Fr> {
+        self.program
+            .public_inputs_values(self.witness.as_ref().unwrap())
+            .iter()
+            .map(|v| v.clone().into_ark())
+            .collect()
     }
 }
 

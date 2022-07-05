@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.7.14] - 2022-05-31
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.7.14 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Add curve and scheme to the verification key and proof, detect these parameters on `verify`, `print-proof`, and `export-verifier` (#1152, @schaeff)
+- Fix `one_liner.sh` script not resolving latest github tag (#1146, @dark64)
+- Fix instructions to build from source (#1141, @schaeff)
+- Fix keccak padding issue, allow arbitrary input size (#1139, @dark64)
+- Fix tuple assignment when rhs is a conditional (#1138, @dark64)
+
 ## [0.7.13] - 2022-04-18
 
 ### Release

@@ -10,6 +10,7 @@ use zokrates_ast::typed::{
     abi::Abi,
     types::{ConcreteSignature, ConcreteType, GTupleType},
 };
+use zokrates_circom::write_witness;
 use zokrates_field::Field;
 
 pub fn subcommand() -> App<'static, 'static> {
@@ -34,11 +35,18 @@ pub fn subcommand() -> App<'static, 'static> {
     ).arg(Arg::with_name("output")
         .short("o")
         .long("output")
-        .help("Path of the output file")
+        .help("Path of the output witness file")
         .value_name("FILE")
         .takes_value(true)
         .required(false)
         .default_value(cli_constants::WITNESS_DEFAULT_PATH)
+    ).arg(Arg::with_name("circom-witness")
+        .long("circom-witness")
+        .help("Path of the output circom witness file")
+        .value_name("FILE")
+        .takes_value(true)
+        .required(false)
+        .default_value(cli_constants::CIRCOM_WITNESS_DEFAULT_PATH)
     ).arg(Arg::with_name("arguments")
         .short("a")
         .long("arguments")
@@ -161,6 +169,8 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
 
     let interpreter = zokrates_interpreter::Interpreter::default();
 
+    let public_inputs = ir_prog.public_inputs();
+
     let witness = interpreter
         .execute_with_log_stream(ir_prog, &arguments.encode(), &mut std::io::stdout())
         .map_err(|e| format!("Execution failed: {}", e))?;
@@ -184,6 +194,16 @@ fn cli_compute<T: Field, I: Iterator<Item = ir::Statement<T>>>(
     witness
         .write(writer)
         .map_err(|why| format!("Could not save witness: {:?}", why))?;
+
+    // write circom witness to file
+    let wtns_path = Path::new(sub_matches.value_of("circom-witness").unwrap());
+    let wtns_file = File::create(&wtns_path)
+        .map_err(|why| format!("Could not create {}: {}", output_path.display(), why))?;
+
+    let mut writer = BufWriter::new(wtns_file);
+
+    write_witness(&mut writer, witness, public_inputs)
+        .map_err(|why| format!("Could not save circom witness: {:?}", why))?;
 
     println!("Witness file written to '{}'", output_path.display());
     Ok(())
