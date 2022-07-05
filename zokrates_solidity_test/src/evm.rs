@@ -84,7 +84,7 @@ impl Evm {
         address: &Address,
         balance: impl Into<U256>,
     ) -> Result<(), Error> {
-        let mut acc = self.vm.db().unwrap().basic(*address.as_ref()).clone();
+        let mut acc = self.vm.db().unwrap().basic(*address.as_ref());
         acc.balance = balance.into();
         self.vm.db().unwrap().insert_cache(*address.as_ref(), acc);
         Ok(())

@@ -27,9 +27,13 @@ describe("tests", () => {
   describe("compilation", () => {
     it("should compile", () => {
       assert.doesNotThrow(() => {
+
+        console.log(zokratesProvider.compile)
+
         const artifacts = zokratesProvider.compile(
-          "def main() -> field: return 42"
+          "def main() -> field { return 42; }"
         );
+        console.log(artifacts);
         assert.ok(artifacts !== undefined);
         assert.ok(artifacts.snarkjs === undefined);
       });
@@ -38,7 +42,7 @@ describe("tests", () => {
     it("should compile with snarkjs output", () => {
       assert.doesNotThrow(() => {
         const artifacts = zokratesProvider.compile(
-          "def main() -> field: return 42",
+          "def main() -> field { return 42; }",
           { snarkjs: true }
         );
         assert.ok(artifacts !== undefined);
@@ -55,7 +59,7 @@ describe("tests", () => {
       assert.doesNotThrow(() => {
         const code = `import "${
           Object.keys(stdlib)[0]
-        }" as func\ndef main(): return`;
+        }" as func;\ndef main() { return; }`;
         zokratesProvider.compile(code);
       });
     });
@@ -63,11 +67,11 @@ describe("tests", () => {
     it("should resolve user module", () => {
       assert.doesNotThrow(() => {
         const code =
-          'import "test" as test\ndef main() -> field: return test()';
+          'import "test" as test;\ndef main() -> field { return test(); }';
         const options = {
           resolveCallback: (_, path) => {
             return {
-              source: "def main() -> (field): return 1",
+              source: "def main() -> field { return 1; }",
               location: path,
             };
           },
@@ -79,7 +83,7 @@ describe("tests", () => {
     it("should throw on unresolved module", () => {
       assert.throws(() => {
         const code =
-          'import "test" as test\ndef main() -> field: return test()';
+          'import "test" as test;\ndef main() -> field { return test(); }';
         zokratesProvider.compile(code);
       });
     });
@@ -88,18 +92,18 @@ describe("tests", () => {
   describe("computation", () => {
     it("should compute with valid inputs", () => {
       assert.doesNotThrow(() => {
-        const code = "def main(private field a) -> field: return a * a";
+        const code = "def main(private field a) -> field { return a * a; }";
         const artifacts = zokratesProvider.compile(code);
         const result = zokratesProvider.computeWitness(artifacts, ["2"]);
         const output = JSON.parse(result.output);
-        assert.deepEqual(output, ["4"]);
+        assert.deepEqual(output, "4");
         assert.ok(result.snarkjs === undefined);
       });
     });
 
     it("should compute with valid inputs with snarkjs output", () => {
       assert.doesNotThrow(() => {
-        const code = "def main(private field a) -> field: return a * a";
+        const code = "def main(private field a) -> field { return a * a; }";
         const artifacts = zokratesProvider.compile(code);
 
         const result = zokratesProvider.computeWitness(artifacts, ["2"], {
@@ -107,14 +111,14 @@ describe("tests", () => {
         });
 
         const output = JSON.parse(result.output);
-        assert.deepEqual(output, ["4"]);
+        assert.deepEqual(output, "4");
         assert.ok(result.snarkjs.witness !== undefined);
       });
     });
 
     it("should throw on invalid input count", () => {
       assert.throws(() => {
-        const code = "def main(private field a) -> field: return a * a";
+        const code = "def main(private field a) -> field { return a * a; }";
         const artifacts = zokratesProvider.compile(code);
         zokratesProvider.computeWitness(artifacts, ["1", "2"]);
       });
@@ -122,7 +126,7 @@ describe("tests", () => {
 
     it("should throw on invalid input type", () => {
       assert.throws(() => {
-        const code = "def main(private field a) -> field: return a * a";
+        const code = "def main(private field a) -> field { return a * a; }";
         const artifacts = zokratesProvider.compile(code);
         zokratesProvider.computeWitness(artifacts, [true]);
       });
@@ -143,7 +147,7 @@ describe("tests", () => {
     it("compile", () => {
       assert.doesNotThrow(() => {
         const code =
-          "def main(private field a, field b) -> bool: return a * a == b";
+          "def main(private field a, field b) -> bool { return a * a == b; }";
         artifacts = provider.compile(code, { snarkjs: true });
       });
     });
