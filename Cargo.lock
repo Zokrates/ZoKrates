@@ -3011,6 +3011,7 @@ dependencies = [
  "num-bigint 0.2.6",
  "pairing_ce",
  "serde",
+ "zokrates_abi",
  "zokrates_ast",
  "zokrates_embed",
  "zokrates_field",

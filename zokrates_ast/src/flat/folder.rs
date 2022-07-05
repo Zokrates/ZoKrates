@@ -61,6 +61,12 @@ pub fn fold_statement<T: Field, F: Folder<T>>(
             f.fold_expression(e),
         )],
         FlatStatement::Directive(d) => vec![FlatStatement::Directive(f.fold_directive(d))],
+        FlatStatement::Log(s, e) => vec![FlatStatement::Log(
+            s,
+            e.into_iter()
+                .map(|(t, e)| (t, e.into_iter().map(|e| f.fold_expression(e)).collect()))
+                .collect(),
+        )],
     }
 }
 

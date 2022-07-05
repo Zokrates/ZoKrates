@@ -147,6 +147,19 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 .collect::<Result<_, _>>()?,
             f.fold_expression_list(elist)?,
         ),
+        ZirStatement::Log(l, e) => {
+            let e = e
+                .into_iter()
+                .map(|(t, e)| {
+                    e.into_iter()
+                        .map(|e| f.fold_expression(e))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map(|e| (t, e))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            ZirStatement::Log(l, e)
+        }
     };
     Ok(vec![res])
 }

@@ -72,6 +72,13 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                 e => Statement::Constraint(LinComb::from(e).into(), var.into(), None),
             },
             FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
+            FlatStatement::Log(l, expressions) => Statement::Log(
+                l,
+                expressions
+                    .into_iter()
+                    .map(|(t, e)| (t, e.into_iter().map(LinComb::from).collect()))
+                    .collect(),
+            ),
         }
     }
 }

@@ -38,7 +38,7 @@
 
 use std::collections::{HashMap, HashSet};
 use zokrates_ast::flat::Variable;
-use zokrates_ast::ir::folder::Folder;
+use zokrates_ast::ir::folder::{fold_statement, Folder};
 use zokrates_ast::ir::LinComb;
 use zokrates_ast::ir::*;
 use zokrates_field::Field;
@@ -169,6 +169,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     }
                 }
             }
+            s => fold_statement(self, s),
         }
     }
 

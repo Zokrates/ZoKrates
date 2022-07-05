@@ -177,11 +177,18 @@ impl fmt::Display for CompileErrorInner {
 pub struct CompileConfig {
     #[serde(default)]
     pub isolate_branches: bool,
+    #[serde(default)]
+    pub debug: bool,
 }
 
 impl CompileConfig {
     pub fn isolate_branches(mut self, flag: bool) -> Self {
         self.isolate_branches = flag;
+        self
+    }
+
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
         self
     }
 }

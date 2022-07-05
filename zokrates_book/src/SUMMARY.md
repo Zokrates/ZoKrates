@@ -15,6 +15,7 @@
 	- [Imports](language/imports.md)
 	- [Comments](language/comments.md)
 	- [Macros](language/macros.md)
+    - [Logging](language/logging.md)
 
 - [Toolbox](toolbox/index.md)
     - [CLI](toolbox/cli.md)

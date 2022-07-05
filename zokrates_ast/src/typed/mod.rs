@@ -36,7 +36,7 @@ use std::path::{Path, PathBuf};
 pub use crate::typed::integer::IntExpression;
 pub use crate::typed::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
-use crate::common::FlatEmbed;
+use crate::common::{FlatEmbed, FormatString};
 
 use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
@@ -659,6 +659,7 @@ pub enum TypedStatement<'ast, T> {
         UExpression<'ast, T>,
         Vec<TypedStatement<'ast, T>>,
     ),
+    Log(FormatString, Vec<TypedExpression<'ast, T>>),
     EmbedCallDefinition(TypedAssignee<'ast, T>, EmbedCall<'ast, T>),
     // Aux
     PushCallLog(
@@ -712,6 +713,16 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::EmbedCallDefinition(ref lhs, ref rhs) => {
                 write!(f, "{} = {};", lhs, rhs)
             }
+            TypedStatement::Log(ref l, ref expressions) => write!(
+                f,
+                "log({}, {})",
+                l,
+                expressions
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             TypedStatement::PushCallLog(ref key, ref generics) => write!(
                 f,
                 "// PUSH CALL TO {}/{}::<{}>",

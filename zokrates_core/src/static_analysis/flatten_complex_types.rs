@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 use zokrates_ast::typed::types::UBitwidth;
-use zokrates_ast::typed::{self, Expr};
+use zokrates_ast::typed::{self, Expr, Typed};
 use zokrates_ast::zir;
 use zokrates_field::Field;
 
@@ -167,7 +167,6 @@ impl<'ast, T: Field> Flattener<T> {
         match a {
             typed::TypedAssignee::Identifier(v) => self.fold_variable(v),
             typed::TypedAssignee::Select(box a, box i) => {
-                use typed::Typed;
                 let count = match typed::ConcreteType::try_from(a.get_type()).unwrap() {
                     typed::ConcreteType::Array(array_ty) => array_ty.ty.get_primitive_count(),
                     _ => unreachable!(),
@@ -182,8 +181,6 @@ impl<'ast, T: Field> Flattener<T> {
                 }
             }
             typed::TypedAssignee::Member(box a, m) => {
-                use typed::Typed;
-
                 let (offset, size) =
                     match typed::ConcreteType::try_from(a.get_type()).unwrap() {
                         typed::ConcreteType::Struct(struct_type) => struct_type
@@ -206,8 +203,6 @@ impl<'ast, T: Field> Flattener<T> {
                 a[offset..offset + size].to_vec()
             }
             typed::TypedAssignee::Element(box a, index) => {
-                use typed::Typed;
-
                 let tuple_ty = typed::ConcreteTupleType::try_from(
                     typed::ConcreteType::try_from(a.get_type()).unwrap(),
                 )
@@ -440,6 +435,17 @@ fn fold_statement<'ast, T: Field>(
                 ),
             )]
         }
+        typed::TypedStatement::Log(l, e) => vec![zir::ZirStatement::Log(
+            l,
+            e.into_iter()
+                .map(|e| {
+                    (
+                        e.get_type().try_into().unwrap(),
+                        f.fold_expression(statements_buffer, e),
+                    )
+                })
+                .collect(),
+        )],
         typed::TypedStatement::PushCallLog(..) => vec![],
         typed::TypedStatement::PopCallLog => vec![],
         typed::TypedStatement::For(..) => unreachable!(),

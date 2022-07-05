@@ -1233,6 +1233,20 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     inputs: new_inputs,
                 })
             }
+            FlatStatement::Log(l, expressions) => FlatStatement::Log(
+                l,
+                expressions
+                    .into_iter()
+                    .map(|(t, e)| {
+                        (
+                            t,
+                            e.into_iter()
+                                .map(|e| e.apply_substitution(&replacement_map))
+                                .collect(),
+                        )
+                    })
+                    .collect(),
+            ),
         });
 
         statements_flattened.extend(statements);
@@ -2575,6 +2589,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         }
                     }
                 }
+            }
+            ZirStatement::Log(l, expressions) => {
+                let expressions = expressions
+                    .into_iter()
+                    .map(|(t, e)| {
+                        (
+                            t,
+                            e.into_iter()
+                                .map(|e| {
+                                    self.flatten_expression(statements_flattened, e)
+                                        .get_field_unchecked()
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect();
+
+                statements_flattened.push_back(FlatStatement::Log(l, expressions));
             }
         }
     }

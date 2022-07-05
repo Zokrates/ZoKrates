@@ -12,6 +12,7 @@ ark = ["ark-bls12-377", "zokrates_embed/ark", "zokrates_ast/ark"]
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
 zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
 zokrates_embed = { version = "0.1.0", path = "../zokrates_embed", default-features = false }
+zokrates_abi = { version = "0.1", path = "../zokrates_abi", default-features = false }
 
 num = { version = "0.1.36", default-features = false }
 num-bigint = { version = "0.2", default-features = false }

@@ -244,6 +244,21 @@ impl<'ast> From<pest::Parameter<'ast>> for untyped::ParameterNode<'ast> {
     }
 }
 
+impl<'ast> From<pest::LogStatement<'ast>> for untyped::StatementNode<'ast> {
+    fn from(statement: pest::LogStatement<'ast>) -> untyped::StatementNode<'ast> {
+        use crate::untyped::NodeValue;
+
+        let expressions = statement
+            .expressions
+            .into_iter()
+            .map(untyped::ExpressionNode::from)
+            .collect();
+
+        untyped::Statement::Log(statement.format_string.span.as_str(), expressions)
+            .span(statement.span)
+    }
+}
+
 impl<'ast> From<pest::TypedIdentifier<'ast>> for untyped::VariableNode<'ast> {
     fn from(i: pest::TypedIdentifier<'ast>) -> Self {
         use crate::untyped::NodeValue;
@@ -264,6 +279,7 @@ impl<'ast> From<pest::Statement<'ast>> for untyped::StatementNode<'ast> {
             pest::Statement::Iteration(s) => untyped::StatementNode::from(s),
             pest::Statement::Assertion(s) => untyped::StatementNode::from(s),
             pest::Statement::Return(s) => untyped::StatementNode::from(s),
+            pest::Statement::Log(s) => untyped::StatementNode::from(s),
         }
     }
 }

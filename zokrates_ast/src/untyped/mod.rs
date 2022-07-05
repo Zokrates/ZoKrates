@@ -396,6 +396,7 @@ pub enum Statement<'ast> {
         ExpressionNode<'ast>,
         Vec<StatementNode<'ast>>,
     ),
+    Log(&'ast str, Vec<ExpressionNode<'ast>>),
 }
 
 pub type StatementNode<'ast> = Node<Statement<'ast>>;
@@ -428,6 +429,16 @@ impl<'ast> fmt::Display for Statement<'ast> {
                 }
                 write!(f, "\t}}")
             }
+            Statement::Log(ref l, ref expressions) => write!(
+                f,
+                "log({}, {})",
+                l,
+                expressions
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }

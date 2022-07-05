@@ -544,6 +544,24 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     metadata,
                 )]
             }
+            ZirStatement::Log(l, e) => vec![ZirStatement::Log(
+                l,
+                e.into_iter()
+                    .map(|(t, e)| {
+                        (
+                            t,
+                            e.into_iter()
+                                .map(|e| match e {
+                                    ZirExpression::Uint(e) => {
+                                        force_reduce(self.fold_uint_expression(e)).into()
+                                    }
+                                    e => self.fold_expression(e),
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect(),
+            )],
             s => fold_statement(self, s),
         }
     }

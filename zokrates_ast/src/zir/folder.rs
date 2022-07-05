@@ -122,6 +122,12 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
             variables.into_iter().map(|v| f.fold_variable(v)).collect(),
             f.fold_expression_list(elist),
         ),
+        ZirStatement::Log(l, e) => ZirStatement::Log(
+            l,
+            e.into_iter()
+                .map(|(t, e)| (t, e.into_iter().map(|e| f.fold_expression(e)).collect()))
+                .collect(),
+        ),
     };
     vec![res]
 }

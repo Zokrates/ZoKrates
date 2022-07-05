@@ -10,7 +10,8 @@ mod variable;
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
-use crate::common::FlatEmbed;
+use crate::common::{FlatEmbed, FormatString};
+use crate::typed::ConcreteType;
 pub use crate::zir::uint::{ShouldReduce, UExpression, UExpressionInner, UMetadata};
 
 use crate::zir::types::Signature;
@@ -120,6 +121,10 @@ pub enum ZirStatement<'ast, T> {
     ),
     Assertion(BooleanExpression<'ast, T>, RuntimeError),
     MultipleDefinition(Vec<ZirAssignee<'ast>>, ZirExpressionList<'ast, T>),
+    Log(
+        FormatString,
+        Vec<(ConcreteType, Vec<ZirExpression<'ast, T>>)>,
+    ),
 }
 
 impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
@@ -174,6 +179,22 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
                 }
                 write!(f, " = {};", rhs)
             }
+            ZirStatement::Log(ref l, ref expressions) => write!(
+                f,
+                "log(\"{}\"), {})",
+                l,
+                expressions
+                    .iter()
+                    .map(|(_, e)| format!(
+                        "[{}]",
+                        e.iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }

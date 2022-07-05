@@ -1,0 +1,9 @@
+struct Foo {
+    field[3] a;
+    bool b;
+}
+
+def main(Foo x, field y) {
+    log("x is {}, y is {}", x, y);
+    return;
+}

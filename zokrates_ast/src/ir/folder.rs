@@ -58,6 +58,19 @@ pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec
             message,
         )],
         Statement::Directive(dir) => vec![Statement::Directive(f.fold_directive(dir))],
+        Statement::Log(l, e) => vec![Statement::Log(
+            l,
+            e.into_iter()
+                .map(|(t, e)| {
+                    (
+                        t,
+                        e.into_iter()
+                            .map(|e| f.fold_linear_combination(e))
+                            .collect(),
+                    )
+                })
+                .collect(),
+        )],
     }
 }
 

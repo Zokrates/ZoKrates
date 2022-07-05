@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use zokrates_abi::{Decode, Value};
 use zokrates_ast::ir::{
     LinComb, ProgIterator, QuadComb, RuntimeError, Solver, Statement, Variable, Witness,
 };
@@ -27,6 +28,19 @@ impl Interpreter {
         &self,
         program: ProgIterator<T, I>,
         inputs: &[T],
+    ) -> ExecutionResult<T> {
+        self.execute_with_log_stream(program, inputs, &mut std::io::sink())
+    }
+
+    pub fn execute_with_log_stream<
+        W: std::io::Write,
+        T: Field,
+        I: IntoIterator<Item = Statement<T>>,
+    >(
+        &self,
+        program: ProgIterator<T, I>,
+        inputs: &[T],
+        log_stream: &mut W,
     ) -> ExecutionResult<T> {
         self.check_inputs(&program, inputs)?;
         let mut witness = Witness::default();
@@ -72,6 +86,26 @@ impl Interpreter {
                     for (i, o) in d.outputs.iter().enumerate() {
                         witness.insert(*o, res[i].clone());
                     }
+                }
+                Statement::Log(l, expressions) => {
+                    let mut parts = l.parts.into_iter();
+
+                    write!(log_stream, "{}", parts.next().unwrap())
+                        .map_err(|_| Error::LogStream)?;
+
+                    for ((t, e), part) in expressions.into_iter().zip(parts) {
+                        let values: Vec<_> = e
+                            .iter()
+                            .map(|e| evaluate_lin(&witness, e).unwrap())
+                            .collect();
+
+                        write!(log_stream, "{}", Value::decode(values, t).into_serde_json())
+                            .map_err(|_| Error::LogStream)?;
+
+                        write!(log_stream, "{}", part).map_err(|_| Error::LogStream)?;
+                    }
+
+                    writeln!(log_stream).map_err(|_| Error::LogStream)?;
                 }
             }
         }
@@ -242,6 +276,7 @@ pub enum Error {
     UnsatisfiedConstraint { error: Option<RuntimeError> },
     Solver,
     WrongInputCount { expected: usize, received: usize },
+    LogStream,
 }
 
 fn evaluate_lin<T: Field>(w: &Witness<T>, l: &LinComb<T>) -> Result<T, EvaluationError> {
@@ -291,6 +326,7 @@ impl fmt::Display for Error {
                 received,
                 if received == 1 { "" } else { "s" }
             ),
+            Error::LogStream => write!(f, "Error writing a log to the log stream"),
         }
     }
 }

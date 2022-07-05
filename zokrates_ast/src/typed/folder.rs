@@ -512,6 +512,9 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
                 .flat_map(|s| f.fold_statement(s))
                 .collect(),
         ),
+        TypedStatement::Log(s, e) => {
+            TypedStatement::Log(s, e.into_iter().map(|e| f.fold_expression(e)).collect())
+        }
         TypedStatement::EmbedCallDefinition(assignee, embed_call) => {
             TypedStatement::EmbedCallDefinition(
                 f.fold_assignee(assignee),

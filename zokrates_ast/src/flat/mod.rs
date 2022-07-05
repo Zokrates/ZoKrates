@@ -7,11 +7,13 @@
 
 pub mod folder;
 
+use crate::common::FormatString;
 pub use crate::common::Parameter;
 pub use crate::common::RuntimeError;
 pub use crate::common::Variable;
 
 use crate::common::Solver;
+use crate::typed::ConcreteType;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::Field;
@@ -77,6 +79,7 @@ pub enum FlatStatement<T> {
     Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(Variable, FlatExpression<T>),
     Directive(FlatDirective<T>),
+    Log(FormatString, Vec<(ConcreteType, Vec<FlatExpression<T>>)>),
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
@@ -87,6 +90,22 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
                 write!(f, "{} == {} // {}", lhs, rhs, message)
             }
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
+            FlatStatement::Log(ref l, ref expressions) => write!(
+                f,
+                "log!(\"{}\"), {})",
+                l,
+                expressions
+                    .iter()
+                    .map(|(_, e)| format!(
+                        "[{}]",
+                        e.iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -124,6 +143,19 @@ impl<T: Field> FlatStatement<T> {
                     ..d
                 })
             }
+            FlatStatement::Log(l, e) => FlatStatement::Log(
+                l,
+                e.into_iter()
+                    .map(|(t, e)| {
+                        (
+                            t,
+                            e.into_iter()
+                                .map(|e| e.apply_substitution(substitution))
+                                .collect(),
+                        )
+                    })
+                    .collect(),
+            ),
         }
     }
 }

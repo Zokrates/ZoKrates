@@ -8,6 +8,7 @@ use num_bigint::BigUint;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
+use zokrates_ast::common::FormatString;
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
 use zokrates_ast::typed::*;
 use zokrates_ast::typed::{DeclarationParameter, DeclarationVariable, Variable};
@@ -1794,6 +1795,28 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = stat.pos();
 
         match stat.value {
+            Statement::Log(l, expressions) => {
+                let l = FormatString::from(l);
+
+                let expressions = expressions
+                    .into_iter()
+                    .map(|e| self.check_expression(e, module_id, types))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| vec![e])?;
+
+                if expressions.len() != l.len() {
+                    return Err(vec![ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Wrong argument count in log call: expected {}, got {}",
+                            l.len(),
+                            expressions.len()
+                        ),
+                    }]);
+                }
+
+                Ok(TypedStatement::Log(l, expressions))
+            }
             Statement::Return(e) => {
                 let mut errors = vec![];
 

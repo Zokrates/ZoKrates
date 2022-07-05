@@ -525,6 +525,12 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 .flatten()
                 .collect(),
         ),
+        TypedStatement::Log(s, e) => TypedStatement::Log(
+            s,
+            e.into_iter()
+                .map(|e| f.fold_expression(e))
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
         TypedStatement::EmbedCallDefinition(assignee, embed_call) => {
             TypedStatement::EmbedCallDefinition(
                 f.fold_assignee(assignee)?,
