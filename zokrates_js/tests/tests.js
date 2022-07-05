@@ -28,12 +28,9 @@ describe("tests", () => {
     it("should compile", () => {
       assert.doesNotThrow(() => {
 
-        console.log(zokratesProvider.compile)
-
         const artifacts = zokratesProvider.compile(
           "def main() -> field { return 42; }"
         );
-        console.log(artifacts);
         assert.ok(artifacts !== undefined);
         assert.ok(artifacts.snarkjs === undefined);
       });

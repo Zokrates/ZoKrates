@@ -69,6 +69,7 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
     for (quad, lin) in prog.statements.iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
+        Statement::Log(..) => None,
     }) {
         for (k, _) in &quad.left.0 {
             provide_variable_idx(&mut variables, k);
@@ -87,6 +88,7 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
     for (quad, lin) in prog.statements.into_iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
+        Statement::Log(..) => None,
     }) {
         constraints.push((
             quad.left
