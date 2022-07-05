@@ -59,8 +59,7 @@ statement = { (iteration_statement // does not require semicolon
                 | assertion_statement
                 ) ~ semicolon)) ~ NEWLINE* }
 
-log_statement = { "log" ~ "(" ~ "\"" ~ format_string ~ "\"" ~ "," ~ expression_list ~ ")"}
-format_string = { (!"\"" ~ ANY)* }
+log_statement = { "log" ~ "(" ~ quoted_string ~ "," ~ expression_list ~ ")"}
 block_statement = _{ "{" ~ NEWLINE* ~ statement* ~ NEWLINE* ~ "}" }
 iteration_statement = { "for" ~ typed_identifier ~ "in" ~ expression ~ ".." ~ expression ~ block_statement }
 return_statement = { "return" ~ expression? }

@@ -254,7 +254,8 @@ impl<'ast> From<pest::LogStatement<'ast>> for untyped::StatementNode<'ast> {
             .map(untyped::ExpressionNode::from)
             .collect();
 
-        untyped::Statement::Log(statement.content.span.as_str(), expressions).span(statement.span)
+        untyped::Statement::Log(statement.format_string.span.as_str(), expressions)
+            .span(statement.span)
     }
 }
 

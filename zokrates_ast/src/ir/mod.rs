@@ -75,7 +75,7 @@ impl<T: Field> fmt::Display for Statement<T> {
             Statement::Directive(ref s) => write!(f, "{}", s),
             Statement::Log(ref s, ref expressions) => write!(
                 f,
-                "log!(\"{}\", {})",
+                "log(\"{}\", {})",
                 s,
                 expressions
                     .iter()

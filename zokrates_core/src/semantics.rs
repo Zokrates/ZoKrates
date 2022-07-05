@@ -1808,7 +1808,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     return Err(vec![ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Wrong argument count in log macro: expected {}, got {}",
+                            "Wrong argument count in log call: expected {}, got {}",
                             l.len(),
                             expressions.len()
                         ),

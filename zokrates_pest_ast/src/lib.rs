@@ -371,15 +371,8 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::log_statement))]
     pub struct LogStatement<'ast> {
-        pub content: LogStatementContent<'ast>,
+        pub format_string: AnyString<'ast>,
         pub expressions: Vec<Expression<'ast>>,
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::format_string))]
-    pub struct LogStatementContent<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
