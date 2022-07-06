@@ -28,7 +28,6 @@ ZoKrates supports different proving schemes. We identify the schemes by the refe
 | [G16](https://eprint.iacr.org/2016/260) | `--proving-scheme g16` | ALTBN_128, BLS12_381                     | No |
 | [GM17](https://eprint.iacr.org/2017/540) | `--proving-scheme gm17` | ALTBN_128, BLS12_381, BLS12_377, BW6_761 | No |
 | [Marlin](https://eprint.iacr.org/2019/1047) | `--proving-scheme marlin` | ALTBN_128, BLS12_381, BLS12_377, BW6_761 | Yes |
-| [PGHR13](https://eprint.iacr.org/2013/279) | `--proving-scheme pghr13` | ALTBN_128                                | No |
 
 All schemes have a circuit-specific setup phase called `setup`. Universal schemes also feature a preliminary, circuit-agnostic step called `universal-setup`. The advantage of universal schemes is that only the `universal-setup` step requires trust, so that it can be run a single time and reused trustlessly for many programs.
 

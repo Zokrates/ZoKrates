@@ -22,7 +22,7 @@ mod integration {
     use zokrates_ast::typed::abi::Abi;
     use zokrates_field::Bn128Field;
     use zokrates_proof_systems::{
-        to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17, PGHR13,
+        to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
         SOLIDITY_G2_ADDITION_LIB,
     };
 
@@ -337,15 +337,6 @@ mod integration {
                         "gm17" => {
                             // Get the proof
                             let proof: Proof<Bn128Field, GM17> = serde_json::from_reader(
-                                File::open(proof_path.to_str().unwrap()).unwrap(),
-                            )
-                            .unwrap();
-
-                            test_solidity_verifier(contract_str, proof);
-                        }
-                        "pghr13" => {
-                            // Get the proof
-                            let proof: Proof<Bn128Field, PGHR13> = serde_json::from_reader(
                                 File::open(proof_path.to_str().unwrap()).unwrap(),
                             )
                             .unwrap();
