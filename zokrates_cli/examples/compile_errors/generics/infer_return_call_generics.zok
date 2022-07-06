@@ -1,5 +1,0 @@
-def foo<N>() -> field[N]:
-   return [42; N]
-
-def main() -> field[2]:
-   return foo() // N is currently not infered to 2 here

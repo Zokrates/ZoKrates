@@ -71,8 +71,8 @@ ZoKrates offers a special shorthand syntax to initialize an array with a constan
 
 The following code provides examples for declaration and initialization:
 ```zokrates
-    field[3] a = [1, 2, 3] // initialize a field array with field values
-    bool[13] b = [false; 13] // initialize a bool array with value false
+field[3] a = [1, 2, 3]; // initialize a field array with field values
+bool[13] b = [false; 13]; // initialize a bool array with value false
 ```
 
 #### Multidimensional Arrays
@@ -95,16 +95,16 @@ ZoKrates provides some syntactic sugar to retrieve subsets of arrays.
 The spread operator `...` applied to an array copies the elements of the existing array.
 This can be used to conveniently compose new arrays, as shown in the following example:
 ```
-field[3] a = [1, 2, 3]
-field[4] c = [...a, 4] // initialize an array copying values from `a`, followed by 4
+field[3] a = [1, 2, 3];
+field[4] c = [...a, 4]; // initialize an array copying values from `a`, followed by 4
 ```
 
 ##### Slices
 An array can also be assigned to by creating a copy of a subset of an existing array.
 This operation is called slicing, and the following example shows how to slice in ZoKrates:
 ```
-field[3] a = [1, 2, 3]
-field[2] b = a[1..3]   // initialize an array copying a slice from `a`
+field[3] a = [1, 2, 3];
+field[2] b = a[1..3];   // initialize an array copying a slice from `a`
 ```
 
 ### Tuples
@@ -132,8 +132,8 @@ A struct definition starts with the `struct` keyword followed by a name. Afterwa
 
 ```zokrates
 struct Point {
-	field x
-	field y
+    field x;
+    field y;
 }
 ```
 

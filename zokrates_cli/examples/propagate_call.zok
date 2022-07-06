@@ -1,7 +1,9 @@
-def foo(field a, field b) -> (field, field):
-	assert(a == b)
-	return a, b
+def foo(field a, field b) -> (field, field) {
+	assert(a == b);
+	return (a, b);
+}
 
-def main() -> field:
-	field a, field b = foo(1, 1)
-	return a + b
+def main() -> field {
+	(field, field) v = foo(1, 1);
+	return v.0 + v.1;
+}

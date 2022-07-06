@@ -1,91 +1,94 @@
-from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS
-import "ecc/edwardsScalarMult" as mul
+from "ecc/babyjubjubParams" import BABYJUBJUB_PARAMS;
+import "ecc/edwardsScalarMult" as mul;
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
-def testCyclic() -> bool:
-	field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv]
+def testCyclic() -> bool {
+    field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv];
 
-	// exp = JUBJUB_E + 1
-	bool[256] exp = [false, false, true, true, false, false, false, false, false, true, true, false, false, true, false, false, false, true, false, false, true, true, true, false, false, true, true, true, false, false, true, false, true, true, true, false, false, false, false, true, false, false, true, true, false, false, false, true, true, false, true, false, false, false, false, false, false, false, true, false, true, false, false, true, true, false, true, true, true, false, false, false, false, true, false, true, false, false, false, false, false, true, false, false, false, true, false, true, true, false, true, true, false, true, true, false, true, false, false, false, false, false, false, true, true, false, false, false, false, false, false, true, false, true, false, true, true, false, false, false, false, true, false, true, true, true, false, true, false, true, false, true, true, false, false, true, true, true, true, true, false, true, true, true, false, true, true, false, true, true, false, true, true, true, false, false, false, false, false, true, true, true, false, false, true, false, false, true, false, false, false, false, false, true, true, true, false, true, true, true, false, false, false, false, false, true, false, true, false, false, true, true, false, false, true, true, true, false, true, true, true, false, false, true, false, true, false, false, true, false, true, true, true, true, true, false, true, true, true, false, false, false, false, true, true, true, false, false, true, false, false, true, false, false, false, false, true, false, false, true, false, false, true, true, false, true, true, true, true, false, false, false, true, false, false, true]
+    // exp = JUBJUB_E + 1
+    bool[256] exp = [false, false, true, true, false, false, false, false, false, true, true, false, false, true, false, false, false, true, false, false, true, true, true, false, false, true, true, true, false, false, true, false, true, true, true, false, false, false, false, true, false, false, true, true, false, false, false, true, true, false, true, false, false, false, false, false, false, false, true, false, true, false, false, true, true, false, true, true, true, false, false, false, false, true, false, true, false, false, false, false, false, true, false, false, false, true, false, true, true, false, true, true, false, true, true, false, true, false, false, false, false, false, false, true, true, false, false, false, false, false, false, true, false, true, false, true, true, false, false, false, false, true, false, true, true, true, false, true, false, true, false, true, true, false, false, true, true, true, true, true, false, true, true, true, false, true, true, false, true, true, false, true, true, true, false, false, false, false, false, true, true, true, false, false, true, false, false, true, false, false, false, false, false, true, true, true, false, true, true, true, false, false, false, false, false, true, false, true, false, false, true, true, false, false, true, true, true, false, true, true, true, false, false, true, false, true, false, false, true, false, true, true, true, true, true, false, true, true, true, false, false, false, false, true, true, true, false, false, true, false, false, true, false, false, false, false, true, false, false, true, false, false, true, true, false, true, true, true, true, false, false, false, true, false, false, true];
 
-	field[2] out = mul(exp, G, BABYJUBJUB_PARAMS)
-	
-	assert(G == out)
-	
-	return true
+    field[2] out = mul(exp, G, BABYJUBJUB_PARAMS);
+    assert(G == out);
+    
+    return true;
+}
 
-def testMul2() -> bool:
-	field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv]
-	
-	// exp == 2
-	bool[256] exp = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false]
-	field[2] out = mul(exp, G, BABYJUBJUB_PARAMS)
-	
-	assert(out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830)
-	assert(out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831)
+def testMul2() -> bool {
+    field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv];
+    
+    // exp == 2
+    bool[256] exp = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false];
+    field[2] out = mul(exp, G, BABYJUBJUB_PARAMS);
+    
+    assert(out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830);
+    assert(out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831);
 
-	return true
+    return true;
+}
 
-def testAssociativity() -> bool:
-	field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv]
+def testAssociativity() -> bool {
+    field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv];
 
-	// a = 1234
-	bool[256] a = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, false, true, true, false, true, false, false, true, false]
+    // a = 1234
+    bool[256] a = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, false, true, true, false, true, false, false, true, false];
 
-	// b = 5678
-	bool[256] b = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false, false, true, false, true, true, true, false]
-	// c = 7890
-	bool[256] c = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, true, true, false, true, true, false, true, false, false, true, false]
+    // b = 5678
+    bool[256] b = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false, false, true, false, true, true, true, false];
 
+    // c = 7890
+    bool[256] c = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, true, true, false, true, true, false, true, false, false, true, false];
 
-	field[2] Ga = mul(a, G, BABYJUBJUB_PARAMS)
-	field[2] Gab = mul(b, Ga, BABYJUBJUB_PARAMS)
-	field[2] Gabc = mul(c, Gab, BABYJUBJUB_PARAMS)
-	
-	field[2] Gb = mul(b, G, BABYJUBJUB_PARAMS)
-	field[2] Gbc = mul(c, Gb, BABYJUBJUB_PARAMS)
-	field[2] Gbca = mul(a, Gbc, BABYJUBJUB_PARAMS)
+    field[2] Ga = mul(a, G, BABYJUBJUB_PARAMS);
+    field[2] Gab = mul(b, Ga, BABYJUBJUB_PARAMS);
+    field[2] Gabc = mul(c, Gab, BABYJUBJUB_PARAMS);
+    
+    field[2] Gb = mul(b, G, BABYJUBJUB_PARAMS);
+    field[2] Gbc = mul(c, Gb, BABYJUBJUB_PARAMS);
+    field[2] Gbca = mul(a, Gbc, BABYJUBJUB_PARAMS);
 
-	field[2] Gc = mul(c, G, BABYJUBJUB_PARAMS)
-	field[2] Gca = mul(a, Gc, BABYJUBJUB_PARAMS)
-	field[2] Gcab = mul(b, Gca, BABYJUBJUB_PARAMS)
-	
-	assert(Gabc == Gbca)
-	assert(Gbca == Gcab)
-	assert(Gabc == Gcab)
+    field[2] Gc = mul(c, G, BABYJUBJUB_PARAMS);
+    field[2] Gca = mul(a, Gc, BABYJUBJUB_PARAMS);
+    field[2] Gcab = mul(b, Gca, BABYJUBJUB_PARAMS);
+    
+    assert(Gabc == Gbca);
+    assert(Gbca == Gcab);
+    assert(Gabc == Gcab);
 
-	return true
+    return true;
+}
 
-def testMultiplicative() -> bool:
-	field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv]
+def testMultiplicative() -> bool {
+    field[2] G = [BABYJUBJUB_PARAMS.Gu, BABYJUBJUB_PARAMS.Gv];
 
-	// a = 1234
-	bool[256] a = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, false, true, true, false, true, false, false, true, false]
-	// b = 5678
-	bool[256] b = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false, false, true, false, true, true, true, false]
+    // a = 1234
+    bool[256] a = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, false, true, true, false, true, false, false, true, false];
+    // b = 5678
+    bool[256] b = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false, true, true, false, false, false, true, false, true, true, true, false];
 
-	// ab = a*b = 7006652
-	bool[256] ab = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, false, true, false, true, false, true, true, true, false, true, false, false, true, true, false, true, true, true, true, false, false]
+    // ab = a*b = 7006652
+    bool[256] ab = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, false, true, false, true, false, true, true, true, false, true, false, false, true, true, false, true, true, true, true, false, false];
 
-	field[2] Ga = mul(a, G, BABYJUBJUB_PARAMS)
-	field[2] Gb = mul(b, G, BABYJUBJUB_PARAMS)
+    field[2] Ga = mul(a, G, BABYJUBJUB_PARAMS);
+    field[2] Gb = mul(b, G, BABYJUBJUB_PARAMS);
 
-	field[2] Gab = mul(b, Ga, BABYJUBJUB_PARAMS)
-	field[2] Gba = mul(a, Gb, BABYJUBJUB_PARAMS)
+    field[2] Gab = mul(b, Ga, BABYJUBJUB_PARAMS);
+    field[2] Gba = mul(a, Gb, BABYJUBJUB_PARAMS);
 
-	field[2] Gmab = mul(ab, G, BABYJUBJUB_PARAMS)
+    field[2] Gmab = mul(ab, G, BABYJUBJUB_PARAMS);
 
-	assert(Gab == Gba)
-	assert(Gba == Gmab)
-	assert(Gab == Gmab)
+    assert(Gab == Gba);
+    assert(Gba == Gmab);
+    assert(Gab == Gmab);
 
-	return true
-	
-def main():
-	assert(testMul2())
-	assert(testCyclic())
-	assert(testAssociativity())
-	assert(testMultiplicative())
-
-	return
+    return true;
+}
+    
+def main() {
+    assert(testMul2());
+    assert(testCyclic());
+    assert(testAssociativity());
+    assert(testMultiplicative());
+    return;
+}

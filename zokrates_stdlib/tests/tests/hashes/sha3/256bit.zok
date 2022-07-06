@@ -1,6 +1,6 @@
-from "hashes/sha3/256bit" import sha3_256
+from "hashes/sha3/256bit" import sha3_256;
 
-def main():
+def main() {
     // Python:
     // >>> from Crypto.Hash import SHA3_256
     // >>> digest = SHA3_256.new()
@@ -8,8 +8,8 @@ def main():
     // >>> digest.hexdigest()
     // '82283b4b030589a7aa0ca28b8e933ac0bd89738a0df509806c864366deec31d7'
 
-    u64[4] h1 = sha3_256::<1>([0x2a])
-    assert(h1 == [0x82283b4b030589a7, 0xaa0ca28b8e933ac0, 0xbd89738a0df50980, 0x6c864366deec31d7])
+    u64[4] h1 = sha3_256::<1>([0x2a]);
+    assert(h1 == [0x82283b4b030589a7, 0xaa0ca28b8e933ac0, 0xbd89738a0df50980, 0x6c864366deec31d7]);
 
     // Python:
     // >>> from Crypto.Hash import SHA3_256
@@ -18,8 +18,8 @@ def main():
     // >>> digest.hexdigest()
     // '02794645c5d54624a86e237cda0cbe980075f3908ccb00fd67befd2a0bbe0b35'
 
-    u64[4] h2 = sha3_256::<8>([0x2a; 8])
-    assert(h2 == [0x02794645c5d54624, 0xa86e237cda0cbe98, 0x0075f3908ccb00fd, 0x67befd2a0bbe0b35])
+    u64[4] h2 = sha3_256::<8>([0x2a; 8]);
+    assert(h2 == [0x02794645c5d54624, 0xa86e237cda0cbe98, 0x0075f3908ccb00fd, 0x67befd2a0bbe0b35]);
 
     // Python:
     // >>> from Crypto.Hash import SHA3_256
@@ -31,7 +31,8 @@ def main():
     // >>> digest.hexdigest()
     // '644bcc7e564373040999aac89e7622f3ca71fba1d972fd94a31c3bfbf24e3938'
 
-    u64[4] h3 = sha3_256::<11>([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64])
-    assert(h3 == [0x644bcc7e56437304, 0x0999aac89e7622f3, 0xca71fba1d972fd94, 0xa31c3bfbf24e3938])
+    u64[4] h3 = sha3_256::<11>([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64]);
+    assert(h3 == [0x644bcc7e56437304, 0x0999aac89e7622f3, 0xca71fba1d972fd94, 0xa31c3bfbf24e3938]);
 
-    return
+    return;
+}

@@ -1,2 +1,3 @@
-def main(u16 a, u16 b) -> bool:
-    return a == b
+def main(u16 a, u16 b) -> bool {
+    return a == b;
+}

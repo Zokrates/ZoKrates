@@ -1,6 +1,5 @@
 // One-bit window lookup table using one constraint
-def main(bool selector, field[2] target) -> field:
-
-	field out = if selector then target[1] else target[0] fi
-
-	return out
+def main(bool selector, field[2] target) -> field {
+    field out = selector ? target[1] : target[0];
+    return out;
+}

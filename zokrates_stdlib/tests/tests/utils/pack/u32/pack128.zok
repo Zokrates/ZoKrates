@@ -1,36 +1,32 @@
-import "utils/pack/u32/pack128" as pack128
+import "utils/pack/u32/pack128" as pack128;
 
-def testFive() -> bool:
+def testFive() -> bool {
+    u32[4] b = [0x00000000, 0x00000000, 0x00000000, 0x00000005];
+    field n = pack128(b);
 
-	u32[4] b = [0x00000000, 0x00000000, 0x00000000, 0x00000005]
-	field n = pack128(b)
+    assert(5 == n);
+    return true;
+}
 
-	assert(5 == n)
+def testZero() -> bool {
+    u32[4] b = [0x00000000, 0x00000000, 0x00000000, 0x00000000];
+    field n = pack128(b);
 
-	return true
+    assert(0 == n);
+    return true;
+}
 
-def testZero() -> bool:
+def testMax() -> bool {
+    u32[4] b = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff];
+    field n = pack128(b);
 
-	u32[4] b = [0x00000000, 0x00000000, 0x00000000, 0x00000000]
-	field n = pack128(b)
+    assert(2**128 - 1 == n);
+    return true;
+}
 
-	assert(0 == n)
-
-	return true
-
-def testMax() -> bool:
-
-	u32[4] b = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff]
-	field n = pack128(b)
-
-	assert(2**128 - 1 == n)
-
-	return true
-
- def main():
-
-	assert(testFive())
-	assert(testMax())
-	assert(testZero())
-
-	return
+def main() {
+    assert(testFive());
+    assert(testMax());
+    assert(testZero());
+    return;
+}

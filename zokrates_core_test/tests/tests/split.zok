@@ -1,6 +1,7 @@
-from "EMBED" import unpack
-from "field" import FIELD_SIZE_IN_BITS
+from "EMBED" import unpack;
+from "field" import FIELD_SIZE_IN_BITS;
 
-def main(field a) -> bool[FIELD_SIZE_IN_BITS]:
-	bool[FIELD_SIZE_IN_BITS] b = unpack(a)
-	return b
+def main(field a) -> bool[FIELD_SIZE_IN_BITS] {
+    bool[FIELD_SIZE_IN_BITS] b = unpack(a);
+    return b;
+}

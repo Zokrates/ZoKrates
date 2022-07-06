@@ -3,15 +3,12 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::absy::{Module, OwnedModuleId, Program};
-use crate::flatten::FlattenerIterator;
+use crate::flatten::from_function_and_config;
 use crate::imports::{self, Importer};
-use crate::ir;
 use crate::macros;
+use crate::optimizer::optimize;
 use crate::semantics::{self, Checker};
-use crate::static_analysis;
-use crate::typed_absy::abi::Abi;
-use crate::zir::ZirProgram;
+use crate::static_analysis::{self, analyse};
 use macros::process_macros;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -19,6 +16,10 @@ use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 use typed_arena::Arena;
+use zokrates_ast::ir::{self, from_flat::from_flat};
+use zokrates_ast::typed::abi::Abi;
+use zokrates_ast::untyped::{Module, OwnedModuleId, Program};
+use zokrates_ast::zir::ZirProgram;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
@@ -176,11 +177,18 @@ impl fmt::Display for CompileErrorInner {
 pub struct CompileConfig {
     #[serde(default)]
     pub isolate_branches: bool,
+    #[serde(default)]
+    pub debug: bool,
 }
 
 impl CompileConfig {
     pub fn isolate_branches(mut self, flag: bool) -> Self {
         self.isolate_branches = flag;
+        self
+    }
+
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
         self
     }
 }
@@ -195,20 +203,20 @@ pub fn compile<'ast, T: Field, E: Into<imports::Error>>(
     arena: &'ast Arena<String>,
 ) -> Result<CompilationArtifacts<T, impl IntoIterator<Item = ir::Statement<T>> + 'ast>, CompileErrors>
 {
-    let (typed_ast, abi): (crate::zir::ZirProgram<'_, T>, _) =
+    let (typed_ast, abi): (zokrates_ast::zir::ZirProgram<'_, T>, _) =
         check_with_arena(source, location, resolver, &config, arena)?;
 
     // flatten input program
     log::debug!("Flatten");
-    let program_flattened = FlattenerIterator::from_function_and_config(typed_ast.main, config);
+    let program_flattened = from_function_and_config(typed_ast.main, config);
 
     // convert to ir
     log::debug!("Convert to IR");
-    let ir_prog = ir::from_flat::from_flat(program_flattened);
+    let ir_prog = from_flat(program_flattened);
 
     // optimize
     log::debug!("Optimise IR");
-    let optimized_ir_prog = ir_prog.optimize();
+    let optimized_ir_prog = optimize(ir_prog);
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,
@@ -253,8 +261,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     log::debug!("Run static analysis");
 
     // analyse (unroll and constant propagation)
-    typed_ast
-        .analyse(config)
+    analyse(typed_ast, config)
         .map_err(|e| CompileErrors(vec![CompileErrorInner::from(e).in_file(&main_module)]))
 }
 
@@ -316,10 +323,11 @@ mod test {
     #[test]
     fn no_resolver_with_imports() {
         let source = r#"
-			import "./path/to/file" as foo
-			def main() -> field:
-			   return foo()
-		"#
+            import "./path/to/file" as foo;
+            def main() -> field {
+                return foo();
+            }
+        "#
         .to_string();
         let arena = Arena::new();
         let res: Result<CompilationArtifacts<Bn128Field, _>, CompileErrors> = compile(
@@ -341,9 +349,10 @@ mod test {
     #[test]
     fn no_resolver_without_imports() {
         let source = r#"
-			def main() -> field:
-			   return 1
-		"#
+            def main() -> field {
+                return 1;
+            }
+        "#
         .to_string();
 
         let arena = Arena::new();
@@ -360,30 +369,31 @@ mod test {
 
     mod abi {
         use super::*;
-        use crate::typed_absy::abi::*;
-        use crate::typed_absy::types::*;
+        use zokrates_ast::typed::abi::*;
+        use zokrates_ast::typed::types::*;
 
         #[test]
         fn use_struct_declaration_types() {
             // when importing types and renaming them, we use the canonical struct names in the ABI
 
             // // main.zok
-            // from foo import Foo as FooMain
+            // from foo import Foo as FooMain;
             //
             // // foo.zok
-            // from bar import Bar as BarFoo
-            // struct Foo { BarFoo b }
+            // from bar import Bar as BarFoo;
+            // struct Foo { BarFoo b; }
             //
             // // bar.zok
-            // struct Bar { field a }
+            // struct Bar { field a; }
 
             // Expected resolved type for FooMain:
-            // Foo { Bar b }
+            // Foo { Bar b; }
 
             let main = r#"
-from "foo" import Foo as FooMain
-def main(FooMain f):
-    return
+from "foo" import Foo as FooMain;
+def main(FooMain f) {
+    return;
+}
 "#;
 
             struct CustomResolver;
@@ -398,9 +408,10 @@ def main(FooMain f):
                     if loc == "main" {
                         Ok((
                             r#"
-from "foo" import Foo as FooMain
-def main(FooMain f):
-    return
+from "foo" import Foo as FooMain;
+def main(FooMain f) {
+    return;
+}
 "#
                             .into(),
                             "main".into(),
@@ -408,9 +419,9 @@ def main(FooMain f):
                     } else if loc == "foo" {
                         Ok((
                             r#"
-from "bar" import Bar as BarFoo
+from "bar" import Bar as BarFoo;
 struct Foo {
-    BarFoo b
+    BarFoo b;
 }
 "#
                             .into(),
@@ -419,7 +430,7 @@ struct Foo {
                     } else if loc == "bar" {
                         Ok((
                             r#"
-struct Bar { field a }
+struct Bar { field a; }
 "#
                             .into(),
                             "bar".into(),
@@ -465,7 +476,7 @@ struct Bar { field a }
                             }]
                         ))
                     }],
-                    outputs: vec![]
+                    output: ConcreteType::Tuple(GTupleType::new(vec![]))
                 }
             );
         }

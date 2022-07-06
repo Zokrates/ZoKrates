@@ -1,9 +1,10 @@
-from "field" import FIELD_MAX
+from "field" import FIELD_MAX;
 
 // /!\ should be called with a = 0
 // as `|a - FIELD_MAX| < 2**(N-2)` the comparison should succeed
 
-def main(field a) -> bool:
-  field p = FIELD_MAX + a
-  // we added a = 0 to prevent the condition to be evaluated at compile time
-  return a < p
+def main(field a) -> bool {
+    field p = FIELD_MAX + a;
+    // we added a = 0 to prevent the condition to be evaluated at compile time
+    return a < p;
+}

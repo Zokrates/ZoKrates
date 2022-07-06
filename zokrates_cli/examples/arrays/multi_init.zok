@@ -1,5 +1,7 @@
-def identity<N>(field[N][N] t) -> field[N][N]:
-    return t
+def identity<N>(field[N][N] t) -> field[N][N] {
+    return t;
+}
 
-def main() -> field[1][1]:
-    return identity([[0]; 1])
+def main() -> field[1][1] {
+    return identity([[0]; 1]);
+}

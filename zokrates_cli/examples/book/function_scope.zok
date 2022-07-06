@@ -1,7 +1,9 @@
-def foo() -> field:
-	// return myGlobal <- not allowed
-	return 42
+def foo() -> field {
+    // return myGlobal; <- not allowed
+    return 42;
+}
 
-def main() -> field:
-	field myGlobal = 42
-	return foo()
+def main() -> field {
+    field myGlobal = 42;
+    return foo();
+}

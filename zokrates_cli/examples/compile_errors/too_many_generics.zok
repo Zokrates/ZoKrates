@@ -1,5 +1,7 @@
-def foo() -> field:
-    return 1
+def foo() -> field {
+    return 1;
+}
 
-def main() -> field:
-    return foo::<42>()
+def main() -> field {
+    return foo::<42>();
+}

@@ -1,5 +1,6 @@
-import "hashes/sha256/512bit" as sha256
+import "hashes/sha256/512bit" as sha256;
 
-def main(u32[16] hashMe) -> u32[8]:
-  u32[8] h = sha256(hashMe[0..8], hashMe[8..16])
-  return h
+def main(u32[16] hashMe) -> u32[8] {
+    u32[8] h = sha256(hashMe[0..8], hashMe[8..16]);
+    return h;
+}

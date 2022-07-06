@@ -13,8 +13,8 @@ mod tests {
         create_rng, generate_random_parameters, prove, r1cs_from_bin, witness_from_bin,
         CircomCircuit,
     };
-    use zokrates_core::{
-        flat_absy::{FlatParameter, FlatVariable},
+    use zokrates_ast::{
+        flat::{Parameter, Variable},
         ir::{LinComb, Prog, PublicInputs, QuadComb, Statement, Witness},
     };
     use zokrates_field::Bn128Field;
@@ -25,23 +25,22 @@ mod tests {
     fn setup_and_prove() {
         let prog: Prog<Bn128Field> = Prog {
             arguments: vec![
-                FlatParameter::private(FlatVariable::new(0)),
-                FlatParameter::public(FlatVariable::new(1)),
+                Parameter::private(Variable::new(0)),
+                Parameter::public(Variable::new(1)),
             ],
             return_count: 1,
             statements: vec![
                 Statement::Constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::from(FlatVariable::new(0)),
-                        LinComb::from(FlatVariable::new(0)),
+                        LinComb::from(Variable::new(0)),
+                        LinComb::from(Variable::new(0)),
                     ),
-                    LinComb::from(FlatVariable::new(0)),
+                    LinComb::from(Variable::new(0)),
                     None,
                 ),
                 Statement::Constraint(
-                    (LinComb::from(FlatVariable::new(0)) + LinComb::from(FlatVariable::new(1)))
-                        .into(),
-                    FlatVariable::public(0).into(),
+                    (LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(1))).into(),
+                    Variable::public(0).into(),
                     None,
                 ),
             ],
@@ -51,14 +50,14 @@ mod tests {
 
         write_r1cs(&mut r1cs, prog).unwrap();
 
-        let public_inputs: PublicInputs = vec![FlatVariable::new(1)].into_iter().collect();
+        let public_inputs: PublicInputs = vec![Variable::new(1)].into_iter().collect();
 
         let witness: Witness<Bn128Field> = Witness(
             vec![
-                (FlatVariable::new(0), Bn128Field::from(1u32)),
-                (FlatVariable::new(1), Bn128Field::from(1u32)),
-                (FlatVariable::one(), Bn128Field::from(1u32)),
-                (FlatVariable::public(0), Bn128Field::from(2u32)),
+                (Variable::new(0), Bn128Field::from(1u32)),
+                (Variable::new(1), Bn128Field::from(1u32)),
+                (Variable::one(), Bn128Field::from(1u32)),
+                (Variable::public(0), Bn128Field::from(2u32)),
             ]
             .into_iter()
             .collect(),

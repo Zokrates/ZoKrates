@@ -1,6 +1,6 @@
-use crate::typed_absy::{
+use zokrates_ast::typed::{
     folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
-    ConditionalOrExpression, CoreIdentifier, Expr, Identifier, TypedProgram, TypedStatement,
+    ConditionalOrExpression, CoreIdentifier, Expr, Identifier, Type, TypedProgram, TypedStatement,
     Variable,
 };
 use zokrates_field::Field;
@@ -66,7 +66,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
             condition => {
                 let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
                 self.buffer.push(TypedStatement::Definition(
-                    Variable::boolean(condition_id.clone()).into(),
+                    Variable::immutable(condition_id.clone(), Type::Boolean).into(),
                     condition.into(),
                 ));
                 self.index += 1;
@@ -89,14 +89,14 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::{
+    use zokrates_ast::typed::{
         Block, BooleanExpression, Conditional, ConditionalKind, FieldElementExpression, Type,
     };
     use zokrates_field::Bn128Field;
 
     #[test]
     fn no_redefine_if_constant() {
-        // field foo = if true then 1 else 2
+        // field foo = if true { 1 } else { 2 };
         // should be left unchanged
 
         let s = TypedStatement::Definition(
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn no_redefine_if_identifier() {
-        // field foo = if c then 1 else 2
+        // field foo = if c { 1 } else { 2 };
         // should be left unchanged
 
         let s = TypedStatement::Definition(
@@ -138,10 +138,10 @@ mod tests {
 
     #[test]
     fn redefine_if_expression() {
-        // field foo = if c && d then 1 else 2 fi
+        // field foo = if c && d { 1 } else { 2 };
         // should become
-        // bool #CONDITION_0 = c && d
-        // field foo = if #CONDITION_0 then 1 else 2
+        // bool #CONDITION_0 = c && d;
+        // field foo = if #CONDITION_0 { 1 } else { 2 };
 
         let condition = BooleanExpression::And(
             box BooleanExpression::Identifier("c".into()),
@@ -164,7 +164,7 @@ mod tests {
         let expected = vec![
             // define condition
             TypedStatement::Definition(
-                Variable::with_id_and_type(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition.into(),
             ),
             // rewrite statement
@@ -185,13 +185,22 @@ mod tests {
 
     #[test]
     fn redefine_rec() {
-        // field foo = if c && d then (if e && f then 1 else 2 fi) else 3 fi
+        // field foo = if c && d {
+        //     if e && f { 1 } else { 2 }
+        // } else {
+        //     3
+        // };
+        //
         //
         // should become
         //
-        // bool #CONDITION_0 = c && d
-        // bool #CONDITION_1 = e && f
-        // field foo = if #CONDITION_0 then (if #CONDITION_1 then 1 else 2 fi) else 3 fi
+        // bool #CONDITION_0 = c && d;
+        // bool #CONDITION_1 = e && f;
+        // field foo = if #CONDITION_0 {
+        //     if #CONDITION_1 { 1 } else { 2 }
+        // } else {
+        //     3
+        // };
 
         let condition_0 = BooleanExpression::And(
             box BooleanExpression::Identifier("c".into()),
@@ -224,11 +233,11 @@ mod tests {
         let expected = vec![
             // define conditions
             TypedStatement::Definition(
-                Variable::with_id_and_type(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             TypedStatement::Definition(
-                Variable::with_id_and_type(CoreIdentifier::Condition(1), Type::Boolean).into(),
+                Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean).into(),
                 condition_1.into(),
             ),
             // rewrite statement
@@ -254,26 +263,26 @@ mod tests {
 
     #[test]
     fn redefine_block() {
-        // field foo = if c && d then {
-        //     field a = 1
-        //     if e && f then 2 else 3
+        // field foo = if c && d {
+        //     field a = 1;
+        //     if e && f { 2 } else { 3 }
         // } else {
-        //     field b = 2
-        //     if e && f then 2 else 3
-        // }
+        //     field b = 2;
+        //     if e && f { 2 } else { 3 }
+        // };
         //
         // should become
         //
-        // bool #CONDITION_0 = c && d
-        // field foo = if #CONDITION_0 then {
-        //     field a = 1
-        //     bool #CONDITION_1 = e && f
-        //     if #CONDITION_1 then 2 else 3
+        // bool #CONDITION_0 = c && d;
+        // field foo = if #CONDITION_0 ? {
+        //     field a = 1;
+        //     bool #CONDITION_1 = e && f;
+        //     if #CONDITION_1 { 2 } : { 3 }
         // } else {
-        //     field b = 2
-        //     bool #CONDITION_2 = e && f
-        //     if #CONDITION_2 then 2 else 3
-        // }
+        //     field b = 2;
+        //     bool #CONDITION_2 = e && f;
+        //     if #CONDITION_2 { 2 } : { 3 }
+        // };
 
         let condition_0 = BooleanExpression::And(
             box BooleanExpression::Identifier("c".into()),
@@ -332,7 +341,7 @@ mod tests {
         let expected = vec![
             // define conditions
             TypedStatement::Definition(
-                Variable::with_id_and_type(CoreIdentifier::Condition(0), Type::Boolean).into(),
+                Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             // rewrite statement
@@ -347,11 +356,8 @@ mod tests {
                                 FieldElementExpression::Number(Bn128Field::from(1)).into(),
                             ),
                             TypedStatement::Definition(
-                                Variable::with_id_and_type(
-                                    CoreIdentifier::Condition(1),
-                                    Type::Boolean,
-                                )
-                                .into(),
+                                Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean)
+                                    .into(),
                                 condition_1.into(),
                             ),
                         ],
@@ -369,11 +375,8 @@ mod tests {
                                 FieldElementExpression::Number(Bn128Field::from(2)).into(),
                             ),
                             TypedStatement::Definition(
-                                Variable::with_id_and_type(
-                                    CoreIdentifier::Condition(2),
-                                    Type::Boolean,
-                                )
-                                .into(),
+                                Variable::immutable(CoreIdentifier::Condition(2), Type::Boolean)
+                                    .into(),
                                 condition_2.into(),
                             ),
                         ],

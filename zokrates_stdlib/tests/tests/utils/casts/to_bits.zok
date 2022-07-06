@@ -1,19 +1,20 @@
-import "utils/casts/u64_to_bits"
-import "utils/casts/u32_to_bits"
-import "utils/casts/u16_to_bits"
-import "utils/casts/u8_to_bits"
+import "utils/casts/u64_to_bits";
+import "utils/casts/u32_to_bits";
+import "utils/casts/u16_to_bits";
+import "utils/casts/u8_to_bits";
 
-def main(u64[4] a, u32[4] b, u16[4] c, u8[4] d) -> (bool[4][64], bool[4][32], bool[4][16], bool[4][8]):
-    bool[4][64] e = [[false; 64]; 4]
-    bool[4][32] f = [[false; 32]; 4]
-    bool[4][16] g = [[false; 16]; 4]
-    bool[4][8] h = [[false; 8]; 4]
+def main(u64[4] a, u32[4] b, u16[4] c, u8[4] d) -> (bool[4][64], bool[4][32], bool[4][16], bool[4][8]) {
+    bool[4][64] mut e = [[false; 64]; 4];
+    bool[4][32] mut f = [[false; 32]; 4];
+    bool[4][16] mut g = [[false; 16]; 4];
+    bool[4][8] mut h = [[false; 8]; 4];
 
-    for u32 i in 0..4 do
-        e[i] = u64_to_bits(a[i])
-        f[i] = u32_to_bits(b[i])
-        g[i] = u16_to_bits(c[i])
-        h[i] = u8_to_bits(d[i])
-    endfor
+    for u32 i in 0..4 {
+        e[i] = u64_to_bits(a[i]);
+        f[i] = u32_to_bits(b[i]);
+        g[i] = u16_to_bits(c[i]);
+        h[i] = u8_to_bits(d[i]);
+    }
 
-    return e, f, g, h
+    return (e, f, g, h);
+}

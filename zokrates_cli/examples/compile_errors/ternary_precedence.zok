@@ -1,5 +1,6 @@
-def main(bool a) -> field:
+def main(bool a) -> field {
     // ternary expression should be wrapped in parentheses 1 + (a ? 2 : 3)
     // otherwise the whole expression is parsed as (1 + a) ? 2 : 3
-    field x = 1 + a ? 2 : 3
-    return x
+    field x = 1 + a ? 2 : 3;
+    return x;
+}

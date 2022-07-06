@@ -1,4 +1,5 @@
-const field PRIME = 31
+const field PRIME = 31;
 
-def main() -> field:
-    return PRIME
+def main() -> field {
+    return PRIME;
+}

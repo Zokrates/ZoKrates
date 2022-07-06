@@ -1,16 +1,15 @@
-def func<N>() -> bool:
-    for u32 i in 0..N do
-    endfor
+def func<N>() -> bool {
+    u64[N] y = [...[0; N-1], 1]; // the rhs should *not* be reduced to [1] because the spread is not empty
+    u64 mut q = 0;
 
-    u64[N] y = [...[0; N-1], 1] // the rhs should *not* be reduced to [1] because the spread is not empty
-    u64 q = 0
+    for u32 i in 0..N {
+        q = y[i];
+    }
 
-    for u32 i in 0..N do
-        q = y[i]
-    endfor
+    return true;
+}
 
-    return true
-
-def main():
-    assert(func::<2>())
-    return
+def main() {
+    assert(func::<2>());
+    return;
+}

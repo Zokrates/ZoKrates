@@ -1,6 +1,7 @@
-import "./foo"
-import "./bar"
-import "./baz"
+import "./foo";
+import "./bar";
+import "./baz";
 
-def main() -> bool:
-    return foo() == bar() + baz()
+def main() -> bool {
+    return foo() == bar() + baz();
+}

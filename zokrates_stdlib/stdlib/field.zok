@@ -1,8 +1,4 @@
-from "EMBED" import FIELD_SIZE_IN_BITS
+from "EMBED" import FIELD_SIZE_IN_BITS;
 
-const field FIELD_MIN = 0
-const field FIELD_MAX = -1
-
-// A dummy `main` function, should NOT be used.
-def main():
-    return
+const field FIELD_MIN = 0;
+const field FIELD_MAX = -1;

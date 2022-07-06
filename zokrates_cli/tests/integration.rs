@@ -19,12 +19,12 @@ mod integration {
     use std::path::Path;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
-    use zokrates_core::proof_system::{
+    use zokrates_ast::typed::abi::Abi;
+    use zokrates_field::Bn128Field;
+    use zokrates_proof_systems::{
         to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17, PGHR13,
         SOLIDITY_G2_ADDITION_LIB,
     };
-    use zokrates_core::typed_absy::abi::Abi;
-    use zokrates_field::Bn128Field;
 
     macro_rules! map(
     {
@@ -233,14 +233,6 @@ mod integration {
             );
         }
 
-        #[cfg(feature = "libsnark")]
-        let backends = map! {
-            "bellman" => vec!["g16"],
-            "libsnark" => vec!["pghr13"],
-            "ark" => vec!["g16", "gm17", "marlin"]
-        };
-
-        #[cfg(not(feature = "libsnark"))]
         let backends = map! {
             "bellman" => vec!["g16"],
             "ark" => vec!["g16", "gm17", "marlin"]

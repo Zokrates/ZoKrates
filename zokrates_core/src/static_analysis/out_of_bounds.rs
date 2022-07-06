@@ -1,8 +1,8 @@
-use crate::typed_absy::{
+use std::fmt;
+use zokrates_ast::typed::{
     result_folder::*, Expr, SelectExpression, SelectOrExpression, Type, TypedAssignee,
     TypedProgram, UExpressionInner,
 };
-use std::fmt;
 use zokrates_field::Field;
 
 #[derive(Default)]
@@ -47,7 +47,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for OutOfBoundsChecker {
     ) -> Result<TypedAssignee<'ast, T>, Error> {
         match a {
             TypedAssignee::Select(box array, box index) => {
-                use crate::typed_absy::Typed;
+                use zokrates_ast::typed::Typed;
 
                 let array = self.fold_assignee(array)?;
 

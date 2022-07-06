@@ -4,8 +4,8 @@ use std::{
 };
 
 use byteorder::{LittleEndian, WriteBytesExt};
-use zokrates_core::{
-    flat_absy::FlatVariable,
+use zokrates_ast::{
+    flat::Variable,
     ir::{PublicInputs, Witness},
 };
 use zokrates_field::Field;
@@ -82,13 +82,13 @@ fn write_witness_values<T: Field, W: Write>(
 ) -> Result<()> {
     let modulo_byte_count = T::max_value().to_biguint().add(1u32).to_bytes_le().len();
 
-    if let Some(value) = w.0.remove(&FlatVariable::one()) {
+    if let Some(value) = w.0.remove(&Variable::one()) {
         write_val(writer, &value, modulo_byte_count)?;
     }
 
     let output_count = w.0.iter().filter(|(var, _)| var.is_output()).count();
 
-    for value in (0..output_count).map(|id| w.0.remove(&FlatVariable::public(id)).unwrap()) {
+    for value in (0..output_count).map(|id| w.0.remove(&Variable::public(id)).unwrap()) {
         write_val(writer, &value, modulo_byte_count)?;
     }
 
@@ -107,7 +107,7 @@ fn write_witness_values<T: Field, W: Write>(
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
-    use zokrates_core::{flat_absy::FlatVariable, ir::PublicInputs};
+    use zokrates_ast::{flat::Variable, ir::PublicInputs};
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -145,7 +145,7 @@ mod tests {
     fn one_value() {
         let mut w: Witness<Bn128Field> = Witness::default();
         let public_inputs: PublicInputs = Default::default();
-        w.0.insert(FlatVariable::public(0), 1.into());
+        w.0.insert(Variable::public(0), 1.into());
         let mut buf = Vec::new();
 
         #[rustfmt::skip]
@@ -178,12 +178,12 @@ mod tests {
     #[test]
     fn one_and_pub_and_priv() {
         let mut w: Witness<Bn128Field> = Witness::default();
-        let public_inputs: PublicInputs = vec![FlatVariable::new(1)].into_iter().collect();
+        let public_inputs: PublicInputs = vec![Variable::new(1)].into_iter().collect();
         w.0.extend(vec![
-            (FlatVariable::public(0), 42.into()),
-            (FlatVariable::one(), 1.into()),
-            (FlatVariable::new(0), 43.into()),
-            (FlatVariable::new(1), 44.into()),
+            (Variable::public(0), 42.into()),
+            (Variable::one(), 1.into()),
+            (Variable::new(0), 43.into()),
+            (Variable::new(1), 44.into()),
         ]);
         let mut buf = Vec::new();
 

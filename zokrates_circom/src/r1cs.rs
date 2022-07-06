@@ -2,8 +2,8 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::Result;
 use std::{io::Write, ops::Add};
-use zokrates_core::flat_absy::FlatVariable;
-use zokrates_core::ir::{Prog, Statement};
+use zokrates_ast::flat::Variable;
+use zokrates_ast::ir::{Prog, Statement};
 use zokrates_field::Field;
 struct Header {
     pub field_size: u32,
@@ -38,10 +38,7 @@ fn write_header<W: Write>(writer: &mut W, header: Header) -> Result<()> {
 ///
 /// * `variables` - A mutual map that maps all existing variables to their index.
 /// * `var` - Variable to be searched for.
-pub fn provide_variable_idx(
-    variables: &mut HashMap<FlatVariable, usize>,
-    var: &FlatVariable,
-) -> usize {
+pub fn provide_variable_idx(variables: &mut HashMap<Variable, usize>, var: &Variable) -> usize {
     let index = variables.len();
     *variables.entry(*var).or_insert(index)
 }
@@ -53,12 +50,12 @@ pub fn provide_variable_idx(
 /// # Arguments
 ///
 /// * `prog` - The program the representation is calculated for.
-pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<FlatVariable>, usize, Vec<Constraint<T>>) {
-    let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
-    provide_variable_idx(&mut variables, &FlatVariable::one());
+pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Constraint<T>>) {
+    let mut variables: HashMap<Variable, usize> = HashMap::new();
+    provide_variable_idx(&mut variables, &Variable::one());
 
     for i in 0..prog.return_count {
-        provide_variable_idx(&mut variables, &FlatVariable::public(i));
+        provide_variable_idx(&mut variables, &Variable::public(i));
     }
 
     for x in prog.arguments.iter().filter(|p| !p.private) {
@@ -72,6 +69,7 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<FlatVariable>, usize, Vec<C
     for (quad, lin) in prog.statements.iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
+        Statement::Log(..) => None,
     }) {
         for (k, _) in &quad.left.0 {
             provide_variable_idx(&mut variables, k);
@@ -90,6 +88,7 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<FlatVariable>, usize, Vec<C
     for (quad, lin) in prog.statements.into_iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
         Statement::Directive(..) => None,
+        Statement::Log(..) => None,
     }) {
         constraints.push((
             quad.left
@@ -110,9 +109,9 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<FlatVariable>, usize, Vec<C
     }
 
     // Convert map back into list ordered by index
-    let mut variables_list = vec![FlatVariable::new(0); variables.len()];
+    let mut variables_list = vec![Variable::new(0); variables.len()];
     for (k, v) in variables.drain() {
-        assert_eq!(variables_list[v], FlatVariable::new(0));
+        assert_eq!(variables_list[v], Variable::new(0));
         variables_list[v] = k;
     }
     (variables_list, private_inputs_offset, constraints)
@@ -210,7 +209,7 @@ fn write_lincomb<T: Field, W: Write>(writer: &mut W, l: LinComb<T>) -> Result<()
 }
 
 // for now we do not write any signal map
-fn write_table<W: Write>(w: &mut W, variables: &[FlatVariable]) -> Result<()> {
+fn write_table<W: Write>(w: &mut W, variables: &[Variable]) -> Result<()> {
     for (i, _) in variables.iter().enumerate() {
         w.write_u64::<LittleEndian>(i as u64)?;
     }
@@ -224,8 +223,8 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use zkutil::r1cs_reader;
-    use zokrates_core::{
-        flat_absy::{FlatParameter, FlatVariable},
+    use zokrates_ast::{
+        flat::{Parameter, Variable},
         ir::{LinComb, QuadComb, Statement},
     };
     use zokrates_field::Bn128Field;
@@ -284,7 +283,7 @@ mod tests {
             return_count: 1,
             statements: vec![Statement::Constraint(
                 LinComb::one().into(),
-                FlatVariable::public(0).into(),
+                Variable::public(0).into(),
                 None,
             )],
         };
@@ -337,23 +336,22 @@ mod tests {
     fn with_inputs() {
         let prog: Prog<Bn128Field> = Prog {
             arguments: vec![
-                FlatParameter::private(FlatVariable::new(0)),
-                FlatParameter::public(FlatVariable::new(1)),
+                Parameter::private(Variable::new(0)),
+                Parameter::public(Variable::new(1)),
             ],
             return_count: 1,
             statements: vec![
                 Statement::Constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::from(FlatVariable::new(0)),
-                        LinComb::from(FlatVariable::new(0)),
+                        LinComb::from(Variable::new(0)),
+                        LinComb::from(Variable::new(0)),
                     ),
-                    LinComb::from(FlatVariable::new(0)),
+                    LinComb::from(Variable::new(0)),
                     None,
                 ),
                 Statement::Constraint(
-                    (LinComb::from(FlatVariable::new(0)) + LinComb::from(FlatVariable::new(1)))
-                        .into(),
-                    FlatVariable::public(0).into(),
+                    (LinComb::from(Variable::new(0)) + LinComb::from(Variable::new(1))).into(),
+                    Variable::public(0).into(),
                     None,
                 ),
             ],

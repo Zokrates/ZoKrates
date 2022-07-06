@@ -1,16 +1,21 @@
-def swap(u32 a, u32 b, bool c) -> (u32, u32):
-	u32 a_prime = if c then b else a fi
-	b = if c then a else b fi
-	return a_prime, b
+def swap(u32 a, u32 mut b, bool c) -> (u32, u32) {
+    u32 a_prime = c ? b : a;
+	b = c ? a : b;
+	return (a_prime, b);
+}
 
-def bubblesort<N>(u32[N] a) -> u32[N]:
-	for u32 i in 0..(N-1) do
-		for u32 j in 0..(N-1-i) do
-			bool need_swap = a[j + 1] < a[j]
-			a[j], a[j + 1] = swap(a[j], a[j + 1], need_swap)
-		endfor
-	endfor
-	return a
+def bubblesort<N>(u32[N] mut a) -> u32[N] {
+    for u32 i in 0..(N-1) {
+        for u32 j in 0..(N-1-i) {
+            bool need_swap = a[j + 1] < a[j];
+            (u32, u32) swapped = swap(a[j], a[j + 1], need_swap);
+            a[j] = swapped.0;
+            a[j + 1] = swapped.1;
+        }
+    }
+    return a;
+}
 
-def main(u32[10] a) -> u32[10]:
-        return bubblesort(a)
+def main(u32[10] a) -> u32[10] {
+    return bubblesort(a);
+}

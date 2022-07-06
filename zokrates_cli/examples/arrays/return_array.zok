@@ -1,5 +1,7 @@
-def foo() -> field[2]:
-	return [1, 2]
+def foo() -> field[2] {
+    return [1, 2];
+}
 
-def main() -> field[2]:
-	return foo()
+def main() -> field[2] {
+    return foo();
+}

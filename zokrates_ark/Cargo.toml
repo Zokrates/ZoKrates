@@ -1,0 +1,34 @@
+[package]
+name = "zokrates_ark"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
+
+ark-ff = { version = "^0.3.0", default-features = false }
+ark-ec = { version = "^0.3.0", default-features = false }
+ark-bn254 = { version = "^0.3.0", features = ["curve"], default-features = false }
+ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false }
+ark-bw6-761 = { version = "^0.3.0", default-features = false }
+ark-gm17 = { version = "^0.3.0", default-features = false }
+ark-groth16 = { version = "^0.3.0", default-features = false }
+ark-serialize = { version = "^0.3.0", default-features = false }
+ark-relations = { version = "^0.3.0", default-features = false }
+ark-marlin = { git = "https://github.com/arkworks-rs/marlin", rev = "63cfd82", default-features = false }
+ark-poly = { version = "^0.3.0", default-features = false }
+ark-poly-commit = { version = "^0.3.0", default-features = false }
+ark-crypto-primitives = { version = "^0.3.0", default-features = false }
+sha3 = { version = "0.9" }
+digest = { version = "0.9" }
+rand_0_8 = { version = "0.8", package = "rand" }
+hex = "0.4.2"
+
+[dev-dependencies]
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", features = ["ark"] }
+
+

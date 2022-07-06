@@ -1,5 +1,7 @@
-def foo<P>(field[P] a, field[P] b) -> field:
-	return 42
+def foo<P>(field[P] a, field[P] b) -> field {
+    return 42;
+}
 
-def main() -> field:
-	return foo([1, 2], [1])
+def main() -> field {
+    return foo([1, 2], [1]);
+}

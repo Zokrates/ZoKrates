@@ -6,6 +6,11 @@ use std::path::PathBuf;
 use typed_arena::Arena;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
+use zokrates_ark::Ark;
+use zokrates_ast::ir;
+use zokrates_ast::ir::ProgEnum;
+use zokrates_ast::typed::abi::Abi;
+use zokrates_ast::typed::types::{ConcreteSignature, ConcreteType, GTupleType};
 use zokrates_circom::{write_r1cs, write_witness};
 use zokrates_common::helpers::{CurveParameter, SchemeParameter};
 use zokrates_common::Resolver;
@@ -13,18 +18,13 @@ use zokrates_core::compile::{
     compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
 };
 use zokrates_core::imports::Error;
-use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
-use zokrates_core::proof_system::ark::Ark;
-use zokrates_core::proof_system::groth16::G16;
-use zokrates_core::proof_system::{
+use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+use zokrates_proof_systems::groth16::G16;
+use zokrates_proof_systems::{
     Backend, Marlin, NonUniversalBackend, NonUniversalScheme, Proof, Scheme,
     SolidityCompatibleField, SolidityCompatibleScheme, TaggedKeypair, TaggedProof,
     UniversalBackend, UniversalScheme, GM17,
 };
-use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::types::{ConcreteSignature, ConcreteType};
-use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
 
 #[wasm_bindgen]
 pub struct CompilationResult {
@@ -208,7 +208,9 @@ mod internal {
         } else {
             let signature = ConcreteSignature::new()
                 .inputs(vec![ConcreteType::FieldElement; program.arguments.len()])
-                .outputs(vec![ConcreteType::FieldElement; program.return_count]);
+                .output(ConcreteType::Tuple(GTupleType::new(
+                    vec![ConcreteType::FieldElement; program.return_count],
+                )));
 
             let inputs = parse_strict(&input, signature.inputs.clone())
                 .map(Inputs::Abi)
@@ -217,7 +219,7 @@ mod internal {
             (inputs, signature)
         };
 
-        let interpreter = ir::Interpreter::default();
+        let interpreter = zokrates_interpreter::Interpreter::default();
 
         let public_inputs = program.public_inputs();
 
@@ -226,7 +228,7 @@ mod internal {
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
         let return_values: serde_json::Value =
-            zokrates_abi::Values::decode(witness.return_values(), signature.outputs)
+            zokrates_abi::Value::decode(witness.return_values(), *signature.output)
                 .into_serde_json();
 
         let snarkjs_witness = with_snarkjs_witness.then(|| {

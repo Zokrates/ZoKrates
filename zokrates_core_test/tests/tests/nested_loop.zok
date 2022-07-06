@@ -1,27 +1,28 @@
-def main(field[4] values) -> (field, field, field):
-    field res0 = 1
-    field res1 = 0
+def main(field[4] values) -> (field, field, field) {
+    field mut res0 = 1;
+    field mut res1 = 0;
 
-    u32 counter = 0
+    u32 mut counter = 0;
 
-    for u32 i in 0..4 do
-        for u32 j in i..4 do
-            counter = counter + 1
-            res0 = res0 * (values[i] + values[j])
-        endfor
-    endfor
+    for u32 i in 0..4 {
+        for u32 j in i..4 {
+            counter = counter + 1;
+            res0 = res0 * (values[i] + values[j]);
+        }
+    }
 
-    for u32 i in 0..counter do
-        res1 = res1 + 1
-    endfor
+    for u32 i in 0..counter {
+        res1 = res1 + 1;
+    }
 
-    field res2 = 0
-    u32 i = 0
-    for u32 i in i..5 do
-        i = 5
-        for u32 i in 0..i do
-            res2 = res2 + 1
-        endfor
-    endfor
+    field mut res2 = 0;
+    u32 mut i = 0;
+    for u32 mut i in i..5 {
+        i = 5;
+        for u32 i in 0..i {
+            res2 = res2 + 1;
+        }
+    }
 
-    return res0, res1, res2
+    return (res0, res1, res2);
+}

@@ -1,19 +1,20 @@
-import "utils/casts/u64_to_field"
-import "utils/casts/u32_to_field"
-import "utils/casts/u16_to_field"
-import "utils/casts/u8_to_field"
+import "utils/casts/u64_to_field";
+import "utils/casts/u32_to_field";
+import "utils/casts/u16_to_field";
+import "utils/casts/u8_to_field";
 
-def main(u64[4] a, u32[4] b, u16[4] c, u8[4] d) -> (field[4], field[4], field[4], field[4]):
-    field[4] e = [0; 4]
-    field[4] f = [0; 4]
-    field[4] g = [0; 4]
-    field[4] h = [0; 4]
+def main(u64[4] a, u32[4] b, u16[4] c, u8[4] d) -> (field[4], field[4], field[4], field[4]) {
+    field[4] mut e = [0; 4];
+    field[4] mut f = [0; 4];
+    field[4] mut g = [0; 4];
+    field[4] mut h = [0; 4];
 
-    for u32 i in 0..4 do
-        e[i] = u64_to_field(a[i])
-        f[i] = u32_to_field(b[i])
-        g[i] = u16_to_field(c[i])
-        h[i] = u8_to_field(d[i])
-    endfor
+    for u32 i in 0..4 {
+        e[i] = u64_to_field(a[i]);
+        f[i] = u32_to_field(b[i]);
+        g[i] = u16_to_field(c[i]);
+        h[i] = u8_to_field(d[i]);
+    }
 
-    return e, f, g, h
+    return (e, f, g, h);
+}

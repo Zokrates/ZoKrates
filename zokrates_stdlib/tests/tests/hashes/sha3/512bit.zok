@@ -1,6 +1,6 @@
-from "hashes/sha3/512bit" import sha3_512
+from "hashes/sha3/512bit" import sha3_512;
 
-def main():
+def main() {
     // Python:
     // >>> from Crypto.Hash import SHA3_512
     // >>> digest = SHA3_512.new()
@@ -8,11 +8,11 @@ def main():
     // >>> digest.hexdigest()
     // '0f8e235b563113abb8a914eb6efc4a31280f1d2341920dfb88bdd20a00d7e47d601a353e5821142acf0dd9ec53bfe4bfe9a2a16f98933142e1c6938c8939b3a0'
 
-    u64[8] h1 = sha3_512::<1>([0x2a])
+    u64[8] h1 = sha3_512::<1>([0x2a]);
     assert(h1 == [
         0x0f8e235b563113ab, 0xb8a914eb6efc4a31, 0x280f1d2341920dfb, 0x88bdd20a00d7e47d,
         0x601a353e5821142a, 0xcf0dd9ec53bfe4bf, 0xe9a2a16f98933142, 0xe1c6938c8939b3a0
-    ])
+    ]);
 
     // Python:
     // >>> from Crypto.Hash import SHA3_512
@@ -21,11 +21,11 @@ def main():
     // >>> digest.hexdigest()
     // '5e908c2962bcd38fddd1ae4ed4c44eb3396cad53eb36564881979435e18a8e71eda1cbea2fe0fc6ded0672756312b12f8dad38e7528af173ea10095a28cd5555'
 
-    u64[8] h2 = sha3_512::<8>([0x2a; 8])
+    u64[8] h2 = sha3_512::<8>([0x2a; 8]);
     assert(h2 == [
         0x5e908c2962bcd38f, 0xddd1ae4ed4c44eb3, 0x396cad53eb365648, 0x81979435e18a8e71,
         0xeda1cbea2fe0fc6d, 0xed0672756312b12f, 0x8dad38e7528af173, 0xea10095a28cd5555
-    ])
+    ]);
 
     // Python:
     // >>> from Crypto.Hash import SHA3_512
@@ -37,10 +37,11 @@ def main():
     // >>> digest.hexdigest()
     // '840006653e9ac9e95117a15c915caab81662918e925de9e004f774ff82d7079a40d4d27b1b372657c61d46d470304c88c788b3a4527ad074d1dccbee5dbaa99a'
 
-    u64[8] h3 = sha3_512::<11>([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64])
+    u64[8] h3 = sha3_512::<11>([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64]);
     assert(h3 == [
         0x840006653e9ac9e9, 0x5117a15c915caab8, 0x1662918e925de9e0, 0x04f774ff82d7079a,
         0x40d4d27b1b372657, 0xc61d46d470304c88, 0xc788b3a4527ad074, 0xd1dccbee5dbaa99a
-    ])
+    ]);
 
-    return
+    return;
+}

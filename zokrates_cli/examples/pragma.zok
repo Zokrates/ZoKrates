@@ -1,4 +1,5 @@
 #pragma curve bn128
 
-def main():
-	return
+def main() {
+    return;
+}

@@ -1,14 +1,16 @@
-from "./basic_aliasing.zok" import matrix
-from "./struct_aliasing.zok" import Buzz
+from "./basic_aliasing.zok" import matrix;
+from "./struct_aliasing.zok" import Buzz;
 
-const u32 R = 2
-const u32 C = 4
+const u32 R = 2;
+const u32 C = 4;
 
-type matrix_2x4 = matrix<R, C>
+type matrix_2x4 = matrix<R, C>;
 
-def buzz<N>() -> Buzz<N>:
-    return Buzz { a: [0; N], b: [0; N] }
+def buzz<N>() -> Buzz<N> {
+    return Buzz { a: [0; N], b: [0; N] };
+}
 
-def main(matrix_2x4 m) -> (Buzz<2>, matrix_2x4):
-    Buzz<2> b = buzz::<2>()
-    return b, m
+def main(matrix_2x4 m) -> (Buzz<2>, matrix_2x4) {
+    Buzz<2> b = buzz::<2>();
+    return (b, m);
+}

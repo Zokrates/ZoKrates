@@ -1,8 +1,11 @@
-def foo<N>(field[N] a) -> bool:
-    return true
+def foo<N>(field[N] a) -> bool {
+    return true;
+}
 
-def foo<P>(field[P] a) -> bool:
-    return true
+def foo<P>(field[P] a) -> bool {
+    return true;
+}
 
-def main():
-    return
+def main() {
+    return;
+}

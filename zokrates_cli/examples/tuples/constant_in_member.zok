@@ -1,5 +1,6 @@
-const u32 SIZE = 42
+const u32 SIZE = 42;
 
-def main():
-    (field[SIZE],) f = ([42; SIZE],)
-    return
+def main() {
+    (field[SIZE],) f = ([42; SIZE],);
+    return;
+}

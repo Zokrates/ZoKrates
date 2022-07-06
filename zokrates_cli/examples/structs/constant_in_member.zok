@@ -1,11 +1,12 @@
-const u32 SIZE = 42
+const u32 SIZE = 42;
 
 struct Foo {
-    field[SIZE] foo
+    field[SIZE] foo;
 }
 
-def main():
-    Foo f = Foo { 
+def main() {
+    Foo f = Foo {
         foo: [42; SIZE]
-    }
-    return
+    };
+    return;
+}

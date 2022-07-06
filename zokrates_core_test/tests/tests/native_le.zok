@@ -1,43 +1,43 @@
-from "utils/pack/bool/unpack.zok" import main as unpack
-from "utils/casts/u32_to_bits" import main as u32_to_bits
-from "field" import FIELD_MAX, FIELD_SIZE_IN_BITS
+from "utils/pack/bool/unpack.zok" import main as unpack;
+from "utils/casts/u32_to_bits" import main as u32_to_bits;
+from "field" import FIELD_MAX, FIELD_SIZE_IN_BITS;
 
 // this comparison works for any N smaller than the field size, which is the case in practice
-def le<N>(bool[N] a_bits, bool[N] c_bits) -> bool:
+def le<N>(bool[N] a_bits, bool[N] c_bits) -> bool {
+    u32 mut verified_conditions = 0; // `and(conditions) == (sum(conditions) == len(conditions))`, here we initialize `sum(conditions)`
+    bool mut size_unknown = true;
 
-    bool size_unknown = false
+    for u32 i in 0..N {
+        verified_conditions = verified_conditions + (c_bits[i] || (!size_unknown || !a_bits[i]) ? 1 : 0);
+        size_unknown = c_bits[i] ? size_unknown && a_bits[i] : size_unknown; // this is actually not required in the last round
+    }
 
-    u32 verified_conditions = 0 // `and(conditions) == (sum(conditions) == len(conditions))`, here we initialize `sum(conditions)`
-
-    size_unknown = true
-
-    for u32 i in 0..N do
-        verified_conditions = verified_conditions + if c_bits[i] || (!size_unknown || !a_bits[i]) then 1 else 0 fi
-        size_unknown = if c_bits[i] then size_unknown && a_bits[i] else size_unknown fi // this is actually not required in the last round
-    endfor
-
-    return verified_conditions == N // this checks that all conditions were verified
+    return verified_conditions == N; // this checks that all conditions were verified
+}
 
 // this instantiates comparison starting from field elements
-def le<N>(field a, field c) -> bool:
-    bool[N] MAX_BITS = unpack::<N>(FIELD_MAX)
+def le<N>(field a, field c) -> bool {
+    bool[N] MAX_BITS = unpack::<N>(FIELD_MAX);
 
-    bool[N] a_bits = unpack(a)
-    assert(le(a_bits, MAX_BITS))
-    bool[N] c_bits = unpack(c)
-    assert(le(c_bits, MAX_BITS))
+    bool[N] a_bits = unpack(a);
+    assert(le(a_bits, MAX_BITS));
+    bool[N] c_bits = unpack(c);
+    assert(le(c_bits, MAX_BITS));
 
-    return le(a_bits, c_bits)
+    return le(a_bits, c_bits);
+}
 
 // this instanciates comparison starting from u32
-def le(u32 a, u32 c) -> bool:
-    bool[32] a_bits = u32_to_bits(a)
-    bool[32] c_bits = u32_to_bits(c)
+def le(u32 a, u32 c) -> bool {
+    bool[32] a_bits = u32_to_bits(a);
+    bool[32] c_bits = u32_to_bits(c);
 
-    return le(a_bits, c_bits)
+    return le(a_bits, c_bits);
+}
 
-def main(field a, u32 b) -> (bool, bool):
-    field c = 42
-    u32 d = 42
+def main(field a, u32 b) -> (bool, bool) {
+    field c = 42;
+    u32 d = 42;
 
-    return le::<FIELD_SIZE_IN_BITS>(a, c), le(b, d)
+    return (le::<FIELD_SIZE_IN_BITS>(a, c), le(b, d));
+}

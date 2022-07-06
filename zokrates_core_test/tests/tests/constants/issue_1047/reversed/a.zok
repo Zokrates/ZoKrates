@@ -1,2 +1,2 @@
-const field A = 1
-const field B = A + 1
+const field A = 1;
+const field B = A + 1;

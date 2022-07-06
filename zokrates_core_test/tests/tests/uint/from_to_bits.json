@@ -7,7 +7,7 @@
 			},
 			"output": {
 				"Ok": {
-					"values": ["0x0000000000000000", "0x00000000", "0x0000", "0x00"]
+					"value": ["0x0000000000000000", "0x00000000", "0x0000", "0x00"]
 				}
 			}
 		},
@@ -17,7 +17,7 @@
 			},
 			"output": {
 				"Ok": {
-					"values": ["0xffffffffffffffff", "0xffffffff", "0xffff", "0xff"]
+					"value": ["0xffffffffffffffff", "0xffffffff", "0xffff", "0xff"]
 				}
 			}
 		},
@@ -27,7 +27,7 @@
 			},
 			"output": {
 				"Ok": {
-					"values": ["0x1234567812345678", "0x12345678", "0x1234", "0x12"]
+					"value": ["0x1234567812345678", "0x12345678", "0x1234", "0x12"]
 				}
 			}
 		}

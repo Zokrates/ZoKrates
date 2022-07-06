@@ -1,6 +1,6 @@
-from "hashes/keccak/keccak" import keccak
+from "hashes/keccak/keccak" import keccak;
 
-def main():
+def main() {
     // Python:
     // >>> from Crypto.Hash import keccak
     // >>> digest = keccak.new(digest_bits=256)
@@ -8,7 +8,8 @@ def main():
     // >>> digest.hexdigest()
     // 'ca85d1976d40dcb6ca3becc8c6596e83c0774f4185cf016a05834f5856a37f39'
 
-    u64[4] h = keccak::<1, 256>([0x7a6f6b7261746573], 0x0000000000000001)[..4]
-    assert(h == [0xca85d1976d40dcb6, 0xca3becc8c6596e83, 0xc0774f4185cf016a, 0x05834f5856a37f39])
+    u64[4] h = keccak::<1, 256>([0x7a6f6b7261746573], 0x0000000000000001)[..4];
+    assert(h == [0xca85d1976d40dcb6, 0xca3becc8c6596e83, 0xc0774f4185cf016a, 0x05834f5856a37f39]);
 
-    return
+    return;
+}

@@ -1,5 +1,6 @@
 // the issue only shows if `K` is an array, renaming this constant to something else works
-const u32[1] K = [1] 
+const u32[1] K = [1];
 
-def main() -> u32:
-    return K[0]
+def main() -> u32 {
+    return K[0];
+}

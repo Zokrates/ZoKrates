@@ -1,0 +1,7 @@
+def main() {
+    field a = 42;
+    // a = 43; <- not allowed, as `a` is immutable
+    field mut b = 42;
+    b = 43; // ok
+    return;
+}

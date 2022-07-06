@@ -1,5 +1,6 @@
-from "./bar" import Bar, main as f
+from "./bar" import Bar, main as f;
 
-def main() -> field:
-    Bar bar = Bar {}
-    return f()
+def main() -> field {
+    Bar bar = Bar {};
+    return f();
+}

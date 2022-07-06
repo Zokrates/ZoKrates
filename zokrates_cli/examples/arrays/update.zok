@@ -1,9 +1,11 @@
-def foo(field[3] a) -> field:
-	a[1] = 2
-	return a[1]
+def foo(field[3] mut a) -> field {
+    a[1] = 2;
+    return a[1];
+}
 
-def main() -> (field, field):
-	field[3] a = [0, 0, 0]
-	field res = foo(a)
-	assert(a[1] == 0)
-	return res, a[1]
+def main() -> (field, field) {
+    field[3] a = [0, 0, 0];
+    field res = foo(a);
+    assert(a[1] == 0);
+    return (res, a[1]);
+}

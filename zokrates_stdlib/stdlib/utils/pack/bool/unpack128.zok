@@ -1,7 +1,8 @@
-import "./unpack" as unpack
+import "./unpack" as unpack;
 
 // Unpack a field element as 128 big-endian bits
 // If the input is larger than `2**128 - 1`, the output is truncated.
-def main(field i) -> bool[128]:
-	bool[128] res = unpack(i)
-	return res
+def main(field i) -> bool[128] {
+    bool[128] res = unpack(i);
+    return res;
+}

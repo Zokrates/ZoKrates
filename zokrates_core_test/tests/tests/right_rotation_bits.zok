@@ -1,9 +1,11 @@
-import "utils/casts/u32_to_bits" as to_bits
-import "utils/casts/u32_from_bits" as from_bits
+import "utils/casts/u32_to_bits" as to_bits;
+import "utils/casts/u32_from_bits" as from_bits;
 
-def rotr32<N>(u32 e) -> u32:
-    bool[32] b = to_bits(e)
-    return from_bits([...b[32-N..], ...b[..32-N]])
+def rotr32<N>(u32 e) -> u32 {
+    bool[32] b = to_bits(e);
+    return from_bits([...b[32-N..], ...b[..32-N]]);
+}
 
-def main(u32 i) -> u32:
-    return rotr32::<2>(i)
+def main(u32 i) -> u32 {
+    return rotr32::<2>(i);
+}

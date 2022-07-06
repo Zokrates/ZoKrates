@@ -1,3 +1,4 @@
 // only using add, no need to flatten
-def main(field a, field b) -> field:
-  return a + b
+def main(field a, field b) -> field {
+    return a + b;
+}

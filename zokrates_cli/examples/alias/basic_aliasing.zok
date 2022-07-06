@@ -1,13 +1,15 @@
-type byte = u8
-type uint32 = u32
-type UInt32Array<N> = uint32[N]
+type byte = u8;
+type uint32 = u32;
+type UInt32Array<N> = uint32[N];
 
-type matrix<R, C> = field[R][C]
+type matrix<R, C> = field[R][C];
 
-def fill<R, C>(field v) -> matrix<R, C>:
-    return [[v; C]; R]
+def fill<R, C>(field v) -> matrix<R, C> {
+    return [[v; C]; R];
+}
 
-def main(uint32 a, uint32 b) -> (UInt32Array<2>, matrix<2, 4>):
-    UInt32Array<2> res = [a, b]
-    matrix<2, 4> m = fill(1)
-    return res, m
+def main(uint32 a, uint32 b) -> (UInt32Array<2>, matrix<2, 4>) {
+    UInt32Array<2> res = [a, b];
+    matrix<2, 4> m = fill(1);
+    return (res, m);
+}

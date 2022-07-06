@@ -2,12 +2,14 @@
 
 // comment
 
-def main(field x) -> field:
-  // comment
-  field y = x**3
-  field b = x**5
+def main(field x) -> field {
+    // comment
+    field y = x**3;
+    field b = x**5;
 
-  field c = x / 2
-  field d = (2 * x + 3 * b) * (x - b)
-  return y + x + y + c + d
-// comment
+    field c = x / 2;
+    field d = (2 * x + 3 * b) * (x - b);
+    return y + x + y + c + d;
+    // comment
+}
+

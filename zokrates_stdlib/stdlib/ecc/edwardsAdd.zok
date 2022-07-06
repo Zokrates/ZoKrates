@@ -1,19 +1,20 @@
-from "ecc/babyjubjubParams" import BabyJubJubParams
+from "ecc/babyjubjubParams" import BabyJubJubParams;
 
 // Add two points on a twisted Edwards curve
 // Curve parameters are defined with the last argument
 // https://en.wikipedia.org/wiki/Twisted_Edwards_curve#Addition_on_twisted_Edwards_curves
-def main(field[2] pt1, field[2] pt2, BabyJubJubParams context) -> field[2]:
+def main(field[2] pt1, field[2] pt2, BabyJubJubParams context) -> field[2] {
 
-    field a = context.JUBJUB_A
-    field d = context.JUBJUB_D
+    field a = context.JUBJUB_A;
+    field d = context.JUBJUB_D;
 
-    field u1 = pt1[0]
-    field v1 = pt1[1]
-    field u2 = pt2[0]
-    field v2 = pt2[1]
+    field u1 = pt1[0];
+    field v1 = pt1[1];
+    field u2 = pt2[0];
+    field v2 = pt2[1];
 
-    field uOut = (u1*v2 + v1*u2) / (1 + d*u1*u2*v1*v2)
-    field vOut = (v1*v2 - a*u1*u2) / (1 - d*u1*u2*v1*v2)
+    field uOut = (u1*v2 + v1*u2) / (1 + d*u1*u2*v1*v2);
+    field vOut = (v1*v2 - a*u1*u2) / (1 - d*u1*u2*v1*v2);
 
-    return [uOut, vOut]
+    return [uOut, vOut];
+}

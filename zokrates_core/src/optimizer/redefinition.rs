@@ -36,26 +36,27 @@
 //     - `q == k * v if v isn't in i`: insert `v` into `i` and return `c_0`
 //     - otherwise return `c_0`
 
-use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::folder::Folder;
-use crate::ir::LinComb;
-use crate::ir::*;
 use std::collections::{HashMap, HashSet};
+use zokrates_ast::flat::Variable;
+use zokrates_ast::ir::folder::{fold_statement, Folder};
+use zokrates_ast::ir::LinComb;
+use zokrates_ast::ir::*;
 use zokrates_field::Field;
+use zokrates_interpreter::Interpreter;
 
 #[derive(Debug)]
 pub struct RedefinitionOptimizer<T> {
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<FlatVariable, CanonicalLinComb<T>>,
+    substitution: HashMap<Variable, CanonicalLinComb<T>>,
     /// Set of variables that should not be substituted
-    pub ignore: HashSet<FlatVariable>,
+    pub ignore: HashSet<Variable>,
 }
 
 impl<T> RedefinitionOptimizer<T> {
     pub fn init<I: IntoIterator<Item = Statement<T>>>(p: &ProgIterator<T, I>) -> Self {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
-            ignore: vec![FlatVariable::one()]
+            ignore: vec![Variable::one()]
                 .into_iter()
                 .chain(p.arguments.iter().map(|p| p.id))
                 .chain(p.returns())
@@ -156,7 +157,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         let inputs: Vec<_> = inputs
                             .into_iter()
                             .map(|i| {
-                                i.map(|v| LinComb::summand(v, FlatVariable::one()).into())
+                                i.map(|v| LinComb::summand(v, Variable::one()).into())
                                     .unwrap_or_else(|q| q)
                             })
                             .collect();
@@ -168,6 +169,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     }
                 }
             }
+            s => fold_statement(self, s),
         }
     }
 
@@ -197,7 +199,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flat_absy::FlatParameter;
+    use zokrates_ast::flat::Parameter;
     use zokrates_field::Bn128Field;
 
     #[test]
@@ -207,9 +209,9 @@ mod tests {
         //    z = y
         //    return z
 
-        let x = FlatParameter::public(FlatVariable::new(0));
-        let y = FlatVariable::new(1);
-        let out = FlatVariable::public(0);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let out = Variable::public(0);
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
@@ -235,8 +237,8 @@ mod tests {
         // def main(x):
         //    one = x
 
-        let one = FlatVariable::one();
-        let x = FlatParameter::public(FlatVariable::new(0));
+        let one = Variable::one();
+        let x = Parameter::public(Variable::new(0));
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
@@ -264,10 +266,10 @@ mod tests {
         //    x == x // will be eliminated as a tautology
         //    return x
 
-        let x = FlatParameter::public(FlatVariable::new(0));
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
-        let out = FlatVariable::public(0);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let z = Variable::new(2);
+        let out = Variable::public(0);
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
@@ -308,13 +310,13 @@ mod tests {
         // def main(x):
         //  return x, 1
 
-        let x = FlatParameter::public(FlatVariable::new(0));
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
-        let t = FlatVariable::new(3);
-        let w = FlatVariable::new(4);
-        let out_1 = FlatVariable::public(0);
-        let out_0 = FlatVariable::public(1);
+        let x = Parameter::public(Variable::new(0));
+        let y = Variable::new(1);
+        let z = Variable::new(2);
+        let t = Variable::new(3);
+        let w = Variable::new(4);
+        let out_1 = Variable::public(0);
+        let out_0 = Variable::public(1);
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],
@@ -358,12 +360,12 @@ mod tests {
         //    1*x + 1*y + 2*x + 2*y + 3*x + 3*y == 6*x + 6*y // will be eliminated as a tautology
         //    ~out_0 = 6*x + 6*y
 
-        let x = FlatParameter::public(FlatVariable::new(0));
-        let y = FlatParameter::public(FlatVariable::new(1));
-        let a = FlatVariable::new(2);
-        let b = FlatVariable::new(3);
-        let c = FlatVariable::new(4);
-        let r = FlatVariable::public(0);
+        let x = Parameter::public(Variable::new(0));
+        let y = Parameter::public(Variable::new(1));
+        let a = Variable::new(2);
+        let b = Variable::new(3);
+        let c = Variable::new(4);
+        let r = Variable::public(0);
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x, y],
@@ -427,9 +429,9 @@ mod tests {
         //     z = x
         //     return
 
-        let x = FlatParameter::public(FlatVariable::new(0));
-        let y = FlatParameter::public(FlatVariable::new(1));
-        let z = FlatVariable::new(2);
+        let x = Parameter::public(Variable::new(0));
+        let y = Parameter::public(Variable::new(1));
+        let z = Variable::new(2);
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x, y],
@@ -460,7 +462,7 @@ mod tests {
 
         // unchanged
 
-        let x = FlatParameter::public(FlatVariable::new(0));
+        let x = Parameter::public(Variable::new(0));
 
         let p: Prog<Bn128Field> = Prog {
             arguments: vec![x],

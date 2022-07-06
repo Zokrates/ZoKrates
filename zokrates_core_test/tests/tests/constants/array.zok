@@ -1,5 +1,6 @@
-const u32 N = 2
-const field[N] ARRAY = [1, 2]
+const u32 N = 2;
+const field[N] ARRAY = [1, 2];
 
-def main() -> field[N]:
-    return ARRAY
+def main() -> field[N] {
+    return ARRAY;
+}

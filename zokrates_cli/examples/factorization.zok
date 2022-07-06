@@ -1,5 +1,6 @@
 // a and b are factorization of c
-def main(field c, private field a, private field b):
-  field d = a * b
-  assert(c == d)
-  return
+def main(field c, private field a, private field b) {
+    field d = a * b;
+    assert(c == d);
+    return;
+}

@@ -4,10 +4,10 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use crate::typed_absy::folder::*;
-use crate::typed_absy::types::{MemberId, Type};
-use crate::typed_absy::*;
 use std::collections::HashSet;
+use zokrates_ast::typed::folder::*;
+use zokrates_ast::typed::types::{MemberId, Type};
+use zokrates_ast::typed::*;
 use zokrates_field::Field;
 
 pub struct VariableWriteRemover;
@@ -45,7 +45,7 @@ impl<'ast> VariableWriteRemover {
                     let tail = indices;
 
                     match head {
-                        Access::Select(head) => {
+                        Access::Select(box head) => {
                             statements.insert(TypedStatement::Assertion(
                                 BooleanExpression::UintLt(box head.clone(), box size.into()),
                                 RuntimeError::SelectRangeCheck,
@@ -415,7 +415,7 @@ impl<'ast> VariableWriteRemover {
 
 #[derive(Clone, Debug)]
 enum Access<'ast, T: Field> {
-    Select(UExpression<'ast, T>),
+    Select(Box<UExpression<'ast, T>>),
     Member(MemberId),
     Element(u32),
 }
@@ -426,7 +426,7 @@ fn linear<T: Field>(a: TypedAssignee<T>) -> (Variable<T>, Vec<Access<T>>) {
         TypedAssignee::Identifier(v) => (v, vec![]),
         TypedAssignee::Select(box array, box index) => {
             let (v, mut indices) = linear(array);
-            indices.push(Access::Select(index));
+            indices.push(Access::Select(box index));
             (v, indices)
         }
         TypedAssignee::Member(box s, m) => {
@@ -479,7 +479,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                             .into(),
                         Type::Array(array_type) => {
                             ArrayExpressionInner::Identifier(variable.id.clone())
-                                .annotate(*array_type.ty, array_type.size)
+                                .annotate(*array_type.ty, *array_type.size)
                                 .into()
                         }
                         Type::Struct(members) => {
@@ -499,7 +499,9 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
                     let indices = indices
                         .into_iter()
                         .map(|a| match a {
-                            Access::Select(i) => Access::Select(self.fold_uint_expression(i)),
+                            Access::Select(box i) => {
+                                Access::Select(box self.fold_uint_expression(i))
+                            }
                             a => a,
                         })
                         .collect();
