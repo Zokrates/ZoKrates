@@ -269,6 +269,7 @@ impl<'ast, T> TryInto<usize> for DeclarationConstant<'ast, T> {
 
 pub type MemberId = String;
 
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(Debug, Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GStructMember<S> {
     #[serde(rename = "name")]
@@ -281,7 +282,7 @@ pub type DeclarationStructMember<'ast, T> = GStructMember<DeclarationConstant<'a
 pub type ConcreteStructMember = GStructMember<u32>;
 pub type StructMember<'ast, T> = GStructMember<UExpression<'ast, T>>;
 
-impl<'ast, S, R: PartialEq<S>> PartialEq<GStructMember<S>> for GStructMember<R> {
+impl<S, R: PartialEq<S>> PartialEq<GStructMember<S>> for GStructMember<R> {
     fn eq(&self, other: &GStructMember<S>) -> bool {
         self.id == other.id && *self.ty == *other.ty
     }
@@ -310,6 +311,7 @@ impl<'ast, T> From<ConcreteStructMember> for StructMember<'ast, T> {
     }
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GArrayType<S> {
     pub size: Box<S>,
@@ -321,7 +323,7 @@ pub type DeclarationArrayType<'ast, T> = GArrayType<DeclarationConstant<'ast, T>
 pub type ConcreteArrayType = GArrayType<u32>;
 pub type ArrayType<'ast, T> = GArrayType<UExpression<'ast, T>>;
 
-impl<'ast, S, R: PartialEq<S>> PartialEq<GArrayType<S>> for GArrayType<R> {
+impl<S, R: PartialEq<S>> PartialEq<GArrayType<S>> for GArrayType<R> {
     fn eq(&self, other: &GArrayType<S>) -> bool {
         *self.ty == *other.ty && *self.size == *other.size
     }
@@ -376,6 +378,7 @@ impl<'ast, T> From<ConcreteArrayType> for ArrayType<'ast, T> {
     }
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(Clone, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, Debug)]
 pub struct GTupleType<S> {
     pub elements: Vec<GType<S>>,
@@ -391,7 +394,7 @@ pub type DeclarationTupleType<'ast, T> = GTupleType<DeclarationConstant<'ast, T>
 pub type ConcreteTupleType = GTupleType<u32>;
 pub type TupleType<'ast, T> = GTupleType<UExpression<'ast, T>>;
 
-impl<'ast, S, R: PartialEq<S>> PartialEq<GTupleType<S>> for GTupleType<R> {
+impl<S, R: PartialEq<S>> PartialEq<GTupleType<S>> for GTupleType<R> {
     fn eq(&self, other: &GTupleType<S>) -> bool {
         *self.elements == *other.elements
     }
@@ -481,7 +484,7 @@ pub type DeclarationStructType<'ast, T> = GStructType<DeclarationConstant<'ast, 
 pub type ConcreteStructType = GStructType<u32>;
 pub type StructType<'ast, T> = GStructType<UExpression<'ast, T>>;
 
-impl<'ast, S, R: PartialEq<S>> PartialEq<GStructType<S>> for GStructType<R> {
+impl<S, R: PartialEq<S>> PartialEq<GStructType<S>> for GStructType<R> {
     fn eq(&self, other: &GStructType<S>) -> bool {
         self.canonical_location == other.canonical_location
             && self
@@ -627,6 +630,7 @@ impl fmt::Display for UBitwidth {
     }
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(Clone, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum GType<S> {
     FieldElement,
@@ -754,7 +758,7 @@ pub type DeclarationType<'ast, T> = GType<DeclarationConstant<'ast, T>>;
 pub type ConcreteType = GType<u32>;
 pub type Type<'ast, T> = GType<UExpression<'ast, T>>;
 
-impl<'ast, S, R: PartialEq<S>> PartialEq<GType<S>> for GType<R> {
+impl<S, R: PartialEq<S>> PartialEq<GType<S>> for GType<R> {
     fn eq(&self, other: &GType<S>) -> bool {
         use self::GType::*;
 

@@ -66,7 +66,7 @@ pub type TypedModules<'ast, T> = BTreeMap<OwnedTypedModuleId, TypedModule<'ast, 
 pub type TypedFunctionSymbols<'ast, T> =
     BTreeMap<DeclarationFunctionKey<'ast, T>, TypedFunctionSymbol<'ast, T>>;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypedConstantSymbol<'ast, T> {
     Here(TypedConstant<'ast, T>),
     There(CanonicalConstantIdentifier<'ast>),
@@ -80,7 +80,7 @@ pub type TypedConstantSymbols<'ast, T> = Vec<(
 )>;
 
 /// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TypedProgram<'ast, T> {
     pub modules: TypedModules<'ast, T>,
     pub main: OwnedTypedModuleId,
@@ -151,7 +151,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TypedFunctionSymbolDeclaration<'ast, T> {
     pub key: DeclarationFunctionKey<'ast, T>,
     pub symbol: TypedFunctionSymbol<'ast, T>,
@@ -163,7 +163,7 @@ impl<'ast, T> TypedFunctionSymbolDeclaration<'ast, T> {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TypedConstantSymbolDeclaration<'ast, T> {
     pub id: CanonicalConstantIdentifier<'ast>,
     pub symbol: TypedConstantSymbol<'ast, T>,
@@ -179,7 +179,7 @@ impl<'ast, T> TypedConstantSymbolDeclaration<'ast, T> {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum TypedSymbolDeclaration<'ast, T> {
     Function(TypedFunctionSymbolDeclaration<'ast, T>),
     Constant(TypedConstantSymbolDeclaration<'ast, T>),
@@ -209,7 +209,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedSymbolDeclaration<'ast, T> {
 pub type TypedSymbolDeclarations<'ast, T> = Vec<TypedSymbolDeclaration<'ast, T>>;
 
 /// A typed module as a collection of functions. Types have been resolved during semantic checking.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TypedModule<'ast, T> {
     pub symbols: TypedSymbolDeclarations<'ast, T>,
 }
@@ -232,7 +232,7 @@ impl<'ast, T> TypedModule<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum TypedFunctionSymbol<'ast, T> {
     Here(TypedFunction<'ast, T>),
     There(DeclarationFunctionKey<'ast, T>),
@@ -315,7 +315,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
 }
 
 /// A typed function
-#[derive(Clone, PartialEq, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct TypedFunction<'ast, T> {
     /// Arguments of the function
     pub arguments: Vec<DeclarationParameter<'ast, T>>,
@@ -374,7 +374,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TypedConstant<'ast, T> {
     pub expression: TypedExpression<'ast, T>,
     pub ty: DeclarationType<'ast, T>,

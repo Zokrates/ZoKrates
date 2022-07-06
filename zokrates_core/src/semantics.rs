@@ -26,13 +26,13 @@ use zokrates_ast::typed::types::{
     TupleType,
 };
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct ErrorInner {
     pos: Option<(Position, Position)>,
     message: String,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Error {
     pub inner: ErrorInner,
     pub module_id: PathBuf,
@@ -4715,9 +4715,7 @@ mod tests {
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Definition(
-                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock())
-                    .mock()
-                    .into(),
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
                 Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
                     .mock(),
             )
@@ -4766,9 +4764,7 @@ mod tests {
         // should fail
         let bar_statements: Vec<StatementNode> = vec![
             Statement::Definition(
-                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock())
-                    .mock()
-                    .into(),
+                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
                 Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
                     .mock(),
             )
@@ -4920,8 +4916,7 @@ mod tests {
                         untyped::Expression::IntConstant(0usize.into()).mock(),
                     ),
                 )
-                .mock()
-                .into(),
+                .mock(),
                 Expression::FunctionCall(box Expression::Identifier("foo").mock(), None, vec![])
                     .mock(),
             )

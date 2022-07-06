@@ -375,14 +375,14 @@ mod integration {
 
         // Compile lib
         let g2_lib =
-            Contract::compile_from_src_string(&SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
+            Contract::compile_from_src_string(SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
                 .unwrap();
 
         // Deploy lib
         let create_result = evm
             .deploy(g2_lib.encode_create_contract_bytes(&[]).unwrap(), &deployer)
             .unwrap();
-        let lib_addr = create_result.addr.clone();
+        let lib_addr = create_result.addr;
 
         // Compile contract
         let contract = Contract::compile_from_src_string(
@@ -400,7 +400,7 @@ mod integration {
                 &deployer,
             )
             .unwrap();
-        let contract_addr = create_result.addr.clone();
+        let contract_addr = create_result.addr;
 
         // convert to the solidity proof format
         let solidity_proof = S::Proof::from(proof.proof);
@@ -436,11 +436,11 @@ mod integration {
         assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
 
         // modify the proof
-        let modified_solidity_proof = S::modify(solidity_proof.clone());
+        let modified_solidity_proof = S::modify(solidity_proof);
 
-        let modified_proof_token = S::to_token(modified_solidity_proof.clone());
+        let modified_proof_token = S::to_token(modified_solidity_proof);
 
-        let inputs = [modified_proof_token, input_token.clone()];
+        let inputs = [modified_proof_token, input_token];
 
         // Call verify function on contract
         let result = evm

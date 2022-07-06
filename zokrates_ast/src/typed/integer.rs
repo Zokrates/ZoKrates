@@ -749,7 +749,7 @@ impl<'ast, T: Field> TupleExpression<'ast, T> {
             TupleExpressionInner::Value(inline_tuple) => inline_tuple
                 .into_iter()
                 .zip(target_tuple_ty.elements.iter())
-                .map(|(value, target_ty)| TypedExpression::align_to_type(value, &*target_ty))
+                .map(|(value, target_ty)| TypedExpression::align_to_type(value, target_ty))
                 .collect::<Result<Vec<_>, _>>()
                 .map(|v| {
                     let ty = TupleType::new(v.iter().map(|e| e.get_type()).collect());

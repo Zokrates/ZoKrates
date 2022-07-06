@@ -50,13 +50,13 @@ pub type ConstantDefinitions<'ast, T> =
 pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
 
 // A container to represent whether more treatment must be applied to the function
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Output<U, V> {
     Complete(U),
     Incomplete(U, V),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     Incompatible(String),
     GenericsInMain,

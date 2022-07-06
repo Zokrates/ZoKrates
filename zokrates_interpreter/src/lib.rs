@@ -271,7 +271,7 @@ impl Interpreter {
 #[derive(Debug)]
 pub struct EvaluationError;
 
-#[derive(PartialEq, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Error {
     UnsatisfiedConstraint { error: Option<RuntimeError> },
     Solver,

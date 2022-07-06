@@ -44,7 +44,7 @@ pub struct Program<'ast> {
     pub main: OwnedModuleId,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SymbolIdentifier<'ast> {
     pub id: Identifier<'ast>,
     pub alias: Option<Identifier<'ast>>,
@@ -77,7 +77,7 @@ impl<'ast> fmt::Display for SymbolIdentifier<'ast> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonicalImport<'ast> {
     pub source: &'ast Path,
     pub id: SymbolIdentifier<'ast>,
@@ -91,7 +91,7 @@ impl<'ast> fmt::Display for CanonicalImport<'ast> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SymbolImport<'ast> {
     pub module_id: OwnedModuleId,
     pub symbol_id: Identifier<'ast>,
@@ -521,7 +521,7 @@ impl<'ast> fmt::Display for Range<'ast> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConditionalKind {
     IfElse,
     Ternary,

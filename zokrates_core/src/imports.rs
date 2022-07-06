@@ -18,7 +18,7 @@ use zokrates_ast::untyped::types::UnresolvedType;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Error {
     pos: Option<(Position, Position)>,
     message: String,
