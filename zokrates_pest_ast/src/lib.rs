@@ -124,7 +124,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::pragma))]
     pub struct Pragma<'ast> {
         pub curve: Curve<'ast>,
@@ -132,7 +132,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::curve))]
     pub struct Curve<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
@@ -201,14 +201,14 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::import_directive))]
     pub enum ImportDirective<'ast> {
         Main(MainImportDirective<'ast>),
         From(FromImportDirective<'ast>),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::main_import_directive))]
     pub struct MainImportDirective<'ast> {
         pub source: AnyString<'ast>,
@@ -217,7 +217,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::import_symbol))]
     pub struct ImportSymbol<'ast> {
         pub id: IdentifierExpression<'ast>,
@@ -226,7 +226,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::from_import_directive))]
     pub struct FromImportDirective<'ast> {
         pub source: AnyString<'ast>,
@@ -244,7 +244,7 @@ mod ast {
         Tuple(TupleType<'ast>),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::ty_basic))]
     pub enum BasicType<'ast> {
         Field(FieldType<'ast>),
@@ -255,7 +255,7 @@ mod ast {
         U64(U64Type<'ast>),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::ty_field))]
     pub struct FieldType<'ast> {
         #[pest_ast(outer())]
@@ -279,42 +279,42 @@ mod ast {
         Tuple(TupleType<'ast>),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::ty_bool))]
     pub struct BooleanType<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::ty_u8))]
     pub struct U8Type<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::ty_u16))]
     pub struct U16Type<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::ty_u32))]
     pub struct U32Type<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::ty_u64))]
     pub struct U64Type<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::ty_struct))]
     pub struct StructType<'ast> {
         pub id: IdentifierExpression<'ast>,
@@ -342,18 +342,18 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::vis))]
     pub enum Visibility {
         Public(PublicVisibility),
         Private(PrivateVisibility),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::vis_public))]
     pub struct PublicVisibility {}
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::vis_private))]
     pub struct PrivateVisibility {}
 
@@ -386,7 +386,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::string))]
     pub struct AnyString<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
@@ -423,7 +423,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, PartialEq, Eq, Clone)]
     pub enum BinaryOperator {
         BitXor,
         BitAnd,
@@ -559,7 +559,7 @@ mod ast {
         }
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::op_unary))]
     pub enum UnaryOperator {
         Pos(PosOperator),
@@ -567,15 +567,15 @@ mod ast {
         Not(NotOperator),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::op_pos))]
     pub struct PosOperator;
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::op_neg))]
     pub struct NegOperator;
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::op_not))]
     pub struct NotOperator;
 
@@ -593,7 +593,7 @@ mod ast {
         }
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::primary_expression))]
     pub enum PrimaryExpression<'ast> {
         Identifier(IdentifierExpression<'ast>),
@@ -714,7 +714,7 @@ mod ast {
         TypedIdentifier(TypedIdentifier<'ast>),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::_mut))]
     pub struct Mutable {}
 
@@ -754,7 +754,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::explicit_generics))]
     pub struct ExplicitGenerics<'ast> {
         pub values: Vec<ConstantGenericValue<'ast>>,
@@ -762,7 +762,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::constant_generics_value))]
     pub enum ConstantGenericValue<'ast> {
         Value(LiteralExpression<'ast>),
@@ -770,7 +770,7 @@ mod ast {
         Underscore(Underscore<'ast>),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::underscore))]
     pub struct Underscore<'ast> {
         #[pest_ast(outer())]
@@ -793,7 +793,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::dot_access))]
     pub struct DotAccess<'ast> {
         pub inner: IdentifierOrDecimal<'ast>,
@@ -801,7 +801,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::identifier_or_decimal))]
     pub enum IdentifierOrDecimal<'ast> {
         Identifier(IdentifierExpression<'ast>),
@@ -928,7 +928,7 @@ mod ast {
         }
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::literal))]
     pub enum LiteralExpression<'ast> {
         DecimalLiteral(DecimalLiteralExpression<'ast>),
@@ -946,7 +946,7 @@ mod ast {
         }
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::decimal_suffix))]
     pub enum DecimalSuffix<'ast> {
         U8(U8Suffix<'ast>),
@@ -956,49 +956,49 @@ mod ast {
         Field(FieldSuffix<'ast>),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::decimal_suffix_u8))]
     pub struct U8Suffix<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::decimal_suffix_u16))]
     pub struct U16Suffix<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::decimal_suffix_u32))]
     pub struct U32Suffix<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::decimal_suffix_u64))]
     pub struct U64Suffix<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::decimal_suffix_field))]
     pub struct FieldSuffix<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::decimal_number))]
     pub struct DecimalNumber<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::decimal_literal))]
     pub struct DecimalLiteralExpression<'ast> {
         pub value: DecimalNumber<'ast>,
@@ -1007,7 +1007,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::boolean_literal))]
     pub struct BooleanLiteralExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
@@ -1016,7 +1016,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::hex_literal))]
     pub struct HexLiteralExpression<'ast> {
         pub value: HexNumberExpression<'ast>,
@@ -1024,7 +1024,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::hex_number))]
     pub enum HexNumberExpression<'ast> {
         U8(U8NumberExpression<'ast>),
@@ -1033,7 +1033,7 @@ mod ast {
         U64(U64NumberExpression<'ast>),
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::hex_number_u8))]
     pub struct U8NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
@@ -1042,7 +1042,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::hex_number_u16))]
     pub struct U16NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
@@ -1051,7 +1051,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::hex_number_u32))]
     pub struct U32NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
@@ -1060,7 +1060,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::hex_number_u64))]
     pub struct U64NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
@@ -1069,7 +1069,7 @@ mod ast {
         pub span: Span<'ast>,
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::identifier))]
     pub struct IdentifierExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
@@ -1091,7 +1091,7 @@ mod ast {
         span.as_str().to_string()
     }
 
-    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[derive(Debug, FromPest, PartialEq, Eq, Clone)]
     #[pest_ast(rule(Rule::EOI))]
     #[allow(clippy::upper_case_acronyms)]
     pub struct EOI;
@@ -1105,7 +1105,7 @@ impl<'ast> From<Pairs<'ast, Rule>> for Prog<'ast> {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Error(PestError<Rule>);
 
 impl fmt::Display for Error {

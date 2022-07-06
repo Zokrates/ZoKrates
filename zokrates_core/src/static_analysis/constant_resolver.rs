@@ -17,7 +17,7 @@ pub struct ConstantResolver<'ast, T> {
     constants: ProgramConstants<'ast, T>,
 }
 
-impl<'ast, 'a, T: Field> ConstantResolver<'ast, T> {
+impl<'ast, T: Field> ConstantResolver<'ast, T> {
     pub fn new(
         modules: TypedModules<'ast, T>,
         location: OwnedTypedModuleId,

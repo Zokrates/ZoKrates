@@ -30,7 +30,7 @@ pub type FlatFunction<T> = FlatFunctionIterator<T, Vec<FlatStatement<T>>>;
 
 pub type FlatProgIterator<T, I> = FlatFunctionIterator<T, I>;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct FlatFunctionIterator<T, I: IntoIterator<Item = FlatStatement<T>>> {
     /// Arguments of the function
     pub arguments: Vec<Parameter>,
@@ -80,7 +80,7 @@ impl<T: Field> fmt::Display for FlatFunction<T> {
 ///
 /// * r1cs - R1CS in standard JSON data format
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum FlatStatement<T> {
     Condition(FlatExpression<T>, FlatExpression<T>, RuntimeError),
     Definition(Variable, FlatExpression<T>),
@@ -290,7 +290,7 @@ impl<T: Field> From<Variable> for FlatExpression<T> {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Error {
     message: String,
 }

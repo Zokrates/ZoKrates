@@ -10,7 +10,7 @@ type DynamicError = Box<dyn std::error::Error>;
 const ZOKRATES_MAGIC: &[u8; 4] = &[0x5a, 0x4f, 0x4b, 0];
 const ZOKRATES_VERSION_2: &[u8; 4] = &[0, 0, 0, 2];
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum ProgEnum<
     Bls12_381I: IntoIterator<Item = Statement<Bls12_381Field>>,
     Bn128I: IntoIterator<Item = Statement<Bn128Field>>,

@@ -23,7 +23,7 @@ pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
 
 /// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct ZirProgram<'ast, T> {
     pub main: ZirFunction<'ast, T>,
 }
@@ -34,7 +34,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
     }
 }
 /// A typed function
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ZirFunction<'ast, T> {
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,

@@ -13,7 +13,7 @@ impl fmt::Display for FormatString {
     }
 }
 
-impl<'a> FormatString {
+impl FormatString {
     pub fn len(&self) -> usize {
         self.parts.len() - 1
     }
@@ -23,7 +23,7 @@ impl<'a> FormatString {
     }
 }
 
-impl<'a> From<&str> for FormatString {
+impl From<&str> for FormatString {
     fn from(s: &str) -> Self {
         let parts = s.split("{}").map(|p| p.to_string());
         FormatString {

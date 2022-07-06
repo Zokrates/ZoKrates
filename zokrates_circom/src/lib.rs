@@ -85,6 +85,6 @@ mod tests {
             wire_mapping: Some(mapping),
         };
         let rng = create_rng();
-        assert!(prove(circuit.clone(), &params, rng).is_ok());
+        assert!(prove(circuit, &params, rng).is_ok());
     }
 }

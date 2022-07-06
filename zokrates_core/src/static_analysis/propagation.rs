@@ -18,7 +18,7 @@ use zokrates_field::Field;
 
 pub type Constants<'ast, T> = HashMap<Identifier<'ast>, TypedExpression<'ast, T>>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Type(String),
     AssertionFailed(String),

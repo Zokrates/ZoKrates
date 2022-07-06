@@ -98,7 +98,7 @@ impl<T: Field> fmt::Display for Statement<T> {
 
 pub type Prog<T> = ProgIterator<T, Vec<Statement<T>>>;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct ProgIterator<T, I: IntoIterator<Item = Statement<T>>> {
     pub arguments: Vec<Parameter>,
     pub return_count: usize,

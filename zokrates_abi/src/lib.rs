@@ -19,7 +19,7 @@ use zokrates_ast::typed::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Json(String),
     Conversion(String),

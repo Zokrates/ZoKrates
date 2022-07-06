@@ -11,7 +11,7 @@ use zokrates_field::Field;
 
 type Constants<'ast, T> = HashMap<Identifier<'ast>, ZirExpression<'ast, T>>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     OutOfBounds(usize, usize),
     DivisionByZero,

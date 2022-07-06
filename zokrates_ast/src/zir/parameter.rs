@@ -1,7 +1,7 @@
 use crate::zir::Variable;
 use std::fmt;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Parameter<'ast> {
     pub id: Variable<'ast>,
     pub private: bool,

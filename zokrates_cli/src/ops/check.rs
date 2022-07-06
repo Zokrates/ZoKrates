@@ -94,7 +94,7 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         CompileConfig::default().isolate_branches(sub_matches.is_present("isolate-branches"));
 
     let resolver = FileSystemResolver::with_stdlib_root(stdlib_path);
-    let _ = check::<T, _>(source, path, Some(&resolver), &config).map_err(|e| {
+    check::<T, _>(source, path, Some(&resolver), &config).map_err(|e| {
         format!(
             "Check failed:\n\n{}",
             e.0.iter()

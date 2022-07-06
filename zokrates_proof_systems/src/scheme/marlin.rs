@@ -91,6 +91,8 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
     type Proof = SolidityProof<Fr, G1Affine>;
 
     fn export_solidity_verifier(vk: <Marlin as Scheme<T>>::VerificationKey) -> String {
+        use std::fmt::Write;
+
         let (template, solidity_pairing_lib) =
             (String::from(CONTRACT_TEMPLATE), solidity_pairing_lib(false));
 
@@ -103,13 +105,15 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
             .replace("<%vk_populate_index_comms%>", &{
                 let mut populate_index_comms = String::new();
                 for (i, (g, _)) in vk.index_comms.iter().enumerate() {
-                    populate_index_comms.push_str(&format!(
+                    write!(
+                        populate_index_comms,
                         "vk.index_comms[{}] = Pairing.G1Point({});",
                         i,
                         &g.to_string()
-                    ));
+                    )
+                    .unwrap();
                     if i < vk.index_comms.len() - 1 {
-                        populate_index_comms.push_str("\n        ");
+                        write!(populate_index_comms, "\n        ").unwrap();
                     }
                 }
                 populate_index_comms
@@ -167,10 +171,14 @@ impl<T: SolidityCompatibleField> SolidityCompatibleScheme<T> for Marlin {
                 let mut populate_init_seed = String::new();
                 for i in 0..vk.fs_seed.len() / 32 {
                     let word_32_bytes = hex::encode(&vk.fs_seed[i * 32..i * 32 + 32]);
-                    populate_init_seed
-                        .push_str(&format!("init_seed[{}] = 0x{};", i, &word_32_bytes));
+                    write!(
+                        populate_init_seed,
+                        "init_seed[{}] = 0x{};",
+                        i, &word_32_bytes
+                    )
+                    .unwrap();
                     if i < vk.fs_seed.len() / 32 - 1 {
-                        populate_init_seed.push_str("\n            ");
+                        write!(populate_init_seed, "\n            ").unwrap();
                     }
                 }
                 populate_init_seed
