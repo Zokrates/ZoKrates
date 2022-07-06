@@ -98,7 +98,7 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
             FlatStatement::Log(ref l, ref expressions) => write!(
                 f,
-                "log!(\"{}\"), {})",
+                "log(\"{}\"), {})",
                 l,
                 expressions
                     .iter()
