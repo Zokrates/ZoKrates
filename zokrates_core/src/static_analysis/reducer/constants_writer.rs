@@ -3,12 +3,12 @@
 use crate::static_analysis::reducer::{
     constants_reader::ConstantsReader, reduce_function, ConstantDefinitions, Error,
 };
-use crate::typed_absy::{
-    result_folder::*, types::ConcreteGenericsAssignment, OwnedTypedModuleId, TypedConstant,
-    TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId, TypedProgram,
-    TypedSymbolDeclaration, UExpression,
-};
 use std::collections::{BTreeMap, HashSet};
+use zokrates_ast::typed::{
+    result_folder::*, types::ConcreteGenericsAssignment, Constant, OwnedTypedModuleId, Typed,
+    TypedConstant, TypedConstantSymbol, TypedConstantSymbolDeclaration, TypedModuleId,
+    TypedProgram, TypedSymbolDeclaration, UExpression,
+};
 use zokrates_field::Field;
 
 pub struct ConstantsWriter<'ast, T> {
@@ -105,17 +105,17 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
 
                 // if constants were used in the rhs, they are now defined in the map
                 // replace them in the expression
-                use crate::typed_absy::folder::Folder;
+                use zokrates_ast::typed::folder::Folder;
 
                 let c = ConstantsReader::with_constants(&self.constants).fold_constant(c);
 
-                use crate::typed_absy::{DeclarationSignature, TypedFunction, TypedStatement};
+                use zokrates_ast::typed::{DeclarationSignature, TypedFunction, TypedStatement};
 
                 // wrap this expression in a function
                 let wrapper = TypedFunction {
                     arguments: vec![],
-                    statements: vec![TypedStatement::Return(vec![c.expression])],
-                    signature: DeclarationSignature::new().outputs(vec![c.ty.clone()]),
+                    statements: vec![TypedStatement::Return(c.expression)],
+                    signature: DeclarationSignature::new().output(c.ty.clone()),
                 };
 
                 let mut inlined_wrapper = reduce_function(
@@ -124,27 +124,21 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                     &self.program,
                 )?;
 
-                if let TypedStatement::Return(mut expressions) =
+                if let TypedStatement::Return(expression) =
                     inlined_wrapper.statements.pop().unwrap()
                 {
-                    assert_eq!(expressions.len(), 1);
-                    let constant_expression = expressions.pop().unwrap();
-
-                    use crate::typed_absy::Constant;
-                    if !constant_expression.is_constant() {
+                    if !expression.is_constant() {
                         return Err(Error::ConstantReduction(id.id.to_string(), id.module));
                     };
 
-                    use crate::typed_absy::Typed;
-                    if crate::typed_absy::types::try_from_g_type::<_, UExpression<'ast, T>>(
+                    if zokrates_ast::typed::types::try_from_g_type::<_, UExpression<'ast, T>>(
                         c.ty.clone(),
                     )
                     .unwrap()
-                        == constant_expression.get_type()
+                        == expression.get_type()
                     {
                         // add to the constant map
-                        self.constants
-                            .insert(id.clone(), constant_expression.clone());
+                        self.constants.insert(id.clone(), expression.clone());
 
                         // after we reduced a constant, propagate it through the whole program
                         self.update_program();
@@ -152,12 +146,12 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ConstantsWriter<'ast, T> {
                         Ok(TypedConstantSymbolDeclaration {
                             id,
                             symbol: TypedConstantSymbol::Here(TypedConstant {
-                                expression: constant_expression,
+                                expression,
                                 ty: c.ty,
                             }),
                         })
                     } else {
-                        Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", constant_expression.get_type(), id, c.ty)))
+                        Err(Error::Type(format!("Expression of type `{}` cannot be assigned to constant `{}` of type `{}`", expression.get_type(), id, c.ty)))
                     }
                 } else {
                     Err(Error::ConstantReduction(id.id.to_string(), id.module))

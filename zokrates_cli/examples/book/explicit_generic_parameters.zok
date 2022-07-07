@@ -1,11 +1,13 @@
 // a function to sum the N first powers of a field element
-def sum_powers<N>(field a) -> field:
-    field res = 0
-    for u32 i in 0..N do
-        res = res + a ** i
-    endfor
-    return res
+def sum_powers<N>(field a) -> field {
+    field mut res = 0;
+    for u32 i in 0..N {
+        res = res + a ** i;
+    }
+    return res;
+}
 
-def main(field a) -> field:
+def main(field a) -> field {
     // call `sum_powers` providing the explicit generic parameter `N := 5`
-    return sum_powers::<5>(a)
+    return sum_powers::<5>(a);
+}

@@ -1,2 +1,0 @@
-def main(bool condition, u8 consequence, u8 alternative) -> u8:
-	return if condition then consequence else alternative fi

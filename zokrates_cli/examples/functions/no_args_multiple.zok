@@ -1,10 +1,13 @@
-def constant() -> field:
-  return 123123
+def constant() -> field {
+    return 123123;
+}
 
-def add(field a, field b) -> field:
-  a = constant()
-  return a + b
+def add(field mut a, field b) -> field {
+    a = constant();
+    return a + b;
+}
 
-def main(field a, field b) -> field:
-  field c = add(a, b + constant())
-  return constant()
+def main(field a, field b) -> field {
+    field c = add(a, b + constant());
+    return constant();
+}

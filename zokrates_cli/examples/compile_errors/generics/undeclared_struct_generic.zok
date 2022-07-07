@@ -1,6 +1,7 @@
 struct A {
-    field[N] a
+    field[N] a;
 }
 
-def main():
-    return
+def main() {
+    return;
+}

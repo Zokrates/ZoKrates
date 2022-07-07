@@ -1,6 +1,7 @@
 struct A<N> {
-    field[N] a
+    field[N] a;
 }
 
-def main(A<1> a, A<2> b) -> bool:
-    return a == b
+def main(A<1> a, A<2> b) -> bool {
+    return a == b;
+}

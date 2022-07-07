@@ -1,5 +1,6 @@
-import "EMBED/u8_to_bits" as u8_to_bits
+import "EMBED/u8_to_bits" as u8_to_bits;
 
-def main(u8 x):
-   bool[32] b = u8_to_bits(x) // note the incorrect array length on the left
-   return
+def main(u8 x) {
+   bool[32] b = u8_to_bits(x); // note the incorrect array length on the left
+   return;
+}

@@ -1,17 +1,26 @@
 [package]
 name = "zokrates_test"
-version = "0.1.10"
+version = "0.2.0"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
 [dependencies]
 zokrates_field = { version = "0.5.0", path = "../zokrates_field" }
-zokrates_core = { version = "0.6", path = "../zokrates_core" }
+zokrates_core = { version = "0.7", path = "../zokrates_core" }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast" }
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver" }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
+zokrates_common = { version = "0.1", path = "../zokrates_common" }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 typed-arena = "1.4.1"
+
+[dev-dependencies]
+wasm-bindgen-test = "^0.3.0"
+zokrates_ark = { version = "0.1", path = "../zokrates_ark" }
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems" }
+
 
 [lib]

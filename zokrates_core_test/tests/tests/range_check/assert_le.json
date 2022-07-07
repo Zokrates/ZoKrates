@@ -9,7 +9,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": []
+                    "value": []
                 }
             }
         },
@@ -19,7 +19,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": []
+                    "value": []
                 }
             }
         },

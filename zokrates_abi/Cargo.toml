@@ -4,9 +4,14 @@ version = "0.1.7"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>"]
 edition = "2018"
 
+[features]
+default = ["ark", "bellman"]
+ark = ["zokrates_ast/ark"]
+bellman = ["zokrates_ast/bellman"]
+
 [dependencies]
 zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
-zokrates_core = { version = "0.6", path = "../zokrates_core", default-features = false }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }

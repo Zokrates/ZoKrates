@@ -1,7 +1,6 @@
-import "utils/pack/bool/nonStrictUnpack256.zok" as unpack256
+import "utils/pack/bool/nonStrictUnpack256.zok" as unpack256;
 
-def main(field[2] inputs) -> (bool[512]):
-
-    bool[512] preimage512 = [...unpack256(inputs[0]), ...unpack256(inputs[1])]
-
-    return preimage512
+def main(field[2] inputs) -> bool[512] {
+    bool[512] preimage512 = [...unpack256(inputs[0]), ...unpack256(inputs[1])];
+    return preimage512;
+}

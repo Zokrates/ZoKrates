@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_js"
-version = "1.0.44"
+version = "1.1.0"
 authors = ["Darko Macesic"]
 edition = "2018"
 
@@ -13,9 +13,14 @@ serde = { version = "^1.0.59", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 wasm-bindgen = { version = "0.2.46", features = ["serde-serialize"] }
 typed-arena = "1.4.1"
-zokrates_core = { path = "../zokrates_core", features = ["wasm", "ark"], default-features = false }
-zokrates_common = { path = "../zokrates_common" }
-zokrates_field = { path = "../zokrates_field" }
-zokrates_abi = { path = "../zokrates_abi" }
+zokrates_core = { path = "../zokrates_core", default-features = false, features = ["ark"] }
+zokrates_ark = { path = "../zokrates_ark", default-features = false}
+zokrates_common = { path = "../zokrates_common", default-features = false, features = ["ark"] }
+zokrates_proof_systems = { path = "../zokrates_proof_systems", default-features = false }
+zokrates_ast = { path = "../zokrates_ast", default-features = false, features = ["ark"] }
+zokrates_interpreter = { path = "../zokrates_interpreter", default-features = false, features = ["ark"] }
+zokrates_field = { path = "../zokrates_field", default-features = false  }
+zokrates_abi = { path = "../zokrates_abi", default-features = false, features = ["ark"] }
+zokrates_circom = { path = "../zokrates_circom" }
 console_error_panic_hook = "0.1.6"
 indexmap = "~1.6.2" # see https://github.com/rustwasm/wasm-bindgen/issues/2770#issuecomment-1041102532

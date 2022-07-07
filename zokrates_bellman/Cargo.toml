@@ -1,0 +1,28 @@
+[package]
+name = "zokrates_bellman"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+wasm = ["bellman/nolog", "bellman/wasm"]
+multicore = ["bellman/multicore", "phase2/multicore"]
+
+[dependencies]
+zokrates_field = { version = "0.5", path = "../zokrates_field", default-features = false }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
+zokrates_proof_systems = { version = "0.1", path = "../zokrates_proof_systems", default-features = false }
+
+bellman = { package = "bellman_ce", version = "^0.3", default-features = false }
+pairing = { package = "pairing_ce", version = "^0.21" }
+phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false }
+rand_0_4 = { version = "0.4", package = "rand" }#
+getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
+hex = "0.4.2"
+
+[dev-dependencies]
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", features = ["bellman"] }
+
+
+
+
+

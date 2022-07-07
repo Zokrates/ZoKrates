@@ -1,10 +1,12 @@
-from "./call_in_const_aux.zok" import A, foo, F
+from "./call_in_const_aux.zok" import A, foo, F;
 
-def bar(field[A] x) -> field[A]:
-    return x
-    
-const field[A] Y = [...bar(foo::<A>(F))[..A - 1], 1]
+def bar(field[A] x) -> field[A] {
+    return x;
+}
 
-def main(field[A] X):
-    assert(X == Y)
-    return
+const field[A] Y = [...bar(foo::<A>(F))[..A - 1], 1];
+
+def main(field[A] X) {
+    assert(X == Y);
+    return;
+}

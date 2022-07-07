@@ -1,0 +1,8 @@
+// "log" is reserved
+def log() {
+    return;
+}
+
+def main() {
+    return;
+}

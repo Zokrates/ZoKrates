@@ -1,9 +1,8 @@
-from "EMBED" import unpack
+from "EMBED" import unpack;
 
 // Unpack a field element as N big endian bits without checking for overflows
 // This does *not* guarantee a single output: for example, 0 can be decomposed as 0 or as P and this function does not enforce either
-def main<N>(field i) -> bool[N]:
-    
-    bool[N] res = unpack(i)
-
-    return res
+def main<N>(field i) -> bool[N] {
+    bool[N] res = unpack(i);
+    return res;
+}

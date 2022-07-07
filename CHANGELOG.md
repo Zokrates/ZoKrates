@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.0] - 2022-07-07
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.0 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Drop support for PGHR13 proving scheme (#1181, @schaeff)
+- Use signature output for constant parameter inference (#1172, @dark64)
+- Add log statements to the language (#1171, @schaeff)
+- Remove multiple returns (#1170, @dark64)
+- Introduce the `mut` keyword and make variables immutable by default (#1168, @schaeff)
+- Drop support for libsnark (#1153, @schaeff)
+- Split codebase into smaller crates (#1151, @schaeff)
+- Introduce curly bracket based syntax, use a semicolon to separate statements, change the syntax of `if-else` expression (#1121, @dark64)
+- Optionally export snarkjs artifacts (#1143, @schaeff)
+- Fix constant inlining for tuples (#1169, @dark64)
+- Change the default backend to `ark` in the CLI (#1165, @dark64)
+
 ## [0.7.14] - 2022-05-31
 
 ### Release

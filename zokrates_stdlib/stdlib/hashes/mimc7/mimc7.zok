@@ -90,22 +90,23 @@ const field[91] C = [
     7594017890037021425366623750593200398174488805473151513558919864633711506220,
     18979889247746272055963929241596362599320706910852082477600815822482192194401,
     1360213922981323134938688511315690179366171918090039581890971975815045550053
-]
+];
 
-def main<R>(field x_in, field k) -> field:
-	field t = 0
-	field[R] t2 = [0; R]
-	field[R] t4 = [0; R]
-	field[R] t6 = [0; R]
-	field[R] t7 = [0; R] // we define t7 length +1 to avoid conditional branching
+def main<R>(field x_in, field k) -> field {
+	field mut t = 0;
+	field[R] mut t2 = [0; R];
+	field[R] mut t4 = [0; R];
+	field[R] mut t6 = [0; R];
+	field[R] mut t7 = [0; R]; // we define t7 length +1 to avoid conditional branching
 
-	for u32 i in 0..R do
-		u32 i2 = if i == 0 then 0 else i - 1 fi 
-		t = if i == 0 then k + x_in else k + t7[i2] + C[i] fi
-        t2[i] = t * t
-        t4[i] = t2[i] * t2[i]
-		t6[i] = t4[i] * t2[i]
-		t7[i] = t6[i] * t
-	endfor
+	for u32 i in 0..R {
+		u32 i2 = i == 0 ? 0 : i - 1;
+		t = i == 0 ? k + x_in : k + t7[i2] + C[i];
+        t2[i] = t * t;
+        t4[i] = t2[i] * t2[i];
+		t6[i] = t4[i] * t2[i];
+		t7[i] = t6[i] * t;
+	}
 
-	return t6[R - 1] * t + k
+	return t6[R - 1] * t + k;
+}

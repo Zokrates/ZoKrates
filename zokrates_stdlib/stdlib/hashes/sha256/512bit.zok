@@ -1,8 +1,9 @@
-import "./sha256" as sha256
+import "./sha256" as sha256;
 
 // A function that takes 2 u32[8] arrays as inputs, concatenates them,
 // and returns their sha256 compression as a u32[8].
 // Note: no padding is applied
 
-def main(u32[8] a, u32[8] b) -> u32[8]:
-    return sha256([[...a, ...b]])
+def main(u32[8] a, u32[8] b) -> u32[8] {
+    return sha256([[...a, ...b]]);
+}

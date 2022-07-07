@@ -1,6 +1,6 @@
-import "ecc/edwardsAdd" as add
-import "ecc/edwardsOnCurve" as onCurve
-from "ecc/babyjubjubParams" import BabyJubJubParams
+import "ecc/edwardsAdd" as add;
+import "ecc/edwardsOnCurve" as onCurve;
+from "ecc/babyjubjubParams" import BabyJubJubParams;
 
 // Function that implements scalar multiplication for a fixed base point
 // Curve parameters are defined with the last argument
@@ -8,20 +8,19 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // curve parameters.
 // Note that the exponent array is not check to be boolean in this gadget
 // Reference: https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/fs.rs#L555
-def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> field[2]:
+def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> field[2] {
+    field[2] infinity = context.INFINITY;
 
-    field[2] infinity = context.INFINITY
+    field[2] mut doubledP = pt;
+    field[2] mut accumulatedP = infinity;
 
-    field[2] doubledP = pt
-    field[2] accumulatedP = infinity
+    for u32 i in 0..256 {
+        u32 j = 255 - i;
+        field[2] candidateP = add(accumulatedP, doubledP, context);
+        accumulatedP = exponent[j] ? candidateP : accumulatedP;
+        doubledP = add(doubledP, doubledP, context);
+    }
 
-    for u32 i in 0..256 do
-        u32 j = 255 - i
-        field[2] candidateP = add(accumulatedP, doubledP, context)
-        accumulatedP = if exponent[j] then candidateP else accumulatedP fi
-        doubledP = add(doubledP, doubledP, context)
-    endfor
-
-    assert(onCurve(accumulatedP, context))
-
-    return accumulatedP
+    assert(onCurve(accumulatedP, context));
+    return accumulatedP;
+}

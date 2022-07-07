@@ -10,7 +10,7 @@ npm install zokrates-js
 
 ##### Bundlers
 **Note:** As this library uses a model where the wasm module itself is natively an ES module, you will need a bundler of some form. 
-Currently the only known bundler known to be fully compatible with `zokrates-js` is [Webpack](https://webpack.js.org/) (`experiments.asyncWebAssembly` must be enabled). 
+Currently the only known bundler known to be fully compatible with `zokrates-js` is [Webpack](https://webpack.js.org/) (`experiments.syncWebAssembly` must be enabled). 
 The choice of this default was done to reflect the trends of the JS ecosystem.
 ```js
 import { initialize } from 'zokrates-js';
@@ -24,7 +24,7 @@ const { initialize } = require('zokrates-js')
 ## Example
 ```js
 initialize().then((zokratesProvider) => {
-    const source = "def main(private field a) -> field: return a * a";
+    const source = "def main(private field a) -> field { return a * a; }";
 
     // compilation
     const artifacts = zokratesProvider.compile(source);
@@ -88,7 +88,7 @@ Returns: `CompilationArtifacts`
 
 Compilation:
 ```js
-const artifacts = zokratesProvider.compile("def main() -> (): return");
+const artifacts = zokratesProvider.compile("def main() { return; }");
 ```
 
 Compilation with custom options:
@@ -99,7 +99,7 @@ const options = {
     resolveCallback: (currentLocation, importLocation) => {
         console.log(currentLocation + ' is importing ' + importLocation);
         return { 
-            source: "def main() -> (): return", 
+            source: "def main() { return; }", 
             location: importLocation 
         };
     }
@@ -135,13 +135,13 @@ Returns: `ComputationResult`
 **Example:**
 
 ```js
-const code = 'def main(private field a) -> (field): return a * a';
+const code = 'def main(private field a) -> field { return a * a; }';
 const artifacts = zokratesProvider.compile(code);
 
 const { witness, output } = zokratesProvider.computeWitness(artifacts, ["2"]);
 
 console.log(witness); // Resulting witness which can be used to generate a proof
-console.log(output); // Computation output: ["4"]
+console.log(output); // Computation output: "4"
 ```
 
 ##### setup(program)

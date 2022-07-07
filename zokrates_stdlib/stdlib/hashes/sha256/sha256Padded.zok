@@ -1,45 +1,48 @@
-import "hashes/sha256/sha256"
-import "utils/casts/u8_to_bits"
-import "utils/casts/u32_to_bits"
-import "utils/casts/u32_from_bits"
+import "hashes/sha256/sha256";
+import "utils/casts/u8_to_bits";
+import "utils/casts/u32_to_bits";
+import "utils/casts/u32_from_bits";
 
 // A padding function that takes a bool[L] array as input and pads it to 512-bit blocks
-def pad<L, M>(bool[L] m) -> u32[M][16]:
-   u32 length = L + 64 + 1
-   assert(length / 512 + 1 == M)
+def pad<L, M>(bool[L] m) -> u32[M][16] {
+    u32 length = L + 64 + 1;
+    assert(length / 512 + 1 == M);
 
-   u32 r = length % 512
-   u32 k = 512 - r
-   bool[M * 512] result_in_bits = [...m, true, ...[false; k + 32], ...u32_to_bits(L)]
-   u32[M][16] result = [[0; 16]; M]
+    u32 r = length % 512;
+    u32 k = 512 - r;
+    bool[M * 512] result_in_bits = [...m, true, ...[false; k + 32], ...u32_to_bits(L)];
+    u32[M][16] mut result = [[0; 16]; M];
 
-   for u32 i in 0..M do
-       for u32 j in 0..16 do
-          u32 start = i * 512 + j * 32
-          u32 end = start + 32
-          result[i][j] = u32_from_bits(result_in_bits[start..end])
-        endfor
-    endfor
-    return result
+    for u32 i in 0..M {
+        for u32 j in 0..16 {
+            u32 start = i * 512 + j * 32;
+            u32 end = start + 32;
+            result[i][j] = u32_from_bits(result_in_bits[start..end]);
+        }
+    }
+    return result;
+}
 
 // A function that takes a bool[N] array as input, pads it,
 // and returns the sha256 output as a u32[8]
-def sha256Padded<N>(bool[N] input) -> u32[8]:
-    u32 block_count = (N + 64 + 1) / 512 + 1
-    u32[block_count][16] padded = pad(input)
-    return sha256(padded)
+def sha256Padded<N>(bool[N] input) -> u32[8] {
+    u32 block_count = (N + 64 + 1) / 512 + 1;
+    u32[block_count][16] padded = pad(input);
+    return sha256(padded);
+}
 
 // A function that takes a u8[N] array as input, pads it,
 // and returns the sha256 output as a u32[8]
-def main<N>(u8[N] input) -> u32[8]:
-    u32 L = N * 8
-    bool[L] input_bits = [false; L]
+def main<N>(u8[N] input) -> u32[8] {
+    u32 L = N * 8;
+    bool[L] mut input_bits = [false; L];
 
-    for u32 i in 0..N do
-        bool[8] bits = u8_to_bits(input[i])
-        for u32 j in 0..8 do
-            input_bits[i * 8 + j] = bits[j]
-        endfor
-    endfor
+    for u32 i in 0..N {
+        bool[8] bits = u8_to_bits(input[i]);
+        for u32 j in 0..8 {
+            input_bits[i * 8 + j] = bits[j];
+        }
+    }
 
-    return sha256Padded(input_bits)
+    return sha256Padded(input_bits);
+}

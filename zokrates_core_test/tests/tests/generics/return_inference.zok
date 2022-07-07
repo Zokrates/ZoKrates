@@ -1,0 +1,11 @@
+def bar<N>() -> field[N] {
+    return [42; N];
+}
+
+def foo<N>() -> field[N] {
+    return bar();
+}
+
+def main() -> field[2] {
+    return foo();
+}

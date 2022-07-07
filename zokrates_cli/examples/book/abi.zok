@@ -1,11 +1,12 @@
 struct Bar {
-    field a
+    field a;
 }
 
 struct Foo {
-    u8 a
-    Bar b
+    u8 a;
+    Bar b;
 }
 
-def main(Foo foo, bool[2] bar, field num) -> field:
-	return 42
+def main(Foo foo, bool[2] bar, field num) -> field {
+    return 42;
+}

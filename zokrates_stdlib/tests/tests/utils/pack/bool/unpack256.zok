@@ -1,24 +1,19 @@
-import "utils/pack/bool/unpack256" as unpack256
+import "utils/pack/bool/unpack256" as unpack256;
 
-def testFive() -> bool:
+def testFive() -> bool {
+    bool[256] b = unpack256(5);
+    assert(b == [...[false; 253], true, false, true]);
+    return true;
+}
 
-	bool[256] b = unpack256(5)
+def testZero() -> bool {
+    bool[256] b = unpack256(0);
+    assert(b == [false; 256]);
+    return true;
+}
 
-	assert(b == [...[false; 253], true, false, true])
-
-	return true
-
-def testZero() -> bool:
-
-	bool[256] b = unpack256(0)
-
-	assert(b == [false; 256])
-
-	return true
-
- def main():
-
-	assert(testFive())
-	assert(testZero())
-
-	return
+ def main() {
+    assert(testFive());
+    assert(testZero());
+    return;
+}

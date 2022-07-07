@@ -1,6 +1,7 @@
-const field A = 2
-const field B = 2
-const field[2] ARRAY = [A * 2, B * 2]
+const field A = 2;
+const field B = 2;
+const field[2] ARRAY = [A * 2, B * 2];
 
-def main() -> field:
-    return ARRAY[0] + ARRAY[1]
+def main() -> field {
+    return ARRAY[0] + ARRAY[1];
+}

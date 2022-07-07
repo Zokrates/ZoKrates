@@ -1,10 +1,11 @@
 struct Point {
-	field x
-	field y
+    field x;
+    field y;
 }
 
-def main(field a) -> (Point):
-	Point p = Point {x: 1, y: 0}
-	p.x = a
-	p.y = p.x
-	return p
+def main(field a) -> Point {
+    Point mut p = Point { x: 1, y: 0 };
+    p.x = a;
+    p.y = p.x;
+    return p;
+}

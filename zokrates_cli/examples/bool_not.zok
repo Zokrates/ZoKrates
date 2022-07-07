@@ -1,3 +1,4 @@
-def main(field a) -> field:
-	field x = if !(!(a < 5) && !(a > 1) || a < 4) then 3 else 4 fi
-	return x
+def main(field a) -> field {
+    field x = !(!(a < 5) && !(a > 1) || a < 4) ? 3 : 4;
+    return x;
+}

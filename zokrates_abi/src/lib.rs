@@ -15,11 +15,11 @@ impl<T: Field> Encode<T> for Inputs<T> {
 }
 
 use std::fmt;
-use zokrates_core::typed_absy::types::{ConcreteType, UBitwidth};
+use zokrates_ast::typed::types::{ConcreteType, UBitwidth};
 
 use zokrates_field::Field;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Json(String),
     Conversion(String),
@@ -277,7 +277,7 @@ fn parse_value<T: Field>(
             .map_err(|_| Error::Type(format!("Could not parse `{}` to u64 type", s))),
         (ConcreteType::Boolean, serde_json::Value::Bool(b)) => Ok(Value::Boolean(b)),
         (ConcreteType::Array(array_type), serde_json::Value::Array(a)) => {
-            let size = array_type.size;
+            let size = *array_type.size;
             if a.len() != size as usize {
                 Err(Error::Type(format!(
                     "Expected array of size {}, found array of size {}",
@@ -380,9 +380,7 @@ pub fn parse_strict_json<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_core::typed_absy::types::{
-        ConcreteStructMember, ConcreteStructType, ConcreteType,
-    };
+    use zokrates_ast::typed::types::{ConcreteStructMember, ConcreteStructType, ConcreteType};
     use zokrates_field::Bn128Field;
 
     #[test]

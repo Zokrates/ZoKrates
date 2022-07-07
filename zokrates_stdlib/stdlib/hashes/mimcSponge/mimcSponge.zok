@@ -1,19 +1,20 @@
-import "./mimcFeistel" as MiMCFeistel
+import "./mimcFeistel" as MiMCFeistel;
 
-def main<nInputs, nOutputs>(field[nInputs] ins, field k) -> field[nOutputs]:
-    field[nInputs + nOutputs - 1][2] S = [[0; 2]; nInputs + nOutputs - 1]
-    field[nOutputs] outs = [0; nOutputs]
+def main<nInputs, nOutputs>(field[nInputs] ins, field k) -> field[nOutputs] {
+    field[nInputs + nOutputs - 1][2] mut S = [[0; 2]; nInputs + nOutputs - 1];
+    field[nOutputs] mut outs = [0; nOutputs];
 
-    for u32 i in 0..nInputs do
-        u32 j = if i == 0 then 0 else i - 1 fi
-        S[i] = if i == 0 then MiMCFeistel(ins[0], 0, k) else MiMCFeistel(S[j][0] + ins[i], S[j][1], k) fi
-    endfor
+    for u32 i in 0..nInputs {
+        u32 j = i == 0 ? 0 : i - 1;
+        S[i] = i == 0 ? MiMCFeistel(ins[0], 0, k) : MiMCFeistel(S[j][0] + ins[i], S[j][1], k);
+    }
 
-    outs[0] = S[nInputs - 1][0]
+    outs[0] = S[nInputs - 1][0];
 
-    for u32 i in 0..(nOutputs - 1) do
-        S[nInputs + i] = MiMCFeistel(S[nInputs + i - 1][0], S[nInputs + i - 1][1], k)
-        outs[i + 1] = S[nInputs + i][0]
-    endfor
+    for u32 i in 0..(nOutputs - 1) {
+        S[nInputs + i] = MiMCFeistel(S[nInputs + i - 1][0], S[nInputs + i - 1][1], k);
+        outs[i + 1] = S[nInputs + i][0];
+    }
 
-    return outs
+    return outs;
+}

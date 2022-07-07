@@ -5,10 +5,10 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 use zokrates_common::helpers::{CurveParameter, SchemeParameter};
-use zokrates_core::proof_system::{
-    Marlin, Proof, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17, PGHR13,
-};
 use zokrates_field::Bn128Field;
+use zokrates_proof_systems::{
+    Marlin, Proof, SolidityCompatibleField, SolidityCompatibleScheme, G16, GM17,
+};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("print-proof")
@@ -62,9 +62,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         (curve.try_into().unwrap(), scheme.try_into().unwrap());
 
     match parameters {
-        (CurveParameter::Bn128, SchemeParameter::PGHR13) => {
-            cli_print_proof::<Bn128Field, PGHR13>(sub_matches, proof)
-        }
         (CurveParameter::Bn128, SchemeParameter::G16) => {
             cli_print_proof::<Bn128Field, G16>(sub_matches, proof)
         }

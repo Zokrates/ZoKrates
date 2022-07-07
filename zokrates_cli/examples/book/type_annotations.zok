@@ -1,9 +1,12 @@
-def foo() -> (field, field[3]):
-    return 1, [2, 3, 4]
+def foo() -> (field, field[3]) {
+    return (1, [2, 3, 4]);
+}
 
-def foo() -> (field, field):
-    return 1, 2
+def foo() -> (field, field) {
+    return (1, 2);
+}
 
-def main():
-    field a, field[3] b = foo()
-    return
+def main() {
+    (field, field[3]) a = foo();
+    return;
+}

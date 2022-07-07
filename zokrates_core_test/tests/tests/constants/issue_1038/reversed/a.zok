@@ -1,2 +1,2 @@
-const u32 SIZE_BYTES = 136
-const u32 SIZE_WORDS = SIZE_BYTES/8
+const u32 SIZE_BYTES = 136;
+const u32 SIZE_WORDS = SIZE_BYTES / 8;

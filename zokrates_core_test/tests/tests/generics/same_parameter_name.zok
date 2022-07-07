@@ -1,10 +1,13 @@
-def foo<N>(field[N] x) -> field[N]:
-	return x
+def foo<N>(field[N] x) -> field[N] {
+    return x;
+}
 
-def bar<N>(field[N] x) -> field[N]:
-	field[N] r = x
-	return r
+def bar<N>(field[N] x) -> field[N] {
+    field[N] r = x;
+    return r;
+}
 
-def main(field[3] x) -> field[2]:
-	field[2] z = foo(x)[0..2]
-	return bar(z)
+def main(field[3] x) -> field[2] {
+    field[2] z = foo(x)[0..2];
+    return bar(z);
+}

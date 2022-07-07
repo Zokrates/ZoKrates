@@ -1,11 +1,13 @@
 use ark_bn254::Bn254;
 
-prime_field!("bn128", Bn254);
+prime_field!("bn128", Bn254, G2Type::Fq2);
 
 ark_extensions!(Bn254);
 
 #[cfg(feature = "bellman")]
 use bellman_ce::pairing::bn256::{Bn256, Fq2};
+
+use crate::G2Type;
 #[cfg(feature = "bellman")]
 bellman_extensions!(Bn256, Fq2);
 

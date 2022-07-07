@@ -14,7 +14,7 @@
                         "left": "0",
                         "right": "1",
                         "error": {
-                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/loop_bound.zok:2:3"
+                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/loop_bound.zok:2:5"
                         }
                     }
                 }
@@ -28,7 +28,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": [] 
+                    "value": []
                 }
             }
         }

@@ -1,19 +1,15 @@
 [package]
 name = "zokrates_core"
-version = "0.6.13"
+version = "0.7.0"
 edition = "2018"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/Zokrates/ZoKrates"
 readme = "README.md"
-build = "build.rs"
 
 [features]
-default = ["bellman", "ark"]
-libsnark = ["cc", "cmake"]
-bellman = ["bellman_ce", "pairing_ce", "ff_ce", "zokrates_field/bellman"]
-wasm = ["bellman_ce/nolog", "bellman_ce/wasm"]
-multicore = ["bellman_ce/multicore", "phase2/multicore"]
-ark = ["ark-ff", "ark-ec", "ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-groth16", "ark-crypto-primitives", "ark-serialize", "ark-relations", "ark-marlin", "ark-poly", "ark-poly-commit", "sha3", "digest"]
+default = ["ark", "bellman"]
+ark = ["zokrates_ast/ark", "zokrates_embed/ark", "zokrates_common/ark", "zokrates_interpreter/ark"]
+bellman = ["zokrates_ast/bellman", "zokrates_embed/bellman", "zokrates_common/bellman", "zokrates_interpreter/bellman"]
 
 [dependencies]
 log = "0.4"
@@ -26,48 +22,14 @@ reduce = "0.1.1"
 # serialization and deserialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-serde_cbor = "0.11.2"
-hex = "0.4.2"
-regex = "0.2"
 zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
-zokrates_pest_ast = { version = "0.2.0", path = "../zokrates_pest_ast" }
-zokrates_common = { path = "../zokrates_common" }
-zokrates_embed = { version = "0.1.0", path = "../zokrates_embed" }
-getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }
-rand_0_4 = { version = "0.4", package = "rand" }
-rand_0_8 = { version = "0.8", package = "rand" }
+zokrates_pest_ast = { version = "0.3.0", path = "../zokrates_pest_ast" }
+zokrates_common = { version = "0.1", path = "../zokrates_common", default-features = false }
+zokrates_embed = { version = "0.1.0", path = "../zokrates_embed", default-features = false }
+zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter", default-features = false }
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
 csv = "1"
-phase2 = { git = "https://github.com/Zokrates/phase2", default-features = false }
-
-# bellman
-bellman_ce = { version = "^0.3", default-features = false, optional = true }
-pairing_ce = { version = "^0.21", optional = true }
-ff_ce = { version = "^0.9", optional = true }
-
-# ark
-ark-ff = { version = "^0.3.0", default-features = false, optional = true }
-ark-ec = { version = "^0.3.0", default-features = false, optional = true }
-ark-bn254 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
-ark-bls12-377 = { version = "^0.3.0", features = ["curve"], default-features = false, optional = true }
-ark-bw6-761 = { version = "^0.3.0", default-features = false, optional = true }
-ark-gm17 = { version = "^0.3.0", default-features = false, optional = true }
-ark-groth16 = { version = "^0.3.0", default-features = false, optional = true }
-ark-serialize = { version = "^0.3.0", default-features = false, optional = true }
-ark-relations = { version = "^0.3.0", default-features = false, optional = true }
-ark-marlin = { git = "https://github.com/arkworks-rs/marlin", rev = "63cfd82", default-features = false, optional = true }
-ark-poly = { version = "^0.3.0", default-features = false, optional = true }
-ark-poly-commit = { version = "^0.3.0", default-features = false, optional = true }
-ark-crypto-primitives = { version = "^0.3.0", default-features = false, optional = true }
-sha3 = { version = "0.9", optional = true }
-digest = { version = "0.9", optional = true }
-ethabi = "17.0.0"
-primitive-types = { version = "0.11", features = ["rlp"] }
 
 [dev-dependencies]
-wasm-bindgen-test = "^0.3.0"
 pretty_assertions = "0.6.1"
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
-
-[build-dependencies]
-cc = { version = "1.0", features = ["parallel"], optional = true }
-cmake = { version = "=0.1.45", optional = true }

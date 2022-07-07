@@ -1,0 +1,3 @@
+def main(field[2] a, field[2] b, field condition) -> field[2] {
+    return condition == 1 ? a : b;
+}

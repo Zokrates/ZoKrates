@@ -1,0 +1,16 @@
+[package]
+name = "zokrates_proof_systems"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zokrates_ast = { version = "0.1", path = "../zokrates_ast", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
+hex = "0.4.2"
+regex = "0.2"
+cfg-if = "0.1"
+ethabi = "17.0.0"
+primitive-types = { version = "0.11", features = ["rlp"] }
+rand_0_4 = { version = "0.4", package = "rand" }
+getrandom = { version = "0.2", features = ["js"] }

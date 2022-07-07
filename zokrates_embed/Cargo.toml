@@ -1,24 +1,26 @@
 [package]
 name = "zokrates_embed"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
 [features]
-default = []
+default = ["ark", "bellman"]
+ark = ["ark-bls12-377", "ark-bw6-761", "ark-gm17", "ark-relations", "ark-crypto-primitives", "ark-r1cs-std", "ark-std", "ark-ec", "ark-ff", "sapling-crypto_ce"]
+bellman = ["bellman_ce"]
 wasm = ["bellman_ce/wasm", "sapling-crypto_ce/wasm"]
 multicore = ["bellman_ce/multicore", "sapling-crypto_ce/multicore"]
 
 [dependencies]
 zokrates_field = { version = "0.5.0", path = "../zokrates_field", default-features = false }
-bellman_ce = { version = "^0.3", default-features = false }
-sapling-crypto_ce = { version = "^0.1", default-features = false }
-ark-bls12-377 = { version = "^0.3.0", features = ["curve", "r1cs"], default-features = false }
-ark-bw6-761 = { version = "^0.3.0", default-features = false }
-ark-gm17 = { version = "^0.3.0", default-features = false, features = ["r1cs"] }
-ark-relations = { version = "^0.3.0", default-features = false }
-ark-crypto-primitives = { version = "^0.3.0", default-features = false, features = ["r1cs"] }
-ark-r1cs-std = { version = "^0.3.0", default-features = false }
-ark-std = { version = "^0.3.0", default-features = false }
-ark-ec = { version = "^0.3.0", default-features = false }
-ark-ff = { version = "^0.3.0", default-features = false}
+bellman_ce = { version = "^0.3", default-features = false, optional = true }
+sapling-crypto_ce = { version = "^0.1", default-features = false, optional = true }
+ark-bls12-377 = { version = "^0.3.0", features = ["curve", "r1cs"], default-features = false, optional = true }
+ark-bw6-761 = { version = "^0.3.0", default-features = false, optional = true }
+ark-gm17 = { version = "^0.3.0", default-features = false, features = ["r1cs"], optional = true }
+ark-relations = { version = "^0.3.0", default-features = false, optional = true }
+ark-crypto-primitives = { version = "^0.3.0", default-features = false, features = ["r1cs"], optional = true }
+ark-r1cs-std = { version = "^0.3.0", default-features = false, optional = true }
+ark-std = { version = "^0.3.0", default-features = false, optional = true }
+ark-ec = { version = "^0.3.0", default-features = false, optional = true }
+ark-ff = { version = "^0.3.0", default-features = false, optional = true}

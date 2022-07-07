@@ -1,5 +1,6 @@
-def assert():
-	return
+def assert() {
+    return;
+}
 
 def main():
-	return
+    return

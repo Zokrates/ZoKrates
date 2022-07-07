@@ -1,3 +1,0 @@
-def main(field x) -> field:
-  field y = x + 2 == 3 ? 1 : 5
-  return y

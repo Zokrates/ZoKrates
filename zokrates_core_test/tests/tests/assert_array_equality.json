@@ -8,7 +8,7 @@
             },
             "output": {
                 "Ok": {
-                    "values": []
+                    "value": []
                 }
             }
         },
@@ -22,7 +22,7 @@
                         "left": "0",
                         "right": "1",
                         "error": {
-                            "SourceAssertion": "Assertion failed at ./tests/tests/assert_array_equality.zok:2:2"
+                            "SourceAssertion": "Assertion failed at ./tests/tests/assert_array_equality.zok:2:5"
                         }
                     }
                 }

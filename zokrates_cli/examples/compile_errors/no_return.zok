@@ -1,4 +1,5 @@
-def foo():
+def foo() {}
 
-def main():
-	return
+def main() {
+    return;
+}

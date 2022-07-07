@@ -1,9 +1,9 @@
-def main() -> field:
-
+def main() -> field {
     // Array of two elements of array of 3 elements
-    field[2][3] a = [[1, 2, 3],[4, 5, 6]]
+    field[2][3] a = [[1, 2, 3],[4, 5, 6]];
 
-    field[3] b = a[0] // should be [1, 2, 3]
+    field[3] b = a[0]; // should be [1, 2, 3]
 
     // allowed access [0..2][0..3]
-    return a[1][2]
+    return a[1][2];
+}

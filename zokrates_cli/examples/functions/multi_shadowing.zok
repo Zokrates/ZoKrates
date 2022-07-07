@@ -1,11 +1,14 @@
-def add(field a,field b) -> field:
-  field v = a + b
-  return v
+def add(field a,field b) -> field {
+    field v = a + b;
+    return v;
+}
 
-def sub(field a, field b) -> field:
-  return a-b
+def sub(field a, field b) -> field {
+    return a - b;
+}
 
-def main(field a, field b) -> field:
-  field c = add(a,b)
-  field d = sub(a,b)
-  return 0
+def main(field a, field b) -> field {
+    field c = add(a, b);
+    field d = sub(a, b);
+    return 0;
+}

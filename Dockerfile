@@ -1,6 +1,5 @@
 FROM zokrates/env:20.04 as build
 
-ENV WITH_LIBSNARK=1
 WORKDIR /build
 
 COPY . src

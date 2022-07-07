@@ -165,11 +165,7 @@ pub fn generate_verify_constraints(
         .into_iter()
         .zip(matrices.b.into_iter())
         .zip(matrices.c.into_iter())
-        .map(|((a, b), c)| Constraint {
-            a: a.into_iter().map(|(f, index)| (index, f)).collect(),
-            b: b.into_iter().map(|(f, index)| (index, f)).collect(),
-            c: c.into_iter().map(|(f, index)| (index, f)).collect(),
-        })
+        .map(|((a, b), c)| Constraint { a, b, c })
         .collect();
 
     (
@@ -309,26 +305,26 @@ pub fn from_ark<T: zokrates_field::Field, E: PairingEngine>(c: Constraint<E::Fq>
     Constraint {
         a: c.a
             .into_iter()
-            .map(|(index, fq)| {
+            .map(|(fq, index)| {
                 let mut res: Vec<u8> = vec![];
                 fq.into_repr().write_le(&mut res).unwrap();
-                (index, T::from_byte_vector(res))
+                (T::from_byte_vector(res), index)
             })
             .collect(),
         b: c.b
             .into_iter()
-            .map(|(index, fq)| {
+            .map(|(fq, index)| {
                 let mut res: Vec<u8> = vec![];
                 fq.into_repr().write_le(&mut res).unwrap();
-                (index, T::from_byte_vector(res))
+                (T::from_byte_vector(res), index)
             })
             .collect(),
         c: c.c
             .into_iter()
-            .map(|(index, fq)| {
+            .map(|(fq, index)| {
                 let mut res: Vec<u8> = vec![];
                 fq.into_repr().write_le(&mut res).unwrap();
-                (index, T::from_byte_vector(res))
+                (T::from_byte_vector(res), index)
             })
             .collect(),
     }

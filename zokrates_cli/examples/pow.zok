@@ -1,16 +1,17 @@
-def main():
-  field x = 2**4
-  assert(x == 16)
-  x = x**2
-  assert(x == 256)
-  field y = 3**3
-  assert(y == 27)
-  field z = y**2
-  assert(z == 729)
-  field a = 5**2
-  assert(a == 25)
-  a = a**2
-  assert(a == 625)
-  a = 5**5
-  assert(a == 3125)
-  return
+def main() {
+    field mut x = 2**4;
+    assert(x == 16);
+    x = x**2;
+    assert(x == 256);
+    field y = 3**3;
+    assert(y == 27);
+    field z = y**2;
+    assert(z == 729);
+    field mut a = 5**2;
+    assert(a == 25);
+    a = a**2;
+    assert(a == 625);
+    a = 5**5;
+    assert(a == 3125);
+    return;
+}

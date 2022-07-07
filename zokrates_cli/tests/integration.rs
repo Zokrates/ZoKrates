@@ -19,12 +19,12 @@ mod integration {
     use std::path::Path;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
-    use zokrates_core::proof_system::{
-        to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17, PGHR13,
+    use zokrates_ast::typed::abi::Abi;
+    use zokrates_field::Bn128Field;
+    use zokrates_proof_systems::{
+        to_token::ToToken, Marlin, Proof, SolidityCompatibleScheme, G16, GM17,
         SOLIDITY_G2_ADDITION_LIB,
     };
-    use zokrates_core::typed_absy::abi::Abi;
-    use zokrates_field::Bn128Field;
 
     macro_rules! map(
     {
@@ -233,14 +233,6 @@ mod integration {
             );
         }
 
-        #[cfg(feature = "libsnark")]
-        let backends = map! {
-            "bellman" => vec!["g16"],
-            "libsnark" => vec!["pghr13"],
-            "ark" => vec!["g16", "gm17", "marlin"]
-        };
-
-        #[cfg(not(feature = "libsnark"))]
         let backends = map! {
             "bellman" => vec!["g16"],
             "ark" => vec!["g16", "gm17", "marlin"]
@@ -351,15 +343,6 @@ mod integration {
 
                             test_solidity_verifier(contract_str, proof);
                         }
-                        "pghr13" => {
-                            // Get the proof
-                            let proof: Proof<Bn128Field, PGHR13> = serde_json::from_reader(
-                                File::open(proof_path.to_str().unwrap()).unwrap(),
-                            )
-                            .unwrap();
-
-                            test_solidity_verifier(contract_str, proof);
-                        }
                         _ => unreachable!(),
                     }
                 }
@@ -383,14 +366,14 @@ mod integration {
 
         // Compile lib
         let g2_lib =
-            Contract::compile_from_src_string(&SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
+            Contract::compile_from_src_string(SOLIDITY_G2_ADDITION_LIB, "BN256G2", true, &[])
                 .unwrap();
 
         // Deploy lib
         let create_result = evm
             .deploy(g2_lib.encode_create_contract_bytes(&[]).unwrap(), &deployer)
             .unwrap();
-        let lib_addr = create_result.addr.clone();
+        let lib_addr = create_result.addr;
 
         // Compile contract
         let contract = Contract::compile_from_src_string(
@@ -408,7 +391,7 @@ mod integration {
                 &deployer,
             )
             .unwrap();
-        let contract_addr = create_result.addr.clone();
+        let contract_addr = create_result.addr;
 
         // convert to the solidity proof format
         let solidity_proof = S::Proof::from(proof.proof);
@@ -444,11 +427,11 @@ mod integration {
         assert_eq!(&result.out, &to_be_bytes(&U256::from(1)));
 
         // modify the proof
-        let modified_solidity_proof = S::modify(solidity_proof.clone());
+        let modified_solidity_proof = S::modify(solidity_proof);
 
-        let modified_proof_token = S::to_token(modified_solidity_proof.clone());
+        let modified_proof_token = S::to_token(modified_solidity_proof);
 
-        let inputs = [modified_proof_token, input_token.clone()];
+        let inputs = [modified_proof_token, input_token];
 
         // Call verify function on contract
         let result = evm

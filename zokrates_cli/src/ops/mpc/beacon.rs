@@ -3,10 +3,10 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use zokrates_bellman::Bellman;
 use zokrates_common::constants::{BLS12_381, BN128};
-use zokrates_core::proof_system::bellman::Bellman;
-use zokrates_core::proof_system::{MpcBackend, MpcScheme, G16};
 use zokrates_field::{BellmanFieldExtensions, Bls12_381Field, Bn128Field, Field};
+use zokrates_proof_systems::{MpcBackend, MpcScheme, G16};
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("beacon")

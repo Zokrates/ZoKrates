@@ -7,7 +7,7 @@
 			},
 			"output": {
 				"Ok": {
-					"values": [["0xcf0ae4eb", "0x67d38ffe", "0xb9406898", "0x4b22abde", "0x4e92bc54", "0x8d14585e", "0x48dca888", "0x2d7b09ce"]]
+					"value": ["0xcf0ae4eb", "0x67d38ffe", "0xb9406898", "0x4b22abde", "0x4e92bc54", "0x8d14585e", "0x48dca888", "0x2d7b09ce"]
 				}
 			}
 		}

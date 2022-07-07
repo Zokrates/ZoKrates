@@ -4,17 +4,15 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+#[cfg(feature = "ark")]
+use zokrates_ark::Ark;
+#[cfg(feature = "bellman")]
+use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
-#[cfg(feature = "ark")]
-use zokrates_core::proof_system::ark::Ark;
-#[cfg(feature = "bellman")]
-use zokrates_core::proof_system::bellman::Bellman;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::Libsnark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-use zokrates_core::proof_system::*;
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
+#[cfg(any(feature = "bellman", feature = "ark"))]
+use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("verify")
@@ -47,7 +45,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .possible_values(cli_constants::BACKENDS)
-                .default_value(constants::BELLMAN),
+                .default_value(constants::ARK),
         )
 }
 
@@ -169,14 +167,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
         #[cfg(feature = "ark")]
         Parameters(BackendParameter::Ark, CurveParameter::Bw6_761, SchemeParameter::MARLIN) => {
             cli_verify::<Bw6_761Field, Marlin, Ark>(vk, proof)
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-            cli_verify::<Bn128Field, GM17, Libsnark>(vk, proof)
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
-            cli_verify::<Bn128Field, PGHR13, Libsnark>(vk, proof)
         }
         _ => unreachable!(),
     }

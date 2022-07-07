@@ -1,20 +1,20 @@
-import "hashes/pedersen/512bit" as hash
-import "hashes/utils/256bitsDirectionHelper" as multiplex
+import "hashes/pedersen/512bit" as hash;
+import "hashes/utils/256bitsDirectionHelper" as multiplex;
 
-const u32 DEPTH = 3
+const u32 DEPTH = 3;
 
 // Merke-Tree inclusion proof for tree depth 4 using SNARK-efficient pedersen hashes
 // directionSelector => true if current digest is on the rhs of the hash
 
-def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector, private u32[DEPTH][8] path) -> bool:
-	// Start from the leaf
-	u32[8] digest = leaf
+def main(u32[8] root, private u32[8] leaf, private bool[DEPTH] directionSelector, private u32[DEPTH][8] path) -> bool {
+    // Start from the leaf
+    u32[8] mut digest = leaf;
 
-	// Loop up the tree
-	for u32 i in 0..DEPTH do
-		u32[16] preimage = multiplex(directionSelector[i], digest, path[i])
-		digest = hash(preimage)
-	endfor
+    // Loop up the tree
+    for u32 i in 0..DEPTH {
+        u32[16] preimage = multiplex(directionSelector[i], digest, path[i]);
+        digest = hash(preimage);
+    }
 
-	return digest == root
-
+    return digest == root;
+}

@@ -11,6 +11,14 @@ members = [
     "zokrates_test",
     "zokrates_core_test",
     "zokrates_solidity_test",
+    "zokrates_ark",
+    "zokrates_ast",
+    "zokrates_interpreter",
+    "zokrates_embed",
+    "zokrates_bellman",
+    "zokrates_proof_systems",
+    "zokrates_js",
+    "zokrates_circom"
 ]
 
-exclude = ["zokrates_js"]
+exclude = []

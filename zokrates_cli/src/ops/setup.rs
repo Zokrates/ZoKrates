@@ -4,19 +4,16 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
+#[cfg(feature = "ark")]
+use zokrates_ark::Ark;
+use zokrates_ast::ir::{self, ProgEnum};
+#[cfg(feature = "bellman")]
+use zokrates_bellman::Bellman;
 use zokrates_common::constants;
 use zokrates_common::helpers::*;
-use zokrates_core::ir;
-use zokrates_core::ir::ProgEnum;
-#[cfg(feature = "ark")]
-use zokrates_core::proof_system::ark::Ark;
-#[cfg(feature = "bellman")]
-use zokrates_core::proof_system::bellman::Bellman;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::Libsnark;
-#[cfg(any(feature = "bellman", feature = "ark", feature = "libsnark"))]
-use zokrates_core::proof_system::*;
 use zokrates_field::Field;
+#[cfg(any(feature = "bellman", feature = "ark"))]
+use zokrates_proof_systems::*;
 
 pub fn subcommand() -> App<'static, 'static> {
     SubCommand::with_name("setup")
@@ -59,7 +56,7 @@ pub fn subcommand() -> App<'static, 'static> {
                 .takes_value(true)
                 .required(false)
                 .possible_values(cli_constants::BACKENDS)
-                .default_value(constants::BELLMAN),
+                .default_value(constants::ARK),
         )
         .arg(
             Arg::with_name("proving-scheme")
@@ -163,24 +160,6 @@ pub fn exec(sub_matches: &ArgMatches) -> Result<(), String> {
                 ProgEnum::Bw6_761Program(p) => {
                     cli_setup_universal::<_, _, Marlin, Ark>(p, setup, sub_matches)
                 }
-            }
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::GM17) => {
-            match prog {
-                ProgEnum::Bn128Program(p) => {
-                    cli_setup_non_universal::<_, _, GM17, Libsnark>(p, sub_matches)
-                }
-                _ => unreachable!(),
-            }
-        }
-        #[cfg(feature = "libsnark")]
-        Parameters(BackendParameter::Libsnark, CurveParameter::Bn128, SchemeParameter::PGHR13) => {
-            match prog {
-                ProgEnum::Bn128Program(p) => {
-                    cli_setup_non_universal::<_, _, PGHR13, Libsnark>(p, sub_matches)
-                }
-                _ => unreachable!(),
             }
         }
         _ => unreachable!(),

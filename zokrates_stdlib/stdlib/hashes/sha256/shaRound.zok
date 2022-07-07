@@ -9,85 +9,90 @@ const u32[64] K = [
     0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
     0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-]
+];
 
-def rotr32<N>(u32 x) -> u32:
-    return (x >> N) | (x << (32 - N))
+def rotr32<N>(u32 x) -> u32 {
+    return (x >> N) | (x << (32 - N));
+}
 
-def extend(u32[64] w, u32 i) -> u32:
-    u32 s0 = rotr32::<7>(w[i-15]) ^ rotr32::<18>(w[i-15]) ^ (w[i-15] >> 3)
-    u32 s1 = rotr32::<17>(w[i-2]) ^ rotr32::<19>(w[i-2]) ^ (w[i-2] >> 10)
-    return w[i-16] + s0 + w[i-7] + s1
+def extend(u32[64] w, u32 i) -> u32 {
+    u32 s0 = rotr32::<7>(w[i-15]) ^ rotr32::<18>(w[i-15]) ^ (w[i-15] >> 3);
+    u32 s1 = rotr32::<17>(w[i-2]) ^ rotr32::<19>(w[i-2]) ^ (w[i-2] >> 10);
+    return w[i-16] + s0 + w[i-7] + s1;
+}
 
-def temp1(u32 e, u32 f, u32 g, u32 h, u32 k, u32 w) -> u32:
+def temp1(u32 e, u32 f, u32 g, u32 h, u32 k, u32 w) -> u32 {
     // ch := (e and f) xor ((not e) and g)
-    u32 ch = (e & f) ^ ((!e) & g)
+    u32 ch = (e & f) ^ ((!e) & g);
 
     // S1 := (e rightrotate 6) xor (e rightrotate 11) xor (e rightrotate 25)
-    u32 S1 = rotr32::<6>(e) ^ rotr32::<11>(e) ^ rotr32::<25>(e)
+    u32 S1 = rotr32::<6>(e) ^ rotr32::<11>(e) ^ rotr32::<25>(e);
     
     // temp1 := h + S1 + ch + k + w
-    return h + S1 + ch + k + w
+    return h + S1 + ch + k + w;
+}
 
-def temp2(u32 a, u32 b, u32 c) -> u32:
+def temp2(u32 a, u32 b, u32 c) -> u32 {
     // maj := (a and b) xor (a and c) xor (b and c)
-    u32 maj = (a & b) ^ (a & c) ^ (b & c)
+    u32 maj = (a & b) ^ (a & c) ^ (b & c);
 
     // S0 := (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
-    u32 S0 = rotr32::<2>(a) ^ rotr32::<13>(a) ^ rotr32::<22>(a)
+    u32 S0 = rotr32::<2>(a) ^ rotr32::<13>(a) ^ rotr32::<22>(a);
 
     // temp2 := S0 + maj
-    return S0 + maj
+    return S0 + maj;
+}
 
 // A function that computes one round of the SHA256 compression function given an input and the current value of the hash
 // this is used by other components however many times needed
-def main(u32[16] input, u32[8] current) -> u32[8]:
-    u32 h0 = current[0]
-    u32 h1 = current[1]
-    u32 h2 = current[2]
-    u32 h3 = current[3]
-    u32 h4 = current[4]
-    u32 h5 = current[5]
-    u32 h6 = current[6]
-    u32 h7 = current[7]
+def main(u32[16] input, u32[8] current) -> u32[8] {
+    u32 mut h0 = current[0];
+    u32 mut h1 = current[1];
+    u32 mut h2 = current[2];
+    u32 mut h3 = current[3];
+    u32 mut h4 = current[4];
+    u32 mut h5 = current[5];
+    u32 mut h6 = current[6];
+    u32 mut h7 = current[7];
 
-    u32[64] w = [...input, ...[0u32; 48]]
+    u32[64] mut w = [...input, ...[0u32; 48]];
 
-    for u32 i in 16..64 do
-        w[i] = extend(w, i)
-    endfor
+    for u32 i in 16..64 {
+        w[i] = extend(w, i);
+    }
 
-    u32 a = h0
-    u32 b = h1
-    u32 c = h2
-    u32 d = h3
-    u32 e = h4
-    u32 f = h5
-    u32 g = h6
-    u32 h = h7
+    u32 mut a = h0;
+    u32 mut b = h1;
+    u32 mut c = h2;
+    u32 mut d = h3;
+    u32 mut e = h4;
+    u32 mut f = h5;
+    u32 mut g = h6;
+    u32 mut h = h7;
 
-    for u32 i in 0..64 do
-        u32 t1 = temp1(e, f, g, h, K[i], w[i])
-        u32 t2 = temp2(a, b, c)
+    for u32 i in 0..64 {
+        u32 t1 = temp1(e, f, g, h, K[i], w[i]);
+        u32 t2 = temp2(a, b, c);
 
-        h = g
-        g = f
-        f = e
-        e = d + t1
-        d = c
-        c = b
-        b = a
-        a = t1 + t2
-    endfor
+        h = g;
+        g = f;
+        f = e;
+        e = d + t1;
+        d = c;
+        c = b;
+        b = a;
+        a = t1 + t2;
+    }
 
-    h0 = h0 + a
-    h1 = h1 + b
-    h2 = h2 + c
-    h3 = h3 + d
-    h4 = h4 + e
-    h5 = h5 + f
-    h6 = h6 + g
-    h7 = h7 + h
+    h0 = h0 + a;
+    h1 = h1 + b;
+    h2 = h2 + c;
+    h3 = h3 + d;
+    h4 = h4 + e;
+    h5 = h5 + f;
+    h6 = h6 + g;
+    h7 = h7 + h;
 
-    return [h0, h1, h2, h3, h4, h5, h6, h7]
+    return [h0, h1, h2, h3, h4, h5, h6, h7];
+}
     

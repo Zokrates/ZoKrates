@@ -1,5 +1,6 @@
-import "./pack" as pack
+import "./pack" as pack;
 
 // pack 128 big-endian bits into one field element
-def main(u32[4] input) -> field:
-    return pack(input)
+def main(u32[4] input) -> field {
+    return pack(input);
+}

@@ -1,11 +1,12 @@
-def bound(field x) -> u32:
-	return 41 + 1
+def bound(field x) -> u32 {
+    return 41 + 1;
+}
 
-def main(field a) -> field:
-  field x = 7
-  x = x + 1
-  for u32 i in 0..bound(x) + bound(x + 1) do
-    // x = x + a
-    x = x + a
-  endfor
-  return x
+def main(field a) -> field {
+    field mut x = 7;
+    x = x + 1;
+    for u32 i in 0..bound(x) + bound(x + 1) {
+        x = x + a;
+    }
+    return x;
+}

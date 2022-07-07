@@ -1,8 +1,9 @@
-from "./bar" import Bar as MyBar
-from "./bar" import Bar
+from "./bar" import Bar as MyBar;
+from "./bar" import Bar;
 
-def main():
-    MyBar my_bar = MyBar {}
-    Bar bar = Bar {}
-    assert(my_bar == bar)
-    return
+def main() {
+    MyBar my_bar = MyBar {};
+    Bar bar = Bar {};
+    assert(my_bar == bar);
+    return;
+}

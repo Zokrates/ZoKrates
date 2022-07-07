@@ -1,12 +1,13 @@
-def main(field[2][2][2] cube) -> field:
-	field res = 0
+def main(field[2][2][2] cube) -> field {
+    field mut res = 0;
 
-	for u32 i in 0..2 do
-		for u32 j in 0..2 do
-			for u32 k in 0..2 do
-				res = res + cube[i][j][k]
-			endfor
-		endfor
-	endfor
+    for u32 i in 0..2 {
+        for u32 j in 0..2 {
+            for u32 k in 0..2 {
+                res = res + cube[i][j][k];
+            }
+        }
+    }
 
-	return res
+    return res;
+}

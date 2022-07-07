@@ -1,6 +1,7 @@
-from "./foo" import FOO
-from "./bar" import BAR
-from "./baz" import BAZ
+from "./foo" import FOO;
+from "./bar" import BAR;
+from "./baz" import BAZ;
 
-def main() -> bool:
-    return FOO == BAR + BAZ
+def main() -> bool {
+    return FOO == BAR + BAZ;
+}

@@ -1,6 +1,6 @@
 // MiMCFeistel configured with 220 rounds
 
-const u32 R = 220
+const u32 R = 220;
 const field[R] IV = [
     0,
     7120861356467848435263064379192047478074060781135320967663101236819528304084,
@@ -222,28 +222,29 @@ const field[R] IV = [
     11050822248291117548220126630860474473945266276626263036056336623671308219529,
     2119542016932434047340813757208803962484943912710204325088879681995922344971,
     0
-  ]
+];
 
-def main(field xL_in, field xR_in, field k) -> field[2]:
-    field[R] t2 = [0; R]
-    field[R] t4 = [0; R]
-    field[R] xL = [0; R]
-    field[R] xR = [0; R]
+def main(field xL_in, field xR_in, field k) -> field[2] {
+    field[R] mut t2 = [0; R];
+    field[R] mut t4 = [0; R];
+    field[R] mut xL = [0; R];
+    field[R] mut xR = [0; R];
 
-    field t = 0
-    field c = 0
+    field mut t = 0;
+    field mut c = 0;
 
-    for u32 i in 0..R do
-        u32 j = if i == 0 then 0 else i - 1 fi
+    for u32 i in 0..R {
+        u32 j = i == 0 ? 0 : i - 1;
 
-        c = IV[i]
-        t = if i == 0 then k + xL_in else k + xL[j] + c fi
+        c = IV[i];
+        t = i == 0 ? k + xL_in : k + xL[j] + c;
 
-        t2[i] = t * t
-        t4[i] = t2[i] * t2[i]
+        t2[i] = t * t;
+        t4[i] = t2[i] * t2[i];
 
-        xL[i] = if i < R - 1 then (if i == 0 then xR_in + t4[i] * t else xR[j] + t4[i] * t fi) else xL[j] fi
-        xR[i] = if i < R - 1 then (if i == 0 then xL_in else xL[j] fi) else xR[j] + t4[i] * t fi
-    endfor
+        xL[i] = i < R - 1 ? (i == 0 ? xR_in + t4[i] * t : xR[j] + t4[i] * t) : xL[j];
+        xR[i] = i < R - 1 ? (i == 0 ? xL_in : xL[j]) : xR[j] + t4[i] * t;
+    }
 
-    return [xL[R - 1], xR[R - 1]]
+    return [xL[R - 1], xR[R - 1]];
+}

@@ -1,14 +1,16 @@
-def constant() -> u32:
-    u32 res = 0
-    u32 x = 3
-    for u32 y in 0..x do
-        res = res + 1
-    endfor
-    return res
+def constant() -> u32 {
+    u32 mut res = 0;
+    u32 x = 3;
+    for u32 y in 0..x {
+        res = res + 1;
+    }
+    return res;
+}
 
-const u32 CONSTANT = 1 + constant()
+const u32 CONSTANT = 1 + constant();
 
-const u32 OTHER_CONSTANT = 42
+const u32 OTHER_CONSTANT = 42;
 
-def main(field[CONSTANT] a) -> u32:
-    return CONSTANT + OTHER_CONSTANT
+def main(field[CONSTANT] a) -> u32 {
+    return CONSTANT + OTHER_CONSTANT;
+}

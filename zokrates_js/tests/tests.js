@@ -1,170 +1,236 @@
 const assert = require("assert");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const dree = require("dree");
+const snarkjs = require("snarkjs");
 const { initialize } = require("../node/index.js");
 
-describe("tests", function () {
-  let zokratesProvider;
+let zokratesProvider;
+let tmpFolder;
 
+describe("tests", () => {
   // initialize once before running tests
-  before((done) => {
-    initialize().then((defaultProvider) => {
+  before(() => {
+    return initialize().then((defaultProvider) => {
       zokratesProvider = defaultProvider;
-      done();
+      return fs.promises.mkdtemp(path.join(os.tmpdir(), path.sep)).then((folder) => {
+        tmpFolder = folder;
+      });
     });
   });
 
-   describe("compilation", () => {
-     it("should compile", () => {
-       assert.doesNotThrow(() => {
-         const artifacts = zokratesProvider.compile(
-           "def main() -> field: return 42"
-         );
-         assert.ok(artifacts !== undefined);
-       });
-     });
+  after(() => {
+    if (globalThis.curve_bn128) globalThis.curve_bn128.terminate();
+  });
 
-     it("should throw on invalid code", () => {
-       assert.throws(() => zokratesProvider.compile(":-)"));
-     });
+  describe("compilation", () => {
+    it("should compile", () => {
+      assert.doesNotThrow(() => {
 
-     it("should resolve stdlib module", () => {
-       const stdlib = require("../stdlib.js");
-       assert.doesNotThrow(() => {
-         const code = `import "${
-           Object.keys(stdlib)[0]
-         }" as func\ndef main(): return`;
-         zokratesProvider.compile(code);
-       });
-     });
+        const artifacts = zokratesProvider.compile(
+          "def main() -> field { return 42; }"
+        );
+        assert.ok(artifacts !== undefined);
+        assert.ok(artifacts.snarkjs === undefined);
+      });
+    });
 
-     it("should resolve user module", () => {
-       assert.doesNotThrow(() => {
-         const code =
-           'import "test" as test\ndef main() -> field: return test()';
-         const options = {
-           resolveCallback: (_, path) => {
-             return {
-               source: "def main() -> (field): return 1",
-               location: path,
-             };
-           },
-         };
-         zokratesProvider.compile(code, options);
-       });
-     });
+    it("should compile with snarkjs output", () => {
+      assert.doesNotThrow(() => {
+        const artifacts = zokratesProvider.compile(
+          "def main() -> field { return 42; }",
+          { snarkjs: true }
+        );
+        assert.ok(artifacts !== undefined);
+        assert.ok(artifacts.snarkjs.program !== undefined);
+      });
+    });
 
-     it("should throw on unresolved module", () => {
-       assert.throws(() => {
-         const code =
-           'import "test" as test\ndef main() -> field: return test()';
-         zokratesProvider.compile(code);
-       });
-     });
-   });
+    it("should throw on invalid code", () => {
+      assert.throws(() => zokratesProvider.compile(":-)"));
+    });
 
-   describe("computation", () => {
-     it("should compute with valid inputs", () => {
-       assert.doesNotThrow(() => {
-         const code = "def main(private field a) -> field: return a * a";
-         const artifacts = zokratesProvider.compile(code);
+    it("should resolve stdlib module", () => {
+      const stdlib = require("../stdlib.js");
+      assert.doesNotThrow(() => {
+        const code = `import "${
+          Object.keys(stdlib)[0]
+        }" as func;\ndef main() { return; }`;
+        zokratesProvider.compile(code);
+      });
+    });
 
-         const result = zokratesProvider.computeWitness(artifacts, ["2"]);
-         const output = JSON.parse(result.output);
-         assert.deepEqual(output, ["4"]);
-       });
-     });
+    it("should resolve user module", () => {
+      assert.doesNotThrow(() => {
+        const code =
+          'import "test" as test;\ndef main() -> field { return test(); }';
+        const options = {
+          resolveCallback: (_, path) => {
+            return {
+              source: "def main() -> field { return 1; }",
+              location: path,
+            };
+          },
+        };
+        zokratesProvider.compile(code, options);
+      });
+    });
 
-     it("should throw on invalid input count", () => {
-       assert.throws(() => {
-         const code = "def main(private field a) -> field: return a * a";
-         const artifacts = zokratesProvider.compile(code);
-         zokratesProvider.computeWitness(artifacts, ["1", "2"]);
-       });
-     });
+    it("should throw on unresolved module", () => {
+      assert.throws(() => {
+        const code =
+          'import "test" as test;\ndef main() -> field { return test(); }';
+        zokratesProvider.compile(code);
+      });
+    });
+  });
 
-     it("should throw on invalid input type", () => {
-       assert.throws(() => {
-         const code = "def main(private field a) -> field: return a * a";
-         const artifacts = zokratesProvider.compile(code);
-         zokratesProvider.computeWitness(artifacts, [true]);
-       });
-     });
-   });
+  describe("computation", () => {
+    it("should compute with valid inputs", () => {
+      assert.doesNotThrow(() => {
+        const code = "def main(private field a) -> field { return a * a; }";
+        const artifacts = zokratesProvider.compile(code);
+        const result = zokratesProvider.computeWitness(artifacts, ["2"]);
+        const output = JSON.parse(result.output);
+        assert.deepEqual(output, "4");
+        assert.ok(result.snarkjs === undefined);
+      });
+    });
 
-   const runWithOptions = (options) => {
-     let provider;
-     let artifacts;
-     let computationResult;
-     let keypair;
-     let proof;
+    it("should compute with valid inputs with snarkjs output", () => {
+      assert.doesNotThrow(() => {
+        const code = "def main(private field a) -> field { return a * a; }";
+        const artifacts = zokratesProvider.compile(code);
 
-     before((done) => {
-       provider = zokratesProvider.withOptions(options);
-       done();
-     });
+        const result = zokratesProvider.computeWitness(artifacts, ["2"], {
+          snarkjs: true,
+        });
 
-     it("compile", () => {
-       assert.doesNotThrow(() => {
-         const code =
-           "def main(private field a, field b) -> bool: return a * a == b";
-         artifacts = provider.compile(code);
-       });
-     });
+        const output = JSON.parse(result.output);
+        assert.deepEqual(output, "4");
+        assert.ok(result.snarkjs.witness !== undefined);
+      });
+    });
 
-     it("compute witness", () => {
-       assert.doesNotThrow(() => {
-         computationResult = provider.computeWitness(artifacts, ["2", "4"]);
-       });
-     });
+    it("should throw on invalid input count", () => {
+      assert.throws(() => {
+        const code = "def main(private field a) -> field { return a * a; }";
+        const artifacts = zokratesProvider.compile(code);
+        zokratesProvider.computeWitness(artifacts, ["1", "2"]);
+      });
+    });
 
-     it("setup", () => {
-       assert.doesNotThrow(() => {
-         if (options.scheme === "marlin") {
-           const srs = provider.universalSetup(4);
-           keypair = provider.setupWithSrs(srs, artifacts.program);
-         } else {
-           keypair = provider.setup(artifacts.program);
-         }
-       });
-     });
+    it("should throw on invalid input type", () => {
+      assert.throws(() => {
+        const code = "def main(private field a) -> field { return a * a; }";
+        const artifacts = zokratesProvider.compile(code);
+        zokratesProvider.computeWitness(artifacts, [true]);
+      });
+    });
+  });
 
-     if (options.curve === "bn128" && ["g16", "gm17"].includes(options.scheme)) {
-       it("export verifier", () => {
-         assert.doesNotThrow(() => {
-           let verifier = provider.exportSolidityVerifier(keypair.vk);
-           assert.ok(verifier.includes("contract"));
-         });
-       });
-     }
+  const runWithOptions = (options) => {
+    let provider;
+    let artifacts;
+    let computationResult;
+    let keypair;
+    let proof;
 
-     it("generate proof", () => {
-       assert.doesNotThrow(() => {
-         proof = provider.generateProof(
-           artifacts.program,
-           computationResult.witness,
-           keypair.pk
-         );
-         assert.ok(proof !== undefined);
-         assert.equal(proof.inputs.length, 2);
-       });
-     });
+    before(() => {
+      provider = zokratesProvider.withOptions(options);
+    });
 
-     it("verify", () => {
-       assert.doesNotThrow(() => {
-         assert(provider.verify(keypair.vk, proof) === true);
-       });
-     });
-   };
+    it("compile", () => {
+      assert.doesNotThrow(() => {
+        const code =
+          "def main(private field a, field b) -> bool { return a * a == b; }";
+        artifacts = provider.compile(code, { snarkjs: true });
+      });
+    });
 
-   for (const scheme of ["g16", "gm17", "marlin"]) {
-     describe(scheme, () => {
-       for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
-         describe(curve, () => runWithOptions({ scheme, curve }));
-       }
-     });
-   }
+    it("compute witness", () => {
+      assert.doesNotThrow(() => {
+        computationResult = provider.computeWitness(artifacts, ["2", "4"], {
+          snarkjs: true,
+        });
+      });
+    });
+
+    it("setup", () => {
+      assert.doesNotThrow(() => {
+        if (options.scheme === "marlin") {
+          const srs = provider.universalSetup(4);
+          keypair = provider.setupWithSrs(srs, artifacts.program);
+        } else {
+          keypair = provider.setup(artifacts.program);
+        }
+      });
+    });
+
+    if (options.scheme === "g16" && options.curve == "bn128") {
+      it("snarkjs setup", () => {
+        // write program to fs
+        let r1csPath = tmpFolder + "/prog.r1cs";
+        let zkeyPath = tmpFolder + "/key.zkey";
+        return fs.promises
+          .writeFile(r1csPath, artifacts.snarkjs.program)
+          .then(() => {
+            return snarkjs.zKey
+              .newZKey(r1csPath, "./tests/powersOfTau5_0000.ptau", zkeyPath)
+              .then(() => {});
+          });
+      });
+    }
+
+    if (options.curve === "bn128" && ["g16", "gm17"].includes(options.scheme)) {
+      it("export verifier", () => {
+        assert.doesNotThrow(() => {
+          let verifier = provider.exportSolidityVerifier(keypair.vk);
+          assert.ok(verifier.includes("contract"));
+        });
+      });
+    }
+
+    it("generate proof", () => {
+      assert.doesNotThrow(() => {
+        proof = provider.generateProof(
+          artifacts.program,
+          computationResult.witness,
+          keypair.pk
+        );
+        assert.ok(proof !== undefined);
+        assert.equal(proof.inputs.length, 2);
+      });
+    });
+
+    if (options.scheme === "g16" && options.curve == "bn128") {
+      it("generate snarkjs proof", () => {
+        // write witness to fs
+        let witnessPath = tmpFolder + "/witness.wtns";
+        let zkeyPath = tmpFolder + "/key.zkey";
+        return fs.promises
+          .writeFile(witnessPath, computationResult.snarkjs.witness)
+          .then(() => {
+            return snarkjs.groth16.prove(zkeyPath, witnessPath);
+          });
+      });
+    }
+
+    it("verify", () => {
+      assert.doesNotThrow(() => {
+        assert(provider.verify(keypair.vk, proof) === true);
+      });
+    });
+  };
+
+  for (const scheme of ["g16", "gm17", "marlin"]) {
+    describe(scheme, () => {
+      for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
+        describe(curve, () => runWithOptions({ scheme, curve }));
+      }
+    });
+  }
 
   const testRunner = (rootPath, testPath, test) => {
     let entryPoint;
@@ -218,8 +284,8 @@ describe("tests", function () {
               input,
               t.input.values
             );
-            const values = JSON.parse(result.output);
-            assert.deepEqual({ Ok: { values } }, t.output);
+            const value = JSON.parse(result.output);
+            assert.deepEqual({ Ok: { value } }, t.output);
           } catch (err) {
             assert.ok(t.output["Err"], err); // we expected an error in this test
           }
@@ -241,7 +307,7 @@ describe("tests", function () {
       const test = require(file.path);
       const testName = file.path.substring(testsPath.length + 1);
 
-      if (!ignoreList.some(v => testName.startsWith(v)))
+      if (!ignoreList.some((v) => testName.startsWith(v)))
         describe(testName, () => testRunner(rootPath, file.path, test));
     });
   });
