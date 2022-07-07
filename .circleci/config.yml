@@ -214,8 +214,8 @@ commands:
   install_cross:
     steps:
       - run:
-          name: Install rust-embedded/cross
-          command: cargo install --git https://github.com/rust-embedded/cross
+          name: Install cross
+          command: cargo install cross --git https://github.com/cross-rs/cross
   tar_artifacts:
     parameters:
       target:
