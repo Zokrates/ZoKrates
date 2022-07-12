@@ -1,12 +1,12 @@
 [package]
 name = "zokrates_test"
-version = "0.1.10"
+version = "0.2.0"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
 [dependencies]
 zokrates_field = { version = "0.5.0", path = "../zokrates_field" }
-zokrates_core = { version = "0.6", path = "../zokrates_core" }
+zokrates_core = { version = "0.7", path = "../zokrates_core" }
 zokrates_ast = { version = "0.1", path = "../zokrates_ast" }
 zokrates_interpreter = { version = "0.1", path = "../zokrates_interpreter" }
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver" }
