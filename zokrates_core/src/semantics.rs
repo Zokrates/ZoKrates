@@ -5,7 +5,7 @@
 //! @date 2017
 
 use num_bigint::BigUint;
-use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{btree_map::Entry, hash_map, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
 use zokrates_ast::common::FormatString;
@@ -296,18 +296,19 @@ impl<'ast> PartialEq for ScopedIdentifier<'ast> {
             _ => unreachable!(),
         };
 
-        i0 == i1
+        i0 == i1 && (self.level == other.level)
     }
 }
 
 /// Identifiers coming from constants or variables hash to the same result
 impl<'ast> Hash for ScopedIdentifier<'ast> {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        self.level.hash(state);
         match &self.id {
             CoreIdentifier::Source(id) => id.hash(state),
             CoreIdentifier::Constant(c) => c.id.hash(state),
             _ => unreachable!(),
-        }
+        };
     }
 }
 
@@ -3542,23 +3543,30 @@ impl<'ast, T: Field> Checker<'ast, T> {
     ) -> Option<(&'a ScopedIdentifier<'ast>, &'a IdentifierInfo<'ast, T>)> {
         self.scope.get_key_value(&ScopedIdentifier {
             id: CoreIdentifier::Source(identifier),
-            level: 0,
+            level: self.level,
         })
     }
 
     fn insert_into_scope(&mut self, v: Variable<'ast, T>) -> bool {
-        self.scope
-            .insert(
-                ScopedIdentifier {
-                    id: v.id.id,
-                    level: self.level,
-                },
-                IdentifierInfo {
-                    ty: v._type,
-                    is_mutable: v.is_mutable,
-                },
-            )
-            .is_none()
+        let id = ScopedIdentifier {
+            id: v.id.id,
+            level: self.level,
+        };
+        let info = IdentifierInfo {
+            ty: v._type,
+            is_mutable: v.is_mutable,
+        };
+        match self.scope.entry(id) {
+            hash_map::Entry::Occupied(mut e) => {
+                // we shadow here any previously declared variables
+                e.insert(info);
+            }
+            hash_map::Entry::Vacant(e) => {
+                // first time declared
+                e.insert(info);
+            }
+        };
+        true // TODO: remove this
     }
 
     fn find_functions(
