@@ -1,6 +1,6 @@
 {
   "name": "zokrates-js",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "module": "index.js",
   "main": "node/index.js",
   "description": "JavaScript bindings for ZoKrates",
@@ -25,8 +25,8 @@
   ],
   "types": "index.d.ts",
   "exports": {
-    "import": "./index.js",
-    "require": "./node/index.js"
+    "node": "./node/index.js",
+    "default": "./index.js"
   },
   "scripts": {
     "wasm-pack": "wasm-pack build --out-name index",
