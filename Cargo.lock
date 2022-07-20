@@ -3208,7 +3208,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "console_error_panic_hook",
  "indexmap",

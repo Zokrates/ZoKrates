@@ -164,7 +164,7 @@ impl<T: Field + ArkFieldExtensions> UniversalBackend<T, marlin::Marlin> for Ark 
         })?;
 
         let mut serialized_pk: Vec<u8> = Vec::new();
-        pk.serialize_uncompressed(&mut serialized_pk).unwrap();
+        pk.serialize_unchecked(&mut serialized_pk).unwrap();
 
         // Precompute some useful values for solidity contract
         let fs_seed = to_bytes![&MarlinInst::<T>::PROTOCOL_NAME, &vk].unwrap();
@@ -225,7 +225,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, marlin::Marlin> for Ark {
                 T::ArkEngine,
                 DensePolynomial<<<T as ArkFieldExtensions>::ArkEngine as PairingEngine>::Fr>,
             >,
-        >::deserialize_uncompressed(&mut proving_key.as_slice())
+        >::deserialize_unchecked(&mut proving_key.as_slice())
         .unwrap();
 
         let public_inputs = computation.public_inputs_values();
