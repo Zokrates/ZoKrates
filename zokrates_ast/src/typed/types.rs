@@ -229,13 +229,13 @@ impl<'ast, T> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
     fn from(c: DeclarationConstant<'ast, T>) -> Self {
         match c {
             DeclarationConstant::Generic(i) => {
-                UExpressionInner::Identifier(i.name().into()).annotate(UBitwidth::B32)
+                UExpressionInner::Identifier(ShadowedIdentifier::function_level(i.name().into()).into()).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
-                UExpressionInner::Identifier(CoreIdentifier::from(v).into())
+                UExpressionInner::Identifier(ShadowedIdentifier::top_level(CoreIdentifier::from(v)).into())
                     .annotate(UBitwidth::B32)
             }
             DeclarationConstant::Expression(e) => e.try_into().unwrap(),
@@ -1129,7 +1129,7 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
 
 impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
     fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
-        UExpressionInner::Identifier(Identifier::from(CoreIdentifier::Constant(c)))
+        UExpressionInner::Identifier(Identifier::from(ShadowedIdentifier::top_level(CoreIdentifier::Constant(c))))
             .annotate(UBitwidth::B32)
     }
 }
@@ -1214,6 +1214,8 @@ pub fn specialize_declaration_type<
 pub use self::signature::{
     try_from_g_signature, ConcreteSignature, DeclarationSignature, GSignature, Signature,
 };
+
+use super::ShadowedIdentifier;
 
 pub mod signature {
     use super::*;

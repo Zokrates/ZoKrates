@@ -156,14 +156,14 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
     }
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Result<Identifier<'ast>, Self::Error> {
-        let id = match n.id {
+        let id = match n.id.id {
             CoreIdentifier::Constant(c) => {
                 CoreIdentifier::Constant(self.fold_canonical_constant_identifier(c)?)
             }
             id => id,
         };
 
-        Ok(Identifier { id, ..n })
+        Ok(Identifier { id: ShadowedIdentifier {id, ..n.id}, ..n })
     }
 
     fn fold_variable(&mut self, v: Variable<'ast, T>) -> Result<Variable<'ast, T>, Self::Error> {

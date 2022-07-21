@@ -127,11 +127,11 @@ impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
-    fn from(e: &'ast str) -> Self {
-        UExpressionInner::Identifier(e.into())
-    }
-}
+// impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
+//     fn from(e: &'ast str) -> Self {
+//         UExpressionInner::Identifier(e.into())
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct UMetadata {

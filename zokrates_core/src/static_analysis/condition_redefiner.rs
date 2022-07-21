@@ -1,7 +1,7 @@
 use zokrates_ast::typed::{
     folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
     ConditionalOrExpression, CoreIdentifier, Expr, Identifier, Type, TypedProgram, TypedStatement,
-    Variable,
+    Variable, ShadowedIdentifier,
 };
 use zokrates_field::Field;
 
@@ -64,7 +64,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
             condition @ BooleanExpression::Value(_)
             | condition @ BooleanExpression::Identifier(_) => condition,
             condition => {
-                let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
+                let condition_id = Identifier::from(ShadowedIdentifier::top_level(CoreIdentifier::Condition(self.index)));
                 self.buffer.push(TypedStatement::Definition(
                     Variable::immutable(condition_id.clone(), Type::Boolean).into(),
                     condition.into(),
