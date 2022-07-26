@@ -1,0 +1,1 @@
+Avoid validity checks on the deserialization of the proving key to improve proving time
