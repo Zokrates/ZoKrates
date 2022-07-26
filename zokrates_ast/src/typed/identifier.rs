@@ -31,7 +31,7 @@ impl<'ast> From<CanonicalConstantIdentifier<'ast>> for CoreIdentifier<'ast> {
 /// A identifier for a variable
 #[derive(Debug, PartialEq, Clone, Hash, Eq, PartialOrd, Ord)]
 pub struct Identifier<'ast> {
-    /// the id of the variable with its shadowing id
+    /// the id of the variable
     pub id: CoreIdentifier<'ast>,
     /// the version of the variable, used after SSA transformation
     pub version: usize,

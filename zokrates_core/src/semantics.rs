@@ -280,7 +280,7 @@ struct Scope<'ast, T> {
 }
 
 impl<'ast, T: Field> Scope<'ast, T> {
-    // insert into the scope and return how many existing variables we are shadowing
+    // insert into the scope and return whether we are shadowing an existing variable
     fn insert(
         &mut self,
         id: SourceIdentifier<'ast>,
@@ -1749,6 +1749,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
         match expr.value {
+            // for function calls, check the rhs with the expected type
             Expression::FunctionCall(box fun_id_expression, generics, arguments) => self
                 .check_function_call_expression(
                     fun_id_expression,
@@ -1758,35 +1759,8 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     module_id,
                     types,
                 ),
-            _ => {
-                // check the expression to be assigned
-                self.check_expression(expr, module_id, types)
-
-                // // make sure the assignee has the same type as the rhs
-                // match return_type {
-                //     Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
-                //         .map(TypedExpression::from),
-                //     Type::Boolean => {
-                //         BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
-                //     }
-                //     Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, &bitwidth)
-                //         .map(TypedExpression::from),
-                //     Type::Array(ref array_ty) => {
-                //         ArrayExpression::try_from_typed(checked_expr, array_ty)
-                //             .map(TypedExpression::from)
-                //     }
-                //     Type::Struct(ref struct_ty) => {
-                //         StructExpression::try_from_typed(checked_expr, struct_ty)
-                //             .map(TypedExpression::from)
-                //     }
-                //     Type::Tuple(ref tuple_ty) => {
-                //         TupleExpression::try_from_typed(checked_expr, tuple_ty)
-                //             .map(TypedExpression::from)
-                //     }
-                //     Type::Int => Err(checked_expr), // Integers cannot be assigned
-                // }
-                // .map_err(|e| vec![e])
-            }
+            // otherwise, just check the rhs normally
+            _ => self.check_expression(expr, module_id, types),
         }
     }
 
