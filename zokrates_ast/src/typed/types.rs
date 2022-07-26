@@ -48,6 +48,13 @@ pub struct GenericIdentifier<'ast> {
     index: usize,
 }
 
+impl<'ast> From<GenericIdentifier<'ast>> for CoreIdentifier<'ast> {
+    fn from(g: GenericIdentifier<'ast>) -> CoreIdentifier<'ast> {
+        // generic identifiers are always declared in the function scope, which is shadow 0
+        CoreIdentifier::Source(ShadowedIdentifier::nth(g.name(), 0))
+    }
+}
+
 impl<'ast> GenericIdentifier<'ast> {
     pub fn without_name() -> Self {
         Self {
@@ -228,14 +235,15 @@ impl<'ast, T> From<u32> for UExpression<'ast, T> {
 impl<'ast, T> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
     fn from(c: DeclarationConstant<'ast, T>) -> Self {
         match c {
-            DeclarationConstant::Generic(i) => {
-                UExpressionInner::Identifier(ShadowedIdentifier::function_level(i.name().into()).into()).annotate(UBitwidth::B32)
+            DeclarationConstant::Generic(g) => {
+                UExpressionInner::Identifier(CoreIdentifier::from(g).into())
+                    .annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
             }
             DeclarationConstant::Constant(v) => {
-                UExpressionInner::Identifier(ShadowedIdentifier::top_level(CoreIdentifier::from(v)).into())
+                UExpressionInner::Identifier(CoreIdentifier::from(v).into())
                     .annotate(UBitwidth::B32)
             }
             DeclarationConstant::Expression(e) => e.try_into().unwrap(),
@@ -1129,7 +1137,7 @@ pub fn check_type<'ast, T, S: Clone + PartialEq + PartialEq<u32>>(
 
 impl<'ast, T> From<CanonicalConstantIdentifier<'ast>> for UExpression<'ast, T> {
     fn from(c: CanonicalConstantIdentifier<'ast>) -> Self {
-        UExpressionInner::Identifier(Identifier::from(ShadowedIdentifier::top_level(CoreIdentifier::Constant(c))))
+        UExpressionInner::Identifier(Identifier::from(CoreIdentifier::Constant(c)))
             .annotate(UBitwidth::B32)
     }
 }

@@ -18,7 +18,6 @@ mod shallow_ssa;
 
 use self::inline::{inline_call, InlineError};
 use std::collections::HashMap;
-use zokrates_ast::typed::ShadowedIdentifier;
 use zokrates_ast::typed::result_folder::*;
 use zokrates_ast::typed::types::ConcreteGenericsAssignment;
 use zokrates_ast::typed::types::GGenericsAssignment;
@@ -48,7 +47,7 @@ pub type ConstantDefinitions<'ast, T> =
     HashMap<CanonicalConstantIdentifier<'ast>, TypedExpression<'ast, T>>;
 
 // An SSA version map, giving access to the latest version number for each identifier
-pub type Versions<'ast> = HashMap<ShadowedIdentifier<'ast>, usize>;
+pub type Versions<'ast> = HashMap<CoreIdentifier<'ast>, usize>;
 
 // A container to represent whether more treatment must be applied to the function
 #[derive(Debug, PartialEq, Eq)]
@@ -86,7 +85,7 @@ impl fmt::Display for Error {
 }
 
 #[derive(Debug, Default)]
-struct Substitutions<'ast>(HashMap<ShadowedIdentifier<'ast>, HashMap<usize, usize>>);
+struct Substitutions<'ast>(HashMap<CoreIdentifier<'ast>, HashMap<usize, usize>>);
 
 impl<'ast> Substitutions<'ast> {
     // create an equivalent substitution map where all paths
@@ -267,10 +266,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Reducer<'ast, 'a, T> {
                 )))
             }
             Err(InlineError::Flat(embed, generics, arguments, output_type)) => {
-                let identifier = Identifier::from(ShadowedIdentifier::top_level(CoreIdentifier::Call(0))).version(
+                let identifier = Identifier::from(CoreIdentifier::Call(0)).version(
                     *self
                         .versions
-                        .entry(ShadowedIdentifier::top_level(CoreIdentifier::Call(0)))
+                        .entry(CoreIdentifier::Call(0))
                         .and_modify(|e| *e += 1) // if it was already declared, we increment
                         .or_insert(0),
                 );

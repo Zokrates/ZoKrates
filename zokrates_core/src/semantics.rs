@@ -273,12 +273,19 @@ pub struct IdentifierInfo<'ast, T, U> {
 #[derive(Default, Debug)]
 struct Scope<'ast, T> {
     level: usize,
-    map: HashMap<SourceIdentifier<'ast>, BTreeMap<usize, IdentifierInfo<'ast, T, CoreIdentifier<'ast>>>>,
+    map: HashMap<
+        SourceIdentifier<'ast>,
+        BTreeMap<usize, IdentifierInfo<'ast, T, CoreIdentifier<'ast>>>,
+    >,
 }
 
 impl<'ast, T: Field> Scope<'ast, T> {
     // insert into the scope and return how many existing variables we are shadowing
-    fn insert(&mut self, id: SourceIdentifier<'ast>, info: IdentifierInfo<'ast, T, CoreIdentifier<'ast>>) -> bool {
+    fn insert(
+        &mut self,
+        id: SourceIdentifier<'ast>,
+        info: IdentifierInfo<'ast, T, CoreIdentifier<'ast>>,
+    ) -> bool {
         let existed = self
             .map
             .get(&id)
@@ -290,17 +297,13 @@ impl<'ast, T: Field> Scope<'ast, T> {
     }
 
     /// get the current version of this variable
-    fn get(&self, id: &SourceIdentifier<'ast>) -> Option<IdentifierInfo<'ast, T, ShadowedIdentifier<'ast>>> {
+    fn get(
+        &self,
+        id: &SourceIdentifier<'ast>,
+    ) -> Option<IdentifierInfo<'ast, T, CoreIdentifier<'ast>>> {
         self.map
             .get(id)
-            .and_then(|versions| {
-                let (n, info) = versions.iter().next_back()?;
-                Some(IdentifierInfo {
-                    id: ShadowedIdentifier::nth(info.id.clone(), *n),
-                    ty: info.ty.clone(),
-                    is_mutable: info.is_mutable
-                })
-            })
+            .and_then(|versions| versions.values().next_back().cloned())
     }
 
     fn enter(&mut self) {
@@ -1080,6 +1083,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
         Ok(var)
     }
 
+    fn id_in_this_scope(&self, id: SourceIdentifier<'ast>) -> CoreIdentifier<'ast> {
+        // in the semantic checker, 0 is top level, 1 is function level. For shadowing, we start with 0 at function level
+        // hence the offset of 1
+        assert!(
+            self.scope.level > 0,
+            "CoreIdentifier cannot be declared in the global scope"
+        );
+        CoreIdentifier::from(ShadowedIdentifier::nth(id, self.scope.level - 1))
+    }
+
     fn check_function(
         &mut self,
         funct_node: FunctionNode<'ast>,
@@ -1117,7 +1130,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     // for declaration signatures, generics cannot be ignored
                     generics.0.insert(
                         generic.clone(),
-                        UExpressionInner::Identifier(ShadowedIdentifier::nth(generic.name().into(), self.scope.level).into())
+                        UExpressionInner::Identifier(self.id_in_this_scope(generic.name()).into())
                             .annotate(UBitwidth::B32),
                     );
 
@@ -1131,7 +1144,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let arg = arg.value;
 
                     let decl_v = DeclarationVariable::new(
-                        ShadowedIdentifier::nth(arg.id.value.id.into(), 1),
+                        self.id_in_this_scope(arg.id.value.id),
                         decl_ty.clone(),
                         arg.id.value.is_mutable,
                     );
@@ -1144,7 +1157,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let id = arg.id.value.id;
                     let info = IdentifierInfo {
-                        id: decl_v.id.id.id.clone(),
+                        id: decl_v.id.id.clone(),
                         ty,
                         is_mutable,
                     };
@@ -1627,15 +1640,15 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<Variable<'ast, T>, Vec<ErrorInner>> {
-
-        let ty = self.check_type(v.value._type, module_id, types)
-        .map_err(|e| vec![e])?;
+        let ty = self
+            .check_type(v.value._type, module_id, types)
+            .map_err(|e| vec![e])?;
 
         // insert into the scope and ignore whether shadowing happened
         self.insert_into_scope(v.value.id, ty.clone(), v.value.is_mutable);
 
         Ok(Variable::new(
-            ShadowedIdentifier::nth(v.value.id.into(), self.scope.level),
+            self.id_in_this_scope(v.value.id),
             ty,
             v.value.is_mutable,
         ))
@@ -1736,21 +1749,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
         types: &TypeMap<'ast, T>,
     ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
         match expr.value {
-            Expression::FunctionCall(box fun_id_expression, generics, arguments) => {
-                self
-                    .check_function_call_expression(
-                        fun_id_expression,
-                        generics,
-                        arguments,
-                        Some(return_type),
-                        module_id,
-                        types,
-                    )
-            }
+            Expression::FunctionCall(box fun_id_expression, generics, arguments) => self
+                .check_function_call_expression(
+                    fun_id_expression,
+                    generics,
+                    arguments,
+                    Some(return_type),
+                    module_id,
+                    types,
+                ),
             _ => {
                 // check the expression to be assigned
-                self
-                    .check_expression(expr, module_id, types)
+                self.check_expression(expr, module_id, types)
 
                 // // make sure the assignee has the same type as the rhs
                 // match return_type {
@@ -1889,19 +1899,21 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 Ok(res)
             }
             Statement::Definition(var, expr) => {
-
                 // get the lhs type
-                let var_ty = self.check_type(var.value._type, module_id, types)
+                let var_ty = self
+                    .check_type(var.value._type, module_id, types)
                     .map_err(|e| vec![e])?;
-                
+
                 // check the rhs based on the lhs type
-                let checked_expr = self.check_rhs(var_ty.clone(), expr, module_id, types).map_err(|e| vec![e])?;
+                let checked_expr = self
+                    .check_rhs(var_ty.clone(), expr, module_id, types)
+                    .map_err(|e| vec![e])?;
 
                 // insert the lhs into the scope and ignore whether shadowing happened
                 self.insert_into_scope(var.value.id, var_ty.clone(), var.value.is_mutable);
 
                 let var = Variable::new(
-                    ShadowedIdentifier::nth(var.value.id.into(), self.scope.level),
+                    self.id_in_this_scope(var.value.id),
                     var_ty.clone(),
                     var.value.is_mutable,
                 );
@@ -1946,10 +1958,12 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 let assignee = self
                     .check_assignee(assignee, module_id, types)
                     .map_err(|e| vec![e])?;
-                
+
                 let assignee_ty = assignee.get_type();
 
-                let checked_expr = self.check_rhs(assignee_ty.clone(), expr, module_id, types).map_err(|e| vec![e])?;
+                let checked_expr = self
+                    .check_rhs(assignee_ty.clone(), expr, module_id, types)
+                    .map_err(|e| vec![e])?;
 
                 match assignee_ty {
                     Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
@@ -2369,7 +2383,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                             }
                             Type::Int => unreachable!(),
                         }
-                    },
+                    }
                     None => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Identifier \"{}\" is undefined", name),
@@ -3603,9 +3617,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
     }
 
-    fn insert_into_scope(&mut self, id: SourceIdentifier<'ast>, ty: Type<'ast, T>, is_mutable: bool) -> bool {
+    fn insert_into_scope(
+        &mut self,
+        id: SourceIdentifier<'ast>,
+        ty: Type<'ast, T>,
+        is_mutable: bool,
+    ) -> bool {
         let info = IdentifierInfo {
-            id: CoreIdentifier::Source(id),
+            id: self.id_in_this_scope(id),
             ty,
             is_mutable,
         };
@@ -4465,7 +4484,7 @@ mod tests {
         scope.insert(
             "b",
             IdentifierInfo {
-                id: CoreIdentifier::Source("b"),
+                id: "b".into(),
                 ty: Type::FieldElement,
                 is_mutable: false,
             },
@@ -4705,15 +4724,24 @@ mod tests {
         ];
 
         let for_statements_checked = vec![TypedStatement::Definition(
-            typed::Variable::uint("a", UBitwidth::B32).into(),
-            UExpressionInner::Identifier("i".into())
-                .annotate(UBitwidth::B32)
-                .into(),
+            typed::Variable::uint(
+                CoreIdentifier::Source(ShadowedIdentifier::nth("a", 1)),
+                UBitwidth::B32,
+            )
+            .into(),
+            UExpressionInner::Identifier(
+                CoreIdentifier::Source(ShadowedIdentifier::nth("i", 1)).into(),
+            )
+            .annotate(UBitwidth::B32)
+            .into(),
         )];
 
         let foo_statements_checked = vec![
             TypedStatement::For(
-                typed::Variable::uint("i", UBitwidth::B32),
+                typed::Variable::uint(
+                    CoreIdentifier::Source(ShadowedIdentifier::nth("i", 1)),
+                    UBitwidth::B32,
+                ),
                 0u32.into(),
                 10u32.into(),
                 for_statements_checked,
@@ -5201,6 +5229,7 @@ mod tests {
         // should succeed
 
         let mut checker: Checker<Bn128Field> = Checker::default();
+        checker.enter_scope();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Definition(
                 untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
@@ -5231,6 +5260,7 @@ mod tests {
         // should succeed
 
         let mut checker: Checker<Bn128Field> = Checker::default();
+        checker.enter_scope();
         let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Definition(
                 untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),

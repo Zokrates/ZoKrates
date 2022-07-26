@@ -31,7 +31,6 @@ use crate::static_analysis::reducer::ShallowTransformer;
 use crate::static_analysis::reducer::Versions;
 
 use zokrates_ast::common::FlatEmbed;
-use zokrates_ast::typed::ShadowedIdentifier;
 use zokrates_ast::typed::types::{ConcreteGenericsAssignment, IntoType};
 use zokrates_ast::typed::CoreIdentifier;
 use zokrates_ast::typed::Identifier;
@@ -194,9 +193,9 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     };
 
     let v: ConcreteVariable<'ast> = ConcreteVariable::new(
-        Identifier::from(ShadowedIdentifier::top_level(CoreIdentifier::Call(0))).version(
+        Identifier::from(CoreIdentifier::Call(0)).version(
             *versions
-                .entry(ShadowedIdentifier::top_level(CoreIdentifier::Call(0)))
+                .entry(CoreIdentifier::Call(0))
                 .and_modify(|e| *e += 1) // if it was already declared, we increment
                 .or_insert(0),
         ),
@@ -206,8 +205,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 
     let expression = TypedExpression::from(Variable::from(v.clone()));
 
-    let output_binding =
-        TypedStatement::Definition(Variable::from(v).into(), return_expression);
+    let output_binding = TypedStatement::Definition(Variable::from(v).into(), return_expression);
 
     let pop_log = TypedStatement::PopCallLog;
 
