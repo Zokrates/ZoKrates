@@ -202,7 +202,7 @@ repository:
             -
                 comment: 'control flow keywords'
                 name: keyword.control.zokrates
-                match: \b(for|in|do|endfor|if|then|else|fi|return|assert)\b
+                match: \b(for|in|if|then|else|fi|return|assert|log)\b
             -
                 comment: 'storage keywords'
                 name: storage.type.zokrates
@@ -227,6 +227,10 @@ repository:
                 comment: 'logical operators'
                 name: keyword.operator.logical.zokrates
                 match: '(\^|\||\|\||&|&&|<<|>>|!)(?!=)'
+            -
+                comment: 'mut'
+                name: "storage.modifier.mut.zokrates"
+                match: \b(mut)\b
             -
                 comment: 'single equal'
                 name: keyword.operator.assignment.equal.zokrates
@@ -310,9 +314,17 @@ repository:
                 name: punctuation.comma.zokrates
                 match: ','
             -
+                comment: 'curly braces'
+                name: punctuation.brackets.curly.zokrates
+                match: '[{}]'
+            -
                 comment: 'parentheses, round brackets'
                 name: punctuation.brackets.round.zokrates
                 match: '[()]'
+            -
+                comment: 'semicolon'
+                name: punctuation.semi.zokrates
+                match: ';'
             -
                 comment: 'square brackets'
                 name: punctuation.brackets.square.zokrates

@@ -188,7 +188,7 @@
       "patterns": [
         {
           "comment": "constant definition",
-          "name": "constant.definition.zokrates",
+          "name": "meta.constant.definition.zokrates",
           "match": "\\b(const)\\s+([A-Za-z0-9_]+)\\s+([A-Za-z0-9_]+)\\s+=\\s+(?:.+)\\b",
           "captures": {
             "1": {
@@ -388,7 +388,7 @@
         {
           "comment": "control flow keywords",
           "name": "keyword.control.zokrates",
-          "match": "\\b(do|else|for|do|endfor|if|then|fi|return|assert)\\b"
+          "match": "\\b(for|in|if|then|else|fi|return|assert|log)\\b"
         },
         {
           "comment": "storage keywords",
@@ -396,14 +396,19 @@
           "match": "\\b(struct)\\b"
         },
         {
-          "comment": "const",
+          "comment": "const keyword",
           "name": "keyword.other.const.zokrates",
-          "match": "\\bconst\\b"
+          "match": "\\b(const)\\b"
         },
         {
-          "comment": "def",
+          "comment": "type keyword",
+          "name": "keyword.other.type.zokrates",
+          "match": "\\b(type)\\b"
+        },
+        {
+          "comment": "def keyword",
           "name": "keyword.other.def.zokrates",
-          "match": "\\bdef\\b"
+          "match": "\\b(def)\\b"
         },
         {
           "comment": "import keywords",
@@ -414,6 +419,11 @@
           "comment": "logical operators",
           "name": "keyword.operator.logical.zokrates",
           "match": "(\\^|\\||\\|\\||&|&&|<<|>>|!)(?!=)"
+        },
+        {
+          "comment": "mut",
+          "name": "storage.modifier.mut.zokrates",
+          "match": "\\b(mut)\\b"
         },
         {
           "comment": "single equal",
@@ -560,9 +570,19 @@
           "match": ","
         },
         {
+          "comment": "curly braces",
+          "name": "punctuation.brackets.curly.zokrates",
+          "match": "[{}]"
+        },
+        {
           "comment": "parentheses, round brackets",
           "name": "punctuation.brackets.round.zokrates",
           "match": "[()]"
+        },
+        {
+          "comment": "semicolon",
+          "name": "punctuation.semi.zokrates",
+          "match": ";"
         },
         {
           "comment": "square brackets",
