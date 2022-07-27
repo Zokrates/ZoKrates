@@ -1,6 +1,6 @@
 {
   "name": "ace-mode-zokrates",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Ace Mode for ZoKrates DSL",
   "main": "index.js",
   "scripts": {
