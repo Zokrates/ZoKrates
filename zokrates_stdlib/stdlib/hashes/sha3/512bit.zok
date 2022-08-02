@@ -1,9 +1,5 @@
-from "hashes/keccak/keccak" import keccak, main as keccak_u8;
+from "hashes/keccak/keccak" import main as keccak;
 
-def sha3_512<N>(u8[N] input) -> u64[8] {
-    return keccak_u8::<_, 512>(input, 0x0000000000000006)[..8];
-}
-
-def main<N>(u64[N] input) -> u64[8] {
-    return keccak::<_, 512>(input, 0x0000000000000006)[..8];
+def main<N>(u8[N] input) -> u8[64] {
+    return keccak::<_, 64>(input, 0x06);
 }
