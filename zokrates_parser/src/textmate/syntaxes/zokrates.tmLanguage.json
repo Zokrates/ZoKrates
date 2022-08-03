@@ -116,7 +116,7 @@
         {
           "comment": "decimal integers and floats",
           "name": "constant.numeric.decimal.zokrates",
-          "match": "\\b\\d[\\d_]*(?:u128|u16|u32|u64|u8|f)?\\b"
+          "match": "\\b\\d[\\d_]*(?:u16|u32|u64|u8|f)?\\b"
         },
         {
           "comment": "hexadecimal integers",
@@ -388,7 +388,7 @@
         {
           "comment": "control flow keywords",
           "name": "keyword.control.zokrates",
-          "match": "\\b(for|in|if|then|else|fi|return|assert|log)\\b"
+          "match": "\\b(for|in|if|else|return|assert|log)\\b"
         },
         {
           "comment": "storage keywords",
@@ -493,7 +493,7 @@
       "patterns": [
         {
           "comment": "numeric types",
-          "match": "(?<![A-Za-z])(u128|u16|u32|u64|u8|field)\\b",
+          "match": "(?<![A-Za-z])(u16|u32|u64|u8|field)\\b",
           "captures": {
             "1": {
               "name": "entity.name.type.numeric.zokrates"
