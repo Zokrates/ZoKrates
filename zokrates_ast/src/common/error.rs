@@ -37,6 +37,7 @@ impl From<crate::zir::RuntimeError> for RuntimeError {
         match error {
             crate::zir::RuntimeError::SourceAssertion(s) => RuntimeError::SourceAssertion(s),
             crate::zir::RuntimeError::SelectRangeCheck => RuntimeError::SelectRangeCheck,
+            crate::zir::RuntimeError::DivisionByZero => RuntimeError::Inverse,
         }
     }
 }

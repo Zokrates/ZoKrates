@@ -1739,7 +1739,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         types,
                     )
                     .map_err(|e| vec![e])?;
-                Ok(TypedStatement::Definition(assignee, e))
+                Ok(TypedStatement::definition(assignee, e))
             }
             _ => {
                 // check the expression to be assigned
@@ -1780,7 +1780,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         assignee_type
                     ),
                 })
-                .map(|rhs| TypedStatement::Definition(assignee, rhs))
+                .map(|rhs| TypedStatement::definition(assignee, rhs))
                 .map_err(|e| vec![e])
             }
         }
@@ -4430,7 +4430,7 @@ mod tests {
         let mut checker: Checker<Bn128Field> = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
-            Ok(TypedStatement::Definition(
+            Ok(TypedStatement::definition(
                 TypedAssignee::Identifier(typed::Variable::field_element("a")),
                 FieldElementExpression::Identifier("b".into()).into()
             ))
@@ -4659,7 +4659,7 @@ mod tests {
             Statement::Return(None).mock(),
         ];
 
-        let for_statements_checked = vec![TypedStatement::Definition(
+        let for_statements_checked = vec![TypedStatement::definition(
             TypedAssignee::Identifier(typed::Variable::uint("a", UBitwidth::B32)),
             UExpressionInner::Identifier("i".into())
                 .annotate(UBitwidth::B32)

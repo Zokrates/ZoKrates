@@ -385,6 +385,13 @@ pub trait ResultFolder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_definition_rhs(
+        &mut self,
+        rhs: DefinitionRhs<'ast, T>,
+    ) -> Result<DefinitionRhs<'ast, T>, Self::Error> {
+        fold_definition_rhs(self, rhs)
+    }
+
     fn fold_embed_call(
         &mut self,
         e: EmbedCall<'ast, T>,
@@ -508,7 +515,7 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
     let res = match s {
         TypedStatement::Return(e) => TypedStatement::Return(f.fold_expression(e)?),
         TypedStatement::Definition(a, e) => {
-            TypedStatement::Definition(f.fold_assignee(a)?, f.fold_expression(e)?)
+            TypedStatement::Definition(f.fold_assignee(a)?, f.fold_definition_rhs(e)?)
         }
         TypedStatement::Assertion(e, error) => {
             TypedStatement::Assertion(f.fold_boolean_expression(e)?, error)
@@ -531,15 +538,19 @@ pub fn fold_statement<'ast, T: Field, F: ResultFolder<'ast, T>>(
                 .map(|e| f.fold_expression(e))
                 .collect::<Result<Vec<_>, _>>()?,
         ),
-        TypedStatement::EmbedCallDefinition(assignee, embed_call) => {
-            TypedStatement::EmbedCallDefinition(
-                f.fold_assignee(assignee)?,
-                f.fold_embed_call(embed_call)?,
-            )
-        }
         s => s,
     };
     Ok(vec![res])
+}
+
+pub fn fold_definition_rhs<'ast, T: Field, F: ResultFolder<'ast, T>>(
+    f: &mut F,
+    rhs: DefinitionRhs<'ast, T>,
+) -> Result<DefinitionRhs<'ast, T>, F::Error> {
+    Ok(match rhs {
+        DefinitionRhs::EmbedCall(c) => DefinitionRhs::EmbedCall(f.fold_embed_call(c)?),
+        DefinitionRhs::Expression(e) => DefinitionRhs::Expression(f.fold_expression(e)?),
+    })
 }
 
 pub fn fold_embed_call<'ast, T: Field, F: ResultFolder<'ast, T>>(

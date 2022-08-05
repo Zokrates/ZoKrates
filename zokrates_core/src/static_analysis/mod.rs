@@ -8,10 +8,12 @@ mod branch_isolator;
 mod condition_redefiner;
 mod constant_argument_checker;
 mod constant_resolver;
+mod dead_code;
 mod flat_propagation;
 mod flatten_complex_types;
 mod log_ignorer;
 mod out_of_bounds;
+mod panic_extractor;
 mod propagation;
 mod reducer;
 mod struct_concretizer;
@@ -32,6 +34,8 @@ use self::uint_optimizer::UintOptimizer;
 use self::variable_write_remover::VariableWriteRemover;
 use crate::compile::CompileConfig;
 use crate::static_analysis::constant_resolver::ConstantResolver;
+use crate::static_analysis::dead_code::DeadCodeEliminator;
+use crate::static_analysis::panic_extractor::PanicExtractor;
 use crate::static_analysis::zir_propagation::ZirPropagator;
 use std::fmt;
 use zokrates_ast::typed::{abi::Abi, TypedProgram};
@@ -160,6 +164,14 @@ pub fn analyse<'ast, T: Field>(
     // redefine conditions
     log::debug!("Static analyser: Redefine conditions");
     let r = ConditionRedefiner::redefine(r);
+    log::trace!("\n{}", r);
+
+    log::debug!("Static analyser: Extract panics");
+    let r = PanicExtractor::extract(r);
+    log::trace!("\n{}", r);
+
+    log::debug!("Static analyser: Remove dead code");
+    let r = DeadCodeEliminator::eliminate(r);
     log::trace!("\n{}", r);
 
     // convert to zir, removing complex types

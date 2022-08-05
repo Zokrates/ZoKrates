@@ -92,6 +92,7 @@ pub type ZirAssignee<'ast> = Variable<'ast>;
 pub enum RuntimeError {
     SourceAssertion(String),
     SelectRangeCheck,
+    DivisionByZero,
 }
 
 impl fmt::Display for RuntimeError {
@@ -99,6 +100,7 @@ impl fmt::Display for RuntimeError {
         match self {
             RuntimeError::SourceAssertion(message) => write!(f, "{}", message),
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
+            RuntimeError::DivisionByZero => write!(f, "Division by zero"),
         }
     }
 }
