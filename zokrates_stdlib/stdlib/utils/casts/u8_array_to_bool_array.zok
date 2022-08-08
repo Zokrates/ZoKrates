@@ -1,0 +1,16 @@
+from "EMBED" import u8_to_bits;
+
+def main<N, P>(u8[N] input) -> bool[P] {
+    assert(P == 8 * N);
+
+    bool[P] mut res = [false; P];
+
+    for u32 i in 0..N {
+        bool[8] bits = u8_to_bits(input[i]);
+        for u32 j in 0..8 {
+            res[i * 8 + j] = bits[j];
+        }
+    }
+
+    return res;
+}
