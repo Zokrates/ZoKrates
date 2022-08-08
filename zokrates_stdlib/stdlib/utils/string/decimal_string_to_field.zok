@@ -1,0 +1,14 @@
+import "utils/casts/u8_to_field" as u8_to_field;
+
+// Converts decimal number from a N-byte string (ASCII) to a field, e.g. string "1234" -> field 1234
+// Does not allow for strings larger than 76 digits, but this can be manually changed depending on the curve
+// ALTBN_128 (default curve for ZoKrates) has maximum value 21888242871839275222246405745257275088548364400416034343698204186575808495617, which has 77 digits
+def main<N>(u8[N] string) -> field {
+  assert(N < 77);
+    field mut result = 0;
+    for u32 i in 0..N {
+        field as_field = u8_to_field(string[i] - 48);
+        result = result + as_field * 10**(N-i-1);
+    }
+    return result;
+}

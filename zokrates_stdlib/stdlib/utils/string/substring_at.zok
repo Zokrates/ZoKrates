@@ -1,0 +1,9 @@
+// Returns a substring of length S, starting at fullString[idx]
+// String here means a string of bytes (u8s), in any encoding
+def main<F,S>(u8[F] fullString, u32 idx) -> u8[S] {
+	u8[S] mut r = [0; S];
+  for u32 i in 0..S {
+    r[i] = fullString[idx + i];
+	}
+  return r;
+}
