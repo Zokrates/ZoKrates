@@ -1,0 +1,11 @@
+from "EMBED" import u8_to_bits;
+from "EMBED" import u32_from_bits;
+
+def main<N,M>(u8[N] input) -> u32[M] {
+  assert(N == 4*M);
+  u32[M] mut output = [0; M];
+  for u32 i in 0..M {
+    output[i] = u32_from_bits([...u8_to_bits(input[i*4]), ...u8_to_bits(input[i*4+1]), ...u8_to_bits(input[i*4+2]), ...u8_to_bits(input[i*4+3])]);
+  }
+  return output;
+}
