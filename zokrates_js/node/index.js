@@ -1,12 +1,7 @@
-const wrapper = require("../wrapper.js");
-const stdlib = require("../stdlib.js");
-const metadata = require("../metadata.js");
+const lib = require("../lib.js");
 
 const initialize = async () => {
-  return wrapper({
-    zokrates: require("./pkg/index.js"),
-    stdlib,
-  });
+  return lib(require("./pkg/index.js"));
 };
 
-module.exports = { initialize, metadata };
+module.exports = { initialize };

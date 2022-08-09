@@ -14,9 +14,11 @@ describe("tests", () => {
   before(() => {
     return initialize().then((defaultProvider) => {
       zokratesProvider = defaultProvider;
-      return fs.promises.mkdtemp(path.join(os.tmpdir(), path.sep)).then((folder) => {
-        tmpFolder = folder;
-      });
+      return fs.promises
+        .mkdtemp(path.join(os.tmpdir(), path.sep))
+        .then((folder) => {
+          tmpFolder = folder;
+        });
     });
   });
 
@@ -24,14 +26,21 @@ describe("tests", () => {
     if (globalThis.curve_bn128) globalThis.curve_bn128.terminate();
   });
 
+  describe("metadata", () => {
+    it("call", () => {
+      let metadata = zokratesProvider.metadata();
+      assert.ok(metadata);
+      assert.ok(metadata.version !== undefined);
+    });
+  });
+
   describe("compilation", () => {
     it("should compile", () => {
       assert.doesNotThrow(() => {
-
         const artifacts = zokratesProvider.compile(
           "def main() -> field { return 42; }"
         );
-        assert.ok(artifacts !== undefined);
+        assert.ok(artifacts);
         assert.ok(artifacts.snarkjs === undefined);
       });
     });
@@ -42,7 +51,7 @@ describe("tests", () => {
           "def main() -> field { return 42; }",
           { snarkjs: true }
         );
-        assert.ok(artifacts !== undefined);
+        assert.ok(artifacts);
         assert.ok(artifacts.snarkjs.program !== undefined);
       });
     });
@@ -52,11 +61,8 @@ describe("tests", () => {
     });
 
     it("should resolve stdlib module", () => {
-      const stdlib = require("../stdlib.js");
       assert.doesNotThrow(() => {
-        const code = `import "${
-          Object.keys(stdlib)[0]
-        }" as func;\ndef main() { return; }`;
+        const code = `import "utils/pack/bool/unpack" as unpack;\ndef main() { return; }`;
         zokratesProvider.compile(code);
       });
     });
@@ -64,7 +70,7 @@ describe("tests", () => {
     it("should resolve user module", () => {
       assert.doesNotThrow(() => {
         const code =
-          'import "test" as test;\ndef main() -> field { return test(); }';
+          'import "./test" as test;\ndef main() -> field { return test(); }';
         const options = {
           resolveCallback: (_, path) => {
             return {
@@ -80,7 +86,7 @@ describe("tests", () => {
     it("should throw on unresolved module", () => {
       assert.throws(() => {
         const code =
-          'import "test" as test;\ndef main() -> field { return test(); }';
+          'import "./test" as test;\ndef main() -> field { return test(); }';
         zokratesProvider.compile(code);
       });
     });
@@ -224,13 +230,24 @@ describe("tests", () => {
     });
   };
 
-  for (const scheme of ["g16", "gm17", "marlin"]) {
-    describe(scheme, () => {
-      for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
-        describe(curve, () => runWithOptions({ scheme, curve }));
-      }
+  describe("ark", () => {
+    for (const scheme of ["g16", "gm17", "marlin"]) {
+      describe(scheme, () => {
+        for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
+          describe(curve, () =>
+            runWithOptions({ backend: "ark", scheme, curve })
+          );
+        }
+      });
+    }
+  });
+
+  describe("bellman", () => {
+    describe("g16", () => {
+      describe("bn128", () =>
+        runWithOptions({ backend: "bellman", scheme: "g16", curve: "bn128" }));
     });
-  }
+  });
 
   const testRunner = (rootPath, testPath, test) => {
     let entryPoint;
