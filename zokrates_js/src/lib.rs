@@ -520,9 +520,10 @@ pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
     match (backend, scheme) {
         (BackendParameter::Bellman, SchemeParameter::G16) => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Bellman>(p)),
-            _ => Err(JsValue::from_str(
-                "`bellman` backend only supports programs compiled with curve `bn128`",
+            ProgEnum::Bls12_381Program(_) => Err(JsValue::from_str(
+                "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
             )),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::G16) => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
@@ -623,9 +624,10 @@ pub fn generate_proof(
             ProgEnum::Bn128Program(p) => {
                 internal::generate_proof::<_, G16, Bellman>(p, witness, pk)
             }
-            _ => Err(JsValue::from_str(
-                "`bellman` backend only supports programs compiled with curve `bn128`",
+            ProgEnum::Bls12_381Program(_) => Err(JsValue::from_str(
+                "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
             )),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::G16) => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
@@ -720,9 +722,10 @@ pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, 
     match (backend, scheme) {
         (BackendParameter::Bellman, SchemeParameter::G16) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, G16, Bellman>(vk, proof),
-            _ => Err(JsValue::from_str(
-                "`bellman` backend only supports curve `bn128`",
+            CurveParameter::Bls12_381 => Err(JsValue::from_str(
+                "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
             )),
+            _ => Err(JsValue::from_str("Not supported")),
         },
         (BackendParameter::Ark, SchemeParameter::G16) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, G16, Ark>(vk, proof),

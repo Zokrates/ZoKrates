@@ -1,0 +1,1 @@
+Add `backend` option in `zokrates-js`, bring back bellman, add a console writer to support printing logs to console
