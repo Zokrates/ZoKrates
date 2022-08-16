@@ -991,12 +991,12 @@ fn fold_boolean_expression<'ast, T: Field>(
         typed::BooleanExpression::FieldGt(box e1, box e2) => {
             let e1 = f.fold_field_expression(statements_buffer, e1);
             let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::BooleanExpression::FieldGt(box e1, box e2)
+            zir::BooleanExpression::FieldLt(box e2, box e1)
         }
         typed::BooleanExpression::FieldGe(box e1, box e2) => {
             let e1 = f.fold_field_expression(statements_buffer, e1);
             let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::BooleanExpression::FieldGe(box e1, box e2)
+            zir::BooleanExpression::FieldLe(box e2, box e1)
         }
         typed::BooleanExpression::UintLt(box e1, box e2) => {
             let e1 = f.fold_uint_expression(statements_buffer, e1);
@@ -1011,12 +1011,12 @@ fn fold_boolean_expression<'ast, T: Field>(
         typed::BooleanExpression::UintGt(box e1, box e2) => {
             let e1 = f.fold_uint_expression(statements_buffer, e1);
             let e2 = f.fold_uint_expression(statements_buffer, e2);
-            zir::BooleanExpression::UintGt(box e1, box e2)
+            zir::BooleanExpression::UintLt(box e2, box e1)
         }
         typed::BooleanExpression::UintGe(box e1, box e2) => {
             let e1 = f.fold_uint_expression(statements_buffer, e1);
             let e2 = f.fold_uint_expression(statements_buffer, e2);
-            zir::BooleanExpression::UintGe(box e1, box e2)
+            zir::BooleanExpression::UintLe(box e2, box e1)
         }
         typed::BooleanExpression::Or(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(statements_buffer, e1);

@@ -317,34 +317,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     (e1, e2) => Ok(BooleanExpression::FieldLe(box e1, box e2)),
                 }
             }
-            BooleanExpression::FieldGe(box e1, box e2) => {
-                match (
-                    self.fold_field_expression(e1)?,
-                    self.fold_field_expression(e2)?,
-                ) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::Value(n1 >= n2))
-                    }
-                    (e1, e2) => Ok(BooleanExpression::FieldGe(box e1, box e2)),
-                }
-            }
-            BooleanExpression::FieldGt(box e1, box e2) => {
-                match (
-                    self.fold_field_expression(e1)?,
-                    self.fold_field_expression(e2)?,
-                ) {
-                    (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
-                        Ok(BooleanExpression::Value(n1 > n2))
-                    }
-                    (_, FieldElementExpression::Number(c)) if c == T::max_value() => {
-                        Ok(BooleanExpression::Value(false))
-                    }
-                    (FieldElementExpression::Number(c), _) if c == T::zero() => {
-                        Ok(BooleanExpression::Value(false))
-                    }
-                    (e1, e2) => Ok(BooleanExpression::FieldGt(box e1, box e2)),
-                }
-            }
             BooleanExpression::FieldEq(box e1, box e2) => {
                 match (
                     self.fold_field_expression(e1)?,
@@ -382,28 +354,6 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                         Ok(BooleanExpression::Value(v1 <= v2))
                     }
                     _ => Ok(BooleanExpression::UintLe(box e1, box e2)),
-                }
-            }
-            BooleanExpression::UintGe(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
-
-                match (e1.as_inner(), e2.as_inner()) {
-                    (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                        Ok(BooleanExpression::Value(v1 >= v2))
-                    }
-                    _ => Ok(BooleanExpression::UintGe(box e1, box e2)),
-                }
-            }
-            BooleanExpression::UintGt(box e1, box e2) => {
-                let e1 = self.fold_uint_expression(e1)?;
-                let e2 = self.fold_uint_expression(e2)?;
-
-                match (e1.as_inner(), e2.as_inner()) {
-                    (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                        Ok(BooleanExpression::Value(v1 > v2))
-                    }
-                    _ => Ok(BooleanExpression::UintGt(box e1, box e2)),
                 }
             }
             BooleanExpression::UintEq(box e1, box e2) => {
@@ -1020,85 +970,6 @@ mod tests {
         }
 
         #[test]
-        fn field_le() {
-            let mut propagator = ZirPropagator::default();
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::FieldLe(
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::FieldLe(
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-        }
-
-        #[test]
-        fn field_ge() {
-            let mut propagator = ZirPropagator::default();
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::FieldGe(
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::FieldGe(
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-        }
-
-        #[test]
-        fn field_gt() {
-            let mut propagator = ZirPropagator::default();
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::FieldGt(
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                    box FieldElementExpression::Number(Bn128Field::from(2)),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::FieldGt(
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                    box FieldElementExpression::Number(Bn128Field::from(3)),
-                )),
-                Ok(BooleanExpression::Value(false))
-            );
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::FieldGt(
-                    box FieldElementExpression::Number(Bn128Field::from(0)),
-                    box FieldElementExpression::Identifier("a".into()),
-                )),
-                Ok(BooleanExpression::Value(false))
-            );
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::FieldGt(
-                    box FieldElementExpression::Identifier("a".into()),
-                    box FieldElementExpression::Number(Bn128Field::max_value()),
-                )),
-                Ok(BooleanExpression::Value(false))
-            );
-        }
-
-        #[test]
         fn field_eq() {
             let mut propagator = ZirPropagator::default();
 
@@ -1133,69 +1004,6 @@ mod tests {
 
             assert_eq!(
                 propagator.fold_boolean_expression(BooleanExpression::UintLt(
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                )),
-                Ok(BooleanExpression::Value(false))
-            );
-        }
-
-        #[test]
-        fn uint_le() {
-            let mut propagator = ZirPropagator::<Bn128Field>::default();
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::UintLe(
-                    box UExpressionInner::Value(2).annotate(UBitwidth::B32),
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::UintLe(
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-        }
-
-        #[test]
-        fn uint_ge() {
-            let mut propagator = ZirPropagator::<Bn128Field>::default();
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::UintGe(
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                    box UExpressionInner::Value(2).annotate(UBitwidth::B32),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::UintGe(
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-        }
-
-        #[test]
-        fn uint_gt() {
-            let mut propagator = ZirPropagator::<Bn128Field>::default();
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::UintGt(
-                    box UExpressionInner::Value(3).annotate(UBitwidth::B32),
-                    box UExpressionInner::Value(2).annotate(UBitwidth::B32),
-                )),
-                Ok(BooleanExpression::Value(true))
-            );
-
-            assert_eq!(
-                propagator.fold_boolean_expression(BooleanExpression::UintGt(
                     box UExpressionInner::Value(3).annotate(UBitwidth::B32),
                     box UExpressionInner::Value(3).annotate(UBitwidth::B32),
                 )),

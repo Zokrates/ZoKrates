@@ -9,5 +9,5 @@ def main(field a) {
     // we added a = 0 to prevent the condition to be evaluated at compile time
     field maxvalue = a + (2**(pbits - 2) - 1);
     bool c = maxvalue + 1 < a;
-    return
+    return;
 }

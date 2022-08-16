@@ -166,14 +166,6 @@ pub fn analyse<'ast, T: Field>(
     let r = ConditionRedefiner::redefine(r);
     log::trace!("\n{}", r);
 
-    log::debug!("Static analyser: Extract panics");
-    let r = PanicExtractor::extract(r);
-    log::trace!("\n{}", r);
-
-    log::debug!("Static analyser: Remove dead code");
-    let r = DeadCodeEliminator::eliminate(r);
-    log::trace!("\n{}", r);
-
     // convert to zir, removing complex types
     log::debug!("Static analyser: Convert to zir");
     let zir = Flattener::flatten(r);
@@ -182,6 +174,14 @@ pub fn analyse<'ast, T: Field>(
     // apply propagation in zir
     log::debug!("Static analyser: Apply propagation in zir");
     let zir = ZirPropagator::propagate(zir).map_err(Error::from)?;
+    log::trace!("\n{}", zir);
+
+    log::debug!("Static analyser: Extract panics");
+    let zir = PanicExtractor::extract(zir);
+    log::trace!("\n{}", zir);
+
+    log::debug!("Static analyser: Remove dead code");
+    let zir = DeadCodeEliminator::eliminate(zir);
     log::trace!("\n{}", zir);
 
     // optimize uint expressions

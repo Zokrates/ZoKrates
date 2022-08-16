@@ -8,7 +8,7 @@ mod uint;
 mod variable;
 
 pub use self::parameter::Parameter;
-pub use self::types::Type;
+pub use self::types::{Type, UBitwidth};
 pub use self::variable::Variable;
 use crate::common::{FlatEmbed, FormatString};
 use crate::typed::ConcreteType;
@@ -23,7 +23,7 @@ pub use self::folder::Folder;
 pub use self::identifier::{Identifier, SourceIdentifier};
 
 /// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct ZirProgram<'ast, T> {
     pub main: ZirFunction<'ast, T>,
 }
@@ -93,6 +93,7 @@ pub enum RuntimeError {
     SourceAssertion(String),
     SelectRangeCheck,
     DivisionByZero,
+    IncompleteDynamicRange,
 }
 
 impl fmt::Display for RuntimeError {
@@ -101,6 +102,7 @@ impl fmt::Display for RuntimeError {
             RuntimeError::SourceAssertion(message) => write!(f, "{}", message),
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
             RuntimeError::DivisionByZero => write!(f, "Division by zero"),
+            RuntimeError::IncompleteDynamicRange => write!(f, "Dynamic comparison is incomplete"),
         }
     }
 }
@@ -140,14 +142,15 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
         write!(f, "{}", "\t".repeat(depth))?;
         match self {
             ZirStatement::Return(ref exprs) => {
-                write!(f, "return ")?;
-                for (i, expr) in exprs.iter().enumerate() {
-                    write!(f, "{}", expr)?;
-                    if i < exprs.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ";")
+                write!(
+                    f,
+                    "return {};",
+                    exprs
+                        .iter()
+                        .map(|e| e.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             }
             ZirStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "{} = {};", lhs, rhs)
@@ -183,7 +186,7 @@ impl<'ast, T: fmt::Display> ZirStatement<'ast, T> {
             }
             ZirStatement::Log(ref l, ref expressions) => write!(
                 f,
-                "log(\"{}\"), {})",
+                "log(\"{}\"), {});",
                 l,
                 expressions
                     .iter()
@@ -335,22 +338,12 @@ pub enum BooleanExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FieldGe(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
-    FieldGt(
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
     FieldEq(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
     UintLt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     UintLe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintGe(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    UintGt(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     BoolEq(
         Box<BooleanExpression<'ast, T>>,
@@ -489,7 +482,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
             UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
-            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
+            UExpressionInner::Not(ref e) => write!(f, "!({})", e),
             UExpressionInner::Conditional(ref condition, ref consequent, ref alternative) => {
                 write!(
                     f,
@@ -515,20 +508,16 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
                     .join(", "),
                 i
             ),
-            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
-            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
-            BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
+            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
+            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
+            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
+            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
+            BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "({} == {})", lhs, rhs),
+            BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "({} == {})", lhs, rhs),
+            BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "({} == {})", lhs, rhs),
+            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
+            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "({} && {})", lhs, rhs),
+            BooleanExpression::Not(ref exp) => write!(f, "!({})", exp),
             BooleanExpression::Conditional(ref condition, ref consequent, ref alternative) => {
                 write!(
                     f,

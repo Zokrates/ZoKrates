@@ -38,6 +38,7 @@ impl From<crate::zir::RuntimeError> for RuntimeError {
             crate::zir::RuntimeError::SourceAssertion(s) => RuntimeError::SourceAssertion(s),
             crate::zir::RuntimeError::SelectRangeCheck => RuntimeError::SelectRangeCheck,
             crate::zir::RuntimeError::DivisionByZero => RuntimeError::Inverse,
+            crate::zir::RuntimeError::IncompleteDynamicRange => RuntimeError::LtFinalSum,
         }
     }
 }

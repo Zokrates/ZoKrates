@@ -67,7 +67,7 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
                 let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
                 self.buffer.push(TypedStatement::definition(
                     Variable::immutable(condition_id.clone(), Type::Boolean).into(),
-                    TypedExpression::from(condition).into(),
+                    TypedExpression::from(condition),
                 ));
                 self.index += 1;
                 BooleanExpression::Identifier(condition_id)

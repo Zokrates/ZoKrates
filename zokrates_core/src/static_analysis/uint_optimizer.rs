@@ -114,24 +114,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 BooleanExpression::UintLe(box left, box right)
             }
-            BooleanExpression::UintGt(box left, box right) => {
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
-
-                let left = force_reduce(left);
-                let right = force_reduce(right);
-
-                BooleanExpression::UintGt(box left, box right)
-            }
-            BooleanExpression::UintGe(box left, box right) => {
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
-
-                let left = force_reduce(left);
-                let right = force_reduce(right);
-
-                BooleanExpression::UintGe(box left, box right)
-            }
             e => fold_boolean_expression(self, e),
         }
     }
