@@ -128,12 +128,13 @@ const fileSystemResolver = (from, to) => {
 };
 ```
 
-##### computeWitness(artifacts, args)
+##### computeWitness(artifacts, args[, options])
 Computes a valid assignment of the variables, which include the results of the computation.
 
 Parameters:
 * `artifacts` - Compilation artifacts
 * `args` - Array of arguments (eg. `["1", "2", true]`)
+* `options` - Computation options
 
 Returns: `ComputationResult`
 
