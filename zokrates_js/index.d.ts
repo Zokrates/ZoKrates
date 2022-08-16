@@ -34,8 +34,11 @@ declare module "zokrates-js" {
     location: string;
   }
 
+  export type LogCallback = (log: string) => void;
+  
   export interface ComputeOptions {
     snarkjs?: boolean;
+    logCallback?: LogCallback;
   }
 
   export interface ComputationResult {
@@ -94,7 +97,6 @@ declare module "zokrates-js" {
     utils: {
       formatProof(proof: Proof): any[];
     };
-    metadata(): Metadata;
   }
 
   export interface Metadata {
@@ -102,4 +104,5 @@ declare module "zokrates-js" {
   }
 
   export function initialize(): Promise<ZoKratesProvider>;
+  export var metadata: Metadata;
 }

@@ -38,8 +38,9 @@ fn export_metadata() {
         .insert("version", config["package"]["version"].as_str().unwrap())
         .unwrap();
 
-    let out_dir = env::var_os("OUT_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("metadata.json");
-
-    fs::write(dest_path, metadata.dump()).unwrap();
+    fs::write(
+        "metadata.js",
+        format!("module.exports = {}", metadata.dump()),
+    )
+    .unwrap();
 }

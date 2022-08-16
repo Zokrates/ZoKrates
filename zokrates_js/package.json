@@ -19,7 +19,8 @@
     "pkg",
     "index.js",
     "index.d.ts",
-    "lib.js"
+    "lib.js",
+    "metadata.js"
   ],
   "types": "index.d.ts",
   "exports": {

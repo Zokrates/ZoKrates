@@ -4,7 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const dree = require("dree");
 const snarkjs = require("snarkjs");
-const { initialize } = require("../node/index.js");
+const { initialize, metadata } = require("../node/index.js");
 
 let zokratesProvider;
 let tmpFolder;
@@ -27,8 +27,7 @@ describe("tests", () => {
   });
 
   describe("metadata", () => {
-    it("call", () => {
-      let metadata = zokratesProvider.metadata();
+    it("is present", () => {
       assert.ok(metadata);
       assert.ok(metadata.version !== undefined);
     });
@@ -132,6 +131,22 @@ describe("tests", () => {
         const code = "def main(private field a) -> field { return a * a; }";
         const artifacts = zokratesProvider.compile(code);
         zokratesProvider.computeWitness(artifacts, [true]);
+      });
+    });
+
+    it("should log in debug", () => {
+      assert.doesNotThrow(() => {
+        const code = 'def main() { log("{}", 1f); log("{}", 2f); return; }';
+        const artifacts = zokratesProvider.compile(code, {
+          config: { debug: true },
+        });
+        let logs = [];
+        zokratesProvider.computeWitness(artifacts, [], {
+          logCallback: (l) => {
+            logs.push(l);
+          },
+        });
+        assert.deepEqual(logs, ['"1"', '"2"']);
       });
     });
   });

@@ -181,23 +181,35 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
     }
 }
 
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
-
-#[derive(Default)]
-pub struct ConsoleWriter {
+pub struct LogWriter<'a> {
     buf: Vec<u8>,
+    callback: &'a js_sys::Function,
 }
 
-impl Write for ConsoleWriter {
+impl<'a> LogWriter<'a> {
+    pub fn new(callback: &'a js_sys::Function) -> Self {
+        Self {
+            buf: Vec::default(),
+            callback,
+        }
+    }
+}
+
+impl<'a> Write for LogWriter<'a> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.buf.write(buf)
     }
     fn flush(&mut self) -> std::io::Result<()> {
-        log(std::str::from_utf8(&self.buf.as_slice()[..self.buf.len() - 1]).unwrap());
+        self.callback
+            .call1(
+                &JsValue::UNDEFINED,
+                &JsValue::from_str(
+                    std::str::from_utf8(&self.buf.as_slice()[..self.buf.len() - 1]).unwrap(),
+                ),
+            )
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "unable to call log callback")
+            })?;
         self.buf.clear();
         Ok(())
     }
@@ -263,6 +275,7 @@ mod internal {
         abi: JsValue,
         args: JsValue,
         config: JsValue,
+        log_callback: &js_sys::Function,
     ) -> Result<ComputationResult, JsValue> {
         let input = args.as_string().unwrap();
 
@@ -301,7 +314,7 @@ mod internal {
 
         let public_inputs = program.public_inputs();
 
-        let mut writer = ConsoleWriter::default();
+        let mut writer = LogWriter::new(log_callback);
         let witness = interpreter
             .execute_with_log_stream(program, &inputs.encode(), &mut writer)
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
@@ -450,15 +463,16 @@ pub fn compute_witness(
     abi: JsValue,
     args: JsValue,
     config: JsValue,
+    log_callback: &js_sys::Function,
 ) -> Result<ComputationResult, JsValue> {
     let prog = ir::ProgEnum::deserialize(program)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
     match prog {
-        ProgEnum::Bn128Program(p) => internal::compute::<_>(p, abi, args, config),
-        ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args, config),
-        ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args, config),
-        ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args, config),
+        ProgEnum::Bn128Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
     }
 }
 

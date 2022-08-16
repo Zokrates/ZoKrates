@@ -26,10 +26,16 @@ module.exports = (pkg) => {
       const { program, abi } =
         input instanceof Uint8Array ? { program: input, abi: null } : input;
 
-      const { snarkjs = false } = computeOptions;
-      const ptr = pkg.compute_witness(program, abi, JSON.stringify(args), {
-        snarkjs: snarkjs,
-      });
+      const { snarkjs = false, logCallback = console.log } = computeOptions;
+      const ptr = pkg.compute_witness(
+        program,
+        abi,
+        JSON.stringify(args),
+        {
+          snarkjs: snarkjs,
+        },
+        logCallback
+      );
 
       const result = Object.assign(
         {
@@ -96,7 +102,6 @@ module.exports = (pkg) => {
       utils: {
         formatProof: (proof) => defaultProvider.utils.formatProof(proof),
       },
-      metadata: pkg.metadata,
     };
   };
 
