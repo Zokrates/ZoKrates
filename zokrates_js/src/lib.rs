@@ -795,13 +795,6 @@ pub fn format_proof(proof: JsValue) -> Result<JsValue, JsValue> {
     }
 }
 
-#[wasm_bindgen]
-pub fn metadata() -> JsValue {
-    let value: serde_json::Value =
-        serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/metadata.json"))).unwrap();
-    JsValue::from_serde(&value).unwrap()
-}
-
 #[wasm_bindgen(start)]
 pub fn main_js() -> Result<(), JsValue> {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
