@@ -371,10 +371,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::right_shift(force_reduce(e), by).with_max(max)
             }
-            Conditional(box condition, box consequence, box alternative) => {
-                let condition = self.fold_boolean_expression(condition);
-                let consequence = self.fold_uint_expression(consequence);
-                let alternative = self.fold_uint_expression(alternative);
+            Conditional(c) => {
+                let condition = self.fold_boolean_expression(*c.condition);
+                let consequence = self.fold_uint_expression(*c.consequence);
+                let alternative = self.fold_uint_expression(*c.alternative);
 
                 let consequence_max = consequence.metadata.clone().unwrap().max;
                 let alternative_max = alternative.metadata.clone().unwrap().max;

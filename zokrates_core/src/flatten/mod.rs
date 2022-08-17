@@ -8,7 +8,7 @@
 mod utils;
 
 use self::utils::flat_expression_from_bits;
-use zokrates_ast::zir::{ShouldReduce, UMetadata, ZirExpressionList};
+use zokrates_ast::zir::{ConditionalExpression, ShouldReduce, UMetadata, ZirExpressionList};
 use zokrates_interpreter::Interpreter;
 
 use crate::compile::CompileConfig;
@@ -558,13 +558,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `alternative` - the alternative of type U.
     /// # Remarks
     /// * U is the type of the expression
-    fn flatten_if_else_expression<U: Flatten<'ast, T>>(
+    fn flatten_conditional_expression<U: Flatten<'ast, T>>(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
-        condition: BooleanExpression<'ast, T>,
-        consequence: U,
-        alternative: U,
+        conditional: ConditionalExpression<'ast, T, U>,
     ) -> FlatUExpression<T> {
+        let condition = *conditional.condition;
+        let consequence = *conditional.consequence;
+        let alternative = *conditional.alternative;
+
         let condition_flat =
             self.flatten_boolean_expression(statements_flattened, condition.clone());
 
@@ -971,13 +973,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 true => T::from(1),
                 false => T::from(0),
             }),
-            BooleanExpression::Conditional(box condition, box consequence, box alternative) => self
-                .flatten_if_else_expression(
-                    statements_flattened,
-                    condition,
-                    consequence,
-                    alternative,
-                )
+            BooleanExpression::Conditional(c) => self
+                .flatten_conditional_expression(statements_flattened, c)
                 .get_field_unchecked(),
         }
     }
@@ -1551,13 +1548,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatUExpression::with_field(r)
             }
-            UExpressionInner::Conditional(box condition, box consequence, box alternative) => self
-                .flatten_if_else_expression(
-                    statements_flattened,
-                    condition,
-                    consequence,
-                    alternative,
-                ),
+            UExpressionInner::Conditional(c) => {
+                self.flatten_conditional_expression(statements_flattened, c)
+            }
             UExpressionInner::Xor(box left, box right) => {
                 let left_metadata = left.metadata.clone().unwrap();
                 let right_metadata = right.metadata.clone().unwrap();
@@ -2200,17 +2193,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     _ => panic!("Expected number as pow exponent"),
                 }
             }
-            FieldElementExpression::Conditional(
-                box condition,
-                box consequence,
-                box alternative,
-            ) => self
-                .flatten_if_else_expression(
-                    statements_flattened,
-                    condition,
-                    consequence,
-                    alternative,
-                )
+            FieldElementExpression::Conditional(c) => self
+                .flatten_conditional_expression(statements_flattened, c)
                 .get_field_unchecked(),
         }
     }
@@ -2473,6 +2457,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .flatten_uint_expression(statements_flattened, x)
                             .get_field_unchecked();
 
+                        // introduce intermediate variable
+                        let x_id = self.define(x, statements_flattened);
+
                         // check that `x` is not 0 by giving its inverse
                         let invx = self.use_sym();
 
@@ -2481,14 +2468,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             FlatDirective::new(
                                 vec![invx],
                                 Solver::Div,
-                                vec![FlatExpression::Number(T::one()), x.clone()],
+                                vec![FlatExpression::Number(T::one()), x_id.into()],
                             ),
                         ));
 
                         // assert(invx * x == 1)
                         statements_flattened.push_back(FlatStatement::Condition(
                             FlatExpression::Number(T::one()),
-                            FlatExpression::Mult(box invx.into(), box x.clone()),
+                            FlatExpression::Mult(box invx.into(), box x_id.into()),
                             RuntimeError::Inverse,
                         ));
                     }
@@ -2503,6 +2490,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     )) if zero == T::from(0) => {
                         let x = self.flatten_field_expression(statements_flattened, x);
 
+                        // introduce intermediate variable
+                        let x_id = self.define(x, statements_flattened);
+
                         // check that `x` is not 0 by giving its inverse
                         let invx = self.use_sym();
 
@@ -2511,14 +2501,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             FlatDirective::new(
                                 vec![invx],
                                 Solver::Div,
-                                vec![FlatExpression::Number(T::one()), x.clone()],
+                                vec![FlatExpression::Number(T::one()), x_id.into()],
                             ),
                         ));
 
                         // assert(invx * x == 1)
                         statements_flattened.push_back(FlatStatement::Condition(
                             FlatExpression::Number(T::one()),
-                            FlatExpression::Mult(box invx.into(), box x.clone()),
+                            FlatExpression::Mult(box invx.into(), box x_id.into()),
                             RuntimeError::Inverse,
                         ));
                     }
@@ -3537,13 +3527,13 @@ mod tests {
     #[test]
     fn if_else() {
         let config = CompileConfig::default();
-        let expression = FieldElementExpression::Conditional(
-            box BooleanExpression::FieldEq(
+        let expression = FieldElementExpression::conditional(
+            BooleanExpression::FieldEq(
                 box FieldElementExpression::Number(Bn128Field::from(32)),
                 box FieldElementExpression::Number(Bn128Field::from(4)),
             ),
-            box FieldElementExpression::Number(Bn128Field::from(12)),
-            box FieldElementExpression::Number(Bn128Field::from(51)),
+            FieldElementExpression::Number(Bn128Field::from(12)),
+            FieldElementExpression::Number(Bn128Field::from(51)),
         );
 
         let mut flattener = Flattener::new(config);
@@ -3556,8 +3546,8 @@ mod tests {
         let config = CompileConfig::default();
         let mut flattener = Flattener::new(config);
 
-        let expression = FieldElementExpression::Conditional(
-            box BooleanExpression::And(
+        let expression = FieldElementExpression::conditional(
+            BooleanExpression::And(
                 box BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(Bn128Field::from(4)),
                     box FieldElementExpression::Number(Bn128Field::from(4)),
@@ -3567,8 +3557,8 @@ mod tests {
                     box FieldElementExpression::Number(Bn128Field::from(20)),
                 ),
             ),
-            box FieldElementExpression::Number(Bn128Field::from(12)),
-            box FieldElementExpression::Number(Bn128Field::from(51)),
+            FieldElementExpression::Number(Bn128Field::from(12)),
+            FieldElementExpression::Number(Bn128Field::from(51)),
         );
 
         flattener.flatten_field_expression(&mut FlatStatements::new(), expression);

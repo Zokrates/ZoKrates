@@ -1,7 +1,8 @@
 use crate::zir::identifier::Identifier;
 use crate::zir::types::UBitwidth;
-use crate::zir::BooleanExpression;
 use zokrates_field::Field;
+
+use super::ConditionalExpression;
 
 impl<'ast, T: Field> UExpression<'ast, T> {
     #[allow(clippy::should_implement_trait)]
@@ -190,11 +191,7 @@ pub enum UExpressionInner<'ast, T> {
     LeftShift(Box<UExpression<'ast, T>>, u32),
     RightShift(Box<UExpression<'ast, T>>, u32),
     Not(Box<UExpression<'ast, T>>),
-    Conditional(
-        Box<BooleanExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-    ),
+    Conditional(ConditionalExpression<'ast, T, UExpression<'ast, T>>),
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {

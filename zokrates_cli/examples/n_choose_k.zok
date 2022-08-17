@@ -4,7 +4,7 @@ import "utils/casts/u32_to_field" as to_field;
 def fac(field x) -> field {
     field mut f = 1;
     field mut counter = 0;
-    for u32 i in 1..100 {
+    for u32 i in 1..3 {
         f = counter == x ? f : f * to_field(i);
         counter = counter == x ? counter : counter + 1;
     }
@@ -12,5 +12,5 @@ def fac(field x) -> field {
 }
 
 def main(field n, field k) -> field {
-    return fac(n) / (fac(k) * fac(n - k));
+    return 1 / (fac(k) * fac(n - k));
 }

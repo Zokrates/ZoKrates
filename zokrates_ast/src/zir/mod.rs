@@ -208,6 +208,33 @@ pub trait Typed {
     fn get_type(&self) -> Type;
 }
 
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct ConditionalExpression<'ast, T, E> {
+    pub condition: Box<BooleanExpression<'ast, T>>,
+    pub consequence: Box<E>,
+    pub alternative: Box<E>,
+}
+
+impl<'ast, T, E> ConditionalExpression<'ast, T, E> {
+    pub fn new(condition: BooleanExpression<'ast, T>, consequence: E, alternative: E) -> Self {
+        ConditionalExpression {
+            condition: box condition,
+            consequence: box consequence,
+            alternative: box alternative,
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display, E: fmt::Display> fmt::Display for ConditionalExpression<'ast, T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} ? {} : {}",
+            self.condition, self.consequence, self.alternative
+        )
+    }
+}
+
 /// A typed expression
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum ZirExpression<'ast, T> {
@@ -317,11 +344,7 @@ pub enum FieldElementExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
     ),
-    Conditional(
-        Box<BooleanExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    Conditional(ConditionalExpression<'ast, T, FieldElementExpression<'ast, T>>),
 }
 
 /// An expression of type `bool`
@@ -358,11 +381,7 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Not(Box<BooleanExpression<'ast, T>>),
-    Conditional(
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
-    ),
+    Conditional(ConditionalExpression<'ast, T, BooleanExpression<'ast, T>>),
 }
 
 pub struct ConjunctionIterator<T> {
@@ -447,12 +466,8 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
-            FieldElementExpression::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(
-                    f,
-                    "if {} {{ {} }} else {{ {} }}",
-                    condition, consequent, alternative
-                )
+            FieldElementExpression::Conditional(ref c) => {
+                write!(f, "{}", c)
             }
         }
     }
@@ -482,13 +497,9 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
             UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
-            UExpressionInner::Not(ref e) => write!(f, "!({})", e),
-            UExpressionInner::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(
-                    f,
-                    "if {} {{ {} }} else {{ {} }}",
-                    condition, consequent, alternative
-                )
+            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
+            UExpressionInner::Conditional(ref c) => {
+                write!(f, "{}", c)
             }
         }
     }
@@ -517,13 +528,9 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "({} == {})", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "({} && {})", lhs, rhs),
-            BooleanExpression::Not(ref exp) => write!(f, "!({})", exp),
-            BooleanExpression::Conditional(ref condition, ref consequent, ref alternative) => {
-                write!(
-                    f,
-                    "if {} {{ {} }} else {{ {} }}",
-                    condition, consequent, alternative
-                )
+            BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
+            BooleanExpression::Conditional(ref c) => {
+                write!(f, "{}", c)
             }
         }
     }
@@ -575,7 +582,81 @@ impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpressionList<'ast, T> {
 }
 
 // Common behaviour accross expressions
+pub trait Expr<'ast, T>: fmt::Display + PartialEq {
+    type Inner;
+    type Ty: Clone + IntoType;
 
+    fn ty(&self) -> &Self::Ty;
+
+    fn into_inner(self) -> Self::Inner;
+
+    fn as_inner(&self) -> &Self::Inner;
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner;
+}
+
+impl<'ast, T: Field> Expr<'ast, T> for FieldElementExpression<'ast, T> {
+    type Inner = Self;
+    type Ty = Type;
+
+    fn ty(&self) -> &Self::Ty {
+        &Type::FieldElement
+    }
+
+    fn into_inner(self) -> Self::Inner {
+        self
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        self
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
+    }
+}
+
+impl<'ast, T: Field> Expr<'ast, T> for BooleanExpression<'ast, T> {
+    type Inner = Self;
+    type Ty = Type;
+
+    fn ty(&self) -> &Self::Ty {
+        &Type::Boolean
+    }
+
+    fn into_inner(self) -> Self::Inner {
+        self
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        self
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        self
+    }
+}
+
+impl<'ast, T: Field> Expr<'ast, T> for UExpression<'ast, T> {
+    type Inner = UExpressionInner<'ast, T>;
+    type Ty = UBitwidth;
+
+    fn ty(&self) -> &Self::Ty {
+        &self.bitwidth
+    }
+
+    fn into_inner(self) -> Self::Inner {
+        self.inner
+    }
+
+    fn as_inner(&self) -> &Self::Inner {
+        &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
+    }
+}
 pub trait Conditional<'ast, T> {
     fn conditional(
         condition: BooleanExpression<'ast, T>,
@@ -584,13 +665,22 @@ pub trait Conditional<'ast, T> {
     ) -> Self;
 }
 
+pub enum ConditionalOrExpression<'ast, T, E: Expr<'ast, T>> {
+    Conditional(ConditionalExpression<'ast, T, E>),
+    Expression(E::Inner),
+}
+
 impl<'ast, T> Conditional<'ast, T> for FieldElementExpression<'ast, T> {
     fn conditional(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
     ) -> Self {
-        FieldElementExpression::Conditional(box condition, box consequence, box alternative)
+        FieldElementExpression::Conditional(ConditionalExpression::new(
+            condition,
+            consequence,
+            alternative,
+        ))
     }
 }
 
@@ -600,7 +690,11 @@ impl<'ast, T> Conditional<'ast, T> for BooleanExpression<'ast, T> {
         consequence: Self,
         alternative: Self,
     ) -> Self {
-        BooleanExpression::Conditional(box condition, box consequence, box alternative)
+        BooleanExpression::Conditional(ConditionalExpression::new(
+            condition,
+            consequence,
+            alternative,
+        ))
     }
 }
 
@@ -612,7 +706,27 @@ impl<'ast, T> Conditional<'ast, T> for UExpression<'ast, T> {
     ) -> Self {
         let bitwidth = consequence.bitwidth;
 
-        UExpressionInner::Conditional(box condition, box consequence, box alternative)
-            .annotate(bitwidth)
+        UExpressionInner::Conditional(ConditionalExpression::new(
+            condition,
+            consequence,
+            alternative,
+        ))
+        .annotate(bitwidth)
+    }
+}
+
+pub trait IntoType {
+    fn into_type(self) -> Type;
+}
+
+impl IntoType for Type {
+    fn into_type(self) -> Type {
+        self
+    }
+}
+
+impl IntoType for UBitwidth {
+    fn into_type(self) -> Type {
+        Type::Uint(self)
     }
 }
