@@ -278,8 +278,27 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         a: &[FlatExpression<T>],
         b: &[bool],
     ) -> Vec<FlatExpression<T>> {
-        let len = b.len();
         assert_eq!(a.len(), b.len());
+
+        let is_power_of_two_minus_one = b.iter().all(|b| *b);
+
+        if is_power_of_two_minus_one {
+            let statements: Vec<_> = a
+                .iter()
+                .map(|e| {
+                    let e_id = self.define(e.clone(), statements_flattened);
+                    FlatStatement::Condition(
+                        e_id.into(),
+                        FlatExpression::Mult(box e_id.into(), box e_id.into()),
+                        RuntimeError::Bitness,
+                    )
+                })
+                .collect();
+            statements_flattened.extend(statements);
+            return vec![];
+        }
+
+        let len = b.len();
 
         let mut is_not_smaller_run = vec![];
         let mut size_unknown = vec![];

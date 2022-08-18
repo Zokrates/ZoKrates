@@ -50,6 +50,7 @@ zokrates_solidity_test = { version = "0.1", path = "../zokrates_solidity_test", 
 ethabi = "17.0.0"
 primitive-types = { version = "0.11", features = ["rlp"] }
 fs_extra = "1.1.0"
+pretty_assertions = "1.2.1"
 
 [build-dependencies]
 fs_extra = "1.1.0"

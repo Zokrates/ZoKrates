@@ -3081,6 +3081,7 @@ dependencies = [
  "hex 0.3.2",
  "lazy_static",
  "log",
+ "pretty_assertions 1.2.1",
  "primitive-types",
  "rand 0.4.6",
  "rand 0.8.5",

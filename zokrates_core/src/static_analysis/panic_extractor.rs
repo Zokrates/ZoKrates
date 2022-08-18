@@ -159,22 +159,21 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 let max = FieldElementExpression::Number(T::from(2).pow(safe_width + 1));
 
                 self.panic_buffer.push(ZirStatement::Assertion(
-                    BooleanExpression::And(
-                        box BooleanExpression::Not(box BooleanExpression::FieldEq(
-                            box FieldElementExpression::Sub(box left.clone(), box right.clone()),
+                    BooleanExpression::FieldLt(
+                        box FieldElementExpression::Add(
                             box offset.clone(),
-                        )),
-                        box BooleanExpression::FieldLt(
-                            box FieldElementExpression::Add(
-                                box offset,
-                                box FieldElementExpression::Sub(
-                                    box right.clone(),
-                                    box left.clone(),
-                                ),
-                            ),
-                            box max,
+                            box FieldElementExpression::Sub(box left.clone(), box right.clone()),
                         ),
+                        box max,
                     ),
+                    RuntimeError::IncompleteDynamicRange,
+                ));
+
+                self.panic_buffer.push(ZirStatement::Assertion(
+                    BooleanExpression::Not(box BooleanExpression::FieldEq(
+                        box FieldElementExpression::Sub(box right.clone(), box left.clone()),
+                        box offset,
+                    )),
                     RuntimeError::IncompleteDynamicRange,
                 ));
 
