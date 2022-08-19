@@ -944,7 +944,7 @@ impl<E> EqExpression<E> {
 
 impl<E: fmt::Display> fmt::Display for EqExpression<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} == {}", self.left, self.right)
+        write!(f, "({} == {})", self.left, self.right)
     }
 }
 
@@ -1677,7 +1677,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Rem(ref lhs, ref rhs) => write!(f, "({} % {})", lhs, rhs),
             UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
-            UExpressionInner::Not(ref e) => write!(f, "!({})", e),
+            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
             UExpressionInner::Neg(ref e) => write!(f, "(-{})", e),
             UExpressionInner::Pos(ref e) => write!(f, "(+{})", e),
             UExpressionInner::Select(ref select) => write!(f, "{}", select),
@@ -1694,23 +1694,23 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
         match *self {
             BooleanExpression::Block(ref block) => write!(f, "{}", block,),
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
-            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
+            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
+            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "({} >= {})", lhs, rhs),
+            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "({} > {})", lhs, rhs),
+            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
+            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
+            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "({} >= {})", lhs, rhs),
+            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "({} > {})", lhs, rhs),
             BooleanExpression::FieldEq(ref e) => write!(f, "{}", e),
             BooleanExpression::BoolEq(ref e) => write!(f, "{}", e),
             BooleanExpression::ArrayEq(ref e) => write!(f, "{}", e),
             BooleanExpression::StructEq(ref e) => write!(f, "{}", e),
             BooleanExpression::TupleEq(ref e) => write!(f, "{}", e),
             BooleanExpression::UintEq(ref e) => write!(f, "{}", e),
-            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
-            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
-            BooleanExpression::Not(ref exp) => write!(f, "!({})", exp),
+            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
+            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "({} && {})", lhs, rhs),
+            BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
             BooleanExpression::FunctionCall(ref function_call) => write!(f, "{}", function_call),
             BooleanExpression::Conditional(ref c) => write!(f, "{}", c),
