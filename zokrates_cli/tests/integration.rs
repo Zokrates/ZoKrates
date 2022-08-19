@@ -10,7 +10,7 @@ extern crate zokrates_solidity_test;
 mod integration {
     use fs_extra::copy_items;
     use fs_extra::dir::CopyOptions;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
     use primitive_types::U256;
     use serde_json::from_reader;
     use std::fs;
