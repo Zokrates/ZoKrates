@@ -2,7 +2,7 @@ use crate::zir::identifier::Identifier;
 use crate::zir::types::UBitwidth;
 use zokrates_field::Field;
 
-use super::ConditionalExpression;
+use super::{ConditionalExpression, SelectExpression};
 
 impl<'ast, T: Field> UExpression<'ast, T> {
     #[allow(clippy::should_implement_trait)]
@@ -21,7 +21,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 
     pub fn select(values: Vec<Self>, index: Self) -> UExpression<'ast, T> {
         let bitwidth = values[0].bitwidth;
-        UExpressionInner::Select(values, box index).annotate(bitwidth)
+        UExpressionInner::Select(SelectExpression::new(values, index)).annotate(bitwidth)
     }
 
     pub fn mult(self, other: Self) -> UExpression<'ast, T> {
@@ -179,7 +179,7 @@ pub struct UExpression<'ast, T> {
 pub enum UExpressionInner<'ast, T> {
     Value(u128),
     Identifier(Identifier<'ast>),
-    Select(Vec<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),

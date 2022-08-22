@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use zokrates_ast::typed::types::UBitwidth;
 use zokrates_ast::typed::{self, Expr, Typed};
-use zokrates_ast::zir;
+use zokrates_ast::zir::{self, Select};
 use zokrates_field::Field;
 
 use std::convert::{TryFrom, TryInto};
@@ -750,36 +750,35 @@ fn fold_select_expression<'ast, T: Field, E>(
                 let ty = a[0].get_type();
 
                 match ty {
-                    zir::Type::Boolean => zir::BooleanExpression::Select(
+                    zir::Type::Boolean => zir::BooleanExpression::select(
                         a.into_iter()
                             .map(|e| match e {
                                 zir::ZirExpression::Boolean(e) => e.clone(),
                                 _ => unreachable!(),
                             })
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
                     .into(),
-                    zir::Type::FieldElement => zir::FieldElementExpression::Select(
+                    zir::Type::FieldElement => zir::FieldElementExpression::select(
                         a.into_iter()
                             .map(|e| match e {
                                 zir::ZirExpression::FieldElement(e) => e.clone(),
                                 _ => unreachable!(),
                             })
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
                     .into(),
-                    zir::Type::Uint(bitwidth) => zir::UExpressionInner::Select(
+                    zir::Type::Uint(_) => zir::UExpression::select(
                         a.into_iter()
                             .map(|e| match e {
                                 zir::ZirExpression::Uint(e) => e.clone(),
                                 _ => unreachable!(),
                             })
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
-                    .annotate(bitwidth)
                     .into(),
                 }
             })

@@ -8,7 +8,9 @@
 mod utils;
 
 use self::utils::flat_expression_from_bits;
-use zokrates_ast::zir::{ConditionalExpression, ShouldReduce, UMetadata, ZirExpressionList};
+use zokrates_ast::zir::{
+    ConditionalExpression, SelectExpression, ShouldReduce, UMetadata, ZirExpressionList,
+};
 use zokrates_interpreter::Interpreter;
 
 use crate::compile::CompileConfig;
@@ -580,11 +582,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     fn flatten_conditional_expression<U: Flatten<'ast, T>>(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
-        conditional: ConditionalExpression<'ast, T, U>,
+        e: ConditionalExpression<'ast, T, U>,
     ) -> FlatUExpression<T> {
-        let condition = *conditional.condition;
-        let consequence = *conditional.consequence;
-        let alternative = *conditional.alternative;
+        let condition = *e.condition;
+        let consequence = *e.consequence;
+        let alternative = *e.alternative;
 
         let condition_flat =
             self.flatten_boolean_expression(statements_flattened, condition.clone());
@@ -831,8 +833,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             BooleanExpression::Identifier(x) => {
                 FlatExpression::Identifier(*self.layout.get(&x).unwrap())
             }
-            BooleanExpression::Select(a, box index) => self
-                .flatten_select_expression(statements_flattened, a, index)
+            BooleanExpression::Select(e) => self
+                .flatten_select_expression(statements_flattened, e)
                 .get_field_unchecked(),
             BooleanExpression::FieldLt(box lhs, box rhs) => {
                 // Get the bit width to know the size of the binary decompositions for this Field
@@ -992,8 +994,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 true => T::from(1),
                 false => T::from(0),
             }),
-            BooleanExpression::Conditional(c) => self
-                .flatten_conditional_expression(statements_flattened, c)
+            BooleanExpression::Conditional(e) => self
+                .flatten_conditional_expression(statements_flattened, e)
                 .get_field_unchecked(),
         }
     }
@@ -1407,9 +1409,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 });
                 FlatUExpression::with_field(field).bits(bits)
             }
-            UExpressionInner::Select(a, box index) => {
-                self.flatten_select_expression(statements_flattened, a, index)
-            }
+            UExpressionInner::Select(e) => self.flatten_select_expression(statements_flattened, e),
             UExpressionInner::Not(box e) => {
                 let e = self.flatten_uint_expression(statements_flattened, e);
 
@@ -1567,8 +1567,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatUExpression::with_field(r)
             }
-            UExpressionInner::Conditional(c) => {
-                self.flatten_conditional_expression(statements_flattened, c)
+            UExpressionInner::Conditional(e) => {
+                self.flatten_conditional_expression(statements_flattened, e)
             }
             UExpressionInner::Xor(box left, box right) => {
                 let left_metadata = left.metadata.clone().unwrap();
@@ -1969,10 +1969,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     fn flatten_select_expression<U: Flatten<'ast, T>>(
         &mut self,
         statements_flattened: &mut FlatStatements<T>,
-        a: Vec<U>,
-        index: UExpression<'ast, T>,
+        e: SelectExpression<'ast, T, U>,
     ) -> FlatUExpression<T> {
-        let (range_check, result) = a
+        let array = e.array;
+        let index = *e.index;
+
+        let (range_check, result) = array
             .into_iter()
             .enumerate()
             .map(|(i, e)| {
@@ -2038,8 +2040,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             FieldElementExpression::Identifier(x) => {
                 FlatExpression::Identifier(*self.layout.get(&x).unwrap_or_else(|| panic!("{}", x)))
             }
-            FieldElementExpression::Select(a, box index) => self
-                .flatten_select_expression(statements_flattened, a, index)
+            FieldElementExpression::Select(e) => self
+                .flatten_select_expression(statements_flattened, e)
                 .get_field_unchecked(),
             FieldElementExpression::Add(box left, box right) => {
                 let left_flattened = self.flatten_field_expression(statements_flattened, left);
@@ -2212,8 +2214,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     _ => panic!("Expected number as pow exponent"),
                 }
             }
-            FieldElementExpression::Conditional(c) => self
-                .flatten_conditional_expression(statements_flattened, c)
+            FieldElementExpression::Conditional(e) => self
+                .flatten_conditional_expression(statements_flattened, e)
                 .get_field_unchecked(),
         }
     }
@@ -3558,6 +3560,17 @@ mod tests {
         let mut flattener = Flattener::new(config);
 
         flattener.flatten_field_expression(&mut FlatStatements::new(), expression);
+    }
+
+    #[test]
+    fn geq_leq() {
+        let config = CompileConfig::default();
+        let mut flattener = Flattener::new(config);
+        let expression_le = BooleanExpression::FieldLe(
+            box FieldElementExpression::Number(Bn128Field::from(32)),
+            box FieldElementExpression::Number(Bn128Field::from(4)),
+        );
+        flattener.flatten_boolean_expression(&mut FlatStatements::new(), expression_le);
     }
 
     #[test]
