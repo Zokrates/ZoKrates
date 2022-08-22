@@ -1,8 +1,14 @@
+mod util;
+
+#[macro_use]
+extern crate lazy_static;
+
+use crate::util::normalize_path;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 use std::convert::TryFrom;
-use std::io::Cursor;
-use std::path::PathBuf;
+use std::io::{Cursor, Write};
+use std::path::{Component, PathBuf};
 use typed_arena::Arena;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
@@ -11,8 +17,9 @@ use zokrates_ast::ir;
 use zokrates_ast::ir::ProgEnum;
 use zokrates_ast::typed::abi::Abi;
 use zokrates_ast::typed::types::{ConcreteSignature, ConcreteType, GTupleType};
+use zokrates_bellman::Bellman;
 use zokrates_circom::{write_r1cs, write_witness};
-use zokrates_common::helpers::{CurveParameter, SchemeParameter};
+use zokrates_common::helpers::{BackendParameter, CurveParameter, SchemeParameter};
 use zokrates_common::Resolver;
 use zokrates_core::compile::{
     compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
@@ -25,6 +32,11 @@ use zokrates_proof_systems::{
     SolidityCompatibleField, SolidityCompatibleScheme, TaggedKeypair, TaggedProof,
     UniversalBackend, UniversalScheme, GM17,
 };
+
+lazy_static! {
+    static ref STDLIB: serde_json::Value =
+        serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/stdlib.json"))).unwrap();
+}
 
 #[wasm_bindgen]
 pub struct CompilationResult {
@@ -99,29 +111,107 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
         current_location: PathBuf,
         import_location: PathBuf,
     ) -> Result<(String, PathBuf), Error> {
-        let value = self
-            .callback
-            .call2(
+        let base: PathBuf = match import_location.components().next() {
+            Some(Component::CurDir) | Some(Component::ParentDir) => {
+                current_location.parent().unwrap().into()
+            }
+            _ => PathBuf::default(),
+        };
+
+        let path = base.join(import_location.clone()).with_extension("zok");
+
+        match path.components().next() {
+            Some(Component::Normal(_)) => {
+                let path_normalized = normalize_path(path);
+                let source = STDLIB
+                    .get(&path_normalized.to_str().unwrap())
+                    .ok_or_else(|| {
+                        Error::new(format!(
+                            "module `{}` not found in stdlib",
+                            import_location.display()
+                        ))
+                    })?
+                    .as_str()
+                    .unwrap();
+
+                Ok((source.to_owned(), path_normalized))
+            }
+            _ => {
+                let value = self
+                    .callback
+                    .call2(
+                        &JsValue::UNDEFINED,
+                        &current_location.to_str().unwrap().into(),
+                        &import_location.to_str().unwrap().into(),
+                    )
+                    .map_err(|_| {
+                        Error::new(format!(
+                            "could not resolve module `{}`",
+                            import_location.display()
+                        ))
+                    })?;
+
+                if value.is_null() || value.is_undefined() {
+                    return Err(Error::new(format!(
+                        "could not resolve module `{}`",
+                        import_location.display()
+                    )));
+                }
+
+                let result: serde_json::Value = value.into_serde().unwrap();
+                let source = result
+                    .get("source")
+                    .ok_or_else(|| Error::new("missing field `source`"))?
+                    .as_str()
+                    .ok_or_else(|| {
+                        Error::new("invalid type for field `source`, should be a string")
+                    })?;
+
+                let location = result
+                    .get("location")
+                    .ok_or_else(|| Error::new("missing field `location`"))?
+                    .as_str()
+                    .ok_or_else(|| {
+                        Error::new("invalid type for field `location`, should be a string")
+                    })?;
+
+                Ok((source.to_owned(), PathBuf::from(location.to_owned())))
+            }
+        }
+    }
+}
+
+pub struct LogWriter<'a> {
+    buf: Vec<u8>,
+    callback: &'a js_sys::Function,
+}
+
+impl<'a> LogWriter<'a> {
+    pub fn new(callback: &'a js_sys::Function) -> Self {
+        Self {
+            buf: Vec::default(),
+            callback,
+        }
+    }
+}
+
+impl<'a> Write for LogWriter<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buf.write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.callback
+            .call1(
                 &JsValue::UNDEFINED,
-                &current_location.to_str().unwrap().into(),
-                &import_location.to_str().unwrap().into(),
+                &JsValue::from_str(
+                    std::str::from_utf8(&self.buf.as_slice()[..self.buf.len() - 1]).unwrap(),
+                ),
             )
             .map_err(|_| {
-                Error::new(format!(
-                    "Could not resolve `{}`: error thrown in resolve callback",
-                    import_location.display()
-                ))
+                std::io::Error::new(std::io::ErrorKind::Other, "unable to call log callback")
             })?;
-
-        if value.is_null() || value.is_undefined() {
-            Err(Error::new(format!(
-                "Could not resolve `{}`",
-                import_location.display()
-            )))
-        } else {
-            let result: ResolverResult = value.into_serde().unwrap();
-            Ok((result.source, PathBuf::from(result.location)))
-        }
+        self.buf.clear();
+        Ok(())
     }
 }
 
@@ -185,6 +275,7 @@ mod internal {
         abi: JsValue,
         args: JsValue,
         config: JsValue,
+        log_callback: &js_sys::Function,
     ) -> Result<ComputationResult, JsValue> {
         let input = args.as_string().unwrap();
 
@@ -223,8 +314,9 @@ mod internal {
 
         let public_inputs = program.public_inputs();
 
+        let mut writer = LogWriter::new(log_callback);
         let witness = interpreter
-            .execute(program, &inputs.encode())
+            .execute_with_log_stream(program, &inputs.encode(), &mut writer)
             .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
         let return_values: serde_json::Value =
@@ -371,15 +463,16 @@ pub fn compute_witness(
     abi: JsValue,
     args: JsValue,
     config: JsValue,
+    log_callback: &js_sys::Function,
 ) -> Result<ComputationResult, JsValue> {
     let prog = ir::ProgEnum::deserialize(program)
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
     match prog {
-        ProgEnum::Bn128Program(p) => internal::compute::<_>(p, abi, args, config),
-        ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args, config),
-        ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args, config),
-        ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args, config),
+        ProgEnum::Bn128Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::Bls12_381Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::Bls12_377Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
+        ProgEnum::Bw6_761Program(p) => internal::compute::<_>(p, abi, args, config, log_callback),
     }
 }
 
@@ -388,6 +481,7 @@ pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
     let vk: serde_json::Value = vk
         .into_serde()
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
     let curve = CurveParameter::try_from(
         vk["curve"]
             .as_str()
@@ -419,6 +513,13 @@ pub fn export_solidity_verifier(vk: JsValue) -> Result<JsValue, JsValue> {
 pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
 
+    let backend = BackendParameter::try_from(
+        options["backend"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `backend`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+
     let scheme = SchemeParameter::try_from(
         options["scheme"]
             .as_str()
@@ -430,20 +531,27 @@ pub fn setup(program: &[u8], options: JsValue) -> Result<JsValue, JsValue> {
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
-    match scheme {
-        SchemeParameter::G16 => match prog {
+    match (backend, scheme) {
+        (BackendParameter::Bellman, SchemeParameter::G16) => match prog {
+            ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Bellman>(p)),
+            ProgEnum::Bls12_381Program(_) => Err(JsValue::from_str(
+                "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
+            )),
+            _ => Err(JsValue::from_str("Not supported")),
+        },
+        (BackendParameter::Ark, SchemeParameter::G16) => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
             ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
             ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
             ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, G16, Ark>(p)),
         },
-        SchemeParameter::GM17 => match prog {
+        (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
             ProgEnum::Bn128Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bls12_381Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bls12_377Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
             ProgEnum::Bw6_761Program(p) => Ok(internal::setup_non_universal::<_, GM17, Ark>(p)),
         },
-        _ => Err(JsValue::from_str("Unsupported scheme")),
+        _ => Err(JsValue::from_str("Unsupported options")),
     }
 }
 
@@ -507,6 +615,13 @@ pub fn generate_proof(
 ) -> Result<JsValue, JsValue> {
     let options: serde_json::Value = options.into_serde().unwrap();
 
+    let backend = BackendParameter::try_from(
+        options["backend"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `backend`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+
     let scheme = SchemeParameter::try_from(
         options["scheme"]
             .as_str()
@@ -518,8 +633,17 @@ pub fn generate_proof(
         .map_err(|err| JsValue::from_str(&err))?
         .collect();
 
-    match scheme {
-        SchemeParameter::G16 => match prog {
+    match (backend, scheme) {
+        (BackendParameter::Bellman, SchemeParameter::G16) => match prog {
+            ProgEnum::Bn128Program(p) => {
+                internal::generate_proof::<_, G16, Bellman>(p, witness, pk)
+            }
+            ProgEnum::Bls12_381Program(_) => Err(JsValue::from_str(
+                "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
+            )),
+            _ => Err(JsValue::from_str("Not supported")),
+        },
+        (BackendParameter::Ark, SchemeParameter::G16) => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
             ProgEnum::Bls12_381Program(p) => {
                 internal::generate_proof::<_, G16, Ark>(p, witness, pk)
@@ -529,7 +653,7 @@ pub fn generate_proof(
             }
             ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, G16, Ark>(p, witness, pk),
         },
-        SchemeParameter::GM17 => match prog {
+        (BackendParameter::Ark, SchemeParameter::GM17) => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
             ProgEnum::Bls12_381Program(p) => {
                 internal::generate_proof::<_, GM17, Ark>(p, witness, pk)
@@ -539,7 +663,7 @@ pub fn generate_proof(
             }
             ProgEnum::Bw6_761Program(p) => internal::generate_proof::<_, GM17, Ark>(p, witness, pk),
         },
-        SchemeParameter::MARLIN => match prog {
+        (BackendParameter::Ark, SchemeParameter::MARLIN) => match prog {
             ProgEnum::Bn128Program(p) => internal::generate_proof::<_, Marlin, Ark>(p, witness, pk),
             ProgEnum::Bls12_381Program(p) => {
                 internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
@@ -551,11 +675,20 @@ pub fn generate_proof(
                 internal::generate_proof::<_, Marlin, Ark>(p, witness, pk)
             }
         },
+        _ => Err(JsValue::from_str("Unsupported options")),
     }
 }
 
 #[wasm_bindgen]
-pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
+pub fn verify(vk: JsValue, proof: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+    let options: serde_json::Value = options.into_serde().unwrap();
+    let backend = BackendParameter::try_from(
+        options["backend"]
+            .as_str()
+            .ok_or_else(|| JsValue::from_str("Invalid options: missing field `backend`"))?,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+
     let vk: serde_json::Value = vk.into_serde().unwrap();
     let proof: serde_json::Value = proof.into_serde().unwrap();
     let vk_curve = CurveParameter::try_from(
@@ -600,25 +733,33 @@ pub fn verify(vk: JsValue, proof: JsValue) -> Result<JsValue, JsValue> {
     let scheme = vk_scheme;
     let curve = vk_curve;
 
-    match scheme {
-        SchemeParameter::G16 => match curve {
+    match (backend, scheme) {
+        (BackendParameter::Bellman, SchemeParameter::G16) => match curve {
+            CurveParameter::Bn128 => internal::verify::<Bn128Field, G16, Bellman>(vk, proof),
+            CurveParameter::Bls12_381 => Err(JsValue::from_str(
+                "Not supported: https://github.com/Zokrates/ZoKrates/issues/1200",
+            )),
+            _ => Err(JsValue::from_str("Not supported")),
+        },
+        (BackendParameter::Ark, SchemeParameter::G16) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, G16, Ark>(vk, proof),
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, G16, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, G16, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, G16, Ark>(vk, proof),
         },
-        SchemeParameter::GM17 => match curve {
+        (BackendParameter::Ark, SchemeParameter::GM17) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, GM17, Ark>(vk, proof),
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, GM17, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, GM17, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, GM17, Ark>(vk, proof),
         },
-        SchemeParameter::MARLIN => match curve {
+        (BackendParameter::Ark, SchemeParameter::MARLIN) => match curve {
             CurveParameter::Bn128 => internal::verify::<Bn128Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bls12_381 => internal::verify::<Bls12_381Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bls12_377 => internal::verify::<Bls12_377Field, Marlin, Ark>(vk, proof),
             CurveParameter::Bw6_761 => internal::verify::<Bw6_761Field, Marlin, Ark>(vk, proof),
         },
+        _ => Err(JsValue::from_str("Unsupported options")),
     }
 }
 

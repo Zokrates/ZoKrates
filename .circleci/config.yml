@@ -106,7 +106,7 @@ jobs:
       - run:
           name: Build
           no_output_timeout: "30m"
-          command: npm run build:dev && npm pack --dry-run
+          command: npm ci && npm run build:dev && npm pack --dry-run
       - save-sccache-cache
   zokrates_js_test:
     docker:
@@ -127,7 +127,7 @@ jobs:
       - run:
           name: Run tests
           no_output_timeout: "30m"
-          command: npm run test
+          command: npm ci && npm run test
       - save-sccache-cache
   cross_build:
     parameters:
@@ -164,11 +164,6 @@ jobs:
           name: "Publish artifacts on GitHub"
           command: |
             go install github.com/github-release/github-release@latest
-            github-release release \
-                -s ${GH_TOKEN} \
-                -u ${CIRCLE_PROJECT_USERNAME} \
-                -r ${CIRCLE_PROJECT_REPONAME} \
-                -t ${CIRCLE_TAG} || true
             find /tmp/artifacts -type f -name *.tar.gz -exec basename {} \; | xargs -I {} github-release upload \
               -s ${GH_TOKEN} \
               -u ${CIRCLE_PROJECT_USERNAME} \

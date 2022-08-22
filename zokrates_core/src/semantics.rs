@@ -1782,15 +1782,30 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|e| vec![e])?;
 
+                let mut errors = vec![];
+
+                for e in &expressions {
+                    if let TypedExpression::Int(e) = e {
+                        errors.push(ErrorInner {
+                            pos: Some(pos),
+                            message: format!("Cannot determine type for expression `{}`", e),
+                        });
+                    }
+                }
+
                 if expressions.len() != l.len() {
-                    return Err(vec![ErrorInner {
+                    errors.push(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Wrong argument count in log call: expected {}, got {}",
                             l.len(),
                             expressions.len()
                         ),
-                    }]);
+                    });
+                }
+
+                if !errors.is_empty() {
+                    return Err(errors);
                 }
 
                 Ok(TypedStatement::Log(l, expressions))
