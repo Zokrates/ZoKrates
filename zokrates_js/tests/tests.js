@@ -245,24 +245,28 @@ describe("tests", () => {
     });
   };
 
-  describe("ark", () => {
-    for (const scheme of ["g16", "gm17", "marlin"]) {
-      describe(scheme, () => {
-        for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
-          describe(curve, () =>
-            runWithOptions({ backend: "ark", scheme, curve })
-          );
-        }
-      });
-    }
-  });
+  let combinations = {
+    ark: {
+      schemes: ["g16", "gm17", "marlin"],
+      curves: ["bn128", "bls12_381", "bls12_377", "bw6_761"],
+    },
+    bellman: {
+      schemes: ["g16"],
+      curves: ["bn128"],
+    },
+  };
 
-  describe("bellman", () => {
-    describe("g16", () => {
-      describe("bn128", () =>
-        runWithOptions({ backend: "bellman", scheme: "g16", curve: "bn128" }));
+  for (const backend of Object.keys(combinations)) {
+    describe(backend, () => {
+      for (const scheme of combinations[backend].schemes) {
+        describe(scheme, () => {
+          for (const curve of combinations[backend].curves) {
+            describe(curve, () => runWithOptions({ backend, scheme, curve }));
+          }
+        });
+      }
     });
-  });
+  }
 
   const testRunner = (rootPath, testPath, test) => {
     let entryPoint;

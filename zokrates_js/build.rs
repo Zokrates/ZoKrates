@@ -3,11 +3,11 @@ use std::{env, fs};
 use walkdir::WalkDir;
 
 fn main() {
-    export_stdlib_js();
+    export_stdlib();
     export_metadata();
 }
 
-fn export_stdlib_js() {
+fn export_stdlib() {
     let root = "../zokrates_stdlib/stdlib";
     let mut stdlib = json::JsonValue::new_object();
 
