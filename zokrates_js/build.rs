@@ -13,7 +13,7 @@ fn export_stdlib() {
 
     for entry in WalkDir::new(root)
         .into_iter()
-        .filter_map(Result::ok)
+        .map(Result::unwrap)
         .filter(|e| !e.file_type().is_dir())
     {
         let path: &Path = entry.path();
@@ -31,7 +31,7 @@ fn export_stdlib() {
 
 fn export_metadata() {
     let path = "../zokrates_cli/Cargo.toml";
-    let config: toml::Value = dbg!(toml::from_str(&fs::read_to_string(path).unwrap()).unwrap());
+    let config: toml::Value = toml::from_str(&fs::read_to_string(path).unwrap()).unwrap();
 
     let mut metadata = json::JsonValue::new_object();
     metadata
