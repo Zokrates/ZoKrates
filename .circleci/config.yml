@@ -164,11 +164,6 @@ jobs:
           name: "Publish artifacts on GitHub"
           command: |
             go install github.com/github-release/github-release@latest
-            github-release release \
-                -s ${GH_TOKEN} \
-                -u ${CIRCLE_PROJECT_USERNAME} \
-                -r ${CIRCLE_PROJECT_REPONAME} \
-                -t ${CIRCLE_TAG} || true
             find /tmp/artifacts -type f -name *.tar.gz -exec basename {} \; | xargs -I {} github-release upload \
               -s ${GH_TOKEN} \
               -u ${CIRCLE_PROJECT_USERNAME} \

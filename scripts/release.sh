@@ -33,6 +33,14 @@ git tag -f $TAG
 git push origin -f latest
 git push origin $TAG
 
+# Create a release draft
+curl \
+  -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: token $GH_TOKEN" \
+  https://api.github.com/repos/Zokrates/ZoKrates/releases \
+  -d "{\"tag_name\":\"$TAG\",\"draft\":true}"
+
 # Build zokrates js
 docker build -t zokrates_js -f zokrates_js/Dockerfile .
 

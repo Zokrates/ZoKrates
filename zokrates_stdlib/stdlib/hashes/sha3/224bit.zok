@@ -1,0 +1,5 @@
+from "hashes/keccak/keccak" import main as keccak;
+
+def main<N>(u8[N] input) -> u8[28] {
+    return keccak::<_, 28>(input, 0x06);
+}
