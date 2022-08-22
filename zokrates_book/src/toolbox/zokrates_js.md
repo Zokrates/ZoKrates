@@ -64,14 +64,19 @@ Returns a `ZoKratesProvider` configured with given options.
 
 ```js
 initialize().then((defaultProvider) => { 
-    let zokratesProvider = defaultProvider.withOptions({ curve: "bls12_381", scheme: "g16" });
+    let zokratesProvider = defaultProvider.withOptions({ 
+        backend: "ark",
+        curve: "bls12_381",
+        scheme: "g16"
+    });
     // ...
 });
 ```
 
 Options:
-* `curve` - Elliptic curve (`bn128` | `bls12_381` | `bls12_377` | `bw6_761`)
-* `scheme` - Proving scheme (`g16` | `gm17` | `marlin`)
+* `backend` - Backend (options: `ark` | `bellman`, default: `ark`)
+* `curve` - Elliptic curve (options: `bn128` | `bls12_381` | `bls12_377` | `bw6_761`, default: `bn128`)
+* `scheme` - Proving scheme (options: `g16` | `gm17` | `marlin`, default: `g16`)
 
 Returns: `ZoKratesProvider`
 
@@ -123,12 +128,13 @@ const fileSystemResolver = (from, to) => {
 };
 ```
 
-##### computeWitness(artifacts, args)
+##### computeWitness(artifacts, args[, options])
 Computes a valid assignment of the variables, which include the results of the computation.
 
 Parameters:
 * `artifacts` - Compilation artifacts
 * `args` - Array of arguments (eg. `["1", "2", true]`)
+* `options` - Computation options
 
 Returns: `ComputationResult`
 

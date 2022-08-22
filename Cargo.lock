@@ -1481,6 +1481,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "json"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
+
+[[package]]
 name = "keccak"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3213,13 +3219,18 @@ dependencies = [
  "console_error_panic_hook",
  "indexmap",
  "js-sys",
+ "json",
+ "lazy_static",
  "serde",
  "serde_json",
+ "toml",
  "typed-arena",
+ "walkdir",
  "wasm-bindgen",
  "zokrates_abi",
  "zokrates_ark",
  "zokrates_ast",
+ "zokrates_bellman",
  "zokrates_circom",
  "zokrates_common",
  "zokrates_core",
