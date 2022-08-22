@@ -1804,27 +1804,33 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|e| vec![e])?;
 
-                // we cannot align integer literals here so we ban them
-                match expressions.iter().any(|e| matches!(e, TypedExpression::Int(..))) {
-                    true => Err(vec![ErrorInner {
-                        pos: Some(pos),
-                        message: "Found {integer} literal in log statement, try annotating with a literal suffix".into(),
-                    }]),
-                    false => {
-                        if expressions.len() != l.len() {
-                            return Err(vec![ErrorInner {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Wrong argument count in log call: expected {}, got {}",
-                                    l.len(),
-                                    expressions.len()
-                                ),
-                            }]);
-                        }
+                let mut errors = vec![];
 
-                        Ok(TypedStatement::Log(l, expressions))
+                for e in &expressions {
+                    if let TypedExpression::Int(e) = e {
+                        errors.push(ErrorInner {
+                            pos: Some(pos),
+                            message: format!("Cannot determine type for expression `{}`", e),
+                        });
                     }
                 }
+
+                if expressions.len() != l.len() {
+                    errors.push(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Wrong argument count in log call: expected {}, got {}",
+                            l.len(),
+                            expressions.len()
+                        ),
+                    });
+                }
+
+                if !errors.is_empty() {
+                    return Err(errors);
+                }
+
+                Ok(TypedStatement::Log(l, expressions))
             }
             Statement::Return(e) => {
                 let mut errors = vec![];

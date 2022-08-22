@@ -1,0 +1,1 @@
+Error out at compile time if the type of a logged value could not be inferred
