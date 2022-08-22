@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
-use zokrates_ast::zir::folder::fold_uint_expression_inner;
 use zokrates_ast::zir::result_folder::fold_boolean_expression;
 use zokrates_ast::zir::result_folder::fold_field_expression;
 use zokrates_ast::zir::result_folder::fold_statement;
+use zokrates_ast::zir::result_folder::fold_uint_expression_inner;
 use zokrates_ast::zir::result_folder::ResultFold;
 use zokrates_ast::zir::result_folder::ResultFolder;
 use zokrates_ast::zir::types::UBitwidth;
@@ -588,7 +588,7 @@ impl<'ast, T: Field> ResultFolder<'ast, T> for ZirPropagator<'ast, T> {
                     e => Ok(UExpressionInner::Not(box e.annotate(bitwidth))),
                 }
             }
-            e => fold_uint_expression_inner(bitwidth, e),
+            e => fold_uint_expression_inner(self, bitwidth, e),
         }
     }
 
