@@ -1,0 +1,4 @@
+def main() {
+    log("{}", 1 + 1); // 1 is of internal type {integer}
+    return;
+}
