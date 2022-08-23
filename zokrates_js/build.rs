@@ -15,11 +15,7 @@ fn export_stdlib() {
         .into_iter()
         .map(Result::unwrap)
         .filter(|e| {
-            !e.file_type().is_dir()
-                && e.file_name()
-                    .to_str()
-                    .map(|s| s.ends_with(".zok"))
-                    .unwrap_or(false)
+            !e.file_type().is_dir() && e.path().extension().map(|e| e == "zok").unwrap_or(false)
         })
     {
         let path: &Path = entry.path();
