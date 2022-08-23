@@ -14,7 +14,13 @@ fn export_stdlib() {
     for entry in WalkDir::new(root)
         .into_iter()
         .map(Result::unwrap)
-        .filter(|e| !e.file_type().is_dir())
+        .filter(|e| {
+            !e.file_type().is_dir()
+                && e.file_name()
+                    .to_str()
+                    .map(|s| s.ends_with(".zok"))
+                    .unwrap_or(false)
+        })
     {
         let path: &Path = entry.path();
         let source = fs::read_to_string(path).unwrap();
