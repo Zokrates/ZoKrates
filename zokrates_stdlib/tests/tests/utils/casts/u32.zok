@@ -1,0 +1,18 @@
+from "utils/casts.zok" import cast;
+
+// u32    -> bool[32]
+// u32[N] -> bool[P]
+// u32    -> field
+// u32[N] -> field[N]
+// u32    -> u8[4]
+// u32[N] -> u8[P]
+// u32    -> u16[2]
+// u32[N] -> u16[P]
+// u32    -> u64
+// u32[2] -> u64
+// u32[N] -> u64[P]
+
+def main() {
+    // TODO
+    return;
+}
