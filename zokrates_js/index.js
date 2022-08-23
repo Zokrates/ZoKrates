@@ -1,10 +1,9 @@
-import wrapper from "./wrapper.js";
-import stdlib from "./stdlib.js";
+import lib from "./lib.js";
 import metadata from "./metadata.js";
 
 const initialize = async () => {
-  const zokrates = await import("./pkg/index.js");
-  return wrapper({ zokrates, stdlib });
+  const pkg = await import("./pkg/index.js");
+  return lib(pkg);
 };
 
 export { initialize, metadata };

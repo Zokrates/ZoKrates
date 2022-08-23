@@ -106,6 +106,8 @@ impl Interpreter {
                     }
 
                     writeln!(log_stream).map_err(|_| Error::LogStream)?;
+
+                    log_stream.flush().map_err(|_| Error::LogStream)?;
                 }
             }
         }

@@ -34,7 +34,7 @@ impl<T: Field + ArkFieldExtensions> Backend<T, G16> for Ark {
             .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
-        let pk = ProvingKey::<<T as ArkFieldExtensions>::ArkEngine>::deserialize_uncompressed(
+        let pk = ProvingKey::<<T as ArkFieldExtensions>::ArkEngine>::deserialize_unchecked(
             &mut proving_key.as_slice(),
         )
         .unwrap();
@@ -97,7 +97,7 @@ impl<T: Field + ArkFieldExtensions> NonUniversalBackend<T, G16> for Ark {
         let (pk, vk) = Groth16::<T::ArkEngine>::circuit_specific_setup(computation, rng).unwrap();
 
         let mut pk_vec: Vec<u8> = Vec::new();
-        pk.serialize_uncompressed(&mut pk_vec).unwrap();
+        pk.serialize_unchecked(&mut pk_vec).unwrap();
 
         let vk = VerificationKey {
             alpha: parse_g1::<T>(&vk.alpha_g1),
