@@ -44,7 +44,7 @@ pub struct ShadowedIdentifier<'ast> {
 }
 
 impl<'ast> ShadowedIdentifier<'ast> {
-    pub fn nth(id: SourceIdentifier<'ast>, shadow: usize) -> Self {
+    pub fn shadow(id: SourceIdentifier<'ast>, shadow: usize) -> Self {
         Self { id, shadow }
     }
 }
@@ -97,7 +97,7 @@ impl<'ast> Identifier<'ast> {
 // these two From implementations are only used in tests but somehow cfg(test) doesn't work
 impl<'ast> From<&'ast str> for CoreIdentifier<'ast> {
     fn from(s: &str) -> CoreIdentifier {
-        CoreIdentifier::Source(ShadowedIdentifier::nth(s, 0))
+        CoreIdentifier::Source(ShadowedIdentifier::shadow(s, 0))
     }
 }
 

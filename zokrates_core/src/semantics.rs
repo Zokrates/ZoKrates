@@ -1090,7 +1090,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
             self.scope.level > 0,
             "CoreIdentifier cannot be declared in the global scope"
         );
-        CoreIdentifier::from(ShadowedIdentifier::nth(id, self.scope.level - 1))
+        CoreIdentifier::from(ShadowedIdentifier::shadow(id, self.scope.level - 1))
     }
 
     fn check_function(
@@ -4714,12 +4714,12 @@ mod tests {
 
         let for_statements_checked = vec![TypedStatement::Definition(
             typed::Variable::uint(
-                CoreIdentifier::Source(ShadowedIdentifier::nth("a", 1)),
+                CoreIdentifier::Source(ShadowedIdentifier::shadow("a", 1)),
                 UBitwidth::B32,
             )
             .into(),
             UExpressionInner::Identifier(
-                CoreIdentifier::Source(ShadowedIdentifier::nth("i", 1)).into(),
+                CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)).into(),
             )
             .annotate(UBitwidth::B32)
             .into(),
@@ -4728,7 +4728,7 @@ mod tests {
         let foo_statements_checked = vec![
             TypedStatement::For(
                 typed::Variable::uint(
-                    CoreIdentifier::Source(ShadowedIdentifier::nth("i", 1)),
+                    CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)),
                     UBitwidth::B32,
                 ),
                 0u32.into(),
@@ -5210,26 +5210,20 @@ mod tests {
         );
     }
 
-    #[test]
-    fn shadowing_with_same_type() {
-        // field a = 2;
-        // field a = 2;
-        //
-        // should succeed
+    mod shadowing {
 
-        let mut checker: Checker<Bn128Field> = Checker::default();
-        checker.enter_scope();
-        let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
-            Statement::Definition(
-                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-                untyped::Expression::IntConstant(2usize.into()).mock(),
-            )
-            .mock(),
-            &*MODULE_ID,
-            &TypeMap::new(),
-        );
-        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
-            .check_statement(
+        use super::*;
+
+        #[test]
+        fn same_type() {
+            // field a = 2;
+            // field a = 2;
+            //
+            // should succeed
+
+            let mut checker: Checker<Bn128Field> = Checker::default();
+            checker.enter_scope();
+            let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
                 Statement::Definition(
                     untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
                     untyped::Expression::IntConstant(2usize.into()).mock(),
@@ -5238,42 +5232,169 @@ mod tests {
                 &*MODULE_ID,
                 &TypeMap::new(),
             );
-        assert!(s2_checked.is_ok());
-    }
+            let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
+                .check_statement(
+                    Statement::Definition(
+                        untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock())
+                            .mock(),
+                        untyped::Expression::IntConstant(2usize.into()).mock(),
+                    )
+                    .mock(),
+                    &*MODULE_ID,
+                    &TypeMap::new(),
+                );
+            assert!(s2_checked.is_ok());
+        }
 
-    #[test]
-    fn shadowing_with_different_type() {
-        // field a = 2;
-        // bool a = true;
-        //
-        // should succeed
+        #[test]
+        fn different_type() {
+            // field a = 2;
+            // bool a = true;
+            //
+            // should succeed
 
-        let mut checker: Checker<Bn128Field> = Checker::default();
-        checker.enter_scope();
-        let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
-            Statement::Definition(
-                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-                untyped::Expression::IntConstant(2usize.into()).mock(),
-            )
-            .mock(),
-            &*MODULE_ID,
-            &TypeMap::new(),
-        );
-        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
-            .check_statement(
+            let mut checker: Checker<Bn128Field> = Checker::default();
+            checker.enter_scope();
+            let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
                 Statement::Definition(
-                    untyped::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
-                    untyped::Expression::BooleanConstant(true).mock(),
+                    untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                    untyped::Expression::IntConstant(2usize.into()).mock(),
                 )
                 .mock(),
                 &*MODULE_ID,
                 &TypeMap::new(),
             );
-        assert!(s2_checked.is_ok());
-        assert_eq!(
-            checker.scope.get(&"a").unwrap().ty,
-            DeclarationType::Boolean
-        );
+            let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
+                .check_statement(
+                    Statement::Definition(
+                        untyped::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
+                        untyped::Expression::BooleanConstant(true).mock(),
+                    )
+                    .mock(),
+                    &*MODULE_ID,
+                    &TypeMap::new(),
+                );
+            assert!(s2_checked.is_ok());
+            assert_eq!(
+                checker.scope.get(&"a").unwrap().ty,
+                DeclarationType::Boolean
+            );
+        }
+
+        #[test]
+        fn scopes() {
+            // field mut a = 2;
+            // for uint i in 0..0 {
+            //    a = 3
+            //    field a = 4
+            // }
+            // a = 5
+            //
+            // should be turned into
+            //
+            // field mut a_0 = 2;
+            // for uint i_1 in 0..0 {
+            //    a_0 = 3
+            //    field a_1 = 4
+            // }
+            // a_0 = 5
+
+            let mut checker: Checker<Bn128Field> = Checker::default();
+
+            let statements = vec![
+                Statement::Definition(
+                    untyped::Variable::mutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                    untyped::Expression::IntConstant(2usize.into()).mock(),
+                )
+                .mock(),
+                Statement::For(
+                    untyped::Variable::immutable("i", UnresolvedType::Uint(32).mock()).mock(),
+                    untyped::Expression::U32Constant(0).mock(),
+                    untyped::Expression::U32Constant(0).mock(),
+                    vec![
+                        Statement::Assignment(
+                            untyped::Assignee::Identifier("a").mock(),
+                            untyped::Expression::IntConstant(3usize.into()).mock(),
+                        )
+                        .mock(),
+                        Statement::Definition(
+                            untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock())
+                                .mock(),
+                            untyped::Expression::IntConstant(4usize.into()).mock(),
+                        )
+                        .mock(),
+                    ],
+                )
+                .mock(),
+                Statement::Assignment(
+                    untyped::Assignee::Identifier("a").mock(),
+                    untyped::Expression::IntConstant(5usize.into()).mock(),
+                )
+                .mock(),
+            ];
+
+            let expected = vec![
+                TypedStatement::Definition(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                        Type::FieldElement,
+                        true,
+                    )
+                    .into(),
+                    FieldElementExpression::Number(2.into()).into(),
+                ),
+                TypedStatement::For(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("i", 1)),
+                        Type::Uint(UBitwidth::B32),
+                        false,
+                    ),
+                    0u32.into(),
+                    0u32.into(),
+                    vec![
+                        TypedStatement::Definition(
+                            typed::Variable::new(
+                                CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                                Type::FieldElement,
+                                true,
+                            )
+                            .into(),
+                            FieldElementExpression::Number(3.into()).into(),
+                        ),
+                        TypedStatement::Definition(
+                            typed::Variable::new(
+                                CoreIdentifier::from(ShadowedIdentifier::shadow("a", 1)),
+                                Type::FieldElement,
+                                false,
+                            )
+                            .into(),
+                            FieldElementExpression::Number(4.into()).into(),
+                        ),
+                    ],
+                ),
+                TypedStatement::Definition(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                        Type::FieldElement,
+                        true,
+                    )
+                    .into(),
+                    FieldElementExpression::Number(5.into()).into(),
+                ),
+            ];
+
+            checker.enter_scope();
+            let checked: Vec<_> = statements
+                .into_iter()
+                .map(|s| {
+                    checker
+                        .check_statement(s, &*MODULE_ID, &TypeMap::default())
+                        .unwrap()
+                })
+                .collect();
+
+            assert_eq!(checked, expected);
+        }
     }
 
     mod structs {
