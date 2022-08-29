@@ -1186,10 +1186,22 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
 
                 if !found_return {
-                    errors.push(ErrorInner {
-                        pos: Some(pos),
-                        message: "Expected a return statement".to_string(),
-                    });
+                    match &s.output {
+                        box DeclarationType::Tuple(tuple_type)
+                            if tuple_type.elements.is_empty() =>
+                        {
+                            statements_checked.push(TypedStatement::Return(TypedExpression::Tuple(
+                                TupleExpressionInner::Value(vec![])
+                                    .annotate(TupleType::new(vec![])),
+                            )))
+                        }
+                        _ => {
+                            errors.push(ErrorInner {
+                                pos: Some(pos),
+                                message: "Expected a return statement".to_string(),
+                            });
+                        }
+                    }
                 }
 
                 signature = Some(s);
