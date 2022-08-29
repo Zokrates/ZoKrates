@@ -1,26 +1,26 @@
 {
-  "entry_point": "./tests/tests/uint/u8/gt.zok",
-  "max_constraint_count": 681,
+    "entry_point": "./tests/tests/uint/u8/gt.zok",
+    "max_constraint_count": 681,
     "tests": [
-    {
-      "input": {
-        "values": ["0x04", "0x02"]
-      },
-      "output": {
-        "Ok": {
-          "value": true
+        {
+            "input": {
+                "values": ["0x04", "0x02"]
+            },
+            "output": {
+                "Ok": {
+                    "value": true
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0x02", "0x02"]
+            },
+            "output": {
+                "Ok": {
+                    "value": false
+                }
+            }
         }
-      }
-    },
-    {
-      "input": {
-        "values": ["0x02", "0x02"]
-      },
-      "output": {
-        "Ok": {
-          "value": false
-        }
-      }
-    }
-  ]
+    ]
 }

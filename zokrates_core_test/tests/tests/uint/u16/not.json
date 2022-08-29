@@ -1,26 +1,26 @@
 {
-  "entry_point": "./tests/tests/uint/u16/not.zok",
-  "max_constraint_count": 18,
+    "entry_point": "./tests/tests/uint/u16/not.zok",
+    "max_constraint_count": 18,
     "tests": [
-    {
-      "input": {
-        "values": ["0x0001"]
-      },
-      "output": {
-        "Ok": {
-          "value": "0xfffe"
+        {
+            "input": {
+                "values": ["0x0001"]
+            },
+            "output": {
+                "Ok": {
+                    "value": "0xfffe"
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0xffff"]
+            },
+            "output": {
+                "Ok": {
+                    "value": "0x0000"
+                }
+            }
         }
-      }
-    },
-    {
-      "input": {
-        "values": ["0xffff"]
-      },
-      "output": {
-        "Ok": {
-          "value": "0x0000"
-        }
-      }
-    }
-  ]
+    ]
 }

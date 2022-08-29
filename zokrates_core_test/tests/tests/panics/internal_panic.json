@@ -4,29 +4,25 @@
     "config": {
         "isolate_branches": true
     },
-	"tests": [
+    "tests": [
         {
             "input": {
-                "values": [
-                    "1"
-                ]
+                "values": ["1"]
             },
             "output": {
-				"Ok": {
-					"value": "1"
-				}
+                "Ok": {
+                    "value": "1"
+                }
             }
         },
         {
             "input": {
-                "values": [
-                    "0"
-                ]
+                "values": ["0"]
             },
             "output": {
-				"Ok": {
-					"value": "0"
-				}
+                "Ok": {
+                    "value": "0"
+                }
             }
         }
     ]

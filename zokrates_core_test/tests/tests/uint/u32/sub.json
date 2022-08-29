@@ -1,26 +1,26 @@
 {
-  "entry_point": "./tests/tests/uint/u32/sub.zok",
-  "max_constraint_count": 171,
+    "entry_point": "./tests/tests/uint/u32/sub.zok",
+    "max_constraint_count": 171,
     "tests": [
-    {
-      "input": {
-        "values": ["0xffffffff", "0x00000001"]
-      },
-      "output": {
-        "Ok": {
-          "value": ["0xfffffffe", "0xfffffffe", "0x00000002"]
+        {
+            "input": {
+                "values": ["0xffffffff", "0x00000001"]
+            },
+            "output": {
+                "Ok": {
+                    "value": ["0xfffffffe", "0xfffffffe", "0x00000002"]
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0x00000000", "0x00000001"]
+            },
+            "output": {
+                "Ok": {
+                    "value": ["0xffffffff", "0xffffffff", "0x00000001"]
+                }
+            }
         }
-      }
-    },
-    {
-      "input": {
-        "values": ["0x00000000", "0x00000001"]
-      },
-      "output": {
-        "Ok": {
-          "value": ["0xffffffff", "0xffffffff", "0x00000001"]
-        }
-      }
-    }
-  ]
+    ]
 }

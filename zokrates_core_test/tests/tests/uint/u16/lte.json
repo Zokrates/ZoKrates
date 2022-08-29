@@ -1,36 +1,36 @@
 {
-  "entry_point": "./tests/tests/uint/u16/lte.zok",
-  "max_constraint_count": 699,
+    "entry_point": "./tests/tests/uint/u16/lte.zok",
+    "max_constraint_count": 699,
     "tests": [
-    {
-      "input": {
-        "values": ["0x0002", "0x0004"]
-      },
-      "output": {
-        "Ok": {
-          "value": true
+        {
+            "input": {
+                "values": ["0x0002", "0x0004"]
+            },
+            "output": {
+                "Ok": {
+                    "value": true
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0x0002", "0x0002"]
+            },
+            "output": {
+                "Ok": {
+                    "value": true
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0x0003", "0x0002"]
+            },
+            "output": {
+                "Ok": {
+                    "value": false
+                }
+            }
         }
-      }
-    },
-    {
-      "input": {
-        "values": ["0x0002", "0x0002"]
-      },
-      "output": {
-        "Ok": {
-          "value": true
-        }
-      }
-    },
-    {
-      "input": {
-        "values": ["0x0003", "0x0002"]
-      },
-      "output": {
-        "Ok": {
-          "value": false
-        }
-      }
-    }
-  ]
+    ]
 }

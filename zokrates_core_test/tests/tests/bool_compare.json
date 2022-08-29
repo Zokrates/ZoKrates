@@ -1,13 +1,10 @@
 {
     "entry_point": "./tests/tests/bool_compare.zok",
     "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"tests": [
+    "tests": [
         {
             "input": {
-                "values": [
-                    true,
-                    true
-                ]
+                "values": [true, true]
             },
             "output": {
                 "Ok": {
@@ -17,10 +14,7 @@
         },
         {
             "input": {
-                "values": [
-                    true,
-                    false
-                ]
+                "values": [true, false]
             },
             "output": {
                 "Ok": {
@@ -30,10 +24,7 @@
         },
         {
             "input": {
-                "values": [
-                    false,
-                    false
-                ]
+                "values": [false, false]
             },
             "output": {
                 "Ok": {

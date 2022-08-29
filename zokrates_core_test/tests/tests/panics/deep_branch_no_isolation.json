@@ -4,9 +4,7 @@
     "tests": [
         {
             "input": {
-                "values": [[
-                    false, false, false
-                ]]
+                "values": [[false, false, false]]
             },
             "output": {
                 "Err": {
@@ -14,7 +12,7 @@
                         "left": "0",
                         "right": "1",
                         "error": {
-                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/deep_branch.zok:2:5"
+                            "SourceAssertion": "Assertion failed at ./tests/tests/panics/deep_branch.zok:2:5"
                         }
                     }
                 }

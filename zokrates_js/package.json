@@ -1,52 +1,52 @@
 {
-  "name": "zokrates-js",
-  "version": "1.1.1",
-  "module": "index.js",
-  "main": "node/index.js",
-  "description": "JavaScript bindings for ZoKrates",
-  "contributors": [
-    "Darko Macesic <darem966@gmail.com>",
-    "Thibaut Schaeffer <thibaut@schaeff.fr>"
-  ],
-  "keywords": [
-    "zokrates",
-    "snarks",
-    "zksnarks"
-  ],
-  "license": "GPLv3",
-  "files": [
-    "node",
-    "pkg",
-    "index.js",
-    "index.d.ts",
-    "lib.js",
-    "metadata.js"
-  ],
-  "types": "index.d.ts",
-  "exports": {
-    "node": "./node/index.js",
-    "default": "./index.js"
-  },
-  "scripts": {
-    "wasm-pack": "wasm-pack build --out-name index",
-    "prebuild": "npm install",
-    "build": "npm run build:bundler && npm run build:node",
-    "build:dev": "npm run build:bundler:dev && npm run build:node:dev",
-    "build:bundler": "rimraf pkg && npm run wasm-pack -- --target bundler --release && npm run clean-pkg",
-    "build:bundler:dev": "rimraf pkg && npm run wasm-pack -- --target bundler --dev && npm run clean-pkg",
-    "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --release && npm run clean-node-pkg",
-    "build:node:dev": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --dev && npm run clean-node-pkg",
-    "clean-pkg": "rimraf pkg/README.md pkg/.gitignore pkg/package.json pkg/*.d.ts",
-    "clean-node-pkg": "rimraf node/pkg/README.md node/pkg/.gitignore node/pkg/package.json node/pkg/*.d.ts",
-    "pretest": "npm run build:node:dev",
-    "test": "npm run run-tests",
-    "run-tests": "mocha --timeout 100000 --recursive tests"
-  },
-  "devDependencies": {
-    "dree": "^2.6.1",
-    "mocha": "^9.2.0",
-    "rimraf": "^3.0.2",
-    "snarkjs": "^0.4.19",
-    "wasm-pack": "^0.10.2"
-  }
+    "name": "zokrates-js",
+    "version": "1.1.1",
+    "module": "index.js",
+    "main": "node/index.js",
+    "description": "JavaScript bindings for ZoKrates",
+    "contributors": [
+        "Darko Macesic <darem966@gmail.com>",
+        "Thibaut Schaeffer <thibaut@schaeff.fr>"
+    ],
+    "keywords": [
+        "zokrates",
+        "snarks",
+        "zksnarks"
+    ],
+    "license": "GPLv3",
+    "files": [
+        "node",
+        "pkg",
+        "index.js",
+        "index.d.ts",
+        "lib.js",
+        "metadata.js"
+    ],
+    "types": "index.d.ts",
+    "exports": {
+        "node": "./node/index.js",
+        "default": "./index.js"
+    },
+    "scripts": {
+        "wasm-pack": "wasm-pack build --out-name index",
+        "prebuild": "npm install",
+        "build": "npm run build:bundler && npm run build:node",
+        "build:dev": "npm run build:bundler:dev && npm run build:node:dev",
+        "build:bundler": "rimraf pkg && npm run wasm-pack -- --target bundler --release && npm run clean-pkg",
+        "build:bundler:dev": "rimraf pkg && npm run wasm-pack -- --target bundler --dev && npm run clean-pkg",
+        "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --release && npm run clean-node-pkg",
+        "build:node:dev": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg --dev && npm run clean-node-pkg",
+        "clean-pkg": "rimraf pkg/README.md pkg/.gitignore pkg/package.json pkg/*.d.ts",
+        "clean-node-pkg": "rimraf node/pkg/README.md node/pkg/.gitignore node/pkg/package.json node/pkg/*.d.ts",
+        "pretest": "npm run build:node:dev",
+        "test": "npm run run-tests",
+        "run-tests": "mocha --timeout 100000 --recursive tests"
+    },
+    "devDependencies": {
+        "dree": "^2.6.1",
+        "mocha": "^9.2.0",
+        "rimraf": "^3.0.2",
+        "snarkjs": "^0.4.19",
+        "wasm-pack": "^0.10.2"
+    }
 }

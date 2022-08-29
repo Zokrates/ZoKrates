@@ -1,26 +1,34 @@
 {
-  "entry_point": "./tests/tests/uint/u64/sub.zok",
-  "max_constraint_count": 331,
+    "entry_point": "./tests/tests/uint/u64/sub.zok",
+    "max_constraint_count": 331,
     "tests": [
-    {
-      "input": {
-        "values": ["0xffffffffffffffff", "0x0000000000000001"]
-      },
-      "output": {
-        "Ok": {
-          "value": ["0xfffffffffffffffe", "0xfffffffffffffffe", "0x0000000000000002"]
+        {
+            "input": {
+                "values": ["0xffffffffffffffff", "0x0000000000000001"]
+            },
+            "output": {
+                "Ok": {
+                    "value": [
+                        "0xfffffffffffffffe",
+                        "0xfffffffffffffffe",
+                        "0x0000000000000002"
+                    ]
+                }
+            }
+        },
+        {
+            "input": {
+                "values": ["0x0000000000000000", "0x0000000000000001"]
+            },
+            "output": {
+                "Ok": {
+                    "value": [
+                        "0xffffffffffffffff",
+                        "0xffffffffffffffff",
+                        "0x0000000000000001"
+                    ]
+                }
+            }
         }
-      }
-    },
-    {
-      "input": {
-        "values": ["0x0000000000000000", "0x0000000000000001"]
-      },
-      "output": {
-        "Ok": {
-          "value": ["0xffffffffffffffff", "0xffffffffffffffff", "0x0000000000000001"]
-        }
-      }
-    }
-  ]
+    ]
 }

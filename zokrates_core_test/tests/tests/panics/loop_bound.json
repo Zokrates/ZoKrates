@@ -4,9 +4,7 @@
     "tests": [
         {
             "input": {
-                "values": [
-                    "0"
-                ]
+                "values": ["0"]
             },
             "output": {
                 "Err": {
@@ -14,7 +12,7 @@
                         "left": "0",
                         "right": "1",
                         "error": {
-                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/loop_bound.zok:2:5"
+                            "SourceAssertion": "Assertion failed at ./tests/tests/panics/loop_bound.zok:2:5"
                         }
                     }
                 }
@@ -22,9 +20,7 @@
         },
         {
             "input": {
-                "values": [
-                    "1"
-                ]
+                "values": ["1"]
             },
             "output": {
                 "Ok": {

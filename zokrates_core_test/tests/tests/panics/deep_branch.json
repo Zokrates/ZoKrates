@@ -4,13 +4,13 @@
     "config": {
         "isolate_branches": true
     },
-	"tests": [
+    "tests": [
         {
             "input": {
                 "values": [[true, true, true]]
             },
             "output": {
-				"Ok": {
+                "Ok": {
                     "value": [true, true, true]
                 }
             }
@@ -20,7 +20,7 @@
                 "values": [[false, false, false]]
             },
             "output": {
-				"Ok": {
+                "Ok": {
                     "value": [false, false, false]
                 }
             }
@@ -30,7 +30,7 @@
                 "values": [[false, true, false]]
             },
             "output": {
-				"Ok": {
+                "Ok": {
                     "value": [false, true, false]
                 }
             }
@@ -40,7 +40,7 @@
                 "values": [[true, false, true]]
             },
             "output": {
-				"Ok": {
+                "Ok": {
                     "value": [true, false, true]
                 }
             }
