@@ -1,14 +1,15 @@
 {
-	"entry_point": "./tests/tests/complex_call.zok",
-	"tests": [
-		{
-			"input": {
-				"values": [true, "2", {"a": [false, true], "b": "2"}, ["3", "4"]]
-			},
-			"output": {
-				"Ok": {
-					"value": [{"a": [true, true], "b": "3"}, "4"]				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/complex_call.zok",
+  "tests": [
+    {
+      "input": {
+        "values": [true, "2", { "a": [false, true], "b": "2" }, ["3", "4"]]
+      },
+      "output": {
+        "Ok": {
+          "value": [{ "a": [true, true], "b": "3" }, "4"]
+        }
+      }
+    }
+  ]
 }

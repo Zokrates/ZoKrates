@@ -1,25 +1,25 @@
 {
-    "entry_point": "./tests/tests/panics/panic_isolation.zok",
-    "config": {
-        "isolate_branches": false
-    },
-    "curves": ["Bn128"],
-    "tests": [
-        {
-            "input": {
-                "values": [true, ["1", "1"], "1"]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "left": "1",
-                        "right": "0",
-                        "error": {
-                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/panic_isolation.zok:17:5"
-                        }
-                    }
-                }
+  "entry_point": "./tests/tests/panics/panic_isolation.zok",
+  "config": {
+    "isolate_branches": false
+  },
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": [true, ["1", "1"], "1"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "1",
+            "right": "0",
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/panics/panic_isolation.zok:17:5"
             }
+          }
         }
-    ]
+      }
+    }
+  ]
 }

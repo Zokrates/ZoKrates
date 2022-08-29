@@ -1,41 +1,41 @@
 {
-	"entry_point": "./tests/tests/tuples/identity.zok",
-	"curves": ["Bn128"],
-	"tests": [
-		{
-			"input": {
-				"values": [["42", false]]
-			},
-			"output": {
-				"Ok": {
-					"value": ["42", false]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": [["42", true]]
-			},
-			"output": {
-				"Ok": {
-					"value": ["42", true]
-				}
-			}
-		},
-		{
-			"abi": false,
-			"input": {
-				"values": ["42", "3"]
-			},
-			"output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "9",
-						"right": "3",
-						"error": "ArgumentBitness"
-					}
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/tuples/identity.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": [["42", false]]
+      },
+      "output": {
+        "Ok": {
+          "value": ["42", false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [["42", true]]
+      },
+      "output": {
+        "Ok": {
+          "value": ["42", true]
+        }
+      }
+    },
+    {
+      "abi": false,
+      "input": {
+        "values": ["42", "3"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "9",
+            "right": "3",
+            "error": "ArgumentBitness"
+          }
+        }
+      }
+    }
+  ]
 }

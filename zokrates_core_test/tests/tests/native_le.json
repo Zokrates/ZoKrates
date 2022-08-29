@@ -1,86 +1,86 @@
 {
-	"entry_point": "./tests/tests/native_le.zok",
-	"curves": ["Bn128"],
-	"tests": [
-		{
-			"input": {
-				"values": ["0", "0x00000000"]
-			},
-			"output": {
-				"Ok": {
-					"value": [true, true]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["1", "0x00000001"]
-			},
-			"output": {
-				"Ok": {
-					"value": [true, true]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["2", "0x00000002"]
-			},
-			"output": {
-				"Ok": {
-					"value": [true, true]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["41", "0x00000029"]
-			},
-			"output": {
-				"Ok": {
-					"value": [true, true]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["42", "0x0000002a"]
-			},
-			"output": {
-				"Ok": {
-					"value": [true, true]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["43", "0x0000002b"]
-			},
-			"output": {
-				"Ok": {
-					"value": [false, false]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["44", "0x0000002c"]
-			},
-			"output": {
-				"Ok": {
-					"value": [false, false]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["100", "0x00000064"]
-			},
-			"output": {
-				"Ok": {
-					"value": [false, false]
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/native_le.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0", "0x00000000"]
+      },
+      "output": {
+        "Ok": {
+          "value": [true, true]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["1", "0x00000001"]
+      },
+      "output": {
+        "Ok": {
+          "value": [true, true]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2", "0x00000002"]
+      },
+      "output": {
+        "Ok": {
+          "value": [true, true]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["41", "0x00000029"]
+      },
+      "output": {
+        "Ok": {
+          "value": [true, true]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["42", "0x0000002a"]
+      },
+      "output": {
+        "Ok": {
+          "value": [true, true]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["43", "0x0000002b"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["44", "0x0000002c"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["100", "0x00000064"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false]
+        }
+      }
+    }
+  ]
 }

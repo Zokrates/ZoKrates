@@ -1,17 +1,17 @@
 {
-	"entry_point": "./tests/tests/spread_slice.zok",
-	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"max_constraint_count": 9,
-	"tests": [
-		{
-			"input": {
-				"values": [["1", "2", "3"], ["4", "5", "6"], "7"]
-			},
-			"output": {
-				"Ok": {
-					"value": ["1", "2", "5", "6", "1", "2", "3", "5", "7"]
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/spread_slice.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "max_constraint_count": 9,
+  "tests": [
+    {
+      "input": {
+        "values": [["1", "2", "3"], ["4", "5", "6"], "7"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["1", "2", "5", "6", "1", "2", "3", "5", "7"]
+        }
+      }
+    }
+  ]
 }

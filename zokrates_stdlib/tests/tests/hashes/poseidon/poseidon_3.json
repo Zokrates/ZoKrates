@@ -1,15 +1,15 @@
 {
-    "entry_point": "./tests/tests/hashes/poseidon/poseidon_3.zok",
-    "tests": [
-        {
-            "input": {
-                "values": [["1", "2", "3"]]
-            },
-            "output": {
-                "Ok": {
-                    "value": "6542985608222806190361240322586112750744169038454362455181422643027100751666"
-                }
-            }
+  "entry_point": "./tests/tests/hashes/poseidon/poseidon_3.zok",
+  "tests": [
+    {
+      "input": {
+        "values": [["1", "2", "3"]]
+      },
+      "output": {
+        "Ok": {
+          "value": "6542985608222806190361240322586112750744169038454362455181422643027100751666"
         }
-    ]
+      }
+    }
+  ]
 }

@@ -1,15 +1,15 @@
 {
-	"entry_point": "./tests/tests/hashes/sha256/1024bitPadded.zok",
-	"tests": [
-		{
-			"input": {
-				"values": []
-			},
-			"output": {
-				"Ok": {
-					"value": []
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/hashes/sha256/1024bitPadded.zok",
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    }
+  ]
 }

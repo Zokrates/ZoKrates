@@ -1,25 +1,26 @@
 {
-	"entry_point": "./tests/tests/uint/maj.zok",
-	"max_constraint_count": 166,
-	"tests": [{
-			"input": {
-				"values": ["0x00000000", "0x00000000"]
-			},
-			"output": {
-				"Ok": {
-					"value": "0x00000000"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["0x01234567", "0x23456789"]
-			},
-			"output": {
-				"Ok": {
-					"value": "0x03254769"
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/uint/maj.zok",
+  "max_constraint_count": 166,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x00000000", "0x00000000"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00000000"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x01234567", "0x23456789"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x03254769"
+        }
+      }
+    }
+  ]
 }

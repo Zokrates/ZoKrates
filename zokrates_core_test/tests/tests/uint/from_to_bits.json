@@ -1,35 +1,36 @@
 {
-	"entry_point": "./tests/tests/uint/from_to_bits.zok",
-	"max_constraint_count": 128,
-	"tests": [{
-			"input": {
-				"values": ["0x0000000000000000", "0x00000000", "0x0000", "0x00"]
-			},
-			"output": {
-				"Ok": {
-					"value": ["0x0000000000000000", "0x00000000", "0x0000", "0x00"]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["0xffffffffffffffff", "0xffffffff", "0xffff", "0xff"]
-			},
-			"output": {
-				"Ok": {
-					"value": ["0xffffffffffffffff", "0xffffffff", "0xffff", "0xff"]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["0x1234567812345678", "0x12345678", "0x1234", "0x12"]
-			},
-			"output": {
-				"Ok": {
-					"value": ["0x1234567812345678", "0x12345678", "0x1234", "0x12"]
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/uint/from_to_bits.zok",
+  "max_constraint_count": 128,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x0000000000000000", "0x00000000", "0x0000", "0x00"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0x0000000000000000", "0x00000000", "0x0000", "0x00"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0xffffffffffffffff", "0xffffffff", "0xffff", "0xff"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0xffffffffffffffff", "0xffffffff", "0xffff", "0xff"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x1234567812345678", "0x12345678", "0x1234", "0x12"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0x1234567812345678", "0x12345678", "0x1234", "0x12"]
+        }
+      }
+    }
+  ]
 }

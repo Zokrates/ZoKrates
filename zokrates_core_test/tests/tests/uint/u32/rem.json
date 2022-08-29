@@ -1,36 +1,36 @@
 {
-    "entry_point": "./tests/tests/uint/u32/rem.zok",
-    "max_constraint_count": 168,
-        "tests": [
-        {
-            "input": {
-                "values": ["0x00000002", "0x00000004"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x00000002"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0xffffffff", "0x00000001"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x00000000"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x10000001", "0x00000002"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x00000001"
-                }
-            }
+  "entry_point": "./tests/tests/uint/u32/rem.zok",
+  "max_constraint_count": 168,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x00000002", "0x00000004"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00000002"
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["0xffffffff", "0x00000001"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00000000"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x10000001", "0x00000002"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00000001"
+        }
+      }
+    }
+  ]
 }
