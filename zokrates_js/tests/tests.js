@@ -179,7 +179,7 @@ describe("tests", () => {
 
     it("compute witness", () => {
       assert.doesNotThrow(() => {
-        computationResult = provider.computeWitness(artifacts, ["2", "4"], {
+        computationResult = provider.computeWitness(artifacts, ["337", "113569"], {
           snarkjs: true,
         });
       });
@@ -201,6 +201,7 @@ describe("tests", () => {
         // write program to fs
         let r1csPath = tmpFolder + "/prog.r1cs";
         let zkeyPath = tmpFolder + "/key.zkey";
+
         return fs.promises
           .writeFile(r1csPath, artifacts.snarkjs.program)
           .then(() => {
@@ -236,14 +237,17 @@ describe("tests", () => {
         // write witness to fs
         let witnessPath = tmpFolder + "/witness.wtns";
         let zkeyPath = tmpFolder + "/key.zkey";
+
         return fs.promises
           .writeFile(witnessPath, computationResult.snarkjs.witness)
           .then(() => {
             return snarkjs.groth16.prove(zkeyPath, witnessPath);
           }).then(r => {
             return snarkjs.zKey.exportVerificationKey(zkeyPath).then((vk) => {
-              assert(snarkjs.groth16.verify(vk, r.publicSignals, r.proof) === true);
-              return
+              return snarkjs.groth16.verify(vk, r.publicSignals, r.proof).then((res) => {
+                assert.deepEqual(res, true);
+                return
+              });
             })
           });
       });
