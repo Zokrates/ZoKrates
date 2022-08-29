@@ -1,7 +1,6 @@
 use zokrates_ast::zir::{
     folder::*, BooleanExpression, Conditional, ConditionalExpression, ConditionalOrExpression,
-    FieldElementExpression, RuntimeError, UBitwidth, UExpression, UExpressionInner, ZirProgram,
-    ZirStatement,
+    FieldElementExpression, RuntimeError, UBitwidth, UExpressionInner, ZirProgram, ZirStatement,
 };
 use zokrates_field::Field;
 
@@ -131,22 +130,11 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
+            // constant range checks are complete, so no panic needs to be extracted
             e @ BooleanExpression::FieldLt(box FieldElementExpression::Number(_), _)
-            | e @ BooleanExpression::FieldLt(_, box FieldElementExpression::Number(_))
-            | e @ BooleanExpression::UintLt(
-                box UExpression {
-                    inner: UExpressionInner::Value(_),
-                    ..
-                },
-                _,
-            )
-            | e @ BooleanExpression::UintLt(
-                _,
-                box UExpression {
-                    inner: UExpressionInner::Value(_),
-                    ..
-                },
-            ) => fold_boolean_expression(self, e),
+            | e @ BooleanExpression::FieldLt(_, box FieldElementExpression::Number(_)) => {
+                fold_boolean_expression(self, e)
+            }
             BooleanExpression::FieldLt(box left, box right) => {
                 let left = self.fold_field_expression(left);
                 let right = self.fold_field_expression(right);
