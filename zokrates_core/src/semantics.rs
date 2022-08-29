@@ -1186,16 +1186,10 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
 
                 if !found_return {
-                    match &s.output {
-                        box DeclarationType::Tuple(tuple_type)
-                            if tuple_type.elements.is_empty() =>
-                        {
-                            statements_checked.push(TypedStatement::Return(TypedExpression::Tuple(
-                                TupleExpressionInner::Value(vec![])
-                                    .annotate(TupleType::new(vec![])),
-                            )))
-                        }
-                        _ => {
+                    match (&*s.output).is_empty_tuple() {
+                        true => statements_checked
+                            .push(TypedStatement::Return(TypedExpression::empty_tuple())),
+                        false => {
                             errors.push(ErrorInner {
                                 pos: Some(pos),
                                 message: "Expected a return statement".to_string(),
@@ -1877,11 +1871,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                         .map_err(|e| vec![e])
                     })
-                    .unwrap_or_else(|| {
-                        Ok(TupleExpressionInner::Value(vec![])
-                            .annotate(TupleType::new(vec![]))
-                            .into())
-                    })?;
+                    .unwrap_or_else(|| Ok(TypedExpression::empty_tuple()))?;
 
                 let res = match TypedExpression::align_to_type(e_checked.clone(), &return_type)
                     .map_err(|e| {
@@ -4700,11 +4690,7 @@ mod tests {
                 10u32.into(),
                 for_statements_checked,
             ),
-            TypedStatement::Return(
-                TupleExpressionInner::Value(vec![])
-                    .annotate(TupleType::new(vec![]))
-                    .into(),
-            ),
+            TypedStatement::Return(TypedExpression::empty_tuple()),
         ];
 
         let foo = Function {

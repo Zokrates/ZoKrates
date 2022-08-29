@@ -887,6 +887,10 @@ impl<S> GType<S> {
     pub fn uint<W: Into<UBitwidth>>(b: W) -> Self {
         GType::Uint(b.into())
     }
+
+    pub fn is_empty_tuple(&self) -> bool {
+        matches!(self, GType::Tuple(ty) if ty.elements.is_empty())
+    }
 }
 
 impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
