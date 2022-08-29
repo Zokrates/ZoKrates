@@ -168,7 +168,7 @@ describe("tests", () => {
     it("compile", () => {
       assert.doesNotThrow(() => {
         const code =
-          `def main(private field a, field b) {
+          `def main(private field a, field b) -> bool {
             bool check = if (a == 0){ true} else {a * a == b};
             assert(check);
             return true;
