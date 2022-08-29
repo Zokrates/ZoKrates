@@ -25,8 +25,8 @@ describe("tests", () => {
 
   after(() => {
     if (globalThis.curve_bn128) {
-      return globalThis.curve_bn128.terminate()
-    };
+      return globalThis.curve_bn128.terminate();
+    }
   });
 
   describe("metadata", () => {
@@ -167,8 +167,7 @@ describe("tests", () => {
 
     it("compile", () => {
       assert.doesNotThrow(() => {
-        const code =
-          `def main(private field a, field b) -> bool {
+        const code = `def main(private field a, field b) -> bool {
             bool check = if (a == 0){ true} else {a * a == b};
             assert(check);
             return true;
@@ -179,9 +178,13 @@ describe("tests", () => {
 
     it("compute witness", () => {
       assert.doesNotThrow(() => {
-        computationResult = provider.computeWitness(artifacts, ["337", "113569"], {
-          snarkjs: true,
-        });
+        computationResult = provider.computeWitness(
+          artifacts,
+          ["337", "113569"],
+          {
+            snarkjs: true,
+          }
+        );
       });
     });
 
@@ -205,8 +208,11 @@ describe("tests", () => {
         return fs.promises
           .writeFile(r1csPath, artifacts.snarkjs.program)
           .then(() => {
-            return snarkjs.zKey
-              .newZKey(r1csPath, "./tests/powersOfTau5_0000.ptau", zkeyPath)
+            return snarkjs.zKey.newZKey(
+              r1csPath,
+              "./tests/powersOfTau5_0000.ptau",
+              zkeyPath
+            );
           });
       });
     }
@@ -242,13 +248,16 @@ describe("tests", () => {
           .writeFile(witnessPath, computationResult.snarkjs.witness)
           .then(() => {
             return snarkjs.groth16.prove(zkeyPath, witnessPath);
-          }).then(r => {
+          })
+          .then((r) => {
             return snarkjs.zKey.exportVerificationKey(zkeyPath).then((vk) => {
-              return snarkjs.groth16.verify(vk, r.publicSignals, r.proof).then((res) => {
-                assert.deepEqual(res, true);
-                return
-              });
-            })
+              return snarkjs.groth16
+                .verify(vk, r.publicSignals, r.proof)
+                .then((res) => {
+                  assert.deepEqual(res, true);
+                  return;
+                });
+            });
           });
       });
     }
