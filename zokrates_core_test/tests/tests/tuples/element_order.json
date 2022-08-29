@@ -1,16 +1,16 @@
 {
-    "entry_point": "./tests/tests/tuples/element_order.zok",
-    "curves": ["Bn128"],
-    "tests": [
-        {
-            "input": {
-                "values": [["3", true]]
-            },
-            "output": {
-                "Ok": {
-                    "value": []
-                }
-            }
+  "entry_point": "./tests/tests/tuples/element_order.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": [["3", true]]
+      },
+      "output": {
+        "Ok": {
+          "value": []
         }
-    ]
+      }
+    }
+  ]
 }

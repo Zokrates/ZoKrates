@@ -1,46 +1,46 @@
 {
-    "entry_point": "./tests/tests/left_rotation.zok",
-    "max_constraint_count": 34,
-    "tests": [
-        {
-            "input": {
-                "values": ["0x00000000"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x00000000"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x00000001"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x00000004"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x0000002a"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x000000a8"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x8000000a"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x0000002a"
-                }
-            }
+  "entry_point": "./tests/tests/left_rotation.zok",
+  "max_constraint_count": 34,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x00000000"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00000000"
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["0x00000001"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00000004"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x0000002a"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x000000a8"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x8000000a"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x0000002a"
+        }
+      }
+    }
+  ]
 }

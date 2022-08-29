@@ -1,22 +1,22 @@
 {
-    "entry_point": "./tests/tests/constants/struct.zok",
-    "max_constraint_count": 6,
-    "tests": [
-        {
-            "input": {
-                "values": []
-            },
-            "output": {
-                "Ok": {
-                    "value": {
-                        "a": ["1", "2"],
-                        "b": [
-                            ["3", "4"],
-                            ["5", "6"]
-                        ]
-                    }
-                }
-            }
+  "entry_point": "./tests/tests/constants/struct.zok",
+  "max_constraint_count": 6,
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "value": {
+            "a": ["1", "2"],
+            "b": [
+              ["3", "4"],
+              ["5", "6"]
+            ]
+          }
         }
-    ]
+      }
+    }
+  ]
 }
