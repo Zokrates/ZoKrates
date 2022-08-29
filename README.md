@@ -37,7 +37,7 @@ We happily welcome contributions. You can either pick an existing issue or reach
 
 Unless you explicitly state otherwise, any contribution you intentionally submit for inclusion in the work shall be licensed as above, without any additional terms or conditions.
 
-#### Git Hooks
+### Git Hooks
 
 You can enable zokrates git hooks locally by running:
 
@@ -45,7 +45,7 @@ You can enable zokrates git hooks locally by running:
 git config core.hooksPath .githooks
 ```
 
-#### `{js,json,ts}` formatting
+### `{js,json,ts}` formatting
 
 We enforce strict formatting of `.{js,json,ts}` files in CI. This check is not included in the git hooks. If you modify such a file, you can ensure its formatting is correct by running:
 
