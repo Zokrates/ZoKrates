@@ -1,16 +1,16 @@
 {
-	"entry_point": "./tests/tests/ecc/edwardsOnCurve.zok",
-	"curves": ["Bn128"],
-	"tests": [
-		{
-			"input": {
-				"values": []
-			},
-			"output": {
-				"Ok": {
-					"value": []
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/ecc/edwardsOnCurve.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    }
+  ]
 }

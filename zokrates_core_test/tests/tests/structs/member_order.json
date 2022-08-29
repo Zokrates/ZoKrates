@@ -1,20 +1,22 @@
 {
-	"entry_point": "./tests/tests/structs/member_order.zok",
-	"curves": ["Bn128"],
-	"tests": [
-		{
-            "abi": true, 
-			"input": {
-				"values": [{
-                    "a":true,
-                    "b": "3"
-                }]
-			},
-			"output": {
-				"Ok": {
-					"value": []
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/structs/member_order.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "abi": true,
+      "input": {
+        "values": [
+          {
+            "a": true,
+            "b": "3"
+          }
+        ]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    }
+  ]
 }

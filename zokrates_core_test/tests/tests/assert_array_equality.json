@@ -1,32 +1,32 @@
 {
-    "entry_point": "./tests/tests/assert_array_equality.zok",
-    "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-    "tests": [
-        {
-            "input": {
-                "values": [["1", "2"]]
-            },
-            "output": {
-                "Ok": {
-                    "value": []
-                }
-            }
-        },
-        {
-            "input": {
-                "values": [["1", "1"]]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "left": "0",
-                        "right": "1",
-                        "error": {
-                            "SourceAssertion": "Assertion failed at ./tests/tests/assert_array_equality.zok:2:5"
-                        }
-                    }
-                }
-            }
+  "entry_point": "./tests/tests/assert_array_equality.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": [["1", "2"]]
+      },
+      "output": {
+        "Ok": {
+          "value": []
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": [["1", "1"]]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/assert_array_equality.zok:2:5"
+            }
+          }
+        }
+      }
+    }
+  ]
 }

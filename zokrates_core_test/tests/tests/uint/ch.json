@@ -1,16 +1,16 @@
 {
-	"entry_point": "./tests/tests/uint/ch.zok",
-	"max_constraint_count": 200,
-	"tests": [
-		{
-			"input": {
-				"values": ["0x00000000", "0x00000000", "0x00000000"]
-			},
-			"output": {
-				"Ok": {
-					"value": "0x00000000"
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/uint/ch.zok",
+  "max_constraint_count": 200,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x00000000", "0x00000000", "0x00000000"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00000000"
+        }
+      }
+    }
+  ]
 }

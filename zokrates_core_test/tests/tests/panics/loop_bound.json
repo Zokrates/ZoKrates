@@ -1,36 +1,32 @@
 {
-    "entry_point": "./tests/tests/panics/loop_bound.zok",
-    "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-    "tests": [
-        {
-            "input": {
-                "values": [
-                    "0"
-                ]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "left": "0",
-                        "right": "1",
-                        "error": {
-                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/loop_bound.zok:2:5"
-                        }
-                    }
-                }
+  "entry_point": "./tests/tests/panics/loop_bound.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/panics/loop_bound.zok:2:5"
             }
-        },
-        {
-            "input": {
-                "values": [
-                    "1"
-                ]
-            },
-            "output": {
-                "Ok": {
-                    "value": []
-                }
-            }
+          }
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    }
+  ]
 }

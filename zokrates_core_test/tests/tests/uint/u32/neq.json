@@ -1,7 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u32/neq.zok",
   "max_constraint_count": 69,
-    "tests": [
+  "tests": [
     {
       "input": {
         "values": ["0x00000002", "0x00000002"]

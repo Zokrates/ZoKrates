@@ -35,7 +35,7 @@ declare module "zokrates-js" {
   }
 
   export type LogCallback = (log: string) => void;
-  
+
   export interface ComputeOptions {
     snarkjs?: boolean;
     logCallback?: LogCallback;

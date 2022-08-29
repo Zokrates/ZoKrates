@@ -1,18 +1,22 @@
 {
-    "entry_point": "./tests/tests/field.zok",
-    "max_constraint_count": 3,
-    "curves": ["Bn128"],
-    "abi": false,
-    "tests": [
-        {
-            "input": {
-                "values": []
-            },
-            "output": {
-                "Ok": {
-                    "value": ["0", "21888242871839275222246405745257275088548364400416034343698204186575808495616", "254"]
-                }
-            }
+  "entry_point": "./tests/tests/field.zok",
+  "max_constraint_count": 3,
+  "curves": ["Bn128"],
+  "abi": false,
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "value": [
+            "0",
+            "21888242871839275222246405745257275088548364400416034343698204186575808495616",
+            "254"
+          ]
         }
-    ]
+      }
+    }
+  ]
 }

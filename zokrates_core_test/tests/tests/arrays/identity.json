@@ -1,41 +1,41 @@
 {
-	"entry_point": "./tests/tests/arrays/identity.zok",
-	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"abi": false,
-	"tests": [
-		{
-			"input": {
-				"values": ["0", "0", "0"]
-			},
-			"output": {
-				"Ok": {
-					"value": ["0", "0", "0"]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["1", "0", "1"]
-			},
-			"output": {
-				"Ok": {
-					"value": ["1", "0", "1"]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["2", "1", "1"]
-			},
-			"output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "4",
-						"right": "2",
-						"error": "ArgumentBitness"
-					}
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/arrays/identity.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "abi": false,
+  "tests": [
+    {
+      "input": {
+        "values": ["0", "0", "0"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0", "0", "0"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["1", "0", "1"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["1", "0", "1"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2", "1", "1"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "4",
+            "right": "2",
+            "error": "ArgumentBitness"
+          }
+        }
+      }
+    }
+  ]
 }
