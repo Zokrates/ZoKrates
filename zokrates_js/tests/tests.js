@@ -18,12 +18,15 @@ describe("tests", () => {
         .mkdtemp(path.join(os.tmpdir(), path.sep))
         .then((folder) => {
           tmpFolder = folder;
+          return;
         });
     });
   });
 
   after(() => {
-    if (globalThis.curve_bn128) globalThis.curve_bn128.terminate();
+    if (globalThis.curve_bn128) {
+      return globalThis.curve_bn128.terminate()
+    };
   });
 
   describe("metadata", () => {
@@ -165,7 +168,11 @@ describe("tests", () => {
     it("compile", () => {
       assert.doesNotThrow(() => {
         const code =
-          "def main(private field a, field b) -> bool { return a * a == b; }";
+          `def main(private field a, field b) {
+            bool check = if (a == 0){ true} else {a * a == b};
+            assert(check);
+            return true;
+        }`;
         artifacts = provider.compile(code, { snarkjs: true });
       });
     });
@@ -199,7 +206,6 @@ describe("tests", () => {
           .then(() => {
             return snarkjs.zKey
               .newZKey(r1csPath, "./tests/powersOfTau5_0000.ptau", zkeyPath)
-              .then(() => {});
           });
       });
     }
@@ -234,6 +240,11 @@ describe("tests", () => {
           .writeFile(witnessPath, computationResult.snarkjs.witness)
           .then(() => {
             return snarkjs.groth16.prove(zkeyPath, witnessPath);
+          }).then(r => {
+            return snarkjs.zKey.exportVerificationKey(zkeyPath).then((vk) => {
+              assert(snarkjs.groth16.verify(vk, r.publicSignals, r.proof) === true);
+              return
+            })
           });
       });
     }
