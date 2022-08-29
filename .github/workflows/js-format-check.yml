@@ -9,4 +9,4 @@ jobs:
         uses: creyD/prettier_action@v4.2
         with:
           dry: True
-          file_pattern: ./**/*.{js,ts,json}
+          file_pattern: "./**/*.{js,ts,json}"
