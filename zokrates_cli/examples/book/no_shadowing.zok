@@ -1,8 +1,0 @@
-def main() -> field {
-    field a = 2;
-    // field a = 3; <- not allowed
-    for u32 i in 0..5 {
-        // field a = 7; <- not allowed
-    }
-    return a;
-}

@@ -7,7 +7,7 @@ const u32[8] IV = [
     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 ];
 
-// A function that takes N u32[8] arrays as inputs, concatenates them,
+// A function that takes N u32[16] arrays as inputs, concatenates them,
 // and returns their sha256 compression as a u32[8].
 // Note: no padding is applied
 def main<N>(u32[N][16] a) -> u32[8] {

@@ -1,4 +1,5 @@
 declare module "zokrates-js" {
+  export type Backend = "ark" | "bellman";
   export type Curve = "bn128" | "bls12_381" | "bls12_377" | "bw6_761";
   export type Scheme = "g16" | "gm17" | "marlin";
 
@@ -12,6 +13,7 @@ declare module "zokrates-js" {
 
   export interface CompileConfig {
     isolate_branches?: boolean;
+    debug?: boolean;
   }
 
   export interface CompileOptions {
@@ -32,8 +34,11 @@ declare module "zokrates-js" {
     location: string;
   }
 
+  export type LogCallback = (log: string) => void;
+
   export interface ComputeOptions {
     snarkjs?: boolean;
+    logCallback?: LogCallback;
   }
 
   export interface ComputationResult {
@@ -63,6 +68,7 @@ declare module "zokrates-js" {
   }
 
   export type Options = {
+    backend: Backend;
     scheme: Scheme;
     curve: Curve;
   };

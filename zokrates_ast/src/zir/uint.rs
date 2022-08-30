@@ -1,7 +1,8 @@
 use crate::zir::identifier::Identifier;
 use crate::zir::types::UBitwidth;
-use crate::zir::BooleanExpression;
 use zokrates_field::Field;
+
+use super::{ConditionalExpression, SelectExpression};
 
 impl<'ast, T: Field> UExpression<'ast, T> {
     #[allow(clippy::should_implement_trait)]
@@ -20,7 +21,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 
     pub fn select(values: Vec<Self>, index: Self) -> UExpression<'ast, T> {
         let bitwidth = values[0].bitwidth;
-        UExpressionInner::Select(values, box index).annotate(bitwidth)
+        UExpressionInner::Select(SelectExpression::new(values, index)).annotate(bitwidth)
     }
 
     pub fn mult(self, other: Self) -> UExpression<'ast, T> {
@@ -81,12 +82,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {
     fn from(e: u128) -> Self {
         UExpressionInner::Value(e)
-    }
-}
-
-impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
-    fn from(e: &'ast str) -> Self {
-        UExpressionInner::Identifier(e.into())
     }
 }
 
@@ -178,7 +173,7 @@ pub struct UExpression<'ast, T> {
 pub enum UExpressionInner<'ast, T> {
     Value(u128),
     Identifier(Identifier<'ast>),
-    Select(Vec<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
+    Select(SelectExpression<'ast, T, UExpression<'ast, T>>),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Sub(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
@@ -190,11 +185,7 @@ pub enum UExpressionInner<'ast, T> {
     LeftShift(Box<UExpression<'ast, T>>, u32),
     RightShift(Box<UExpression<'ast, T>>, u32),
     Not(Box<UExpression<'ast, T>>),
-    Conditional(
-        Box<BooleanExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-        Box<UExpression<'ast, T>>,
-    ),
+    Conditional(ConditionalExpression<'ast, T, UExpression<'ast, T>>),
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {

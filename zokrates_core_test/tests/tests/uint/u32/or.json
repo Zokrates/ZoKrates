@@ -1,36 +1,36 @@
 {
-    "entry_point": "./tests/tests/uint/u32/or.zok",
-    "max_constraint_count": 99,
-        "tests": [
-        {
-            "input": {
-                "values": ["0xffffffff", "0xffffffff"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0xffffffff"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0xffffffff", "0x00000000"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0xffffffff"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x12345678", "0x87654321"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x97755779"
-                }
-            }
+  "entry_point": "./tests/tests/uint/u32/or.zok",
+  "max_constraint_count": 99,
+  "tests": [
+    {
+      "input": {
+        "values": ["0xffffffff", "0xffffffff"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0xffffffff"
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["0xffffffff", "0x00000000"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0xffffffff"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x12345678", "0x87654321"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x97755779"
+        }
+      }
+    }
+  ]
 }

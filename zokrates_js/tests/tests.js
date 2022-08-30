@@ -4,7 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const dree = require("dree");
 const snarkjs = require("snarkjs");
-const { initialize } = require("../node/index.js");
+const { initialize, metadata } = require("../node/index.js");
 
 let zokratesProvider;
 let tmpFolder;
@@ -14,24 +14,35 @@ describe("tests", () => {
   before(() => {
     return initialize().then((defaultProvider) => {
       zokratesProvider = defaultProvider;
-      return fs.promises.mkdtemp(path.join(os.tmpdir(), path.sep)).then((folder) => {
-        tmpFolder = folder;
-      });
+      return fs.promises
+        .mkdtemp(path.join(os.tmpdir(), path.sep))
+        .then((folder) => {
+          tmpFolder = folder;
+          return;
+        });
     });
   });
 
   after(() => {
-    if (globalThis.curve_bn128) globalThis.curve_bn128.terminate();
+    if (globalThis.curve_bn128) {
+      return globalThis.curve_bn128.terminate();
+    }
+  });
+
+  describe("metadata", () => {
+    it("is present", () => {
+      assert.ok(metadata);
+      assert.ok(metadata.version !== undefined);
+    });
   });
 
   describe("compilation", () => {
     it("should compile", () => {
       assert.doesNotThrow(() => {
-
         const artifacts = zokratesProvider.compile(
           "def main() -> field { return 42; }"
         );
-        assert.ok(artifacts !== undefined);
+        assert.ok(artifacts);
         assert.ok(artifacts.snarkjs === undefined);
       });
     });
@@ -42,7 +53,7 @@ describe("tests", () => {
           "def main() -> field { return 42; }",
           { snarkjs: true }
         );
-        assert.ok(artifacts !== undefined);
+        assert.ok(artifacts);
         assert.ok(artifacts.snarkjs.program !== undefined);
       });
     });
@@ -52,11 +63,8 @@ describe("tests", () => {
     });
 
     it("should resolve stdlib module", () => {
-      const stdlib = require("../stdlib.js");
       assert.doesNotThrow(() => {
-        const code = `import "${
-          Object.keys(stdlib)[0]
-        }" as func;\ndef main() { return; }`;
+        const code = `import "utils/pack/bool/unpack" as unpack;\ndef main() { return; }`;
         zokratesProvider.compile(code);
       });
     });
@@ -64,7 +72,7 @@ describe("tests", () => {
     it("should resolve user module", () => {
       assert.doesNotThrow(() => {
         const code =
-          'import "test" as test;\ndef main() -> field { return test(); }';
+          'import "./test" as test;\ndef main() -> field { return test(); }';
         const options = {
           resolveCallback: (_, path) => {
             return {
@@ -80,7 +88,7 @@ describe("tests", () => {
     it("should throw on unresolved module", () => {
       assert.throws(() => {
         const code =
-          'import "test" as test;\ndef main() -> field { return test(); }';
+          'import "./test" as test;\ndef main() -> field { return test(); }';
         zokratesProvider.compile(code);
       });
     });
@@ -128,6 +136,22 @@ describe("tests", () => {
         zokratesProvider.computeWitness(artifacts, [true]);
       });
     });
+
+    it("should log in debug", () => {
+      assert.doesNotThrow(() => {
+        const code = 'def main() { log("{}", 1f); log("{}", 2f); return; }';
+        const artifacts = zokratesProvider.compile(code, {
+          config: { debug: true },
+        });
+        let logs = [];
+        zokratesProvider.computeWitness(artifacts, [], {
+          logCallback: (l) => {
+            logs.push(l);
+          },
+        });
+        assert.deepEqual(logs, ['"1"', '"2"']);
+      });
+    });
   });
 
   const runWithOptions = (options) => {
@@ -143,17 +167,24 @@ describe("tests", () => {
 
     it("compile", () => {
       assert.doesNotThrow(() => {
-        const code =
-          "def main(private field a, field b) -> bool { return a * a == b; }";
+        const code = `def main(private field a, field b) -> bool {
+            bool check = if (a == 0){ true} else {a * a == b};
+            assert(check);
+            return true;
+        }`;
         artifacts = provider.compile(code, { snarkjs: true });
       });
     });
 
     it("compute witness", () => {
       assert.doesNotThrow(() => {
-        computationResult = provider.computeWitness(artifacts, ["2", "4"], {
-          snarkjs: true,
-        });
+        computationResult = provider.computeWitness(
+          artifacts,
+          ["337", "113569"],
+          {
+            snarkjs: true,
+          }
+        );
       });
     });
 
@@ -173,12 +204,15 @@ describe("tests", () => {
         // write program to fs
         let r1csPath = tmpFolder + "/prog.r1cs";
         let zkeyPath = tmpFolder + "/key.zkey";
+
         return fs.promises
           .writeFile(r1csPath, artifacts.snarkjs.program)
           .then(() => {
-            return snarkjs.zKey
-              .newZKey(r1csPath, "./tests/powersOfTau5_0000.ptau", zkeyPath)
-              .then(() => {});
+            return snarkjs.zKey.newZKey(
+              r1csPath,
+              "./tests/powersOfTau5_0000.ptau",
+              zkeyPath
+            );
           });
       });
     }
@@ -209,10 +243,21 @@ describe("tests", () => {
         // write witness to fs
         let witnessPath = tmpFolder + "/witness.wtns";
         let zkeyPath = tmpFolder + "/key.zkey";
+
         return fs.promises
           .writeFile(witnessPath, computationResult.snarkjs.witness)
           .then(() => {
             return snarkjs.groth16.prove(zkeyPath, witnessPath);
+          })
+          .then((r) => {
+            return snarkjs.zKey.exportVerificationKey(zkeyPath).then((vk) => {
+              return snarkjs.groth16
+                .verify(vk, r.publicSignals, r.proof)
+                .then((res) => {
+                  assert.deepEqual(res, true);
+                  return;
+                });
+            });
           });
       });
     }
@@ -224,10 +269,25 @@ describe("tests", () => {
     });
   };
 
-  for (const scheme of ["g16", "gm17", "marlin"]) {
-    describe(scheme, () => {
-      for (const curve of ["bn128", "bls12_381", "bls12_377", "bw6_761"]) {
-        describe(curve, () => runWithOptions({ scheme, curve }));
+  let combinations = {
+    ark: {
+      schemes: ["g16", "gm17", "marlin"],
+      curves: ["bn128", "bls12_381", "bls12_377", "bw6_761"],
+    },
+    bellman: {
+      schemes: ["g16"],
+      curves: ["bn128"],
+    },
+  };
+
+  for (const backend of Object.keys(combinations)) {
+    describe(backend, () => {
+      for (const scheme of combinations[backend].schemes) {
+        describe(scheme, () => {
+          for (const curve of combinations[backend].curves) {
+            describe(curve, () => runWithOptions({ backend, scheme, curve }));
+          }
+        });
       }
     });
   }

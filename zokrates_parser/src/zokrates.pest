@@ -180,6 +180,6 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 // the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly
 // accepted
 keyword = @{
-    "log"|"assert"|"as"|"bool"|"const"|"def"|"else"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
-    "in"|"mut"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"|"u64"
+    "log"|"assert"|"as"|"bool"|"const"|"def"|"else"|"false"|"field"|"for"|"if"|"import"|"from"|
+    "in"|"mut"|"private"|"public"|"return"|"struct"|"true"|"type"|"u8"|"u16"|"u32"|"u64"
 }

@@ -1,86 +1,86 @@
 {
-	"entry_point": "./tests/tests/le.zok",
-	"curves": ["Bn128"],
-	"tests": [
-		{
-			"input": {
-				"values": ["0"]
-			},
-			"output": {
-				"Ok": {
-					"value": true
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["1"]
-			},
-			"output": {
-				"Ok": {
-					"value": true
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["2"]
-			},
-			"output": {
-				"Ok": {
-					"value": true
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["41"]
-			},
-			"output": {
-				"Ok": {
-					"value": true
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["42"]
-			},
-			"output": {
-				"Ok": {
-					"value": true
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["43"]
-			},
-			"output": {
-				"Ok": {
-					"value": false
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["44"]
-			},
-			"output": {
-				"Ok": {
-					"value": false
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["100"]
-			},
-			"output": {
-				"Ok": {
-					"value": false
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/le.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Ok": {
+          "value": true
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Ok": {
+          "value": true
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2"]
+      },
+      "output": {
+        "Ok": {
+          "value": true
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["41"]
+      },
+      "output": {
+        "Ok": {
+          "value": true
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["42"]
+      },
+      "output": {
+        "Ok": {
+          "value": true
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["43"]
+      },
+      "output": {
+        "Ok": {
+          "value": false
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["44"]
+      },
+      "output": {
+        "Ok": {
+          "value": false
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["100"]
+      },
+      "output": {
+        "Ok": {
+          "value": false
+        }
+      }
+    }
+  ]
 }

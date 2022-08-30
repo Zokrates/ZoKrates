@@ -1,0 +1,11 @@
+name: Check JS/JSON/TS format
+on: [pull_request]
+jobs:
+  js-format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check format with prettier
+        uses: creyD/prettier_action@v4.2
+        with:
+          prettier_options: --check ./**/*.{js,ts,json}

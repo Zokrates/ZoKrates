@@ -1,16 +1,16 @@
 {
-	"entry_point": "./tests/tests/compare_min_to_max.zok",
-	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"tests": [
-		{
-			"input": {
-				"values": ["0"]
-			},
-			"output": {
-				"Ok": {
-					"value": false
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/compare_min_to_max.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Ok": {
+          "value": false
+        }
+      }
+    }
+  ]
 }

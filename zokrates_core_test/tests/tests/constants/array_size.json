@@ -1,16 +1,16 @@
 {
-    "entry_point": "./tests/tests/constants/array_size.zok",
-    "max_constraint_count": 2,
-    "tests": [
-        {
-            "input": {
-                "values": [["42", "42"]]
-            },
-            "output": {
-                "Ok": {
-                    "value": ["42", "42"]
-                }
-            }
+  "entry_point": "./tests/tests/constants/array_size.zok",
+  "max_constraint_count": 2,
+  "tests": [
+    {
+      "input": {
+        "values": [["42", "42"]]
+      },
+      "output": {
+        "Ok": {
+          "value": ["42", "42"]
         }
-    ]
+      }
+    }
+  ]
 }

@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use zokrates_ast::typed::types::UBitwidth;
 use zokrates_ast::typed::{self, Expr, Typed};
-use zokrates_ast::zir;
+use zokrates_ast::zir::{self, Select};
 use zokrates_field::Field;
 
 use std::convert::{TryFrom, TryInto};
@@ -746,36 +746,35 @@ fn fold_select_expression<'ast, T: Field, E>(
                 let ty = a[0].get_type();
 
                 match ty {
-                    zir::Type::Boolean => zir::BooleanExpression::Select(
+                    zir::Type::Boolean => zir::BooleanExpression::select(
                         a.into_iter()
                             .map(|e| match e {
                                 zir::ZirExpression::Boolean(e) => e.clone(),
                                 _ => unreachable!(),
                             })
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
                     .into(),
-                    zir::Type::FieldElement => zir::FieldElementExpression::Select(
+                    zir::Type::FieldElement => zir::FieldElementExpression::select(
                         a.into_iter()
                             .map(|e| match e {
                                 zir::ZirExpression::FieldElement(e) => e.clone(),
                                 _ => unreachable!(),
                             })
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
                     .into(),
-                    zir::Type::Uint(bitwidth) => zir::UExpressionInner::Select(
+                    zir::Type::Uint(_) => zir::UExpression::select(
                         a.into_iter()
                             .map(|e| match e {
                                 zir::ZirExpression::Uint(e) => e.clone(),
                                 _ => unreachable!(),
                             })
                             .collect(),
-                        box index.clone(),
+                        index.clone(),
                     )
-                    .annotate(bitwidth)
                     .into(),
                 }
             })
@@ -987,12 +986,12 @@ fn fold_boolean_expression<'ast, T: Field>(
         typed::BooleanExpression::FieldGt(box e1, box e2) => {
             let e1 = f.fold_field_expression(statements_buffer, e1);
             let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::BooleanExpression::FieldGt(box e1, box e2)
+            zir::BooleanExpression::FieldLt(box e2, box e1)
         }
         typed::BooleanExpression::FieldGe(box e1, box e2) => {
             let e1 = f.fold_field_expression(statements_buffer, e1);
             let e2 = f.fold_field_expression(statements_buffer, e2);
-            zir::BooleanExpression::FieldGe(box e1, box e2)
+            zir::BooleanExpression::FieldLe(box e2, box e1)
         }
         typed::BooleanExpression::UintLt(box e1, box e2) => {
             let e1 = f.fold_uint_expression(statements_buffer, e1);
@@ -1007,12 +1006,12 @@ fn fold_boolean_expression<'ast, T: Field>(
         typed::BooleanExpression::UintGt(box e1, box e2) => {
             let e1 = f.fold_uint_expression(statements_buffer, e1);
             let e2 = f.fold_uint_expression(statements_buffer, e2);
-            zir::BooleanExpression::UintGt(box e1, box e2)
+            zir::BooleanExpression::UintLt(box e2, box e1)
         }
         typed::BooleanExpression::UintGe(box e1, box e2) => {
             let e1 = f.fold_uint_expression(statements_buffer, e1);
             let e2 = f.fold_uint_expression(statements_buffer, e2);
-            zir::BooleanExpression::UintGe(box e1, box e2)
+            zir::BooleanExpression::UintLe(box e2, box e1)
         }
         typed::BooleanExpression::Or(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(statements_buffer, e1);

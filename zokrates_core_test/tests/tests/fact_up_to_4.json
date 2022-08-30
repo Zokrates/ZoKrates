@@ -1,56 +1,56 @@
 {
-	"entry_point": "./tests/tests/fact_up_to_4.zok",
-	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"tests": [
-		{
-			"input": {
-				"values": ["0"]
-			},
-			"output": {
-				"Ok": {
-					"value": "1"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["1"]
-			},
-			"output": {
-				"Ok": {
-					"value": "1"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["2"]
-			},
-			"output": {
-				"Ok": {
-					"value": "2"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["3"]
-			},
-			"output": {
-				"Ok": {
-					"value": "6"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["4"]
-			},
-			"output": {
-				"Ok": {
-					"value": "24"
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/fact_up_to_4.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Ok": {
+          "value": "1"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Ok": {
+          "value": "1"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2"]
+      },
+      "output": {
+        "Ok": {
+          "value": "2"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["3"]
+      },
+      "output": {
+        "Ok": {
+          "value": "6"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["4"]
+      },
+      "output": {
+        "Ok": {
+          "value": "24"
+        }
+      }
+    }
+  ]
 }

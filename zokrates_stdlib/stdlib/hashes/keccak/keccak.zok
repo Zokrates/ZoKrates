@@ -1,8 +1,10 @@
 // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf
 // based on keccak-f[1600] permutation
 
-import "utils/casts/u64_from_bits";
 import "utils/casts/u8_to_bits";
+import "utils/casts/u8_from_bits";
+import "utils/casts/u64_to_bits";
+import "utils/casts/u64_from_bits";
 
 const u32[24] RHO = [
     1,  3,  6,  10, 15, 21, 28, 36, 45, 55, 2,  14,
@@ -10,19 +12,19 @@ const u32[24] RHO = [
 ];
 
 const u32[24] PI = [
-   10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4,
-   15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1
+    10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4,
+    15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1
 ];
 
 const u64[24] RC = [
-   0x0000000000000001, 0x0000000000008082, 0x800000000000808a,
-   0x8000000080008000, 0x000000000000808b, 0x0000000080000001,
-   0x8000000080008081, 0x8000000000008009, 0x000000000000008a,
-   0x0000000000000088, 0x0000000080008009, 0x000000008000000a,
-   0x000000008000808b, 0x800000000000008b, 0x8000000000008089,
-   0x8000000000008003, 0x8000000000008002, 0x8000000000000080,
-   0x000000000000800a, 0x800000008000000a, 0x8000000080008081,
-   0x8000000000008080, 0x0000000080000001, 0x8000000080008008
+    0x0000000000000001, 0x0000000000008082, 0x800000000000808a,
+    0x8000000080008000, 0x000000000000808b, 0x0000000080000001,
+    0x8000000080008081, 0x8000000000008009, 0x000000000000008a,
+    0x0000000000000088, 0x0000000080008009, 0x000000008000000a,
+    0x000000008000808b, 0x800000000000008b, 0x8000000000008089,
+    0x8000000000008003, 0x8000000000008002, 0x8000000000000080,
+    0x000000000000800a, 0x800000008000000a, 0x8000000080008081,
+    0x8000000000008080, 0x0000000080000001, 0x8000000080008008
 ];
 
 // left rotation
@@ -41,6 +43,10 @@ def swap_u64(u64 mut val) -> u64 {
 def keccakf(u64[25] mut st) -> u64[25] {
     u64[5] mut bc = [0; 5];
     u64 mut t = 0;
+
+    for u32 i in 0..25 {
+        st[i] = swap_u64(st[i]);
+    }
 
     for u32 r in 0..24 {
         // theta
@@ -79,42 +85,15 @@ def keccakf(u64[25] mut st) -> u64[25] {
         // iota
         st[0] = st[0] ^ RC[r];
     }
+
+    for u32 i in 0..25 {
+        st[i] = swap_u64(st[i]);
+    }
+
     return st;
 }
 
-def keccak<N, W>(u64[N] mut input, u64 pad) -> u64[25] {
-    u64[25] mut q = [0; 25];
-    u32 rate = (200 - (W / 4)) / 8;
-    u32 mut pt = 0;
-
-    // change endianness of inputs from big endian to little endian
-    for u32 i in 0..N {
-        input[i] = swap_u64(input[i]);
-    }
-
-    // update
-    for u32 i in 0..N {
-        q[pt] = q[pt] ^ input[i];
-        pt = (pt + 1) % rate;
-        q = pt == 0 ? keccakf(q) : q;
-    }
-
-    pt = (pad & 0x00000000000000ff) != 0 ? pt : pt - 1;
-
-    // finalize
-    q[pt] = q[pt] ^ pad;
-    q[rate - 1] = q[rate - 1] ^ 0x8000000000000000;
-    q = keccakf(q);
-
-    // change endianness of output from little endian to big endian
-    for u32 i in 0..W/64 {
-        q[i] = swap_u64(q[i]);
-    }
-
-    return q;
-}
-
-def u8_array_to_u64(u8[8] input) -> u64 {
+def u64_from_u8_array(u8[8] input) -> u64 {
     bool[64] bits = [
         ...u8_to_bits(input[0]),
         ...u8_to_bits(input[1]),
@@ -128,18 +107,55 @@ def u8_array_to_u64(u8[8] input) -> u64 {
     return u64_from_bits(bits);
 }
 
-def main<N, W>(u8[N] input, u64 pad) -> u64[25] {
-    u32 L = N / 8;
-    u32 R = L * 8 == N ? 0 : 1;
-    u32 len = L + R;
+def u64_to_u8_array(u64 input) -> u8[8] {
+    bool[64] bits = u64_to_bits(input);
+    return [
+        u8_from_bits(bits[0..8]),
+        u8_from_bits(bits[8..16]),
+        u8_from_bits(bits[16..24]),
+        u8_from_bits(bits[24..32]),
+        u8_from_bits(bits[32..40]),
+        u8_from_bits(bits[40..48]),
+        u8_from_bits(bits[48..56]),
+        u8_from_bits(bits[56..64])
+    ];
+}
 
-    u8[len * 8] padded = [...input, ...[0; len * 8 - N]];
-    u64[len] mut input_u64 = [0; len];
+def to_bytes(u64[25] input) -> u8[200] {
+    u8[200] mut output = [0; 200];
+    for u32 i in 0..25 {
+        u8[8] t = u64_to_u8_array(input[i]);
+        for u32 j in 0..8 {
+            output[i * 8 + j] = t[j];
+        }
+    }
+    return output;
+}
 
-    for u32 i in 0..len {
-        u32 j = i * 8;
-        input_u64[i] = u8_array_to_u64(padded[j..j+8]);
+def from_bytes(u8[200] input) -> u64[25] {
+    u64[25] mut output = [0; 25];
+    for u32 i in 0..25 {
+        output[i] = u64_from_u8_array(input[i*8..i*8+8]);
+    }
+    return output;
+}
+
+def main<N, W>(u8[N] mut input, u8 delim) -> u8[W] {
+    u8[200] mut b = [0; 200];
+    u32 rate = 200 - (2 * W);
+    u32 mut pt = 0;
+
+    // update
+    for u32 i in 0..N {
+        b[pt] = b[pt] ^ input[i];
+        pt = (pt + 1) % rate;
+        b = pt == 0 ? to_bytes(keccakf(from_bytes(b))) : b;
     }
 
-    return keccak::<_, W>(input_u64, pad << ((N % 8) * 8));
+    // finalize
+    b[pt] = b[pt] ^ delim;
+    b[rate - 1] = b[rate - 1] ^ 0x80;
+    b = to_bytes(keccakf(from_bytes(b)));
+
+    return b[..W];
 }
