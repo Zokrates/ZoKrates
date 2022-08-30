@@ -30,6 +30,6 @@
 - [Examples](examples/index.md)
     - [A SNARK Powered RNG](examples/rng_tutorial.md)
     - [Proving knowledge of a hash preimage](examples/sha256example.md)
-    - [The Magic Square](examples/magic_square.md)
+    - [A ZK Magic Square in the browser](examples/magic_square.md)
 
 - [Testing](testing.md)
