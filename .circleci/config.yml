@@ -6,7 +6,7 @@ executors:
       image: ubuntu-2004:202101-01
   macos:
     macos:
-      xcode: 12.4.0
+      xcode: 13.4.1
 
 jobs:
   build:
@@ -106,7 +106,7 @@ jobs:
       - run:
           name: Build
           no_output_timeout: "30m"
-          command: npm run build:dev && npm pack --dry-run
+          command: npm ci && npm run build:dev && npm pack --dry-run
       - save-sccache-cache
   zokrates_js_test:
     docker:
@@ -127,7 +127,7 @@ jobs:
       - run:
           name: Run tests
           no_output_timeout: "30m"
-          command: npm run test
+          command: npm ci && npm run test
       - save-sccache-cache
   cross_build:
     parameters:
@@ -279,7 +279,7 @@ workflows:
          <<: *tag-only
          pre-steps:
            - install_rust
-         build-with: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo
+         build-with: SDKROOT=$(xcrun -sdk macosx12.3 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx12.3 --show-sdk-platform-version) cargo
          add-target: true
          matrix:
            alias: cross-build-apple-silicon

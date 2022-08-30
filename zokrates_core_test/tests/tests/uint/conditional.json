@@ -1,25 +1,26 @@
 {
-	"entry_point": "./tests/tests/uint/conditional.zok",
-	"max_constraint_count": 31,
-	"tests": [{
-			"input": {
-				"values": [true, "0x00", "0xff"]
-			},
-			"output": {
-				"Ok": {
-					"value": "0x00"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": [false, "0x00", "0xff"]
-			},
-			"output": {
-				"Ok": {
-					"value": "0xff"
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/uint/conditional.zok",
+  "max_constraint_count": 31,
+  "tests": [
+    {
+      "input": {
+        "values": [true, "0x00", "0xff"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [false, "0x00", "0xff"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0xff"
+        }
+      }
+    }
+  ]
 }

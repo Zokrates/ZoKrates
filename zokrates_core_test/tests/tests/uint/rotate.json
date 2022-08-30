@@ -1,25 +1,26 @@
 {
-	"entry_point": "./tests/tests/uint/rotate.zok",
-	"max_constraint_count": 34,
-	"tests": [{
-			"input": {
-				"values": ["0x000000f0"]
-			},
-			"output": {
-				"Ok": {
-					"value": "0x0000000f"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": ["0x12345678"]
-			},
-			"output": {
-				"Ok": {
-					"value": "0x81234567"
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/uint/rotate.zok",
+  "max_constraint_count": 34,
+  "tests": [
+    {
+      "input": {
+        "values": ["0x000000f0"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x0000000f"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x12345678"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x81234567"
+        }
+      }
+    }
+  ]
 }

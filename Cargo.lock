@@ -1481,6 +1481,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "json"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
+
+[[package]]
 name = "keccak"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2993,7 +2999,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_ark"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ark-bls12-377",
  "ark-bn254",
@@ -3020,7 +3026,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_ast"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ark-bls12-377",
  "cfg-if 0.1.10",
@@ -3066,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "assert_cli",
  "blake2 0.8.1",
@@ -3112,7 +3118,7 @@ version = "0.1.1"
 
 [[package]]
 name = "zokrates_core"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "cfg-if 0.1.10",
  "csv",
@@ -3194,7 +3200,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_interpreter"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ark-bls12-377",
  "num 0.1.42",
@@ -3209,18 +3215,23 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "console_error_panic_hook",
  "indexmap",
  "js-sys",
+ "json",
+ "lazy_static",
  "serde",
  "serde_json",
+ "toml",
  "typed-arena",
+ "walkdir",
  "wasm-bindgen",
  "zokrates_abi",
  "zokrates_ark",
  "zokrates_ast",
+ "zokrates_bellman",
  "zokrates_circom",
  "zokrates_common",
  "zokrates_core",
@@ -3231,7 +3242,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "glob 0.2.11",
  "pest",
@@ -3282,7 +3293,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "fs_extra",
  "zokrates_test",

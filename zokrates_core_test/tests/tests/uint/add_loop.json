@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/uint/add_loop.zok",
-	"max_constraint_count": 76,
-	"tests": []
+  "entry_point": "./tests/tests/uint/add_loop.zok",
+  "max_constraint_count": 76,
+  "tests": []
 }

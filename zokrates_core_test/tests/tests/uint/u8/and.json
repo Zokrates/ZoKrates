@@ -1,36 +1,36 @@
 {
-    "entry_point": "./tests/tests/uint/u8/and.zok",
-    "max_constraint_count": 27,
-        "tests": [
-        {
-            "input": {
-                "values": ["0xff", "0xff"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0xff"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0xff", "0x00"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x00"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x23", "0x34"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x20"
-                }
-            }
+  "entry_point": "./tests/tests/uint/u8/and.zok",
+  "max_constraint_count": 27,
+  "tests": [
+    {
+      "input": {
+        "values": ["0xff", "0xff"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0xff"
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["0xff", "0x00"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x00"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x23", "0x34"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x20"
+        }
+      }
+    }
+  ]
 }

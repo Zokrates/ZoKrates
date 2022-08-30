@@ -1,14 +1,16 @@
 {
-    "entry_point": "./tests/tests/hashes/sha256/sha256Padded.zok",
-    "curves": ["Bn128"],
-    "tests": [{
-        "input": {
-            "values": []
-        },
-        "output": {
-            "Ok": {
-                "value": []
-            }
+  "entry_point": "./tests/tests/hashes/sha256/sha256Padded.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": []
+      },
+      "output": {
+        "Ok": {
+          "value": []
         }
-    }]
+      }
+    }
+  ]
 }

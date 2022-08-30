@@ -1,7 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u16/sub.zok",
   "max_constraint_count": 91,
-    "tests": [
+  "tests": [
     {
       "input": {
         "values": ["0xffff", "0x0001"]

@@ -103,15 +103,13 @@ impl<'ast, 'a> ShallowTransformer<'ast, 'a> {
 
         f.statements = generics
             .0
-            .iter()
+            .clone()
+            .into_iter()
             .map(|(g, v)| {
                 TypedStatement::definition(
-                    TypedAssignee::Identifier(Variable::new(
-                        g.name(),
-                        Type::Uint(UBitwidth::B32),
-                        false,
-                    )),
-                    UExpression::from(*v as u32).into(),
+                    Variable::new(CoreIdentifier::from(g), Type::Uint(UBitwidth::B32), false)
+                        .into(),
+                    UExpression::from(v as u32).into(),
                 )
             })
             .chain(f.statements)
@@ -741,6 +739,178 @@ mod tests {
             );
 
             assert_eq!(ssa, expected);
+        }
+    }
+
+    mod shadowing {
+        use zokrates_ast::typed::types::GGenericsAssignment;
+
+        use super::*;
+
+        #[test]
+        fn same_scope() {
+            // def main(field a) {
+            //     field a = 42;
+            //     bool a = true
+            //     return;
+            // }
+
+            // should become
+
+            // def main(field a_0) {
+            //     field a_1 = 42;
+            //     bool a_2 = true;
+            //     return;
+            // }
+
+            let f: TypedFunction<Bn128Field> = TypedFunction {
+                arguments: vec![DeclarationVariable::field_element("a").into()],
+                statements: vec![
+                    TypedStatement::definition(
+                        Variable::field_element("a").into(),
+                        TypedExpression::Uint(42u32.into()),
+                    ),
+                    TypedStatement::definition(
+                        Variable::boolean("a").into(),
+                        BooleanExpression::Value(true).into(),
+                    ),
+                    TypedStatement::Return(
+                        TupleExpressionInner::Value(vec![])
+                            .annotate(TupleType::new(vec![]))
+                            .into(),
+                    ),
+                ],
+                signature: DeclarationSignature::new()
+                    .generics(vec![])
+                    .inputs(vec![DeclarationType::FieldElement]),
+            };
+
+            let expected: TypedFunction<Bn128Field> = TypedFunction {
+                arguments: vec![DeclarationVariable::field_element("a").into()],
+                statements: vec![
+                    TypedStatement::definition(
+                        Variable::field_element(Identifier::from("a").version(1)).into(),
+                        TypedExpression::Uint(42u32.into()),
+                    ),
+                    TypedStatement::definition(
+                        Variable::boolean(Identifier::from("a").version(2)).into(),
+                        BooleanExpression::Value(true).into(),
+                    ),
+                    TypedStatement::Return(
+                        TupleExpressionInner::Value(vec![])
+                            .annotate(TupleType::new(vec![]))
+                            .into(),
+                    ),
+                ],
+                signature: DeclarationSignature::new()
+                    .generics(vec![])
+                    .inputs(vec![DeclarationType::FieldElement]),
+            };
+
+            let mut versions = Versions::default();
+
+            let ssa =
+                ShallowTransformer::transform(f, &GGenericsAssignment::default(), &mut versions);
+
+            assert_eq!(ssa, Output::Complete(expected));
+        }
+
+        #[test]
+        fn next_scope() {
+            // def main(field a) {
+            //    for u32 i in 0..1 {
+            //       a = a + 1
+            //       field a = 42
+            //    }
+            //    return a
+            // }
+
+            // should become
+
+            // def main(field a_0) {
+            //    # versions: {a: 0}
+            //    for u32 i in 0..1 {
+            //       a_0 = a_0
+            //       field a_0 = 42
+            //    }
+            //    return a_1
+            // }
+
+            let f: TypedFunction<Bn128Field> = TypedFunction {
+                arguments: vec![DeclarationVariable::field_element("a").into()],
+                statements: vec![
+                    TypedStatement::For(
+                        Variable::uint("i", UBitwidth::B32),
+                        0u32.into(),
+                        1u32.into(),
+                        vec![
+                            TypedStatement::definition(
+                                Variable::field_element(Identifier::from("a")).into(),
+                                FieldElementExpression::Identifier("a".into()).into(),
+                            ),
+                            TypedStatement::definition(
+                                Variable::field_element(Identifier::from("a")).into(),
+                                FieldElementExpression::Number(42usize.into()).into(),
+                            ),
+                        ],
+                    ),
+                    TypedStatement::Return(
+                        TupleExpressionInner::Value(vec![FieldElementExpression::Identifier(
+                            "a".into(),
+                        )
+                        .into()])
+                        .annotate(TupleType::new(vec![Type::FieldElement]))
+                        .into(),
+                    ),
+                ],
+                signature: DeclarationSignature::new()
+                    .generics(vec![])
+                    .inputs(vec![DeclarationType::FieldElement])
+                    .output(DeclarationType::FieldElement),
+            };
+
+            let expected: TypedFunction<Bn128Field> = TypedFunction {
+                arguments: vec![DeclarationVariable::field_element("a").into()],
+                statements: vec![
+                    TypedStatement::For(
+                        Variable::uint("i", UBitwidth::B32),
+                        0u32.into(),
+                        1u32.into(),
+                        vec![
+                            TypedStatement::definition(
+                                Variable::field_element(Identifier::from("a")).into(),
+                                FieldElementExpression::Identifier(Identifier::from("a")).into(),
+                            ),
+                            TypedStatement::definition(
+                                Variable::field_element(Identifier::from("a")).into(),
+                                FieldElementExpression::Number(42usize.into()).into(),
+                            ),
+                        ],
+                    ),
+                    TypedStatement::Return(
+                        TupleExpressionInner::Value(vec![FieldElementExpression::Identifier(
+                            Identifier::from("a").version(1),
+                        )
+                        .into()])
+                        .annotate(TupleType::new(vec![Type::FieldElement]))
+                        .into(),
+                    ),
+                ],
+                signature: DeclarationSignature::new()
+                    .generics(vec![])
+                    .inputs(vec![DeclarationType::FieldElement])
+                    .output(DeclarationType::FieldElement),
+            };
+
+            let mut versions = Versions::default();
+
+            let ssa =
+                ShallowTransformer::transform(f, &GGenericsAssignment::default(), &mut versions);
+
+            assert_eq!(
+                ssa,
+                Output::Incomplete(expected, vec![vec![("a".into(), 0)].into_iter().collect()])
+            );
         }
     }
 

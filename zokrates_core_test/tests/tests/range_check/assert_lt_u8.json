@@ -1,55 +1,55 @@
 {
-    "entry_point": "./tests/tests/range_check/assert_lt_u8.zok",
-    "max_constraint_count": 9,
-    "curves": ["Bn128"],
-    "tests": [
-        {
-            "input": {
-                "values": ["0x00"]
-            },
-            "output": {
-                "Ok": {
-                    "value": []
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x01"]
-            },
-            "output": {
-                "Ok": {
-                    "value": []
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x02"]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "error": {
-                            "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_lt_u8.zok:2:5"
-                        }
-                    }
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x0f"]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "error": {
-                            "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_lt_u8.zok:2:5"
-                        }
-                    }
-                }
-            }
+  "entry_point": "./tests/tests/range_check/assert_lt_u8.zok",
+  "max_constraint_count": 9,
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0x00"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["0x01"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x02"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_lt_u8.zok:2:5"
+            }
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x0f"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_lt_u8.zok:2:5"
+            }
+          }
+        }
+      }
+    }
+  ]
 }

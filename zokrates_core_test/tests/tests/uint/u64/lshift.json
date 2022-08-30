@@ -1,7 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u64/lshift.zok",
   "max_constraint_count": 66,
-    "tests": [
+  "tests": [
     {
       "input": {
         "values": ["0x0000000000000002"]

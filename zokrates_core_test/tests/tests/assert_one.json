@@ -1,22 +1,22 @@
 {
-    "entry_point": "./tests/tests/assert_one.zok",
-    "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-    "tests": [
-        {
-            "input": {
-                "values": ["0"]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "left": "0",
-                        "right": "1",
-                        "error": {
-                            "SourceAssertion": "Assertion failed at ./tests/tests/assert_one.zok:2:2"
-                        }
-                    }
-                }
+  "entry_point": "./tests/tests/assert_one.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "0",
+            "right": "1",
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/assert_one.zok:2:2"
             }
+          }
         }
-    ]
+      }
+    }
+  ]
 }
