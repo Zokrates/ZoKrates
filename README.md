@@ -51,5 +51,5 @@ We enforce strict formatting of `.{js,json,ts}` files in CI. This check is not i
 
 ```
 npm i -g prettier
-prettier --write ./**/*.{js,ts,json}
+prettier --write "./**/*.{js,ts,json}"
 ```

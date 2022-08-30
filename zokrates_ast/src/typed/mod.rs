@@ -752,6 +752,12 @@ pub enum TypedExpression<'ast, T> {
     Int(IntExpression<'ast, T>),
 }
 
+impl<'ast, T> TypedExpression<'ast, T> {
+    pub fn empty_tuple() -> TypedExpression<'ast, T> {
+        TypedExpression::Tuple(TupleExpressionInner::Value(vec![]).annotate(TupleType::new(vec![])))
+    }
+}
+
 impl<'ast, T> From<BooleanExpression<'ast, T>> for TypedExpression<'ast, T> {
     fn from(e: BooleanExpression<'ast, T>) -> TypedExpression<T> {
         TypedExpression::Boolean(e)
