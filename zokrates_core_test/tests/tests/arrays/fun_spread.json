@@ -1,6 +1,5 @@
 {
-	"entry_point": "./tests/tests/arrays/fun_spread.zok",
-	"max_constraint_count": 1050,
-	"tests": [
-	]
+  "entry_point": "./tests/tests/arrays/fun_spread.zok",
+  "max_constraint_count": 1050,
+  "tests": []
 }

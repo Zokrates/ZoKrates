@@ -16,7 +16,7 @@ pub mod types;
 mod uint;
 pub mod variable;
 
-pub use self::identifier::CoreIdentifier;
+pub use self::identifier::{CoreIdentifier, ShadowedIdentifier, SourceIdentifier};
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteTupleType,

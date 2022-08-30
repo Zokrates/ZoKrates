@@ -1,14 +1,19 @@
 {
-	"entry_point": "./tests/tests/uint/operations.zok",
-	"tests": [{
-			"input": {
-				"values": ["0x12345678", "0x01234567", ["0xfefefefe", "0xefefefef", "0xffffffff", "0xeeeeeeee"]]
-			},
-			"output": {
-				"Ok": {
-					"value": []
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/uint/operations.zok",
+  "tests": [
+    {
+      "input": {
+        "values": [
+          "0x12345678",
+          "0x01234567",
+          ["0xfefefefe", "0xefefefef", "0xffffffff", "0xeeeeeeee"]
+        ]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    }
+  ]
 }

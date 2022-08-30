@@ -1,76 +1,80 @@
 {
-    "entry_point": "./tests/tests/range.zok",
-    "curves": ["Bn128"],
-	"tests": [
-        {
-            "input": {
-                "values": ["0"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [false, true, true, true, false]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["1"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [false, false, true, true, true]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["2"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [false, false, true, true, false]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["254"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [false, false, true, true, false]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["255"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [false, false, false, true, false]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["21888242871839275222246405745257275088548364400416034343698204186575808495615"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [false, false, false, true, false]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["21888242871839275222246405745257275088548364400416034343698204186575808495616"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [false, false, false, false, false]
-                }
-            }
+  "entry_point": "./tests/tests/range.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, true, true, true, false]
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false, true, true, true]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false, true, true, false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["254"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false, true, true, false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["255"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false, false, true, false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [
+          "21888242871839275222246405745257275088548364400416034343698204186575808495615"
+        ]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false, false, true, false]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [
+          "21888242871839275222246405745257275088548364400416034343698204186575808495616"
+        ]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, false, false, false, false]
+        }
+      }
+    }
+  ]
 }
