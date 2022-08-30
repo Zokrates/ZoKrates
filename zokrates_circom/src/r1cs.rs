@@ -1,5 +1,5 @@
 use byteorder::{LittleEndian, WriteBytesExt};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::io::Result;
 use std::{io::Write, ops::Add};
 use zokrates_ast::flat::Variable;
@@ -65,6 +65,9 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
     // position where private part of witness starts
     let private_inputs_offset = variables.len();
 
+    // build a set of all variables
+    let mut ordered_variables_set = BTreeSet::default();
+
     // first pass through statements to populate `variables`
     for (quad, lin) in prog.statements.iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin, _) => Some((quad, lin)),
@@ -72,14 +75,19 @@ pub fn r1cs_program<T: Field>(prog: Prog<T>) -> (Vec<Variable>, usize, Vec<Const
         Statement::Log(..) => None,
     }) {
         for (k, _) in &quad.left.0 {
-            provide_variable_idx(&mut variables, k);
+            ordered_variables_set.insert(k);
         }
         for (k, _) in &quad.right.0 {
-            provide_variable_idx(&mut variables, k);
+            ordered_variables_set.insert(k);
         }
         for (k, _) in &lin.0 {
-            provide_variable_idx(&mut variables, k);
+            ordered_variables_set.insert(k);
         }
+    }
+
+    // create indices for the variables *in increasing order*
+    for variable in ordered_variables_set {
+        provide_variable_idx(&mut variables, variable);
     }
 
     let mut constraints = vec![];
