@@ -35,6 +35,7 @@ impl<'ast> fmt::Display for Identifier<'ast> {
     }
 }
 
+// this is only used in tests but somehow cfg(test) does not work
 impl<'ast> From<&'ast str> for Identifier<'ast> {
     fn from(id: &'ast str) -> Identifier<'ast> {
         Identifier::Source(SourceIdentifier::Basic(id.into()))

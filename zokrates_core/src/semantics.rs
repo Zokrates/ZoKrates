@@ -10,6 +10,7 @@ use std::fmt;
 use std::path::PathBuf;
 use zokrates_ast::common::FormatString;
 use zokrates_ast::typed::types::{GGenericsAssignment, GTupleType, GenericsAssignment};
+use zokrates_ast::typed::SourceIdentifier;
 use zokrates_ast::typed::*;
 use zokrates_ast::typed::{DeclarationParameter, DeclarationVariable, Variable};
 use zokrates_ast::untyped::Identifier;
@@ -18,7 +19,7 @@ use zokrates_field::Field;
 
 use zokrates_ast::untyped::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use zokrates_ast::typed::types::{
     check_type, specialize_declaration_type, ArrayType, DeclarationArrayType, DeclarationConstant,
     DeclarationFunctionKey, DeclarationSignature, DeclarationStructMember, DeclarationStructType,
@@ -262,64 +263,60 @@ impl<'ast, T: Field> FunctionQuery<'ast, T> {
     }
 }
 
-/// A scoped variable, so that we can delete all variables of a given scope when exiting it
-#[derive(Clone, Debug)]
-pub struct ScopedIdentifier<'ast> {
-    id: CoreIdentifier<'ast>,
-    level: usize,
-}
-
-impl<'ast> ScopedIdentifier<'ast> {
-    fn is_constant(&self) -> bool {
-        let res = self.level == 0;
-
-        // currently this is encoded twice: in the level and in the identifier itself.
-        // we add a sanity check to make sure the two agree
-        assert_eq!(res, matches!(self.id, CoreIdentifier::Constant(..)));
-
-        res
-    }
-}
-
-/// Identifiers coming from constants or variables are equivalent
-impl<'ast> PartialEq for ScopedIdentifier<'ast> {
-    fn eq(&self, other: &Self) -> bool {
-        let i0 = match &self.id {
-            CoreIdentifier::Source(id) => id,
-            CoreIdentifier::Constant(c) => c.id,
-            _ => unreachable!(),
-        };
-
-        let i1 = match &other.id {
-            CoreIdentifier::Source(id) => id,
-            CoreIdentifier::Constant(c) => c.id,
-            _ => unreachable!(),
-        };
-
-        i0 == i1
-    }
-}
-
-/// Identifiers coming from constants or variables hash to the same result
-impl<'ast> Hash for ScopedIdentifier<'ast> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match &self.id {
-            CoreIdentifier::Source(id) => id.hash(state),
-            CoreIdentifier::Constant(c) => c.id.hash(state),
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl<'ast> Eq for ScopedIdentifier<'ast> {}
-
-#[derive(Debug)]
-pub struct IdentifierInfo<'ast, T> {
+#[derive(Debug, Clone)]
+pub struct IdentifierInfo<'ast, T, U> {
+    id: U,
     ty: Type<'ast, T>,
     is_mutable: bool,
 }
 
-type Scope<'ast, T> = HashMap<ScopedIdentifier<'ast>, IdentifierInfo<'ast, T>>;
+#[derive(Default, Debug)]
+struct Scope<'ast, T> {
+    level: usize,
+    map: HashMap<
+        SourceIdentifier<'ast>,
+        BTreeMap<usize, IdentifierInfo<'ast, T, CoreIdentifier<'ast>>>,
+    >,
+}
+
+impl<'ast, T: Field> Scope<'ast, T> {
+    // insert into the scope and return whether we are shadowing an existing variable
+    fn insert(
+        &mut self,
+        id: SourceIdentifier<'ast>,
+        info: IdentifierInfo<'ast, T, CoreIdentifier<'ast>>,
+    ) -> bool {
+        let existed = self
+            .map
+            .get(&id)
+            .map(|versions| !versions.is_empty())
+            .unwrap_or(false);
+        self.map.entry(id).or_default().insert(self.level, info);
+
+        existed
+    }
+
+    /// get the current version of this variable
+    fn get(
+        &self,
+        id: &SourceIdentifier<'ast>,
+    ) -> Option<IdentifierInfo<'ast, T, CoreIdentifier<'ast>>> {
+        self.map
+            .get(id)
+            .and_then(|versions| versions.values().next_back().cloned())
+    }
+
+    fn enter(&mut self) {
+        self.level += 1;
+    }
+
+    fn exit(&mut self) {
+        for versions in self.map.values_mut() {
+            versions.remove(&self.level);
+        }
+        self.level -= 1;
+    }
+}
 
 /// Checker checks the semantics of a program, keeping track of functions and variables in scope
 #[derive(Default)]
@@ -327,7 +324,6 @@ pub struct Checker<'ast, T> {
     return_type: Option<DeclarationType<'ast, T>>,
     scope: Scope<'ast, T>,
     functions: HashSet<DeclarationFunctionKey<'ast, T>>,
-    level: usize,
 }
 
 impl<'ast, T: Field> Checker<'ast, T> {
@@ -692,13 +688,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                     )
                                     .into(),
                                 );
-                                self.insert_into_scope(Variable::immutable(
-                                    CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
+                                let id = declaration.id;
+
+                                let info = IdentifierInfo {
+                                    id: CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
                                         declaration.id,
                                         module_id.into(),
                                     )),
-                                    c.get_type(),
-                                ));
+                                    ty: c.get_type(),
+                                    is_mutable: false,
+                                };
+                                assert_eq!(self.scope.level, 0);
+                                assert!(!self.scope.insert(id, info));
                                 assert!(state
                                     .constants
                                     .entry(module_id.to_path_buf())
@@ -883,10 +884,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
                                             id.clone(),
                                             TypedConstantSymbol::There(imported_id)
                                         ).into());
-                                        self.insert_into_scope(Variable::immutable(CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
-                                            declaration.id,
-                                            module_id.into(),
-                                        )), zokrates_ast::typed::types::try_from_g_type(ty.clone()).unwrap()));
+
+                                        let id = declaration.id;
+                                        let info = IdentifierInfo {
+                                            id: CoreIdentifier::Constant(CanonicalConstantIdentifier::new(
+                                                declaration.id,
+                                                module_id.into(),
+                                            )),
+                                            ty: zokrates_ast::typed::types::try_from_g_type(ty.clone()).unwrap(),
+                                            is_mutable: false,
+                                        };
+                                        assert_eq!(self.scope.level, 0);
+                                        assert!(!self.scope.insert(id, info));
 
                                         state
                                             .constants
@@ -1071,9 +1080,17 @@ impl<'ast, T: Field> Checker<'ast, T> {
             }]),
         }?;
 
-        self.insert_into_scope(var.clone());
-
         Ok(var)
+    }
+
+    fn id_in_this_scope(&self, id: SourceIdentifier<'ast>) -> CoreIdentifier<'ast> {
+        // in the semantic checker, 0 is top level, 1 is function level. For shadowing, we start with 0 at function level
+        // hence the offset of 1
+        assert!(
+            self.scope.level > 0,
+            "CoreIdentifier cannot be declared in the global scope"
+        );
+        CoreIdentifier::from(ShadowedIdentifier::shadow(id, self.scope.level - 1))
     }
 
     fn check_function(
@@ -1111,17 +1128,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     };
 
                     // for declaration signatures, generics cannot be ignored
-
-                    let v = Variable::immutable(generic.name(), Type::Uint(UBitwidth::B32));
-
                     generics.0.insert(
                         generic.clone(),
-                        UExpressionInner::Identifier(generic.name().into())
+                        UExpressionInner::Identifier(self.id_in_this_scope(generic.name()).into())
                             .annotate(UBitwidth::B32),
                     );
 
-                    // we don't have to check for conflicts here, because this was done when checking the signature
-                    self.insert_into_scope(v.clone());
+                    //we don't have to check for conflicts here, because this was done when checking the signature
+                    self.insert_into_scope(generic.name(), Type::Uint(UBitwidth::B32), false);
                 }
 
                 for (arg, decl_ty) in funct.arguments.into_iter().zip(s.inputs.iter()) {
@@ -1130,7 +1144,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                     let arg = arg.value;
 
                     let decl_v = DeclarationVariable::new(
-                        arg.id.value.id,
+                        self.id_in_this_scope(arg.id.value.id),
                         decl_ty.clone(),
                         arg.id.value.is_mutable,
                     );
@@ -1139,16 +1153,20 @@ impl<'ast, T: Field> Checker<'ast, T> {
 
                     let ty = specialize_declaration_type(decl_v.clone()._type, &generics).unwrap();
 
-                    match self.insert_into_scope(zokrates_ast::typed::variable::Variable {
-                        id: decl_v.clone().id,
-                        _type: ty,
+                    assert_eq!(self.scope.level, 1);
+
+                    let id = arg.id.value.id;
+                    let info = IdentifierInfo {
+                        id: decl_v.id.id.clone(),
+                        ty,
                         is_mutable,
-                    }) {
-                        true => {}
-                        false => {
+                    };
+                    match self.scope.insert(id, info) {
+                        false => {}
+                        true => {
                             errors.push(ErrorInner {
                                 pos: Some(pos),
-                                message: format!("Duplicate name in function definition: `{}` was previously declared as an argument or a generic constant", arg.id.value.id)
+                                message: format!("Duplicate name in function definition: `{}` was previously declared as an argument, a generic parameter or a constant", arg.id.value.id)
                             });
                         }
                     };
@@ -1622,10 +1640,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
     ) -> Result<Variable<'ast, T>, Vec<ErrorInner>> {
+        let ty = self
+            .check_type(v.value._type, module_id, types)
+            .map_err(|e| vec![e])?;
+
+        // insert into the scope and ignore whether shadowing happened
+        self.insert_into_scope(v.value.id, ty.clone(), v.value.is_mutable);
+
         Ok(Variable::new(
-            v.value.id,
-            self.check_type(v.value._type, module_id, types)
-                .map_err(|e| vec![e])?,
+            self.id_in_this_scope(v.value.id),
+            ty,
             v.value.is_mutable,
         ))
     }
@@ -1717,72 +1741,26 @@ impl<'ast, T: Field> Checker<'ast, T> {
     }
 
     // the assignee is already checked to be defined and mutable
-    fn check_assignment_inner(
+    fn check_rhs(
         &mut self,
-        assignee: TypedAssignee<'ast, T>,
+        return_type: Type<'ast, T>,
         expr: ExpressionNode<'ast>,
-        statement_pos: (Position, Position),
         module_id: &ModuleId,
         types: &TypeMap<'ast, T>,
-    ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
-        let assignee_type = assignee.get_type();
-
+    ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
         match expr.value {
-            Expression::FunctionCall(box fun_id_expression, generics, arguments) => {
-                let e = self
-                    .check_function_call_expression(
-                        fun_id_expression,
-                        generics,
-                        arguments,
-                        Some(assignee_type),
-                        module_id,
-                        types,
-                    )
-                    .map_err(|e| vec![e])?;
-                Ok(TypedStatement::Definition(assignee, e))
-            }
-            _ => {
-                // check the expression to be assigned
-                let checked_expr = self
-                    .check_expression(expr, module_id, types)
-                    .map_err(|e| vec![e])?;
-
-                // make sure the assignee has the same type as the rhs
-                match assignee_type {
-                    Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
-                        .map(TypedExpression::from),
-                    Type::Boolean => {
-                        BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
-                    }
-                    Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, &bitwidth)
-                        .map(TypedExpression::from),
-                    Type::Array(ref array_ty) => {
-                        ArrayExpression::try_from_typed(checked_expr, array_ty)
-                            .map(TypedExpression::from)
-                    }
-                    Type::Struct(ref struct_ty) => {
-                        StructExpression::try_from_typed(checked_expr, struct_ty)
-                            .map(TypedExpression::from)
-                    }
-                    Type::Tuple(ref tuple_ty) => {
-                        TupleExpression::try_from_typed(checked_expr, tuple_ty)
-                            .map(TypedExpression::from)
-                    }
-                    Type::Int => Err(checked_expr), // Integers cannot be assigned
-                }
-                .map_err(|e| ErrorInner {
-                    pos: Some(statement_pos),
-                    message: format!(
-                        "Expression `{}` of type `{}` cannot be assigned to `{}` of type `{}`",
-                        e,
-                        e.get_type(),
-                        assignee.clone(),
-                        assignee_type
-                    ),
-                })
-                .map(|rhs| TypedStatement::Definition(assignee, rhs))
-                .map_err(|e| vec![e])
-            }
+            // for function calls, check the rhs with the expected type
+            Expression::FunctionCall(box fun_id_expression, generics, arguments) => self
+                .check_function_call_expression(
+                    fun_id_expression,
+                    generics,
+                    arguments,
+                    Some(return_type),
+                    module_id,
+                    types,
+                ),
+            // otherwise, just check the rhs normally
+            _ => self.check_expression(expr, module_id, types),
         }
     }
 
@@ -1910,27 +1888,106 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 Ok(res)
             }
             Statement::Definition(var, expr) => {
-                let var = self.check_variable(var, module_id, types)?;
-                match self.insert_into_scope(var.clone()) {
-                    true => Ok(()),
-                    false => Err(ErrorInner {
-                        pos: Some(pos),
-                        message: format!("Duplicate declaration for variable named {}", var.id),
-                    }),
+                // get the lhs type
+                let var_ty = self
+                    .check_type(var.value._type, module_id, types)
+                    .map_err(|e| vec![e])?;
+
+                // check the rhs based on the lhs type
+                let checked_expr = self
+                    .check_rhs(var_ty.clone(), expr, module_id, types)
+                    .map_err(|e| vec![e])?;
+
+                // insert the lhs into the scope and ignore whether shadowing happened
+                self.insert_into_scope(var.value.id, var_ty.clone(), var.value.is_mutable);
+
+                let var = Variable::new(
+                    self.id_in_this_scope(var.value.id),
+                    var_ty.clone(),
+                    var.value.is_mutable,
+                );
+
+                match var_ty {
+                    Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
+                        .map(TypedExpression::from),
+                    Type::Boolean => {
+                        BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
+                    }
+                    Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, &bitwidth)
+                        .map(TypedExpression::from),
+                    Type::Array(ref array_ty) => {
+                        ArrayExpression::try_from_typed(checked_expr, array_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Struct(ref struct_ty) => {
+                        StructExpression::try_from_typed(checked_expr, struct_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Tuple(ref tuple_ty) => {
+                        TupleExpression::try_from_typed(checked_expr, tuple_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Int => Err(checked_expr), // Integers cannot be assigned
                 }
-                .map_err(|e| vec![e])?;
-
-                let assignee = TypedAssignee::Identifier(var);
-
-                self.check_assignment_inner(assignee, expr, pos, module_id, types)
+                .map_err(|e| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Expression `{}` of type `{}` cannot be assigned to `{}` of type `{}`",
+                        e,
+                        e.get_type(),
+                        var.clone(),
+                        var_ty
+                    ),
+                })
+                .map(|e| TypedStatement::Definition(var.into(), e))
+                .map_err(|e| vec![e])
             }
             Statement::Assignment(assignee, expr) => {
                 // check that the assignee is declared, well formed and mutable
-                let var = self
+                let assignee = self
                     .check_assignee(assignee, module_id, types)
                     .map_err(|e| vec![e])?;
 
-                self.check_assignment_inner(var, expr, pos, module_id, types)
+                let assignee_ty = assignee.get_type();
+
+                let checked_expr = self
+                    .check_rhs(assignee_ty.clone(), expr, module_id, types)
+                    .map_err(|e| vec![e])?;
+
+                match assignee_ty {
+                    Type::FieldElement => FieldElementExpression::try_from_typed(checked_expr)
+                        .map(TypedExpression::from),
+                    Type::Boolean => {
+                        BooleanExpression::try_from_typed(checked_expr).map(TypedExpression::from)
+                    }
+                    Type::Uint(bitwidth) => UExpression::try_from_typed(checked_expr, &bitwidth)
+                        .map(TypedExpression::from),
+                    Type::Array(ref array_ty) => {
+                        ArrayExpression::try_from_typed(checked_expr, array_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Struct(ref struct_ty) => {
+                        StructExpression::try_from_typed(checked_expr, struct_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Tuple(ref tuple_ty) => {
+                        TupleExpression::try_from_typed(checked_expr, tuple_ty)
+                            .map(TypedExpression::from)
+                    }
+                    Type::Int => Err(checked_expr), // Integers cannot be assigned
+                }
+                .map_err(|e| ErrorInner {
+                    pos: Some(pos),
+                    message: format!(
+                        "Expression `{}` of type `{}` cannot be assigned to `{}` of type `{}`",
+                        e,
+                        e.get_type(),
+                        assignee.clone(),
+                        assignee_ty
+                    ),
+                })
+                .map(|e| TypedStatement::Definition(assignee, e))
+                .map_err(|e| vec![e])
             }
             Statement::Assertion(e, message) => {
                 let e = self
@@ -1978,18 +2035,14 @@ impl<'ast, T: Field> Checker<'ast, T> {
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
-            Assignee::Identifier(variable_name) => match self.get_key_value_scope(variable_name) {
-                Some((id, info)) => match (id.is_constant(), info.is_mutable) {
-                    (true, _) => Err(ErrorInner {
-                        pos: Some(assignee.pos()),
-                        message: format!("Assignment to constant variable `{}`", variable_name),
-                    }),
-                    (_, false) => Err(ErrorInner {
+            Assignee::Identifier(variable_name) => match self.scope.get(&variable_name) {
+                Some(info) => match info.is_mutable {
+                    false => Err(ErrorInner {
                         pos: Some(assignee.pos()),
                         message: format!("Assignment to an immutable variable `{}`", variable_name),
                     }),
                     _ => Ok(TypedAssignee::Identifier(Variable::new(
-                        variable_name,
+                        info.id,
                         info.ty.clone(),
                         info.is_mutable,
                     ))),
@@ -2291,33 +2344,35 @@ impl<'ast, T: Field> Checker<'ast, T> {
             Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
-                match self
-                    .get_key_value_scope(name)
-                    .map(|(x, y)| (x.clone(), y.ty.clone()))
-                {
-                    Some((id, ty)) => match ty {
-                        Type::Boolean => Ok(BooleanExpression::Identifier(id.id.into()).into()),
-                        Type::Uint(bitwidth) => Ok(UExpressionInner::Identifier(id.id.into())
-                            .annotate(bitwidth)
-                            .into()),
-                        Type::FieldElement => {
-                            Ok(FieldElementExpression::Identifier(id.id.into()).into())
+                match self.scope.get(&name) {
+                    Some(info) => {
+                        let id = info.id;
+                        match info.ty.clone() {
+                            Type::Boolean => Ok(BooleanExpression::Identifier(id.into()).into()),
+                            Type::Uint(bitwidth) => Ok(UExpressionInner::Identifier(id.into())
+                                .annotate(bitwidth)
+                                .into()),
+                            Type::FieldElement => {
+                                Ok(FieldElementExpression::Identifier(id.into()).into())
+                            }
+                            Type::Array(array_type) => {
+                                Ok(ArrayExpressionInner::Identifier(id.into())
+                                    .annotate(*array_type.ty, *array_type.size)
+                                    .into())
+                            }
+                            Type::Struct(members) => {
+                                Ok(StructExpressionInner::Identifier(id.into())
+                                    .annotate(members)
+                                    .into())
+                            }
+                            Type::Tuple(tuple_ty) => {
+                                Ok(TupleExpressionInner::Identifier(id.into())
+                                    .annotate(tuple_ty)
+                                    .into())
+                            }
+                            Type::Int => unreachable!(),
                         }
-                        Type::Array(array_type) => {
-                            Ok(ArrayExpressionInner::Identifier(id.id.into())
-                                .annotate(*array_type.ty, *array_type.size)
-                                .into())
-                        }
-                        Type::Struct(members) => {
-                            Ok(StructExpressionInner::Identifier(id.id.into())
-                                .annotate(members)
-                                .into())
-                        }
-                        Type::Tuple(tuple_ty) => Ok(TupleExpressionInner::Identifier(id.id.into())
-                            .annotate(tuple_ty)
-                            .into()),
-                        Type::Int => unreachable!(),
-                    },
+                    }
                     None => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Identifier \"{}\" is undefined", name),
@@ -3551,29 +3606,18 @@ impl<'ast, T: Field> Checker<'ast, T> {
         }
     }
 
-    fn get_key_value_scope<'a>(
-        &'a self,
-        identifier: &'ast str,
-    ) -> Option<(&'a ScopedIdentifier<'ast>, &'a IdentifierInfo<'ast, T>)> {
-        self.scope.get_key_value(&ScopedIdentifier {
-            id: CoreIdentifier::Source(identifier),
-            level: 0,
-        })
-    }
-
-    fn insert_into_scope(&mut self, v: Variable<'ast, T>) -> bool {
-        self.scope
-            .insert(
-                ScopedIdentifier {
-                    id: v.id.id,
-                    level: self.level,
-                },
-                IdentifierInfo {
-                    ty: v._type,
-                    is_mutable: v.is_mutable,
-                },
-            )
-            .is_none()
+    fn insert_into_scope(
+        &mut self,
+        id: SourceIdentifier<'ast>,
+        ty: Type<'ast, T>,
+        is_mutable: bool,
+    ) -> bool {
+        let info = IdentifierInfo {
+            id: self.id_in_this_scope(id),
+            ty,
+            is_mutable,
+        };
+        self.scope.insert(id, info)
     }
 
     fn find_functions(
@@ -3584,14 +3628,11 @@ impl<'ast, T: Field> Checker<'ast, T> {
     }
 
     fn enter_scope(&mut self) {
-        self.level += 1;
+        self.scope.enter();
     }
 
     fn exit_scope(&mut self) {
-        let current_level = self.level;
-        self.scope
-            .retain(|scoped_variable, _| scoped_variable.level < current_level);
-        self.level -= 1;
+        self.scope.exit();
     }
 }
 
@@ -4312,15 +4353,13 @@ mod tests {
         }
     }
 
-    pub fn new_with_args<'ast, T: Field>(
+    fn new_with_args<'ast, T: Field>(
         scope: Scope<'ast, T>,
-        level: usize,
         functions: HashSet<DeclarationFunctionKey<'ast, T>>,
     ) -> Checker<'ast, T> {
         Checker {
             scope,
             functions,
-            level,
             return_type: None,
         }
     }
@@ -4432,21 +4471,20 @@ mod tests {
 
         let mut scope = Scope::default();
         scope.insert(
-            ScopedIdentifier {
-                id: CoreIdentifier::Source("b"),
-                level: 1,
-            },
+            "b",
             IdentifierInfo {
+                id: "b".into(),
                 ty: Type::FieldElement,
                 is_mutable: false,
             },
         );
 
-        let mut checker: Checker<Bn128Field> = new_with_args(scope, 1, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(scope, HashSet::new());
+        checker.enter_scope();
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
             Ok(TypedStatement::Definition(
-                TypedAssignee::Identifier(typed::Variable::field_element("a")),
+                typed::Variable::field_element("a").into(),
                 FieldElementExpression::Identifier("b".into()).into()
             ))
         );
@@ -4675,15 +4713,24 @@ mod tests {
         ];
 
         let for_statements_checked = vec![TypedStatement::Definition(
-            TypedAssignee::Identifier(typed::Variable::uint("a", UBitwidth::B32)),
-            UExpressionInner::Identifier("i".into())
-                .annotate(UBitwidth::B32)
-                .into(),
+            typed::Variable::uint(
+                CoreIdentifier::Source(ShadowedIdentifier::shadow("a", 1)),
+                UBitwidth::B32,
+            )
+            .into(),
+            UExpressionInner::Identifier(
+                CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)).into(),
+            )
+            .annotate(UBitwidth::B32)
+            .into(),
         )];
 
         let foo_statements_checked = vec![
             TypedStatement::For(
-                typed::Variable::uint("i", UBitwidth::B32),
+                typed::Variable::uint(
+                    CoreIdentifier::Source(ShadowedIdentifier::shadow("i", 1)),
+                    UBitwidth::B32,
+                ),
                 0u32.into(),
                 10u32.into(),
                 for_statements_checked,
@@ -4758,7 +4805,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, functions);
+        let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), functions);
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4797,7 +4844,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -4870,7 +4917,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
             checker.check_module(&*MODULE_ID, &mut state),
             Err(vec![Error {
@@ -4966,7 +5013,7 @@ mod tests {
         let mut state =
             State::<Bn128Field>::new(vec![((*MODULE_ID).clone(), module)].into_iter().collect());
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert!(checker.check_module(&*MODULE_ID, &mut state).is_ok());
     }
 
@@ -5006,7 +5053,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -5039,7 +5086,7 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
             checker.check_function(bar, &*MODULE_ID, &state),
             Err(vec![ErrorInner {
@@ -5076,13 +5123,13 @@ mod tests {
         let modules = Modules::new();
         let state = State::new(modules);
 
-        let mut checker: Checker<Bn128Field> = new_with_args(HashMap::new(), 0, HashSet::new());
+        let mut checker: Checker<Bn128Field> = new_with_args(Scope::default(), HashSet::new());
         assert_eq!(
             checker
                 .check_function(f, &*MODULE_ID, &state)
                 .unwrap_err()[0]
                 .message,
-            "Duplicate name in function definition: `a` was previously declared as an argument or a generic constant"
+            "Duplicate name in function definition: `a` was previously declared as an argument, a generic parameter or a constant"
         );
     }
 
@@ -5163,25 +5210,20 @@ mod tests {
         );
     }
 
-    #[test]
-    fn shadowing_with_same_type() {
-        // field a = 2;
-        // field a = 2;
-        //
-        // should fail
+    mod shadowing {
 
-        let mut checker: Checker<Bn128Field> = Checker::default();
-        let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
-            Statement::Definition(
-                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-                untyped::Expression::IntConstant(2usize.into()).mock(),
-            )
-            .mock(),
-            &*MODULE_ID,
-            &TypeMap::new(),
-        );
-        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
-            .check_statement(
+        use super::*;
+
+        #[test]
+        fn same_type() {
+            // field a = 2;
+            // field a = 2;
+            //
+            // should succeed
+
+            let mut checker: Checker<Bn128Field> = Checker::default();
+            checker.enter_scope();
+            let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
                 Statement::Definition(
                     untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
                     untyped::Expression::IntConstant(2usize.into()).mock(),
@@ -5190,49 +5232,169 @@ mod tests {
                 &*MODULE_ID,
                 &TypeMap::new(),
             );
-        assert_eq!(
-            s2_checked,
-            Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
-                message: "Duplicate declaration for variable named a".into()
-            }])
-        );
-    }
+            let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
+                .check_statement(
+                    Statement::Definition(
+                        untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock())
+                            .mock(),
+                        untyped::Expression::IntConstant(2usize.into()).mock(),
+                    )
+                    .mock(),
+                    &*MODULE_ID,
+                    &TypeMap::new(),
+                );
+            assert!(s2_checked.is_ok());
+        }
 
-    #[test]
-    fn shadowing_with_different_type() {
-        // field a = 2;
-        // bool a = true;
-        //
-        // should fail
+        #[test]
+        fn different_type() {
+            // field a = 2;
+            // bool a = true;
+            //
+            // should succeed
 
-        let mut checker: Checker<Bn128Field> = Checker::default();
-        let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
-            Statement::Definition(
-                untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
-                untyped::Expression::IntConstant(2usize.into()).mock(),
-            )
-            .mock(),
-            &*MODULE_ID,
-            &TypeMap::new(),
-        );
-        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
-            .check_statement(
+            let mut checker: Checker<Bn128Field> = Checker::default();
+            checker.enter_scope();
+            let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
                 Statement::Definition(
-                    untyped::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
-                    untyped::Expression::BooleanConstant(true).mock(),
+                    untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                    untyped::Expression::IntConstant(2usize.into()).mock(),
                 )
                 .mock(),
                 &*MODULE_ID,
                 &TypeMap::new(),
             );
-        assert_eq!(
-            s2_checked,
-            Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
-                message: "Duplicate declaration for variable named a".into()
-            }])
-        );
+            let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
+                .check_statement(
+                    Statement::Definition(
+                        untyped::Variable::immutable("a", UnresolvedType::Boolean.mock()).mock(),
+                        untyped::Expression::BooleanConstant(true).mock(),
+                    )
+                    .mock(),
+                    &*MODULE_ID,
+                    &TypeMap::new(),
+                );
+            assert!(s2_checked.is_ok());
+            assert_eq!(
+                checker.scope.get(&"a").unwrap().ty,
+                DeclarationType::Boolean
+            );
+        }
+
+        #[test]
+        fn scopes() {
+            // field mut a = 2;
+            // for uint i in 0..0 {
+            //    a = 3
+            //    field a = 4
+            // }
+            // a = 5
+            //
+            // should be turned into
+            //
+            // field mut a_0 = 2;
+            // for uint i_1 in 0..0 {
+            //    a_0 = 3
+            //    field a_1 = 4
+            // }
+            // a_0 = 5
+
+            let mut checker: Checker<Bn128Field> = Checker::default();
+
+            let statements = vec![
+                Statement::Definition(
+                    untyped::Variable::mutable("a", UnresolvedType::FieldElement.mock()).mock(),
+                    untyped::Expression::IntConstant(2usize.into()).mock(),
+                )
+                .mock(),
+                Statement::For(
+                    untyped::Variable::immutable("i", UnresolvedType::Uint(32).mock()).mock(),
+                    untyped::Expression::U32Constant(0).mock(),
+                    untyped::Expression::U32Constant(0).mock(),
+                    vec![
+                        Statement::Assignment(
+                            untyped::Assignee::Identifier("a").mock(),
+                            untyped::Expression::IntConstant(3usize.into()).mock(),
+                        )
+                        .mock(),
+                        Statement::Definition(
+                            untyped::Variable::immutable("a", UnresolvedType::FieldElement.mock())
+                                .mock(),
+                            untyped::Expression::IntConstant(4usize.into()).mock(),
+                        )
+                        .mock(),
+                    ],
+                )
+                .mock(),
+                Statement::Assignment(
+                    untyped::Assignee::Identifier("a").mock(),
+                    untyped::Expression::IntConstant(5usize.into()).mock(),
+                )
+                .mock(),
+            ];
+
+            let expected = vec![
+                TypedStatement::Definition(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                        Type::FieldElement,
+                        true,
+                    )
+                    .into(),
+                    FieldElementExpression::Number(2.into()).into(),
+                ),
+                TypedStatement::For(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("i", 1)),
+                        Type::Uint(UBitwidth::B32),
+                        false,
+                    ),
+                    0u32.into(),
+                    0u32.into(),
+                    vec![
+                        TypedStatement::Definition(
+                            typed::Variable::new(
+                                CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                                Type::FieldElement,
+                                true,
+                            )
+                            .into(),
+                            FieldElementExpression::Number(3.into()).into(),
+                        ),
+                        TypedStatement::Definition(
+                            typed::Variable::new(
+                                CoreIdentifier::from(ShadowedIdentifier::shadow("a", 1)),
+                                Type::FieldElement,
+                                false,
+                            )
+                            .into(),
+                            FieldElementExpression::Number(4.into()).into(),
+                        ),
+                    ],
+                ),
+                TypedStatement::Definition(
+                    typed::Variable::new(
+                        CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
+                        Type::FieldElement,
+                        true,
+                    )
+                    .into(),
+                    FieldElementExpression::Number(5.into()).into(),
+                ),
+            ];
+
+            checker.enter_scope();
+            let checked: Vec<_> = statements
+                .into_iter()
+                .map(|s| {
+                    checker
+                        .check_statement(s, &*MODULE_ID, &TypeMap::default())
+                        .unwrap()
+                })
+                .collect();
+
+            assert_eq!(checked, expected);
+        }
     }
 
     mod structs {

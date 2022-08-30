@@ -1,0 +1,9 @@
+def main() -> field {
+    field a = 2;
+    field a = 3; // shadowing
+    for u32 i in 0..5 {
+        bool a = true; // shadowing
+    }
+    // `a` is the variable declared before the loop
+    return a;
+}
