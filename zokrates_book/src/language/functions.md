@@ -22,6 +22,8 @@ The generic parameters can be provided explicitly, especially when they cannot b
 {{#include ../../../zokrates_cli/examples/book/explicit_generic_parameters.zok}}
 ```
 
-Functions that "don't" return a value, actually return an empty tuple `()`. 
-When a function returns an empty tuple `()`, the return type can be omitted from 
-the signature. In this case, a return statement can be omitted.
+If the return type of a function is the empty tuple `()`, the return type as well as the return statement can be omitted.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/no_return.zok}}
+```
