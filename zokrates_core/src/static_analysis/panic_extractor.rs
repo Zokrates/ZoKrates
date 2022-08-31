@@ -146,6 +146,13 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                 let offset = FieldElementExpression::Number(T::from(2).pow(safe_width));
                 let max = FieldElementExpression::Number(T::from(2).pow(safe_width + 1));
 
+                // `|left - right|` must be of bitwidth at most `safe_bitwidth`
+                // this means we need to guarantee the following: `-2**(safe_width) < left - right < 2**(safe_width)`
+                // adding an offset of `2**(safe_width)` we turn this into:
+                // require `0 < 2**(safe_width) + left - right < 2**(safe_width + 1)`
+
+                // we split this check in two:
+                // `2**(safe_width) + left - right < 2**(safe_width + 1)`
                 self.panic_buffer.push(ZirStatement::Assertion(
                     BooleanExpression::FieldLt(
                         box FieldElementExpression::Add(
@@ -157,6 +164,8 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                     RuntimeError::IncompleteDynamicRange,
                 ));
 
+                // and
+                // `2**(safe_width) + left - right != 0`
                 self.panic_buffer.push(ZirStatement::Assertion(
                     BooleanExpression::Not(box BooleanExpression::FieldEq(
                         box FieldElementExpression::Sub(box right.clone(), box left.clone()),
@@ -164,6 +173,14 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
                     )),
                     RuntimeError::IncompleteDynamicRange,
                 ));
+
+                // NOTE:
+                // instead of splitting the check in two, we could have used a single `Lt` here, by simply subtracting 1 from all sides:
+                // `let x = 2**(safe_width) + left - right
+                // `0 <= x - 1 < 2**(safe_width + 1) - 1` which is a single constant `Lt`
+                // however, the *result* of `left < right` requires knowing the bits of `x`
+                // if we use `x - 1` here, we end up having to calculate the bits of both `x` and `x - 1`, which is expensive
+                // by splitting, we can reuse the bits of `x` needed for this completeness check when computing the result
 
                 BooleanExpression::FieldLt(box left, box right)
             }
