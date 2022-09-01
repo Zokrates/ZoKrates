@@ -1,5 +1,5 @@
 {
-    "entry_point": "./tests/tests/utils/casts/to_bits.zok",
+    "entry_point": "./tests/tests/utils/casts/uint_to_bits.zok",
     "curves": ["Bn128"],
     "abi": false,
     "tests": [

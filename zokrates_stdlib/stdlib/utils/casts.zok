@@ -1,4 +1,4 @@
-from "EMBED" import unpack, u64_to_bits, u32_to_bits, u16_to_bits, u8_to_bits, u8_from_bits, u16_from_bits, u32_from_bits, u64_from_bits;
+from "EMBED" import u64_to_bits, u32_to_bits, u16_to_bits, u8_to_bits, u8_from_bits, u16_from_bits, u32_from_bits, u64_from_bits;
 
 // Cast a boolean array of size 8 to an 8-bit unsigned integer (u8)
 def cast(bool[8] input) -> u8 {
@@ -62,30 +62,6 @@ def cast<N, P>(bool[N] input) -> u64[P] {
         r[i] = u64_from_bits(input[i * 64..(i + 1) * 64]);
     }
     return r;
-}
-
-// Cast a field element to an 8-bit unsigned integer (u8)
-def cast(field input) -> u8 {
-    bool[8] bits = unpack(input);
-    return u8_from_bits(bits);
-}
-
-// Cast a field element to a 16-bit unsigned integer (u16)
-def cast(field input) -> u16 {
-    bool[16] bits = unpack(input);
-    return u16_from_bits(bits);
-}
-
-// Cast a field element to a 32-bit unsigned integer (u32)
-def cast(field input) -> u32 {
-    bool[32] bits = unpack(input);
-    return u32_from_bits(bits);
-}
-
-// Cast a field element to a 64-bit unsigned integer (u64)
-def cast(field input) -> u64 {
-    bool[64] bits = unpack(input);
-    return u64_from_bits(bits);
 }
 
 // Cast an 8-bit unsigned integer (u8) to a boolean array of size 8 (bool[8])
