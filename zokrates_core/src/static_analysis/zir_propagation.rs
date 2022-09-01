@@ -1,18 +1,10 @@
 use std::collections::HashMap;
 use std::fmt;
-use zokrates_ast::zir::result_folder::fold_boolean_expression;
-use zokrates_ast::zir::result_folder::fold_field_expression;
-use zokrates_ast::zir::result_folder::fold_statement;
-use zokrates_ast::zir::result_folder::fold_uint_expression_inner;
-use zokrates_ast::zir::result_folder::ResultFold;
-use zokrates_ast::zir::result_folder::ResultFolder;
 use zokrates_ast::zir::types::UBitwidth;
-use zokrates_ast::zir::Conditional;
-use zokrates_ast::zir::ConditionalExpression;
-use zokrates_ast::zir::ConditionalOrExpression;
-use zokrates_ast::zir::Expr;
-use zokrates_ast::zir::SelectExpression;
-use zokrates_ast::zir::SelectOrExpression;
+use zokrates_ast::zir::{
+    result_folder::*, Conditional, ConditionalExpression, ConditionalOrExpression, Expr,
+    SelectExpression, SelectOrExpression,
+};
 use zokrates_ast::zir::{
     BooleanExpression, FieldElementExpression, Identifier, RuntimeError, UExpression,
     UExpressionInner, ZirExpression, ZirProgram, ZirStatement,
@@ -667,6 +659,7 @@ mod tests {
 
     #[cfg(test)]
     mod field {
+        use zokrates_ast::zir::Conditional;
         use zokrates_ast::zir::Select;
 
         use super::*;
@@ -868,6 +861,7 @@ mod tests {
 
     #[cfg(test)]
     mod bool {
+        use zokrates_ast::zir::Conditional;
         use zokrates_ast::zir::Select;
 
         use super::*;
@@ -1174,6 +1168,8 @@ mod tests {
 
     #[cfg(test)]
     mod uint {
+        use zokrates_ast::zir::Conditional;
+
         use super::*;
 
         #[test]

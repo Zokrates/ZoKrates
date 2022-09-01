@@ -264,6 +264,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_definition_rhs(&mut self, rhs: DefinitionRhs<'ast, T>) -> DefinitionRhs<'ast, T> {
+        fold_definition_rhs(self, rhs)
+    }
+
     fn fold_embed_call(&mut self, e: EmbedCall<'ast, T>) -> EmbedCall<'ast, T> {
         fold_embed_call(self, e)
     }
@@ -491,6 +495,16 @@ pub fn fold_constant_symbol_declaration<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
+pub fn fold_definition_rhs<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    rhs: DefinitionRhs<'ast, T>,
+) -> DefinitionRhs<'ast, T> {
+    match rhs {
+        DefinitionRhs::EmbedCall(c) => DefinitionRhs::EmbedCall(f.fold_embed_call(c)),
+        DefinitionRhs::Expression(e) => DefinitionRhs::Expression(f.fold_expression(e)),
+    }
+}
+
 pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: TypedStatement<'ast, T>,
@@ -498,7 +512,7 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     let res = match s {
         TypedStatement::Return(e) => TypedStatement::Return(f.fold_expression(e)),
         TypedStatement::Definition(a, e) => {
-            TypedStatement::Definition(f.fold_assignee(a), f.fold_expression(e))
+            TypedStatement::Definition(f.fold_assignee(a), f.fold_definition_rhs(e))
         }
         TypedStatement::Assertion(e, error) => {
             TypedStatement::Assertion(f.fold_boolean_expression(e), error)
@@ -514,12 +528,6 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
         ),
         TypedStatement::Log(s, e) => {
             TypedStatement::Log(s, e.into_iter().map(|e| f.fold_expression(e)).collect())
-        }
-        TypedStatement::EmbedCallDefinition(assignee, embed_call) => {
-            TypedStatement::EmbedCallDefinition(
-                f.fold_assignee(assignee),
-                f.fold_embed_call(embed_call),
-            )
         }
         s => s,
     };

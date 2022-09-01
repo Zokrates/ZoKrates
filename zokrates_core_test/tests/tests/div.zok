@@ -1,0 +1,3 @@
+def main(field x, field y) -> field {
+    return x / y;
+}

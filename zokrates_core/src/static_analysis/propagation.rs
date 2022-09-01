@@ -221,9 +221,9 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
     ) -> Result<Vec<TypedStatement<'ast, T>>, Error> {
         match s {
             // propagation to the defined variable if rhs is a constant
-            TypedStatement::Definition(assignee, expr) => {
-                let expr = self.fold_expression(expr)?;
+            TypedStatement::Definition(assignee, DefinitionRhs::Expression(expr)) => {
                 let assignee = self.fold_assignee(assignee)?;
+                let expr = self.fold_expression(expr)?;
 
                 if let (Ok(a), Ok(e)) = (
                     ConcreteType::try_from(assignee.get_type()),
@@ -255,10 +255,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                 // invalidate the cache for this identifier, and define the latest
                                 // version of the constant in the program, if any
                                 Some(c) => Ok(vec![
-                                    TypedStatement::Definition(v.clone().into(), c),
-                                    TypedStatement::Definition(assignee, expr),
+                                    TypedStatement::Definition(v.clone().into(), c.into()),
+                                    TypedStatement::Definition(assignee, expr.into()),
                                 ]),
-                                None => Ok(vec![TypedStatement::Definition(assignee, expr)]),
+                                None => Ok(vec![TypedStatement::Definition(assignee, expr.into())]),
                             },
                         },
                     }
@@ -271,10 +271,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                     match self.constants.remove(&v.id) {
                         Some(c) => Ok(vec![
-                            TypedStatement::Definition(v.clone().into(), c),
-                            TypedStatement::Definition(assignee, expr),
+                            TypedStatement::Definition(v.clone().into(), c.into()),
+                            TypedStatement::Definition(assignee, expr.into()),
                         ]),
-                        None => Ok(vec![TypedStatement::Definition(assignee, expr)]),
+                        None => Ok(vec![TypedStatement::Definition(assignee, expr.into())]),
                     }
                 }
             }
@@ -285,7 +285,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                 Ok(vec![TypedStatement::For(v, from, to, statements)])
             }
-            TypedStatement::EmbedCallDefinition(assignee, embed_call) => {
+            TypedStatement::Definition(assignee, DefinitionRhs::EmbedCall(embed_call)) => {
                 let assignee = self.fold_assignee(assignee)?;
                 let embed_call = self.fold_embed_call(embed_call)?;
 
@@ -299,37 +299,37 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     let argument = argument.into_canonical_constant();
 
                     match ArrayExpression::try_from(argument)
-                        .unwrap()
-                        .into_inner()
-                    {
-                        ArrayExpressionInner::Value(v) =>
-                            UExpressionInner::Value(
-                                v.into_iter()
-                                    .map(|v| match v {
-                                        TypedExpressionOrSpread::Expression(
-                                            TypedExpression::Boolean(
-                                                BooleanExpression::Value(v),
-                                            ),
-                                        ) => v,
-                                        _ => unreachable!("Should be a constant boolean expression. Spreads are not expected here, as in their presence the argument isn't constant"),
-                                    })
-                                    .enumerate()
-                                    .fold(0, |acc, (i, v)| {
-                                        if v {
-                                            acc + 2u128.pow(
-                                                (bitwidth.to_usize() - i - 1)
-                                                    .try_into()
-                                                    .unwrap(),
-                                            )
-                                        } else {
-                                            acc
-                                        }
-                                    }),
-                            )
-                                .annotate(bitwidth)
-                                .into(),
-                        _ => unreachable!("should be an array value"),
-                    }
+                .unwrap()
+                .into_inner()
+            {
+                ArrayExpressionInner::Value(v) =>
+                    UExpressionInner::Value(
+                        v.into_iter()
+                            .map(|v| match v {
+                                TypedExpressionOrSpread::Expression(
+                                    TypedExpression::Boolean(
+                                        BooleanExpression::Value(v),
+                                    ),
+                                ) => v,
+                                _ => unreachable!("Should be a constant boolean expression. Spreads are not expected here, as in their presence the argument isn't constant"),
+                            })
+                            .enumerate()
+                            .fold(0, |acc, (i, v)| {
+                                if v {
+                                    acc + 2u128.pow(
+                                        (bitwidth.to_usize() - i - 1)
+                                            .try_into()
+                                            .unwrap(),
+                                    )
+                                } else {
+                                    acc
+                                }
+                            }),
+                    )
+                        .annotate(bitwidth)
+                        .into(),
+                _ => unreachable!("should be an array value"),
+            }
                 }
 
                 fn process_u_to_bits<'ast, T: Field>(
@@ -471,11 +471,11 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                                     }
                                     Err(v) => match self.constants.remove(&v.id) {
                                         Some(c) => vec![
-                                            TypedStatement::Definition(v.clone().into(), c),
-                                            TypedStatement::Definition(assignee, expr),
+                                            TypedStatement::Definition(v.clone().into(), c.into()),
+                                            TypedStatement::Definition(assignee, expr.into()),
                                         ],
                                         None => {
-                                            vec![TypedStatement::Definition(assignee, expr)]
+                                            vec![TypedStatement::Definition(assignee, expr.into())]
                                         }
                                     },
                                 },
@@ -491,11 +491,12 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                                 match self.constants.remove(&v.id) {
                                     Some(c) => vec![
-                                        TypedStatement::Definition(v.clone().into(), c),
-                                        TypedStatement::EmbedCallDefinition(assignee, embed_call),
+                                        TypedStatement::Definition(v.clone().into(), c.into()),
+                                        TypedStatement::Definition(assignee, embed_call.into()),
                                     ],
-                                    None => vec![TypedStatement::EmbedCallDefinition(
-                                        assignee, embed_call,
+                                    None => vec![TypedStatement::Definition(
+                                        assignee,
+                                        embed_call.into(),
                                     )],
                                 }
                             }
@@ -504,7 +505,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                     false => {
                         // if the function arguments are not constant, invalidate the cache
                         // for the return assignees
-                        let def = TypedStatement::EmbedCallDefinition(assignee.clone(), embed_call);
+                        let def = TypedStatement::Definition(assignee.clone(), embed_call.into());
 
                         let v = self
                             .try_get_constant_mut(&assignee)
@@ -513,7 +514,7 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
 
                         Ok(match self.constants.remove(&v.id) {
                             Some(c) => {
-                                vec![TypedStatement::Definition(v.clone().into(), c), def]
+                                vec![TypedStatement::Definition(v.clone().into(), c.into()), def]
                             }
                             None => vec![def],
                         })
@@ -524,9 +525,10 @@ impl<'ast, 'a, T: Field> ResultFolder<'ast, T> for Propagator<'ast, 'a, T> {
                 let e_str = e.to_string();
                 let expr = self.fold_boolean_expression(e)?;
                 match expr {
-                    BooleanExpression::Value(v) if !v => {
+                    BooleanExpression::Value(false) => {
                         Err(Error::AssertionFailed(format!("{}: ({})", ty, e_str)))
                     }
+                    BooleanExpression::Value(true) => Ok(vec![]),
                     _ => Ok(vec![TypedStatement::Assertion(expr, ty)]),
                 }
             }

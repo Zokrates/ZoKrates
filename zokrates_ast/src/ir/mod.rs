@@ -188,15 +188,6 @@ impl<T: Field> fmt::Display for Prog<T> {
         for s in &self.statements {
             writeln!(f, "\t{}", s)?;
         }
-        writeln!(
-            f,
-            "\treturn {}",
-            (0..self.return_count)
-                .map(Variable::public)
-                .map(|e| format!("{}", e))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )?;
 
         writeln!(f, "\treturn {}", returns)?;
         writeln!(f, "}}")
