@@ -284,6 +284,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let is_power_of_two_minus_one = b.iter().all(|b| *b);
 
+        // if `b` is all ones, then the check is always verified because that's the maximum possible value
         if is_power_of_two_minus_one {
             let statements: Vec<_> = a
                 .iter()
@@ -802,7 +803,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     sub_width,
                     sub_width,
                     statements_flattened,
-                    RuntimeError::LtFinalSum,
+                    RuntimeError::IncompleteDynamicRange,
                 );
 
                 FlatExpression::Sub(
@@ -1321,7 +1322,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             FlatExpression::Identifier(id)
         };
 
-        // now introduce the quotient and remainder
+        // introduce the quotient and remainder
         let q = self.use_sym();
         let r = self.use_sym();
 

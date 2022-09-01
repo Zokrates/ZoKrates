@@ -176,7 +176,7 @@ impl<'ast, T: Field> Folder<'ast, T> for PanicExtractor<'ast, T> {
 
                 // NOTE:
                 // instead of splitting the check in two, we could have used a single `Lt` here, by simply subtracting 1 from all sides:
-                // `let x = 2**(safe_width) + left - right
+                // `let x = 2**(safe_width) + left - right`
                 // `0 <= x - 1 < 2**(safe_width + 1) - 1` which is a single constant `Lt`
                 // however, the *result* of `left < right` requires knowing the bits of `x`
                 // if we use `x - 1` here, we end up having to calculate the bits of both `x` and `x - 1`, which is expensive

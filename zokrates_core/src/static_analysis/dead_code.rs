@@ -29,7 +29,7 @@ impl<'ast, T: Field> Folder<'ast, T> for DeadCodeEliminator<'ast> {
     fn fold_statement(&mut self, s: ZirStatement<'ast, T>) -> Vec<ZirStatement<'ast, T>> {
         match s {
             ZirStatement::Definition(v, e) => {
-                // if the lhs is used later in the program and we're in a block
+                // if the lhs is used later in the program
                 if self.used.remove(&v.id) {
                     // include this statement
                     fold_statement(self, ZirStatement::Definition(v, e))
