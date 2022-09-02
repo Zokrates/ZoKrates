@@ -1,5 +1,1 @@
-def foo() {}
-
-def main() {
-    return;
-}
+def main() -> field {}

@@ -1,26 +1,26 @@
 {
-    "entry_point": "./tests/tests/tuples/conditional.zok",
-    "curves": ["Bn128"],
-    "tests": [
-        {
-            "input": {
-                "values": [true]
-            },
-            "output": {
-                "Ok": {
-                    "value": ["1", "2"]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": [false]
-            },
-            "output": {
-                "Ok": {
-                    "value": ["2", "1"]
-                }
-            }
+  "entry_point": "./tests/tests/tuples/conditional.zok",
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": [true]
+      },
+      "output": {
+        "Ok": {
+          "value": ["1", "2"]
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": [false]
+      },
+      "output": {
+        "Ok": {
+          "value": ["2", "1"]
+        }
+      }
+    }
+  ]
 }

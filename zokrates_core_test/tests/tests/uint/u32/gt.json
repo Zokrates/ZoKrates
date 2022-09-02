@@ -1,7 +1,7 @@
 {
   "entry_point": "./tests/tests/uint/u32/gt.zok",
   "max_constraint_count": 729,
-    "tests": [
+  "tests": [
     {
       "input": {
         "values": ["0x00000004", "0x00000002"]

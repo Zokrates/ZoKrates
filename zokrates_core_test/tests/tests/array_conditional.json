@@ -1,26 +1,26 @@
 {
-	"entry_point": "./tests/tests/array_conditional.zok",
-	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"tests": [
-		{
-			"input": {
-				"values": [["1", "2"], ["3", "4"], "1"]
-			},
-			"output": {
-				"Ok": {
-					"value": ["1", "2"]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": [["1", "2"], ["3", "4"], "2"]
-			},
-			"output": {
-				"Ok": {
-					"value": ["3", "4"]
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/array_conditional.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": [["1", "2"], ["3", "4"], "1"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["1", "2"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [["1", "2"], ["3", "4"], "2"]
+      },
+      "output": {
+        "Ok": {
+          "value": ["3", "4"]
+        }
+      }
+    }
+  ]
 }

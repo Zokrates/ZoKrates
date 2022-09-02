@@ -92,6 +92,8 @@ pub type ZirAssignee<'ast> = Variable<'ast>;
 pub enum RuntimeError {
     SourceAssertion(String),
     SelectRangeCheck,
+    DivisionByZero,
+    IncompleteDynamicRange,
 }
 
 impl fmt::Display for RuntimeError {
@@ -99,6 +101,8 @@ impl fmt::Display for RuntimeError {
         match self {
             RuntimeError::SourceAssertion(message) => write!(f, "{}", message),
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
+            RuntimeError::DivisionByZero => write!(f, "Division by zero"),
+            RuntimeError::IncompleteDynamicRange => write!(f, "Dynamic comparison is incomplete"),
         }
     }
 }
@@ -716,7 +720,6 @@ impl<'ast, T> Conditional<'ast, T> for UExpression<'ast, T> {
         .annotate(bitwidth)
     }
 }
-
 pub trait Select<'ast, T>: Sized {
     fn select(array: Vec<Self>, index: UExpression<'ast, T>) -> Self;
 }
@@ -745,7 +748,6 @@ impl<'ast, T> Select<'ast, T> for UExpression<'ast, T> {
         UExpressionInner::Select(SelectExpression::new(array, index)).annotate(bitwidth)
     }
 }
-
 pub trait IntoType {
     fn into_type(self) -> Type;
 }

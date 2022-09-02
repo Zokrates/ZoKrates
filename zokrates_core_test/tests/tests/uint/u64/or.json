@@ -1,36 +1,36 @@
 {
-    "entry_point": "./tests/tests/uint/u64/or.zok",
-    "max_constraint_count": 195,
-        "tests": [
-        {
-            "input": {
-                "values": ["0xffffffffffffffff", "0xffffffffffffffff"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0xffffffffffffffff"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0xffffffffffffffff", "0x0000000000000000"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0xffffffffffffffff"
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["0x1234567812345678", "0x8765432187654321"]
-            },
-            "output": {
-                "Ok": {
-                    "value": "0x9775577997755779"
-                }
-            }
+  "entry_point": "./tests/tests/uint/u64/or.zok",
+  "max_constraint_count": 195,
+  "tests": [
+    {
+      "input": {
+        "values": ["0xffffffffffffffff", "0xffffffffffffffff"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0xffffffffffffffff"
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["0xffffffffffffffff", "0x0000000000000000"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0xffffffffffffffff"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["0x1234567812345678", "0x8765432187654321"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0x9775577997755779"
+        }
+      }
+    }
+  ]
 }

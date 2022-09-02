@@ -1,7 +1,7 @@
 {
   "entry_point": "./tests/tests/snark/gm17.zok",
   "curves": ["Bw6_761"],
-    "tests": [
+  "tests": [
     {
       "input": {
         "values": [

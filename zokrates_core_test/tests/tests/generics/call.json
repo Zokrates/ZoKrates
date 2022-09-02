@@ -1,4 +1,4 @@
 {
-	"curves": ["Bn128", "Bls12_381"],
-	"tests": [] 
+  "curves": ["Bn128", "Bls12_381"],
+  "tests": []
 }

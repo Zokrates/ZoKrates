@@ -1,4 +1,4 @@
 {
-    "entry_point": "./tests/tests/constants/import/destination.zok",
-    "tests": []
+  "entry_point": "./tests/tests/constants/import/destination.zok",
+  "tests": []
 }

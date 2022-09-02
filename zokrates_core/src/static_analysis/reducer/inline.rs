@@ -34,7 +34,6 @@ use zokrates_ast::common::FlatEmbed;
 use zokrates_ast::typed::types::{ConcreteGenericsAssignment, IntoType};
 use zokrates_ast::typed::CoreIdentifier;
 use zokrates_ast::typed::Identifier;
-use zokrates_ast::typed::TypedAssignee;
 use zokrates_ast::typed::{
     ConcreteFunctionKey, ConcreteSignature, ConcreteVariable, DeclarationFunctionKey, Expr,
     Signature, Type, TypedExpression, TypedFunctionSymbol, TypedFunctionSymbolDeclaration,
@@ -178,7 +177,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
         .zip(inferred_signature.inputs.clone())
         .map(|(p, t)| ConcreteVariable::new(p.id.id, t, false))
         .zip(arguments.clone())
-        .map(|(v, a)| TypedStatement::Definition(TypedAssignee::Identifier(v.into()), a))
+        .map(|(v, a)| TypedStatement::definition(Variable::from(v).into(), a))
         .collect();
 
     let (statements, mut returns): (Vec<_>, Vec<_>) = ssa_f
@@ -196,7 +195,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
     let v: ConcreteVariable<'ast> = ConcreteVariable::new(
         Identifier::from(CoreIdentifier::Call(0)).version(
             *versions
-                .entry(CoreIdentifier::Call(0).clone())
+                .entry(CoreIdentifier::Call(0))
                 .and_modify(|e| *e += 1) // if it was already declared, we increment
                 .or_insert(0),
         ),
@@ -206,8 +205,7 @@ pub fn inline_call<'a, 'ast, T: Field, E: Expr<'ast, T>>(
 
     let expression = TypedExpression::from(Variable::from(v.clone()));
 
-    let output_binding =
-        TypedStatement::Definition(TypedAssignee::Identifier(v.into()), return_expression);
+    let output_binding = TypedStatement::definition(Variable::from(v).into(), return_expression);
 
     let pop_log = TypedStatement::PopCallLog;
 

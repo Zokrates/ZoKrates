@@ -1,0 +1,10 @@
+def main() -> (field, field) {
+    field mut a = 0;
+    field mut b = 0;
+    for u32 i in 0..2 {
+        a = a + 1;
+        field a = 42;
+        b = b + a;
+    }
+    return (a, b);
+}

@@ -1,45 +1,45 @@
 {
-    "entry_point": "./tests/tests/panics/panic_isolation.zok",
-    "config": {
-        "isolate_branches": true
-    },
-    "curves": ["Bn128"],
-    "tests": [
-        {
-            "input": {
-                "values": [true, ["42", "42"], "0"]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "left": "1",
-                        "right": "21888242871839275222246405745257275088548364400416034343698204186575808495577",
-                        "error": {
-                          "SourceAssertion": "Assertion failed at ./tests/tests/panics/panic_isolation.zok:22:5"
-                        }
-                    }
-                }
+  "entry_point": "./tests/tests/panics/panic_isolation.zok",
+  "config": {
+    "isolate_branches": true
+  },
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": [true, ["42", "42"], "0"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "1",
+            "right": "21888242871839275222246405745257275088548364400416034343698204186575808495577",
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/panics/panic_isolation.zok:22:5"
             }
-        },
-        {
-            "input": {
-                "values": [true, ["1", "1"], "1"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [true, ["1", "1"], "1"]
-                }
-            }
-        },
-        {
-            "input": {
-                "values": [false, ["2", "2"], "0"]
-            },
-            "output": {
-                "Ok": {
-                    "value": [false, ["2", "2"], "0"]
-                }
-            }
+          }
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": [true, ["1", "1"], "1"]
+      },
+      "output": {
+        "Ok": {
+          "value": [true, ["1", "1"], "1"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [false, ["2", "2"], "0"]
+      },
+      "output": {
+        "Ok": {
+          "value": [false, ["2", "2"], "0"]
+        }
+      }
+    }
+  ]
 }

@@ -1,16 +1,16 @@
 {
-	"entry_point": "./tests/tests/pass_by_value.zok",
-	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"tests": [
-		{
-			"input": {
-				"values": [["1"], { "a": "1" }, "1"]
-			},
-			"output": {
-				"Ok": {
-					"value": [["2"], ["1"], { "a": "2"}, {"a": "1"}, "2", "1"]
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/pass_by_value.zok",
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": [["1"], { "a": "1" }, "1"]
+      },
+      "output": {
+        "Ok": {
+          "value": [["2"], ["1"], { "a": "2" }, { "a": "1" }, "2", "1"]
+        }
+      }
+    }
+  ]
 }

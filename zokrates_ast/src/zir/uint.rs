@@ -85,12 +85,6 @@ impl<'ast, T: Field> From<u128> for UExpressionInner<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
-    fn from(e: &'ast str) -> Self {
-        UExpressionInner::Identifier(e.into())
-    }
-}
-
 impl<'ast, T> From<u32> for UExpression<'ast, T> {
     fn from(u: u32) -> Self {
         UExpressionInner::Value(u as u128).annotate(UBitwidth::B32)

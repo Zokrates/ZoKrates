@@ -1,59 +1,59 @@
 {
-    "entry_point": "./tests/tests/range_check/assert_gt.zok",
-    "max_constraint_count": 508,
-    "curves": ["Bn128"],
-    "tests": [
-        {
-            "input": {
-                "values": ["0"]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "error": {
-                            "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
-                        }
-                    }
-                }
+  "entry_point": "./tests/tests/range_check/assert_gt.zok",
+  "max_constraint_count": 508,
+  "curves": ["Bn128"],
+  "tests": [
+    {
+      "input": {
+        "values": ["0"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
             }
-        },
-        {
-            "input": {
-                "values": ["1"]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "error": {
-                            "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
-                        }
-                    }
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["2"]
-            },
-            "output": {
-                "Err": {
-                    "UnsatisfiedConstraint": {
-                        "error": {
-                            "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
-                        }
-                    }
-                }
-            }
-        },
-        {
-            "input": {
-                "values": ["15"]
-            },
-            "output": {
-                "Ok": {
-                    "value": []
-                }
-            }
+          }
         }
-    ]
+      }
+    },
+    {
+      "input": {
+        "values": ["1"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
+            }
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["2"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "error": {
+              "SourceAssertion": "Assertion failed at ./tests/tests/range_check/assert_gt.zok:2:5"
+            }
+          }
+        }
+      }
+    },
+    {
+      "input": {
+        "values": ["15"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    }
+  ]
 }
