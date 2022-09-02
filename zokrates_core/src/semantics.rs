@@ -1204,10 +1204,16 @@ impl<'ast, T: Field> Checker<'ast, T> {
                 }
 
                 if !found_return {
-                    errors.push(ErrorInner {
-                        pos: Some(pos),
-                        message: "Expected a return statement".to_string(),
-                    });
+                    match (&*s.output).is_empty_tuple() {
+                        true => statements_checked
+                            .push(TypedStatement::Return(TypedExpression::empty_tuple())),
+                        false => {
+                            errors.push(ErrorInner {
+                                pos: Some(pos),
+                                message: "Expected a return statement".to_string(),
+                            });
+                        }
+                    }
                 }
 
                 signature = Some(s);
@@ -1843,11 +1849,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         }
                         .map_err(|e| vec![e])
                     })
-                    .unwrap_or_else(|| {
-                        Ok(TupleExpressionInner::Value(vec![])
-                            .annotate(TupleType::new(vec![]))
-                            .into())
-                    })?;
+                    .unwrap_or_else(|| Ok(TypedExpression::empty_tuple()))?;
 
                 let res = match TypedExpression::align_to_type(e_checked.clone(), &return_type)
                     .map_err(|e| {
@@ -1939,7 +1941,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         var_ty
                     ),
                 })
-                .map(|e| TypedStatement::Definition(var.into(), e))
+                .map(|e| TypedStatement::Definition(var.into(), e.into()))
                 .map_err(|e| vec![e])
             }
             Statement::Assignment(assignee, expr) => {
@@ -1986,7 +1988,7 @@ impl<'ast, T: Field> Checker<'ast, T> {
                         assignee_ty
                     ),
                 })
-                .map(|e| TypedStatement::Definition(assignee, e))
+                .map(|e| TypedStatement::Definition(assignee, e.into()))
                 .map_err(|e| vec![e])
             }
             Statement::Assertion(e, message) => {
@@ -4483,7 +4485,7 @@ mod tests {
         checker.enter_scope();
         assert_eq!(
             checker.check_statement(statement, &*MODULE_ID, &TypeMap::new()),
-            Ok(TypedStatement::Definition(
+            Ok(TypedStatement::definition(
                 typed::Variable::field_element("a").into(),
                 FieldElementExpression::Identifier("b".into()).into()
             ))
@@ -4712,7 +4714,7 @@ mod tests {
             Statement::Return(None).mock(),
         ];
 
-        let for_statements_checked = vec![TypedStatement::Definition(
+        let for_statements_checked = vec![TypedStatement::definition(
             typed::Variable::uint(
                 CoreIdentifier::Source(ShadowedIdentifier::shadow("a", 1)),
                 UBitwidth::B32,
@@ -4735,11 +4737,7 @@ mod tests {
                 10u32.into(),
                 for_statements_checked,
             ),
-            TypedStatement::Return(
-                TupleExpressionInner::Value(vec![])
-                    .annotate(TupleType::new(vec![]))
-                    .into(),
-            ),
+            TypedStatement::Return(TypedExpression::empty_tuple()),
         ];
 
         let foo = Function {
@@ -5334,7 +5332,7 @@ mod tests {
             ];
 
             let expected = vec![
-                TypedStatement::Definition(
+                TypedStatement::definition(
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
                         Type::FieldElement,
@@ -5352,7 +5350,7 @@ mod tests {
                     0u32.into(),
                     0u32.into(),
                     vec![
-                        TypedStatement::Definition(
+                        TypedStatement::definition(
                             typed::Variable::new(
                                 CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
                                 Type::FieldElement,
@@ -5361,7 +5359,7 @@ mod tests {
                             .into(),
                             FieldElementExpression::Number(3.into()).into(),
                         ),
-                        TypedStatement::Definition(
+                        TypedStatement::definition(
                             typed::Variable::new(
                                 CoreIdentifier::from(ShadowedIdentifier::shadow("a", 1)),
                                 Type::FieldElement,
@@ -5372,7 +5370,7 @@ mod tests {
                         ),
                     ],
                 ),
-                TypedStatement::Definition(
+                TypedStatement::definition(
                     typed::Variable::new(
                         CoreIdentifier::from(ShadowedIdentifier::shadow("a", 0)),
                         Type::FieldElement,

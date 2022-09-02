@@ -1,0 +1,4 @@
+{
+  "entry_point": "./tests/tests/no_return.zok",
+  "tests": []
+}

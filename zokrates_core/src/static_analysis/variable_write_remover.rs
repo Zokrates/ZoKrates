@@ -457,11 +457,11 @@ fn is_constant<T>(assignee: &TypedAssignee<T>) -> bool {
 impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
-            TypedStatement::Definition(assignee, expr) => {
+            TypedStatement::Definition(assignee, DefinitionRhs::Expression(expr)) => {
                 let expr = self.fold_expression(expr);
 
                 if is_constant(&assignee) {
-                    vec![TypedStatement::Definition(assignee, expr)]
+                    vec![TypedStatement::definition(assignee, expr)]
                 } else {
                     // Note: here we redefine the whole object, ideally we would only redefine some of it
                     // Example: `a[0][i] = 42` we redefine `a` but we could redefine just `a[0]`
@@ -511,7 +511,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableWriteRemover {
 
                     range_checks
                         .into_iter()
-                        .chain(std::iter::once(TypedStatement::Definition(
+                        .chain(std::iter::once(TypedStatement::definition(
                             TypedAssignee::Identifier(variable),
                             e,
                         )))

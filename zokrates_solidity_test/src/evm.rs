@@ -76,10 +76,7 @@ impl Evm {
 
     pub fn create_account(&mut self, address: &Address, balance: impl Into<U256>) {
         let acc = AccountInfo::from_balance(balance.into());
-        self.vm
-            .db()
-            .unwrap()
-            .insert_account_info(*address.as_ref(), acc);
+        self.vm.db().unwrap().insert_cache(*address.as_ref(), acc);
     }
 
     pub fn set_account_balance(
@@ -89,10 +86,7 @@ impl Evm {
     ) -> Result<(), Error> {
         let mut acc = self.vm.db().unwrap().basic(*address.as_ref());
         acc.balance = balance.into();
-        self.vm
-            .db()
-            .unwrap()
-            .insert_account_info(*address.as_ref(), acc);
+        self.vm.db().unwrap().insert_cache(*address.as_ref(), acc);
         Ok(())
     }
 

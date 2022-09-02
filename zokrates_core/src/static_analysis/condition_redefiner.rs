@@ -1,7 +1,7 @@
 use zokrates_ast::typed::{
     folder::*, BlockExpression, BooleanExpression, Conditional, ConditionalExpression,
-    ConditionalOrExpression, CoreIdentifier, Expr, Identifier, Type, TypedProgram, TypedStatement,
-    Variable,
+    ConditionalOrExpression, CoreIdentifier, Expr, Identifier, Type, TypedExpression, TypedProgram,
+    TypedStatement, Variable,
 };
 use zokrates_field::Field;
 
@@ -65,9 +65,9 @@ impl<'ast, T: Field> Folder<'ast, T> for ConditionRedefiner<'ast, T> {
             | condition @ BooleanExpression::Identifier(_) => condition,
             condition => {
                 let condition_id = Identifier::from(CoreIdentifier::Condition(self.index));
-                self.buffer.push(TypedStatement::Definition(
+                self.buffer.push(TypedStatement::definition(
                     Variable::immutable(condition_id.clone(), Type::Boolean).into(),
-                    condition.into(),
+                    TypedExpression::from(condition),
                 ));
                 self.index += 1;
                 BooleanExpression::Identifier(condition_id)
@@ -99,7 +99,7 @@ mod tests {
         // field foo = if true { 1 } else { 2 };
         // should be left unchanged
 
-        let s = TypedStatement::Definition(
+        let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 BooleanExpression::Value(true),
@@ -120,7 +120,7 @@ mod tests {
         // field foo = if c { 1 } else { 2 };
         // should be left unchanged
 
-        let s = TypedStatement::Definition(
+        let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 BooleanExpression::Identifier("c".into()),
@@ -148,7 +148,7 @@ mod tests {
             box BooleanExpression::Identifier("d".into()),
         );
 
-        let s = TypedStatement::Definition(
+        let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 condition.clone(),
@@ -163,12 +163,12 @@ mod tests {
 
         let expected = vec![
             // define condition
-            TypedStatement::Definition(
+            TypedStatement::definition(
                 Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition.into(),
             ),
             // rewrite statement
-            TypedStatement::Definition(
+            TypedStatement::definition(
                 Variable::field_element("foo").into(),
                 FieldElementExpression::conditional(
                     BooleanExpression::Identifier(CoreIdentifier::Condition(0).into()),
@@ -212,7 +212,7 @@ mod tests {
             box BooleanExpression::Identifier("f".into()),
         );
 
-        let s = TypedStatement::Definition(
+        let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 condition_0.clone(),
@@ -232,16 +232,16 @@ mod tests {
 
         let expected = vec![
             // define conditions
-            TypedStatement::Definition(
+            TypedStatement::definition(
                 Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
-            TypedStatement::Definition(
+            TypedStatement::definition(
                 Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean).into(),
                 condition_1.into(),
             ),
             // rewrite statement
-            TypedStatement::Definition(
+            TypedStatement::definition(
                 Variable::field_element("foo").into(),
                 FieldElementExpression::conditional(
                     BooleanExpression::Identifier(CoreIdentifier::Condition(0).into()),
@@ -303,12 +303,12 @@ mod tests {
         let condition_id_1 = BooleanExpression::Identifier(CoreIdentifier::Condition(1).into());
         let condition_id_2 = BooleanExpression::Identifier(CoreIdentifier::Condition(2).into());
 
-        let s = TypedStatement::Definition(
+        let s = TypedStatement::definition(
             Variable::field_element("foo").into(),
             FieldElementExpression::conditional(
                 condition_0.clone(),
                 FieldElementExpression::block(
-                    vec![TypedStatement::Definition(
+                    vec![TypedStatement::definition(
                         Variable::field_element("a").into(),
                         FieldElementExpression::Number(Bn128Field::from(1)).into(),
                     )],
@@ -320,7 +320,7 @@ mod tests {
                     ),
                 ),
                 FieldElementExpression::block(
-                    vec![TypedStatement::Definition(
+                    vec![TypedStatement::definition(
                         Variable::field_element("b").into(),
                         FieldElementExpression::Number(Bn128Field::from(2)).into(),
                     )],
@@ -340,22 +340,22 @@ mod tests {
 
         let expected = vec![
             // define conditions
-            TypedStatement::Definition(
+            TypedStatement::definition(
                 Variable::immutable(CoreIdentifier::Condition(0), Type::Boolean).into(),
                 condition_0.into(),
             ),
             // rewrite statement
-            TypedStatement::Definition(
+            TypedStatement::definition(
                 Variable::field_element("foo").into(),
                 FieldElementExpression::conditional(
                     condition_id_0.clone(),
                     FieldElementExpression::block(
                         vec![
-                            TypedStatement::Definition(
+                            TypedStatement::definition(
                                 Variable::field_element("a").into(),
                                 FieldElementExpression::Number(Bn128Field::from(1)).into(),
                             ),
-                            TypedStatement::Definition(
+                            TypedStatement::definition(
                                 Variable::immutable(CoreIdentifier::Condition(1), Type::Boolean)
                                     .into(),
                                 condition_1.into(),
@@ -370,11 +370,11 @@ mod tests {
                     ),
                     FieldElementExpression::block(
                         vec![
-                            TypedStatement::Definition(
+                            TypedStatement::definition(
                                 Variable::field_element("b").into(),
                                 FieldElementExpression::Number(Bn128Field::from(2)).into(),
                             ),
-                            TypedStatement::Definition(
+                            TypedStatement::definition(
                                 Variable::immutable(CoreIdentifier::Condition(2), Type::Boolean)
                                     .into(),
                                 condition_2.into(),

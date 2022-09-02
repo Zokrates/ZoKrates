@@ -16,13 +16,11 @@ pub enum RuntimeError {
     BranchIsolation,
     ConstantLtBitness,
     ConstantLtSum,
-    LtBitness,
-    LtSum,
-    LtFinalBitness,
     LtFinalSum,
     LtSymetric,
     Or,
     Xor,
+    IncompleteDynamicRange,
     Inverse,
     Euclidean,
     ShaXor,
@@ -37,6 +35,10 @@ impl From<crate::zir::RuntimeError> for RuntimeError {
         match error {
             crate::zir::RuntimeError::SourceAssertion(s) => RuntimeError::SourceAssertion(s),
             crate::zir::RuntimeError::SelectRangeCheck => RuntimeError::SelectRangeCheck,
+            crate::zir::RuntimeError::DivisionByZero => RuntimeError::Inverse,
+            crate::zir::RuntimeError::IncompleteDynamicRange => {
+                RuntimeError::IncompleteDynamicRange
+            }
         }
     }
 }
@@ -47,7 +49,11 @@ impl RuntimeError {
 
         !matches!(
             self,
-            SourceAssertion(_) | Inverse | LtSum | SelectRangeCheck | ArgumentBitness
+            SourceAssertion(_)
+                | Inverse
+                | SelectRangeCheck
+                | ArgumentBitness
+                | IncompleteDynamicRange
         )
     }
 }
@@ -70,13 +76,13 @@ impl fmt::Display for RuntimeError {
             BranchIsolation => "Branch isolation failed",
             ConstantLtBitness => "Bitness check failed in constant Lt check",
             ConstantLtSum => "Sum check failed in constant Lt check",
-            LtBitness => "Bitness check failed in Lt check",
-            LtSum => "Sum check failed in Lt check",
-            LtFinalBitness => "Bitness check failed in final Lt check",
             LtFinalSum => "Sum check failed in final Lt check",
             LtSymetric => "Symetrical check failed in Lt check",
             Or => "Or check failed",
             Xor => "Xor check failed",
+            IncompleteDynamicRange => {
+                "Failed to compare field elements because dynamic comparison is incomplete"
+            }
             Inverse => "Division by zero",
             Euclidean => "Euclidean check failed",
             ShaXor => "Internal Sha check failed",
