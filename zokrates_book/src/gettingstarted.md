@@ -2,9 +2,12 @@
 
 ## Installation
 
-### Remix online IDE
+### Online IDEs
 
-To write your first SNARK program, check out the ZoKrates plugin in the [Remix online IDE](https://remix.ethereum.org)!
+To get a feel of the language, try the [ZoKrates playgound](https://play.zokrat.es).
+
+To experiment with creating SNARKs and verifying them in the EVM, check out the ZoKrates plugin in the [Remix online IDE](https://remix.ethereum.org).
+
 
 ### One-line installation
 
@@ -12,6 +15,18 @@ We provide one-line installation for Linux, MacOS and FreeBSD:
 
 ```bash
 curl -LSfs get.zokrat.es | sh
+```
+
+### From source
+
+You can build ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the following commands:
+
+```bash
+git clone https://github.com/ZoKrates/ZoKrates
+cd ZoKrates
+export ZOKRATES_STDLIB=$PWD/zokrates_stdlib/stdlib
+cargo +nightly build -p zokrates_cli --release
+cd target/release
 ```
 
 ### Docker
@@ -23,17 +38,6 @@ docker run -ti zokrates/zokrates /bin/bash
 ```
 
 From there on, you can use the `zokrates` CLI.
-
-### From source
-
-You can build ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the following commands:
-
-```bash
-git clone https://github.com/ZoKrates/ZoKrates
-cd ZoKrates
-cargo +nightly build -p zokrates_cli --release
-cd target/release
-```
 
 ## Hello ZoKrates!
 
