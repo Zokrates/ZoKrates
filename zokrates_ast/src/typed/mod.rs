@@ -16,7 +16,7 @@ pub mod types;
 mod uint;
 pub mod variable;
 
-pub use self::identifier::CoreIdentifier;
+pub use self::identifier::{CoreIdentifier, ShadowedIdentifier, SourceIdentifier};
 pub use self::parameter::{DeclarationParameter, GParameter};
 pub use self::types::{
     CanonicalConstantIdentifier, ConcreteFunctionKey, ConcreteSignature, ConcreteTupleType,
@@ -588,6 +588,7 @@ impl fmt::Display for AssertionMetadata {
 pub enum RuntimeError {
     SourceAssertion(AssertionMetadata),
     SelectRangeCheck,
+    DivisionByZero,
 }
 
 impl fmt::Display for RuntimeError {
@@ -595,6 +596,7 @@ impl fmt::Display for RuntimeError {
         match self {
             RuntimeError::SourceAssertion(metadata) => write!(f, "{}", metadata),
             RuntimeError::SelectRangeCheck => write!(f, "Range check on array access"),
+            RuntimeError::DivisionByZero => write!(f, "Division by zero"),
         }
     }
 }
@@ -646,12 +648,39 @@ impl<'ast, T: fmt::Display> fmt::Display for EmbedCall<'ast, T> {
     }
 }
 
+#[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+pub enum DefinitionRhs<'ast, T> {
+    Expression(TypedExpression<'ast, T>),
+    EmbedCall(EmbedCall<'ast, T>),
+}
+
+impl<'ast, T> From<TypedExpression<'ast, T>> for DefinitionRhs<'ast, T> {
+    fn from(e: TypedExpression<'ast, T>) -> Self {
+        Self::Expression(e)
+    }
+}
+
+impl<'ast, T> From<EmbedCall<'ast, T>> for DefinitionRhs<'ast, T> {
+    fn from(c: EmbedCall<'ast, T>) -> Self {
+        Self::EmbedCall(c)
+    }
+}
+
+impl<'ast, T: fmt::Display> fmt::Display for DefinitionRhs<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DefinitionRhs::EmbedCall(c) => write!(f, "{}", c),
+            DefinitionRhs::Expression(e) => write!(f, "{}", e),
+        }
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub enum TypedStatement<'ast, T> {
     Return(TypedExpression<'ast, T>),
-    Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
+    Definition(TypedAssignee<'ast, T>, DefinitionRhs<'ast, T>),
     Assertion(BooleanExpression<'ast, T>, RuntimeError),
     For(
         Variable<'ast, T>,
@@ -660,13 +689,22 @@ pub enum TypedStatement<'ast, T> {
         Vec<TypedStatement<'ast, T>>,
     ),
     Log(FormatString, Vec<TypedExpression<'ast, T>>),
-    EmbedCallDefinition(TypedAssignee<'ast, T>, EmbedCall<'ast, T>),
     // Aux
     PushCallLog(
         DeclarationFunctionKey<'ast, T>,
         ConcreteGenericsAssignment<'ast>,
     ),
     PopCallLog,
+}
+
+impl<'ast, T> TypedStatement<'ast, T> {
+    pub fn definition(a: TypedAssignee<'ast, T>, e: TypedExpression<'ast, T>) -> Self {
+        Self::Definition(a, e.into())
+    }
+
+    pub fn embed_call_definition(a: TypedAssignee<'ast, T>, c: EmbedCall<'ast, T>) -> Self {
+        Self::Definition(a, c.into())
+    }
 }
 
 impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
@@ -710,9 +748,6 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
                 }
                 write!(f, "\t}}")
             }
-            TypedStatement::EmbedCallDefinition(ref lhs, ref rhs) => {
-                write!(f, "{} = {};", lhs, rhs)
-            }
             TypedStatement::Log(ref l, ref expressions) => write!(
                 f,
                 "log({}, {})",
@@ -750,6 +785,12 @@ pub enum TypedExpression<'ast, T> {
     Struct(StructExpression<'ast, T>),
     Tuple(TupleExpression<'ast, T>),
     Int(IntExpression<'ast, T>),
+}
+
+impl<'ast, T> TypedExpression<'ast, T> {
+    pub fn empty_tuple() -> TypedExpression<'ast, T> {
+        TypedExpression::Tuple(TupleExpressionInner::Value(vec![]).annotate(TupleType::new(vec![])))
+    }
 }
 
 impl<'ast, T> From<BooleanExpression<'ast, T>> for TypedExpression<'ast, T> {
@@ -909,7 +950,7 @@ impl<E> EqExpression<E> {
 
 impl<E: fmt::Display> fmt::Display for EqExpression<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} == {}", self.left, self.right)
+        write!(f, "({} == {})", self.left, self.right)
     }
 }
 
@@ -1659,22 +1700,22 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
         match *self {
             BooleanExpression::Block(ref block) => write!(f, "{}", block,),
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
-            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::FieldLt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
+            BooleanExpression::FieldLe(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
+            BooleanExpression::FieldGe(ref lhs, ref rhs) => write!(f, "({} >= {})", lhs, rhs),
+            BooleanExpression::FieldGt(ref lhs, ref rhs) => write!(f, "({} > {})", lhs, rhs),
+            BooleanExpression::UintLt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
+            BooleanExpression::UintLe(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
+            BooleanExpression::UintGe(ref lhs, ref rhs) => write!(f, "({} >= {})", lhs, rhs),
+            BooleanExpression::UintGt(ref lhs, ref rhs) => write!(f, "({} > {})", lhs, rhs),
             BooleanExpression::FieldEq(ref e) => write!(f, "{}", e),
             BooleanExpression::BoolEq(ref e) => write!(f, "{}", e),
             BooleanExpression::ArrayEq(ref e) => write!(f, "{}", e),
             BooleanExpression::StructEq(ref e) => write!(f, "{}", e),
             BooleanExpression::TupleEq(ref e) => write!(f, "{}", e),
             BooleanExpression::UintEq(ref e) => write!(f, "{}", e),
-            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
-            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
+            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
+            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "({} && {})", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
             BooleanExpression::FunctionCall(ref function_call) => write!(f, "{}", function_call),

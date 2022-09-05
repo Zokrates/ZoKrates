@@ -1,0 +1,58 @@
+from "utils/casts.zok" import cast;
+
+// u64    -> bool[64]
+// u64[N] -> bool[P]
+// u64    -> field
+// u64[N] -> field[N]
+// u64    -> u8[8]
+// u64[N] -> u8[P]
+// u64    -> u16[4]
+// u64[N] -> u16[P]
+// u64    -> u32[2]
+// u64[N] -> u32[P]
+
+def main() {
+    // u64 -> bool[64]
+    bool[64] v0 = cast(0x0000FFFF0000FFFF);
+    assert(v0 == [...[false; 16], ...[true; 16], ...[false; 16], ...[true; 16]]);
+
+    // u64[2] -> bool[128]
+    bool[128] v1 = cast([0x0000000000000000, 0xFFFFFFFFFFFFFFFF]);
+    assert(v1 == [...[false; 64], ...[true; 64]]);
+
+    // u64 -> field
+    field v2 = cast(0x0000FFFF0000FFFF);
+    assert(v2 == 281470681808895);
+
+    // u64[2] -> field[2]
+    field[2] v3 = cast([0x0000FFFF0000FFFF, 0xFFFF0000FFFF0000]);
+    assert(v3 == [281470681808895, 18446462603027742720]);
+
+    // u64 -> u8[8]
+    u8[8] v4 = cast(0x0000FFFF0000FFFF);
+    assert(v4 == [0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF]);
+
+    // u64[2] -> u8[16]
+    u8[16] v5 = cast([0x0000FFFF0000FFFF, 0xFFFF0000FFFF0000]);
+    assert(v5 == [
+        0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF,
+        0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00
+    ]);
+
+    // u64 -> u16[4]
+    u16[4] v6 = cast(0x0000FFFF0000FFFF);
+    assert(v6 == [0x0000, 0xFFFF, 0x0000, 0xFFFF]);
+
+    // u64[2] -> u16[8]
+    u16[8] v7 = cast([0x0000FFFF0000FFFF, 0xFFFF0000FFFF0000]);
+    assert(v7 == [0x0000, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0x0000]);
+
+    // u64 -> u32[2]
+    u32[2] v8 = cast(0x0000FFFF0000FFFF);
+    assert(v8 == [0x0000FFFF, 0x0000FFFF]);
+
+    // u64[2] -> u32[4]
+    u32[4] v9 = cast([0x0000FFFF0000FFFF, 0xFFFF0000FFFF0000]);
+    assert(v9 == [0x0000FFFF, 0x0000FFFF, 0xFFFF0000, 0xFFFF0000]);
+    return;
+}

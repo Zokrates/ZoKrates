@@ -1,0 +1,70 @@
+from "utils/casts.zok" import cast;
+
+// u8    -> bool[8]
+// u8[N] -> bool[P]
+// u8    -> field
+// u8[N] -> field[N]
+// u8    -> u16
+// u8[2] -> u16
+// u8[N] -> u16[P]
+// u8    -> u32
+// u8[4] -> u32
+// u8[N] -> u32[P]
+// u8    -> u64
+// u8[8] -> u64
+// u8[N] -> u64[P]
+
+def main() {
+    // u8 -> bool[8]
+    bool[8] v0 = cast(0xFF);
+    assert(v0 == [true; 8]);
+
+    // u8[2] -> bool[16]
+    bool[16] v1 = cast([0xFF, 0x00]);
+    assert(v1 == [...[true; 8], ...[false; 8]]);
+
+    // u8 -> field
+    field v2 = cast(0xFF);
+    assert(v2 == 255f);
+
+    // u8[2] -> field[2]
+    field[2] v3 = cast([0x2A, 0xFF]);
+    assert(v3 == [42f, 255f]);
+
+    // u8 -> u16
+    u16 v4 = cast(0xFF);
+    assert(v4 == 0x00FF);
+
+    // u8[2] -> u16
+    u16 v5 = cast([0x2A, 0xFF]);
+    assert(v5 == 0x2AFF);
+
+    // u8[4] -> u16[2]
+    u16[2] v6 = cast([0x2A, 0xFF, 0xFF, 0xFE]);
+    assert(v6 == [0x2AFF, 0xFFFE]);
+
+    // u8 -> u32
+    u32 v7 = cast(0xFF);
+    assert(v7 == 0x000000FF);
+
+    // u8[4] -> u32
+    u32 v8 = cast([0x2A, 0xFF, 0xFF, 0xFE]);
+    assert(v8 == 0x2AFFFFFE);
+
+    // u8[8] -> u32[2]
+    u32[2] v9 = cast([0x2A, 0xFF, 0xFF, 0xFE, 0x00, 0xFF, 0xFF, 0xFE]);
+    assert(v9 == [0x2AFFFFFE, 0x00FFFFFE]);
+
+    // u8 -> u64
+    u64 v10 = cast(0xFF);
+    assert(v10 == 0x00000000000000FF);
+
+    // u8[8] -> u64
+    u64 v11 = cast([0x2A, 0xFF, 0xFF, 0xFE, 0x00, 0xFF, 0xFF, 0xFE]);
+    assert(v11 == 0x2AFFFFFE00FFFFFE);
+
+    // u8[16] -> u64[2]
+    u64[2] v12 = cast([...[0x00; 7], 0xFF, ...[0xFF; 8]]);
+    assert(v12 == [0x00000000000000FF, 0xFFFFFFFFFFFFFFFF]);
+    return;
+}

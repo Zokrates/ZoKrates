@@ -19,9 +19,9 @@ Variables are immutable by default. In order to declare a mutable variable, the 
 
 ### Shadowing
 
-Shadowing is not allowed.
+Shadowing is allowed.
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/no_shadowing.zok}}
+{{#include ../../../zokrates_cli/examples/book/shadowing.zok}}
 ```
 
 ### Scope

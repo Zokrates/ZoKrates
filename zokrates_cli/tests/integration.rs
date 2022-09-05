@@ -10,6 +10,7 @@ extern crate zokrates_solidity_test;
 mod integration {
     use fs_extra::copy_items;
     use fs_extra::dir::CopyOptions;
+    use pretty_assertions::assert_eq;
     use primitive_types::U256;
     use serde_json::from_reader;
     use std::fs;
@@ -452,6 +453,8 @@ mod integration {
         program_path: &Path,
         expected_smtlib2_path: &Path,
     ) {
+        println!("test smtlib2 for {}", program_path.display());
+
         let tmp_dir = TempDir::new(program_name).unwrap();
         let tmp_base = tmp_dir.path();
         let test_case_path = tmp_base.join(program_name);

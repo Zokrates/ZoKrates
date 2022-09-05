@@ -3026,7 +3026,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_ast"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ark-bls12-377",
  "cfg-if 0.1.10",
@@ -3059,7 +3059,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_circom"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bellman_ce",
  "byteorder",
@@ -3072,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "assert_cli",
  "blake2 0.8.1",
@@ -3087,6 +3087,7 @@ dependencies = [
  "hex 0.3.2",
  "lazy_static",
  "log",
+ "pretty_assertions 1.2.1",
  "primitive-types",
  "rand 0.4.6",
  "rand 0.8.5",
@@ -3117,7 +3118,7 @@ version = "0.1.1"
 
 [[package]]
 name = "zokrates_core"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "cfg-if 0.1.10",
  "csv",
@@ -3141,7 +3142,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core_test"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "zokrates_test",
  "zokrates_test_derive",
@@ -3241,7 +3242,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "glob 0.2.11",
  "pest",
@@ -3292,7 +3293,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "fs_extra",
  "zokrates_test",

@@ -48,6 +48,13 @@ pub struct GenericIdentifier<'ast> {
     index: usize,
 }
 
+impl<'ast> From<GenericIdentifier<'ast>> for CoreIdentifier<'ast> {
+    fn from(g: GenericIdentifier<'ast>) -> CoreIdentifier<'ast> {
+        // generic identifiers are always declared in the function scope, which is shadow 0
+        CoreIdentifier::Source(ShadowedIdentifier::shadow(g.name(), 0))
+    }
+}
+
 impl<'ast> GenericIdentifier<'ast> {
     pub fn without_name() -> Self {
         Self {
@@ -228,8 +235,9 @@ impl<'ast, T> From<u32> for UExpression<'ast, T> {
 impl<'ast, T> From<DeclarationConstant<'ast, T>> for UExpression<'ast, T> {
     fn from(c: DeclarationConstant<'ast, T>) -> Self {
         match c {
-            DeclarationConstant::Generic(i) => {
-                UExpressionInner::Identifier(i.name().into()).annotate(UBitwidth::B32)
+            DeclarationConstant::Generic(g) => {
+                UExpressionInner::Identifier(CoreIdentifier::from(g).into())
+                    .annotate(UBitwidth::B32)
             }
             DeclarationConstant::Concrete(v) => {
                 UExpressionInner::Value(v as u128).annotate(UBitwidth::B32)
@@ -887,6 +895,10 @@ impl<S> GType<S> {
     pub fn uint<W: Into<UBitwidth>>(b: W) -> Self {
         GType::Uint(b.into())
     }
+
+    pub fn is_empty_tuple(&self) -> bool {
+        matches!(self, GType::Tuple(ty) if ty.elements.is_empty())
+    }
 }
 
 impl<'ast, T: fmt::Display + PartialEq + fmt::Debug> Type<'ast, T> {
@@ -1214,6 +1226,8 @@ pub fn specialize_declaration_type<
 pub use self::signature::{
     try_from_g_signature, ConcreteSignature, DeclarationSignature, GSignature, Signature,
 };
+
+use super::ShadowedIdentifier;
 
 pub mod signature {
     use super::*;

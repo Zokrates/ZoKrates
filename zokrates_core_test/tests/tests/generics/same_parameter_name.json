@@ -1,15 +1,15 @@
 {
-	"curves": ["Bn128", "Bls12_381"],
-	"tests": [
-		{
-            "input": {
-                "values": [["1", "2", "3"]]
-            },
-            "output": {
-                "Ok": {
-                    "value": ["1", "2"]
-                }
-            }
+  "curves": ["Bn128", "Bls12_381"],
+  "tests": [
+    {
+      "input": {
+        "values": [["1", "2", "3"]]
+      },
+      "output": {
+        "Ok": {
+          "value": ["1", "2"]
         }
-	] 
+      }
+    }
+  ]
 }

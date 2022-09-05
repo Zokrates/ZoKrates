@@ -1,16 +1,16 @@
 {
-	"entry_point": "./tests/tests/memoize/memoize.zok",
-	"max_constraint_count": 32,
-	"tests": [
-		{
-			"input": {
-				"values": ["3"]
-			},
-			"output": {
-				"Ok": {
-					"value": []
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/memoize/memoize.zok",
+  "max_constraint_count": 32,
+  "tests": [
+    {
+      "input": {
+        "values": ["3"]
+      },
+      "output": {
+        "Ok": {
+          "value": []
+        }
+      }
+    }
+  ]
 }

@@ -402,7 +402,7 @@ fn fold_statement<'ast, T: Field>(
         typed::TypedStatement::Return(expression) => vec![zir::ZirStatement::Return(
             f.fold_expression(statements_buffer, expression),
         )],
-        typed::TypedStatement::Definition(a, e) => {
+        typed::TypedStatement::Definition(a, typed::DefinitionRhs::Expression(e)) => {
             let a = f.fold_assignee(a);
             let e = f.fold_expression(statements_buffer, e);
             assert_eq!(a.len(), e.len());
@@ -418,10 +418,14 @@ fn fold_statement<'ast, T: Field>(
                     zir::RuntimeError::SourceAssertion(metadata.to_string())
                 }
                 typed::RuntimeError::SelectRangeCheck => zir::RuntimeError::SelectRangeCheck,
+                typed::RuntimeError::DivisionByZero => zir::RuntimeError::DivisionByZero,
             };
             vec![zir::ZirStatement::Assertion(e, error)]
         }
-        typed::TypedStatement::EmbedCallDefinition(assignee, embed_call) => {
+        typed::TypedStatement::Definition(
+            assignee,
+            typed::DefinitionRhs::EmbedCall(embed_call),
+        ) => {
             vec![zir::ZirStatement::MultipleDefinition(
                 f.fold_assignee(assignee),
                 zir::ZirExpressionList::EmbedCall(

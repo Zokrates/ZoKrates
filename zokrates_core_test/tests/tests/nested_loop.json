@@ -1,25 +1,25 @@
 {
-	"entry_point": "./tests/tests/nested_loop.zok",
-	"tests": [
-		{
-			"input": {
-				"values": [["1", "2", "3", "4"]]
-			},
-			"output": {
-				"Ok": {
-					"value": ["4838400", "10", "25"]
-				}
-			}
-		},
-		{
-			"input": {
-				"values": [["0", "1", "2", "3"]]
-			},
-			"output": {
-				"Ok": {
-					"value": ["0", "10", "25"]
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/nested_loop.zok",
+  "tests": [
+    {
+      "input": {
+        "values": [["1", "2", "3", "4"]]
+      },
+      "output": {
+        "Ok": {
+          "value": ["4838400", "10", "25"]
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [["0", "1", "2", "3"]]
+      },
+      "output": {
+        "Ok": {
+          "value": ["0", "10", "25"]
+        }
+      }
+    }
+  ]
 }

@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 https://github.com/Zokrates/ZoKrates/compare/latest...develop
 
+## [0.8.2] - 2022-09-05
+
+### Release
+- https://github.com/Zokrates/ZoKrates/releases/tag/0.8.2 <!-- markdown-link-check-disable-line -->
+
+### Changes
+- Make return statement optional if no returns are expected (#1222, @dark64)
+- Add a casting utility module to stdlib (#1215, @dark64)
+- Introduce dead code elimination (#1206, @schaeff)
+- Add magic square in javascript example to the book (#1198, @dark64)
+- Fix circom r1cs export to avoid generating unverified proofs (#1220, @schaeff)
+- Allow shadowing (#1193, @schaeff)
+
 ## [0.8.1] - 2022-08-22
 
 ### Release

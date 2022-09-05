@@ -280,8 +280,28 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         a: &[FlatExpression<T>],
         b: &[bool],
     ) -> Vec<FlatExpression<T>> {
-        let len = b.len();
         assert_eq!(a.len(), b.len());
+
+        let is_power_of_two_minus_one = b.iter().all(|b| *b);
+
+        // if `b` is all ones, then the check is always verified because that's the maximum possible value
+        if is_power_of_two_minus_one {
+            let statements: Vec<_> = a
+                .iter()
+                .map(|e| {
+                    let e_id = self.define(e.clone(), statements_flattened);
+                    FlatStatement::Condition(
+                        e_id.into(),
+                        FlatExpression::Mult(box e_id.into(), box e_id.into()),
+                        RuntimeError::Bitness,
+                    )
+                })
+                .collect();
+            statements_flattened.extend(statements);
+            return vec![];
+        }
+
+        let len = b.len();
 
         let mut is_not_smaller_run = vec![];
         let mut size_unknown = vec![];
@@ -778,66 +798,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let sub_width = bit_width + 1;
 
-                // define variables for the bits
-                let shifted_sub_bits_be: Vec<Variable> =
-                    (0..sub_width).map(|_| self.use_sym()).collect();
-
-                // add a directive to get the bits
-                statements_flattened.push_back(FlatStatement::Directive(FlatDirective::new(
-                    shifted_sub_bits_be.clone(),
-                    Solver::bits(sub_width),
-                    vec![shifted_sub.clone()],
-                )));
-
-                // bitness checks
-                for bit in shifted_sub_bits_be.iter() {
-                    statements_flattened.push_back(FlatStatement::Condition(
-                        FlatExpression::Identifier(*bit),
-                        FlatExpression::Mult(
-                            box FlatExpression::Identifier(*bit),
-                            box FlatExpression::Identifier(*bit),
-                        ),
-                        RuntimeError::LtFinalBitness,
-                    ));
-                }
-
-                // sum(sym_b{i} * 2**i)
-                let mut expr = FlatExpression::Number(T::from(0));
-
-                for (i, bit) in shifted_sub_bits_be.iter().take(sub_width).enumerate() {
-                    expr = FlatExpression::Add(
-                        box expr,
-                        box FlatExpression::Mult(
-                            box FlatExpression::Identifier(*bit),
-                            box FlatExpression::Number(T::from(2).pow(sub_width - i - 1)),
-                        ),
-                    );
-                }
-
-                statements_flattened.push_back(FlatStatement::Condition(
-                    shifted_sub,
-                    expr,
-                    RuntimeError::LtFinalSum,
-                ));
-
-                // to make this check symetric, we ban the value `a - b == -2**N`, as the value `a - b == 2**N` is already banned
-                let fail = self.eq_check(
+                let shifted_sub_bits_be = self.get_bits_unchecked(
+                    &FlatUExpression::with_field(shifted_sub),
+                    sub_width,
+                    sub_width,
                     statements_flattened,
-                    FlatExpression::Sub(
-                        box FlatExpression::Identifier(rhs_id),
-                        box FlatExpression::Identifier(lhs_id),
-                    ),
-                    FlatExpression::Number(T::from(2).pow(bit_width)),
+                    RuntimeError::IncompleteDynamicRange,
                 );
-                statements_flattened.push_back(FlatStatement::Condition(
-                    fail,
-                    FlatExpression::Number(T::from(0)),
-                    RuntimeError::LtSymetric,
-                ));
 
                 FlatExpression::Sub(
                     box FlatExpression::Number(T::one()),
-                    box FlatExpression::Identifier(shifted_sub_bits_be[0]),
+                    box shifted_sub_bits_be[0].clone(),
                 )
             }
         }
@@ -1351,24 +1322,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             FlatExpression::Identifier(id)
         };
 
-        // first check that the d is not 0 by giving its inverse
-        let invd = self.use_sym();
-
-        // # invd = 1/d
-        statements_flattened.push_back(FlatStatement::Directive(FlatDirective::new(
-            vec![invd],
-            Solver::Div,
-            vec![FlatExpression::Number(T::one()), d.clone()],
-        )));
-
-        // assert(invd * d == 1)
-        statements_flattened.push_back(FlatStatement::Condition(
-            FlatExpression::Number(T::one()),
-            FlatExpression::Mult(box invd.into(), box d.clone()),
-            RuntimeError::Inverse,
-        ));
-
-        // now introduce the quotient and remainder
+        // introduce the quotient and remainder
         let q = self.use_sym();
         let r = self.use_sym();
 
@@ -2163,22 +2117,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     id.into()
                 };
 
-                let invb = self.use_sym();
+                // `right` is assumed to already be non-zero so this is an unchecked division
+                // TODO: we could save one constraint here by reusing the inverse of `right` computed earlier
+
                 let inverse = self.use_sym();
-
-                // # invb = 1/b
-                statements_flattened.push_back(FlatStatement::Directive(FlatDirective::new(
-                    vec![invb],
-                    Solver::Div,
-                    vec![FlatExpression::Number(T::one()), new_right.clone()],
-                )));
-
-                // assert(invb * b == 1)
-                statements_flattened.push_back(FlatStatement::Condition(
-                    FlatExpression::Number(T::one()),
-                    FlatExpression::Mult(box invb.into(), box new_right.clone()),
-                    RuntimeError::Inverse,
-                ));
 
                 // # c = a/b
                 statements_flattened.push_back(FlatStatement::Directive(FlatDirective::new(
@@ -2458,6 +2400,40 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             }
                         }
                     }
+                    BooleanExpression::UintLe(box lhs, box rhs) => {
+                        let lhs = self
+                            .flatten_uint_expression(statements_flattened, lhs)
+                            .get_field_unchecked();
+                        let rhs = self
+                            .flatten_uint_expression(statements_flattened, rhs)
+                            .get_field_unchecked();
+
+                        match (lhs, rhs) {
+                            (e, FlatExpression::Number(c)) => self.enforce_constant_le_check(
+                                statements_flattened,
+                                e,
+                                c,
+                                error.into(),
+                            ),
+                            // c <= e <=> p - 1 - e <= p - 1 - c
+                            (FlatExpression::Number(c), e) => self.enforce_constant_le_check(
+                                statements_flattened,
+                                FlatExpression::Sub(box T::max_value().into(), box e),
+                                T::max_value() - c,
+                                error.into(),
+                            ),
+                            (lhs, rhs) => {
+                                let bit_width = T::get_required_bits();
+                                let safe_width = bit_width - 2; // dynamic comparison is not complete
+                                let e = self.le_check(statements_flattened, lhs, rhs, safe_width);
+                                statements_flattened.push_back(FlatStatement::Condition(
+                                    e,
+                                    FlatExpression::Number(T::one()),
+                                    error.into(),
+                                ));
+                            }
+                        }
+                    }
                     BooleanExpression::UintEq(box lhs, box rhs) => {
                         let lhs = self
                             .flatten_uint_expression(statements_flattened, lhs)
@@ -2483,6 +2459,80 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             rhs,
                             error.into(),
                         )
+                    }
+                    // `!(x == 0)` can be asserted by giving the inverse of `x`
+                    BooleanExpression::Not(box BooleanExpression::UintEq(
+                        box UExpression {
+                            inner: UExpressionInner::Value(0),
+                            ..
+                        },
+                        box x,
+                    ))
+                    | BooleanExpression::Not(box BooleanExpression::UintEq(
+                        box x,
+                        box UExpression {
+                            inner: UExpressionInner::Value(0),
+                            ..
+                        },
+                    )) => {
+                        let x = self
+                            .flatten_uint_expression(statements_flattened, x)
+                            .get_field_unchecked();
+
+                        // introduce intermediate variable
+                        let x_id = self.define(x, statements_flattened);
+
+                        // check that `x` is not 0 by giving its inverse
+                        let invx = self.use_sym();
+
+                        // # invx = 1/x
+                        statements_flattened.push_back(FlatStatement::Directive(
+                            FlatDirective::new(
+                                vec![invx],
+                                Solver::Div,
+                                vec![FlatExpression::Number(T::one()), x_id.into()],
+                            ),
+                        ));
+
+                        // assert(invx * x == 1)
+                        statements_flattened.push_back(FlatStatement::Condition(
+                            FlatExpression::Number(T::one()),
+                            FlatExpression::Mult(box invx.into(), box x_id.into()),
+                            RuntimeError::Inverse,
+                        ));
+                    }
+                    // `!(x == 0)` can be asserted by giving the inverse of `x`
+                    BooleanExpression::Not(box BooleanExpression::FieldEq(
+                        box FieldElementExpression::Number(zero),
+                        box x,
+                    ))
+                    | BooleanExpression::Not(box BooleanExpression::FieldEq(
+                        box x,
+                        box FieldElementExpression::Number(zero),
+                    )) if zero == T::from(0) => {
+                        let x = self.flatten_field_expression(statements_flattened, x);
+
+                        // introduce intermediate variable
+                        let x_id = self.define(x, statements_flattened);
+
+                        // check that `x` is not 0 by giving its inverse
+                        let invx = self.use_sym();
+
+                        // # invx = 1/x
+                        statements_flattened.push_back(FlatStatement::Directive(
+                            FlatDirective::new(
+                                vec![invx],
+                                Solver::Div,
+                                vec![FlatExpression::Number(T::one()), x_id.into()],
+                            ),
+                        ));
+
+                        // assert(invx * x == 1)
+                        statements_flattened.push_back(FlatStatement::Condition(
+                            FlatExpression::Number(T::one()),
+                            FlatExpression::Mult(box invx.into(), box x_id.into()),
+                            RuntimeError::Inverse,
+                        ));
                     }
                     e => {
                         // naive approach: flatten the boolean to a single field element and constrain it to 1
@@ -3580,18 +3630,14 @@ mod tests {
         // define new wires for members of Div
         let five = Variable::new(1);
         let b0 = Variable::new(2);
-        // Define inverse of denominator to prevent div by 0
-        let invb0 = Variable::new(3);
         // Define inverse
-        let sym_0 = Variable::new(4);
+        let sym_0 = Variable::new(3);
         // Define result, which is first member to next Div
-        let sym_1 = Variable::new(5);
+        let sym_1 = Variable::new(4);
         // Define second member
-        let b1 = Variable::new(6);
-        // Define inverse of denominator to prevent div by 0
-        let invb1 = Variable::new(7);
+        let b1 = Variable::new(5);
         // Define inverse
-        let sym_2 = Variable::new(8);
+        let sym_2 = Variable::new(6);
 
         assert_eq!(
             statements_flattened,
@@ -3600,17 +3646,6 @@ mod tests {
                 // inputs to first div (5/b)
                 FlatStatement::Definition(five, FlatExpression::Number(Bn128Field::from(5))),
                 FlatStatement::Definition(b0, b.into()),
-                // check div by 0
-                FlatStatement::Directive(FlatDirective::new(
-                    vec![invb0],
-                    Solver::Div,
-                    vec![FlatExpression::Number(Bn128Field::from(1)), b0.into()]
-                )),
-                FlatStatement::Condition(
-                    FlatExpression::Number(Bn128Field::from(1)),
-                    FlatExpression::Mult(box invb0.into(), box b0.into()),
-                    RuntimeError::Inverse,
-                ),
                 // execute div
                 FlatStatement::Directive(FlatDirective::new(
                     vec![sym_0],
@@ -3625,17 +3660,6 @@ mod tests {
                 // inputs to second div (res/b)
                 FlatStatement::Definition(sym_1, sym_0.into()),
                 FlatStatement::Definition(b1, b.into()),
-                // check div by 0
-                FlatStatement::Directive(FlatDirective::new(
-                    vec![invb1],
-                    Solver::Div,
-                    vec![FlatExpression::Number(Bn128Field::from(1)), b1.into()]
-                )),
-                FlatStatement::Condition(
-                    FlatExpression::Number(Bn128Field::from(1)),
-                    FlatExpression::Mult(box invb1.into(), box b1.into()),
-                    RuntimeError::Inverse
-                ),
                 // execute div
                 FlatStatement::Directive(FlatDirective::new(
                     vec![sym_2],

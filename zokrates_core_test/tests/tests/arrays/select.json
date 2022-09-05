@@ -1,51 +1,51 @@
 {
-	"entry_point": "./tests/tests/arrays/select.zok",
-    "max_constraint_count": 44,
-	"curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
-	"tests": [
-		{
-			"input": {
-				"values": [["0", "11", "22"], "0"]
-			},
-			"output": {
-				"Ok": {
-					"value": "0"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": [["0", "11", "22"], "1"]
-			},
-			"output": {
-				"Ok": {
-					"value": "11"
-				}
-			}
-		},
-        {
-			"input": {
-				"values": [["0", "11", "22"], "2"]
-			},
-			"output": {
-				"Ok": {
-					"value": "22"
-				}
-			}
-		},
-		{
-			"input": {
-				"values": [["0", "11", "22"], "3"]
-			},
-			"output": {
-				"Err": {
-					"UnsatisfiedConstraint": {
-						"left": "1",
-						"right": "0",
-						"error": "SelectRangeCheck"
-					}
-				}
-			}
-		}
-	]
+  "entry_point": "./tests/tests/arrays/select.zok",
+  "max_constraint_count": 44,
+  "curves": ["Bn128", "Bls12_381", "Bls12_377", "Bw6_761"],
+  "tests": [
+    {
+      "input": {
+        "values": [["0", "11", "22"], "0"]
+      },
+      "output": {
+        "Ok": {
+          "value": "0"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [["0", "11", "22"], "1"]
+      },
+      "output": {
+        "Ok": {
+          "value": "11"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [["0", "11", "22"], "2"]
+      },
+      "output": {
+        "Ok": {
+          "value": "22"
+        }
+      }
+    },
+    {
+      "input": {
+        "values": [["0", "11", "22"], "3"]
+      },
+      "output": {
+        "Err": {
+          "UnsatisfiedConstraint": {
+            "left": "1",
+            "right": "0",
+            "error": "SelectRangeCheck"
+          }
+        }
+      }
+    }
+  ]
 }
